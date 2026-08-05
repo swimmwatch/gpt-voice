@@ -15,6 +15,7 @@ import {
   PiWarningCircle,
 } from 'react-icons/pi';
 import { SiNvidia } from 'react-icons/si';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import type { LocalWhisperRendererSnapshot } from '@shared/localWhisper';
 import {
   formatLocalWhisperBytes,
@@ -57,8 +58,8 @@ function ReadinessStep({
   );
 }
 
-function setupTone(state: LocalWhisperRendererSnapshot['runtime']['runtimeSetup'], active = false): StatusTone {
-  if (state === 'Installed') return active ? 'active' : 'success';
+function setupTone(state: LocalWhisperRendererSnapshot['runtime']['runtimeSetup']): StatusTone {
+  if (state === 'Installed') return 'success';
   if (state === 'Downloading' || state === 'Verifying' || state === 'Installing') return 'active';
   return 'warning';
 }
@@ -85,7 +86,7 @@ interface DetailItemProps {
 
 function DetailItem({ accent, icon: Icon, label, title, value }: DetailItemProps): React.JSX.Element {
   return (
-    <div className="lw-detail-item" title={title}>
+    <div className="lw-detail-item">
       <span className={`lw-detail-icon${accent ? ` accent-${accent}` : ''}`}>
         <Icon aria-hidden="true" />
       </span>
@@ -93,7 +94,16 @@ function DetailItem({ accent, icon: Icon, label, title, value }: DetailItemProps
         <span>{label}</span>
         <strong>{value}</strong>
       </span>
-      {title ? <PiInfo aria-hidden="true" className="lw-detail-info" /> : null}
+      {title ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="lw-detail-info">
+              <PiInfo aria-hidden="true" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{title}</TooltipContent>
+        </Tooltip>
+      ) : null}
     </div>
   );
 }
@@ -182,7 +192,7 @@ export default function LocalWhisperStatusSection({
 }: LocalWhisperStatusSectionProps): React.JSX.Element {
   const pending = pendingAction !== null || snapshot.progress.some(isLocalWhisperArtifactProgressActive);
   const runtime = snapshot.runtime;
-  const connected = runtime.residency === 'Loaded';
+  const connected = runtime.operationalStatus === 'Ready' || runtime.operationalStatus === 'Busy';
   const selectedRuntime = getLocalWhisperOption(snapshot, 'runtime', snapshot.settings.runtimeRevision)?.label;
   const selectedDevice =
     snapshot.settings.execution.target === 'cpu'
@@ -205,6 +215,17 @@ export default function LocalWhisperStatusSection({
   const ActionIcon = action.icon;
   const actionPending =
     pendingAction === 'checkCompatibility' || pendingAction === 'load' || pendingAction === 'unload';
+  const primaryActionButton = (
+    <button
+      className="lw-primary-button"
+      disabled={!action.availability.enabled}
+      onClick={action.onClick}
+      type="button"
+    >
+      <ActionIcon aria-hidden="true" />
+      {actionPending ? 'Working…' : action.label}
+    </button>
+  );
   const bannerTitle = connected
     ? 'Connected'
     : runtime.residency === 'Loading'
@@ -218,6 +239,7 @@ export default function LocalWhisperStatusSection({
       : resourceSafety.status === 'blocked'
         ? 'Load blocked'
         : 'Check required';
+  const ResourceSafetyIcon = resourceSafety.status === 'safe' ? PiShieldCheck : PiWarningCircle;
 
   const technicalDetails: readonly DetailItemProps[] = [
     { icon: PiTerminalWindow, label: 'Runtime', value: 'Whisper.cpp' },
@@ -242,7 +264,7 @@ export default function LocalWhisperStatusSection({
   return (
     <div aria-live="polite" className="lw-status-stack">
       <section aria-label="Local Whisper readiness" className="lw-readiness-rail">
-        <ReadinessStep label="Runtime" state={runtime.runtimeSetup} tone={setupTone(runtime.runtimeSetup, true)} />
+        <ReadinessStep label="Runtime" state={runtime.runtimeSetup} tone={setupTone(runtime.runtimeSetup)} />
         <ReadinessStep label="Model" state={runtime.modelSetup} tone={setupTone(runtime.modelSetup)} />
         <ReadinessStep label="Compatibility" state={runtime.capability} tone={capabilityTone(runtime.capability)} />
         <ReadinessStep label="Model state" last state={runtime.residency} tone={residencyTone(runtime.residency)} />
@@ -262,16 +284,12 @@ export default function LocalWhisperStatusSection({
           ) : null}
         </div>
         {action.availability.visible ? (
-          <button
-            className="lw-primary-button"
-            disabled={!action.availability.enabled}
-            onClick={action.onClick}
-            title={action.availability.disabledReason ?? undefined}
-            type="button"
-          >
-            <ActionIcon aria-hidden="true" />
-            {actionPending ? 'Working…' : action.label}
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>{primaryActionButton}</TooltipTrigger>
+            {action.availability.disabledReason ? (
+              <TooltipContent>{action.availability.disabledReason}</TooltipContent>
+            ) : null}
+          </Tooltip>
         ) : null}
       </section>
 
@@ -284,21 +302,7 @@ export default function LocalWhisperStatusSection({
         <span className="sr-only">Runtime revision: {selectedRuntime ?? snapshot.settings.runtimeRevision}</span>
       </LocalWhisperDisclosure>
 
-      <LocalWhisperPanel
-        actions={
-          <span className={`lw-safety-verdict ${resourceSafety.status}`}>
-            {resourceSafety.status === 'safe' ? (
-              <PiShieldCheck aria-hidden="true" />
-            ) : (
-              <PiWarningCircle aria-hidden="true" />
-            )}
-            {verdictLabel}
-          </span>
-        }
-        className="lw-resource-panel"
-        icon={PiShieldCheck}
-        title="Resource safety"
-      >
+      <LocalWhisperPanel className="lw-resource-panel" icon={PiShieldCheck} title="Resource safety">
         <div className="lw-resource-grid">
           <ResourceMeter label="System RAM" meter={resourceSafety.ram} tone="ram" />
           <ResourceMeter label="GPU VRAM" meter={resourceSafety.vram} tone="vram" />
@@ -312,12 +316,8 @@ export default function LocalWhisperStatusSection({
           </strong>
         </div>
         <div className={`lw-safety-note ${resourceSafety.status}`}>
-          {resourceSafety.status === 'safe' ? (
-            <PiShieldCheck aria-hidden="true" />
-          ) : (
-            <PiWarningCircle aria-hidden="true" />
-          )}
-          <span>Rechecked immediately before loading. Loading is blocked if safe headroom is unavailable.</span>
+          <ResourceSafetyIcon aria-hidden="true" />
+          <span>{verdictLabel}</span>
         </div>
       </LocalWhisperPanel>
 

@@ -109,8 +109,7 @@ export function getLocalWhisperResourceSafetyPresentation(
 }
 
 export interface LocalWhisperMainStatusPresentation {
-  readonly label:
-    'Ready' | 'Busy' | 'Available on demand' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';
+  readonly label: 'Ready' | 'Busy' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';
   readonly tone: 'ready' | 'busy' | 'blocked';
   readonly detail: string | null;
 }
@@ -336,21 +335,6 @@ export function getLocalWhisperMainStatusPresentation(
     : snapshot.selectedButUnavailable
       ? 'The selected Local Whisper provider is unavailable.'
       : null;
-  const availableOnDemand =
-    snapshot.runtime.operationalStatus === 'NotReady' &&
-    snapshot.runtime.canAttempt &&
-    snapshot.runtime.runtimeSetup === 'Installed' &&
-    snapshot.runtime.modelSetup === 'Installed' &&
-    snapshot.runtime.residency === 'Unloaded' &&
-    failure === null &&
-    !snapshot.selectedButUnavailable;
-  if (availableOnDemand) {
-    return Object.freeze({
-      label: 'Available on demand',
-      tone: 'ready',
-      detail: 'The installed runtime and model will be validated and loaded when transcription starts.',
-    });
-  }
   switch (snapshot.runtime.operationalStatus) {
     case 'Ready':
       return Object.freeze({ label: 'Ready', tone: 'ready', detail });
@@ -359,8 +343,8 @@ export function getLocalWhisperMainStatusPresentation(
     case 'ValidatedUnloaded':
       return Object.freeze({
         label: 'Validated · Unloaded',
-        tone: 'ready',
-        detail: detail ?? 'The validated runtime and model will load when transcription starts.',
+        tone: 'blocked',
+        detail: detail ?? 'Load the validated runtime and model before transcription.',
       });
     case 'Planned':
       return Object.freeze({ label: 'Planned', tone: 'blocked', detail: detail ?? 'Unavailable in this release.' });

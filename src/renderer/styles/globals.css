@@ -337,7 +337,8 @@
   grid-row: 1;
 }
 
-.command-dock-provider-state svg {
+.command-dock-provider-state svg,
+.command-dock-provider-state [data-slot='spinner'] {
   width: 22px;
   height: 22px;
   flex: none;
@@ -647,7 +648,8 @@
   background: var(--surface-raised);
 }
 
-.command-dock .command-dock-prettify-model-action svg {
+.command-dock .command-dock-prettify-model-action svg,
+.command-dock .command-dock-prettify-model-action [data-slot='spinner'] {
   width: 22px;
   height: 22px;
 }

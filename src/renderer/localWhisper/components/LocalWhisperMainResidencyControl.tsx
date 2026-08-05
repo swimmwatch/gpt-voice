@@ -56,16 +56,19 @@ export default function LocalWhisperMainResidencyControl({
               if (presentation.enabled) onAction(presentation.action);
             }}
             size="icon"
-            title={reason}
             variant="outline"
           >
-            {presentation.pending ? (
-              <Spinner label={label} />
-            ) : presentation.action === 'load' ? (
-              <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
-            ) : (
-              <PowerOff aria-hidden="true" strokeWidth={1.75} />
-            )}
+            <Spinner
+              active={presentation.pending}
+              fallback={
+                presentation.action === 'load' ? (
+                  <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
+                ) : (
+                  <PowerOff aria-hidden="true" strokeWidth={1.75} />
+                )
+              }
+              label={label}
+            />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{reason}</TooltipContent>

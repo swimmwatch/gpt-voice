@@ -60,6 +60,14 @@ function SelectTrigger({
   );
 }
 
+function SelectValue({ className, ...props }: ComponentProps<typeof SelectPrimitive.Value>): React.JSX.Element {
+  return (
+    <span className={cn('min-w-0 flex-1 truncate text-left', className)} data-slot="select-value">
+      <SelectPrimitive.Value {...props} />
+    </span>
+  );
+}
+
 function SelectScrollUpButton({
   className,
   ...props
@@ -139,7 +147,7 @@ function SelectItem({ className, children, ...props }: ComponentProps<typeof Sel
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none focus:bg-surface-muted focus:text-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+        'relative flex w-full min-w-0 cursor-pointer select-none items-center overflow-hidden rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none focus:bg-surface-muted focus:text-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
         className,
       )}
       data-slot="select-item"
@@ -150,7 +158,9 @@ function SelectItem({ className, children, ...props }: ComponentProps<typeof Sel
           <Check aria-hidden="true" className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <span className="min-w-0 flex-1 truncate" data-slot="select-item-text">
+        <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      </span>
     </SelectPrimitive.Item>
   );
 }
@@ -166,8 +176,6 @@ function SelectSeparator({ className, ...props }: ComponentProps<typeof SelectPr
 }
 
 const SelectGroup = SelectPrimitive.Group;
-const SelectValue = SelectPrimitive.Value;
-
 export {
   Select,
   SelectContent,

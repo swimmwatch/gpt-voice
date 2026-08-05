@@ -32,6 +32,33 @@ describe('Local Whisper UI contracts', () => {
     assert.doesNotMatch(toolbar.slice(statusBranch, loginBranch), /onProviderLogin|LogIn/u);
   });
 
+  it('shows the Local Whisper settings banner as connected only for a strict ready runtime', () => {
+    const status = source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx');
+    assert.match(status, /runtime\.operationalStatus === 'Ready' \|\| runtime\.operationalStatus === 'Busy'/u);
+    assert.doesNotMatch(status, /const connected = runtime\.residency === 'Loaded'/u);
+  });
+
+  it('uses the shared green success state for every completed readiness step', () => {
+    const status = source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx');
+    assert.match(status, /if \(state === 'Installed'\) return 'success';/u);
+    assert.match(status, /tone=\{setupTone\(runtime\.runtimeSetup\)\}/u);
+    assert.doesNotMatch(status, /setupTone\(runtime\.runtimeSetup, true\)/u);
+  });
+
+  it('shows the resource safety status once in the panel footer', () => {
+    const status = source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx');
+    const resourceSafetyPanel = status.slice(
+      status.indexOf('<LocalWhisperPanel'),
+      status.indexOf('</LocalWhisperPanel>'),
+    );
+    assert.doesNotMatch(resourceSafetyPanel, /\bactions=/u);
+    assert.match(
+      resourceSafetyPanel,
+      /<div className=\{`lw-safety-note \$\{resourceSafety\.status\}`\}>\s*<ResourceSafetyIcon aria-hidden="true" \/>\s*<span>\{verdictLabel\}<\/span>\s*<\/div>/u,
+    );
+    assert.doesNotMatch(resourceSafetyPanel, /Rechecked immediately before loading/u);
+  });
+
   it('keeps the main residency command separate from settings and privileged renderer state', () => {
     const ipc = source('src/shared/localWhisper/ipc.ts');
     const preload = source('src/main/preloadApi.ts');
@@ -76,6 +103,7 @@ describe('Local Whisper UI contracts', () => {
     const storage = [
       source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx'),
       source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx'),
     ].join('\n');
     const ipc = source('src/shared/localWhisper/ipc.ts');
     assert.match(storage, /CANCELLABLE_PROGRESS_STATES/u);
@@ -102,6 +130,14 @@ describe('Local Whisper UI contracts', () => {
     const status = source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx');
     assert.match(status, /progress\.some\(isLocalWhisperArtifactProgressActive\)/u);
     assert.doesNotMatch(status, /progress\.length\s*>\s*0/u);
+  });
+
+  it('keeps Storage focused on the managed folder without duplicating artifact controls', () => {
+    const storage = source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx');
+    assert.match(storage, /formatLocalWhisperBytes\(aggregateBytes\)/u);
+    assert.match(storage, />\s*Open folder\s*</u);
+    assert.doesNotMatch(storage, /installed artifacts|artifacts\.map|LocalWhisperArtifact/u);
+    assert.doesNotMatch(storage, /onArtifactAction|onViewReference|getLatestLocalWhisperArtifactProgress/u);
   });
 
   it('rejects forged host and resource facts at the renderer IPC boundary', () => {

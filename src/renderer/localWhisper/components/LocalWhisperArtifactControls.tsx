@@ -25,6 +25,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@renderer/components/ui/dropdown-menu';
+import { ProgressSpinner, Spinner } from '@renderer/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import {
   LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
   LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
@@ -56,6 +58,13 @@ const RECOVERABLE_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['sta
   ...LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
 ]);
 
+const INDETERMINATE_ARTIFACT_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
+  'Queued',
+  'Verifying',
+  'Installing',
+  'Deleting',
+]);
+
 export function getLocalWhisperArtifactActions(
   artifact: LocalWhisperRendererArtifact,
   progress: LocalWhisperArtifactProgress | null,
@@ -82,6 +91,7 @@ function actionIcon(action: LocalWhisperArtifactAction): React.JSX.Element {
   return <PiArrowClockwise aria-hidden="true" />;
 }
 
+/** Renders one artifact's transfer state with measured or indeterminate progress as appropriate. */
 export function LocalWhisperArtifactProgressCard({
   actionsDisabledReason,
   artifact,
@@ -90,30 +100,40 @@ export function LocalWhisperArtifactProgressCard({
   progress,
 }: Omit<ArtifactControlProps, 'onViewReference'>): React.JSX.Element {
   const actions = getLocalWhisperArtifactActions(artifact, progress).filter((action) => action !== 'remove');
+  const transferProgress = progress?.state === 'Downloading' && progress.totalBytes > 0 ? progress : null;
   const percent =
-    progress && progress.totalBytes > 0 ? Math.min(100, (progress.receivedBytes / progress.totalBytes) * 100) : null;
+    transferProgress === null
+      ? null
+      : Math.min(100, (transferProgress.receivedBytes / transferProgress.totalBytes) * 100);
   const state = progress?.state ?? artifact.state;
+  const isIndeterminateOperation = progress !== null && INDETERMINATE_ARTIFACT_PROGRESS_STATES.has(progress.state);
+  const progressLabel = `${artifact.label} ${progress ? ACTION_LABELS[progress.action].toLowerCase() : 'transfer'} progress`;
 
   return (
     <div aria-live="polite" className="lw-transfer-field">
       <div className="lw-transfer-heading">
         <strong>{state}</strong>
+        {percent === null ? (
+          isIndeterminateOperation ? (
+            <Spinner announce={false} label={progressLabel} size="sm" />
+          ) : null
+        ) : (
+          <ProgressSpinner announce={false} label={progressLabel} progress={percent} size="sm" />
+        )}
         {percent === null ? null : <span>{Math.round(percent)}%</span>}
       </div>
-      {progress ? (
+      {transferProgress !== null && percent !== null ? (
         <>
-          <progress
-            aria-label={`${artifact.label} ${ACTION_LABELS[progress.action].toLowerCase()} progress`}
-            className="lw-progress-track"
-            max={100}
-            value={percent ?? undefined}
-          />
+          <progress aria-label={progressLabel} className="lw-progress-track" max={100} value={percent} />
           <div className="lw-transfer-meta">
             <span>
-              {formatLocalWhisperBytes(progress.receivedBytes)} / {formatLocalWhisperBytes(progress.totalBytes)}
+              {formatLocalWhisperBytes(transferProgress.receivedBytes)} /{' '}
+              {formatLocalWhisperBytes(transferProgress.totalBytes)}
             </span>
             <span>
-              {progress.queuedPosition === null ? ACTION_LABELS[progress.action] : `Queue ${progress.queuedPosition}`}
+              {transferProgress.queuedPosition === null
+                ? ACTION_LABELS[transferProgress.action]
+                : `Queue ${transferProgress.queuedPosition}`}
             </span>
           </div>
         </>
@@ -133,17 +153,20 @@ export function LocalWhisperArtifactProgressCard({
       {actions.length > 0 ? (
         <div className="lw-transfer-actions">
           {actions.map((action) => (
-            <button
-              className="lw-compact-button"
-              disabled={actionsDisabledReason !== null}
-              key={action}
-              onClick={() => void onAction(action, artifact)}
-              title={actionsDisabledReason ?? undefined}
-              type="button"
-            >
-              {actionIcon(action)}
-              {pendingAction === action ? 'Working…' : ACTION_LABELS[action]}
-            </button>
+            <Tooltip key={action}>
+              <TooltipTrigger asChild>
+                <button
+                  className="lw-compact-button"
+                  disabled={actionsDisabledReason !== null}
+                  onClick={() => void onAction(action, artifact)}
+                  type="button"
+                >
+                  {actionIcon(action)}
+                  {pendingAction === action ? 'Working…' : ACTION_LABELS[action]}
+                </button>
+              </TooltipTrigger>
+              {actionsDisabledReason ? <TooltipContent>{actionsDisabledReason}</TooltipContent> : null}
+            </Tooltip>
           ))}
         </div>
       ) : null}
@@ -169,18 +192,22 @@ export function LocalWhisperArtifactOverflowMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            aria-label={`Manage ${artifact.label}`}
-            className="lw-icon-button lw-menu-trigger"
-            disabled={actionsDisabledReason !== null}
-            ref={triggerRef}
-            title={actionsDisabledReason ?? `Manage ${artifact.label}`}
-            type="button"
-          >
-            <PiDotsThreeVertical aria-hidden="true" />
-          </button>
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label={`Manage ${artifact.label}`}
+                className="lw-icon-button lw-menu-trigger"
+                disabled={actionsDisabledReason !== null}
+                ref={triggerRef}
+                type="button"
+              >
+                <PiDotsThreeVertical aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>{actionsDisabledReason ?? `Manage ${artifact.label}`}</TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="end" className="lw-menu-content">
           {artifact.references.map((reference) => (
             <DropdownMenuItem key={reference.referenceId} onSelect={() => void onViewReference(reference)}>

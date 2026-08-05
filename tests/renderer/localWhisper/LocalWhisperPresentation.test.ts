@@ -225,7 +225,7 @@ describe('Local Whisper action and main status presentation', () => {
     assert.doesNotMatch(`${presentation.label} ${presentation.detail ?? ''}`, /unsupported/iu);
   });
 
-  it('presents an installed unloaded provider as available for automatic loading', () => {
+  it('keeps an installed unloaded provider not ready until it is explicitly loaded', () => {
     const baseline = settingsSnapshot().runtime;
     const snapshot = mainStatus({
       ...baseline,
@@ -243,14 +243,13 @@ describe('Local Whisper action and main status presentation', () => {
       createElement(TooltipProvider, null, createElement(LocalWhisperMainStatusIndicator, { snapshot })),
     );
 
-    assert.equal(presentation.label, 'Available on demand');
-    assert.equal(presentation.tone, 'ready');
-    assert.match(presentation.detail ?? '', /loaded when transcription starts/u);
-    assert.match(markup, /lucide-circle-check/u);
-    assert.doesNotMatch(markup, /lucide-circle-off/u);
+    assert.equal(presentation.label, 'Not ready');
+    assert.equal(presentation.tone, 'blocked');
+    assert.match(markup, /lucide-circle-off/u);
+    assert.doesNotMatch(markup, /lucide-circle-check/u);
   });
 
-  it('keeps a validated unloaded provider in a ready tone for lazy loading', () => {
+  it('keeps a validated unloaded provider not ready until its model is loaded', () => {
     const baseline = settingsSnapshot().runtime;
     const presentation = getLocalWhisperMainStatusPresentation(
       mainStatus({
@@ -261,8 +260,8 @@ describe('Local Whisper action and main status presentation', () => {
     );
 
     assert.equal(presentation.label, 'Validated · Unloaded');
-    assert.equal(presentation.tone, 'ready');
-    assert.match(presentation.detail ?? '', /load when transcription starts/u);
+    assert.equal(presentation.tone, 'blocked');
+    assert.match(presentation.detail ?? '', /Load .* before transcription/u);
   });
 
   it('enables load after a successful probe or for an exact validated unloaded configuration', () => {

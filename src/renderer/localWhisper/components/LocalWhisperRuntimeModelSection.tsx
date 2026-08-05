@@ -1,4 +1,5 @@
 import { PiCheckCircle, PiCube, PiGear, PiInfo, PiWarningCircle } from 'react-icons/pi';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import {
   LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
   LOCAL_WHISPER_MODEL_FAMILIES,
@@ -206,7 +207,14 @@ export default function LocalWhisperRuntimeModelSection({
                   placeholder="Select runtime revision"
                   value={draft.runtimeRevision}
                 />
-                <PiInfo aria-hidden="true" title="Installed runtime revision" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="lw-field-info">
+                      <PiInfo aria-hidden="true" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Installed runtime revision</TooltipContent>
+                </Tooltip>
               </span>
               {errors.runtimeRevision ? <span className="lw-field-error">{errors.runtimeRevision}</span> : null}
             </label>
@@ -288,17 +296,19 @@ export default function LocalWhisperRuntimeModelSection({
                   <span className="lw-variant-label">{selectedVariant}</span>
                 )}
               </span>
-              <span
-                className={`lw-artifact-state ${selectedModelDownloaded ? 'installed' : 'missing'}`}
-                title={selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}
-              >
-                {selectedModelDownloaded ? (
-                  <PiCheckCircle aria-hidden="true" />
-                ) : (
-                  <PiWarningCircle aria-hidden="true" />
-                )}
-                <span className="sr-only">{selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}</span>
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`lw-artifact-state ${selectedModelDownloaded ? 'installed' : 'missing'}`}>
+                    {selectedModelDownloaded ? (
+                      <PiCheckCircle aria-hidden="true" />
+                    ) : (
+                      <PiWarningCircle aria-hidden="true" />
+                    )}
+                    <span className="sr-only">{selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}</TooltipContent>
+              </Tooltip>
             </span>
             {errors.modelRevision ? <span className="lw-field-error">{errors.modelRevision}</span> : null}
             {errors.modelVariant ? <span className="lw-field-error">{errors.modelVariant}</span> : null}

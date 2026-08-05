@@ -24,6 +24,32 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.doesNotMatch(`${page}\n${runtime}\n${status}`, /min-w-\[(?:[6-9]\d\d|\d{4,})px\]/u);
   });
 
+  it('keeps the readiness status icons on one horizontal baseline at narrow widths', () => {
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    const tabletStyles = styles.slice(
+      styles.indexOf('@media (max-width: 760px)'),
+      styles.indexOf('@media (max-width: 560px)'),
+    );
+    assert.match(styles, /\.lw-readiness-rail\s*\{[\s\S]*?grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/u);
+    assert.doesNotMatch(tabletStyles, /\.lw-readiness-rail/u);
+  });
+
+  it('keeps settings actions fixed while reserving space for the action bar', () => {
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    assert.match(styles, /--lw-page-actions-height: 88px;/u);
+    assert.match(styles, /padding-bottom: calc\(16px \+ var\(--lw-page-actions-height\)\);/u);
+    assert.match(styles, /\.lw-page-actions\s*\{[\s\S]*?position: fixed;/u);
+    assert.match(styles, /\.lw-page-actions\s*\{[\s\S]*?z-index: 10;/u);
+    assert.match(styles, /\.lw-page-actions\s*\{[\s\S]*?bottom: 0;/u);
+  });
+
+  it('aligns the Model requirement and resource safety status icons', () => {
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    assert.match(styles, /\.lw-requirement-row\s*\{[\s\S]*?grid-template-columns: 20px minmax\(0, 1fr\) auto;/u);
+    assert.match(styles, /\.lw-requirement-row > svg,[\s\S]*?\.lw-safety-note svg\s*\{[\s\S]*?width: 20px;/u);
+    assert.match(styles, /\.lw-requirement-row > svg,[\s\S]*?\.lw-safety-note svg\s*\{[\s\S]*?height: 20px;/u);
+  });
+
   it('centers the loading state within the full provider-settings viewport', () => {
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
     const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
@@ -43,12 +69,49 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.doesNotMatch(styles, /\.local-whisper-settings\s*\{[\s\S]*?border-inline:/u);
   });
 
+  it('uses the canonical settings palette without Local Whisper color literals', () => {
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    assert.match(styles, /--lw-surface: var\(--surface\);/u);
+    assert.match(styles, /--lw-line: var\(--border\);/u);
+    assert.match(styles, /--lw-text: var\(--foreground\);/u);
+    assert.match(styles, /--lw-blue: var\(--primary\);/u);
+    assert.match(styles, /--lw-green: var\(--success\);/u);
+    assert.match(styles, /--lw-amber: var\(--warning\);/u);
+    assert.match(styles, /--lw-red: var\(--destructive\);/u);
+    assert.doesNotMatch(styles, /#[\da-f]{3,8}/iu);
+    assert.doesNotMatch(styles, /rgba?\(/iu);
+  });
+
   it('reuses the same shared Select component as the main settings window', () => {
     const shared = source('src/renderer/localWhisper/components/LocalWhisperSection.tsx');
     const runtime = source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx');
+    const select = source('src/renderer/components/ui/select.tsx');
     assert.match(shared, /@renderer\/components\/ui\/select/u);
     assert.match(shared, /<Select[\s\S]*<SelectTrigger[\s\S]*<SelectContent[\s\S]*<SelectItem/u);
     assert.doesNotMatch(`${shared}\n${runtime}`, /<select/u);
+    assert.match(select, /min-w-0 flex-1 truncate text-left/u);
+    assert.match(select, /className="min-w-0 flex-1 truncate" data-slot="select-item-text"/u);
+  });
+
+  it('uses shared tooltips instead of native browser titles', () => {
+    const nativeTitleSources = [
+      source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperMainResidencyControl.tsx'),
+    ].join('\n');
+    const tooltipSources = [
+      source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperMainResidencyControl.tsx'),
+    ].join('\n');
+    assert.doesNotMatch(nativeTitleSources, /<(?:button|div|span|svg|PiInfo|Button)\b[^>]*\btitle=/u);
+    assert.match(tooltipSources, /@renderer\/components\/ui\/tooltip/u);
+    assert.match(tooltipSources, /<TooltipTrigger asChild>/u);
+    assert.match(tooltipSources, /<TooltipContent>/u);
   });
 
   it('provides field labels, grouped radios, keyboard focus rings, and explicit disabled explanations', () => {
@@ -88,8 +151,8 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.match(control, /aria-describedby=/u);
     assert.match(control, /<TooltipContent>\{reason\}<\/TooltipContent>/u);
     assert.match(control, /role="alert"/u);
-    assert.match(control, /<Spinner label=\{label\}/u);
-    assert.match(spinner, /role="status"/u);
+    assert.match(control, /<Spinner[\s\S]*?active=\{presentation\.pending\}[\s\S]*?label=\{label\}/u);
+    assert.match(spinner, /role=\{announce \? 'status' : undefined\}/u);
     assert.match(spinner, /motion-reduce:animate-none/u);
     assert.match(styles, /data-local-whisper='true'[\s\S]*repeat\(3, 37px\)/u);
   });

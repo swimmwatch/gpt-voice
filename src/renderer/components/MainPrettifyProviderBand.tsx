@@ -1,4 +1,4 @@
-import { BrainCircuit, HardDriveDownload, LoaderCircle, PowerOff, Settings } from 'lucide-react';
+import { BrainCircuit, HardDriveDownload, PowerOff, Settings } from 'lucide-react';
 import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
@@ -9,6 +9,7 @@ import {
 } from '@renderer/mainPrettifyProvider';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import { Button } from '@renderer/components/ui/button';
+import { Spinner } from '@renderer/components/ui/spinner';
 import {
   Select,
   SelectContent,
@@ -117,6 +118,7 @@ function MainPrettifyProviderBand({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  aria-busy={isModelActionRunning || undefined}
                   aria-label={modelActionTitle}
                   className="command-dock-prettify-model-action"
                   disabled={isModelActionRunning}
@@ -125,13 +127,17 @@ function MainPrettifyProviderBand({
                   title={modelActionTitle}
                   variant="outline"
                 >
-                  {isModelActionRunning ? (
-                    <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
-                  ) : viewState.ollamaControl.isLoaded ? (
-                    <PowerOff aria-hidden="true" strokeWidth={1.75} />
-                  ) : (
-                    <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
-                  )}
+                  <Spinner
+                    active={isModelActionRunning}
+                    fallback={
+                      viewState.ollamaControl.isLoaded ? (
+                        <PowerOff aria-hidden="true" strokeWidth={1.75} />
+                      ) : (
+                        <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
+                      )
+                    }
+                    label={modelActionTitle}
+                  />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{modelActionTitle}</TooltipContent>

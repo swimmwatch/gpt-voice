@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { PiArrowCounterClockwise, PiFloppyDisk, PiInfo, PiWaveform } from 'react-icons/pi';
 import { Spinner } from '@renderer/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import type { ElectronAPI } from '@renderer/types';
 import LocalWhisperInferenceSections from './components/LocalWhisperInferenceSections';
 import LocalWhisperRuntimeModelSection from './components/LocalWhisperRuntimeModelSection';
@@ -113,6 +114,13 @@ export default function LocalWhisperSettingsPage({
     dirty: controller.dirty,
   });
   const artifactReason = artifactDisabledReason(platformUnavailable, catalogUnavailable, commandBusy);
+  const resetDisabledReason = disabled
+    ? platformUnavailable
+      ? 'Reset is unavailable on a planned or unsupported platform.'
+      : catalogUnavailable
+        ? 'Reset requires an active trusted catalog.'
+        : 'Reset is disabled while another action is in progress.'
+    : null;
 
   return (
     <div className="local-whisper-settings min-w-0 max-w-full overflow-x-hidden" data-slot="local-whisper-settings">
@@ -122,11 +130,12 @@ export default function LocalWhisperSettingsPage({
           <h1>Local Whisper</h1>
           <p>Run Whisper.cpp locally with explicit model, backend, and memory lifecycle controls.</p>
         </div>
-        <PiInfo
-          aria-hidden="true"
-          className="lw-heading-info"
-          title="Local processing keeps audio and transcripts on this device."
-        />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PiInfo aria-hidden="true" className="lw-heading-info" />
+          </TooltipTrigger>
+          <TooltipContent>Local processing keeps audio and transcripts on this device.</TooltipContent>
+        </Tooltip>
       </header>
 
       <CatalogChannelNotice
@@ -183,47 +192,42 @@ export default function LocalWhisperSettingsPage({
       />
 
       <LocalWhisperStorageSection
-        actionsDisabledReason={artifactReason}
         aggregateBytes={snapshot.storage.installedBytes}
-        artifacts={snapshot.artifacts}
-        onArtifactAction={controller.performArtifactAction}
         onOpenStorageFolder={() => void controller.openStorageFolder()}
-        onViewReference={controller.viewArtifactReference}
         pendingAction={controller.pendingAction}
-        progress={snapshot.progress}
         storageSummary={snapshot.storage.label}
       />
 
       <footer className="lw-page-actions">
-        <button
-          className="lw-secondary-button"
-          disabled={disabled}
-          onClick={() => void controller.reset()}
-          title={
-            disabled
-              ? platformUnavailable
-                ? 'Reset is unavailable on a planned or unsupported platform.'
-                : catalogUnavailable
-                  ? 'Reset requires an active trusted catalog.'
-                  : 'Reset is disabled while another action is in progress.'
-              : undefined
-          }
-          type="button"
-        >
-          <PiArrowCounterClockwise aria-hidden="true" />
-          {controller.pendingAction === 'reset' ? 'Resetting…' : 'Reset to defaults'}
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="lw-secondary-button"
+              disabled={disabled}
+              onClick={() => void controller.reset()}
+              type="button"
+            >
+              <PiArrowCounterClockwise aria-hidden="true" />
+              {controller.pendingAction === 'reset' ? 'Resetting…' : 'Reset to defaults'}
+            </button>
+          </TooltipTrigger>
+          {resetDisabledReason ? <TooltipContent>{resetDisabledReason}</TooltipContent> : null}
+        </Tooltip>
         <div>
-          <button
-            className="lw-primary-button"
-            disabled={saveReason !== null}
-            onClick={() => void controller.save()}
-            title={saveReason ?? undefined}
-            type="button"
-          >
-            <PiFloppyDisk aria-hidden="true" />
-            {controller.pendingAction === 'save' ? 'Saving…' : 'Save settings'}
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="lw-primary-button"
+                disabled={saveReason !== null}
+                onClick={() => void controller.save()}
+                type="button"
+              >
+                <PiFloppyDisk aria-hidden="true" />
+                {controller.pendingAction === 'save' ? 'Saving…' : 'Save settings'}
+              </button>
+            </TooltipTrigger>
+            {saveReason ? <TooltipContent>{saveReason}</TooltipContent> : null}
+          </Tooltip>
           <span>{controller.dirty ? 'You have unsaved changes.' : 'No unsaved changes.'}</span>
         </div>
       </footer>
