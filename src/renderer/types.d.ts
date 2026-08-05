@@ -61,6 +61,7 @@ import type {
   PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import type { FirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
@@ -126,6 +127,9 @@ export interface ElectronAPI {
   onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
   onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => () => void;
+  getFirstLaunchStartupSnapshot: () => Promise<FirstLaunchStartupSnapshot>;
+  retryFirstLaunchStartup: () => Promise<FirstLaunchStartupSnapshot>;
+  onFirstLaunchStartupSnapshot: (callback: (snapshot: FirstLaunchStartupSnapshot) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;

@@ -2,6 +2,7 @@
 import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import type { BackgroundBrowserService } from './browser';
+import type { FirstLaunchStartupCoordinator } from './firstLaunchStartupCoordinator';
 import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from './providers/voiceProviderRegistry';
 import { type WindowManager } from './window';
@@ -77,6 +78,10 @@ import {
 } from '@shared/prettifyProfileCatalogIpc';
 import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
 import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  sanitizeFirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
+import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
 } from './services/prettifyProfileInstruction';
@@ -148,6 +153,7 @@ export interface MainIpcControllerDependencies {
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly firstLaunchStartupCoordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot' | 'retry'>;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
@@ -215,6 +221,18 @@ function readForbiddenCustomProfileIdsRequest(value: unknown): unknown {
     throw new TypeError('Invalid Prettify profile ID allocation request');
   }
   return descriptor.value;
+}
+
+function assertEmptyIpcArguments(args: readonly unknown[]): void {
+  if (args.length !== 0) throw new TypeError('Unexpected IPC arguments');
+}
+
+function getSafeFirstLaunchStartupSnapshot(
+  coordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot'>,
+) {
+  const snapshot = sanitizeFirstLaunchStartupSnapshot(coordinator.getSnapshot());
+  if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
+  return snapshot;
 }
 
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
@@ -350,6 +368,7 @@ export class MainIpcController {
     this.registered = true;
 
     const dependencies = this.dependencies;
+    this.registerFirstLaunchStartupIpc();
     const historyController = dependencies.historyController;
     const log = dependencies.logger;
     const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
@@ -1184,6 +1203,19 @@ export class MainIpcController {
     const streamingDisposal = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();
     this.disposalPromise = Promise.all([streamingDisposal, this.prettifySettingsMutation]).then(() => undefined);
     return this.disposalPromise;
+  }
+
+  private registerFirstLaunchStartupIpc(): void {
+    const coordinator = this.dependencies.firstLaunchStartupCoordinator;
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return getSafeFirstLaunchStartupSnapshot(coordinator);
+    });
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      void coordinator.retry();
+      return getSafeFirstLaunchStartupSnapshot(coordinator);
+    });
   }
 
   private enqueuePrettifySettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {

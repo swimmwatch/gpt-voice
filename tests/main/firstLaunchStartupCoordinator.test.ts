@@ -8,6 +8,7 @@ import {
   type FirstLaunchStartupJob,
   type FirstLaunchStartupJobId,
   type FirstLaunchStartupJobRunResult,
+  type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import {
   FirstLaunchStartupCoordinator,
@@ -54,7 +55,7 @@ describe('FirstLaunchStartupCoordinator', () => {
   it('publishes immutable initial, running, and succeeded snapshots exactly once per completed job', async () => {
     const runner = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser);
     const coordinator = new FirstLaunchStartupCoordinator({ jobRunners: [runner] });
-    const snapshots = [];
+    const snapshots: FirstLaunchStartupSnapshot[] = [];
     coordinator.subscribe((snapshot) => snapshots.push(snapshot));
 
     const firstStart = coordinator.start();
@@ -173,5 +174,144 @@ describe('FirstLaunchStartupCoordinator', () => {
       },
     ]);
     assert.equal(JSON.stringify(failed).includes('/private/cache/chrome'), false);
+  });
+
+  it('gates dependent jobs on CloakBrowser and starts independent jobs together after preparation', async () => {
+    const cloakBrowser = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser);
+    const voiceProvider = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+    const translation = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.Translation);
+    const coordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        cloakBrowser,
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: voiceProvider.id,
+          run: voiceProvider.run.bind(voiceProvider),
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: translation.id,
+          run: translation.run.bind(translation),
+        },
+      ],
+    });
+
+    const attempt = coordinator.start();
+    assert.equal(cloakBrowser.calls.length, 1);
+    assert.equal(voiceProvider.calls.length, 0);
+    assert.equal(translation.calls.length, 0);
+
+    cloakBrowser.calls[0]?.resolve({ failureCode: null, success: true });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(voiceProvider.calls.length, 1);
+    assert.equal(translation.calls.length, 1);
+
+    voiceProvider.calls[0]?.resolve({ failureCode: null, success: true });
+    translation.calls[0]?.resolve({ failureCode: null, success: true });
+    const completed = await attempt;
+
+    assert.equal(completed.state, FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Succeeded);
+  });
+
+  it('marks an unselected Voice Provider as not required before dependency scheduling', async () => {
+    const cloakBrowser = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser);
+    const voiceProvider = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+    const coordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        cloakBrowser,
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: voiceProvider.id,
+          isRequired: () => false,
+          run: voiceProvider.run.bind(voiceProvider),
+        },
+      ],
+    });
+
+    const attempt = coordinator.start();
+    assert.deepEqual(coordinator.getSnapshot().jobs.find((job) => job.id === voiceProvider.id), {
+      completedUnits: 0,
+      failureCode: null,
+      id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+      state: FIRST_LAUNCH_STARTUP_JOB_STATES.NotRequired,
+      totalUnits: 0,
+    });
+    assert.equal(voiceProvider.calls.length, 0);
+
+    cloakBrowser.calls[0]?.resolve({ failureCode: null, success: true });
+    await attempt;
+    assert.equal(voiceProvider.calls.length, 0);
+  });
+
+  it('leaves dependents pending after a prerequisite failure and runs them after a retry', async () => {
+    const cloakBrowser = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser);
+    const translation = new DeferredJobRunner(FIRST_LAUNCH_STARTUP_JOB_IDS.Translation);
+    const coordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        cloakBrowser,
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: translation.id,
+          run: translation.run.bind(translation),
+        },
+      ],
+    });
+
+    const initialAttempt = coordinator.start();
+    cloakBrowser.calls[0]?.resolve({
+      failureCode: FIRST_LAUNCH_STARTUP_FAILURE_CODES.InstallationFailed,
+      success: false,
+    });
+    const failed = await initialAttempt;
+    assert.equal(failed.state, FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Failed);
+    assert.equal(translation.calls.length, 0);
+    assert.equal(
+      failed.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.Translation)?.state,
+      FIRST_LAUNCH_STARTUP_JOB_STATES.Pending,
+    );
+
+    const retryAttempt = coordinator.retry();
+    assert.equal(cloakBrowser.calls.length, 2);
+    cloakBrowser.calls[1]?.resolve({ failureCode: null, success: true });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(translation.calls.length, 1);
+    translation.calls[0]?.resolve({ failureCode: null, success: true });
+
+    const completed = await retryAttempt;
+    assert.equal(completed.state, FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Succeeded);
+  });
+
+  it('rejects unknown and cyclic startup job dependencies', () => {
+    assert.throws(
+      () =>
+        new FirstLaunchStartupCoordinator({
+          jobRunners: [
+            {
+              dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.Translation],
+              id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+              run: async () => ({ failureCode: null, success: true }),
+            },
+          ],
+        }),
+      /dependencies are invalid/u,
+    );
+    assert.throws(
+      () =>
+        new FirstLaunchStartupCoordinator({
+          jobRunners: [
+            {
+              dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.Translation],
+              id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+              run: async () => ({ failureCode: null, success: true }),
+            },
+            {
+              dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+              id: FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+              run: async () => ({ failureCode: null, success: true }),
+            },
+          ],
+        }),
+      /dependencies contain a cycle/u,
+    );
   });
 });

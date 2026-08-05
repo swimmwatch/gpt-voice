@@ -26,6 +26,12 @@ export const FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES = {
   Succeeded: 'succeeded',
 } as const;
 
+export const FIRST_LAUNCH_STARTUP_IPC_CHANNELS = {
+  changed: 'first-launch-startup:changed',
+  retry: 'first-launch-startup:retry',
+  snapshotQuery: 'first-launch-startup:snapshot-query',
+} as const;
+
 const FIRST_LAUNCH_STARTUP_SNAPSHOT_KEYS = ['generation', 'jobs', 'progress', 'retryable', 'state'] as const;
 const FIRST_LAUNCH_STARTUP_JOB_KEYS = ['completedUnits', 'failureCode', 'id', 'state', 'totalUnits'] as const;
 const MAX_STARTUP_WORK_UNITS = 1_000_000;

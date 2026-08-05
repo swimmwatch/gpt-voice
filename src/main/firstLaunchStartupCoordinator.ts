@@ -11,7 +11,9 @@ import {
 } from '@shared/firstLaunchStartup';
 
 export interface FirstLaunchStartupJobRunner {
+  readonly dependsOn?: readonly FirstLaunchStartupJobId[];
   readonly id: FirstLaunchStartupJobId;
+  readonly isRequired?: () => boolean;
   run(): Promise<FirstLaunchStartupJobRunResult>;
 }
 
@@ -47,6 +49,7 @@ export class FirstLaunchStartupCoordinator {
     if (runnerIds.length === 0 || new Set(runnerIds).size !== runnerIds.length) {
       throw new Error('First-launch startup jobs must be non-empty and unique');
     }
+    this.assertValidDependencies(new Set(runnerIds));
     this.snapshotValue = createFirstLaunchStartupSnapshot({
       generation: 0,
       jobs: runnerIds.map(createPendingJob),
@@ -110,6 +113,7 @@ export class FirstLaunchStartupCoordinator {
         state: FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Running,
       }),
     );
+    this.markInapplicableJobs(generation);
     const attempt = this.runPendingJobs(generation);
     this.activeAttempt = attempt;
     void attempt.finally(() => {
@@ -119,11 +123,56 @@ export class FirstLaunchStartupCoordinator {
   }
 
   private async runPendingJobs(generation: number): Promise<FirstLaunchStartupSnapshot> {
-    const pendingJobIds = this.snapshotValue.jobs
-      .filter((job) => job.state === FIRST_LAUNCH_STARTUP_JOB_STATES.Pending)
-      .map((job) => job.id);
-    await Promise.all(pendingJobIds.map((jobId) => this.runJob(generation, jobId)));
+    while (!this.disposed && this.snapshotValue.generation === generation) {
+      const runnableJobIds = this.snapshotValue.jobs
+        .filter(
+          (job) =>
+            job.state === FIRST_LAUNCH_STARTUP_JOB_STATES.Pending && this.areDependenciesSatisfied(job.id),
+        )
+        .map((job) => job.id);
+      if (runnableJobIds.length === 0) return this.snapshotValue;
+      await Promise.all(runnableJobIds.map((jobId) => this.runJob(generation, jobId)));
+    }
     return this.snapshotValue;
+  }
+
+  private markInapplicableJobs(generation: number): void {
+    for (const runner of this.dependencies.jobRunners) {
+      const job = this.snapshotValue.jobs.find((candidate) => candidate.id === runner.id);
+      if (job?.state !== FIRST_LAUNCH_STARTUP_JOB_STATES.Pending) continue;
+      let required: boolean | undefined;
+      try {
+        required = runner.isRequired?.();
+      } catch {
+        this.transitionJob(generation, runner.id, {
+          completedUnits: 0,
+          failureCode: FIRST_LAUNCH_STARTUP_FAILURE_CODES.InitializationFailed,
+          state: FIRST_LAUNCH_STARTUP_JOB_STATES.Failed,
+          totalUnits: 1,
+        });
+        continue;
+      }
+      if (required !== false) continue;
+      this.transitionJob(generation, runner.id, {
+        completedUnits: 0,
+        failureCode: null,
+        state: FIRST_LAUNCH_STARTUP_JOB_STATES.NotRequired,
+        totalUnits: 0,
+      });
+    }
+  }
+
+  private areDependenciesSatisfied(jobId: FirstLaunchStartupJobId): boolean {
+    const runner = this.dependencies.jobRunners.find((candidate) => candidate.id === jobId);
+    return Boolean(
+      runner?.dependsOn?.every((dependencyId) => {
+        const dependency = this.snapshotValue.jobs.find((job) => job.id === dependencyId);
+        return (
+          dependency?.state === FIRST_LAUNCH_STARTUP_JOB_STATES.NotRequired ||
+          dependency?.state === FIRST_LAUNCH_STARTUP_JOB_STATES.Succeeded
+        );
+      }) ?? true,
+    );
   }
 
   private async runJob(generation: number, jobId: FirstLaunchStartupJobId): Promise<void> {
@@ -207,6 +256,32 @@ export class FirstLaunchStartupCoordinator {
         // A renderer listener cannot break startup preparation ownership.
       }
     }
+  }
+
+  private assertValidDependencies(runnerIds: ReadonlySet<FirstLaunchStartupJobId>): void {
+    const dependenciesByRunner = new Map<FirstLaunchStartupJobId, readonly FirstLaunchStartupJobId[]>();
+    for (const runner of this.dependencies.jobRunners) {
+      const dependencies = runner.dependsOn ?? [];
+      if (
+        new Set(dependencies).size !== dependencies.length ||
+        dependencies.some((dependencyId) => dependencyId === runner.id || !runnerIds.has(dependencyId))
+      ) {
+        throw new Error('First-launch startup job dependencies are invalid');
+      }
+      dependenciesByRunner.set(runner.id, dependencies);
+    }
+
+    const visiting = new Set<FirstLaunchStartupJobId>();
+    const visited = new Set<FirstLaunchStartupJobId>();
+    const visit = (jobId: FirstLaunchStartupJobId): void => {
+      if (visited.has(jobId)) return;
+      if (visiting.has(jobId)) throw new Error('First-launch startup job dependencies contain a cycle');
+      visiting.add(jobId);
+      for (const dependencyId of dependenciesByRunner.get(jobId) ?? []) visit(dependencyId);
+      visiting.delete(jobId);
+      visited.add(jobId);
+    };
+    for (const runner of this.dependencies.jobRunners) visit(runner.id);
   }
 
   private assertActive(): void {

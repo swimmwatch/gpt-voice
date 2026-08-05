@@ -20,6 +20,7 @@ import type { DesktopRuntimeController } from '../desktopRuntimeController';
 import type { ShortcutController } from '../shortcuts';
 import type { WindowManager } from '../window';
 import type { BackgroundBrowserService } from '../browser';
+import type { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
 import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import type { TranslationRuntime } from '../services/translation';
@@ -54,6 +55,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'desktopRuntimeController'
   | 'diagnosticCaptureSettings'
   | 'diagnosticsExport'
+  | 'firstLaunchStartupCoordinator'
   | 'historyController'
   | 'prettifyProfileChooserIpc'
   | 'prettifyProfileChooserWindow'
@@ -100,6 +102,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticStorage: DiagnosticCaptureStorage;
   readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly firstLaunchStartupCoordinator: FirstLaunchStartupCoordinator;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
   readonly localWhisperCoordinator: LocalWhisperCoordinator;
   readonly localWhisperEnvironmentDispose: () => Promise<void>;
@@ -186,6 +189,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       desktopRuntimeController: this.controllers.desktopRuntimeController,
       diagnosticCaptureSettings,
       diagnosticsExport: this.controllers.diagnosticsExport,
+      firstLaunchStartupCoordinator: this.controllers.firstLaunchStartupCoordinator,
       historyController,
       prettifyProfileChooserIpc,
       prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,

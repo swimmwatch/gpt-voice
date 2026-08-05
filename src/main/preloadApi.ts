@@ -75,6 +75,11 @@ import {
 } from '@shared/prettifyProfileCatalogIpc';
 import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
 import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  sanitizeFirstLaunchStartupSnapshot,
+  type FirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
+import {
   LOCAL_WHISPER_IPC_CHANNELS,
   isLocalWhisperMainStatusSnapshot,
   isLocalWhisperMainResidencyCommand,
@@ -147,6 +152,24 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => {
       return onMainEvent<[unknown]>(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, (state) => {
         if (isTranslationProviderConnectionState(state)) callback(state);
+      });
+    },
+    getFirstLaunchStartupSnapshot: async (): Promise<FirstLaunchStartupSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+      const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+      if (!safeSnapshot) throw new Error('Invalid first-launch startup snapshot');
+      return safeSnapshot;
+    },
+    retryFirstLaunchStartup: async (): Promise<FirstLaunchStartupSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry);
+      const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+      if (!safeSnapshot) throw new Error('Invalid first-launch startup snapshot');
+      return safeSnapshot;
+    },
+    onFirstLaunchStartupSnapshot: (callback: (snapshot: FirstLaunchStartupSnapshot) => void): (() => void) => {
+      return onMainEvent<[unknown]>(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, (snapshot) => {
+        const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+        if (safeSnapshot) callback(safeSnapshot);
       });
     },
     recordingStartFailed: (): Promise<{ success: boolean }> => {

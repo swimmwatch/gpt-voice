@@ -6,6 +6,13 @@ import { AboutWindowController } from '@main/aboutWindowController';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { WindowManager } from '@main/window';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  FIRST_LAUNCH_STARTUP_JOB_STATES,
+  FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES,
+  createFirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
 
 type WindowListener = (...args: unknown[]) => void;
 
@@ -191,6 +198,36 @@ describe('WindowManager', () => {
     harness.manager.publishTranslationProviderConnectionState(state);
 
     assert.deepEqual(harness.created[0]?.sent, [[TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state]]);
+  });
+
+  it('publishes only valid startup snapshots and tolerates missing or destroyed main windows', () => {
+    const harness = new WindowManagerHarness();
+    const snapshot = createFirstLaunchStartupSnapshot({
+      generation: 0,
+      jobs: [
+        {
+          completedUnits: 0,
+          failureCode: null,
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          state: FIRST_LAUNCH_STARTUP_JOB_STATES.Pending,
+          totalUnits: 1,
+        },
+      ],
+      retryable: false,
+      state: FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Pending,
+    });
+
+    harness.manager.publishFirstLaunchStartupSnapshot(snapshot);
+    harness.manager.createMainWindow();
+    harness.manager.publishFirstLaunchStartupSnapshot({ ...snapshot, privateInstallerPath: '/private/cache/chrome' });
+    harness.manager.publishFirstLaunchStartupSnapshot(snapshot);
+    assert.deepEqual(harness.created[0]?.sent, [[FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, snapshot]]);
+
+    const mainWindow = harness.created[0];
+    assert.ok(mainWindow);
+    mainWindow.destroyed = true;
+    harness.manager.publishFirstLaunchStartupSnapshot(snapshot);
+    assert.equal(mainWindow.sent.length, 1);
   });
 
   it('authorizes only exact live main and Local Whisper settings frames', () => {

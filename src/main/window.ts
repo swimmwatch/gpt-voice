@@ -3,6 +3,10 @@ import { AboutWindowController } from './aboutWindowController';
 import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { AppSettingsSectionId } from '@shared/appSettings';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  sanitizeFirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
@@ -85,6 +89,14 @@ export class WindowManager {
     } else if (status.error) {
       this.mainWindow?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
     }
+  }
+
+  /** Delivers only the shared renderer-safe startup snapshot to the live main window. */
+  public publishFirstLaunchStartupSnapshot(snapshot: unknown): void {
+    const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+    const window = this.mainWindow;
+    if (!safeSnapshot || !window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+    window.webContents.send(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, safeSnapshot);
   }
 
   public readonly publishTranslationProviderConnectionState = (state: TranslationProviderConnectionState): void => {

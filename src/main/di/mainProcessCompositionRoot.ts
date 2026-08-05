@@ -102,6 +102,11 @@ import { PrettifySettingsStorage, type PrettifySettingsStorageDependencies } fro
 import { LoggerFactory, type LoggerFactoryDependencies } from '../logger';
 import { ElectronRuntimeLoader, type ElectronRuntimeLoaderDependencies } from '../electronRuntime';
 import { CloakBrowserRuntimeLoader, type CloakBrowserRuntimeLoaderDependencies } from '../cloakbrowser';
+import { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
+import {
+  FIRST_LAUNCH_STARTUP_FAILURE_CODES,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+} from '@shared/firstLaunchStartup';
 import {
   OpenAIApiSettingsRepository,
   type OpenAIApiSettingsRepositoryDependencies,
@@ -337,6 +342,7 @@ type ConstructedDesktopDependencyKeys =
   | 'appProtocolController'
   | 'backgroundBrowserService'
   | 'desktopRuntimeController'
+  | 'firstLaunchStartupCoordinator'
   | 'linuxDesktopIntegrationController'
   | 'prettifyProfileChooserWindow'
   | 'runtimeFactory'
@@ -727,6 +733,37 @@ export class MainProcessCompositionRoot {
       windowManager,
       logger: loggerFactory.getLogger('shortcuts'),
     });
+    const firstLaunchStartupCoordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        {
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          run: cloakBrowserRuntime.prepare,
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+          isRequired: () => configStore.getSnapshot().provider !== null,
+          run: async () => {
+            const providerId = configStore.getSnapshot().provider;
+            if (providerId === null) return { failureCode: null, success: true };
+            const status = await backgroundBrowserService.initialize();
+            windowManager.publishBackgroundStatus(status, providerId);
+            return {
+              failureCode: status.ready ? null : FIRST_LAUNCH_STARTUP_FAILURE_CODES.InitializationFailed,
+              success: status.ready,
+            };
+          },
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+          run: async () => {
+            await translationRuntime.initializeSelectedProvider();
+            return { failureCode: null, success: true };
+          },
+        },
+      ],
+    });
     const controllers: ConstructedControllers = {
       appProtocolController: new AppProtocolController({
         ...desktopEnvironment.appProtocol,
@@ -753,6 +790,7 @@ export class MainProcessCompositionRoot {
       diagnosticStorage,
       diagnosticsArchive,
       diagnosticsExport,
+      firstLaunchStartupCoordinator,
       historyRepository,
       localWhisperCoordinator,
       localWhisperEnvironmentDispose: this.environment.localWhisper.dispose,

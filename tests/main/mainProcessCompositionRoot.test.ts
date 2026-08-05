@@ -24,6 +24,11 @@ import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProvi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
 import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  type FirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
 import { createDeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -192,6 +197,8 @@ class MainProcessCompositionHarness {
         environment: {},
         fileSystem: fs,
         importModule: async () => ({
+          binaryInfo: () => ({ binaryPath: '/missing/cloakbrowser', installed: false }),
+          ensureBinary: async () => '/missing/cloakbrowser',
           launchContext: async () => ({ close: async () => undefined }) as BrowserContext,
           launchPersistentContext: async () => ({ close: async () => undefined }) as BrowserContext,
         }),
@@ -805,6 +812,21 @@ describe('main process composition root', () => {
 
     assert.equal(harness.state.createCount, 1);
     assert.equal(harness.state.ipcHandlers.size > 0, true);
+    const startupSnapshotQuery = harness.state.ipcHandlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+    assert.ok(startupSnapshotQuery);
+    assert.ok(harness.state.window);
+    const startupSnapshot = startupSnapshotQuery({
+      sender: harness.state.window.webContents,
+      senderFrame: { url: harness.state.window.webContents.getURL() },
+    } as unknown as IpcMainInvokeEvent) as FirstLaunchStartupSnapshot;
+    assert.deepEqual(
+      startupSnapshot.jobs.map((job) => job.id),
+      [
+        FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+        FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+        FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+      ],
+    );
     for (const channel of Object.values(PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS)) {
       if (channel !== PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS.localeChanged) {
         assert.equal(harness.state.ipcHandlers.has(channel), true);

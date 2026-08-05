@@ -9,6 +9,13 @@ import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
 } from '@shared/translationProvider';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  FIRST_LAUNCH_STARTUP_JOB_STATES,
+  FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES,
+  createFirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
@@ -207,6 +214,48 @@ describe('preload API factory', () => {
         targetLanguage: 'en',
       },
     ]);
+  });
+
+  it('decodes safe first-launch startup snapshots and drops malformed events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const snapshot = createFirstLaunchStartupSnapshot({
+      generation: 0,
+      jobs: [
+        {
+          completedUnits: 0,
+          failureCode: null,
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          state: FIRST_LAUNCH_STARTUP_JOB_STATES.Pending,
+          totalUnits: 1,
+        },
+      ],
+      retryable: false,
+      state: FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Pending,
+    });
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, snapshot);
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, snapshot);
+    const api = createElectronApi(renderer);
+    const events: number[] = [];
+    const unsubscribe = api.onFirstLaunchStartupSnapshot((value) => events.push(value.generation));
+
+    assert.deepEqual(await api.getFirstLaunchStartupSnapshot(), snapshot);
+    assert.deepEqual(await api.retryFirstLaunchStartup(), snapshot);
+    renderer.emit(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, snapshot);
+    renderer.emit(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, {
+      ...snapshot,
+      privateInstallerPath: '/private/cache/chrome',
+    });
+    unsubscribe();
+    renderer.emit(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, snapshot);
+
+    assert.deepEqual(events, [0]);
+    assert.deepEqual(renderer.invocations.slice(-2), [
+      { args: [], channel: FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery },
+      { args: [], channel: FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry },
+    ]);
+
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, { privateInstallerPath: '/private/cache/chrome' });
+    await assert.rejects(api.getFirstLaunchStartupSnapshot(), /Invalid first-launch startup snapshot/u);
   });
 
   it('exposes exactly one factory result through the preload bridge', () => {
