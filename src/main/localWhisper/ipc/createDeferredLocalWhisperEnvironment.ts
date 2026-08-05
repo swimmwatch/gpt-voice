@@ -280,6 +280,7 @@ export function createDeferredLocalWhisperEnvironment(input: {
         logicalProcessorCount: Math.max(1, Math.trunc(input.logicalProcessorCount)),
       }),
       memory: Object.freeze({ selectedEstimate: null, qualifiedPeak: null, exactEstimateUnavailable: true }),
+      resources: null,
       storage: Object.freeze({ label: 'Local Whisper managed storage', installedArtifactCount: 0, installedBytes: 0 }),
       artifacts: Object.freeze([]),
       progress: Object.freeze([]),

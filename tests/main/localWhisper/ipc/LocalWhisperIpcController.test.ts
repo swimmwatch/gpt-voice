@@ -85,6 +85,23 @@ function expected(snapshots: ReturnType<typeof createSnapshotService>) {
 }
 
 describe('LocalWhisperIpcController', () => {
+  it('projects main-owned resource preview facts before compatibility is checked', () => {
+    const preview = Object.freeze({
+      success: true,
+      failureCode: null,
+      evidence: 'catalog' as const,
+      requiredRamBytes: 2 * 1024 ** 3,
+      requiredVramBytes: 'notApplicable' as const,
+      freeRamBytes: 8 * 1024 ** 3,
+      freeVramBytes: null,
+    });
+    const facts = Object.freeze({ ...snapshotFacts(), resources: preview });
+    const snapshots = createSnapshotService(new FakeCoordinator(), facts);
+
+    assert.deepEqual(snapshots.snapshot.resources, preview);
+    snapshots.dispose();
+  });
+
   it('starts fail-closed device refresh only for an authorized settings snapshot query', async () => {
     const harness = createHarness();
     await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, fakeEvent('settings'));

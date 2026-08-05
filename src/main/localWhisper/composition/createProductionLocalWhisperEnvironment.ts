@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import {
   createNeverConfiguredLocalWhisperSettings,
+  getLocalWhisperMemoryConfigurationKey,
   isLocalWhisperGpuBackend,
   isValidLocalWhisperPublicSettings,
   LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
@@ -14,6 +15,7 @@ import {
   type LocalWhisperArtifactSetupState,
   type LocalWhisperBackend,
   type LocalWhisperFailureCode,
+  type LocalWhisperMemoryEstimateRecord,
   type LocalWhisperDeviceDescriptor,
   type LocalWhisperPlatform,
   type LocalWhisperPublicSettings,
@@ -26,6 +28,7 @@ import {
 } from '@shared/localWhisper';
 
 import { LocalWhisperCapabilityService } from '../capability/LocalWhisperCapabilityService';
+import { LocalWhisperResourcePolicy } from '../capability/LocalWhisperResourcePolicy';
 import { ArtifactCatalogResolver } from '../artifacts/ArtifactCatalogResolver';
 import { ArtifactProgressStore } from '../artifacts/ArtifactProgressStore';
 import { ArtifactTransferJournalRepository } from '../artifacts/ArtifactTransferJournalRepository';
@@ -263,6 +266,36 @@ function selectedSupportTier(
     vendor: backend === null ? null : vendorForBackend(backend),
     hipApproved: false,
   }).tier;
+}
+
+function selectedMemoryEstimate(
+  catalog: LocalWhisperAuthenticatedCatalog,
+  settings: LocalWhisperPublicSettings,
+): LocalWhisperMemoryEstimateRecord | null {
+  const backend = settings.execution.backend;
+  const runtimePackRevision = settings.runtimeRevision;
+  if (backend === null || runtimePackRevision === null) return null;
+  return (
+    catalog.payload.memoryEstimates.find(
+      (candidate) =>
+        candidate.target === settings.execution.target &&
+        candidate.backend === backend &&
+        candidate.runtimePackRevision === runtimePackRevision &&
+        candidate.model.engine === settings.engine &&
+        candidate.model.logicalModel === settings.model.family &&
+        candidate.model.artifactRevision === settings.model.revision &&
+        candidate.model.variant === settings.model.variant,
+    ) ?? null
+  );
+}
+
+function sampledAvailableMemoryBytes(readAvailableMemoryBytes: () => number): number | null {
+  try {
+    const availableBytes = Math.trunc(readAvailableMemoryBytes());
+    return Number.isSafeInteger(availableBytes) && availableBytes >= 0 ? availableBytes : null;
+  } catch {
+    return null;
+  }
 }
 
 function option(input: {
@@ -549,17 +582,37 @@ function validationContext(
   });
 }
 
+/** Builds renderer-safe catalog, inventory, and read-only resource facts for the current selection. */
 function factsSnapshot(
   catalog: LocalWhisperAuthenticatedCatalog,
   inventory: LocalWhisperInventorySnapshot,
   context: LocalWhisperSettingsValidationContext,
   settingsSnapshot: LocalWhisperSettingsSnapshot,
-  now: number | null,
+  sample: { readonly availableMemoryBytes: () => number; readonly now: number | null },
   progress: readonly LocalWhisperArtifactProgress[] = Object.freeze([]),
 ): LocalWhisperSnapshotFacts {
   const artifacts = rendererArtifacts(catalog, inventory);
   const installed = artifacts.filter((artifact) => artifact.state === 'Installed');
-  const peak = inventory.qualifiedMemoryPeak;
+  const estimate = selectedMemoryEstimate(catalog, settingsSnapshot.settings);
+  const inventoryPeak = inventory.qualifiedMemoryPeak;
+  const peak =
+    estimate &&
+    inventoryPeak &&
+    getLocalWhisperMemoryConfigurationKey(inventoryPeak.configuration) ===
+      getLocalWhisperMemoryConfigurationKey(estimate)
+      ? inventoryPeak
+      : null;
+  const resources = estimate
+    ? new LocalWhisperResourcePolicy().evaluate({
+        configuration: estimate,
+        estimate,
+        qualifiedPeak: peak,
+        availability: Object.freeze({
+          freeRamBytes: sampledAvailableMemoryBytes(sample.availableMemoryBytes),
+          freeVramBytes: null,
+        }),
+      })
+    : null;
   return Object.freeze({
     catalogRevision: catalog.payload.catalogRevision,
     options: rendererOptions(catalog, context, settingsSnapshot.settings, settingsSnapshot.configured),
@@ -574,7 +627,7 @@ function factsSnapshot(
       logicalProcessorCount: context.logicalProcessorCount,
     }),
     memory: Object.freeze({
-      selectedEstimate: inventory.selectedMemoryEstimate,
+      selectedEstimate: estimate,
       qualifiedPeak: peak
         ? Object.freeze({
             measuredPeakRamBytes: peak.measuredPeakRamBytes,
@@ -582,8 +635,9 @@ function factsSnapshot(
             qualificationProfileId: peak.qualificationProfileId,
           })
         : null,
-      exactEstimateUnavailable: inventory.selectedMemoryEstimate === null,
+      exactEstimateUnavailable: estimate === null,
     }),
+    resources,
     storage: Object.freeze({
       label: 'Local Whisper managed storage',
       installedArtifactCount: installed.length,
@@ -606,7 +660,7 @@ function factsSnapshot(
             },
       ),
     ]),
-    lastValidatedAtMs: now,
+    lastValidatedAtMs: sample.now,
   });
 }
 
@@ -859,7 +913,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
       if (!initialSettingsSnapshot) throw new Error('Local Whisper catalog has no valid default settings');
       let settingsSnapshot: LocalWhisperSettingsSnapshot = initialSettingsSnapshot;
       facts = new LocalWhisperDynamicSnapshotFacts(
-        factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, null),
+        factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
+          availableMemoryBytes: this.dependencies.availableMemoryBytes,
+          now: null,
+        }),
       );
       const setup = selectedArtifactSetup(settingsSnapshot.settings, inventory);
       const capabilityService = new LocalWhisperCapabilityService();
@@ -881,7 +938,12 @@ export class ProductionLocalWhisperEnvironmentFactory {
         save: (settings: LocalWhisperSettings) => {
           const saved = settingsRepository.save(settings, context);
           settingsSnapshot = saved;
-          facts?.update(factsSnapshot(loaded.catalog, inventory, context, saved, null));
+          facts?.update(
+            factsSnapshot(loaded.catalog, inventory, context, saved, {
+              availableMemoryBytes: this.dependencies.availableMemoryBytes,
+              now: null,
+            }),
+          );
           return Promise.resolve();
         },
         reset: () => {
@@ -894,7 +956,12 @@ export class ProductionLocalWhisperEnvironmentFactory {
             dependentSelections: Object.freeze({ values: Object.freeze({}) }),
             repairIssues: Object.freeze([]),
           });
-          facts?.update(factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, null));
+          facts?.update(
+            factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
+              availableMemoryBytes: this.dependencies.availableMemoryBytes,
+              now: null,
+            }),
+          );
           return Promise.resolve();
         },
       });
@@ -916,7 +983,12 @@ export class ProductionLocalWhisperEnvironmentFactory {
               });
             }
           }
-          facts?.update(factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, this.dependencies.now()));
+          facts?.update(
+            factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
+              availableMemoryBytes: this.dependencies.availableMemoryBytes,
+              now: this.dependencies.now(),
+            }),
+          );
         },
         platform: context.platform,
         randomBytes: this.dependencies.randomBytes,
@@ -932,7 +1004,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
         onInventoryChanged: (nextInventory) => {
           inventory = nextInventory;
           facts?.update(
-            factsSnapshot(loaded.catalog, nextInventory, context, settingsSnapshot, this.dependencies.now()),
+            factsSnapshot(loaded.catalog, nextInventory, context, settingsSnapshot, {
+              availableMemoryBytes: this.dependencies.availableMemoryBytes,
+              now: this.dependencies.now(),
+            }),
           );
           if (
             nextInventory.runtimes.some(
@@ -965,7 +1040,17 @@ export class ProductionLocalWhisperEnvironmentFactory {
             }),
         );
         facts?.update(
-          factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, this.dependencies.now(), projected),
+          factsSnapshot(
+            loaded.catalog,
+            inventory,
+            context,
+            settingsSnapshot,
+            {
+              availableMemoryBytes: this.dependencies.availableMemoryBytes,
+              now: this.dependencies.now(),
+            },
+            projected,
+          ),
         );
       });
       const artifactService = new LocalWhisperArtifactService({
@@ -1070,7 +1155,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 device = Object.freeze({ id: selected.id, vendor: selected.vendor, available: selected.available });
                 backendProbe = discoveredBackendProbe(request.settings);
                 facts?.update(
-                  factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, this.dependencies.now()),
+                  factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
+                    availableMemoryBytes: this.dependencies.availableMemoryBytes,
+                    now: this.dependencies.now(),
+                  }),
                 );
               } catch (error) {
                 const code =

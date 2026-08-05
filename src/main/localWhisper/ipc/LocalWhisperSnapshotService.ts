@@ -23,6 +23,7 @@ export interface LocalWhisperSnapshotFacts {
   readonly validationIssues: readonly LocalWhisperSettingsValidationIssue[];
   readonly host: LocalWhisperRendererSnapshot['host'];
   readonly memory: Omit<LocalWhisperRendererMemoryFacts, 'approximateFamilies'>;
+  readonly resources: LocalWhisperRendererSnapshot['resources'];
   readonly storage: LocalWhisperRendererSnapshot['storage'];
   readonly artifacts: readonly LocalWhisperRendererArtifact[];
   readonly progress: readonly LocalWhisperArtifactProgress[];
@@ -131,7 +132,7 @@ export class LocalWhisperSnapshotService {
         ),
         ...cloneAndFreeze(facts.memory),
       }),
-      resources: coordinator.resources === null ? null : cloneAndFreeze(coordinator.resources),
+      resources: cloneAndFreeze(coordinator.resources ?? facts.resources),
       storage: cloneAndFreeze(facts.storage),
       artifacts: cloneAndFreeze(facts.artifacts),
       progress: cloneAndFreeze(facts.progress),
