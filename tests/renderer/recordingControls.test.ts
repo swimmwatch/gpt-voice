@@ -49,6 +49,7 @@ describe('unselected provider controls', () => {
 
     assert.match(markup, /command-dock-provider-trigger/u);
     assert.match(markup, /data-placeholder=""/u);
+    assert.match(markup, /Select a provider to start recording\./u);
     assert.match(markup, /Provider:/u);
     assert.doesNotMatch(markup, /voice-provider-connection|command-dock-provider-action|provider-settings-shortcut/u);
   });

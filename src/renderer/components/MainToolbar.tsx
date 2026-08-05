@@ -160,7 +160,7 @@ function MainToolbar({
           <span className="command-dock-field-label">{t('mainDock.providerLabel')}</span>
           <Select onValueChange={onProviderChange} value={activeProviderId ?? undefined}>
             <SelectTrigger aria-label={t('provider.label')} className="command-dock-provider-trigger">
-              <SelectValue placeholder={t('provider.label')} />
+              <SelectValue placeholder={t(activeProviderId === null ? 'startup.selectProvider' : 'provider.label')} />
             </SelectTrigger>
             <SelectContent>
               {providerGroups.map((group, groupIndex) => (

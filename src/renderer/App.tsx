@@ -60,19 +60,31 @@ import {
   type TranslationSettings,
 } from '@shared/translationProvider';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import type { FirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import {
   createTranslationProviderCandidate,
   createTranslationSettingsCandidate,
   createTranslationSettingsViewState,
   reduceTranslationSettingsViewState,
 } from './translationSettingsViewState';
-import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE, isInitialProviderStartupPending } from './providerStartupState';
+import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE } from './providerStartupState';
+import {
+  createFirstLaunchStartupState,
+  getFirstLaunchStartupPresentation,
+  reduceFirstLaunchStartupState,
+} from './firstLaunchStartupState';
 
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const desktopApi = useDesktopApi();
   const localWhisperMain = useLocalWhisperMainStatus(desktopApi);
   const [isLoading, setIsLoading] = useState(true);
+  const [firstLaunchStartupState, dispatchFirstLaunchStartup] = useReducer(
+    reduceFirstLaunchStartupState,
+    createFirstLaunchStartupState(),
+  );
+  const [isFirstLaunchRetryPending, setIsFirstLaunchRetryPending] = useState(false);
+  const [didFirstLaunchRetryFail, setDidFirstLaunchRetryFail] = useState(false);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState<RendererStatus | null>(null);
   const [recordHotkey, setRecordHotkey] = useState('F9');
@@ -126,14 +138,48 @@ const App: React.FC = () => {
   const activeProviderName = activeProvider?.name ?? '';
   const activeProviderAuthType = activeProvider?.authType ?? null;
   const activeProviderTranscriptionMode = activeProvider?.transcriptionMode || 'batch';
-  const providerStartupPending = isInitialProviderStartupPending({
+  const firstLaunchStartupPresentation = getFirstLaunchStartupPresentation(firstLaunchStartupState, {
     prettifyPending: isInitialPrettifyProviderLoading,
     translationConnection: translationConnectionState,
     translationSettingsPending: !hasLoadedInitialTranslationSettings,
     voicePending: isLoading,
   });
 
-  useWindowStartupReady(isI18nReady && !providerStartupPending);
+  useWindowStartupReady(isI18nReady && !firstLaunchStartupPresentation.isPending);
+
+  useEffect(() => {
+    let disposed = false;
+    const acceptSnapshot = (snapshot: FirstLaunchStartupSnapshot): void => {
+      if (disposed) return;
+      dispatchFirstLaunchStartup({ snapshot, type: 'main-snapshot-received' });
+      setDidFirstLaunchRetryFail(false);
+    };
+
+    const unsubscribe = desktopApi.onFirstLaunchStartupSnapshot(acceptSnapshot);
+    void desktopApi
+      .getFirstLaunchStartupSnapshot()
+      .then(acceptSnapshot)
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+
+  const retryFirstLaunchStartup = useCallback(async (): Promise<void> => {
+    if (isFirstLaunchRetryPending) return;
+    setIsFirstLaunchRetryPending(true);
+    setDidFirstLaunchRetryFail(false);
+    try {
+      const snapshot = await desktopApi.retryFirstLaunchStartup();
+      dispatchFirstLaunchStartup({ snapshot, type: 'main-snapshot-received' });
+    } catch {
+      setDidFirstLaunchRetryFail(true);
+    } finally {
+      setIsFirstLaunchRetryPending(false);
+    }
+  }, [desktopApi, isFirstLaunchRetryPending]);
 
   const preserveStatusRef = useRef(false);
   const recordingStateRef = useRef<RecordingLifecycleState>('idle');
@@ -858,7 +904,18 @@ const App: React.FC = () => {
     }
   };
 
-  if (!isI18nReady || providerStartupPending) return <LoadingScreen />;
+  if (!isI18nReady || firstLaunchStartupPresentation.isPending) {
+    return (
+      <LoadingScreen
+        activeJobIds={firstLaunchStartupPresentation.activeJobIds}
+        hasRetryableFailure={firstLaunchStartupPresentation.hasRetryableFailure}
+        isRetryPending={isFirstLaunchRetryPending}
+        onRetry={() => void retryFirstLaunchStartup()}
+        progress={firstLaunchStartupPresentation.progress}
+        retryFailed={didFirstLaunchRetryFail}
+      />
+    );
+  }
 
   return (
     <main className="command-dock" data-slot="main-window">

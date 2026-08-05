@@ -623,6 +623,20 @@ export default {
   'localWhisper.main.operationFailedCode':
     'Local Whisper のモデル操作に失敗しました（{code}）。もう一度お試しください。',
 
+  'startup.preparing': '起動を準備しています',
+  'startup.preparingJobs': '準備中: {jobs}',
+  'startup.preparingJobsWithMore': '準備中: {jobs}、ほか {count} 件',
+  'startup.job.cloakBrowser': 'CloakBrowser ブラウザー',
+  'startup.job.voiceProvider': '音声プロバイダー',
+  'startup.job.translation': '翻訳',
+  'startup.job.prettify': 'テキスト整形',
+  'startup.progress': '起動の進行状況',
+  'startup.progressValue': '{progress}% 完了',
+  'startup.failed': '起動の準備に失敗しました。もう一度お試しください。',
+  'startup.retryFailed': '起動の準備を再試行できませんでした。もう一度お試しください。',
+  'startup.retry': '再試行',
+  'startup.selectProvider': '録音を開始するにはプロバイダーを選択してください。',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': '表示',
   'tray.quit': '終了',

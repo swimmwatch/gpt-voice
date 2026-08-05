@@ -669,6 +669,20 @@ export default {
   'localWhisper.main.operationFailedCode':
     'Не вдалося виконати операцію з моделлю Local Whisper ({code}). Спробуйте ще раз.',
 
+  'startup.preparing': 'Підготовка запуску',
+  'startup.preparingJobs': 'Підготовка: {jobs}',
+  'startup.preparingJobsWithMore': 'Підготовка: {jobs} і ще {count}',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Голосовий провайдер',
+  'startup.job.translation': 'Переклад',
+  'startup.job.prettify': 'Покращення тексту',
+  'startup.progress': 'Перебіг підготовки',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Не вдалося підготувати запуск. Спробуйте ще раз.',
+  'startup.retryFailed': 'Не вдалося повторити підготовку запуску. Спробуйте ще раз.',
+  'startup.retry': 'Повторити',
+  'startup.selectProvider': 'Виберіть провайдера, щоб почати запис.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показати',
   'tray.quit': 'Вихід',

@@ -651,6 +651,20 @@ export default {
   'localWhisper.main.operationFailedCode':
     'La operación del modelo de Local Whisper falló ({code}). Inténtalo de nuevo.',
 
+  'startup.preparing': 'Preparando el inicio',
+  'startup.preparingJobs': 'Preparando: {jobs}',
+  'startup.preparingJobsWithMore': 'Preparando: {jobs} y {count} más',
+  'startup.job.cloakBrowser': 'Navegador CloakBrowser',
+  'startup.job.voiceProvider': 'Proveedor de voz',
+  'startup.job.translation': 'Traducción',
+  'startup.job.prettify': 'Mejora de texto',
+  'startup.progress': 'Progreso de inicio',
+  'startup.progressValue': 'Completado: {progress}%',
+  'startup.failed': 'La preparación de inicio falló. Inténtalo de nuevo.',
+  'startup.retryFailed': 'No se pudo repetir la preparación de inicio. Inténtalo de nuevo.',
+  'startup.retry': 'Reintentar',
+  'startup.selectProvider': 'Selecciona un proveedor para empezar a grabar.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Mostrar',
   'tray.quit': 'Salir',

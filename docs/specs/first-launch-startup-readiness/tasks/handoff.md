@@ -1,26 +1,29 @@
 # First-launch startup readiness handoff
 
 Completed packets: `01_startup-preparation-foundation.md`,
-`02_unselected-provider-flow.md`, `03_main-startup-orchestration-and-ipc.md`.
+`02_unselected-provider-flow.md`, `03_main-startup-orchestration-and-ipc.md`,
+and `04_loader-state-and-interface.md`.
 
-Changed files (packet 03): `src/shared/firstLaunchStartup.ts`,
-`src/main/firstLaunchStartupCoordinator.ts`, `src/main/mainProcessApplication.ts`,
-`src/main/ipc.ts`, `src/main/window.ts`, `src/main/preloadApi.ts`,
-`src/renderer/types.d.ts`, `src/main/di/mainProcessCompositionRoot.ts`,
-`src/main/di/mainProcessRuntimeFactory.ts`, `tests/main/firstLaunchStartupCoordinator.test.ts`,
-`tests/main/firstLaunchStartupIpc.test.ts`, `tests/main/mainProcessApplication.test.ts`,
-`tests/main/mainProcessCompositionRoot.test.ts`, `tests/main/preloadApi.test.ts`,
-and `tests/main/windowManager.test.ts`.
+Changed files (packet 04): `src/renderer/firstLaunchStartupState.ts`,
+`src/renderer/App.tsx`, `src/renderer/components/LoadingScreen.tsx`,
+`src/renderer/components/MainToolbar.tsx`, `src/renderer/hooks/useI18n.tsx`,
+all supported `src/main/i18n/*.ts` catalogs, `tests/main/i18n.test.ts`,
+`tests/renderer/firstLaunchStartupState.test.ts`,
+`tests/renderer/loadingScreen.test.ts`, `tests/renderer/recordingControls.test.ts`,
+and `tests/renderer/windowStartupState.test.ts`.
 
-Checks run: `npm run typecheck` (pass); `npm run test:types` (pass); focused
-`node --import tsx --test` suite (52 pass); direct `npx eslint --quiet` for
-the packet files (pass); direct `npx prettier --check` for changed files
-(pass); `git diff --check` (pass).
+Checks run: `npm run typecheck` (pass); focused `node --import tsx --test`
+suite including preload, i18n, loader, reducer, provider, recording, and
+window-startup coverage (pass); direct `npx eslint --quiet` for packet files
+(pass); direct `npx prettier --check` for packet files (pass); `git diff
+--check` (pass). Repository-wide `npm run format:check` remains blocked only
+by 10 already committed packet-03 files outside this packet.
 
-Manual gate pending: package/browser smoke remains unrun because it needs a
-disposable profile and may download the vendor runtime.
+Manual gates pending: package/browser smoke and disposable clean-profile UI,
+keyboard Retry, screen-reader, bundled-runtime, and missing-runtime Retry
+checks remain unrun because they require separate network/manual authorization.
 
-Next packet: `04_loader-state-and-interface.md` after separate execution
-authorization.
+Next packet: none. The workstream is ready for review; packet 04 is left
+uncommitted.
 
-Blockers: none.
+Blockers: none within packet 04.
