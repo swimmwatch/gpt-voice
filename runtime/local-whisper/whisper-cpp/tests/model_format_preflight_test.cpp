@@ -16,6 +16,9 @@ namespace {
 
 using test_support::MemoryModelSource;
 
+constexpr std::uint32_t kGgmlFtypeMostlyQ50V2 = 2'008U;
+constexpr std::uint32_t kGgmlTensorTypeQ50 = 6U;
+
 void append_u32(std::vector<std::uint8_t>& output, std::uint32_t value) {
   output.push_back(static_cast<std::uint8_t>(value));
   output.push_back(static_cast<std::uint8_t>(value >> 8U));
@@ -34,10 +37,13 @@ void append_tensor(std::vector<std::uint8_t>& output, std::string_view name,
   output.insert(output.end(), payload_bytes, 0U);
 }
 
-std::vector<std::uint8_t> model_fixture(bool duplicate_tensor = false, std::uint32_t ftype = 1U) {
+std::vector<std::uint8_t> model_fixture(bool duplicate_tensor = false, std::uint32_t ftype = 1U,
+                                        std::uint32_t audio_layers = 4U,
+                                        std::uint32_t text_layers = 4U) {
   std::vector<std::uint8_t> output;
   append_u32(output, 0x67676d6cU);
-  for (const std::uint32_t value : {1U, 1U, 1U, 1U, 4U, 1U, 1U, 1U, 4U, 1U, ftype})
+  for (const std::uint32_t value :
+       {1U, 1U, 1U, 1U, audio_layers, 1U, 1U, 1U, text_layers, 1U, ftype})
     append_u32(output, value);
   append_u32(output, 1U);
   append_u32(output, 1U);
@@ -89,14 +95,16 @@ TEST(ModelFormatPreflight, RejectsFamilyVariantTensorTypeDuplicatesAndOverflowDi
   EXPECT_THROW(static_cast<void>(validate(std::move(oversized_dimension))), CoreError);
 }
 
-TEST(ModelFormatPreflight, AcceptsReviewedQ50BlockEncoding) {
-  auto q5 = model_fixture(false, 6U);
+TEST(ModelFormatPreflight, AcceptsUpstreamQ50FileTypeAndReviewedTensorEncoding) {
+  auto q5 = model_fixture(false, kGgmlFtypeMostlyQ50V2, 32U, 4U);
   const auto tensor_offset = q5.size() - 26U;
   q5.resize(q5.size() - 4U);
   q5[tensor_offset + 12U] = 32U;
   q5.insert(q5.end(), 22U, 0U);
-  q5[tensor_offset + 8U] = 6U;
-  const auto evidence = validate(std::move(q5), "tiny", "q5_0");
+  q5[tensor_offset + 8U] = kGgmlTensorTypeQ50;
+  const auto evidence = validate(std::move(q5), "large-v3-turbo", "q5_0");
+  EXPECT_EQ(evidence.family, "large-v3-turbo");
+  EXPECT_EQ(evidence.variant, "q5_0");
   EXPECT_EQ(evidence.tensor_payload_bytes, 22U);
 }
 

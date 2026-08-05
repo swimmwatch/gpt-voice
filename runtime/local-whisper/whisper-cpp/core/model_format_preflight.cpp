@@ -17,7 +17,8 @@ namespace {
 constexpr std::uint32_t kGgmlFileMagic = 0x67676d6cU;
 constexpr std::int32_t kTypeF32 = 0;
 constexpr std::int32_t kTypeF16 = 1;
-constexpr std::int32_t kTypeQ50 = 6;
+constexpr std::int32_t kFtypeQ50 = 8;
+constexpr std::int32_t kTensorTypeQ50 = 6;
 constexpr std::uint64_t kQ50BlockElements = 32;
 constexpr std::uint64_t kQ50BlockBytes = 22;
 
@@ -63,7 +64,7 @@ std::string family_for_layers(std::int32_t audio_layers, std::int32_t text_layer
 void require_variant(const std::string& variant, std::int32_t ftype) {
   const auto effective_type = ftype % 1000;
   if ((variant == "full" && (effective_type == kTypeF32 || effective_type == kTypeF16)) ||
-      (variant == "q5_0" && effective_type == kTypeQ50)) {
+      (variant == "q5_0" && effective_type == kFtypeQ50)) {
     return;
   }
   throw CoreError(FailureCode::model_load_failed, "model variant is not allowlisted");
@@ -75,7 +76,7 @@ std::uint64_t tensor_payload(std::int32_t type, std::uint64_t elements,
     return checked_multiply(elements, 4U);
   if (type == kTypeF16)
     return checked_multiply(elements, 2U);
-  if (type == kTypeQ50 && variant == "q5_0" && elements % kQ50BlockElements == 0U)
+  if (type == kTensorTypeQ50 && variant == "q5_0" && elements % kQ50BlockElements == 0U)
     return checked_multiply(elements / kQ50BlockElements, kQ50BlockBytes);
   throw CoreError(FailureCode::model_load_failed, "tensor type is not allowlisted");
 }
