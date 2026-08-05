@@ -1,12 +1,19 @@
-import { createLocalWhisperRendererSafeFailure, type LocalWhisperProviderSelectionResult } from '@shared/localWhisper';
+import {
+  createLocalWhisperRendererSafeFailure,
+  LOCAL_WHISPER_PROVIDER_ID,
+  type LocalWhisperFailureCode,
+  type LocalWhisperProviderSelectionResult,
+} from '@shared/localWhisper';
+import type { LocalWhisperProviderReadiness } from '../coordinator/LocalWhisperCoordinatorTypes';
 
 export interface VoiceProviderSelectionConfigPort {
-  getSnapshot(): { readonly provider: string };
-  setProvider(providerId: string): void;
+  getSnapshot(): { readonly provider: string | null };
+  setProvider(providerId: string | null): void;
   save(): void;
 }
 
 export interface VoiceProviderSelectionRuntimePort {
+  clearProvider(): Promise<{ readonly error?: string }>;
   switchProvider(providerId: string): Promise<{ readonly error?: string }>;
 }
 
@@ -14,23 +21,28 @@ export interface VoiceProviderSelectionRegistryPort {
   isKnownProviderId(providerId: unknown): providerId is string;
 }
 
+export interface VoiceProviderSelectionLocalWhisperPort {
+  getReadinessSnapshot(): LocalWhisperProviderReadiness;
+}
+
 export interface VoiceProviderSelectionServiceDependencies {
   readonly config: VoiceProviderSelectionConfigPort;
   readonly runtime: VoiceProviderSelectionRuntimePort;
   readonly registry: VoiceProviderSelectionRegistryPort;
+  readonly localWhisper: VoiceProviderSelectionLocalWhisperPort;
   readonly getReadinessRevision: () => number;
 }
 
 /** Serializes provider switching and restores runtime/config before reporting any failure. */
 export class VoiceProviderSelectionService {
   private switching = false;
-  private committedProviderId: string;
+  private committedProviderId: string | null;
 
   public constructor(private readonly dependencies: VoiceProviderSelectionServiceDependencies) {
     this.committedProviderId = dependencies.config.getSnapshot().provider;
   }
 
-  public getCommittedProviderId(): string {
+  public getCommittedProviderId(): string | null {
     return this.committedProviderId;
   }
 
@@ -41,6 +53,10 @@ export class VoiceProviderSelectionService {
     }
     if (this.switching) return this.failure(previousProviderId, 'OPERATION_CONFLICT');
     if (providerId === previousProviderId) return this.success(previousProviderId);
+    if (providerId === LOCAL_WHISPER_PROVIDER_ID) {
+      const failureCode = this.getLocalWhisperSelectionFailure();
+      if (failureCode) return this.failure(previousProviderId, failureCode);
+    }
 
     this.switching = true;
     try {
@@ -65,7 +81,22 @@ export class VoiceProviderSelectionService {
     }
   }
 
-  private async rollback(previousProviderId: string): Promise<void> {
+  private async rollback(previousProviderId: string | null): Promise<void> {
+    if (previousProviderId === null) {
+      try {
+        const status = await this.dependencies.runtime.clearProvider();
+        if (status.error) this.dependencies.config.setProvider(null);
+      } catch {
+        this.dependencies.config.setProvider(null);
+      }
+      this.committedProviderId = null;
+      try {
+        this.dependencies.config.save();
+      } catch {
+        // Memory remains on the explicit no-provider authority when persistence is unavailable.
+      }
+      return;
+    }
     try {
       const status = await this.dependencies.runtime.switchProvider(previousProviderId);
       if (status.error) this.dependencies.config.setProvider(previousProviderId);
@@ -80,7 +111,7 @@ export class VoiceProviderSelectionService {
     }
   }
 
-  private success(committedProviderId: string): LocalWhisperProviderSelectionResult {
+  private success(committedProviderId: string | null): LocalWhisperProviderSelectionResult {
     return Object.freeze({
       success: true,
       committedProviderId,
@@ -88,15 +119,18 @@ export class VoiceProviderSelectionService {
     });
   }
 
-  private failure(
-    committedProviderId: string,
-    code: 'INVALID_SETTINGS' | 'OPERATION_CONFLICT',
-  ): LocalWhisperProviderSelectionResult {
+  private failure(committedProviderId: string | null, code: LocalWhisperFailureCode): LocalWhisperProviderSelectionResult {
     return Object.freeze({
       success: false,
       committedProviderId,
       readinessRevision: this.dependencies.getReadinessRevision(),
       error: createLocalWhisperRendererSafeFailure(code),
     });
+  }
+
+  private getLocalWhisperSelectionFailure(): LocalWhisperFailureCode | null {
+    const readiness = this.dependencies.localWhisper.getReadinessSnapshot();
+    if (readiness.snapshot.operationalStatus === 'Ready') return null;
+    return readiness.failure?.code ?? readiness.snapshot.blockingCode ?? 'OPERATION_CONFLICT';
   }
 }

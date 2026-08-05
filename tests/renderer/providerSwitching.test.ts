@@ -61,6 +61,35 @@ function successfulSelection(committedProviderId: string): LocalWhisperProviderS
 }
 
 describe('provider switching', () => {
+  it('preserves an intentional no-provider bootstrap identity', async () => {
+    const events: ProviderSelectionEvent[] = [];
+    const coordinator = createProviderSelectionCoordinator({
+      emit: (event) => events.push(event),
+      getActiveProvider: async () => null,
+      getProviders: async () => PROVIDERS,
+      getRuntimeState: async () => ({
+        backgroundStatus: { ready: false, unselected: true },
+        hasSession: false,
+      }),
+      setActiveProvider: async (providerId) => successfulSelection(providerId),
+    });
+
+    await coordinator.bootstrap();
+
+    assert.deepEqual(events, [
+      {
+        authType: null,
+        providerId: null,
+        providers: PROVIDERS,
+        runtime: {
+          backgroundStatus: { ready: false, unselected: true },
+          hasSession: false,
+        },
+        type: 'bootstrap-completed',
+      },
+    ]);
+  });
+
   it('reports a bootstrap failure once without applying a partial provider snapshot', async () => {
     const events: ProviderSelectionEvent[] = [];
     const coordinator = createProviderSelectionCoordinator({

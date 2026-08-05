@@ -446,12 +446,14 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(coordinator.snapshot.runtime.operationalStatus, 'ValidatedUnloaded');
   });
 
-  it('admits an installed unblocked configuration for automatic validation and lazy loading', async () => {
+  it('refuses transcription until the installed configuration has been loaded and validated', async () => {
     const { coordinator, capability, workers } = harness();
     const eligibility = validAudioDispatch(coordinator);
 
     assert.equal(coordinator.snapshot.runtime.operationalStatus, 'NotReady');
-    assert.equal((await coordinator.checkEligibility(eligibility)).success, true);
+    const eligibilityResult = await coordinator.checkEligibility(eligibility);
+    assert.equal(eligibilityResult.success, false);
+    if (!eligibilityResult.success) assert.equal(eligibilityResult.error.code, 'INVALID_SETTINGS');
 
     const transcription = await coordinator.transcribe({
       dispatch: eligibility.dispatch,
@@ -459,18 +461,21 @@ describe('LocalWhisperCoordinator', () => {
       mimeType: 'audio/wav',
     });
 
-    assert.deepEqual(transcription.success ? transcription.value : null, 'fixture text');
-    assert.equal(capability.calls.length, 1);
-    assert.equal(workers.loadCount, 1);
-    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
+    assert.equal(transcription.success, false);
+    if (!transcription.success) assert.equal(transcription.error.code, 'OPERATION_CONFLICT');
+    assert.equal(capability.calls.length, 0);
+    assert.equal(workers.loadCount, 0);
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'NotReady');
   });
 
-  it('runs eligibility before cache use and lazy-loads only an eligible current dispatch', async () => {
+  it('refuses validated but unloaded configurations without creating another worker', async () => {
     const { coordinator, workers } = harness();
     await coordinator.loadNow();
     await coordinator.unload();
     const eligibility = validAudioDispatch(coordinator);
-    assert.equal((await coordinator.checkEligibility(eligibility)).success, true);
+    const eligibilityResult = await coordinator.checkEligibility(eligibility);
+    assert.equal(eligibilityResult.success, false);
+    if (!eligibilityResult.success) assert.equal(eligibilityResult.error.code, 'INVALID_SETTINGS');
     const stale = {
       ...eligibility,
       dispatch: {
@@ -490,9 +495,10 @@ describe('LocalWhisperCoordinator', () => {
       buffer: Uint8Array.from([1, 2, 3, 4]).buffer,
       mimeType: 'audio/wav',
     });
-    assert.deepEqual(transcription.success ? transcription.value : null, 'fixture text');
-    assert.equal(workers.loadCount, 2);
-    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
+    assert.equal(transcription.success, false);
+    if (!transcription.success) assert.equal(transcription.error.code, 'OPERATION_CONFLICT');
+    assert.equal(workers.loadCount, 1);
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'ValidatedUnloaded');
   });
 
   it('commits request-only settings atomically without unloading and never exposes prompt text', async () => {
@@ -752,6 +758,18 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal((await first).success, true);
     assert.equal(workers.resident.shutdownCount, 1);
     assert.equal(coordinator.snapshot.runtime.residency, 'Unloaded');
+  });
+
+  it('rejects Local Whisper provider selection unless the loaded runtime is ready', async () => {
+    const { coordinator, workers } = harness();
+
+    const unloaded = await coordinator.prepareProviderSwitch('local-whisper');
+    assert.equal(unloaded.success, false);
+    if (!unloaded.success) assert.equal(unloaded.error.code, 'OPERATION_CONFLICT');
+    assert.equal(workers.loadCount, 0);
+
+    await coordinator.loadNow();
+    assert.equal((await coordinator.prepareProviderSwitch('local-whisper')).success, true);
   });
 
   it('rejects provider switching during a pending load and requires a separate retry after settlement', async () => {

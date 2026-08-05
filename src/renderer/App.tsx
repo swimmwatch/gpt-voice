@@ -91,7 +91,7 @@ const App: React.FC = () => {
     useState<TranslationProviderConnectionState | null>(null);
   const [hasLoadedInitialTranslationSettings, setHasLoadedInitialTranslationSettings] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [activeProviderId, setActiveProviderId] = useState('chatgpt');
+  const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
     reduceMainPrettifyProviderSelection,
     {
@@ -123,8 +123,8 @@ const App: React.FC = () => {
 
   const { t, isReady: isI18nReady } = useI18n();
   const activeProvider = providers.find((provider) => provider.id === activeProviderId);
-  const activeProviderName = activeProvider?.name || activeProviderId;
-  const activeProviderAuthType = activeProvider?.authType || 'browserSession';
+  const activeProviderName = activeProvider?.name ?? '';
+  const activeProviderAuthType = activeProvider?.authType ?? null;
   const activeProviderTranscriptionMode = activeProvider?.transcriptionMode || 'batch';
   const providerStartupPending = isInitialProviderStartupPending({
     prettifyPending: isInitialPrettifyProviderLoading,
@@ -137,8 +137,8 @@ const App: React.FC = () => {
 
   const preserveStatusRef = useRef(false);
   const recordingStateRef = useRef<RecordingLifecycleState>('idle');
-  const activeProviderIdRef = useRef(activeProviderId);
-  const activeProviderAuthTypeRef = useRef<ProviderAuthType>('browserSession');
+  const activeProviderIdRef = useRef<string | null>(activeProviderId);
+  const activeProviderAuthTypeRef = useRef<ProviderAuthType | null>(null);
   const providerSelectionCoordinatorRef = useRef<ProviderSelectionCoordinator | null>(null);
   const prettifyModelRefreshIdRef = useRef(0);
   const prettifyProviderChangeRequestRef = useRef(0);
@@ -345,9 +345,19 @@ const App: React.FC = () => {
   const handleProviderSelectionEvent = useEffectEvent((event: ProviderSelectionEvent): void => {
     switch (event.type) {
       case 'bootstrap-completed':
+        setProviders(event.providers);
+        if (event.providerId === null || event.authType === null) {
+          activeProviderIdRef.current = null;
+          activeProviderAuthTypeRef.current = null;
+          setActiveProviderId(null);
+          setIsLoggedIn(false);
+          setIsLoading(false);
+          setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
+          setProviderConnectionFailureStatus(null);
+          return;
+        }
         activeProviderIdRef.current = event.providerId;
         activeProviderAuthTypeRef.current = event.authType;
-        setProviders(event.providers);
         setActiveProviderId(event.providerId);
         applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
         return;
@@ -365,14 +375,28 @@ const App: React.FC = () => {
         return;
       case 'switch-completed': {
         if (event.result.success) {
+          if (event.result.committedProviderId === null) return;
           activeProviderIdRef.current = event.result.committedProviderId;
           activeProviderAuthTypeRef.current = event.authType;
           setActiveProviderId(event.result.committedProviderId);
           applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
           return;
         }
+        if (event.result.committedProviderId === null) {
+          activeProviderIdRef.current = null;
+          activeProviderAuthTypeRef.current = null;
+          setActiveProviderId(null);
+          setIsLoggedIn(false);
+          setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
+          setProviderConnectionFailureStatus(null);
+          return;
+        }
         const committedProvider = providers.find((provider) => provider.id === event.result.committedProviderId);
         const committedAuthType = committedProvider?.authType ?? activeProviderAuthTypeRef.current;
+        if (committedAuthType === null) {
+          setIsLoading(false);
+          return;
+        }
         activeProviderIdRef.current = event.result.committedProviderId;
         activeProviderAuthTypeRef.current = committedAuthType;
         setActiveProviderId(event.result.committedProviderId);
@@ -380,9 +404,22 @@ const App: React.FC = () => {
         return;
       }
       case 'switch-failed': {
+        if (event.committedProviderId === null) {
+          activeProviderIdRef.current = null;
+          activeProviderAuthTypeRef.current = null;
+          setActiveProviderId(null);
+          setIsLoggedIn(false);
+          setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
+          setProviderConnectionFailureStatus(null);
+          return;
+        }
         if (event.committedProviderId && event.runtime) {
           const committedProvider = providers.find((provider) => provider.id === event.committedProviderId);
           const committedAuthType = committedProvider?.authType ?? activeProviderAuthTypeRef.current;
+          if (committedAuthType === null) {
+            setIsLoading(false);
+            return;
+          }
           activeProviderIdRef.current = event.committedProviderId;
           activeProviderAuthTypeRef.current = committedAuthType;
           setActiveProviderId(event.committedProviderId);
@@ -431,7 +468,7 @@ const App: React.FC = () => {
     const subscriptions = [
       desktopApi.onToggleRecording((recording: boolean) => {
         if (disposed) return;
-        if (recording) void recordingActionsRef.current.startRecording();
+        if (recording && activeProviderIdRef.current !== null) void recordingActionsRef.current.startRecording();
       }),
       desktopApi.onStopRecording(() => {
         if (disposed) return;
@@ -600,7 +637,9 @@ const App: React.FC = () => {
   useEffect(() => {
     activeProviderIdRef.current = activeProviderId;
     return desktopApi.onProviderSettingsChanged((settings) => {
-      if (isActiveProviderSettingsChange(settings, activeProviderId)) applyProviderSettingsSnapshot(settings);
+      if (activeProviderId && isActiveProviderSettingsChange(settings, activeProviderId)) {
+        applyProviderSettingsSnapshot(settings);
+      }
     });
   }, [activeProviderId, applyProviderSettingsSnapshot, desktopApi]);
 
@@ -622,6 +661,7 @@ const App: React.FC = () => {
   const handleLogin = async (): Promise<void> => {
     const providerId = activeProviderId;
     const providerName = activeProviderName;
+    if (!providerId || !activeProviderAuthType) return;
     if (activeProviderAuthType === 'apiKey') {
       await openProviderSettings(providerId);
       return;
@@ -840,7 +880,9 @@ const App: React.FC = () => {
         onOpenAbout={openAboutWindow}
         onOpenAppSettings={() => openAppSettingsWindow()}
         onOpenHistory={openHistoryWindow}
-        onOpenProviderSettings={() => void openProviderSettings(activeProviderId)}
+        onOpenProviderSettings={() => {
+          if (activeProviderId) void openProviderSettings(activeProviderId);
+        }}
         onLocalWhisperResidencyAction={(action) => void localWhisperMain.runResidencyAction(action)}
         onProviderChange={(providerId) => void handleProviderChange(providerId)}
         onProviderLogin={() => void handleLogin()}
@@ -885,6 +927,7 @@ const App: React.FC = () => {
         onResume={resumeRecording}
         onStart={startRecording}
         onStop={stopRecording}
+        recordingDisabled={activeProviderId === null}
         recordHotkey={recordHotkey}
         state={recordingState}
         status={status}

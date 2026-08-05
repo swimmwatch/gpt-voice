@@ -209,8 +209,10 @@ export class MainProcessApplication {
     void this.dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
       this.dependencies.logger.warn(TRANSLATION_INITIALIZATION_FAILURE_LOG);
     });
+    const providerId = this.dependencies.config.getSnapshot().provider;
+    if (providerId === null) return;
     const status = await this.dependencies.backgroundBrowserService.initialize();
-    this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.config.getSnapshot().provider);
+    this.dependencies.windowManager.publishBackgroundStatus(status, providerId);
   }
 
   private readonly onWindowAllClosed = (): void => {

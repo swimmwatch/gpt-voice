@@ -92,10 +92,6 @@ class SessionTrapLocalWhisperProvider extends LocalWhisperVoiceProvider {
     throw new Error('Local Whisper initPage must not be called');
   }
 
-  public override isReady(): never {
-    throw new Error('Local Whisper isReady must not be called as an authentication gate');
-  }
-
   public override loadSession(): never {
     throw new Error('Local Whisper loadSession must not be called');
   }
@@ -170,7 +166,43 @@ function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserServ
 }
 
 describe('background browser lifecycle hooks', () => {
-  it('initializes Local Whisper without browser, login, session, or authentication readiness work', async () => {
+  it('keeps an explicitly unselected provider free of runtime construction', async () => {
+    let providerConstructionCalls = 0;
+    const service = new BackgroundBrowserService({
+      audit: new RecordingVoiceProviderAudit(),
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      config: new TestAppConfigStore(null),
+      createBackgroundContext: async () => {
+        throw new Error('background context must not be created');
+      },
+      createLoginContext: async () => {
+        throw new Error('login context must not be created');
+      },
+      localization: new I18nService(),
+      logger: { info: () => {} },
+      providerRegistry: {
+        createProvider: () => {
+          providerConstructionCalls += 1;
+          throw new Error('provider construction must not be attempted');
+        },
+        isKnownProviderId: (_providerId): _providerId is VoiceProviderAuditId => false,
+      },
+      readinessDeadline: new InitialProviderReadinessTestDependencies(),
+    });
+
+    assert.deepEqual(await service.initialize(), {
+      providerId: undefined,
+      ready: false,
+      error: undefined,
+      authExpired: undefined,
+      unselected: true,
+    });
+    await service.ensure();
+    assert.equal(providerConstructionCalls, 0);
+    assert.equal(service.getActiveProvider(), null);
+  });
+
+  it('initializes a ready Local Whisper runtime without browser, login, or session work', async () => {
     const harness = createLocalLifecycleHarness();
 
     const status = await harness.service.initialize();
@@ -178,8 +210,43 @@ describe('background browser lifecycle hooks', () => {
 
     assert.deepEqual(status, { providerId: 'local-whisper', ready: true, error: undefined, authExpired: undefined });
     assert.equal(harness.service.getActiveProvider(), harness.localProvider);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'readiness', 'readiness']);
+    assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+  });
+
+  it('keeps Local Whisper disconnected while its model is not loaded', async () => {
+    const harness = createLocalLifecycleHarness();
+    harness.coordinator.readiness = Object.freeze({
+      snapshot: Object.freeze({
+        ...READY_LOCAL_WHISPER_SNAPSHOT,
+        residency: 'Unloaded',
+        operationalStatus: 'ValidatedUnloaded',
+      }),
+      failure: null,
+    });
+
+    const status = await harness.service.initialize();
+
+    assert.deepEqual(status, { providerId: 'local-whisper', ready: false, error: undefined, authExpired: undefined });
+    assert.equal(harness.service.getActiveProvider(), null);
     assert.deepEqual(harness.coordinator.calls, ['readiness']);
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+  });
+
+  it('clears Local Whisper readiness as soon as its resident model is released', async () => {
+    const harness = createLocalLifecycleHarness();
+    await harness.service.initialize();
+    harness.coordinator.readiness = Object.freeze({
+      snapshot: Object.freeze({
+        ...READY_LOCAL_WHISPER_SNAPSHOT,
+        residency: 'Unloaded',
+        operationalStatus: 'ValidatedUnloaded',
+      }),
+      failure: null,
+    });
+
+    assert.equal(harness.service.isReady(), false);
+    assert.equal(harness.service.getStatus().ready, false);
   });
 
   it('switches an idle Local Whisper provider only after its coordinator accepts the transition', async () => {
@@ -190,7 +257,7 @@ describe('background browser lifecycle hooks', () => {
 
     assert.deepEqual(status, { providerId: 'openai-api', ready: true, error: undefined, authExpired: undefined });
     assert.equal(harness.config.getSnapshot().provider, 'openai-api');
-    assert.deepEqual(harness.coordinator.calls, ['readiness', 'switch']);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'readiness', 'switch']);
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
   });
 
@@ -219,7 +286,7 @@ describe('background browser lifecycle hooks', () => {
     });
     assert.equal(harness.config.getSnapshot().provider, 'local-whisper');
     assert.equal(harness.service.getActiveProvider(), harness.localProvider);
-    assert.deepEqual(harness.coordinator.calls, ['readiness', 'switch']);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'readiness', 'switch', 'readiness']);
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
   });
 

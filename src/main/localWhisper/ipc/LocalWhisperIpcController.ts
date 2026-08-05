@@ -93,7 +93,7 @@ export interface LocalWhisperIpcControllerDependencies {
   readonly managedFolder: LocalWhisperManagedFolderPort;
   readonly references: LocalWhisperArtifactReferencePort;
   readonly snapshots: LocalWhisperSnapshotService;
-  readonly getActiveProviderId: () => string;
+  readonly getActiveProviderId: () => string | null;
   readonly openSettings: () => void;
   readonly refreshSettingsFacts?: (configurationEpoch: number) => Promise<void>;
 }

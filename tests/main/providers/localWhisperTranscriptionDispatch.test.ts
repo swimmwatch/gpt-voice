@@ -219,27 +219,42 @@ describe('LocalWhisperTranscriptionDispatch', () => {
     }
   });
 
-  it('serves eligible Loaded and ValidatedUnloaded cache hits without coordinator transcription', async () => {
-    for (const state of [
-      READY_LOCAL_WHISPER_SNAPSHOT,
-      Object.freeze({
-        ...READY_LOCAL_WHISPER_SNAPSHOT,
-        residency: 'Unloaded' as const,
-        operationalStatus: 'ValidatedUnloaded' as const,
-      }),
-    ]) {
-      const harness = createHarness();
-      harness.coordinator.readiness = withSnapshot(state, null);
-      harness.seedCache('cached local transcript');
+  it('serves cache hits only after the loaded Local Whisper runtime is eligible', async () => {
+    const harness = createHarness();
+    harness.seedCache('cached local transcript');
 
-      const result = await run(harness);
+    const result = await run(harness);
 
-      assert.deepEqual(result, { success: true, text: 'cached local transcript' });
-      assert.deepEqual(harness.events, ['capture', 'eligibility', 'cache-read', 'clipboard']);
-      assert.equal(harness.coordinator.calls.includes('transcribe'), false);
-      assert.deepEqual(harness.clipboard, ['cached local transcript']);
-      assert.equal(harness.history.addedEntries.length, 1);
-    }
+    assert.deepEqual(result, { success: true, text: 'cached local transcript' });
+    assert.deepEqual(harness.events, ['capture', 'eligibility', 'cache-read', 'clipboard']);
+    assert.equal(harness.coordinator.calls.includes('transcribe'), false);
+    assert.deepEqual(harness.clipboard, ['cached local transcript']);
+    assert.equal(harness.history.addedEntries.length, 1);
+  });
+
+  it('does not use a cache hit while the Local Whisper model is unloaded', async () => {
+    const harness = createHarness();
+    const snapshot = Object.freeze({
+      ...READY_LOCAL_WHISPER_SNAPSHOT,
+      residency: 'Unloaded' as const,
+      operationalStatus: 'ValidatedUnloaded' as const,
+    });
+    harness.coordinator.readiness = withSnapshot(snapshot, null);
+    harness.coordinator.eligibilityResult = createLocalWhisperActionFailure(
+      'transcribe',
+      'OPERATION_CONFLICT',
+      snapshot,
+    );
+    harness.seedCache('cached local transcript');
+
+    const result = await run(harness);
+
+    assert.equal(result.success, false);
+    assert.equal(result.failure?.code, 'OPERATION_CONFLICT');
+    assert.deepEqual(harness.events, ['capture', 'eligibility']);
+    assert.equal(harness.coordinator.calls.includes('transcribe'), false);
+    assert.deepEqual(harness.clipboard, []);
+    assert.equal(harness.history.addedEntries.length, 0);
   });
 
   it('keeps coordinator failure, cancellation, and empty output free of success mutations', async () => {

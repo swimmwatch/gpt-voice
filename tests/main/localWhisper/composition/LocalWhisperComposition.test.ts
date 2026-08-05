@@ -3,20 +3,22 @@ import { describe, it } from 'node:test';
 
 import { MainProcessRuntimeGraph } from '@main/di/mainProcessRuntimeGraph';
 import { VoiceProviderSelectionService } from '@main/localWhisper/ipc/VoiceProviderSelectionService';
+import { READY_LOCAL_WHISPER_SNAPSHOT } from '../../providers/localWhisperTestUtils';
 import type { LocalWhisperCoordinator } from '@main/localWhisper/coordinator/LocalWhisperCoordinator';
 import type { LocalWhisperIpcController } from '@main/localWhisper/ipc/LocalWhisperIpcController';
 import type { LocalWhisperSnapshotService } from '@main/localWhisper/ipc/LocalWhisperSnapshotService';
 
 class SelectionConfig {
-  public provider = 'chatgpt';
   public saveCalls = 0;
   public failNextSave = false;
+
+  public constructor(public provider: string | null = 'chatgpt') {}
 
   public getSnapshot() {
     return { provider: this.provider };
   }
 
-  public setProvider(providerId: string): void {
+  public setProvider(providerId: string | null): void {
     this.provider = providerId;
   }
 
@@ -29,6 +31,12 @@ class SelectionConfig {
   }
 }
 
+function localWhisperReadiness(snapshot = READY_LOCAL_WHISPER_SNAPSHOT) {
+  return {
+    getReadinessSnapshot: () => Object.freeze({ snapshot, failure: null }),
+  };
+}
+
 describe('VoiceProviderSelectionService', () => {
   it('commits only after runtime and persistence succeed', async () => {
     const config = new SelectionConfig();
@@ -37,12 +45,17 @@ describe('VoiceProviderSelectionService', () => {
       config,
       registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
       runtime: {
+        clearProvider: async () => {
+          config.setProvider(null);
+          return {};
+        },
         switchProvider: async (providerId) => {
           switched.push(providerId);
           config.setProvider(providerId);
           return {};
         },
       },
+      localWhisper: localWhisperReadiness(),
       getReadinessRevision: () => 7,
     });
 
@@ -61,6 +74,10 @@ describe('VoiceProviderSelectionService', () => {
       config,
       registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
       runtime: {
+        clearProvider: async () => {
+          config.setProvider(null);
+          return {};
+        },
         switchProvider: async (providerId) => {
           switched.push(providerId);
           config.setProvider(providerId);
@@ -68,6 +85,7 @@ describe('VoiceProviderSelectionService', () => {
           return {};
         },
       },
+      localWhisper: localWhisperReadiness(),
       getReadinessRevision: () => 8,
     });
 
@@ -87,6 +105,37 @@ describe('VoiceProviderSelectionService', () => {
     assert.deepEqual(switched, ['local-whisper', 'chatgpt', 'local-whisper', 'chatgpt']);
   });
 
+  it('rolls a failed initial selection back to the intentional no-provider state', async () => {
+    const config = new SelectionConfig(null);
+    const transitions: string[] = [];
+    const service = new VoiceProviderSelectionService({
+      config,
+      registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
+      runtime: {
+        clearProvider: async () => {
+          transitions.push('clear');
+          config.setProvider(null);
+          return {};
+        },
+        switchProvider: async (providerId) => {
+          transitions.push(`switch:${providerId}`);
+          config.setProvider(providerId);
+          return { error: 'private runtime failure' };
+        },
+      },
+      localWhisper: localWhisperReadiness(),
+      getReadinessRevision: () => 9,
+    });
+
+    const result = await service.select('chatgpt');
+
+    assert.equal(result.success, false);
+    assert.equal(result.committedProviderId, null);
+    assert.equal(service.getCommittedProviderId(), null);
+    assert.equal(config.provider, null);
+    assert.deepEqual(transitions, ['switch:chatgpt', 'clear']);
+  });
+
   it('rejects concurrent and unknown selections without changing committed authority', async () => {
     const config = new SelectionConfig();
     let release!: () => void;
@@ -97,12 +146,17 @@ describe('VoiceProviderSelectionService', () => {
       config,
       registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
       runtime: {
+        clearProvider: async () => {
+          config.setProvider(null);
+          return {};
+        },
         switchProvider: async (providerId) => {
           config.setProvider(providerId);
           await blocked;
           return {};
         },
       },
+      localWhisper: localWhisperReadiness(),
       getReadinessRevision: () => 9,
     });
 
@@ -115,6 +169,43 @@ describe('VoiceProviderSelectionService', () => {
     assert.equal(service.getCommittedProviderId(), 'chatgpt');
     release();
     await first;
+  });
+
+  it('rejects an unready Local Whisper selection before it changes runtime or configuration', async () => {
+    const config = new SelectionConfig();
+    const switched: string[] = [];
+    const service = new VoiceProviderSelectionService({
+      config,
+      registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
+      runtime: {
+        clearProvider: async () => {
+          config.setProvider(null);
+          return {};
+        },
+        switchProvider: async (providerId) => {
+          switched.push(providerId);
+          config.setProvider(providerId);
+          return {};
+        },
+      },
+      localWhisper: localWhisperReadiness(
+        Object.freeze({
+          ...READY_LOCAL_WHISPER_SNAPSHOT,
+          residency: 'Unloaded',
+          operationalStatus: 'ValidatedUnloaded',
+        }),
+      ),
+      getReadinessRevision: () => 10,
+    });
+
+    const result = await service.select('local-whisper');
+
+    assert.equal(result.success, false);
+    assert.equal(result.committedProviderId, 'chatgpt');
+    if (!result.success) assert.equal(result.error.code, 'OPERATION_CONFLICT');
+    assert.equal(config.provider, 'chatgpt');
+    assert.equal(config.saveCalls, 0);
+    assert.deepEqual(switched, []);
   });
 });
 

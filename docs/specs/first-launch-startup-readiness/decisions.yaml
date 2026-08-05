@@ -1,0 +1,349 @@
+schema_version: 1
+spec_slug: first-launch-startup-readiness
+interview_id: spec:first-launch-startup-readiness
+decisions:
+  - id: outcome.first-launch-readiness
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User request on 2026-08-05
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - first-launch-ready
+      text: "On first launch, do not select a voice provider; install the required components including CloakBrowser; and show a concise, accurate status message and percentage while concurrent startup work runs."
+    rationale: "Explicit current user requirement."
+    supersedes_revision: null
+    requirement_ids: [FLR-001, FLR-002, FLR-003, FLR-004]
+  - id: current.default-voice-provider
+    revision: 1
+    category: current_state
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/config.ts:60,220
+      - src/main/config.ts:460
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [chatgpt-default]
+      text: "The in-memory and fallback voice provider is chatgpt; a persisted provider value overrides it."
+    rationale: "Changing first-launch behavior needs a migration-safe distinction between no saved selection and an existing user's saved provider."
+    supersedes_revision: null
+    requirement_ids: [FLR-001]
+  - id: current.startup-concurrency
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/mainProcessApplication.ts:195-214
+      - src/renderer/providerStartupState.ts:7-35
+      - src/renderer/App.tsx:129-136
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [parallel-startup]
+      text: "The main window is created before asynchronous provider initialization; translation starts without awaiting it while background-browser initialization is awaited. The renderer independently waits for voice, prettify, translation settings, and translation connection state."
+    rationale: "A single mutable status message would be subject to last-writer-wins races."
+    supersedes_revision: null
+    requirement_ids: [FLR-003, FLR-004]
+  - id: current.cloakbrowser-runtime
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/cloakbrowser.ts:34-74
+      - scripts/prepare-cloakbrowser.mjs
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bundled-only]
+      text: "Packaged startup disables CloakBrowser auto-update and configures a bundled executable only when it exists; no first-run installation or download is currently attempted."
+    rationale: "Runtime installation introduces a new external download and recovery path."
+    supersedes_revision: null
+    requirement_ids: [FLR-002]
+  - id: scope.components
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - User request says all necessary components, including CloakBrowser
+      - src/main/cloakbrowser.ts:34-74
+    prompt_mcp:
+      interview_id: spec:first-launch-startup-readiness
+      batch_id: scope-round-01
+      question_id: scope.components
+      idempotency_key: scope.components:v1
+      last_status: answered
+    question:
+      text: "Which components should first-launch initialization prepare automatically?"
+      kind: single
+      options:
+        - id: browser-runtime-only
+          label: Browser runtime only
+          description: "Install or verify CloakBrowser and app-owned runtime prerequisites; do not download voice models, authenticate providers, or install external provider applications."
+        - id: include-local-models
+          label: Include local models
+          description: "Also download Local Whisper runtimes and models during first launch, which increases first-launch time and disk/network use."
+    answer:
+      selected_ids: [browser-runtime-only]
+      text: ""
+    rationale: "The requested phrase is broader than the current CloakBrowser issue and materially changes time, bandwidth, storage, and privacy."
+    supersedes_revision: null
+    requirement_ids: [FLR-002]
+  - id: security.runtime-download-source
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User request requires CloakBrowser download/install on first launch
+      - src/main/cloakbrowser.ts:34-46
+    prompt_mcp:
+      interview_id: spec:first-launch-startup-readiness
+      batch_id: scope-round-01
+      question_id: security.runtime-download-source
+      idempotency_key: security.runtime-download-source:v1
+      last_status: answered
+    question:
+      text: "If a packaged app does not contain CloakBrowser, may it automatically download the verified runtime from the CloakBrowser vendor during first launch?"
+      kind: single
+      options:
+        - id: vendor-download
+          label: Download from vendor
+          description: "Use CloakBrowser's verified installer/download flow after the bundled-runtime check fails."
+        - id: bundled-only
+          label: Bundled runtime only
+          description: "Do not download at runtime; report a repairable installation error if packaged assets are missing."
+    answer:
+      selected_ids: [vendor-download]
+      text: ""
+    rationale: "This decides whether first launch makes a new external network request and executable download."
+    supersedes_revision: null
+    requirement_ids: [FLR-002]
+  - id: failure.runtime-install-recovery
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - src/renderer/components/LoadingScreen.tsx:5-13
+      - src/main/mainProcessApplication.ts:195-214
+    prompt_mcp:
+      interview_id: spec:first-launch-startup-readiness
+      batch_id: scope-round-01
+      question_id: failure.runtime-install-recovery
+      idempotency_key: failure.runtime-install-recovery:v1
+      last_status: answered
+    question:
+      text: "What should happen when CloakBrowser installation fails during first launch?"
+      kind: single
+      options:
+        - id: retry-in-startup
+          label: Retry in startup
+          description: "Keep the startup screen open with the error and a Retry action; continue only after the required runtime is available."
+        - id: open-limited-app
+          label: Open limited app
+          description: "Open the app without browser-backed providers and present the failure in provider setup."
+    answer:
+      selected_ids: [retry-in-startup]
+      text: ""
+    rationale: "This determines whether an install failure blocks application access or permits a degraded first-run experience."
+    supersedes_revision: null
+    requirement_ids: [FLR-005]
+  - id: compatibility.existing-provider-selection
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - User request limits no-provider selection to first launch
+      - src/main/config.ts:460
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-existing]
+      text: "A persisted provider selection remains unchanged. A pre-existing configuration without a provider is treated as a legacy configuration and retains the historical ChatGPT fallback; only a new configuration starts unselected."
+    rationale: "This is the narrowest migration-safe interpretation of the explicit first-launch requirement."
+    supersedes_revision: null
+    requirement_ids: [FLR-001]
+  - id: current.loader-ui
+    revision: 1
+    category: ui
+    state: observed
+    provenance: repository
+    evidence:
+      - src/renderer/components/LoadingScreen.tsx:5-13
+      - src/renderer/components/ui/spinner.tsx (uncommitted reusable ProgressSpinner)
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [existing-progress-spinner]
+      text: "The startup view has a centered loader and static text. The existing shared spinner component now includes a reusable determinate ProgressSpinner and must be reused rather than replaced."
+    rationale: "The first-launch loader should fit the existing interface and avoid a new parallel UI component."
+    supersedes_revision: null
+    requirement_ids: [FLR-003]
+  - id: progress.contract
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - node_modules/cloakbrowser/dist/download.d.ts
+      - node_modules/cloakbrowser/dist/download.js:570-585
+      - User request requires a percentage display and correct concurrent status
+    prompt_mcp:
+      interview_id: spec:first-launch-startup-readiness
+      batch_id: acceptance-round-02
+      question_id: progress.contract
+      idempotency_key: progress.contract:v1
+      last_status: answered
+    question:
+      text: "CloakBrowser exposes verified installation but no typed byte-progress callback. Which truthful percentage behavior should startup use?"
+      kind: single
+      options:
+        - id: completed-work-units
+          label: Completed work units (Recommended)
+          description: "Show the aggregate percentage only from completed, known startup jobs and any byte progress a dependency explicitly reports; do not estimate elapsed time or invent in-download percentages."
+        - id: parse-installer-output
+          label: Parse installer output
+          description: "Parse CloakBrowser's console download milestones to update the percentage during download, accepting coupling to its non-API log format."
+    answer:
+      selected_ids: [completed-work-units]
+      text: ""
+    rationale: "The requested percentage must remain truthful while avoiding a dependency on non-contractual console text unless explicitly authorized."
+    supersedes_revision: null
+    requirement_ids: [FLR-004]
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/first-launch-startup-readiness/spec.md
+    prompt_mcp:
+      interview_id: spec:first-launch-startup-readiness
+      batch_id: approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: "Approve the first-launch startup readiness specification as the implementation contract?"
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: "Approve this draft as the implementation contract and allow a separate planning request."
+        - id: request-changes
+          label: Request changes
+          description: "Keep the draft open and revise the affected requirements."
+        - id: leave-draft
+          label: Leave as draft
+          description: "Keep the draft without approving it or starting planning."
+    answer:
+      selected_ids: [approve]
+      text: ""
+    rationale: "Specification approval is required before planning or implementation."
+    supersedes_revision: null
+    requirement_ids: [FLR-001, FLR-002, FLR-003, FLR-004, FLR-005, FLR-006, FLR-007, FLR-008, FLR-009, FLR-010, FLR-011, FLR-012, FLR-013, FLR-014, FLR-015, FLR-016, FLR-017]
+  - id: plan.startup-coordinator-placement
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/mainProcessApplication.ts:195-214
+      - src/main/cloakbrowser.ts:29-74
+      - src/main/ipc.ts:137-177
+    prompt_mcp:
+      interview_id: plan:first-launch-startup-readiness
+      batch_id: architecture-round-01
+      question_id: plan.startup-coordinator-placement
+      idempotency_key: plan.startup-coordinator-placement:v1
+      last_status: answered
+    question:
+      text: "Where should the first-launch startup state and retry lifecycle be owned?"
+      kind: single
+      options:
+        - id: dedicated-coordinator
+          label: Dedicated coordinator (Recommended)
+          description: "Add one injected main-process coordinator that owns job generations, immutable snapshots, runtime preparation, and retry; MainProcessApplication only starts it and IPC exposes it."
+        - id: application-owned
+          label: Application-owned state
+          description: "Add startup state and retry behavior directly to MainProcessApplication, keeping fewer classes but coupling lifecycle, job tracking, and IPC integration."
+    answer:
+      selected_ids: [dedicated-coordinator]
+      text: ""
+    rationale: "Both approaches satisfy the approved behavior; the ownership choice determines task boundaries and tests without changing the product contract."
+    supersedes_revision: null
+    requirement_ids: [FLR-008, FLR-009, FLR-010, FLR-014]
+  - id: plan.approval
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/first-launch-startup-readiness/tasks/plan.md
+      - docs/specs/first-launch-startup-readiness/tasks/todo.md
+      - docs/specs/first-launch-startup-readiness/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:first-launch-startup-readiness
+      batch_id: approval-round-02
+      question_id: plan.approval
+      idempotency_key: plan.approval:v1
+      last_status: answered
+    question:
+      text: "Approve the first-launch startup readiness task plan?"
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: "Approve the four task packets as the execution plan; implementation still requires separate authorization."
+        - id: request-changes
+          label: Request changes
+          description: "Keep the plan as a draft and revise the specified packets."
+        - id: leave-draft
+          label: Leave as draft
+          description: "Keep the plan unapproved and do not authorize implementation."
+    answer:
+      selected_ids: [approve]
+      text: ""
+    rationale: "Plan approval is required before a separate execution-authorization decision."
+    supersedes_revision: null
+    requirement_ids: [FLR-001, FLR-002, FLR-003, FLR-004, FLR-005, FLR-006, FLR-007, FLR-008, FLR-009, FLR-010, FLR-011, FLR-012, FLR-013, FLR-014, FLR-015, FLR-016, FLR-017]
+  - id: execution.packet-01
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/first-launch-startup-readiness/tasks/01_startup-preparation-foundation.md
+      - docs/specs/first-launch-startup-readiness/tasks/todo.md
+    prompt_mcp:
+      interview_id: implementation:first-launch-startup-readiness
+      batch_id: execution-round-01
+      question_id: execution.packet-01
+      idempotency_key: execution.packet-01:v1
+      last_status: answered
+    question:
+      text: "Authorize execution of packet 01, Startup preparation foundation, without committing it?"
+      kind: single
+      options:
+        - id: execute-packet-01
+          label: Execute packet 01
+          description: "Implement and verify only the startup foundation packet; leave its completed changes uncommitted for review."
+        - id: do-not-execute
+          label: Do not execute
+          description: "Keep the approved plan unchanged and do not modify production code."
+    answer:
+      selected_ids: [execute-packet-01]
+      text: ""
+    rationale: "The approved plan requires separate execution authorization for exactly one packet."
+    supersedes_revision: null
+    requirement_ids: [FLR-005, FLR-006, FLR-008, FLR-009, FLR-012, FLR-013, FLR-014, FLR-017]

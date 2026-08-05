@@ -28,9 +28,9 @@ import {
 } from '@shared/localWhisper';
 
 interface MainToolbarProps {
-  activeProviderAuthType: ProviderAuthType;
+  activeProviderAuthType: ProviderAuthType | null;
   activeProviderHasSettings: boolean;
-  activeProviderId: string;
+  activeProviderId: string | null;
   activeProviderName: string;
   isLoggedIn: boolean;
   isLoggingIn: boolean;
@@ -158,7 +158,7 @@ function MainToolbar({
         <Mic aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
         <div className="command-dock-provider-field">
           <span className="command-dock-field-label">{t('mainDock.providerLabel')}</span>
-          <Select onValueChange={onProviderChange} value={activeProviderId}>
+          <Select onValueChange={onProviderChange} value={activeProviderId ?? undefined}>
             <SelectTrigger aria-label={t('provider.label')} className="command-dock-provider-trigger">
               <SelectValue placeholder={t('provider.label')} />
             </SelectTrigger>
@@ -185,46 +185,49 @@ function MainToolbar({
           data-local-whisper={isLocalWhisperProvider}
           data-slot="provider-controls"
         >
-          {isLocalWhisperProvider ? (
-            <>
-              <LocalWhisperMainStatusIndicator snapshot={localWhisperStatus} />
-              <LocalWhisperMainResidencyControl
-                failure={localWhisperResidencyFailure}
-                failureSequence={localWhisperResidencyFailureSequence}
-                onAction={onLocalWhisperResidencyAction}
-                pendingAction={localWhisperPendingAction}
-                snapshot={localWhisperStatus}
+          {activeProviderId !== null &&
+            (isLocalWhisperProvider ? (
+              <>
+                <LocalWhisperMainStatusIndicator snapshot={localWhisperStatus} />
+                <LocalWhisperMainResidencyControl
+                  failure={localWhisperResidencyFailure}
+                  failureSequence={localWhisperResidencyFailureSequence}
+                  onAction={onLocalWhisperResidencyAction}
+                  pendingAction={localWhisperPendingAction}
+                  snapshot={localWhisperStatus}
+                />
+              </>
+            ) : isLoggedIn ? (
+              <ProviderStatusIndicator
+                className="command-dock-provider-state command-dock-provider-state-success"
+                dataSlot="voice-provider-connection"
+                label={t('provider.connected')}
+                tone="success"
+                tooltip={providerStatusTooltip}
               />
-            </>
-          ) : isLoggedIn ? (
-            <ProviderStatusIndicator
-              className="command-dock-provider-state command-dock-provider-state-success"
-              dataSlot="voice-provider-connection"
-              label={t('provider.connected')}
-              tone="success"
-              tooltip={providerStatusTooltip}
-            />
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={providerActionLabel}
-                  className="command-dock-provider-action"
-                  data-icon-only={isBrowserSessionProvider}
-                  disabled={isLoggingIn}
-                  onClick={onProviderLogin}
-                  size={isBrowserSessionProvider ? 'icon' : 'default'}
-                  variant="outline"
-                >
-                  {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
-                  {!isBrowserSessionProvider && <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{providerStatusTooltip}</TooltipContent>
-            </Tooltip>
-          )}
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label={providerActionLabel}
+                    className="command-dock-provider-action"
+                    data-icon-only={isBrowserSessionProvider}
+                    disabled={isLoggingIn}
+                    onClick={onProviderLogin}
+                    size={isBrowserSessionProvider ? 'icon' : 'default'}
+                    variant="outline"
+                  >
+                    {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
+                    {!isBrowserSessionProvider && (
+                      <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{providerStatusTooltip}</TooltipContent>
+              </Tooltip>
+            ))}
 
-          {activeProviderHasSettings && (
+          {activeProviderId !== null && activeProviderHasSettings && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

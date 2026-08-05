@@ -287,12 +287,12 @@ export type LocalWhisperSettingsCommandResult =
 export type LocalWhisperProviderSelectionResult =
   | {
       readonly success: true;
-      readonly committedProviderId: string;
+      readonly committedProviderId: string | null;
       readonly readinessRevision: number;
     }
   | {
       readonly success: false;
-      readonly committedProviderId: string;
+      readonly committedProviderId: string | null;
       readonly readinessRevision: number;
       readonly error: LocalWhisperRendererSafeFailure;
     };
@@ -845,9 +845,10 @@ export function isLocalWhisperMainResidencyCommandResult(
 export function isLocalWhisperProviderSelectionResult(value: unknown): value is LocalWhisperProviderSelectionResult {
   if (!isPlainRecord(value) || typeof value.success !== 'boolean') return false;
   const base =
-    typeof value.committedProviderId === 'string' &&
-    value.committedProviderId.length > 0 &&
-    value.committedProviderId.length <= 128 &&
+    (value.committedProviderId === null ||
+      (typeof value.committedProviderId === 'string' &&
+        value.committedProviderId.length > 0 &&
+        value.committedProviderId.length <= 128)) &&
     isSafeEpoch(value.readinessRevision);
   if (!base) return false;
   return value.success

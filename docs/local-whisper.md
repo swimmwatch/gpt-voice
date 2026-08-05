@@ -88,11 +88,13 @@ confirmation, never deletes an active or leased artifact, and never removes
 settings, prompt, unrelated revisions, or the private device-identity salt.
 
 `Load now` verifies the exact runtime, model, device proof, memory policy, and
-worker before allocating RAM/VRAM. Lazy load may occur only for an eligible
-cache miss under the same authority. `Unload` releases residency without
-deleting artifacts. Conflicting load, unload, transcription, switch, removal,
-or shutdown operations return a typed conflict; they do not enter a hidden
-queue or choose a fallback.
+worker before allocating RAM/VRAM. Local Whisper is selectable, connected, and
+able to transcribe only after that load has completed successfully. Provider
+selection, cache lookup, and transcription never trigger a model load; an
+unloaded model remains Not connected until the user explicitly loads it.
+`Unload` releases residency without deleting artifacts. Conflicting load,
+unload, transcription, switch, removal, or shutdown operations return a typed
+conflict; they do not enter a hidden queue or choose a fallback.
 
 CUDA requires the exact approved driver and pack dependency closure. Vulkan
 requires a physical AMD device, the pack's generated Vulkan target, required

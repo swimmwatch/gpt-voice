@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { LocalWhisperVoiceProvider } from '@main/providers/LocalWhisperVoiceProvider';
-import { RecordingLocalWhisperCoordinator, createCanonicalLocalWhisperWav } from './localWhisperTestUtils';
+import {
+  READY_LOCAL_WHISPER_SNAPSHOT,
+  RecordingLocalWhisperCoordinator,
+  createCanonicalLocalWhisperWav,
+} from './localWhisperTestUtils';
 
 describe('LocalWhisperVoiceProvider', () => {
   it('exposes stable metadata and adapts generic configuration queries without browser-session state', () => {
@@ -49,5 +53,30 @@ describe('LocalWhisperVoiceProvider', () => {
       'switch',
     ]);
     assert.deepEqual(coordinator.lastTranscriptionRequest?.dispatch.epochs, dispatch.epochs);
+  });
+
+  it('reports readiness only for a loaded, validated Local Whisper runtime', () => {
+    const coordinator = new RecordingLocalWhisperCoordinator();
+    const provider = new LocalWhisperVoiceProvider(coordinator);
+
+    coordinator.readiness = Object.freeze({
+      snapshot: Object.freeze({
+        ...READY_LOCAL_WHISPER_SNAPSHOT,
+        residency: 'Unloaded',
+        operationalStatus: 'ValidatedUnloaded',
+      }),
+      failure: null,
+    });
+    assert.equal(provider.isReady(), false);
+
+    coordinator.readiness = Object.freeze({
+      snapshot: Object.freeze({
+        ...READY_LOCAL_WHISPER_SNAPSHOT,
+        activity: 'Transcribing',
+        operationalStatus: 'Busy',
+      }),
+      failure: null,
+    });
+    assert.equal(provider.isReady(), true);
   });
 });

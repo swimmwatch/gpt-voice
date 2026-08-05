@@ -71,10 +71,10 @@ export class LocalWhisperRendererService {
 
   public constructor(
     private readonly api: RendererLocalWhisperApi,
-    private committedProviderIdValue: string,
+    private committedProviderIdValue: string | null,
   ) {}
 
-  public get committedProviderId(): string {
+  public get committedProviderId(): string | null {
     return this.committedProviderIdValue;
   }
 

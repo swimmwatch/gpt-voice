@@ -512,9 +512,11 @@ export class MainIpcController {
 
     this.trustedIpc.handle('check-session', () => {
       try {
+        const configuredProviderId = dependencies.config.getSnapshot().provider;
+        if (configuredProviderId === null) return false;
         const provider =
           dependencies.backgroundBrowserService.getActiveProvider() ??
-          dependencies.voiceProviderRegistry.createProvider(dependencies.config.getSnapshot().provider);
+          dependencies.voiceProviderRegistry.createProvider(configuredProviderId);
         const audit = dependencies.voiceAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
         try {
           const hasSession = provider.hasSession();
@@ -1253,7 +1255,7 @@ export class MainIpcController {
 
   private async refreshActiveProvider(providerId: string) {
     const currentProvider = this.dependencies.config.getSnapshot().provider;
-    if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
+    if (currentProvider === null || !shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
     const status = await this.dependencies.backgroundBrowserService.restart();
     this.dependencies.windowManager.publishBackgroundStatus(status, currentProvider);
     return status;

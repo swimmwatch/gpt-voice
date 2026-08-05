@@ -9,8 +9,8 @@ export interface ProviderSelectionRuntimeState {
 export type ProviderSelectionEvent =
   | {
       type: 'bootstrap-completed';
-      authType: ProviderAuthType;
-      providerId: string;
+      authType: ProviderAuthType | null;
+      providerId: string | null;
       providers: ProviderInfo[];
       runtime: ProviderSelectionRuntimeState;
     }
@@ -45,7 +45,7 @@ export type ProviderSelectionEvent =
 
 export interface ProviderSelectionCoordinatorDependencies {
   emit(event: ProviderSelectionEvent): void;
-  getActiveProvider(): Promise<string>;
+  getActiveProvider(): Promise<string | null>;
   getProviders(): Promise<ProviderInfo[]>;
   getRuntimeState(): Promise<ProviderSelectionRuntimeState>;
   setActiveProvider(providerId: string): Promise<LocalWhisperProviderSelectionResult>;
@@ -57,8 +57,9 @@ export interface ProviderSelectionCoordinator {
   switchProvider(providerId: string, authType: ProviderAuthType): Promise<void>;
 }
 
-function findProviderAuthType(providers: ProviderInfo[], providerId: string): ProviderAuthType {
-  return providers.find((provider) => provider.id === providerId)?.authType ?? 'browserSession';
+function findProviderAuthType(providers: ProviderInfo[], providerId: string | null): ProviderAuthType | null {
+  if (providerId === null) return null;
+  return providers.find((provider) => provider.id === providerId)?.authType ?? null;
 }
 
 /** Owns latest-request semantics for provider bootstrap and switching without depending on React. */

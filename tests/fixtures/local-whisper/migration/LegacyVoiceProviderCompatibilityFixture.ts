@@ -1,10 +1,11 @@
 import { VoiceProviderSelectionService } from '@main/localWhisper/ipc/VoiceProviderSelectionService';
+import { INITIAL_LOCAL_WHISPER_RUNTIME_SNAPSHOT } from '@shared/localWhisper';
 
 const LEGACY_PROVIDER_IDS = ['chatgpt', 'openai-api', 'claude-web'] as const;
 
 /** Current-code model of the immediately preceding provider registry; it is not real-binary evidence. */
 export class LegacyVoiceProviderCompatibilityFixture {
-  private provider = 'local-whisper';
+  private provider: string | null = 'local-whisper';
   private readinessRevision = 0;
   public saveCount = 0;
   public localExecutionCount = 0;
@@ -33,6 +34,10 @@ export class LegacyVoiceProviderCompatibilityFixture {
           LEGACY_PROVIDER_IDS.includes(providerId as (typeof LEGACY_PROVIDER_IDS)[number]),
       },
       runtime: {
+        clearProvider: async () => {
+          this.provider = null;
+          return {};
+        },
         switchProvider: async (providerId) => {
           if (!LEGACY_PROVIDER_IDS.includes(providerId as (typeof LEGACY_PROVIDER_IDS)[number])) {
             return { error: 'unknown legacy provider' };
@@ -42,11 +47,15 @@ export class LegacyVoiceProviderCompatibilityFixture {
           return {};
         },
       },
+      localWhisper: {
+        getReadinessSnapshot: () => ({ snapshot: INITIAL_LOCAL_WHISPER_RUNTIME_SNAPSHOT, failure: null }),
+      },
       getReadinessRevision: () => this.readinessRevision,
     });
   }
 
   public get selectedProviderId(): string {
+    if (this.provider === null) throw new Error('Legacy fixture has no selected provider');
     return this.provider;
   }
 

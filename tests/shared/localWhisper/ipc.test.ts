@@ -111,6 +111,15 @@ describe('Local Whisper IPC decoders', () => {
     assert.equal(
       isLocalWhisperProviderSelectionResult({
         success: false,
+        committedProviderId: null,
+        readinessRevision: 4,
+        error: failure,
+      }),
+      true,
+    );
+    assert.equal(
+      isLocalWhisperProviderSelectionResult({
+        success: false,
         committedProviderId: 'chatgpt',
         readinessRevision: 4,
         error: 'raw failure',

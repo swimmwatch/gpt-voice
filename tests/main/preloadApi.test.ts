@@ -50,7 +50,7 @@ class RecordingIpcRenderer implements ElectronApiIpcRenderer {
 describe('preload API factory', () => {
   it('routes typed invocations through an injected renderer without Electron globals', async () => {
     const renderer = new RecordingIpcRenderer();
-    renderer.respond('get-active-provider', 'chatgpt');
+    renderer.respond('get-active-provider', null);
     renderer.respond('set-active-provider', {
       success: true,
       committedProviderId: 'claude-web',
@@ -58,7 +58,7 @@ describe('preload API factory', () => {
     });
     const api = createElectronApi(renderer);
 
-    assert.equal(await api.getActiveProvider(), 'chatgpt');
+    assert.equal(await api.getActiveProvider(), null);
     await api.setActiveProvider('claude-web');
     await api.setHotkey('prettifyQuick', 'Ctrl+F12');
     await api.translateText('private-source-canary', 'ru');

@@ -185,18 +185,8 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     }
     const runtime = this.snapshotValue.runtime;
     const status = runtime.operationalStatus;
-    if (status === 'Ready' || status === 'ValidatedUnloaded') {
-      return Promise.resolve(this.successResult('transcribe', undefined));
-    }
+    if (status === 'Ready') return Promise.resolve(this.successResult('transcribe', undefined));
     if (status === 'Busy') return Promise.resolve(this.failureResult('transcribe', 'OPERATION_CONFLICT'));
-    const canLoadOnDemand =
-      status === 'NotReady' &&
-      runtime.canAttempt &&
-      runtime.runtimeSetup === 'Installed' &&
-      runtime.modelSetup === 'Installed' &&
-      runtime.residency === 'Unloaded' &&
-      runtime.blockingCode === null;
-    if (canLoadOnDemand) return Promise.resolve(this.successResult('transcribe', undefined));
     return Promise.resolve(this.failureResult('transcribe', runtime.blockingCode ?? 'INVALID_SETTINGS'));
   }
 
@@ -327,13 +317,16 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     const dispatchFailure = this.dispatchFailure(request.dispatch);
     if (dispatchFailure) return this.failureResult('transcribe', dispatchFailure);
     if (request.buffer.byteLength === 0) return this.failureResult('transcribe', 'AUDIO_FORMAT_UNSUPPORTED');
+    const runtime = this.snapshotValue.runtime;
+    if (runtime.operationalStatus !== 'Ready') {
+      return this.failureResult(
+        'transcribe',
+        runtime.operationalStatus === 'Busy' ? 'OPERATION_CONFLICT' : (runtime.blockingCode ?? 'OPERATION_CONFLICT'),
+      );
+    }
     const operation = this.beginOperation('transcribe');
     if (!operation) return this.failureResult('transcribe', 'OPERATION_CONFLICT');
     try {
-      if (!this.residentWorker) {
-        const loaded = await this.performLoad(operation);
-        if (!loaded.success) return this.failureResult('transcribe', loaded.code);
-      }
       const worker = this.residentWorker;
       if (!worker) return this.failureResult('transcribe', 'WORKER_START_FAILED');
       const stageEpochs = this.epochs;
@@ -443,7 +436,12 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
   }
 
   public async prepareProviderSwitch(nextProviderId: string): Promise<LocalWhisperActionResult<undefined>> {
-    if (nextProviderId === LOCAL_WHISPER_PROVIDER_ID) return this.successResult('providerSwitch', undefined);
+    if (nextProviderId === LOCAL_WHISPER_PROVIDER_ID) {
+      const runtime = this.snapshotValue.runtime;
+      return runtime.operationalStatus === 'Ready'
+        ? this.successResult('providerSwitch', undefined)
+        : this.failureResult('providerSwitch', runtime.blockingCode ?? 'OPERATION_CONFLICT');
+    }
     const operation = this.beginOperation('providerSwitch');
     if (!operation) return this.failureResult('providerSwitch', 'OPERATION_CONFLICT');
     try {

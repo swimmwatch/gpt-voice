@@ -85,6 +85,7 @@ export interface BackgroundBrowserStatus {
   ready: boolean;
   error?: string;
   authExpired?: boolean;
+  unselected?: boolean;
 }
 
 export type ProviderInfo = RendererSafeVoiceProviderInfo;
@@ -164,7 +165,7 @@ export interface ElectronAPI {
     settings: ProviderSettingsSaveInput,
   ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
-  getActiveProvider: () => Promise<string>;
+  getActiveProvider: () => Promise<string | null>;
   setActiveProvider: (providerId: string) => Promise<LocalWhisperProviderSelectionResult>;
   getLocalWhisperSettingsSnapshot: () => Promise<LocalWhisperRendererSnapshot>;
   subscribeLocalWhisperSettings: () => Promise<LocalWhisperRendererSnapshot>;

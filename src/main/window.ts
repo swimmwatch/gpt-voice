@@ -77,8 +77,9 @@ export class WindowManager {
     this.quitting = value;
   }
 
-  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string): void {
+  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string | null): void {
     const providerId = status.providerId || fallbackProviderId;
+    if (!providerId) return;
     if (status.ready) {
       this.mainWindow?.webContents.send('bg-browser-ready', providerId);
     } else if (status.error) {

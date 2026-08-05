@@ -119,7 +119,7 @@ export interface AppConfigSnapshot {
   readonly prettifyQuickHotkey: string;
   readonly prettifyProfileCatalog: PrettifyProfileCatalog;
   readonly prettifySettings: PrettifySettings;
-  readonly provider: string;
+  readonly provider: string | null;
   readonly retryTranscriptionHotkey: string;
   readonly stopHotkey: string;
   readonly translateEnabled: boolean;
@@ -217,7 +217,7 @@ export class AppConfigStore {
   private prettifyQuickEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
   private prettifyQuickHotkey = DEFAULT_PRETTIFY_QUICK_HOTKEY;
   private prettifySettings: PrettifySettings;
-  private provider = DEFAULT_VOICE_PROVIDER_ID;
+  private provider: string | null = null;
   private retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
   private stopHotkey = DEFAULT_STOP_HOTKEY;
   private translateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
@@ -372,7 +372,7 @@ export class AppConfigStore {
     });
   }
 
-  public setProvider(providerId: string): void {
+  public setProvider(providerId: string | null): void {
     this.provider = providerId;
   }
 
@@ -457,7 +457,16 @@ export class AppConfigStore {
     const persistedPrettifyQuickEnabled = getConfigBoolean(config, 'prettifyQuickEnabled');
     this.prettifyQuickEnabled = persistedPrettifyQuickEnabled ?? DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
     if (persistedPrettifyQuickEnabled === undefined) shouldSaveConfig = true;
-    this.provider = getConfigString(config, 'provider') ?? this.provider;
+    if (!Object.prototype.hasOwnProperty.call(config, 'provider')) {
+      this.provider = DEFAULT_VOICE_PROVIDER_ID;
+      shouldSaveConfig = true;
+    } else if (config.provider === null) {
+      this.provider = null;
+    } else {
+      const persistedProvider = getConfigString(config, 'provider');
+      this.provider = persistedProvider ?? DEFAULT_VOICE_PROVIDER_ID;
+      if (!persistedProvider) shouldSaveConfig = true;
+    }
     if (locale && localeExplicit === true) {
       this.locale = normalizeAppLocale(locale) ?? DEFAULT_APP_LOCALE;
       this.localeWasExplicitlySelected = true;
