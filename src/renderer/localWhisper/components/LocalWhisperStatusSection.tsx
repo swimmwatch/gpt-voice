@@ -1,5 +1,20 @@
-import type { ReactNode } from 'react';
-import { Button } from '@renderer/components/ui/button';
+import type { IconType } from 'react-icons';
+import {
+  PiBrain,
+  PiCaretRight,
+  PiCheckCircle,
+  PiCloudArrowUp,
+  PiCpu,
+  PiCube,
+  PiInfo,
+  PiMemory,
+  PiShieldCheck,
+  PiSlidersHorizontal,
+  PiTag,
+  PiTerminalWindow,
+  PiWarningCircle,
+} from 'react-icons/pi';
+import { SiNvidia } from 'react-icons/si';
 import type { LocalWhisperRendererSnapshot } from '@shared/localWhisper';
 import {
   formatLocalWhisperBytes,
@@ -7,48 +22,123 @@ import {
   formatLocalWhisperRecoveryAction,
   getLocalWhisperCheckAvailability,
   getLocalWhisperLoadAvailability,
-  getLocalWhisperSupportLabel,
+  getLocalWhisperResourceSafetyPresentation,
   getLocalWhisperUnloadAvailability,
   isLocalWhisperArtifactProgressActive,
   type LocalWhisperActionAvailability,
+  type LocalWhisperResourceMeterPresentation,
 } from '../LocalWhisperPresentation';
 import { getLocalWhisperOption } from '../LocalWhisperSettingsState';
-import { LocalWhisperSection } from './LocalWhisperSection';
+import { LocalWhisperDisclosure, LocalWhisperPanel } from './LocalWhisperSection';
 
-interface ActionButtonProps {
-  readonly availability: LocalWhisperActionAvailability;
-  readonly children: ReactNode;
-  readonly pending: boolean;
-  readonly onClick: () => void;
-}
+type StatusTone = 'success' | 'warning' | 'active';
 
-function ActionButton({ availability, children, pending, onClick }: ActionButtonProps): React.JSX.Element | null {
-  if (!availability.visible) return null;
+function ReadinessStep({
+  label,
+  last = false,
+  state,
+  tone,
+}: {
+  readonly label: string;
+  readonly last?: boolean;
+  readonly state: string;
+  readonly tone: StatusTone;
+}): React.JSX.Element {
+  const StatusIcon = tone === 'warning' ? PiWarningCircle : PiCheckCircle;
   return (
-    <div className="min-w-0">
-      <Button disabled={!availability.enabled} onClick={onClick} type="button" variant="outline">
-        {pending ? 'Working…' : children}
-      </Button>
-      {!availability.enabled && availability.disabledReason ? (
-        <p className="mt-1 max-w-64 text-xs text-muted-foreground">{availability.disabledReason}</p>
-      ) : null}
+    <div className="lw-readiness-step">
+      <StatusIcon aria-hidden="true" className={`lw-readiness-icon ${tone}`} />
+      <div>
+        <strong>{label}</strong>
+        <span>{state}</span>
+      </div>
+      {last ? null : <PiCaretRight aria-hidden="true" className="lw-readiness-divider" />}
     </div>
   );
 }
 
-function StatusFact({ label, value }: { readonly label: string; readonly value: ReactNode }): React.JSX.Element {
+function setupTone(state: LocalWhisperRendererSnapshot['runtime']['runtimeSetup'], active = false): StatusTone {
+  if (state === 'Installed') return active ? 'active' : 'success';
+  if (state === 'Downloading' || state === 'Verifying' || state === 'Installing') return 'active';
+  return 'warning';
+}
+
+function capabilityTone(state: LocalWhisperRendererSnapshot['runtime']['capability']): StatusTone {
+  if (state === 'Validated') return 'success';
+  if (state === 'Checking' || state === 'EstimateOnly') return 'active';
+  return 'warning';
+}
+
+function residencyTone(state: LocalWhisperRendererSnapshot['runtime']['residency']): StatusTone {
+  if (state === 'Loaded') return 'success';
+  if (state === 'Loading' || state === 'Unloading') return 'active';
+  return 'warning';
+}
+
+interface DetailItemProps {
+  readonly accent?: 'nvidia' | 'blue' | 'purple' | 'green';
+  readonly icon: IconType;
+  readonly label: string;
+  readonly title?: string;
+  readonly value: string;
+}
+
+function DetailItem({ accent, icon: Icon, label, title, value }: DetailItemProps): React.JSX.Element {
   return (
-    <div className="min-w-0 rounded-md bg-muted/50 p-3">
-      <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium text-foreground">{value}</dd>
+    <div className="lw-detail-item" title={title}>
+      <span className={`lw-detail-icon${accent ? ` accent-${accent}` : ''}`}>
+        <Icon aria-hidden="true" />
+      </span>
+      <span className="lw-detail-copy">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </span>
+      {title ? <PiInfo aria-hidden="true" className="lw-detail-info" /> : null}
     </div>
   );
 }
 
-function selectedIdentity(snapshot: LocalWhisperRendererSnapshot): string {
-  const settings = snapshot.settings;
-  const backend = settings.execution.target === 'gpu' ? settings.execution.backend : 'cpu';
-  return `${settings.model.family} · ${settings.model.revision} · ${settings.model.variant} · ${backend}`;
+function numericBytes(value: number | 'notApplicable' | null): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+function ResourceMeter({
+  label,
+  meter,
+  tone,
+}: {
+  readonly label: string;
+  readonly meter: LocalWhisperResourceMeterPresentation;
+  readonly tone: 'ram' | 'vram';
+}): React.JSX.Element {
+  const safe = numericBytes(meter.safeReservableBytes);
+  const peak = numericBytes(meter.peakBytes);
+  const scale = Math.max(meter.availableBytes ?? 0, safe ?? 0, peak ?? 0, 1);
+  const safeWidth = safe === null ? 0 : Math.min(100, (safe / scale) * 100);
+  const peakWidth = peak === null ? 0 : Math.min(100, (peak / scale) * 100);
+  return (
+    <div className="lw-resource-meter">
+      <div className="lw-resource-meter-heading">
+        <strong>{label}</strong>
+        <span>{formatLocalWhisperBytes(meter.availableBytes)} available</span>
+      </div>
+      <div
+        aria-label={`${label}: ${formatLocalWhisperBytes(meter.peakBytes)} peak, ${formatLocalWhisperBytes(
+          meter.safeReservableBytes,
+        )} safe to reserve`}
+        className="lw-capacity-track"
+        role="img"
+      >
+        {safe === null ? null : <span className={`lw-safe-capacity ${tone}`} style={{ width: `${safeWidth}%` }} />}
+        {peak === null ? null : <span className={`lw-required-capacity ${tone}`} style={{ width: `${peakWidth}%` }} />}
+        {safe === null ? null : <span className="lw-safe-marker" style={{ left: `${safeWidth}%` }} />}
+      </div>
+      <div className="lw-resource-meter-meta">
+        <span>{formatLocalWhisperBytes(meter.safeReservableBytes)} safe to reserve</span>
+        <span>{formatLocalWhisperBytes(meter.peakBytes)} peak</span>
+      </div>
+    </div>
+  );
 }
 
 interface LocalWhisperStatusSectionProps {
@@ -59,7 +149,30 @@ interface LocalWhisperStatusSectionProps {
   readonly onUnload: () => void;
 }
 
-/** Renders independent setup, capability, residency, resource, and action state. */
+interface PrimaryAction {
+  readonly availability: LocalWhisperActionAvailability;
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly icon: IconType;
+}
+
+function primaryAction(
+  connected: boolean,
+  check: LocalWhisperActionAvailability,
+  load: LocalWhisperActionAvailability,
+  unload: LocalWhisperActionAvailability,
+  callbacks: Pick<LocalWhisperStatusSectionProps, 'onCheck' | 'onLoad' | 'onUnload'>,
+): PrimaryAction {
+  if (connected || unload.visible) {
+    return { availability: unload, icon: PiMemory, label: 'Free model', onClick: callbacks.onUnload };
+  }
+  if (check.visible && check.enabled && !load.enabled) {
+    return { availability: check, icon: PiShieldCheck, label: 'Check compatibility', onClick: callbacks.onCheck };
+  }
+  return { availability: load, icon: PiCloudArrowUp, label: 'Load model', onClick: callbacks.onLoad };
+}
+
+/** Renders readiness, exact technical identity, residency, and main-owned resource safety. */
 export default function LocalWhisperStatusSection({
   snapshot,
   pendingAction,
@@ -68,138 +181,152 @@ export default function LocalWhisperStatusSection({
   onUnload,
 }: LocalWhisperStatusSectionProps): React.JSX.Element {
   const pending = pendingAction !== null || snapshot.progress.some(isLocalWhisperArtifactProgressActive);
+  const runtime = snapshot.runtime;
+  const connected = runtime.residency === 'Loaded';
   const selectedRuntime = getLocalWhisperOption(snapshot, 'runtime', snapshot.settings.runtimeRevision)?.label;
   const selectedDevice =
     snapshot.settings.execution.target === 'cpu'
       ? snapshot.host.label
       : (getLocalWhisperOption(snapshot, 'device', snapshot.selectedDeviceId)?.label ?? 'Selected GPU');
-  const failure = snapshot.failure;
-  const exactEstimate = snapshot.memory.selectedEstimate;
-  const qualifiedPeak = snapshot.memory.qualifiedPeak;
-  const resources = snapshot.resources;
+  const backend =
+    snapshot.settings.execution.target === 'cpu'
+      ? 'CPU'
+      : (snapshot.settings.execution.backend?.toUpperCase() ?? 'GPU');
+  const model = snapshot.settings.model.family
+    .split('-')
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
+  const quantization = snapshot.settings.model.variant === 'q5_0' ? 'Q5_0' : 'Full';
+  const resourceSafety = getLocalWhisperResourceSafetyPresentation(snapshot);
+  const check = getLocalWhisperCheckAvailability(snapshot, pending);
+  const load = getLocalWhisperLoadAvailability(snapshot, pending);
+  const unload = getLocalWhisperUnloadAvailability(snapshot, pending);
+  const action = primaryAction(connected, check, load, unload, { onCheck, onLoad, onUnload });
+  const ActionIcon = action.icon;
+  const actionPending =
+    pendingAction === 'checkCompatibility' || pendingAction === 'load' || pendingAction === 'unload';
+  const bannerTitle = connected
+    ? 'Connected'
+    : runtime.residency === 'Loading'
+      ? 'Loading model'
+      : runtime.capability === 'Checking'
+        ? 'Checking resources'
+        : 'Not connected';
+  const verdictLabel =
+    resourceSafety.status === 'safe'
+      ? 'Safe to load'
+      : resourceSafety.status === 'blocked'
+        ? 'Load blocked'
+        : 'Check required';
+
+  const technicalDetails: readonly DetailItemProps[] = [
+    { icon: PiTerminalWindow, label: 'Runtime', value: 'Whisper.cpp' },
+    {
+      accent: backend === 'CUDA' ? 'nvidia' : undefined,
+      icon: backend === 'CUDA' ? SiNvidia : PiCpu,
+      label: 'Backend',
+      value: backend,
+    },
+    { accent: 'green', icon: PiCpu, label: 'Device', value: selectedDevice },
+    { accent: 'blue', icon: PiBrain, label: 'Model', value: model },
+    { accent: 'purple', icon: PiSlidersHorizontal, label: 'Quantization', value: quantization },
+    {
+      accent: 'blue',
+      icon: PiTag,
+      label: 'Revision',
+      title: snapshot.settings.model.revision,
+      value: snapshot.settings.model.revision,
+    },
+  ];
 
   return (
-    <LocalWhisperSection
-      description="Setup, compatibility, and residency are independent states. A downloaded model is not automatically loaded."
-      title="Status"
-    >
-      <div aria-live="polite" className="space-y-4">
-        <dl className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
-          <StatusFact label="Runtime setup" value={snapshot.runtime.runtimeSetup} />
-          <StatusFact label="Model setup" value={snapshot.runtime.modelSetup} />
-          <StatusFact label="Compatibility" value={snapshot.runtime.capability} />
-          <StatusFact label="Memory residency" value={snapshot.runtime.residency} />
-        </dl>
+    <div aria-live="polite" className="lw-status-stack">
+      <section aria-label="Local Whisper readiness" className="lw-readiness-rail">
+        <ReadinessStep label="Runtime" state={runtime.runtimeSetup} tone={setupTone(runtime.runtimeSetup, true)} />
+        <ReadinessStep label="Model" state={runtime.modelSetup} tone={setupTone(runtime.modelSetup)} />
+        <ReadinessStep label="Compatibility" state={runtime.capability} tone={capabilityTone(runtime.capability)} />
+        <ReadinessStep label="Model state" last state={runtime.residency} tone={residencyTone(runtime.residency)} />
+      </section>
 
-        <div className="grid min-w-0 gap-3 rounded-md border border-border p-3 sm:grid-cols-2">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Selected stack</p>
-            <p className="mt-1 break-words text-sm text-foreground">
-              Whisper.cpp · {selectedRuntime ?? snapshot.settings.runtimeRevision} · {snapshot.settings.model.family} ·{' '}
-              {snapshot.settings.model.revision} · {snapshot.settings.model.variant}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Execution</p>
-            <p className="mt-1 break-words text-sm text-foreground">
-              {snapshot.settings.execution.target.toUpperCase()} · {selectedDevice}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Support</p>
-            <p className="mt-1 break-words text-sm text-foreground">{getLocalWhisperSupportLabel(snapshot)}</p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Activity</p>
-            <p className="mt-1 text-sm text-foreground">{snapshot.runtime.activity}</p>
-          </div>
+      <section className={`lw-provider-banner${connected ? ' connected' : ''}`}>
+        {connected ? <PiCheckCircle aria-hidden="true" /> : <PiWarningCircle aria-hidden="true" />}
+        <div>
+          <strong>{bannerTitle}</strong>
+          <span>
+            {connected
+              ? 'Local Whisper is ready for transcription.'
+              : 'Local Whisper becomes available after a model is loaded.'}
+          </span>
+          {!action.availability.enabled && action.availability.disabledReason ? (
+            <span className="lw-disabled-reason">{action.availability.disabledReason}</span>
+          ) : null}
         </div>
-
-        {failure ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3" role="status">
-            <p className="text-sm font-medium text-destructive">{formatLocalWhisperFailureCode(failure.code)}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Recovery: {formatLocalWhisperRecoveryAction(failure.recoveryAction)}.
-            </p>
-          </div>
+        {action.availability.visible ? (
+          <button
+            className="lw-primary-button"
+            disabled={!action.availability.enabled}
+            onClick={action.onClick}
+            title={action.availability.disabledReason ?? undefined}
+            type="button"
+          >
+            <ActionIcon aria-hidden="true" />
+            {actionPending ? 'Working…' : action.label}
+          </button>
         ) : null}
+      </section>
 
-        <div className="grid min-w-0 gap-3 rounded-md border border-border p-3 sm:grid-cols-2">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Selected configuration estimate</p>
-            <p className="mt-1 break-words text-xs text-muted-foreground">{selectedIdentity(snapshot)}</p>
-            {exactEstimate ? (
-              <div className="mt-2 space-y-1 text-sm text-foreground">
-                <p>
-                  Catalog estimate: {formatLocalWhisperBytes(exactEstimate.estimatedPeakRamBytes)} RAM ·{' '}
-                  {formatLocalWhisperBytes(exactEstimate.estimatedPeakVramBytes)} VRAM · {exactEstimate.evidenceBasis}
-                </p>
-                {qualifiedPeak ? (
-                  <p>
-                    Qualified peak: {formatLocalWhisperBytes(qualifiedPeak.measuredPeakRamBytes)} RAM ·{' '}
-                    {formatLocalWhisperBytes(qualifiedPeak.measuredPeakVramBytes)} VRAM
-                  </p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Exact estimate unavailable for the selected backend, model revision, and variant.
-              </p>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Current resource check</p>
-            {resources ? (
-              <dl className="mt-2 space-y-1 text-sm text-foreground">
-                <div className="flex min-w-0 justify-between gap-3">
-                  <dt>Required RAM with headroom</dt>
-                  <dd>{formatLocalWhisperBytes(resources.requiredRamBytes)}</dd>
-                </div>
-                <div className="flex min-w-0 justify-between gap-3">
-                  <dt>Free RAM</dt>
-                  <dd>{formatLocalWhisperBytes(resources.freeRamBytes)}</dd>
-                </div>
-                <div className="flex min-w-0 justify-between gap-3">
-                  <dt>Required VRAM with headroom</dt>
-                  <dd>{formatLocalWhisperBytes(resources.requiredVramBytes)}</dd>
-                </div>
-                <div className="flex min-w-0 justify-between gap-3">
-                  <dt>Free VRAM</dt>
-                  <dd>{formatLocalWhisperBytes(resources.freeVramBytes)}</dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Current free RAM/VRAM and required headroom have not been checked for this exact configuration.
-              </p>
-            )}
-          </div>
+      <LocalWhisperDisclosure className="lw-technical-disclosure" defaultOpen title="Technical details">
+        <div className="lw-technical-grid">
+          {technicalDetails.map((item) => (
+            <DetailItem key={item.label} {...item} />
+          ))}
         </div>
+        <span className="sr-only">Runtime revision: {selectedRuntime ?? snapshot.settings.runtimeRevision}</span>
+      </LocalWhisperDisclosure>
 
-        <div className="flex min-w-0 flex-wrap items-start gap-3">
-          <ActionButton
-            availability={getLocalWhisperCheckAvailability(snapshot, pending)}
-            onClick={onCheck}
-            pending={pendingAction === 'checkCompatibility'}
-          >
-            Check compatibility
-          </ActionButton>
-          <ActionButton
-            availability={getLocalWhisperLoadAvailability(snapshot, pending)}
-            onClick={onLoad}
-            pending={pendingAction === 'load'}
-          >
-            Load model
-          </ActionButton>
-          <ActionButton
-            availability={getLocalWhisperUnloadAvailability(snapshot, pending)}
-            onClick={onUnload}
-            pending={pendingAction === 'unload'}
-          >
-            Unload model
-          </ActionButton>
+      <LocalWhisperPanel
+        actions={
+          <span className={`lw-safety-verdict ${resourceSafety.status}`}>
+            {resourceSafety.status === 'safe' ? (
+              <PiShieldCheck aria-hidden="true" />
+            ) : (
+              <PiWarningCircle aria-hidden="true" />
+            )}
+            {verdictLabel}
+          </span>
+        }
+        className="lw-resource-panel"
+        icon={PiShieldCheck}
+        title="Resource safety"
+      >
+        <div className="lw-resource-grid">
+          <ResourceMeter label="System RAM" meter={resourceSafety.ram} tone="ram" />
+          <ResourceMeter label="GPU VRAM" meter={resourceSafety.vram} tone="vram" />
         </div>
-      </div>
-    </LocalWhisperSection>
+        <div className="lw-requirement-row">
+          <PiCube aria-hidden="true" />
+          <span>Model requirement</span>
+          <strong>
+            {formatLocalWhisperBytes(resourceSafety.vram.peakBytes)} VRAM +{' '}
+            {formatLocalWhisperBytes(resourceSafety.ram.peakBytes)} RAM
+          </strong>
+        </div>
+        <div className={`lw-safety-note ${resourceSafety.status}`}>
+          {resourceSafety.status === 'safe' ? (
+            <PiShieldCheck aria-hidden="true" />
+          ) : (
+            <PiWarningCircle aria-hidden="true" />
+          )}
+          <span>Rechecked immediately before loading. Loading is blocked if safe headroom is unavailable.</span>
+        </div>
+      </LocalWhisperPanel>
+
+      {snapshot.failure ? (
+        <div className="lw-alert" role="status">
+          <strong>{formatLocalWhisperFailureCode(snapshot.failure.code)}</strong>
+          <span>Recovery: {formatLocalWhisperRecoveryAction(snapshot.failure.recoveryAction)}.</span>
+        </div>
+      ) : null}
+    </div>
   );
 }

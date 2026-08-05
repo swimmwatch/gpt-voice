@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Button } from '@renderer/components/ui/button';
+import { PiArrowCounterClockwise, PiFloppyDisk, PiInfo, PiWaveform } from 'react-icons/pi';
 import { Spinner } from '@renderer/components/ui/spinner';
 import type { ElectronAPI } from '@renderer/types';
 import LocalWhisperInferenceSections from './components/LocalWhisperInferenceSections';
@@ -8,6 +8,7 @@ import LocalWhisperStatusSection from './components/LocalWhisperStatusSection';
 import LocalWhisperStorageSection from './components/LocalWhisperStorageSection';
 import { isLocalWhisperArtifactProgressActive, isLocalWhisperPlatformUnavailable } from './LocalWhisperPresentation';
 import useLocalWhisperSettings from './useLocalWhisperSettings';
+import './LocalWhisperSettingsPage.css';
 
 function CatalogChannelNotice({
   catalogUnavailable,
@@ -18,22 +19,22 @@ function CatalogChannelNotice({
 }): React.JSX.Element | null {
   if (catalogUnavailable) {
     return (
-      <div className="rounded-md bg-muted/50 p-3" role="status">
-        <p className="text-sm font-medium text-foreground">Catalog unavailable</p>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <div className="lw-notice" role="status">
+        <strong>Catalog unavailable</strong>
+        <span>
           Production artifacts have not been published. For qualification, launch the non-packaged app with its
           generated development activation descriptor.
-        </p>
+        </span>
       </div>
     );
   }
   if (!developmentArtifactsActive) return null;
   return (
-    <div className="rounded-md bg-muted/50 p-3" role="status">
-      <p className="text-sm font-medium text-foreground">Development qualification artifacts</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="lw-notice" role="status">
+      <strong>Development qualification artifacts</strong>
+      <span>
         This temporary channel is for local functional verification and does not indicate production readiness.
-      </p>
+      </span>
     </div>
   );
 }
@@ -62,7 +63,7 @@ function artifactDisabledReason(
   return commandBusy ? 'Artifact actions are disabled while another action is in progress.' : null;
 }
 
-/** Composes the Local Whisper status, settings, artifact, and action surfaces. */
+/** Composes the approved Local Whisper readiness dashboard over the protected settings controller. */
 export default function LocalWhisperSettingsPage({
   desktopApi,
 }: {
@@ -85,7 +86,7 @@ export default function LocalWhisperSettingsPage({
 
   if (controller.loading && (!snapshot || !draft)) {
     return (
-      <div aria-live="polite" className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
+      <div aria-live="polite" className="lw-loading">
         <Spinner label="Loading Local Whisper settings" />
         Loading Local Whisper settings…
       </div>
@@ -94,11 +95,9 @@ export default function LocalWhisperSettingsPage({
 
   if (!snapshot || !draft || !validation) {
     return (
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4" role="alert">
-        <p className="font-medium text-destructive">Local Whisper settings are unavailable.</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {controller.actionError ?? 'Close this window and retry after the desktop application is ready.'}
-        </p>
+      <div className="lw-alert" role="alert">
+        <strong>Local Whisper settings are unavailable.</strong>
+        <span>{controller.actionError ?? 'Close this window and retry after the desktop application is ready.'}</span>
       </div>
     );
   }
@@ -113,98 +112,121 @@ export default function LocalWhisperSettingsPage({
     valid: validation.candidate !== null,
     dirty: controller.dirty,
   });
+  const artifactReason = artifactDisabledReason(platformUnavailable, catalogUnavailable, commandBusy);
 
   return (
-    <div className="min-w-0 max-w-full overflow-x-hidden pb-24">
-      <div className="space-y-4">
-        <CatalogChannelNotice
-          catalogUnavailable={catalogUnavailable}
-          developmentArtifactsActive={developmentArtifactsActive}
-        />
-
-        {controller.actionError || persistedIssues.length > 0 ? (
-          <div
-            aria-live="assertive"
-            className="rounded-md border border-destructive/40 bg-destructive/5 p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            ref={errorSummaryRef}
-            role="alert"
-            tabIndex={-1}
-          >
-            <p className="text-sm font-medium text-destructive">Local Whisper needs attention</p>
-            {controller.actionError ? (
-              <p className="mt-1 text-sm text-muted-foreground">{controller.actionError}</p>
-            ) : null}
-            {persistedIssues.length > 0 ? (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                {persistedIssues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-
-        <LocalWhisperStatusSection
-          onCheck={() => void controller.checkCompatibility()}
-          onLoad={() => void controller.loadModel()}
-          onUnload={() => void controller.unloadModel()}
-          pendingAction={controller.pendingAction}
-          snapshot={snapshot}
-        />
-
-        <LocalWhisperRuntimeModelSection
-          disabled={disabled}
-          draft={draft}
-          errors={validation.errors}
-          snapshot={snapshot}
-          updateDraft={controller.updateDraft}
-        />
-
-        <LocalWhisperInferenceSections
-          disabled={disabled}
-          draft={draft}
-          errors={validation.errors}
-          snapshot={snapshot}
-          updateDraft={controller.updateDraft}
-        />
-
-        <LocalWhisperStorageSection
-          actionsDisabledReason={artifactDisabledReason(platformUnavailable, catalogUnavailable, commandBusy)}
-          aggregateBytes={snapshot.storage.installedBytes}
-          artifacts={snapshot.artifacts}
-          onArtifactAction={controller.performArtifactAction}
-          onOpenStorageFolder={() => void controller.openStorageFolder()}
-          onViewReference={controller.viewArtifactReference}
-          pendingAction={controller.pendingAction}
-          progress={snapshot.progress}
-          storageSummary={snapshot.storage.label}
-        />
-      </div>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 p-3 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-wrap items-start justify-end gap-3">
-          <div>
-            <Button disabled={disabled} onClick={() => void controller.reset()} type="button" variant="outline">
-              {controller.pendingAction === 'reset' ? 'Resetting…' : 'Reset to defaults'}
-            </Button>
-            {disabled ? (
-              <p className="mt-1 max-w-64 text-xs text-muted-foreground">
-                {platformUnavailable
-                  ? 'Reset is unavailable on a planned or unsupported platform.'
-                  : catalogUnavailable
-                    ? 'Reset requires an active trusted catalog.'
-                    : 'Reset is disabled while another action is in progress.'}
-              </p>
-            ) : null}
-          </div>
-          <div>
-            <Button disabled={saveReason !== null} onClick={() => void controller.save()} type="button">
-              {controller.pendingAction === 'save' ? 'Saving…' : 'Save settings'}
-            </Button>
-            {saveReason ? <p className="mt-1 max-w-64 text-xs text-muted-foreground">{saveReason}</p> : null}
-          </div>
+    <div className="local-whisper-settings min-w-0 max-w-full overflow-x-hidden" data-slot="local-whisper-settings">
+      <header className="lw-page-heading">
+        <PiWaveform aria-hidden="true" className="lw-product-mark" />
+        <div>
+          <h1>Local Whisper</h1>
+          <p>Run Whisper.cpp locally with explicit model, backend, and memory lifecycle controls.</p>
         </div>
-      </div>
+        <PiInfo
+          aria-hidden="true"
+          className="lw-heading-info"
+          title="Local processing keeps audio and transcripts on this device."
+        />
+      </header>
+
+      <CatalogChannelNotice
+        catalogUnavailable={catalogUnavailable}
+        developmentArtifactsActive={developmentArtifactsActive}
+      />
+
+      {controller.actionError || persistedIssues.length > 0 ? (
+        <div
+          aria-live="assertive"
+          className="lw-alert lw-focusable-alert"
+          ref={errorSummaryRef}
+          role="alert"
+          tabIndex={-1}
+        >
+          <strong>Local Whisper needs attention</strong>
+          {controller.actionError ? <span>{controller.actionError}</span> : null}
+          {persistedIssues.length > 0 ? (
+            <ul>
+              {persistedIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
+      <LocalWhisperStatusSection
+        onCheck={() => void controller.checkCompatibility()}
+        onLoad={() => void controller.loadModel()}
+        onUnload={() => void controller.unloadModel()}
+        pendingAction={controller.pendingAction}
+        snapshot={snapshot}
+      />
+
+      <LocalWhisperRuntimeModelSection
+        actionsDisabledReason={artifactReason}
+        disabled={disabled}
+        draft={draft}
+        errors={validation.errors}
+        onArtifactAction={controller.performArtifactAction}
+        onViewReference={controller.viewArtifactReference}
+        pendingAction={controller.pendingAction}
+        snapshot={snapshot}
+        updateDraft={controller.updateDraft}
+      />
+
+      <LocalWhisperInferenceSections
+        disabled={disabled}
+        draft={draft}
+        errors={validation.errors}
+        snapshot={snapshot}
+        updateDraft={controller.updateDraft}
+      />
+
+      <LocalWhisperStorageSection
+        actionsDisabledReason={artifactReason}
+        aggregateBytes={snapshot.storage.installedBytes}
+        artifacts={snapshot.artifacts}
+        onArtifactAction={controller.performArtifactAction}
+        onOpenStorageFolder={() => void controller.openStorageFolder()}
+        onViewReference={controller.viewArtifactReference}
+        pendingAction={controller.pendingAction}
+        progress={snapshot.progress}
+        storageSummary={snapshot.storage.label}
+      />
+
+      <footer className="lw-page-actions">
+        <button
+          className="lw-secondary-button"
+          disabled={disabled}
+          onClick={() => void controller.reset()}
+          title={
+            disabled
+              ? platformUnavailable
+                ? 'Reset is unavailable on a planned or unsupported platform.'
+                : catalogUnavailable
+                  ? 'Reset requires an active trusted catalog.'
+                  : 'Reset is disabled while another action is in progress.'
+              : undefined
+          }
+          type="button"
+        >
+          <PiArrowCounterClockwise aria-hidden="true" />
+          {controller.pendingAction === 'reset' ? 'Resetting…' : 'Reset to defaults'}
+        </button>
+        <div>
+          <button
+            className="lw-primary-button"
+            disabled={saveReason !== null}
+            onClick={() => void controller.save()}
+            title={saveReason ?? undefined}
+            type="button"
+          >
+            <PiFloppyDisk aria-hidden="true" />
+            {controller.pendingAction === 'save' ? 'Saving…' : 'Save settings'}
+          </button>
+          <span>{controller.dirty ? 'You have unsaved changes.' : 'No unsaved changes.'}</span>
+        </div>
+      </footer>
 
       {validationMessages.length > 0 ? (
         <span className="sr-only" role="status">

@@ -1,9 +1,18 @@
+import { PiCaretDown, PiCheckCircle, PiCpu, PiCube, PiGear, PiInfo, PiWarningCircle } from 'react-icons/pi';
+import { SiNvidia } from 'react-icons/si';
 import {
+  LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
   LOCAL_WHISPER_MODEL_FAMILIES,
+  type LocalWhisperArtifactAction,
+  type LocalWhisperArtifactProgress,
+  type LocalWhisperArtifactReference,
   type LocalWhisperGpuBackend,
   type LocalWhisperModelFamily,
+  type LocalWhisperRendererArtifact,
+  type LocalWhisperRendererOption,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
+import { getLatestLocalWhisperArtifactProgress } from '../LocalWhisperPresentation';
 import {
   getLocalWhisperOptions,
   updateLocalWhisperBackend,
@@ -15,65 +24,109 @@ import {
   type LocalWhisperDraftField,
   type LocalWhisperSettingsDraft,
 } from '../LocalWhisperSettingsState';
-import { getLocalWhisperFamilyRequirement } from '../LocalWhisperPresentation';
-import { LocalWhisperField, LocalWhisperOptionSelect, LocalWhisperSection } from './LocalWhisperSection';
+import { LocalWhisperArtifactOverflowMenu, LocalWhisperArtifactProgressCard } from './LocalWhisperArtifactControls';
+import { LocalWhisperOptionSelect, LocalWhisperPanel } from './LocalWhisperSection';
 
 interface LocalWhisperRuntimeModelSectionProps {
-  readonly snapshot: LocalWhisperRendererSnapshot;
+  readonly actionsDisabledReason: string | null;
+  readonly disabled: boolean;
   readonly draft: LocalWhisperSettingsDraft;
   readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, string>>>;
-  readonly disabled: boolean;
+  readonly onArtifactAction: (
+    action: LocalWhisperArtifactAction,
+    artifact: LocalWhisperRendererArtifact,
+  ) => Promise<boolean>;
+  readonly onViewReference: (reference: LocalWhisperArtifactReference) => Promise<boolean>;
+  readonly pendingAction: string | null;
+  readonly snapshot: LocalWhisperRendererSnapshot;
   readonly updateDraft: (updater: (draft: LocalWhisperSettingsDraft) => LocalWhisperSettingsDraft) => void;
 }
 
-function TargetChoice({
-  checked,
-  description,
+function artifactForRevision(
+  snapshot: LocalWhisperRendererSnapshot,
+  kind: LocalWhisperRendererArtifact['kind'],
+  revision: string | null,
+): LocalWhisperRendererArtifact | null {
+  if (revision === null) return null;
+  return snapshot.artifacts.find((artifact) => artifact.kind === kind && artifact.revision === revision) ?? null;
+}
+
+function progressForArtifact(
+  snapshot: LocalWhisperRendererSnapshot,
+  artifact: LocalWhisperRendererArtifact | null,
+): LocalWhisperArtifactProgress | null {
+  return artifact ? getLatestLocalWhisperArtifactProgress(snapshot.progress, artifact.id) : null;
+}
+
+function approximateRange(range: readonly [number, number]): string {
+  return `~${range[0]}–${range[1]} GiB`;
+}
+
+function preferredFamilyRevision(
+  options: readonly LocalWhisperRendererOption[],
+  family: LocalWhisperModelFamily,
+): string | null {
+  const familyOptions = options.filter(
+    (option) => option.group === 'modelRevision' && option.compatibility.modelFamily === family,
+  );
+  return (
+    familyOptions.find((option) => option.selected)?.id ??
+    familyOptions.find((option) => option.saved)?.id ??
+    familyOptions.find((option) => option.default)?.id ??
+    familyOptions[0]?.id ??
+    null
+  );
+}
+
+function ArtifactStatusColumn({
+  actionsDisabledReason,
+  artifact,
   label,
-  onChange,
+  onArtifactAction,
+  pendingAction,
+  progress,
 }: {
-  readonly checked: boolean;
-  readonly description: string;
+  readonly actionsDisabledReason: string | null;
+  readonly artifact: LocalWhisperRendererArtifact | null;
   readonly label: string;
-  readonly onChange: () => void;
+  readonly onArtifactAction: LocalWhisperRuntimeModelSectionProps['onArtifactAction'];
+  readonly pendingAction: string | null;
+  readonly progress: LocalWhisperArtifactProgress | null;
 }): React.JSX.Element {
   return (
-    <label className="flex min-w-0 cursor-pointer gap-3 rounded-md border border-border p-3 focus-within:ring-2 focus-within:ring-ring">
-      <input checked={checked} className="mt-1" name="local-whisper-target" onChange={onChange} type="radio" />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-foreground">{label}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{description}</span>
-      </span>
-    </label>
+    <div className="lw-status-column">
+      <span className="lw-field-label">{label}</span>
+      {artifact ? (
+        <LocalWhisperArtifactProgressCard
+          actionsDisabledReason={actionsDisabledReason}
+          artifact={artifact}
+          onAction={onArtifactAction}
+          pendingAction={pendingAction}
+          progress={progress}
+        />
+      ) : (
+        <div className="lw-transfer-field lw-empty-status">
+          <PiWarningCircle aria-hidden="true" />
+          <div>
+            <strong>Not available</strong>
+            <span>No trusted artifact matches this selection.</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function ModelFamilyChoice({
-  checked,
-  family,
-  onChange,
-}: {
-  readonly checked: boolean;
-  readonly family: LocalWhisperModelFamily;
-  readonly onChange: () => void;
-}): React.JSX.Element {
-  return (
-    <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-md border border-border p-3 focus-within:ring-2 focus-within:ring-ring">
-      <input checked={checked} className="mt-1" name="local-whisper-model-family" onChange={onChange} type="radio" />
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-foreground">{family}</span>
-        <span className="mt-0.5 block text-xs text-muted-foreground">{getLocalWhisperFamilyRequirement(family)}</span>
-      </span>
-    </label>
-  );
-}
-
-/** Renders engine, target, backend, device, model, and support controls. */
+/** Renders the approved compact engine and model configuration panels. */
 export default function LocalWhisperRuntimeModelSection({
+  actionsDisabledReason,
   snapshot,
   draft,
   errors,
   disabled,
+  onArtifactAction,
+  onViewReference,
+  pendingAction,
   updateDraft,
 }: LocalWhisperRuntimeModelSectionProps): React.JSX.Element {
   const runtimeOptions = getLocalWhisperOptions(snapshot, 'runtime');
@@ -88,166 +141,259 @@ export default function LocalWhisperRuntimeModelSection({
   const modelVariantOptions = getLocalWhisperOptions(snapshot, 'modelVariant').filter((option) =>
     modelVariants.has(option.id as 'full' | 'q5_0'),
   );
+  const runtimeArtifact = artifactForRevision(snapshot, 'runtime', draft.runtimeRevision);
+  const modelArtifact = artifactForRevision(snapshot, 'model', draft.modelRevision);
+  const runtimeProgress = progressForArtifact(snapshot, runtimeArtifact);
+  const modelProgress = progressForArtifact(snapshot, modelArtifact);
+  const selectedModelDownloaded = modelArtifact?.state === 'Installed';
+  const selectedVariant = draft.modelVariant === 'q5_0' ? 'Q5_0' : 'Full';
+  const backendValue = draft.executionTarget === 'cpu' ? 'cpu' : (draft.backend ?? '');
 
   return (
-    <LocalWhisperSection
-      description="Selections are saved atomically. Changing a parent keeps remembered dependent values where possible."
-      title="Runtime & model"
-    >
-      <div className="space-y-5">
-        <LocalWhisperField
-          error={errors.runtimeRevision}
-          htmlFor="local-whisper-runtime"
-          label="Engine and runtime revision"
-        >
-          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-            <div className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm text-foreground">
-              Whisper.cpp
-            </div>
-            <LocalWhisperOptionSelect
-              disabled={disabled}
-              id="local-whisper-runtime"
-              onChange={(runtimeRevision) =>
-                updateDraft((current) => updateLocalWhisperRuntimeRevision(current, runtimeRevision, snapshot))
-              }
-              options={runtimeOptions}
-              placeholder="Select runtime revision"
-              value={draft.runtimeRevision}
+    <>
+      <LocalWhisperPanel
+        actions={
+          runtimeArtifact ? (
+            <LocalWhisperArtifactOverflowMenu
+              actionsDisabledReason={actionsDisabledReason}
+              artifact={runtimeArtifact}
+              onAction={onArtifactAction}
+              onViewReference={onViewReference}
+              pendingAction={pendingAction}
+              progress={runtimeProgress}
             />
-          </div>
-        </LocalWhisperField>
+          ) : null
+        }
+        className="lw-engine-section"
+        icon={PiGear}
+        title="Engine backend"
+      >
+        <div className="lw-engine-layout">
+          <div className="lw-engine-controls">
+            <label>
+              <span>Backend</span>
+              <span className="lw-select-control">
+                {draft.executionTarget === 'gpu' && draft.backend === 'cuda' ? (
+                  <SiNvidia aria-hidden="true" />
+                ) : (
+                  <PiCpu aria-hidden="true" />
+                )}
+                <select
+                  aria-label="Backend"
+                  disabled={disabled}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    updateDraft((current) => {
+                      if (value === 'cpu') return updateLocalWhisperTarget(current, 'cpu', snapshot);
+                      const gpuDraft = updateLocalWhisperTarget(current, 'gpu', snapshot);
+                      return updateLocalWhisperBackend(gpuDraft, value as LocalWhisperGpuBackend, snapshot);
+                    });
+                  }}
+                  value={backendValue}
+                >
+                  <option value="cpu">CPU</option>
+                  {backendOptions.map((option) => (
+                    <option disabled={!option.available} key={option.id} value={option.id}>
+                      {option.label}
+                      {option.available ? '' : ' · Unavailable'}
+                    </option>
+                  ))}
+                </select>
+                <PiCaretDown aria-hidden="true" />
+              </span>
+            </label>
+            <span className="lw-field-note">
+              {draft.executionTarget === 'cpu'
+                ? `Production fallback · ${snapshot.host.label}`
+                : `${snapshot.runtime.supportTier} support`}
+            </span>
 
-        <fieldset className="min-w-0 space-y-2" disabled={disabled}>
-          <legend className="text-sm font-medium text-foreground">Execution target</legend>
-          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
-            <TargetChoice
-              checked={draft.executionTarget === 'gpu'}
-              description="Requires an explicit available backend and device."
-              label="GPU"
-              onChange={() => updateDraft((current) => updateLocalWhisperTarget(current, 'gpu', snapshot))}
+            <label>
+              <span>Runtime revision</span>
+              <span className="lw-input-with-info">
+                <LocalWhisperOptionSelect
+                  disabled={disabled}
+                  id="local-whisper-runtime"
+                  onChange={(runtimeRevision) =>
+                    updateDraft((current) => updateLocalWhisperRuntimeRevision(current, runtimeRevision, snapshot))
+                  }
+                  options={runtimeOptions}
+                  placeholder="Select runtime revision"
+                  value={draft.runtimeRevision}
+                />
+                <PiInfo aria-hidden="true" title="Installed runtime revision" />
+              </span>
+              {errors.runtimeRevision ? <span className="lw-field-error">{errors.runtimeRevision}</span> : null}
+            </label>
+
+            <label>
+              <span>Device</span>
+              <span className="lw-select-control no-brand">
+                <PiCpu aria-hidden="true" />
+                {draft.executionTarget === 'gpu' ? (
+                  <select
+                    aria-label="GPU device"
+                    disabled={disabled || draft.backend === null}
+                    onChange={(event) => updateDraft((current) => ({ ...current, deviceId: event.target.value }))}
+                    value={draft.deviceId ?? ''}
+                  >
+                    <option disabled value="">
+                      Select device
+                    </option>
+                    {deviceOptions.map((option) => (
+                      <option disabled={!option.available} key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="lw-readonly-value">{snapshot.host.label}</span>
+                )}
+                <PiCaretDown aria-hidden="true" />
+              </span>
+              {errors.deviceId ? <span className="lw-field-error">{errors.deviceId}</span> : null}
+            </label>
+          </div>
+
+          <ArtifactStatusColumn
+            actionsDisabledReason={actionsDisabledReason}
+            artifact={runtimeArtifact}
+            label="Install status"
+            onArtifactAction={onArtifactAction}
+            pendingAction={pendingAction}
+            progress={runtimeProgress}
+          />
+        </div>
+      </LocalWhisperPanel>
+
+      <LocalWhisperPanel
+        actions={
+          modelArtifact ? (
+            <LocalWhisperArtifactOverflowMenu
+              actionsDisabledReason={actionsDisabledReason}
+              artifact={modelArtifact}
+              onAction={onArtifactAction}
+              onViewReference={onViewReference}
+              pendingAction={pendingAction}
+              progress={modelProgress}
             />
-            <TargetChoice
-              checked={draft.executionTarget === 'cpu'}
-              description={`Production fallback · ${snapshot.host.label}`}
-              label="CPU"
-              onChange={() => updateDraft((current) => updateLocalWhisperTarget(current, 'cpu', snapshot))}
-            />
+          ) : null
+        }
+        className="lw-model-section"
+        icon={PiCube}
+        title="Model"
+      >
+        <div className="lw-model-layout">
+          <div className="lw-selected-model-control">
+            <span className="lw-model-selector">
+              <PiCube aria-hidden="true" />
+              <span className="lw-model-select-stack">
+                <LocalWhisperOptionSelect
+                  disabled={disabled}
+                  id="local-whisper-model-revision"
+                  onChange={(modelRevision) =>
+                    updateDraft((current) => updateLocalWhisperModelRevision(current, modelRevision, snapshot))
+                  }
+                  options={modelRevisionOptions}
+                  placeholder="Select model revision"
+                  value={draft.modelRevision}
+                />
+                {modelVariantOptions.length > 1 ? (
+                  <LocalWhisperOptionSelect
+                    disabled={disabled}
+                    id="local-whisper-model-variant"
+                    onChange={(modelVariant) =>
+                      updateDraft((current) =>
+                        updateLocalWhisperModelVariant(current, modelVariant as 'full' | 'q5_0', snapshot),
+                      )
+                    }
+                    options={modelVariantOptions}
+                    placeholder="Select variant"
+                    value={draft.modelVariant}
+                  />
+                ) : (
+                  <span className="lw-variant-label">{selectedVariant}</span>
+                )}
+              </span>
+              <span
+                className={`lw-artifact-state ${selectedModelDownloaded ? 'installed' : 'missing'}`}
+                title={selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}
+              >
+                {selectedModelDownloaded ? (
+                  <PiCheckCircle aria-hidden="true" />
+                ) : (
+                  <PiWarningCircle aria-hidden="true" />
+                )}
+                <span className="sr-only">{selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}</span>
+              </span>
+            </span>
+            {errors.modelRevision ? <span className="lw-field-error">{errors.modelRevision}</span> : null}
+            {errors.modelVariant ? <span className="lw-field-error">{errors.modelVariant}</span> : null}
           </div>
-        </fieldset>
 
-        {draft.executionTarget === 'gpu' ? (
-          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-            <LocalWhisperField error={errors.backend} htmlFor="local-whisper-backend" label="GPU backend">
-              <LocalWhisperOptionSelect
-                disabled={disabled}
-                id="local-whisper-backend"
-                onChange={(backend) =>
-                  updateDraft((current) =>
-                    updateLocalWhisperBackend(current, backend as LocalWhisperGpuBackend, snapshot),
-                  )
-                }
-                options={backendOptions}
-                placeholder="Select backend"
-                value={draft.backend}
-              />
-            </LocalWhisperField>
-            <LocalWhisperField error={errors.deviceId} htmlFor="local-whisper-device" label="GPU device">
-              <LocalWhisperOptionSelect
-                disabled={disabled || draft.backend === null}
-                id="local-whisper-device"
-                onChange={(deviceId) => updateDraft((current) => ({ ...current, deviceId }))}
-                options={deviceOptions}
-                placeholder="Select device"
-                value={draft.deviceId}
-              />
-            </LocalWhisperField>
-          </div>
-        ) : (
-          <p className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
-            CPU target: {snapshot.host.label}. Thread count is available under Advanced.
-          </p>
-        )}
-
-        <fieldset className="min-w-0 space-y-2" disabled={disabled}>
-          <legend className="text-sm font-medium text-foreground">Model family and approximate requirements</legend>
-          <p className="text-xs text-muted-foreground">
-            Estimates are planning guidance, not guaranteed acceptance. Exact revision/variant estimates appear in
-            Status.
-          </p>
-          <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {LOCAL_WHISPER_MODEL_FAMILIES.map((family) => (
-              <ModelFamilyChoice
-                checked={draft.modelFamily === family}
-                family={family}
-                key={family}
-                onChange={() => updateDraft((current) => updateLocalWhisperModelFamily(current, family, snapshot))}
-              />
-            ))}
-          </div>
-          {errors.modelFamily ? <p className="text-xs font-medium text-destructive">{errors.modelFamily}</p> : null}
-        </fieldset>
-
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-          <LocalWhisperField error={errors.modelRevision} htmlFor="local-whisper-model-revision" label="Model revision">
-            <LocalWhisperOptionSelect
-              disabled={disabled}
-              id="local-whisper-model-revision"
-              onChange={(modelRevision) =>
-                updateDraft((current) => updateLocalWhisperModelRevision(current, modelRevision, snapshot))
-              }
-              options={modelRevisionOptions}
-              placeholder="Select model revision"
-              value={draft.modelRevision}
-            />
-          </LocalWhisperField>
-          {modelVariantOptions.length > 1 ? (
-            <LocalWhisperField error={errors.modelVariant} htmlFor="local-whisper-model-variant" label="Model variant">
-              <LocalWhisperOptionSelect
-                disabled={disabled}
-                id="local-whisper-model-variant"
-                onChange={(modelVariant) =>
-                  updateDraft((current) =>
-                    updateLocalWhisperModelVariant(current, modelVariant as 'full' | 'q5_0', snapshot),
-                  )
-                }
-                options={modelVariantOptions}
-                placeholder="Select reviewed variant"
-                value={draft.modelVariant}
-              />
-            </LocalWhisperField>
-          ) : null}
+          <ArtifactStatusColumn
+            actionsDisabledReason={actionsDisabledReason}
+            artifact={modelArtifact}
+            label="Download status"
+            onArtifactAction={onArtifactAction}
+            pendingAction={pendingAction}
+            progress={modelProgress}
+          />
         </div>
 
-        <div className="grid min-w-0 gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-          <p className="rounded-md border border-border p-3">
-            NVIDIA CUDA: production path on supported Windows and Linux hosts.
-          </p>
-          <p className="rounded-md border border-border p-3">
-            CPU: production fallback; performance depends on the selected model.
-          </p>
-          <p className="rounded-md border border-border p-3">
-            AMD Windows: Vulkan preview. AMD Linux: HIP preview only for exact allowlisted stacks; Vulkan is a separate
-            preview path.
-          </p>
-          <p className="rounded-md border border-border p-3">
-            Apple Silicon/macOS: planned only. Controls remain unavailable in this release and no production support is
-            promised.
-          </p>
-        </div>
-
-        {snapshot.prerequisites.length > 0 ? (
-          <div className="rounded-md border border-border p-3">
-            <p className="text-sm font-medium text-foreground">Prerequisites</p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              {snapshot.prerequisites.map((prerequisite) => (
-                <li key={`${prerequisite.id}:${prerequisite.version ?? 'missing'}`}>
-                  {prerequisite.label}: {prerequisite.version ?? 'Not detected'}
-                </li>
-              ))}
-            </ul>
+        <div aria-label="Available Local Whisper models" className="lw-model-table" role="table">
+          <div className="lw-model-table-header" role="row">
+            <span role="columnheader">Model</span>
+            <span role="columnheader">RAM</span>
+            <span role="columnheader">VRAM</span>
+            <span className="sr-only" role="columnheader">
+              Actions
+            </span>
           </div>
-        ) : null}
-      </div>
-    </LocalWhisperSection>
+          {LOCAL_WHISPER_MODEL_FAMILIES.map((family) => {
+            const selected = family === draft.modelFamily;
+            const guidance = LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE[family];
+            const revision = preferredFamilyRevision(snapshot.options, family);
+            const artifact = artifactForRevision(snapshot, 'model', revision);
+            const progress = progressForArtifact(snapshot, artifact);
+            return (
+              <div className={`lw-model-row${selected ? ' selected' : ''}`} key={family} role="row">
+                <button
+                  aria-pressed={selected}
+                  className="lw-model-name-cell"
+                  disabled={disabled}
+                  onClick={() => updateDraft((current) => updateLocalWhisperModelFamily(current, family, snapshot))}
+                  role="cell"
+                  type="button"
+                >
+                  <span aria-hidden="true" className="lw-radio-mark" />
+                  <PiCube aria-hidden="true" />
+                  <strong>{family}</strong>
+                  {family === 'large-v3-turbo' ? <span>· Q5_0</span> : null}
+                </button>
+                <span data-label="RAM" role="cell">
+                  {approximateRange(guidance.approximateSystemRamGiB)}
+                </span>
+                <span data-label="VRAM" role="cell">
+                  {approximateRange(guidance.approximateVramGiB)}
+                </span>
+                <span className="lw-row-action" role="cell">
+                  {artifact ? (
+                    <LocalWhisperArtifactOverflowMenu
+                      actionsDisabledReason={actionsDisabledReason}
+                      artifact={artifact}
+                      onAction={onArtifactAction}
+                      onViewReference={onViewReference}
+                      pendingAction={pendingAction}
+                      progress={progress}
+                    />
+                  ) : null}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </LocalWhisperPanel>
+    </>
   );
 }

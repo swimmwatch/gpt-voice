@@ -14,11 +14,32 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
     const runtime = source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx');
     const status = source('src/renderer/localWhisper/components/LocalWhisperStatusSection.tsx');
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
     for (const viewport of [440, 560]) assert.ok(viewport < 640);
     assert.match(page, /min-w-0 max-w-full overflow-x-hidden/u);
-    assert.match(runtime, /grid min-w-0 [^"]*sm:grid-cols/u);
-    assert.match(status, /grid min-w-0 [^"]*sm:grid-cols/u);
+    assert.match(runtime, /lw-engine-layout/u);
+    assert.match(status, /lw-readiness-rail/u);
+    assert.match(styles, /@media \(max-width: 560px\)[\s\S]*\.lw-model-row/u);
+    assert.match(styles, /\.lw-engine-layout,[\s\S]*grid-template-columns: 1fr/u);
     assert.doesNotMatch(`${page}\n${runtime}\n${status}`, /min-w-\[(?:[6-9]\d\d|\d{4,})px\]/u);
+  });
+
+  it('centers the loading state within the full provider-settings viewport', () => {
+    const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    assert.match(page, /className="lw-loading"/u);
+    assert.match(styles, /\.lw-loading\s*\{[\s\S]*?min-height: 100dvh;/u);
+    assert.match(styles, /\.lw-loading\s*\{[\s\S]*?align-items: center;/u);
+    assert.match(styles, /\.lw-loading\s*\{[\s\S]*?justify-content: center;/u);
+  });
+
+  it('keeps the settings canvas continuous with the scrollbar gutter', () => {
+    const window = source('src/renderer/ProviderSettingsWindow.tsx');
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    assert.match(window, /bg-\[#090d0f\]/u);
+    assert.match(styles, /--lw-canvas: #090d0f;/u);
+    assert.match(styles, /\.local-whisper-settings\s*\{[\s\S]*?background: var\(--lw-canvas\);/u);
+    assert.doesNotMatch(styles, /\.local-whisper-settings\s*\{[\s\S]*?border-inline:/u);
   });
 
   it('provides field labels, grouped radios, keyboard focus rings, and explicit disabled explanations', () => {
@@ -27,7 +48,7 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     const inference = source('src/renderer/localWhisper/components/LocalWhisperInferenceSections.tsx');
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
     assert.match(shared, /<label[\s\S]*htmlFor=\{htmlFor\}/u);
-    assert.match(runtime, /<fieldset[\s\S]*<legend/u);
+    assert.match(runtime, /aria-pressed=\{selected\}/u);
     assert.match(inference, /focus-visible:ring-2|focus-within:ring-2/u);
     assert.match(page, /saveDisabledReason/u);
     assert.match(page, /Reset is disabled while another action is in progress/u);
@@ -35,12 +56,15 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
 
   it('announces progress and failures and restores focus after rejected destructive actions', () => {
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
-    const storage = source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx');
+    const storage = [
+      source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'),
+    ].join('\n');
     const indicator = source('src/renderer/localWhisper/components/LocalWhisperMainStatusIndicator.tsx');
     assert.match(page, /aria-live="assertive"[\s\S]*role="alert"[\s\S]*tabIndex=\{-1\}/u);
     assert.match(storage, /aria-live="polite"/u);
     assert.match(storage, /<progress/u);
-    assert.match(storage, /removeTriggerRef\.current\?\.focus\(\)/u);
+    assert.match(storage, /triggerRef\.current\?\.focus\(\)/u);
     assert.match(indicator, /<ProviderStatusIndicator/u);
     assert.match(indicator, /role="status"/u);
     assert.match(indicator, /tooltip=\{tooltip\}/u);

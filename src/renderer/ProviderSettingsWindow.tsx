@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { X } from 'lucide-react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import LoadingScreen from '@renderer/components/LoadingScreen';
 import ProviderSettingsForm from '@renderer/components/ProviderSettingsForm';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
-import { Button } from '@renderer/components/ui/button';
 import { useI18n } from '@renderer/hooks/useI18n';
 import LocalWhisperSettingsPage from '@renderer/localWhisper/LocalWhisperSettingsPage';
 import {
@@ -92,22 +90,15 @@ function ProviderSettingsWindow(): JSX.Element {
   return (
     <main
       aria-busy={isLoading}
-      className="h-full min-h-0 overflow-y-auto p-4 sm:p-6 [-webkit-app-region:no-drag]"
+      className={
+        provider?.id === LOCAL_WHISPER_PROVIDER_ID
+          ? 'h-full min-h-0 overflow-y-auto bg-[#090d0f] [-webkit-app-region:no-drag]'
+          : 'h-full min-h-0 overflow-y-auto p-4 sm:p-6 [-webkit-app-region:no-drag]'
+      }
       data-slot="provider-settings-window"
     >
       {provider?.id === LOCAL_WHISPER_PROVIDER_ID ? (
-        <div className="mx-auto w-full max-w-4xl min-w-0">
-          <header className="mb-4 flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="break-words text-xl font-semibold text-foreground">Local Whisper</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Run Whisper.cpp locally with explicit model, backend, and memory lifecycle controls.
-              </p>
-            </div>
-            <Button aria-label={t('common.close')} onClick={closeWindow} size="icon" type="button" variant="ghost">
-              <X aria-hidden className="h-4 w-4" />
-            </Button>
-          </header>
+        <div className="mx-auto w-full max-w-[912px] min-w-0">
           <LocalWhisperSettingsPage desktopApi={desktopApi} />
         </div>
       ) : provider && settings ? (

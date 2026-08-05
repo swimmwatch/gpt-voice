@@ -73,7 +73,10 @@ describe('Local Whisper UI contracts', () => {
   });
 
   it('exposes cancellation from renderer-safe active transfer state before inventory promotion', () => {
-    const storage = source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx');
+    const storage = [
+      source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx'),
+      source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'),
+    ].join('\n');
     const ipc = source('src/shared/localWhisper/ipc.ts');
     assert.match(storage, /CANCELLABLE_PROGRESS_STATES/u);
     assert.match(storage, /RECOVERABLE_PROGRESS_STATES/u);

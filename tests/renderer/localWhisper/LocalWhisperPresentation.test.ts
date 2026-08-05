@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
 import {
   createLocalWhisperRendererSafeFailure,
+  toLocalWhisperRevisionId,
   type LocalWhisperMainStatusSnapshot,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
@@ -14,6 +15,7 @@ import {
   getLocalWhisperLoadAvailability,
   getLocalWhisperMainResidencyControl,
   getLocalWhisperMainStatusPresentation,
+  getLocalWhisperResourceSafetyPresentation,
   getLocalWhisperUnloadAvailability,
   formatLocalWhisperBytes,
   getLatestLocalWhisperArtifactProgress,
@@ -329,5 +331,90 @@ describe('Local Whisper action and main status presentation', () => {
     const blocked = getLocalWhisperUnloadAvailability(transcribing, false);
     assert.equal(blocked.enabled, false);
     assert.ok(blocked.disabledReason);
+  });
+
+  it('derives safe reservable RAM and VRAM without claiming safety for unknown availability', () => {
+    const gibibyte = 1024 ** 3;
+    const baseline = settingsSnapshot();
+    const runtimeRevision = toLocalWhisperRevisionId('runtime-revision-0001');
+    const modelRevision = toLocalWhisperRevisionId('model-revision-0001');
+    const sourceRevision = toLocalWhisperRevisionId('source-revision-0001');
+    assert.ok(runtimeRevision);
+    assert.ok(modelRevision);
+    assert.ok(sourceRevision);
+    const estimate: NonNullable<LocalWhisperRendererSnapshot['memory']['selectedEstimate']> = {
+      target: 'gpu',
+      backend: 'cuda',
+      runtimePackRevision: runtimeRevision,
+      model: {
+        engine: 'whisperCpp',
+        logicalModel: 'base',
+        sourceCheckpointRevision: sourceRevision,
+        artifactRevision: modelRevision,
+        nativeFormat: 'ggml',
+        variant: 'full',
+      },
+      estimatedPeakRamBytes: 4 * gibibyte,
+      estimatedPeakVramBytes: 2 * gibibyte,
+      evidenceBasis: 'derived',
+      sourceBuildRevision: sourceRevision,
+      methodologyLabel: 'deterministic renderer fixture',
+    };
+    const known = getLocalWhisperResourceSafetyPresentation({
+      ...baseline,
+      memory: { ...baseline.memory, selectedEstimate: estimate, qualifiedPeak: null },
+      resources: {
+        success: true,
+        failureCode: null,
+        evidence: 'catalog',
+        requiredRamBytes: estimate.estimatedPeakRamBytes + gibibyte,
+        requiredVramBytes:
+          estimate.estimatedPeakVramBytes === 'notApplicable'
+            ? 'notApplicable'
+            : estimate.estimatedPeakVramBytes + gibibyte,
+        freeRamBytes: 16 * gibibyte,
+        freeVramBytes: 12 * gibibyte,
+      },
+    });
+    assert.equal(known.status, 'safe');
+    assert.equal(known.ram.safeReservableBytes, 15 * gibibyte);
+    assert.equal(
+      known.vram.safeReservableBytes,
+      estimate.estimatedPeakVramBytes === 'notApplicable' ? 'notApplicable' : 11 * gibibyte,
+    );
+
+    assert.equal(
+      getLocalWhisperResourceSafetyPresentation({
+        ...baseline,
+        resources: {
+          success: true,
+          failureCode: null,
+          evidence: 'catalog',
+          requiredRamBytes: gibibyte,
+          requiredVramBytes: gibibyte,
+          freeRamBytes: null,
+          freeVramBytes: null,
+        },
+      }).status,
+      'unknown',
+    );
+  });
+
+  it('keeps a known resource deficit blocked with its main-owned failure code', () => {
+    const baseline = settingsSnapshot();
+    const presentation = getLocalWhisperResourceSafetyPresentation({
+      ...baseline,
+      resources: {
+        success: false,
+        failureCode: 'INSUFFICIENT_VRAM',
+        evidence: 'catalog',
+        requiredRamBytes: 2,
+        requiredVramBytes: 4,
+        freeRamBytes: 3,
+        freeVramBytes: 3,
+      },
+    });
+    assert.equal(presentation.status, 'blocked');
+    assert.equal(presentation.failureCode, 'INSUFFICIENT_VRAM');
   });
 });

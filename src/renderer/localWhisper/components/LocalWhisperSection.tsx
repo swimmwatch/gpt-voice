@@ -1,5 +1,74 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import type { IconType } from 'react-icons';
+import { PiCaretDown, PiCaretRight } from 'react-icons/pi';
 import { cn } from '@renderer/lib/cn';
+
+interface LocalWhisperPanelProps {
+  readonly actions?: ReactNode;
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly icon: IconType;
+  readonly title: string;
+}
+
+export function LocalWhisperPanel({
+  actions,
+  children,
+  className,
+  icon: Icon,
+  title,
+}: LocalWhisperPanelProps): React.JSX.Element {
+  return (
+    <section className={cn('lw-panel', className)}>
+      <div className="lw-section-heading">
+        <span>
+          <Icon aria-hidden="true" />
+          <strong>{title}</strong>
+        </span>
+        {actions}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+interface LocalWhisperDisclosureProps {
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly defaultOpen?: boolean;
+  readonly icon?: IconType;
+  readonly summary?: string;
+  readonly title: string;
+}
+
+export function LocalWhisperDisclosure({
+  children,
+  className,
+  defaultOpen = false,
+  icon: Icon,
+  summary,
+  title,
+}: LocalWhisperDisclosureProps): React.JSX.Element {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className={cn('lw-disclosure', open && 'is-open', className)}>
+      <button
+        aria-expanded={open}
+        className="lw-disclosure-trigger"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <span className="lw-disclosure-title">
+          {Icon ? <Icon aria-hidden="true" /> : null}
+          <strong>{title}</strong>
+          {summary ? <span>{summary}</span> : null}
+        </span>
+        {open ? <PiCaretDown aria-hidden="true" /> : <PiCaretRight aria-hidden="true" />}
+      </button>
+      {open ? <div className="lw-disclosure-content">{children}</div> : null}
+    </section>
+  );
+}
 
 interface LocalWhisperSectionProps {
   readonly title: string;
@@ -79,7 +148,7 @@ export function LocalWhisperOptionSelect({
   return (
     <select
       aria-describedby={describedBy}
-      className="h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      className="lw-native-select h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
       disabled={disabled}
       id={id}
       onChange={(event) => onChange(event.target.value)}

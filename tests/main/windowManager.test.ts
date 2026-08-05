@@ -200,6 +200,8 @@ describe('WindowManager', () => {
     const mainWindow = harness.created[0];
     const settingsWindow = harness.created[1];
     assert.ok(mainWindow && settingsWindow);
+    assert.equal(settingsWindow.options.width, 912);
+    assert.equal(settingsWindow.options.height, 820);
 
     assert.equal(harness.manager.isTrustedMainFrame(mainWindow.webContents, mainWindow.webContents.mainFrame), true);
     assert.equal(
@@ -234,6 +236,8 @@ describe('WindowManager', () => {
     const providerWindow = harness.created[4];
     assert.equal(harness.created.length, 5);
     assert.match(providerWindow?.loadUrls[0] ?? '', /providerId=openai-api/u);
+    assert.equal(providerWindow?.options.width, 560);
+    assert.equal(providerWindow?.options.height, 680);
     assert.equal(
       harness.manager.isTrustedAppWindow(providerWindow?.webContents, providerWindow?.loadUrls[0] ?? ''),
       true,

@@ -48,6 +48,66 @@ export interface LocalWhisperActionAvailability {
   readonly disabledReason: string | null;
 }
 
+export interface LocalWhisperResourceMeterPresentation {
+  readonly availableBytes: number | null;
+  readonly peakBytes: number | 'notApplicable' | null;
+  readonly requiredBytes: number | 'notApplicable' | null;
+  readonly safeReservableBytes: number | 'notApplicable' | null;
+}
+
+export interface LocalWhisperResourceSafetyPresentation {
+  readonly status: 'safe' | 'blocked' | 'unknown';
+  readonly evidence: 'catalog' | 'qualified' | null;
+  readonly failureCode: Extract<LocalWhisperFailureCode, 'INSUFFICIENT_RAM' | 'INSUFFICIENT_VRAM'> | null;
+  readonly ram: LocalWhisperResourceMeterPresentation;
+  readonly vram: LocalWhisperResourceMeterPresentation;
+}
+
+function safeReservableBytes(
+  peakBytes: number | 'notApplicable' | null,
+  requiredBytes: number | 'notApplicable' | null,
+  availableBytes: number | null,
+): number | 'notApplicable' | null {
+  if (peakBytes === 'notApplicable' || requiredBytes === 'notApplicable') return 'notApplicable';
+  if (peakBytes === null || requiredBytes === null || availableBytes === null) return null;
+  return Math.max(0, availableBytes - Math.max(0, requiredBytes - peakBytes));
+}
+
+/** Derives honest capacity labels from the main-owned peak, headroom, and current availability facts. */
+export function getLocalWhisperResourceSafetyPresentation(
+  snapshot: LocalWhisperRendererSnapshot,
+): LocalWhisperResourceSafetyPresentation {
+  const resources = snapshot.resources;
+  const estimate = snapshot.memory.selectedEstimate;
+  const qualifiedPeak = resources?.evidence === 'qualified' ? snapshot.memory.qualifiedPeak : null;
+  const ramPeak = qualifiedPeak?.measuredPeakRamBytes ?? estimate?.estimatedPeakRamBytes ?? null;
+  const vramPeak = qualifiedPeak?.measuredPeakVramBytes ?? estimate?.estimatedPeakVramBytes ?? null;
+  const requiredRamBytes = resources?.requiredRamBytes ?? null;
+  const requiredVramBytes = resources?.requiredVramBytes ?? null;
+  const freeRamBytes = resources?.freeRamBytes ?? null;
+  const freeVramBytes = resources?.freeVramBytes ?? null;
+  const availabilityUnknown =
+    resources === null || freeRamBytes === null || (requiredVramBytes !== 'notApplicable' && freeVramBytes === null);
+
+  return Object.freeze({
+    status: resources?.success === false ? 'blocked' : availabilityUnknown ? 'unknown' : 'safe',
+    evidence: resources?.evidence ?? null,
+    failureCode: resources?.failureCode ?? null,
+    ram: Object.freeze({
+      availableBytes: freeRamBytes,
+      peakBytes: ramPeak,
+      requiredBytes: requiredRamBytes,
+      safeReservableBytes: safeReservableBytes(ramPeak, requiredRamBytes, freeRamBytes),
+    }),
+    vram: Object.freeze({
+      availableBytes: freeVramBytes,
+      peakBytes: vramPeak,
+      requiredBytes: requiredVramBytes,
+      safeReservableBytes: safeReservableBytes(vramPeak, requiredVramBytes, freeVramBytes),
+    }),
+  });
+}
+
 export interface LocalWhisperMainStatusPresentation {
   readonly label:
     'Ready' | 'Busy' | 'Available on demand' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';

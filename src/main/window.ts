@@ -11,6 +11,12 @@ import {
 
 const MAIN_WINDOW_CONTENT_WIDTH = 520;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
+const PROVIDER_SETTINGS_CONTENT_WIDTH = 560;
+const PROVIDER_SETTINGS_CONTENT_HEIGHT = 680;
+const LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH = 912;
+const LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT = 820;
+const PROVIDER_SETTINGS_MIN_WIDTH = 440;
+const PROVIDER_SETTINGS_MIN_HEIGHT = 520;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
 const APP_PROTOCOL = 'app:';
 const APP_HOST = 'gpt-voice';
@@ -291,11 +297,12 @@ export class WindowManager {
     this.providerSettingsWindowController.show(providerId, () => {
       const providerSettingsUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
       providerSettingsUrl.searchParams.set('providerId', providerId);
+      const isLocalWhisperSettings = providerId === LOCAL_WHISPER_PROVIDER_ID;
       const window = this.dependencies.createBrowserWindow({
-        width: 560,
-        height: 680,
-        minWidth: 440,
-        minHeight: 520,
+        width: isLocalWhisperSettings ? LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH : PROVIDER_SETTINGS_CONTENT_WIDTH,
+        height: isLocalWhisperSettings ? LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT : PROVIDER_SETTINGS_CONTENT_HEIGHT,
+        minWidth: PROVIDER_SETTINGS_MIN_WIDTH,
+        minHeight: PROVIDER_SETTINGS_MIN_HEIGHT,
         useContentSize: true,
         autoHideMenuBar: true,
         backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,

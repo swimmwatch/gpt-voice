@@ -271,6 +271,52 @@ None.
 
 final result: passed
 
+# Local Whisper Loader Design QA
+
+## Evidence
+
+- Source visual truth: screenshot attached to the current user request; the client did not expose a filesystem path.
+- Implementation screenshot: `/tmp/local-whisper-loader-final.png`.
+- Viewport: 912 × 820 CSS px at device scale factor 2.
+- Implementation pixels: 1824 × 1640, content only.
+- Source pixels: 1662 × 1535 including native window chrome; CSS size and density metadata are unavailable.
+- State: initial Local Whisper settings load in the dark theme.
+
+## Full-View Comparison
+
+The source places the loading group near the upper fifth of the enlarged content area. The revised implementation places the spinner and label at the horizontal and vertical midpoint of the complete settings content viewport without overflow or competing content.
+
+## Focused Region Comparison
+
+A separate crop was unnecessary because the loader is the only visible component. The spinner, label, 8 px gap, typography, and foreground contrast remain fully legible in the full-view capture.
+
+## Required Fidelity Surfaces
+
+- Fonts and typography: the existing system font, size, weight, line height, and antialiasing are unchanged.
+- Spacing and layout rhythm: the spinner and label retain their gap and are centered on both viewport axes.
+- Colors and visual tokens: the existing canvas and muted foreground tokens are unchanged.
+- Image quality and asset fidelity: the existing library spinner remains sharp; no replacement asset was introduced.
+- Copy and content: `Loading Local Whisper settings…` is unchanged.
+
+## Findings
+
+No actionable P0, P1, or P2 differences remain.
+
+## Implementation Checklist
+
+- Fill the complete settings content viewport during loading.
+- Center the spinner and label horizontally and vertically.
+- Preserve existing typography, colors, spacing, and accessible spinner label.
+- Verify the loading state at the 912 × 820 Local Whisper window size.
+
+## Comparison History
+
+- Pass 1: the loader container was only 16 rem tall, placing the loading group too high in the enlarged settings window.
+- Fix 1: changed the loader minimum block size to the dynamic viewport height.
+- Pass 2: `/tmp/local-whisper-loader-final.png` confirms the loading group is centered at the viewport midpoint with no P0-P2 findings.
+
+final result: passed
+
 # Connection Status Indicator Design QA
 
 ## Comparison Target
