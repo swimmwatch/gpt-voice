@@ -400,7 +400,13 @@ class RecordingShortcutController extends ShortcutController {
 }
 
 class RecordingBackgroundBrowserService extends BackgroundBrowserService {
-  public constructor(private readonly events: string[]) {
+  public constructor(
+    private readonly events: string[],
+    private readonly initializationStatus: { readonly providerId: string; readonly ready: boolean } = {
+      providerId: 'openai-api',
+      ready: true,
+    },
+  ) {
     super({
       audit: new RecordingVoiceProviderAudit(),
       cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
@@ -425,7 +431,7 @@ class RecordingBackgroundBrowserService extends BackgroundBrowserService {
 
   public override initialize(): Promise<{ readonly providerId: string; readonly ready: boolean }> {
     this.events.push('browser-initialize');
-    return Promise.resolve({ providerId: 'openai-api', ready: true });
+    return Promise.resolve(this.initializationStatus);
   }
 
   public override shutdown(): Promise<void> {
@@ -481,6 +487,7 @@ class MainProcessApplicationHarness {
   public createApplication(
     options: {
       readonly benchmark?: boolean;
+      readonly backgroundBrowserStatus?: { readonly providerId: string; readonly ready: boolean };
       readonly removing?: boolean;
       readonly providerId?: string | null;
       readonly cloakBrowserPreparation?: Promise<FirstLaunchStartupJobRunResult>;
@@ -491,7 +498,10 @@ class MainProcessApplicationHarness {
     const windowManager = new RecordingWindowManager(this.events);
     const trayController = new RecordingTrayController(this.events, windowManager);
     const shortcutController = new RecordingShortcutController(this.events, trayController, windowManager);
-    const backgroundBrowserService = new RecordingBackgroundBrowserService(this.events);
+    const backgroundBrowserService = new RecordingBackgroundBrowserService(
+      this.events,
+      options.backgroundBrowserStatus,
+    );
     const config = new RecordingConfigStore(
       this.events,
       options.translationEnabled ?? true,
@@ -529,10 +539,7 @@ class MainProcessApplicationHarness {
             if (providerId === null) return { failureCode: null, success: true };
             const status = await backgroundBrowserService.initialize();
             windowManager.publishBackgroundStatus(status, providerId);
-            return {
-              failureCode: status.ready ? null : FIRST_LAUNCH_STARTUP_FAILURE_CODES.InitializationFailed,
-              success: status.ready,
-            };
+            return { failureCode: null, success: true };
           },
         },
         {
@@ -689,10 +696,54 @@ describe('main process application lifecycle', () => {
     assert.equal(harness.events.includes('translation-initialize'), true);
     assert.equal(harness.events.includes('browser-initialize'), false);
     assert.equal(
-      harness.startupCoordinator?.getSnapshot().jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider)
-        ?.state,
+      harness.startupCoordinator
+        ?.getSnapshot()
+        .jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider)?.state,
       'not-required',
     );
+  });
+
+  it('settles selected but disconnected providers without blocking the startup view', async () => {
+    const cases: ReadonlyArray<{
+      readonly name: string;
+      readonly providerId: string;
+      readonly status: { readonly providerId: string; readonly ready: boolean };
+    }> = [
+      {
+        name: 'signed-out browser provider',
+        providerId: 'chatgpt',
+        status: { providerId: 'chatgpt', ready: false },
+      },
+      {
+        name: 'unconfigured API provider',
+        providerId: 'openai-api',
+        status: { providerId: 'openai-api', ready: false },
+      },
+      {
+        name: 'unloaded Local Whisper model',
+        providerId: 'local-whisper',
+        status: { providerId: 'local-whisper', ready: false },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const harness = new MainProcessApplicationHarness();
+      harness
+        .createApplication({
+          backgroundBrowserStatus: testCase.status,
+          providerId: testCase.providerId,
+        })
+        .bootstrap();
+      harness.app.emitReady();
+      await flushAsyncWork();
+
+      const voiceProviderJob = harness.startupCoordinator
+        ?.getSnapshot()
+        .jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+      assert.equal(voiceProviderJob?.state, 'succeeded', testCase.name);
+      assert.equal(harness.startupCoordinator?.getSnapshot().state, FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Succeeded);
+      assert.equal(harness.events.includes('background-status'), true);
+    }
   });
 
   it('disposes startup publication before quit cleanup suppresses late completion events', async () => {

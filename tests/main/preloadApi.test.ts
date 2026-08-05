@@ -254,7 +254,9 @@ describe('preload API factory', () => {
       { args: [], channel: FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry },
     ]);
 
-    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, { privateInstallerPath: '/private/cache/chrome' });
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, {
+      privateInstallerPath: '/private/cache/chrome',
+    });
     await assert.rejects(api.getFirstLaunchStartupSnapshot(), /Invalid first-launch startup snapshot/u);
   });
 

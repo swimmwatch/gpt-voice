@@ -1,10 +1,7 @@
 import * as path from 'node:path';
 import type { BrowserContext } from 'playwright-core';
 import type { LaunchContextOptions, LaunchPersistentContextOptions } from 'cloakbrowser';
-import {
-  FIRST_LAUNCH_STARTUP_FAILURE_CODES,
-  type FirstLaunchStartupJobRunResult,
-} from '@shared/firstLaunchStartup';
+import { FIRST_LAUNCH_STARTUP_FAILURE_CODES, type FirstLaunchStartupJobRunResult } from '@shared/firstLaunchStartup';
 import type { ScopedLogger } from './logger';
 
 export interface CloakBrowserBinaryInfo {

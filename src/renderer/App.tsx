@@ -910,6 +910,7 @@ const App: React.FC = () => {
         activeJobIds={firstLaunchStartupPresentation.activeJobIds}
         hasRetryableFailure={firstLaunchStartupPresentation.hasRetryableFailure}
         isRetryPending={isFirstLaunchRetryPending}
+        mode="startup"
         onRetry={() => void retryFirstLaunchStartup()}
         progress={firstLaunchStartupPresentation.progress}
         retryFailed={didFirstLaunchRetryFail}

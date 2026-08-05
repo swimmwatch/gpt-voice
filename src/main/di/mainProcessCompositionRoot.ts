@@ -103,10 +103,7 @@ import { LoggerFactory, type LoggerFactoryDependencies } from '../logger';
 import { ElectronRuntimeLoader, type ElectronRuntimeLoaderDependencies } from '../electronRuntime';
 import { CloakBrowserRuntimeLoader, type CloakBrowserRuntimeLoaderDependencies } from '../cloakbrowser';
 import { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
-import {
-  FIRST_LAUNCH_STARTUP_FAILURE_CODES,
-  FIRST_LAUNCH_STARTUP_JOB_IDS,
-} from '@shared/firstLaunchStartup';
+import { FIRST_LAUNCH_STARTUP_JOB_IDS } from '@shared/firstLaunchStartup';
 import {
   OpenAIApiSettingsRepository,
   type OpenAIApiSettingsRepositoryDependencies,
@@ -748,10 +745,7 @@ export class MainProcessCompositionRoot {
             if (providerId === null) return { failureCode: null, success: true };
             const status = await backgroundBrowserService.initialize();
             windowManager.publishBackgroundStatus(status, providerId);
-            return {
-              failureCode: status.ready ? null : FIRST_LAUNCH_STARTUP_FAILURE_CODES.InitializationFailed,
-              success: status.ready,
-            };
+            return { failureCode: null, success: true };
           },
         },
         {

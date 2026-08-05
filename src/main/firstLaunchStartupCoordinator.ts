@@ -104,7 +104,10 @@ export class FirstLaunchStartupCoordinator {
     this.listeners.clear();
   }
 
-  private beginAttempt(generation: number, jobs: readonly FirstLaunchStartupJob[]): Promise<FirstLaunchStartupSnapshot> {
+  private beginAttempt(
+    generation: number,
+    jobs: readonly FirstLaunchStartupJob[],
+  ): Promise<FirstLaunchStartupSnapshot> {
     this.publish(
       createFirstLaunchStartupSnapshot({
         generation,
@@ -125,10 +128,7 @@ export class FirstLaunchStartupCoordinator {
   private async runPendingJobs(generation: number): Promise<FirstLaunchStartupSnapshot> {
     while (!this.disposed && this.snapshotValue.generation === generation) {
       const runnableJobIds = this.snapshotValue.jobs
-        .filter(
-          (job) =>
-            job.state === FIRST_LAUNCH_STARTUP_JOB_STATES.Pending && this.areDependenciesSatisfied(job.id),
-        )
+        .filter((job) => job.state === FIRST_LAUNCH_STARTUP_JOB_STATES.Pending && this.areDependenciesSatisfied(job.id))
         .map((job) => job.id);
       if (runnableJobIds.length === 0) return this.snapshotValue;
       await Promise.all(runnableJobIds.map((jobId) => this.runJob(generation, jobId)));

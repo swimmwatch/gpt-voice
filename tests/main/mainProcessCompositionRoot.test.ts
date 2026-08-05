@@ -173,6 +173,7 @@ class MainProcessCompositionHarness {
     translationAuditRecords: [],
     window: null,
   };
+  public readonly configFile: string;
   public readonly temporaryDirectory: string;
   public readonly databasePath: string;
   public readonly compositionEnvironment: MainProcessCompositionEnvironment;
@@ -185,7 +186,10 @@ class MainProcessCompositionHarness {
       homeDirectory: () => this.temporaryDirectory,
       platform: 'linux',
     });
+    this.configFile = configPaths.configFile;
     this.databasePath = configPaths.databaseFile;
+    const cloakBrowserBinaryPath = path.join(this.temporaryDirectory, 'cloakbrowser');
+    fs.writeFileSync(cloakBrowserBinaryPath, 'test-binary', 'utf8');
     this.compositionEnvironment = {
       assetPaths: {
         isPackaged: false,
@@ -197,8 +201,8 @@ class MainProcessCompositionHarness {
         environment: {},
         fileSystem: fs,
         importModule: async () => ({
-          binaryInfo: () => ({ binaryPath: '/missing/cloakbrowser', installed: false }),
-          ensureBinary: async () => '/missing/cloakbrowser',
+          binaryInfo: () => ({ binaryPath: cloakBrowserBinaryPath, installed: true }),
+          ensureBinary: async () => cloakBrowserBinaryPath,
           launchContext: async () => ({ close: async () => undefined }) as BrowserContext,
           launchPersistentContext: async () => ({ close: async () => undefined }) as BrowserContext,
         }),
@@ -555,6 +559,11 @@ class MainProcessCompositionHarness {
     };
   }
 
+  public setPersistedProvider(providerId: string): void {
+    fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
+    fs.writeFileSync(this.configFile, JSON.stringify({ provider: providerId }), 'utf8');
+  }
+
   public cleanup(): void {
     fs.rmSync(this.temporaryDirectory, { force: true, recursive: true });
   }
@@ -840,6 +849,36 @@ describe('main process composition root', () => {
     await flushAsyncWork();
     assert.equal(harness.state.ipcHandlers.size, 0);
     assert.equal(harness.state.closeCount, 1);
+  });
+
+  it('keeps disconnected selected providers out of the production startup failure path', async () => {
+    const providerIds = ['chatgpt', 'openai-api', 'local-whisper'];
+
+    for (const providerId of providerIds) {
+      const harness = createHarness();
+      harness.setPersistedProvider(providerId);
+      new MainProcessCompositionRoot(harness.compositionEnvironment)
+        .createApplication(harness.applicationEnvironment)
+        .bootstrap();
+      harness.app.emitReady();
+      const startupSnapshotQuery = harness.state.ipcHandlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+      assert.ok(startupSnapshotQuery);
+      assert.ok(harness.state.window);
+      const event = {
+        sender: harness.state.window.webContents,
+        senderFrame: { url: harness.state.window.webContents.getURL() },
+      } as unknown as IpcMainInvokeEvent;
+      let snapshot = startupSnapshotQuery(event) as FirstLaunchStartupSnapshot;
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const voiceProviderJob = snapshot.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+        if (voiceProviderJob?.state === 'succeeded' || snapshot.state === 'failed') break;
+        await flushAsyncWork();
+        snapshot = startupSnapshotQuery(event) as FirstLaunchStartupSnapshot;
+      }
+      const voiceProviderJob = snapshot.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+
+      assert.equal(voiceProviderJob?.state, 'succeeded', providerId);
+    }
   });
 
   it('keeps the single Translation connection subscription across repeated real CloakBrowser save handlers', async () => {

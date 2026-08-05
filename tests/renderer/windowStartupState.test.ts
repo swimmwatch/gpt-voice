@@ -37,7 +37,11 @@ describe('window startup state', () => {
     assert.match(source, /translationSettingsPending: !hasLoadedInitialTranslationSettings/u);
     assert.match(source, /voicePending: isLoading/u);
     assert.match(source, /onFirstLaunchStartupSnapshot\(acceptSnapshot\)/u);
-    assert.match(source, /getFirstLaunchStartupSnapshot\(\)\.then\(acceptSnapshot\)/u);
+    assert.match(source, /getFirstLaunchStartupSnapshot\(\)\s*\.then\(acceptSnapshot\)/u);
+    assert.ok(
+      source.indexOf('onFirstLaunchStartupSnapshot(acceptSnapshot)') <
+        source.indexOf('getFirstLaunchStartupSnapshot()'),
+    );
     assert.match(source, /useWindowStartupReady\(isI18nReady && !firstLaunchStartupPresentation\.isPending\)/u);
     assert.match(source, /if \(!isI18nReady \|\| firstLaunchStartupPresentation\.isPending\)/u);
     assert.match(source, /retryFirstLaunchStartup\(\)/u);

@@ -119,7 +119,10 @@ export class VoiceProviderSelectionService {
     });
   }
 
-  private failure(committedProviderId: string | null, code: LocalWhisperFailureCode): LocalWhisperProviderSelectionResult {
+  private failure(
+    committedProviderId: string | null,
+    code: LocalWhisperFailureCode,
+  ): LocalWhisperProviderSelectionResult {
     return Object.freeze({
       success: false,
       committedProviderId,

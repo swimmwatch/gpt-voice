@@ -10,10 +10,7 @@ import {
   type FirstLaunchStartupJobRunResult,
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
-import {
-  FirstLaunchStartupCoordinator,
-  type FirstLaunchStartupJobRunner,
-} from '@main/firstLaunchStartupCoordinator';
+import { FirstLaunchStartupCoordinator, type FirstLaunchStartupJobRunner } from '@main/firstLaunchStartupCoordinator';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -22,11 +19,7 @@ interface Deferred<T> {
 }
 
 interface CoordinatorTestHook {
-  transitionJob(
-    generation: number,
-    jobId: FirstLaunchStartupJobId,
-    update: Omit<FirstLaunchStartupJob, 'id'>,
-  ): void;
+  transitionJob(generation: number, jobId: FirstLaunchStartupJobId, update: Omit<FirstLaunchStartupJob, 'id'>): void;
 }
 
 function createDeferred<T>(): Deferred<T> {
@@ -229,13 +222,16 @@ describe('FirstLaunchStartupCoordinator', () => {
     });
 
     const attempt = coordinator.start();
-    assert.deepEqual(coordinator.getSnapshot().jobs.find((job) => job.id === voiceProvider.id), {
-      completedUnits: 0,
-      failureCode: null,
-      id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
-      state: FIRST_LAUNCH_STARTUP_JOB_STATES.NotRequired,
-      totalUnits: 0,
-    });
+    assert.deepEqual(
+      coordinator.getSnapshot().jobs.find((job) => job.id === voiceProvider.id),
+      {
+        completedUnits: 0,
+        failureCode: null,
+        id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+        state: FIRST_LAUNCH_STARTUP_JOB_STATES.NotRequired,
+        totalUnits: 0,
+      },
+    );
     assert.equal(voiceProvider.calls.length, 0);
 
     cloakBrowser.calls[0]?.resolve({ failureCode: null, success: true });

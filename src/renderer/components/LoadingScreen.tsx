@@ -13,24 +13,47 @@ const STARTUP_JOB_LABEL_KEYS: Record<FirstLaunchStartupJobId, string> = {
 
 const MAXIMUM_VISIBLE_STARTUP_JOBS = 2;
 
-interface LoadingScreenProps {
-  readonly activeJobIds?: readonly FirstLaunchStartupJobId[];
+interface InitializingLoadingScreenProps {
+  readonly mode?: 'initializing';
+}
+
+interface StartupLoadingScreenProps {
+  readonly activeJobIds: readonly FirstLaunchStartupJobId[];
   readonly hasRetryableFailure?: boolean;
   readonly isRetryPending?: boolean;
+  readonly mode: 'startup';
   readonly onRetry?: () => void;
   readonly progress?: number | null;
   readonly retryFailed?: boolean;
 }
 
-function LoadingScreen({
-  activeJobIds = [],
-  hasRetryableFailure = false,
-  isRetryPending = false,
-  onRetry,
-  progress = null,
-  retryFailed = false,
-}: LoadingScreenProps): JSX.Element {
+type LoadingScreenProps = InitializingLoadingScreenProps | StartupLoadingScreenProps;
+
+function LoadingScreen(props: LoadingScreenProps): JSX.Element {
   const { t } = useI18n();
+  if (props.mode !== 'startup') {
+    const status = t('loading.initializing');
+
+    return (
+      <main className="flex h-full w-full items-center justify-center text-sm text-muted-foreground [-webkit-app-region:no-drag]">
+        <div className="flex items-center gap-2">
+          <Spinner active announce={false} label={status} />
+          <p aria-live="polite" data-slot="startup-status" role="status">
+            {status}
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  const {
+    activeJobIds,
+    hasRetryableFailure = false,
+    isRetryPending = false,
+    onRetry,
+    progress = null,
+    retryFailed = false,
+  } = props;
   const visibleJobs = activeJobIds.slice(0, MAXIMUM_VISIBLE_STARTUP_JOBS).map((id) => t(STARTUP_JOB_LABEL_KEYS[id]));
   const activeStatus =
     visibleJobs.length === 0
@@ -48,7 +71,7 @@ function LoadingScreen({
     <main className="flex h-full w-full items-center justify-center text-sm text-muted-foreground [-webkit-app-region:no-drag]">
       <div className="flex max-w-sm flex-col items-center gap-2 px-4 text-center">
         {progress === null ? (
-          <Spinner active label={status} size="lg" />
+          <Spinner active announce={false} label={status} size="lg" />
         ) : (
           <ProgressSpinner label={progressLabel} progress={progress} size="lg" />
         )}

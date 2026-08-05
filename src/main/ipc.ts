@@ -77,10 +77,7 @@ import {
   type PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
-import {
-  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
-  sanitizeFirstLaunchStartupSnapshot,
-} from '@shared/firstLaunchStartup';
+import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
@@ -227,9 +224,7 @@ function assertEmptyIpcArguments(args: readonly unknown[]): void {
   if (args.length !== 0) throw new TypeError('Unexpected IPC arguments');
 }
 
-function getSafeFirstLaunchStartupSnapshot(
-  coordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot'>,
-) {
+function getSafeFirstLaunchStartupSnapshot(coordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot'>) {
   const snapshot = sanitizeFirstLaunchStartupSnapshot(coordinator.getSnapshot());
   if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
   return snapshot;
@@ -1211,10 +1206,11 @@ export class MainIpcController {
       assertEmptyIpcArguments(args);
       return getSafeFirstLaunchStartupSnapshot(coordinator);
     });
-    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, (_event, ...args: unknown[]) => {
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, async (_event, ...args: unknown[]) => {
       assertEmptyIpcArguments(args);
-      void coordinator.retry();
-      return getSafeFirstLaunchStartupSnapshot(coordinator);
+      const snapshot = sanitizeFirstLaunchStartupSnapshot(await coordinator.retry());
+      if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
+      return snapshot;
     });
   }
 
