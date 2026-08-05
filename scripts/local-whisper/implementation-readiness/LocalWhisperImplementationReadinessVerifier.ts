@@ -274,7 +274,7 @@ function hasResource(value: unknown, from: string, to: string): boolean {
 function expectedAcceptanceIds(): readonly string[] {
   return Object.freeze([
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 20 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 22 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ]);
 }
 
@@ -385,47 +385,61 @@ export class LocalWhisperImplementationReadinessVerifier {
       json(
         await this.readRequired(
           'docs/specs/local-whisper/tasks/acceptance-owners.json',
-          'revision-18-acceptance-registry',
+          'revision-19-acceptance-registry',
         ),
-        'revision-18-acceptance-registry',
+        'revision-19-acceptance-registry',
       ),
-      'revision-18-acceptance-registry',
+      'revision-19-acceptance-registry',
     );
     const schema = record(
       json(
         await this.readRequired(
           'docs/specs/local-whisper/tasks/acceptance-owners.schema.json',
-          'revision-18-acceptance-schema',
+          'revision-19-acceptance-schema',
         ),
-        'revision-18-acceptance-schema',
+        'revision-19-acceptance-schema',
       ),
-      'revision-18-acceptance-schema',
+      'revision-19-acceptance-schema',
     );
-    const taskFiles = record(manifest.taskFiles, 'revision-18-acceptance-registry');
-    const expectedTasks = Array.from({ length: 22 }, (_, index) => String(index + 1).padStart(2, '0'));
+    const taskFiles = record(manifest.taskFiles, 'revision-19-acceptance-registry');
+    const expectedTasks = Array.from({ length: 23 }, (_, index) => String(index + 1).padStart(2, '0'));
     const owners = manifest.automatedAcceptanceOwners;
     const commands = manifest.verificationCommands;
-    const properties = record(schema.properties, 'revision-18-acceptance-schema');
-    const planRevision = record(properties.planRevision, 'revision-18-acceptance-schema');
+    const properties = record(schema.properties, 'revision-19-acceptance-schema');
+    const planRevision = record(properties.planRevision, 'revision-19-acceptance-schema');
+    if (!Array.isArray(owners) || !Array.isArray(commands)) {
+      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-19-acceptance-registry');
+    }
+    const ownerRecords = owners.map((owner) => record(owner, 'revision-19-acceptance-registry'));
+    const commandRecords = commands.map((command) => record(command, 'revision-19-acceptance-registry'));
+    const task23Commands = commandRecords
+      .filter((command) => command.task === '23')
+      .map((command) => [command.id, command.command]);
     if (
       manifest.schemaVersion !== 1 ||
-      manifest.planRevision !== 18 ||
+      manifest.planRevision !== 19 ||
       JSON.stringify(Object.keys(taskFiles).sort()) !== JSON.stringify(expectedTasks) ||
-      !Array.isArray(owners) ||
-      !Array.isArray(commands) ||
-      JSON.stringify(owners.map((owner) => record(owner, 'revision-18-acceptance-registry').acceptanceId)) !==
-        JSON.stringify(expectedAcceptanceIds()) ||
-      !commands.some((command) => {
-        const value = record(command, 'revision-18-acceptance-registry');
+      taskFiles['23'] !== '23_main_window_residency_control.md' ||
+      JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
+      !commandRecords.some((value) => {
         return (
           value.id === 'task-19-implementation-readiness' &&
           value.task === '19' &&
           value.command === 'rtk npm run verify:local-whisper:implementation-readiness'
         );
       }) ||
-      planRevision.const !== 18
+      JSON.stringify(task23Commands) !==
+        JSON.stringify([
+          ['task-23-main-residency-ipc', 'rtk npm run test:local-whisper:ipc'],
+          ['task-23-main-residency-composition', 'rtk npm run test:local-whisper:composition'],
+          ['task-23-main-residency-ui', 'rtk npm run verify:local-whisper:ui'],
+        ]) ||
+      ['AC-AUTO-059', 'AC-AUTO-076', 'AC-AUTO-077'].some(
+        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '23',
+      ) ||
+      planRevision.const !== 19
     ) {
-      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-18-acceptance-registry');
+      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-19-acceptance-registry');
     }
   }
 

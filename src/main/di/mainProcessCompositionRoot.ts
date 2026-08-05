@@ -637,6 +637,7 @@ export class MainProcessCompositionRoot {
       references: this.environment.localWhisper.references,
       refreshSettingsFacts: this.environment.localWhisper.refreshDevices,
       snapshots: localWhisperSnapshots,
+      getActiveProviderId: () => configStore.getSnapshot().provider,
       openSettings: () =>
         windowManager.showProviderSettingsWindow(
           'local-whisper',

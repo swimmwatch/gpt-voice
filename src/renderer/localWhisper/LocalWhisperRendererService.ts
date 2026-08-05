@@ -4,10 +4,13 @@ import {
   type LocalWhisperArtifactKind,
   type LocalWhisperArtifactReference,
   type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperMainResidencyAction,
+  type LocalWhisperMainResidencyCommandResult,
   type LocalWhisperPromptMutation,
   type LocalWhisperProviderSelectionResult,
   type LocalWhisperPublicSettings,
   type LocalWhisperRendererArtifact,
+  type LocalWhisperRendererSafeFailure,
   type LocalWhisperRendererSnapshot,
   type LocalWhisperSettingsCommand,
   type LocalWhisperSettingsCommandResult,
@@ -15,6 +18,22 @@ import {
 
 type SettingsListener = (snapshot: LocalWhisperRendererSnapshot) => void;
 type MainStatusListener = (snapshot: LocalWhisperMainStatusSnapshot) => void;
+type MainResidencyListener = (state: LocalWhisperMainResidencyState) => void;
+
+export type LocalWhisperMainResidencyFailure =
+  { readonly kind: 'command'; readonly value: LocalWhisperRendererSafeFailure } | { readonly kind: 'transport' };
+
+export interface LocalWhisperMainResidencyState {
+  readonly pendingAction: LocalWhisperMainResidencyAction | null;
+  readonly failure: LocalWhisperMainResidencyFailure | null;
+  readonly failureSequence: number;
+}
+
+const INITIAL_MAIN_RESIDENCY_STATE: LocalWhisperMainResidencyState = Object.freeze({
+  pendingAction: null,
+  failure: null,
+  failureSequence: 0,
+});
 
 interface ArtifactTarget {
   readonly artifactKind: LocalWhisperArtifactKind;
@@ -32,6 +51,7 @@ type RendererLocalWhisperApi = Pick<
   | 'subscribeLocalWhisperMainStatus'
   | 'unsubscribeLocalWhisperMainStatus'
   | 'onLocalWhisperMainStatus'
+  | 'runLocalWhisperMainResidencyCommand'
   | 'setActiveProvider'
 >;
 
@@ -39,8 +59,10 @@ type RendererLocalWhisperApi = Pick<
 export class LocalWhisperRendererService {
   private readonly settingsListeners = new Set<SettingsListener>();
   private readonly mainListeners = new Set<MainStatusListener>();
+  private readonly mainResidencyListeners = new Set<MainResidencyListener>();
   private settingsSnapshot: LocalWhisperRendererSnapshot | null = null;
   private mainSnapshot: LocalWhisperMainStatusSnapshot | null = null;
+  private mainResidencyStateValue = INITIAL_MAIN_RESIDENCY_STATE;
   private removeSettingsEvent: (() => void) | null = null;
   private removeMainEvent: (() => void) | null = null;
   private settingsSubscribed = false;
@@ -58,6 +80,14 @@ export class LocalWhisperRendererService {
 
   public get currentSettingsSnapshot(): LocalWhisperRendererSnapshot | null {
     return this.settingsSnapshot;
+  }
+
+  public get currentMainSnapshot(): LocalWhisperMainStatusSnapshot | null {
+    return this.mainSnapshot;
+  }
+
+  public get mainResidencyState(): LocalWhisperMainResidencyState {
+    return this.mainResidencyStateValue;
   }
 
   public async startSettings(): Promise<LocalWhisperRendererSnapshot> {
@@ -94,6 +124,51 @@ export class LocalWhisperRendererService {
     this.mainListeners.add(listener);
     if (this.mainSnapshot) listener(this.mainSnapshot);
     return () => this.mainListeners.delete(listener);
+  }
+
+  public subscribeMainResidency(listener: MainResidencyListener): () => void {
+    this.mainResidencyListeners.add(listener);
+    listener(this.mainResidencyStateValue);
+    return () => this.mainResidencyListeners.delete(listener);
+  }
+
+  public async runMainResidency(
+    action: LocalWhisperMainResidencyAction,
+  ): Promise<LocalWhisperMainResidencyCommandResult | null> {
+    this.assertActive();
+    if (this.mainResidencyStateValue.pendingAction !== null) return null;
+    const snapshot = this.requireMain();
+    this.publishMainResidency({
+      pendingAction: action,
+      failure: null,
+      failureSequence: this.mainResidencyStateValue.failureSequence,
+    });
+    try {
+      const result = await this.api.runLocalWhisperMainResidencyCommand({
+        kind: action,
+        expectedSnapshotRevision: snapshot.snapshotRevision,
+      });
+      if (result.command !== action) throw new Error('Mismatched Local Whisper main command response');
+      const currentRevision = this.mainSnapshot?.snapshotRevision ?? 0;
+      const accepted = result.snapshot.snapshotRevision >= currentRevision;
+      if (result.snapshot.snapshotRevision > currentRevision) this.acceptMain(result.snapshot);
+      this.publishMainResidency({
+        pendingAction: null,
+        failure: accepted && !result.success ? { kind: 'command', value: result.failure } : null,
+        failureSequence:
+          accepted && !result.success
+            ? this.mainResidencyStateValue.failureSequence + 1
+            : this.mainResidencyStateValue.failureSequence,
+      });
+      return result;
+    } catch {
+      this.publishMainResidency({
+        pendingAction: null,
+        failure: { kind: 'transport' },
+        failureSequence: this.mainResidencyStateValue.failureSequence + 1,
+      });
+      return null;
+    }
   }
 
   public save(
@@ -183,6 +258,7 @@ export class LocalWhisperRendererService {
     this.mainSubscribed = false;
     this.settingsListeners.clear();
     this.mainListeners.clear();
+    this.mainResidencyListeners.clear();
     await Promise.allSettled(cleanups);
   }
 
@@ -227,13 +303,32 @@ export class LocalWhisperRendererService {
   private acceptMain(snapshot: LocalWhisperMainStatusSnapshot): void {
     if (this.disposed || (this.mainSnapshot && snapshot.snapshotRevision <= this.mainSnapshot.snapshotRevision)) return;
     this.mainSnapshot = snapshot;
+    if (this.mainResidencyStateValue.failure !== null) {
+      this.publishMainResidency({
+        pendingAction: this.mainResidencyStateValue.pendingAction,
+        failure: null,
+        failureSequence: this.mainResidencyStateValue.failureSequence,
+      });
+    }
     for (const listener of [...this.mainListeners]) listener(snapshot);
+  }
+
+  private publishMainResidency(state: LocalWhisperMainResidencyState): void {
+    this.mainResidencyStateValue = Object.freeze(state);
+    if (this.disposed) return;
+    for (const listener of [...this.mainResidencyListeners]) listener(this.mainResidencyStateValue);
   }
 
   private requireSettings(): LocalWhisperRendererSnapshot {
     this.assertActive();
     if (!this.settingsSnapshot) throw new Error('Local Whisper settings snapshot unavailable');
     return this.settingsSnapshot;
+  }
+
+  private requireMain(): LocalWhisperMainStatusSnapshot {
+    this.assertActive();
+    if (!this.mainSnapshot) throw new Error('Local Whisper main status unavailable');
+    return this.mainSnapshot;
   }
 
   private assertActive(): void {

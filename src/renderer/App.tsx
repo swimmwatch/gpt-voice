@@ -71,7 +71,7 @@ import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE, isInitialProviderStartupPe
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const desktopApi = useDesktopApi();
-  const localWhisperStatus = useLocalWhisperMainStatus(desktopApi);
+  const localWhisperMain = useLocalWhisperMainStatus(desktopApi);
   const [isLoading, setIsLoading] = useState(true);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [status, setStatus] = useState<RendererStatus | null>(null);
@@ -829,7 +829,10 @@ const App: React.FC = () => {
         activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
-        localWhisperStatus={localWhisperStatus}
+        localWhisperStatus={localWhisperMain.snapshot}
+        localWhisperPendingAction={localWhisperMain.pendingAction}
+        localWhisperResidencyFailure={localWhisperMain.failure}
+        localWhisperResidencyFailureSequence={localWhisperMain.failureSequence}
         providerConnectionFailureTooltip={
           providerConnectionFailureStatus ? renderRendererStatus(providerConnectionFailureStatus, t) : ''
         }
@@ -838,6 +841,7 @@ const App: React.FC = () => {
         onOpenAppSettings={() => openAppSettingsWindow()}
         onOpenHistory={openHistoryWindow}
         onOpenProviderSettings={() => void openProviderSettings(activeProviderId)}
+        onLocalWhisperResidencyAction={(action) => void localWhisperMain.runResidencyAction(action)}
         onProviderChange={(providerId) => void handleProviderChange(providerId)}
         onProviderLogin={() => void handleLogin()}
         providers={providers}

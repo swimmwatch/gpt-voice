@@ -58,12 +58,14 @@ export const LOCAL_WHISPER_IPC_CHANNELS = Object.freeze({
   mainStatusSubscribe: 'local-whisper:main:status-subscribe',
   mainStatusUnsubscribe: 'local-whisper:main:status-unsubscribe',
   mainStatusChanged: 'local-whisper:main:status-changed',
+  mainResidencyCommand: 'local-whisper:main:residency-command',
   mainOpenSettings: 'local-whisper:main:open-settings',
 } as const);
 
 export const LOCAL_WHISPER_ARTIFACT_ACTIONS = ['download', 'resume', 'cancel', 'retry', 'update', 'remove'] as const;
 export const LOCAL_WHISPER_REFERENCE_KINDS = ['viewLicenseNotice', 'openProvenanceReference'] as const;
 export const LOCAL_WHISPER_ARTIFACT_KINDS = ['runtime', 'model'] as const;
+export const LOCAL_WHISPER_MAIN_RESIDENCY_ACTIONS = ['load', 'unload'] as const;
 
 export type LocalWhisperArtifactKind = (typeof LOCAL_WHISPER_ARTIFACT_KINDS)[number];
 export type LocalWhisperArtifactAction = (typeof LOCAL_WHISPER_ARTIFACT_ACTIONS)[number];
@@ -208,6 +210,27 @@ export interface LocalWhisperMainStatusSnapshot {
   readonly selectedButUnavailable: boolean;
 }
 
+export type LocalWhisperMainResidencyAction = (typeof LOCAL_WHISPER_MAIN_RESIDENCY_ACTIONS)[number];
+
+export interface LocalWhisperMainResidencyCommand {
+  readonly kind: LocalWhisperMainResidencyAction;
+  readonly expectedSnapshotRevision: number;
+}
+
+export type LocalWhisperMainResidencyCommandResult =
+  | {
+      readonly success: true;
+      readonly command: LocalWhisperMainResidencyAction;
+      readonly snapshot: LocalWhisperMainStatusSnapshot;
+      readonly failure: null;
+    }
+  | {
+      readonly success: false;
+      readonly command: LocalWhisperMainResidencyAction | 'invalid';
+      readonly snapshot: LocalWhisperMainStatusSnapshot;
+      readonly failure: LocalWhisperRendererSafeFailure;
+    };
+
 export interface LocalWhisperIpcAcknowledgement {
   readonly success: true;
 }
@@ -291,6 +314,10 @@ function isMember<T extends readonly string[]>(values: T, value: unknown): value
 
 function isSafeEpoch(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isPositiveSafeRevision(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 function isSafeByteCount(value: unknown): value is number {
@@ -783,6 +810,35 @@ export function isLocalWhisperMainStatusSnapshot(value: unknown): value is Local
     isLocalWhisperRuntimeSnapshot(value.runtime) &&
     (value.failure === null || isLocalWhisperRendererSafeFailure(value.failure)) &&
     typeof value.selectedButUnavailable === 'boolean'
+  );
+}
+
+export function isLocalWhisperMainResidencyCommand(value: unknown): value is LocalWhisperMainResidencyCommand {
+  return (
+    isPlainRecord(value) &&
+    hasExactKeys(value, ['kind', 'expectedSnapshotRevision']) &&
+    isMember(LOCAL_WHISPER_MAIN_RESIDENCY_ACTIONS, value.kind) &&
+    isPositiveSafeRevision(value.expectedSnapshotRevision)
+  );
+}
+
+export function isLocalWhisperMainResidencyCommandResult(
+  value: unknown,
+): value is LocalWhisperMainResidencyCommandResult {
+  if (
+    !isPlainRecord(value) ||
+    !hasExactKeys(value, ['success', 'command', 'snapshot', 'failure']) ||
+    typeof value.success !== 'boolean' ||
+    !isLocalWhisperMainStatusSnapshot(value.snapshot)
+  ) {
+    return false;
+  }
+  if (value.success) {
+    return isMember(LOCAL_WHISPER_MAIN_RESIDENCY_ACTIONS, value.command) && value.failure === null;
+  }
+  return (
+    (value.command === 'invalid' || isMember(LOCAL_WHISPER_MAIN_RESIDENCY_ACTIONS, value.command)) &&
+    isLocalWhisperRendererSafeFailure(value.failure)
   );
 }
 

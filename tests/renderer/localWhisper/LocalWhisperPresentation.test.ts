@@ -3,11 +3,16 @@ import { describe, it } from 'node:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
-import type { LocalWhisperMainStatusSnapshot, LocalWhisperRendererSnapshot } from '@shared/localWhisper';
+import {
+  createLocalWhisperRendererSafeFailure,
+  type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperRendererSnapshot,
+} from '@shared/localWhisper';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import {
   getLocalWhisperCheckAvailability,
   getLocalWhisperLoadAvailability,
+  getLocalWhisperMainResidencyControl,
   getLocalWhisperMainStatusPresentation,
   getLocalWhisperUnloadAvailability,
   formatLocalWhisperBytes,
@@ -94,6 +99,93 @@ describe('Local Whisper action and main status presentation', () => {
       assert.equal(presentation.label, label);
       assert.doesNotMatch(`${presentation.label} ${presentation.detail ?? ''}`, /login|api key|session/iu);
     }
+  });
+
+  it('derives the complete main residency control matrix without optimistic status changes', () => {
+    const baseline = settingsSnapshot().runtime;
+    assert.deepEqual(getLocalWhisperMainResidencyControl(null, null), {
+      action: 'load',
+      enabled: false,
+      pending: true,
+      labelKey: 'localWhisper.main.loadingStatus',
+      reasonKey: 'localWhisper.main.loadingStatus',
+      reasonCode: null,
+    });
+
+    const eligible = mainStatus({
+      ...baseline,
+      capability: 'Unchecked',
+      residency: 'Unloaded',
+      operationalStatus: 'NotReady',
+      canAttempt: true,
+      blockingCode: null,
+    });
+    assert.deepEqual(getLocalWhisperMainResidencyControl(eligible, null), {
+      action: 'load',
+      enabled: true,
+      pending: false,
+      labelKey: 'localWhisper.main.loadModel',
+      reasonKey: null,
+      reasonCode: null,
+    });
+    assert.equal(
+      getLocalWhisperMainResidencyControl(
+        { ...eligible, failure: { ...createLocalWhisperRendererSafeFailure('WORKER_START_FAILED') } },
+        null,
+      ).enabled,
+      true,
+    );
+
+    const cases = [
+      [
+        mainStatus({ ...baseline, residency: 'Loading', operationalStatus: 'Busy' }),
+        null,
+        ['load', false, true, 'localWhisper.main.loadingModel'],
+      ],
+      [
+        mainStatus({ ...baseline, residency: 'Loaded', activity: 'Idle', operationalStatus: 'Ready' }),
+        null,
+        ['unload', true, false, 'localWhisper.main.freeModel'],
+      ],
+      [
+        mainStatus({ ...baseline, residency: 'Loaded', activity: 'Transcribing', operationalStatus: 'Busy' }),
+        null,
+        ['unload', false, false, 'localWhisper.main.freeModel'],
+      ],
+      [
+        mainStatus({ ...baseline, residency: 'Unloading', operationalStatus: 'Busy' }),
+        null,
+        ['unload', false, true, 'localWhisper.main.freeingModel'],
+      ],
+      [
+        mainStatus({ ...baseline, residency: 'Failed', operationalStatus: 'NotReady' }),
+        null,
+        ['load', false, false, 'localWhisper.main.loadModel'],
+      ],
+      [eligible, 'load', ['load', false, true, 'localWhisper.main.loadingModel']],
+      [eligible, 'unload', ['unload', false, true, 'localWhisper.main.freeingModel']],
+    ] as const;
+    for (const [snapshot, pendingAction, expected] of cases) {
+      const presentation = getLocalWhisperMainResidencyControl(snapshot, pendingAction);
+      assert.deepEqual(
+        [presentation.action, presentation.enabled, presentation.pending, presentation.labelKey],
+        expected,
+      );
+    }
+
+    const setupRequired = getLocalWhisperMainResidencyControl(
+      mainStatus({
+        ...baseline,
+        runtimeSetup: 'Missing',
+        modelSetup: 'Missing',
+        residency: 'Unloaded',
+        operationalStatus: 'NotReady',
+        canAttempt: false,
+      }),
+      null,
+    );
+    assert.equal(setupRequired.enabled, false);
+    assert.equal(setupRequired.reasonKey, 'localWhisper.main.setupRequired');
   });
 
   it('renders unsupported Local Whisper status as a borderless icon without visible status text', () => {

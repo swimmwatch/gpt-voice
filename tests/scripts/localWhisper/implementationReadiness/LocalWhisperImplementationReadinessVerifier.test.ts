@@ -74,11 +74,25 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
   it('rejects a stale task registry revision', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
-    const changed = source.replace('"planRevision": 18', '"planRevision": 17');
+    const changed = source.replace('"planRevision": 19', '"planRevision": 18');
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-18-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-19-acceptance-registry'),
+    );
+  });
+
+  it('rejects a registry that omits the exact Task 23 UI command', async () => {
+    const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
+    const source = await repository.readText(file);
+    const changed = source.replace(
+      '"command": "rtk npm run verify:local-whisper:ui"',
+      '"command": "rtk npm run test:local-whisper:ui"',
+    );
+    assert.notEqual(changed, source);
+    await assert.rejects(
+      verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-19-acceptance-registry'),
     );
   });
 

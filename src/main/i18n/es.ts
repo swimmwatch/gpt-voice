@@ -636,6 +636,21 @@ export default {
   'appSettings.validation.backgroundModeInvalid': 'Selecciona un modo en segundo plano compatible.',
   'appSettings.validation.fingerprintSeedRequired': 'La semilla de la huella digital es obligatoria.',
   'appSettings.validation.fingerprintSeedDigits': 'La semilla de la huella digital solo puede contener dígitos.',
+  'localWhisper.main.loadModel': 'Cargar modelo',
+  'localWhisper.main.freeModel': 'Liberar modelo',
+  'localWhisper.main.loadingStatus': 'Cargando el estado de Local Whisper',
+  'localWhisper.main.loadingModel': 'Cargando modelo',
+  'localWhisper.main.freeingModel': 'Liberando modelo',
+  'localWhisper.main.modelInUse': 'El modelo está en uso para la transcripción.',
+  'localWhisper.main.actionInProgress': 'Hay otra acción de Local Whisper en curso.',
+  'localWhisper.main.setupRequired': 'Instala el entorno y el modelo seleccionados en los ajustes de Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'El modelo seleccionado no está disponible. Abre los ajustes de Local Whisper.',
+  'localWhisper.main.modelUnavailableCode':
+    'El modelo seleccionado no está disponible ({code}). Abre los ajustes de Local Whisper.',
+  'localWhisper.main.operationFailed': 'La operación del modelo de Local Whisper falló. Inténtalo de nuevo.',
+  'localWhisper.main.operationFailedCode':
+    'La operación del modelo de Local Whisper falló ({code}). Inténtalo de nuevo.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Mostrar',
   'tray.quit': 'Salir',

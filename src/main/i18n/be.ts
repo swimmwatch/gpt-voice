@@ -655,6 +655,20 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Seed лічбавага адбітка павінен змяшчаць толькі лічбы.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Загрузіць мадэль',
+  'localWhisper.main.freeModel': 'Выгрузіць мадэль',
+  'localWhisper.main.loadingStatus': 'Загрузка стану Local Whisper',
+  'localWhisper.main.loadingModel': 'Загрузка мадэлі',
+  'localWhisper.main.freeingModel': 'Выгрузка мадэлі',
+  'localWhisper.main.modelInUse': 'Мадэль выкарыстоўваецца для транскрыпцыі.',
+  'localWhisper.main.actionInProgress': 'Выконваецца іншая аперацыя Local Whisper.',
+  'localWhisper.main.setupRequired': 'Усталюйце выбранае асяроддзе і мадэль у наладах Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Выбраная мадэль недаступная. Адкрыйце налады Local Whisper.',
+  'localWhisper.main.modelUnavailableCode': 'Выбраная мадэль недаступная ({code}). Адкрыйце налады Local Whisper.',
+  'localWhisper.main.operationFailed': 'Не ўдалося выканаць аперацыю з мадэллю Local Whisper. Паўтарыце спробу.',
+  'localWhisper.main.operationFailedCode':
+    'Не ўдалося выканаць аперацыю з мадэллю Local Whisper ({code}). Паўтарыце спробу.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Паказаць',
   'tray.quit': 'Выхад',

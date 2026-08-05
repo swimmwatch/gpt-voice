@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 18,
+  "planRevision": 19,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -23,7 +23,8 @@
     "19": "19_cross_platform_implementation_readiness.md",
     "20": "20_linux_qualification.md",
     "21": "21_windows_qualification.md",
-    "22": "22_aggregate_and_release_blockers.md"
+    "22": "22_aggregate_and_release_blockers.md",
+    "23": "23_main_window_residency_control.md"
   },
   "verificationCommands": [
     {
@@ -240,6 +241,21 @@
       "id": "task-19-implementation-readiness",
       "task": "19",
       "command": "rtk npm run verify:local-whisper:implementation-readiness"
+    },
+    {
+      "id": "task-23-main-residency-ipc",
+      "task": "23",
+      "command": "rtk npm run test:local-whisper:ipc"
+    },
+    {
+      "id": "task-23-main-residency-composition",
+      "task": "23",
+      "command": "rtk npm run test:local-whisper:composition"
+    },
+    {
+      "id": "task-23-main-residency-ui",
+      "task": "23",
+      "command": "rtk npm run verify:local-whisper:ui"
     },
     {
       "id": "task-20-linux-qualification",
@@ -554,8 +570,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-059",
-      "primaryTask": "15",
-      "verificationCommandIds": ["task-15-ipc-tests", "task-15-composition-tests"]
+      "primaryTask": "23",
+      "verificationCommandIds": ["task-23-main-residency-ipc", "task-23-main-residency-composition"]
     },
     {
       "acceptanceId": "AC-AUTO-060",
@@ -636,6 +652,16 @@
       "acceptanceId": "AC-AUTO-075",
       "primaryTask": "19",
       "verificationCommandIds": ["task-19-development-tests", "task-19-implementation-readiness"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-076",
+      "primaryTask": "23",
+      "verificationCommandIds": ["task-23-main-residency-ui", "task-23-main-residency-ipc"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-077",
+      "primaryTask": "23",
+      "verificationCommandIds": ["task-23-main-residency-ipc", "task-23-main-residency-composition"]
     }
   ]
 }

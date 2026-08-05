@@ -10,23 +10,23 @@
       "const": 1
     },
     "planRevision": {
-      "const": 18
+      "const": 19
     },
     "taskFiles": {
       "type": "object",
-      "minProperties": 22,
-      "maxProperties": 22,
+      "minProperties": 23,
+      "maxProperties": 23,
       "patternProperties": {
-        "^(0[1-9]|1[0-9]|2[0-2])$": {
+        "^(0[1-9]|1[0-9]|2[0-3])$": {
           "type": "string",
-          "pattern": "^(0[1-9]|1[0-9]|2[0-2])_[a-z0-9_]+\\.md$"
+          "pattern": "^(0[1-9]|1[0-9]|2[0-3])_[a-z0-9_]+\\.md$"
         }
       },
       "additionalProperties": false
     },
     "verificationCommands": {
       "type": "array",
-      "minItems": 22,
+      "minItems": 23,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -34,11 +34,11 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^task-(0[1-9]|1[0-9]|2[0-2])-[a-z0-9-]+$"
+            "pattern": "^task-(0[1-9]|1[0-9]|2[0-3])-[a-z0-9-]+$"
           },
           "task": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-2])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-3])$"
           },
           "command": {
             "type": "string",
@@ -49,8 +49,8 @@
     },
     "automatedAcceptanceOwners": {
       "type": "array",
-      "minItems": 74,
-      "maxItems": 74,
+      "minItems": 76,
+      "maxItems": 76,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -58,11 +58,11 @@
         "properties": {
           "acceptanceId": {
             "type": "string",
-            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-9]|07[0-5])$"
+            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-9]|07[0-7])$"
           },
           "primaryTask": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-2])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-3])$"
           },
           "verificationCommandIds": {
             "type": "array",
@@ -70,7 +70,7 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^task-(0[1-9]|1[0-9]|2[0-2])-[a-z0-9-]+$"
+              "pattern": "^task-(0[1-9]|1[0-9]|2[0-3])-[a-z0-9-]+$"
             }
           }
         }

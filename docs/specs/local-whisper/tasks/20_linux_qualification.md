@@ -2,8 +2,9 @@
 
 ## Outcome
 
-On the authorized Linux x64 host, consume Task 19's complete cross-platform
-implementation, freeze one fresh shared candidate input and the Linux platform
+On the authorized Linux x64 host, consume Tasks 19 and 23's complete
+cross-platform implementation and main-window residency control, freeze one
+fresh shared candidate input and the Linux platform
 input/profile graph in forward-only order, then execute and seal the complete
 Linux CPU and available NVIDIA CUDA technical qualification for all six
 canonical models.
@@ -15,11 +16,12 @@ release.
 
 ## Prerequisites
 
-- Specification revision 14 and plan revision 18 are approved.
-- Task 19 is complete and committed with the Windows/Linux implementation-
+- Specification revision 15 and plan revision 19 are approved.
+- Tasks 19 and 23 are complete and committed with the Windows/Linux implementation-
   readiness gate passing, all six exact models downloaded/installed through the
   ordinary Linux app, bounded `base/full` CPU/CUDA smoke passing, and both
-  platform qualifications `Pending`.
+  platform qualifications `Pending`. Task 23 `AC-AUTO-059`, `AC-AUTO-076`,
+  `AC-AUTO-077`, and `AC-MAN-016` pass from the same final source identity.
 - Candidate SemVer input is exactly `2.4.0`. Capture a new UTC freeze timestamp
   and the final clean Task 19 source/package identity; prior interrupted
   candidate timestamps and private partial rows are not authority.
@@ -36,11 +38,12 @@ release.
   `MODEL-011`, `PKG-011`, `SEC-014`, `QUAL-001`–`QUAL-004`, `PRIV-005`, and
   the Linux technical slice of `OPS-003`.
 - Supporting Linux evidence for `AC-AUTO-064`–`AC-AUTO-070` and
-  `AC-AUTO-072`–`AC-AUTO-075`; primary automated ownership remains Task 19
-  except aggregate `AC-AUTO-071` in Task 22.
+  `AC-AUTO-072`–`AC-AUTO-077`; primary automated ownership remains Task 19 or
+  Task 23 except aggregate `AC-AUTO-071` in Task 22.
 - `AC-MAN-001`; Linux `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and
   `AC-MAN-013`; Linux technical inputs for `AC-MAN-014`. Consume but do not
-  reinterpret or replace Task 19 functional `AC-MAN-015` evidence.
+  reinterpret or replace Task 19 functional `AC-MAN-015` or Task 23
+  `AC-MAN-016` evidence.
 - No Windows or aggregate evidence ownership.
 
 ## In Scope
@@ -85,7 +88,7 @@ release.
 
 ### Fresh candidate and Linux branch
 
-The shared candidate is frozen only after Task 19's final clean committed
+The shared candidate is frozen only after Tasks 19 and 23's final clean committed
 source exists. It contains no platform package/runtime/direct-engine/toolchain,
 profile, result, evidence-index, platform-graph, or aggregate digest. The Linux
 platform input then binds exact Linux application packages, qualification
@@ -250,9 +253,10 @@ Do not invoke the Windows qualification command or
 
 ## References
 
-- Specification revision 14 Sections 9.2, 9.6, 12.1–12.5, 18.3,
+- Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
-- Task 19 final implementation-readiness handoff and Task 17 fixture identity.
+- Tasks 19 and 23 final implementation-readiness handoffs and Task 17 fixture
+  identity.
 - `../qualification/linux-evidence-template.md` and versioned qualification
   schemas.
 

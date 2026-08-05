@@ -608,6 +608,21 @@ export default {
   'appSettings.validation.backgroundModeInvalid': '対応するバックグラウンドモードを選択してください。',
   'appSettings.validation.fingerprintSeedRequired': 'フィンガープリントのシードは必須です。',
   'appSettings.validation.fingerprintSeedDigits': 'フィンガープリントのシードには数字のみを使用してください。',
+  'localWhisper.main.loadModel': 'モデルを読み込む',
+  'localWhisper.main.freeModel': 'モデルを解放',
+  'localWhisper.main.loadingStatus': 'Local Whisper の状態を読み込み中',
+  'localWhisper.main.loadingModel': 'モデルを読み込み中',
+  'localWhisper.main.freeingModel': 'モデルを解放中',
+  'localWhisper.main.modelInUse': 'モデルは文字起こしで使用中です。',
+  'localWhisper.main.actionInProgress': '別の Local Whisper 操作を実行中です。',
+  'localWhisper.main.setupRequired': 'Local Whisper の設定で選択したランタイムとモデルをインストールしてください。',
+  'localWhisper.main.modelUnavailable': '選択したモデルは利用できません。Local Whisper の設定を開いてください。',
+  'localWhisper.main.modelUnavailableCode':
+    '選択したモデルは利用できません（{code}）。Local Whisper の設定を開いてください。',
+  'localWhisper.main.operationFailed': 'Local Whisper のモデル操作に失敗しました。もう一度お試しください。',
+  'localWhisper.main.operationFailedCode':
+    'Local Whisper のモデル操作に失敗しました（{code}）。もう一度お試しください。',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': '表示',
   'tray.quit': '終了',

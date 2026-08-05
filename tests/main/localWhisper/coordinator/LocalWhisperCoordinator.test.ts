@@ -754,6 +754,32 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(coordinator.snapshot.runtime.residency, 'Unloaded');
   });
 
+  it('rejects provider switching during a pending load and requires a separate retry after settlement', async () => {
+    const { coordinator, workers } = harness();
+    const pending = deferred<LocalWhisperCoordinatorWorkerResult<LocalWhisperResidentWorkerLease>>();
+    workers.deferredLoad = pending;
+    const loading = coordinator.loadNow();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const rejectedSwitch = await coordinator.prepareProviderSwitch('openai-api');
+    assert.equal(rejectedSwitch.success, false);
+    if (!rejectedSwitch.success) assert.equal(rejectedSwitch.error.code, 'OPERATION_CONFLICT');
+    const rejectedSettings = await coordinator.applySettingsTransaction({
+      kind: 'reset',
+      expectedConfigurationEpoch: coordinator.snapshot.epochs.configuration,
+      expectedInventoryEpoch: coordinator.snapshot.epochs.inventory,
+    });
+    assert.equal(rejectedSettings.success, false);
+    if (!rejectedSettings.success) assert.equal(rejectedSettings.error.code, 'OPERATION_CONFLICT');
+    assert.equal(coordinator.snapshot.runtime.residency, 'Loading');
+    assert.equal(workers.resident.unloadCount, 0);
+
+    pending.resolve({ success: true, value: workers.resident });
+    assert.equal((await loading).success, true);
+    assert.equal((await coordinator.prepareProviderSwitch('openai-api')).success, true);
+    assert.equal(workers.resident.unloadCount, 1);
+  });
+
   it('waits for an aborted active load to release its late worker before shutdown completes', async () => {
     const { coordinator, workers } = harness();
     const pending = deferred<LocalWhisperCoordinatorWorkerResult<LocalWhisperResidentWorkerLease>>();

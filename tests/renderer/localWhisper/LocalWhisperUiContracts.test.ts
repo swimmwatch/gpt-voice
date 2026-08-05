@@ -27,8 +27,21 @@ describe('Local Whisper UI contracts', () => {
     const loginBranch = toolbar.indexOf(': isLoggedIn ?');
     assert.ok(statusBranch >= 0 && loginBranch > statusBranch);
     assert.match(toolbar, /<LocalWhisperMainStatusIndicator snapshot=\{localWhisperStatus\}/u);
+    assert.match(toolbar, /<LocalWhisperMainResidencyControl/u);
     assert.match(app, /useLocalWhisperMainStatus\(desktopApi\)/u);
     assert.doesNotMatch(toolbar.slice(statusBranch, loginBranch), /onProviderLogin|LogIn/u);
+  });
+
+  it('keeps the main residency command separate from settings and privileged renderer state', () => {
+    const ipc = source('src/shared/localWhisper/ipc.ts');
+    const preload = source('src/main/preloadApi.ts');
+    const service = source('src/renderer/localWhisper/LocalWhisperRendererService.ts');
+    const control = source('src/renderer/localWhisper/components/LocalWhisperMainResidencyControl.tsx');
+    assert.match(ipc, /mainResidencyCommand: 'local-whisper:main:residency-command'/u);
+    assert.match(preload, /runLocalWhisperMainResidencyCommand/u);
+    assert.match(service, /expectedSnapshotRevision: snapshot\.snapshotRevision/u);
+    assert.match(service, /result\.snapshot\.snapshotRevision > currentRevision/u);
+    assert.doesNotMatch(control, /electron|ipcRenderer|child_process|settingsCommand|initialPrompt/u);
   });
 
   it('keeps progress snapshots from erasing an active draft and rebases only after successful save/reset', () => {

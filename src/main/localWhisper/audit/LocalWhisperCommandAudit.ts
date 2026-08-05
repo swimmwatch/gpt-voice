@@ -2,9 +2,12 @@ import type { ProviderAuditOperation, ProviderAuditPhase } from '@main/providerA
 import { VoiceProviderAudit, type VoiceAuditMetadataOptions } from '@main/providers/voiceProviderAudit';
 import type {
   LocalWhisperFailureCode,
+  LocalWhisperMainResidencyCommand,
   LocalWhisperRendererSnapshot,
   LocalWhisperSettingsCommand,
 } from '@shared/localWhisper';
+
+type LocalWhisperAuditedCommand = LocalWhisperSettingsCommand | LocalWhisperMainResidencyCommand;
 
 type LocalWhisperCommandAuditPhase = Extract<
   ProviderAuditPhase,
@@ -18,7 +21,7 @@ export interface LocalWhisperCommandAuditResult {
 
 export interface LocalWhisperCommandAuditPort {
   record(
-    command: LocalWhisperSettingsCommand,
+    command: LocalWhisperAuditedCommand,
     snapshot: LocalWhisperRendererSnapshot,
     result: LocalWhisperCommandAuditResult,
   ): void;
@@ -35,7 +38,7 @@ export class LocalWhisperCommandAudit implements LocalWhisperCommandAuditPort {
   public constructor(private readonly audit: VoiceProviderAudit) {}
 
   public record(
-    command: LocalWhisperSettingsCommand,
+    command: LocalWhisperAuditedCommand,
     snapshot: LocalWhisperRendererSnapshot,
     result: LocalWhisperCommandAuditResult,
   ): void {
@@ -56,7 +59,7 @@ export class LocalWhisperCommandAudit implements LocalWhisperCommandAuditPort {
   }
 
   private project(
-    command: LocalWhisperSettingsCommand,
+    command: LocalWhisperAuditedCommand,
     snapshot: LocalWhisperRendererSnapshot,
     result: LocalWhisperCommandAuditResult,
   ): LocalWhisperAuditProjection | null {
@@ -95,7 +98,7 @@ export class LocalWhisperCommandAudit implements LocalWhisperCommandAuditPort {
   }
 
   private operationAndPhase(
-    command: LocalWhisperSettingsCommand['kind'],
+    command: LocalWhisperAuditedCommand['kind'],
   ): Pick<LocalWhisperAuditProjection, 'operation' | 'phase'> | null {
     switch (command) {
       case 'checkCompatibility':

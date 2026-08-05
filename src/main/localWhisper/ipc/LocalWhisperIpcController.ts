@@ -3,11 +3,16 @@ import type { IpcMainInvokeEvent } from 'electron';
 import {
   LOCAL_WHISPER_IPC_CHANNELS,
   LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
+  LOCAL_WHISPER_PROVIDER_ID,
   LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
   createLocalWhisperRendererSafeFailure,
+  isLocalWhisperMainResidencyCommand,
   isLocalWhisperSettingsCommand,
   type LocalWhisperArtifactId,
   type LocalWhisperFailureCode,
+  type LocalWhisperMainResidencyAction,
+  type LocalWhisperMainResidencyCommandResult,
+  type LocalWhisperMainStatusSnapshot,
   type LocalWhisperRendererSnapshot,
   type LocalWhisperRevisionId,
   type LocalWhisperSettingsCommand,
@@ -88,6 +93,7 @@ export interface LocalWhisperIpcControllerDependencies {
   readonly managedFolder: LocalWhisperManagedFolderPort;
   readonly references: LocalWhisperArtifactReferencePort;
   readonly snapshots: LocalWhisperSnapshotService;
+  readonly getActiveProviderId: () => string;
   readonly openSettings: () => void;
   readonly refreshSettingsFacts?: (configurationEpoch: number) => Promise<void>;
 }
@@ -149,6 +155,9 @@ export class LocalWhisperIpcController {
       this.removeSubscriber(this.mainSubscribers, capability.key);
       return { success: true } as const;
     });
+    this.handleMain(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, async (_event, _capability, ...args) => {
+      return await this.executeMainResidencySafely(args);
+    });
     this.handleMain(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, (_event, _capability, ...args) => {
       this.assertNoArguments(args);
       this.dependencies.openSettings();
@@ -209,8 +218,79 @@ export class LocalWhisperIpcController {
     }
   }
 
+  private async executeMainResidencySafely(args: readonly unknown[]): Promise<LocalWhisperMainResidencyCommandResult> {
+    let commandKind: LocalWhisperMainResidencyAction | 'invalid' = 'invalid';
+    try {
+      if (args.length !== 1) return this.mainResidencyFailure(commandKind, 'INVALID_SETTINGS');
+      const value = args[0];
+      if (!isLocalWhisperMainResidencyCommand(value)) {
+        return this.mainResidencyFailure(commandKind, 'INVALID_SETTINGS');
+      }
+      commandKind = value.kind;
+      if (this.dependencies.getActiveProviderId() !== LOCAL_WHISPER_PROVIDER_ID) {
+        return this.mainResidencyFailure(commandKind, 'OPERATION_CONFLICT');
+      }
+      const snapshot = this.dependencies.snapshots.mainStatus;
+      if (value.expectedSnapshotRevision !== snapshot.snapshotRevision) {
+        return this.mainResidencyFailure(commandKind, 'STALE_CONFIGURATION');
+      }
+      if (!this.isMainResidencyActionAllowed(commandKind, snapshot)) {
+        return this.mainResidencyFailure(commandKind, 'OPERATION_CONFLICT');
+      }
+
+      let coordinatorResult: {
+        readonly success: boolean;
+        readonly error?: { readonly code: LocalWhisperFailureCode };
+      };
+      try {
+        coordinatorResult =
+          commandKind === 'load'
+            ? await this.dependencies.coordinator.loadNow()
+            : await this.dependencies.coordinator.unload();
+      } catch {
+        coordinatorResult = { success: false, error: { code: 'OPERATION_CONFLICT' } };
+      }
+      const result = coordinatorResult.success
+        ? Object.freeze({
+            success: true,
+            command: commandKind,
+            snapshot: this.dependencies.snapshots.mainStatus,
+            failure: null,
+          })
+        : this.mainResidencyFailure(commandKind, coordinatorResult.error?.code ?? 'OPERATION_CONFLICT');
+      try {
+        this.dependencies.audit.record(value, this.dependencies.snapshots.snapshot, {
+          success: result.success,
+          ...(result.failure === null ? {} : { error: result.failure }),
+        });
+      } catch {
+        // Audit is diagnostic-only and cannot alter command results or lifecycle state.
+      }
+      return result;
+    } catch {
+      return this.mainResidencyFailure(commandKind, 'OPERATION_CONFLICT');
+    }
+  }
+
   private assertNoArguments(args: readonly unknown[]): void {
     if (args.length !== 0) throw new Error('Rejected unexpected Local Whisper IPC arguments');
+  }
+
+  private isMainResidencyActionAllowed(
+    action: LocalWhisperMainResidencyAction,
+    snapshot: LocalWhisperMainStatusSnapshot,
+  ): boolean {
+    if (action === 'unload') {
+      return snapshot.runtime.residency === 'Loaded' && snapshot.runtime.activity === 'Idle';
+    }
+    return (
+      snapshot.runtime.residency === 'Unloaded' &&
+      snapshot.runtime.runtimeSetup === 'Installed' &&
+      snapshot.runtime.modelSetup === 'Installed' &&
+      snapshot.runtime.canAttempt &&
+      snapshot.runtime.blockingCode === null &&
+      !snapshot.selectedButUnavailable
+    );
   }
 
   private async refreshSettingsFacts(): Promise<void> {
@@ -420,6 +500,18 @@ export class LocalWhisperIpcController {
       command,
       snapshot: this.dependencies.snapshots.snapshot,
       error: createLocalWhisperRendererSafeFailure(code),
+    });
+  }
+
+  private mainResidencyFailure(
+    command: LocalWhisperMainResidencyAction | 'invalid',
+    code: LocalWhisperFailureCode,
+  ): LocalWhisperMainResidencyCommandResult {
+    return Object.freeze({
+      success: false,
+      command,
+      snapshot: this.dependencies.snapshots.mainStatus,
+      failure: createLocalWhisperRendererSafeFailure(code),
     });
   }
 

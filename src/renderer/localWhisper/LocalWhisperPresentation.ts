@@ -4,9 +4,11 @@ import {
   type LocalWhisperFailureCode,
   type LocalWhisperArtifactProgress,
   type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperMainResidencyAction,
   type LocalWhisperModelFamily,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
+import type { TranslationKey } from '@main/i18n';
 
 /** Distinguishes a truly unavailable platform from the transient unconfigured coordinator baseline. */
 export function isLocalWhisperPlatformUnavailable(snapshot: LocalWhisperRendererSnapshot): boolean {
@@ -51,6 +53,109 @@ export interface LocalWhisperMainStatusPresentation {
     'Ready' | 'Busy' | 'Available on demand' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';
   readonly tone: 'ready' | 'busy' | 'blocked';
   readonly detail: string | null;
+}
+
+export interface LocalWhisperMainResidencyControlPresentation {
+  readonly action: LocalWhisperMainResidencyAction;
+  readonly enabled: boolean;
+  readonly pending: boolean;
+  readonly labelKey: TranslationKey;
+  readonly reasonKey: TranslationKey | null;
+  readonly reasonCode: LocalWhisperFailureCode | null;
+}
+
+function mainResidencyControl(
+  action: LocalWhisperMainResidencyAction,
+  labelKey: TranslationKey,
+  options: {
+    readonly enabled?: boolean;
+    readonly pending?: boolean;
+    readonly reasonKey?: TranslationKey | null;
+    readonly reasonCode?: LocalWhisperFailureCode | null;
+  } = {},
+): LocalWhisperMainResidencyControlPresentation {
+  return Object.freeze({
+    action,
+    labelKey,
+    enabled: options.enabled ?? false,
+    pending: options.pending ?? false,
+    reasonKey: options.reasonKey ?? null,
+    reasonCode: options.reasonCode ?? null,
+  });
+}
+
+/** Derives the complete main-toolbar Load/Free matrix from authoritative status plus renderer-local pending. */
+export function getLocalWhisperMainResidencyControl(
+  snapshot: LocalWhisperMainStatusSnapshot | null,
+  pendingAction: LocalWhisperMainResidencyAction | null,
+): LocalWhisperMainResidencyControlPresentation {
+  if (pendingAction === 'load') {
+    return mainResidencyControl('load', 'localWhisper.main.loadingModel', {
+      pending: true,
+      reasonKey: 'localWhisper.main.loadingModel',
+    });
+  }
+  if (pendingAction === 'unload') {
+    return mainResidencyControl('unload', 'localWhisper.main.freeingModel', {
+      pending: true,
+      reasonKey: 'localWhisper.main.freeingModel',
+    });
+  }
+  if (!snapshot) {
+    return mainResidencyControl('load', 'localWhisper.main.loadingStatus', {
+      pending: true,
+      reasonKey: 'localWhisper.main.loadingStatus',
+    });
+  }
+
+  if (snapshot.runtime.residency === 'Loading') {
+    return mainResidencyControl('load', 'localWhisper.main.loadingModel', {
+      pending: true,
+      reasonKey: 'localWhisper.main.loadingModel',
+    });
+  }
+  if (snapshot.runtime.residency === 'Unloading') {
+    return mainResidencyControl('unload', 'localWhisper.main.freeingModel', {
+      pending: true,
+      reasonKey: 'localWhisper.main.freeingModel',
+    });
+  }
+  if (snapshot.runtime.residency === 'Loaded') {
+    if (snapshot.runtime.activity === 'Idle') {
+      return mainResidencyControl('unload', 'localWhisper.main.freeModel', { enabled: true });
+    }
+    return mainResidencyControl('unload', 'localWhisper.main.freeModel', {
+      reasonKey:
+        snapshot.runtime.activity === 'Transcribing'
+          ? 'localWhisper.main.modelInUse'
+          : 'localWhisper.main.actionInProgress',
+    });
+  }
+  if (snapshot.runtime.residency === 'Unloaded') {
+    const eligible =
+      snapshot.runtime.runtimeSetup === 'Installed' &&
+      snapshot.runtime.modelSetup === 'Installed' &&
+      snapshot.runtime.canAttempt &&
+      snapshot.runtime.blockingCode === null &&
+      !snapshot.selectedButUnavailable;
+    if (eligible) return mainResidencyControl('load', 'localWhisper.main.loadModel', { enabled: true });
+    const reasonCode = snapshot.failure?.code ?? snapshot.runtime.blockingCode;
+    return mainResidencyControl('load', 'localWhisper.main.loadModel', {
+      reasonKey:
+        reasonCode === null &&
+        (snapshot.runtime.runtimeSetup !== 'Installed' || snapshot.runtime.modelSetup !== 'Installed')
+          ? 'localWhisper.main.setupRequired'
+          : reasonCode === null
+            ? 'localWhisper.main.modelUnavailable'
+            : 'localWhisper.main.modelUnavailableCode',
+      reasonCode,
+    });
+  }
+
+  return mainResidencyControl('load', 'localWhisper.main.loadModel', {
+    reasonKey: 'localWhisper.main.operationFailed',
+    reasonCode: snapshot.failure?.code ?? snapshot.runtime.blockingCode,
+  });
 }
 
 function sentenceCaseIdentifier(value: string): string {

@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
   createLocalWhisperRendererSafeFailure,
+  isLocalWhisperMainResidencyCommand,
+  isLocalWhisperMainResidencyCommandResult,
   isLocalWhisperProviderSelectionResult,
   isLocalWhisperPublicSettings,
   isLocalWhisperRendererSafeFailure,
@@ -26,6 +28,24 @@ const SETTINGS = Object.freeze({
     backend: 'cpu',
     cpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
   }),
+});
+
+const MAIN_STATUS = Object.freeze({
+  providerId: 'local-whisper' as const,
+  snapshotRevision: 4,
+  runtime: Object.freeze({
+    supportTier: 'Production' as const,
+    runtimeSetup: 'Installed' as const,
+    modelSetup: 'Installed' as const,
+    capability: 'Validated' as const,
+    residency: 'Unloaded' as const,
+    activity: 'Idle' as const,
+    operationalStatus: 'ValidatedUnloaded' as const,
+    canAttempt: true,
+    blockingCode: null,
+  }),
+  failure: null,
+  selectedButUnavailable: false,
 });
 
 describe('Local Whisper IPC decoders', () => {
@@ -94,6 +114,63 @@ describe('Local Whisper IPC decoders', () => {
         committedProviderId: 'chatgpt',
         readinessRevision: 4,
         error: 'raw failure',
+      }),
+      false,
+    );
+  });
+
+  it('keeps main residency commands and results closed and positive-revisioned', () => {
+    const validCommand = { kind: 'load', expectedSnapshotRevision: 4 } as const;
+    assert.equal(isLocalWhisperMainResidencyCommand(validCommand), true);
+    for (const command of [
+      { ...validCommand, path: '/private/model' },
+      { ...validCommand, expectedSnapshotRevision: 0 },
+      { ...validCommand, expectedSnapshotRevision: -1 },
+      { ...validCommand, expectedSnapshotRevision: 1.5 },
+      { ...validCommand, expectedSnapshotRevision: Number.MAX_SAFE_INTEGER + 1 },
+      { ...validCommand, kind: 'cancel' },
+    ]) {
+      assert.equal(isLocalWhisperMainResidencyCommand(command), false);
+    }
+    const inherited = Object.create({ kind: 'load' }) as Record<string, unknown>;
+    inherited.expectedSnapshotRevision = 4;
+    assert.equal(isLocalWhisperMainResidencyCommand(inherited), false);
+
+    const failure = createLocalWhisperRendererSafeFailure('OPERATION_CONFLICT');
+    assert.equal(
+      isLocalWhisperMainResidencyCommandResult({
+        success: true,
+        command: 'load',
+        snapshot: MAIN_STATUS,
+        failure: null,
+      }),
+      true,
+    );
+    assert.equal(
+      isLocalWhisperMainResidencyCommandResult({
+        success: false,
+        command: 'unload',
+        snapshot: MAIN_STATUS,
+        failure,
+      }),
+      true,
+    );
+    assert.equal(
+      isLocalWhisperMainResidencyCommandResult({
+        success: true,
+        command: 'load',
+        snapshot: MAIN_STATUS,
+        failure,
+      }),
+      false,
+    );
+    assert.equal(
+      isLocalWhisperMainResidencyCommandResult({
+        success: false,
+        command: 'load',
+        snapshot: MAIN_STATUS,
+        failure,
+        stderr: 'private',
       }),
       false,
     );

@@ -77,6 +77,8 @@ import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
 import {
   LOCAL_WHISPER_IPC_CHANNELS,
   isLocalWhisperMainStatusSnapshot,
+  isLocalWhisperMainResidencyCommand,
+  isLocalWhisperMainResidencyCommandResult,
   isLocalWhisperIpcAcknowledgement,
   isLocalWhisperProviderSelectionResult,
   isLocalWhisperRendererSnapshot,
@@ -84,6 +86,8 @@ import {
   isLocalWhisperSettingsCommandResult,
   type LocalWhisperIpcAcknowledgement,
   type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperMainResidencyCommand,
+  type LocalWhisperMainResidencyCommandResult,
   type LocalWhisperProviderSelectionResult,
   type LocalWhisperRendererSnapshot,
   type LocalWhisperSettingsCommand,
@@ -301,6 +305,16 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void): (() => void) => {
       return onDecodedEvent(LOCAL_WHISPER_IPC_CHANNELS.mainStatusChanged, isLocalWhisperMainStatusSnapshot, callback);
+    },
+    runLocalWhisperMainResidencyCommand: async (
+      command: LocalWhisperMainResidencyCommand,
+    ): Promise<LocalWhisperMainResidencyCommandResult> => {
+      if (!isLocalWhisperMainResidencyCommand(command)) throw new Error('Invalid Local Whisper main command');
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, command);
+      if (!isLocalWhisperMainResidencyCommandResult(result)) {
+        throw new Error('Invalid Local Whisper main command response');
+      }
+      return result;
     },
     openLocalWhisperSettings: async (): Promise<LocalWhisperIpcAcknowledgement> => {
       const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings);

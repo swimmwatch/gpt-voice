@@ -3,6 +3,8 @@ import { Fragment } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
+import LocalWhisperMainResidencyControl from '@renderer/localWhisper/components/LocalWhisperMainResidencyControl';
+import type { LocalWhisperMainResidencyFailure } from '@renderer/localWhisper/LocalWhisperRendererService';
 import { Button } from '@renderer/components/ui/button';
 import {
   Select,
@@ -19,7 +21,11 @@ import { groupProvidersByCategory } from '@renderer/providerGrouping';
 import { PROVIDER_CONNECTION_REASONS, type ProviderConnectionReason } from '@renderer/providerState';
 import type { ProviderAuthType, ProviderInfo } from '@renderer/types';
 import type { TranslationKey } from '@main/i18n';
-import { LOCAL_WHISPER_PROVIDER_ID, type LocalWhisperMainStatusSnapshot } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_PROVIDER_ID,
+  type LocalWhisperMainResidencyAction,
+  type LocalWhisperMainStatusSnapshot,
+} from '@shared/localWhisper';
 
 interface MainToolbarProps {
   activeProviderAuthType: ProviderAuthType;
@@ -29,10 +35,14 @@ interface MainToolbarProps {
   isLoggedIn: boolean;
   isLoggingIn: boolean;
   localWhisperStatus: LocalWhisperMainStatusSnapshot | null;
+  localWhisperPendingAction: LocalWhisperMainResidencyAction | null;
+  localWhisperResidencyFailure: LocalWhisperMainResidencyFailure | null;
+  localWhisperResidencyFailureSequence: number;
   onOpenAbout: () => void;
   onOpenAppSettings: () => void;
   onOpenHistory: () => void;
   onOpenProviderSettings: () => void;
+  onLocalWhisperResidencyAction: (action: LocalWhisperMainResidencyAction) => void;
   onProviderChange: (providerId: string) => void;
   onProviderLogin: () => void;
   providerConnectionFailureTooltip: string;
@@ -61,10 +71,14 @@ function MainToolbar({
   isLoggedIn,
   isLoggingIn,
   localWhisperStatus,
+  localWhisperPendingAction,
+  localWhisperResidencyFailure,
+  localWhisperResidencyFailureSequence,
   onOpenAbout,
   onOpenAppSettings,
   onOpenHistory,
   onOpenProviderSettings,
+  onLocalWhisperResidencyAction,
   onProviderChange,
   onProviderLogin,
   providerConnectionFailureTooltip,
@@ -168,28 +182,20 @@ function MainToolbar({
         <div
           className="command-dock-provider-controls"
           data-has-settings={activeProviderHasSettings}
+          data-local-whisper={isLocalWhisperProvider}
           data-slot="provider-controls"
         >
-          {activeProviderHasSettings && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={providerSettingsLabel}
-                  className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
-                  onClick={onOpenProviderSettings}
-                  size="icon"
-                  title={providerSettingsLabel}
-                  variant="outline"
-                >
-                  <Settings aria-hidden="true" strokeWidth={1.75} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{providerSettingsLabel}</TooltipContent>
-            </Tooltip>
-          )}
-
           {isLocalWhisperProvider ? (
-            <LocalWhisperMainStatusIndicator snapshot={localWhisperStatus} />
+            <>
+              <LocalWhisperMainStatusIndicator snapshot={localWhisperStatus} />
+              <LocalWhisperMainResidencyControl
+                failure={localWhisperResidencyFailure}
+                failureSequence={localWhisperResidencyFailureSequence}
+                onAction={onLocalWhisperResidencyAction}
+                pendingAction={localWhisperPendingAction}
+                snapshot={localWhisperStatus}
+              />
+            </>
           ) : isLoggedIn ? (
             <ProviderStatusIndicator
               className="command-dock-provider-state command-dock-provider-state-success"
@@ -215,6 +221,24 @@ function MainToolbar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{providerStatusTooltip}</TooltipContent>
+            </Tooltip>
+          )}
+
+          {activeProviderHasSettings && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={providerSettingsLabel}
+                  className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
+                  onClick={onOpenProviderSettings}
+                  size="icon"
+                  title={providerSettingsLabel}
+                  variant="outline"
+                >
+                  <Settings aria-hidden="true" strokeWidth={1.75} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{providerSettingsLabel}</TooltipContent>
             </Tooltip>
           )}
         </div>

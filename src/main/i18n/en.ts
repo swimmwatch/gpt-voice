@@ -740,6 +740,19 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Fingerprint seed must contain digits only.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Load model',
+  'localWhisper.main.freeModel': 'Free model',
+  'localWhisper.main.loadingStatus': 'Loading Local Whisper status',
+  'localWhisper.main.loadingModel': 'Loading model',
+  'localWhisper.main.freeingModel': 'Freeing model',
+  'localWhisper.main.modelInUse': 'The model is in use by transcription.',
+  'localWhisper.main.actionInProgress': 'Another Local Whisper action is in progress.',
+  'localWhisper.main.setupRequired': 'Install the selected runtime and model in Local Whisper settings.',
+  'localWhisper.main.modelUnavailable': 'The selected model is unavailable. Open Local Whisper settings.',
+  'localWhisper.main.modelUnavailableCode': 'The selected model is unavailable ({code}). Open Local Whisper settings.',
+  'localWhisper.main.operationFailed': 'The Local Whisper model operation failed. Try again.',
+  'localWhisper.main.operationFailedCode': 'The Local Whisper model operation failed ({code}). Try again.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',
   'tray.quit': 'Quit',

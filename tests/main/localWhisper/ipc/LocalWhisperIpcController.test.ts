@@ -28,7 +28,11 @@ import {
   snapshotFacts,
 } from './localWhisperIpcTestUtils';
 
-function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => undefined }, facts = snapshotFacts()) {
+function createHarness(
+  audit: LocalWhisperCommandAuditPort = { record: () => undefined },
+  facts = snapshotFacts(),
+  initialProviderId = 'local-whisper',
+) {
   const transport = new FakeTransport();
   const authority = new FakeAuthority();
   const coordinator = new FakeCoordinator();
@@ -36,6 +40,7 @@ function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => und
   const snapshots = createSnapshotService(coordinator, facts);
   let openSettingsCalls = 0;
   let refreshSettingsCalls = 0;
+  let activeProviderId = initialProviderId;
   const controller = new LocalWhisperIpcController({
     audit,
     transport,
@@ -45,6 +50,7 @@ function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => und
     managedFolder: privileged.folder,
     references: privileged.references,
     snapshots,
+    getActiveProviderId: () => activeProviderId,
     openSettings: () => {
       openSettingsCalls += 1;
     },
@@ -63,6 +69,9 @@ function createHarness(audit: LocalWhisperCommandAuditPort = { record: () => und
     controller,
     getOpenSettingsCalls: () => openSettingsCalls,
     getRefreshSettingsCalls: () => refreshSettingsCalls,
+    setActiveProviderId: (providerId: string) => {
+      activeProviderId = providerId;
+    },
   };
 }
 
@@ -108,6 +117,7 @@ describe('LocalWhisperIpcController', () => {
       managedFolder: privileged.folder,
       references: privileged.references,
       snapshots,
+      getActiveProviderId: () => 'local-whisper',
       openSettings: () => undefined,
       refreshSettingsFacts: () => refresh,
     });
@@ -161,6 +171,132 @@ describe('LocalWhisperIpcController', () => {
       /unexpected Local Whisper IPC arguments/u,
     );
     assert.equal(harness.getOpenSettingsCalls(), 1);
+  });
+
+  it('gates the separate main residency command before exactly-one coordinator delegation', async () => {
+    const audited: string[] = [];
+    const harness = createHarness({
+      record: (command) => {
+        audited.push(command.kind);
+      },
+    });
+    harness.coordinator.emit(
+      coordinatorSnapshot({
+        snapshotRevision: 2,
+        runtime: Object.freeze({
+          ...harness.coordinator.snapshot.runtime,
+          residency: 'Unloaded',
+          operationalStatus: 'ValidatedUnloaded',
+        }),
+      }),
+    );
+    const command = {
+      kind: 'load' as const,
+      expectedSnapshotRevision: harness.snapshots.mainStatus.snapshotRevision,
+    };
+
+    await assert.rejects(
+      async () =>
+        await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, fakeEvent('settings'), command),
+      /main-status IPC sender/u,
+    );
+    assert.equal(harness.coordinator.loadCalls, 0);
+
+    const malformed = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      { ...command, path: '/private/model' },
+    );
+    assert.deepEqual(
+      [(malformed as { readonly success: boolean }).success, (malformed as { readonly command: string }).command],
+      [false, 'invalid'],
+    );
+    assert.equal(harness.coordinator.loadCalls, 0);
+
+    harness.setActiveProviderId('chatgpt');
+    const inactive = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      command,
+    );
+    assert.equal((inactive as { readonly failure: { readonly code: string } }).failure.code, 'OPERATION_CONFLICT');
+    harness.setActiveProviderId('local-whisper');
+
+    const stale = await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, fakeEvent('main'), {
+      ...command,
+      expectedSnapshotRevision: command.expectedSnapshotRevision - 1,
+    });
+    assert.equal((stale as { readonly failure: { readonly code: string } }).failure.code, 'STALE_CONFIGURATION');
+    assert.equal(harness.coordinator.loadCalls, 0);
+
+    const loaded = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      command,
+    );
+    assert.equal((loaded as { readonly success: boolean }).success, true);
+    assert.equal(harness.coordinator.loadCalls, 1);
+    assert.deepEqual(audited, ['load']);
+    assert.deepEqual(Object.keys(loaded as object).sort(), ['command', 'failure', 'snapshot', 'success']);
+  });
+
+  it('fails closed for ineligible and concurrent main residency actions without queueing or cancellation', async () => {
+    const harness = createHarness();
+    const ineligible = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      { kind: 'load', expectedSnapshotRevision: harness.snapshots.mainStatus.snapshotRevision },
+    );
+    assert.equal((ineligible as { readonly failure: { readonly code: string } }).failure.code, 'OPERATION_CONFLICT');
+    assert.equal(harness.coordinator.loadCalls, 0);
+
+    harness.coordinator.emit(
+      coordinatorSnapshot({
+        snapshotRevision: 2,
+        runtime: Object.freeze({
+          ...harness.coordinator.snapshot.runtime,
+          residency: 'Unloaded',
+          operationalStatus: 'ValidatedUnloaded',
+        }),
+      }),
+    );
+    let finishLoad = (): void => {
+      throw new Error('Load completion was not initialized');
+    };
+    const loadSettled = new Promise<void>((resolve) => {
+      finishLoad = resolve;
+    });
+    harness.coordinator.loadNow = async () => {
+      harness.coordinator.loadCalls += 1;
+      harness.coordinator.emit(
+        coordinatorSnapshot({
+          snapshotRevision: 3,
+          runtime: Object.freeze({
+            ...harness.coordinator.snapshot.runtime,
+            residency: 'Loading',
+            operationalStatus: 'Busy',
+          }),
+        }),
+      );
+      await loadSettled;
+      return { success: true as const };
+    };
+    const command = {
+      kind: 'load' as const,
+      expectedSnapshotRevision: harness.snapshots.mainStatus.snapshotRevision,
+    };
+    const first = harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, fakeEvent('main'), command);
+    await Promise.resolve();
+    const duplicate = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      command,
+    );
+    assert.equal((duplicate as { readonly failure: { readonly code: string } }).failure.code, 'STALE_CONFIGURATION');
+    assert.equal(harness.coordinator.loadCalls, 1);
+    finishLoad();
+    await first;
+    assert.equal(harness.coordinator.unloadCalls, 0);
   });
 
   it('atomically replays ordered snapshots and revokes invalidated subscribers', async () => {

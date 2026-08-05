@@ -86,6 +86,12 @@ describe('preload API factory', () => {
     renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusQuery, snapshots.mainStatus);
     renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusSubscribe, snapshots.mainStatus);
     renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusUnsubscribe, { success: true });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, {
+      success: true,
+      command: 'unload',
+      snapshot: snapshots.mainStatus,
+      failure: null,
+    });
     renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, { success: true });
     const api = createElectronApi(renderer);
     const events: number[] = [];
@@ -101,6 +107,15 @@ describe('preload API factory', () => {
     assert.equal((await api.runLocalWhisperSettingsCommand(command)).success, true);
     assert.deepEqual(await api.unsubscribeLocalWhisperSettings(), { success: true });
     assert.deepEqual(await api.unsubscribeLocalWhisperMainStatus(), { success: true });
+    assert.equal(
+      (
+        await api.runLocalWhisperMainResidencyCommand({
+          kind: 'unload',
+          expectedSnapshotRevision: snapshots.mainStatus.snapshotRevision,
+        })
+      ).success,
+      true,
+    );
     assert.deepEqual(await api.openLocalWhisperSettings(), { success: true });
     renderer.emit(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, snapshot);
     renderer.emit(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, { ...snapshot, path: '/private/model' });
@@ -113,6 +128,20 @@ describe('preload API factory', () => {
     );
     renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, { success: true, path: '/private' });
     await assert.rejects(api.openLocalWhisperSettings(), /Invalid Local Whisper open-settings response/u);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, {
+      success: true,
+      command: 'load',
+      snapshot: snapshots.mainStatus,
+      failure: null,
+      stderr: 'private',
+    });
+    await assert.rejects(
+      api.runLocalWhisperMainResidencyCommand({
+        kind: 'load',
+        expectedSnapshotRevision: snapshots.mainStatus.snapshotRevision,
+      }),
+      /Invalid Local Whisper main command response/u,
+    );
     snapshots.dispose();
   });
 

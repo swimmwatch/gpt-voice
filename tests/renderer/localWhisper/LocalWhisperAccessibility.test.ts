@@ -45,4 +45,19 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.match(indicator, /role="status"/u);
     assert.match(indicator, /tooltip=\{tooltip\}/u);
   });
+
+  it('keeps the main Load/Free control focusable with localized reasons, status, alerts, and reduced motion', () => {
+    const control = source('src/renderer/localWhisper/components/LocalWhisperMainResidencyControl.tsx');
+    const spinner = source('src/renderer/components/ui/spinner.tsx');
+    const styles = source('src/renderer/styles/globals.css');
+    assert.match(control, /aria-label=\{label\}/u);
+    assert.match(control, /aria-disabled=\{!presentation\.enabled\}/u);
+    assert.match(control, /aria-describedby=/u);
+    assert.match(control, /<TooltipContent>\{reason\}<\/TooltipContent>/u);
+    assert.match(control, /role="alert"/u);
+    assert.match(control, /<Spinner label=\{label\}/u);
+    assert.match(spinner, /role="status"/u);
+    assert.match(spinner, /motion-reduce:animate-none/u);
+    assert.match(styles, /data-local-whisper='true'[\s\S]*repeat\(3, 37px\)/u);
+  });
 });

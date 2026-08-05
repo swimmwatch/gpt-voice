@@ -68,6 +68,8 @@ import type {
 } from '@shared/voiceProvider';
 import type {
   LocalWhisperMainStatusSnapshot,
+  LocalWhisperMainResidencyCommand,
+  LocalWhisperMainResidencyCommandResult,
   LocalWhisperIpcAcknowledgement,
   LocalWhisperProviderSelectionResult,
   LocalWhisperRendererSnapshot,
@@ -173,6 +175,9 @@ export interface ElectronAPI {
   subscribeLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
   unsubscribeLocalWhisperMainStatus: () => Promise<LocalWhisperIpcAcknowledgement>;
   onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void) => () => void;
+  runLocalWhisperMainResidencyCommand: (
+    command: LocalWhisperMainResidencyCommand,
+  ) => Promise<LocalWhisperMainResidencyCommandResult>;
   openLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
   checkSession: () => Promise<boolean>;
   transcribeAudio: (

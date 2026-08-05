@@ -7036,7 +7036,8 @@ decisions:
     answer: null
     rationale: The six-perspective review found no unresolved material behavior. The all-six installation and selection boundary is explicit, while base/full remains only the reversible representative model for the bounded runtime smoke.
     supersedes_revision: null
-    requirement_ids: [MODEL-001, MODEL-002, MODEL-005, DEV-001, SEC-015, IMPL-001, IMPL-002, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+    requirement_ids:
+      [MODEL-001, MODEL-002, MODEL-005, DEV-001, SEC-015, IMPL-001, IMPL-002, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
 
   - id: approval.spec
     revision: 13
@@ -7108,7 +7109,21 @@ decisions:
       text: Add the ability to download all models through Hugging Face in the ordinary application.
     rationale: The normal renderer/preload/main artifact action must reach the real `pinned-raw-model-v1` public Hugging Face transport for each exact model, with progress, cancellation, resume/retry, length/hash verification, atomic promotion, and inventory refresh. Pre-seeding or qualification-runner-only transfer is insufficient.
     supersedes_revision: null
-    requirement_ids: [DL-001, DL-002, DL-003, DL-004, DL-005, MODEL-001, MODEL-002, IMPL-002, AC-AUTO-064, AC-AUTO-066, AC-AUTO-075, AC-MAN-015]
+    requirement_ids:
+      [
+        DL-001,
+        DL-002,
+        DL-003,
+        DL-004,
+        DL-005,
+        MODEL-001,
+        MODEL-002,
+        IMPL-002,
+        AC-AUTO-064,
+        AC-AUTO-066,
+        AC-AUTO-075,
+        AC-MAN-015,
+      ]
 
   - id: acceptance.revision-14-gap-analysis
     revision: 1
@@ -7127,7 +7142,26 @@ decisions:
     answer: null
     rationale: The six-perspective review found no unresolved material behavior. Revision 14 explicitly distinguishes real public model download from runtime publication and from the later exhaustive model execution matrix.
     supersedes_revision: null
-    requirement_ids: [DL-001, DL-002, DL-003, DL-004, DL-005, MODEL-001, MODEL-002, MODEL-005, DEV-001, SEC-015, IMPL-001, IMPL-002, AC-AUTO-064, AC-AUTO-066, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+    requirement_ids:
+      [
+        DL-001,
+        DL-002,
+        DL-003,
+        DL-004,
+        DL-005,
+        MODEL-001,
+        MODEL-002,
+        MODEL-005,
+        DEV-001,
+        SEC-015,
+        IMPL-001,
+        IMPL-002,
+        AC-AUTO-064,
+        AC-AUTO-066,
+        AC-AUTO-074,
+        AC-AUTO-075,
+        AC-MAN-015,
+      ]
 
   - id: approval.spec
     revision: 14
@@ -7176,7 +7210,7 @@ decisions:
     provenance: user
     evidence:
       - Approved specification revision 14 requires both non-packaged application identity and an explicit launch-time opt-in that identifies a main-readable activation descriptor.
-      - `bootstrapMainProcess` already owns `app.isPackaged`, `process.argv`, `process.env`, filesystem reads, and construction of the Local Whisper process graph.
+      - '`bootstrapMainProcess` already owns `app.isPackaged`, `process.argv`, `process.env`, filesystem reads, and construction of the Local Whisper process graph.'
       - The activation choice must not become renderer authority, persisted settings, ambient discovery, or a packaged-build input.
     prompt_mcp:
       interview_id: plan:local-whisper
@@ -7224,7 +7258,21 @@ decisions:
     answer: null
     rationale: The coverage and executability audit found no unresolved material planning choice. Known absent revision-18 validator/package-script support is an explicit Task 19 deliverable rather than an inferred pass or hidden prerequisite.
     supersedes_revision: null
-    requirement_ids: [DEV-001, SEC-015, IMPL-001, IMPL-002, DL-004, DL-005, MODEL-001, MODEL-002, MODEL-005, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+    requirement_ids:
+      [
+        DEV-001,
+        SEC-015,
+        IMPL-001,
+        IMPL-002,
+        DL-004,
+        DL-005,
+        MODEL-001,
+        MODEL-002,
+        MODEL-005,
+        AC-AUTO-074,
+        AC-AUTO-075,
+        AC-MAN-015,
+      ]
 
   - id: approval.plan-revision-18
     revision: 1
@@ -7298,4 +7346,466 @@ decisions:
       text: ''
     rationale: The user explicitly authorized the next incremental-implementation invocation to execute exactly revised Task 19. The authorization includes only the packet's exact anonymous public model downloads, task-local loopback runtime transfers, fixed managed installation/removal, and bounded Linux CPU/CUDA smoke. It excludes Task 20, Windows execution, long qualification, commit, push, pull request, signing, upload, publication, support promotion, tag, and release.
     supersedes_revision: null
-    requirement_ids: [DEV-001, SEC-015, IMPL-001, IMPL-002, DL-004, DL-005, MODEL-001, MODEL-002, MODEL-005, AC-AUTO-074, AC-AUTO-075, AC-MAN-015]
+    requirement_ids:
+      [
+        DEV-001,
+        SEC-015,
+        IMPL-001,
+        IMPL-002,
+        DL-004,
+        DL-005,
+        MODEL-001,
+        MODEL-002,
+        MODEL-005,
+        AC-AUTO-074,
+        AC-AUTO-075,
+        AC-MAN-015,
+      ]
+
+  - id: architecture.main-window-current-authority-split
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved `ARCH-010`, `IPC-003`, and `UI-008` currently give the main window only a sanitized Local Whisper status query/subscription surface and reserve load/unload commands for the settings window.
+      - '`LocalWhisperMainStatusSnapshot` already exposes `snapshotRevision`, sanitized runtime state, sanitized failure, and selected-but-unavailable state without settings, paths, URLs, or artifact authority.'
+      - '`LocalWhisperCoordinator.loadNow()` and `LocalWhisperCoordinator.unload()` are the existing sole process-owned lifecycle operations, while exact main-window and settings-window sender capabilities are validated independently.'
+      - '`AC-AUTO-059` currently requires the main window to remain read-only.'
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The requested main-screen residency control requires a narrow, explicit supersession of the read-only main-window clauses while preserving the existing authority split, sanitized DTO boundary, exact sender validation, and sole coordinator ownership.
+    supersedes_revision: null
+    requirement_ids: [ARCH-010, IPC-003, UI-008, AC-AUTO-059]
+
+  - id: scope.main-window-load-free-control
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested a Load/Free model button on the main screen using the Ollama Prettify provider control as the visual precedent.
+      - The request was explicitly assigned to specification and planning work in parallel with the existing provider repair workstream.
+    prompt_mcp: null
+    question:
+      text: What Local Whisper lifecycle control must be added to the main screen?
+      kind: single
+      options:
+        - id: main-toolbar-load-free
+          label: Main-screen Load/Free model control
+          description: Add one main-screen control that loads the selected Local Whisper model on demand and frees its resident worker/model resources.
+    answer:
+      selected_ids: [main-toolbar-load-free]
+      text: Add a Load/Free model button on the main screen, following the Ollama Prettify provider precedent.
+    rationale: This explicit request fixes the feature outcome but does not by itself determine state gating, failure presentation, provider-switch behavior, or the exact IPC contract.
+    supersedes_revision: null
+    requirement_ids: [ARCH-011, IPC-004, UI-009]
+
+  - id: ui.main-control-load-availability
+    revision: 1
+    category: normal-flow
+    state: answered
+    provenance: user
+    evidence:
+      - '`loadNow()` performs fresh preflight, full model load, and warm-up, so a prior `ValidatedUnloaded` state is not required for an eligible on-demand attempt.'
+      - The sanitized main status already exposes setup, capability, residency, operational status, `canAttempt`, and a blocking code.
+      - Local Whisper remains selectable while unsupported or Not ready, so hiding every unavailable control would reduce recovery discoverability.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: main-residency-control-round-17
+      question_id: ui.main-control-load-availability
+      idempotency_key: ui.main-control-load-availability:v1
+      last_status: answered
+      sequence: 60
+      revision: 1
+    question:
+      text: When Local Whisper is active and its model is unloaded, when should the main-screen Load model control be visible and enabled?
+      kind: single
+      options:
+        - id: visible-eligible-attempt
+          label: Visible, enable eligible attempt (Recommended)
+          description: Always show Load for the active provider; enable it when setup is installed, residency is Unloaded, `canAttempt` is true, and no blocking code exists, including EstimateOnly/on-demand validation states.
+        - id: visible-validated-only
+          label: Visible, validated only
+          description: Always show Load for the active provider but enable it only after the exact configuration reaches ValidatedUnloaded.
+        - id: hide-until-enabled
+          label: Hide until enabled
+          description: Do not show Load until the current configuration is already eligible for the chosen enablement rule.
+    answer:
+      selected_ids: [visible-eligible-attempt]
+      text: ''
+    rationale: The active-provider control remains discoverable in every Unloaded state and permits the same eligible on-demand preflight/load path as lazy transcription; setup, `canAttempt`, residency, and sanitized blocking state prevent unsafe attempts.
+    supersedes_revision: null
+    requirement_ids: [UI-009, LIFE-007]
+
+  - id: ui.main-control-free-state-policy
+    revision: 1
+    category: normal-flow
+    state: answered
+    provenance: user
+    evidence:
+      - Residency is exactly Unloaded, Loading, Loaded, Unloading, or Failed, and activity is Idle or Transcribing.
+      - The coordinator rejects overlapping lifecycle operations, and active transcription has its own cancellation path.
+      - The Ollama Prettify precedent uses one icon-only stateful control and a disabled spinner while an operation is pending.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: main-residency-control-round-17
+      question_id: ui.main-control-free-state-policy
+      idempotency_key: ui.main-control-free-state-policy:v1
+      last_status: answered
+      sequence: 61
+      revision: 1
+    question:
+      text: How should the main-screen control behave across Loading, Loaded, Transcribing, Unloading, and Failed states?
+      kind: single
+      options:
+        - id: stable-safe-state-map
+          label: Stable safe state map (Recommended)
+          description: Show a disabled spinner during Loading/Unloading, enable Free only for Loaded plus Idle, show Free disabled during Transcribing, and return to Load/retry after Failed settles to Unloaded.
+        - id: free-cancels-active-work
+          label: Free cancels active work
+          description: Let Free cancel Loading or Transcribing before unloading, combining lifecycle and cancellation behavior in one control.
+        - id: hide-during-busy-failure
+          label: Hide while busy or failed
+          description: Remove the control during Loading, Transcribing, Unloading, and Failed states and restore it only in stable Loaded or Unloaded states.
+    answer:
+      selected_ids: [stable-safe-state-map]
+      text: ''
+    rationale: The main-screen control does not become a second cancellation surface. It stays stable and perceivable during transitions, enables Free only for an idle loaded worker, and exposes retry through Load after failure settles to Unloaded.
+    supersedes_revision: null
+    requirement_ids: [UI-009, LIFE-007, FAIL-004]
+
+  - id: scope.main-control-provider-visibility
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The main toolbar already renders provider-specific controls conditionally.
+      - The requested Ollama Prettify precedent presents its model control only in the applicable provider context.
+      - Local Whisper status remains process-owned and subscribable even when another voice provider is selected.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: main-residency-control-round-17
+      question_id: scope.main-control-provider-visibility
+      idempotency_key: scope.main-control-provider-visibility:v1
+      last_status: answered
+      sequence: 62
+      revision: 1
+    question:
+      text: When should the Local Whisper Load/Free model control appear in the main toolbar?
+      kind: single
+      options:
+        - id: active-provider-only
+          label: Active provider only (Recommended)
+          description: Show the control only while Local Whisper is the selected voice provider, matching other provider-specific main-toolbar controls.
+        - id: always-visible
+          label: Always visible
+          description: Keep the Local Whisper residency control visible even while another voice provider is selected.
+    answer:
+      selected_ids: [active-provider-only]
+      text: ''
+    rationale: The control is Local Whisper-specific and follows the existing provider-context toolbar pattern; passive process-owned state may continue outside the rendered control.
+    supersedes_revision: null
+    requirement_ids: [UI-009]
+
+  - id: failure.main-control-presentation
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Main-window status exposes only sanitized Local Whisper failures, and raw errors, paths, URLs, prompts, and native authority are forbidden across the renderer boundary.
+      - The Ollama Prettify precedent uses icon-only Load/Free actions, pending spinners, accessible labels/tooltips, and sanitized failure presentation.
+      - The existing lifecycle contract names the process action `Unload`, while the requested user-facing wording is `Free model`.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: main-residency-control-round-17
+      question_id: failure.main-control-presentation
+      idempotency_key: failure.main-control-presentation:v1
+      last_status: answered
+      sequence: 63
+      revision: 1
+    question:
+      text: How should the main-screen control label and present Local Whisper load/unload failures?
+      kind: single
+      options:
+        - id: free-label-sanitized-status
+          label: Free model plus sanitized status (Recommended)
+          description: Use accessible Load model/Free model labels while keeping `Unload` as the contract action; preserve the stable control and show only sanitized failure guidance in its tooltip/status surface.
+        - id: unload-label-sanitized-status
+          label: Unload model plus sanitized status
+          description: Use Load model/Unload model labels and show only sanitized failure guidance in the tooltip/status surface.
+        - id: generic-error-only
+          label: Generic error only
+          description: Keep the requested Load/Free labels but reveal no typed failure guidance beyond a generic operation-failed state.
+    answer:
+      selected_ids: [free-label-sanitized-status]
+      text: ''
+    rationale: User-facing language is Load model/Free model, the typed privileged action remains `load`/`unload`, and renderer presentation is limited to the existing sanitized status/failure contract with accessible text semantics.
+    supersedes_revision: null
+    requirement_ids: [UI-009, FAIL-004, SEC-016]
+
+  - id: lifecycle.main-control-provider-switch
+    revision: 1
+    category: alternate-flow
+    state: answered
+    provenance: user
+    evidence:
+      - Local Whisper lifecycle operations are process-owned and main-window subscription removal currently does not cancel process-owned downloads.
+      - Provider switching has its own coordinator contract and may overlap with a lifecycle operation, where conflicting operations already fail safely.
+      - A provider-specific control can disappear when the selected provider changes without destroying the underlying Local Whisper coordinator.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: main-residency-control-round-17
+      question_id: lifecycle.main-control-provider-switch
+      idempotency_key: lifecycle.main-control-provider-switch:v1
+      last_status: answered
+      sequence: 64
+      revision: 1
+    question:
+      text: What should happen if the user switches away from Local Whisper while a main-screen Load or Free operation is pending?
+      kind: single
+      options:
+        - id: hide-without-cancel
+          label: Hide without cancelling (Recommended)
+          description: Hide the provider-specific control after a successful switch, let the process-owned operation settle, and reflect its final state when Local Whisper is selected again.
+        - id: block-provider-switch
+          label: Block provider switching
+          description: Keep Local Whisper selected until the pending Load or Free operation finishes.
+        - id: cancel-before-switch
+          label: Cancel before switching
+          description: Cancel the pending operation and switch providers only after cancellation and cleanup settle.
+    answer:
+      selected_ids: [block-provider-switch]
+      text: ''
+    rationale: A provider-switch attempt during a main-screen Load or Free operation fails with the existing sanitized operation-conflict behavior and preserves Local Whisper selection. The user may retry switching only after the lifecycle operation settles; the pending operation is neither hidden nor cancelled by the rejected switch.
+    supersedes_revision: null
+    requirement_ids: [LIFE-007, UI-009, IPC-004]
+
+  - id: acceptance.revision-15-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: the active Local Whisper toolbar has one stable, predictable Load model/Free model control with an explicit enabled/disabled mapping for status loading, unavailable setup, Unloaded, Loading, Loaded, Transcribing, Unloading, and transient Failed states; a provider-switch attempt during a pending command is rejected and Local Whisper remains selected.'
+      - 'Operator perspective: the new control starts no download, changes no setting, selects no provider, persists no data, and uses the existing coordinator lifecycle, audit, cleanup, and sanitized diagnostics ownership.'
+      - 'Implementer perspective: one closed main-window residency command accepts only `load|unload` plus `expectedSnapshotRevision`, verifies the exact sender and committed active provider, rejects stale or ineligible requests before effects, and delegates exactly once to the existing coordinator; the separate status subscription remains read-only.'
+      - 'Tester perspective: a Cartesian state-table test plus wrong-sender, inactive-provider, stale-revision, malformed/extra-field, duplicate, lifecycle-conflict, provider-switch, renderer-reload, out-of-order result/event, and sanitized failure cases objectively determine visibility, label, enabled state, effect count, recovery, and retained provider selection.'
+      - 'Security-reviewer perspective: main retains lifecycle authority; the command/result expose no settings snapshot, prompt, paths, URLs, artifacts, executable data, device authority, stderr, audio, transcript, or raw error, and renderer hiding is never treated as authorization.'
+      - 'Maintainer perspective: the amendment explicitly replaces only the read-only main-window mutation prohibition in `ARCH-010`, `IPC-003`, `UI-008`, and `AC-AUTO-059`; remote providers, the Ollama Prettify control, settings behavior, artifact management, packaging, publication, and release contracts remain unchanged.'
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review identified state-predicate, authority, accessibility, concurrency, and acceptance gaps, all of which are normalized by the committed answers and existing project invariants. No unresolved material behavior remains for specification revision 15.
+    supersedes_revision: null
+    requirement_ids:
+      [ARCH-011, IPC-004, UI-009, LIFE-007, FAIL-004, SEC-016, AC-AUTO-059, AC-AUTO-076, AC-AUTO-077, AC-MAN-016]
+
+  - id: approval.spec
+    revision: 15
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 15 adds one Local Whisper-only main-screen `Load model`/`Free model` control with the committed eligible-on-demand and stable safe-state mapping.
+      - The existing read-only main status subscription remains separate; a new closed command accepts only `load|unload` plus the expected status revision and delegates exactly once to the process-owned coordinator.
+      - Exact main sender, committed active provider, current revision, action eligibility, and lifecycle conflicts are validated before effects; no settings, artifacts, downloads, paths, URLs, prompts, device authority, raw errors, audio, or transcripts cross the new command boundary.
+      - A pending main-screen Load or Free blocks provider switching, preserves Local Whisper selection, does not cancel or queue the switch, and requires a new explicit switch attempt after settlement.
+      - The state-table, concurrency/security, and manual CPU/CUDA main-window acceptance criteria make the amendment objective while leaving remote providers, Ollama Prettify, settings, distribution, packaging, qualification, publication, and release behavior unchanged.
+      - The six-perspective gap analysis found no unresolved material behavior.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-18
+      question_id: approval.spec
+      idempotency_key: approval.spec:v15
+      last_status: answered
+      sequence: 65
+      revision: 15
+      supersedes_revision: 14
+    question:
+      text: How should Local Whisper specification revision 15 proceed after adding the main-screen Load model/Free model control and its narrow lifecycle command?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 15 (Recommended)
+          description: Make the active-provider Load/Free state matrix, stale-checked main lifecycle command, sanitized failure behavior, and provider-switch blocking contract authoritative.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 15 in Draft and revise its UI state mapping, command authority, failure/accessibility behavior, concurrency, provider switching, or acceptance contract.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 14 remains the approved specification baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved specification revision 15 through the durable workspace interview. The active-provider main toolbar now has an authoritative Load model/Free model state matrix, a closed stale-checked and sender-authenticated lifecycle command that delegates only to the existing coordinator, sanitized accessible failure behavior, and provider-switch blocking during a pending command. Remote-provider, settings, artifact, distribution, packaging, qualification, publication, and release contracts remain unchanged.
+    supersedes_revision: 14
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.main-control-packet-placement
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 15 adds one cohesive renderer/preload/main/coordinator residency-control vertical slice and three new acceptance gates before candidate qualification can freeze implementation identity.
+      - Tasks 15 and 16 are already completed and committed; reopening them would invalidate their completion identities and split one atomic command/UI behavior across historical packets.
+      - Task 19 is complete in the worktree with an uncommitted startup/Fedora restoration delta; folding the new control into it would mix separately reviewable behavior with completed implementation-readiness repair.
+      - Tasks 20–22 have not started and must consume the complete committed product surface, so a new prerequisite packet can execute before them without renumbering their qualification/evidence identities.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-19-placement-round-76
+      question_id: planning.main-control-packet-placement
+      idempotency_key: planning.main-control-packet-placement:v1
+      last_status: answered
+      sequence: 76
+      revision: 1
+    question:
+      text: How should the approved main-screen Local Whisper Load/Free control be placed into the existing task sequence?
+      kind: single
+      options:
+        - id: add-task-23-before-qualification
+          label: Add Task 23 before qualification (Recommended)
+          description: Preserve completed Tasks 15/16 and Task 19, add one self-contained IPC/UI vertical-slice packet numbered 23, and make Tasks 20–22 depend on it without renumbering them.
+        - id: reopen-tasks-15-and-16
+          label: Reopen Tasks 15 and 16
+          description: Split IPC and UI work across the previously completed packets and replace their completion identities before qualification.
+        - id: fold-into-task-19
+          label: Fold into Task 19
+          description: Reopen Task 19 and mix the new main-window command/UI work with its completed startup, model-download, CPU/CUDA, and Fedora restoration delta.
+    answer:
+      selected_ids: [add-task-23-before-qualification]
+      text: ''
+    rationale: The user selected one new self-contained Task 23 that owns the complete shared/main/preload/renderer residency-command and main-toolbar control slice. It executes after the reviewed Task 19 implementation is committed and before Tasks 20–22, preserving every completed packet identity and avoiding qualification-packet renumbering.
+    supersedes_revision: null
+    requirement_ids:
+      [ARCH-011, IPC-004, UI-009, LIFE-007, FAIL-004, SEC-016, AC-AUTO-059, AC-AUTO-076, AC-AUTO-077, AC-MAN-016]
+
+  - id: acceptance.plan-revision-19-coverage-audit
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 19 declares exactly 23 numbered packets, and every declared packet exists with the required replacement-packet headings.
+      - The acceptance-owner manifest and schema declare exactly 76 unique automated acceptance owners in canonical order, with historical `AC-AUTO-055` absent and new `AC-AUTO-076`–`AC-AUTO-077` present.
+      - All 50 registered exact `rtk` verification commands appear in the Verification section of their owning packet, and every packet owns at least one registered command.
+      - Task 23 owns amended `AC-AUTO-059`, new `AC-AUTO-076`–`AC-AUTO-077`, and manual `AC-MAN-016`, and maps `ARCH-011`, `IPC-004`, `UI-009`, `LIFE-007`, `FAIL-004`, and `SEC-016` to one executable vertical slice.
+      - Tasks 20–22 explicitly consume Task 23 before candidate qualification and aggregate readiness; Tasks 15, 16, and 19 remain closed rather than being reopened or mixed with the new feature.
+      - Task 23 names exact shared, main, preload, renderer, test, validator, and planning surfaces; defines closed command, state, accessibility, concurrency, failure, rollback, and handoff contracts; and excludes downloads, native changes, candidate freeze, qualification, commit, push, publication, and release.
+      - JSON and YAML parsing, Prettier formatting, and `git diff --check` pass for the revision-19 planning artifacts. The current production task-plan validator still expects revision 18, 22 packets, and 74 owners; updating that validator and its implementation-readiness assertions is explicitly assigned to Task 23 and is not a planning-document defect.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 19 has complete requirement ownership, exact prerequisites, runnable checks, bounded manual gates, and explicit failure and rollback behavior. No unresolved material planning choice remains before the separate approval gate.
+    supersedes_revision: null
+    requirement_ids:
+      [ARCH-011, IPC-004, UI-009, LIFE-007, FAIL-004, SEC-016, AC-AUTO-059, AC-AUTO-076, AC-AUTO-077, AC-MAN-016]
+
+  - id: approval.plan-revision-19
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 15 adds one active-provider main-window Local Whisper Load/Free control through a separate closed command while preserving the read-only status subscription and existing coordinator ownership.
+      - Standalone Task 23 owns the complete shared/main/preload/renderer vertical slice, amended `AC-AUTO-059`, new `AC-AUTO-076`–`AC-AUTO-077`, and manual `AC-MAN-016` after Task 19 and before qualification.
+      - Tasks 15, 16, and 19 remain closed; Tasks 20–22 retain their identities and now consume Task 23 before any candidate freeze.
+      - The revision-19 coverage and executability audit passed for 23 packets, 76 unique automated acceptance owners, 50 registered commands, exact requirement ownership, and downstream prerequisites.
+      - Plan approval authorizes no implementation, application launch, hardware use, commit, push, qualification, candidate freeze, signing, publication, tag, or release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-19-approval-round-77
+      question_id: approval.plan-revision-19
+      idempotency_key: approval.plan-revision-19:v1
+      last_status: answered
+      sequence: 77
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 19 proceed after adding standalone Task 23 before qualification?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 19 (Recommended)
+          description: Approve the audited 23-packet plan and Task 23 placement; this authorizes no implementation, app launch, hardware use, commit, push, qualification, or release.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 19 in Draft and revise Task 23 scope, sequencing, ownership, checks, manual gates, or downstream dependencies.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Stop with revision 19 in Draft and retain the prior approved plan until a later decision.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved plan revision 19 through the durable workspace interview. This authorizes the audited plan contract only; Task 19 review and commit, Task 23 execution and hardware smoke, every later packet, commit, push, qualification, and production external action remain separately gated.
+    supersedes_revision: 18
+    requirement_ids: []
+
+  - id: execution.task-23-revision-19
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 19 is reviewed and committed as `b8941279`, `caaecaed`, and `4bcd21fa`.
+      - Specification revision 15 and plan revision 19 are Approved, and Task 23 is the exact next self-contained packet before qualification.
+      - Task 23 requires a separate execution decision; plan approval alone authorizes no production edits, application launch, or hardware use.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-23-execution-round-78
+      question_id: execution.task-23-revision-19
+      idempotency_key: execution.task-23-revision-19:v1
+      last_status: answered
+      sequence: 79
+      revision: 1
+    question:
+      text: How should standalone Task 23 proceed now that Task 19 is committed and plan revision 19 is approved?
+      kind: single
+      options:
+        - id: execute-complete-packet
+          label: Execute complete Task 23 (Recommended)
+          description: Implement and verify exactly Task 23, including the bounded ordinary-app CPU/CUDA and accessibility smoke with already installed artifacts; do not download/remove artifacts, commit, push, qualify, or start Task 20.
+        - id: execute-automated-only
+          label: Run automated scope only
+          description: Implement Task 23 and run automated checks without launching the app or using hardware, leaving its manual acceptance gate incomplete.
+        - id: defer-task-23
+          label: Defer Task 23
+          description: Make no Task 23 production changes and leave qualification blocked until a later execution decision.
+    answer:
+      selected_ids: [execute-complete-packet]
+      text: ''
+    rationale: The user explicitly authorized exactly Task 23 production implementation, its automated verification, and the bounded ordinary-application CPU/CUDA and accessibility smoke using already installed artifacts. The authorization excludes download or removal, commit, push, qualification, Task 20, PR, signing, publication, tag, and release actions.
+    supersedes_revision: null
+    requirement_ids:
+      [ARCH-011, IPC-004, UI-009, LIFE-007, SEC-016, AC-AUTO-059, AC-AUTO-076, AC-AUTO-077, AC-MAN-016]
+
+  - id: execution.task-23-revision-19
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 23 implementation and automated verification are complete, and the authorized CUDA manual flow passed.
+      - The fixed development state lacks the selected authenticated CPU runtime, so the CPU half of `AC-MAN-016` cannot run without one bounded runtime download.
+      - The user explicitly instructed the agent to download the missing CPU runtime and use it to complete testing.
+    prompt_mcp: null
+    question:
+      text: How should standalone Task 23 proceed after the selected CPU runtime was found missing from the fixed development state?
+      kind: single
+      options:
+        - id: download-cpu-runtime-and-complete
+          label: Download CPU runtime and complete
+          description: Download only the selected authenticated CPU runtime, finish the bounded CPU Load/Free and reduced-motion smoke, restore CUDA, and stop before commit, push, qualification, or Task 20.
+        - id: leave-manual-gate-incomplete
+          label: Leave manual gate incomplete
+          description: Do not download the missing runtime and keep Task 23 and qualification blocked.
+    answer:
+      selected_ids: [download-cpu-runtime-and-complete]
+      text: ''
+    rationale: The current explicit user instruction expands Task 23 authorization only enough to download the selected authenticated CPU runtime and complete its existing manual gate. Runtime removal, model download/removal, commit, push, qualification, Task 20, PR, signing, publication, tag, and release remain excluded.
+    supersedes_revision: 1
+    requirement_ids:
+      [ARCH-011, IPC-004, UI-009, LIFE-007, SEC-016, AC-MAN-016]

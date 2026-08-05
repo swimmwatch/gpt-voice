@@ -9,13 +9,15 @@ and NVIDIA CUDA technical qualification for all six canonical models.
 
 Validate the real Windows filesystem, launcher/Job Object, worker, runtime
 pack, installer/package, transport, lifecycle, resource, privacy, offline, and
-predecessor behavior implemented by Task 19. Produce one privacy-safe Windows
+predecessor behavior implemented by Task 19 plus the Task 23 main-window
+residency control. Produce one privacy-safe Windows
 result/evidence branch for Task 22 without mutating shared or Linux evidence.
 
 ## Prerequisites
 
-- Specification revision 14 and plan revision 18 are approved.
-- Task 19 cross-platform implementation readiness is complete and committed.
+- Specification revision 15 and plan revision 19 are approved.
+- Tasks 19 and 23 are complete and committed; Task 23 automated acceptance and
+  `AC-MAN-016` passed before Task 20 froze the shared candidate.
 - Task 20 is complete and supplies one immutable `candidateInputDigest` plus
   Linux platform input/profile/graph/result/evidence-index digests. It
   explicitly created no Windows branch or aggregate root.
@@ -31,10 +33,11 @@ result/evidence branch for Task 22 without mutating shared or Linux evidence.
   `MODEL-011`, `PKG-011`, `SEC-014`, `QUAL-001`–`QUAL-004`, `PRIV-005`, and
   the Windows technical slice of `OPS-003`.
 - Supporting Windows evidence for `AC-AUTO-064`–`AC-AUTO-070` and
-  `AC-AUTO-072`–`AC-AUTO-075`; primary automated ownership remains Task 19
-  except aggregate `AC-AUTO-071` in Task 22.
+  `AC-AUTO-072`–`AC-AUTO-077`; primary automated ownership remains Task 19 or
+  Task 23 except aggregate `AC-AUTO-071` in Task 22.
 - `AC-MAN-003`; Windows `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and
   `AC-MAN-013`; Windows technical inputs for `AC-MAN-014`.
+- Consume but do not reinterpret or replace Task 23 `AC-MAN-016` evidence.
 - No Linux mutation, aggregate verdict, or production authority.
 
 ## In Scope
@@ -243,10 +246,10 @@ Do not run Linux qualification or `verify:local-whisper:all`.
 
 ## References
 
-- Specification revision 14 Sections 9.2, 9.6, 12.1–12.5, 18.3,
+- Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
-- Immutable Task 20 shared/Linux handoff and Task 19 implementation-readiness
-  handoff.
+- Immutable Task 20 shared/Linux handoff and Tasks 19/23 implementation-
+  readiness handoffs.
 - Project Windows native-quality, packaging, installer, privacy, diagnostics,
   and release conventions.
 
