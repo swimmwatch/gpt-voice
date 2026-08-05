@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { lstat, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import * as path from 'node:path';
 
 import { LOCAL_WHISPER_DEVELOPMENT_ACTIVATION_ARGUMENT } from '@main/localWhisper/development/LocalWhisperDevelopmentActivation';
@@ -43,6 +44,7 @@ export interface DevelopmentSessionDependencies {
     tls: { readonly certificatePem: string; readonly privateKeyPem: string },
     objects: readonly DevelopmentServerObject[],
   ) => DevelopmentArtifactServer;
+  readonly electron: Pick<DevelopmentElectronRuntimeResolver, 'resolve'>;
   readonly launch: DevelopmentApplicationLauncher;
 }
 
@@ -89,6 +91,34 @@ export function developmentElectronEnvironment(environment: Readonly<NodeJS.Proc
   return sanitized;
 }
 
+/** Resolves Electron through its package entrypoint so lazy binary installation remains supported. */
+export class DevelopmentElectronRuntimeResolver {
+  public async resolve(workspaceRoot: string): Promise<string> {
+    const workspace = path.resolve(workspaceRoot);
+    const expectedExecutable = path.join(workspace, 'node_modules', 'electron', 'dist', 'electron');
+    let resolvedExecutable: unknown;
+    try {
+      const workspaceRequire = createRequire(path.join(workspace, 'package.json'));
+      resolvedExecutable = workspaceRequire('electron');
+    } catch {
+      throw new Error('Local Whisper development Electron runtime unavailable');
+    }
+    if (resolvedExecutable !== expectedExecutable) {
+      throw new Error('Local Whisper development Electron runtime unavailable');
+    }
+    const electronIdentity = await lstat(expectedExecutable).catch(() => null);
+    if (
+      !electronIdentity?.isFile() ||
+      electronIdentity.isSymbolicLink() ||
+      electronIdentity.size <= 0 ||
+      (electronIdentity.mode & 0o111) === 0
+    ) {
+      throw new Error('Local Whisper development Electron runtime unavailable');
+    }
+    return expectedExecutable;
+  }
+}
+
 /** Owns one normal-app development session and destroys only its ephemeral trust/server state. */
 export class LocalWhisperDevelopmentSession {
   public constructor(private readonly dependencies: DevelopmentSessionDependencies) {}
@@ -108,11 +138,7 @@ export class LocalWhisperDevelopmentSession {
       throw new Error('Local Whisper development application revision invalid');
     }
     const appRevision = String((packageValue as Record<string, unknown>).version);
-    const electronExecutable = path.join(workspace, 'node_modules', 'electron', 'dist', 'electron');
-    const electronIdentity = await lstat(electronExecutable);
-    if (!electronIdentity.isFile() || electronIdentity.isSymbolicLink() || electronIdentity.size <= 0) {
-      throw new Error('Local Whisper development Electron runtime unavailable');
-    }
+    const electronExecutable = await this.dependencies.electron.resolve(workspace);
     const [runtimes, sourceCommit] = await Promise.all([
       this.dependencies.runtimes.load(workspace),
       this.dependencies.command.run({
@@ -209,6 +235,7 @@ export function createLocalWhisperDevelopmentSession(
     runtimes: new DevelopmentRuntimeInputLoader(),
     tls: new EphemeralQualificationTlsIdentityFactory(),
     command: new QualificationCommandRunner(),
+    electron: new DevelopmentElectronRuntimeResolver(),
     createServer: (tls, objects) => new QualificationHttpsArtifactServer(tls, objects),
     launch:
       applicationLauncher ??

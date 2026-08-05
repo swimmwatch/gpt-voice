@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
+  DevelopmentElectronRuntimeResolver,
   LocalWhisperDevelopmentSession,
   developmentElectronEnvironment,
   type DevelopmentSessionDependencies,
@@ -16,6 +17,34 @@ describe('LocalWhisperDevelopmentSession', () => {
       DISPLAY: ':1',
       LANG: 'C.UTF-8',
     });
+  });
+
+  it('resolves a lazily installed Electron runtime through the workspace package entrypoint', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-electron-'));
+    const electronPackageRoot = path.join(root, 'node_modules', 'electron');
+    const electronPath = path.join(electronPackageRoot, 'dist', 'electron');
+    try {
+      await mkdir(path.dirname(electronPath), { recursive: true });
+      await Promise.all([
+        writeFile(path.join(root, 'package.json'), JSON.stringify({ version: '2.4.0' }), { mode: 0o600 }),
+        writeFile(
+          path.join(electronPackageRoot, 'package.json'),
+          JSON.stringify({ name: 'electron', version: '1.0.0', main: 'index.js' }),
+          { mode: 0o600 },
+        ),
+        writeFile(path.join(electronPackageRoot, 'index.js'), `module.exports = ${JSON.stringify(electronPath)};\n`, {
+          mode: 0o600,
+        }),
+        writeFile(electronPath, 'electron fixture', { mode: 0o700 }),
+      ]);
+
+      const resolver = new DevelopmentElectronRuntimeResolver();
+      assert.equal(await resolver.resolve(root), electronPath);
+      await chmod(electronPath, 0o600);
+      await assert.rejects(resolver.resolve(root), /Electron runtime unavailable/u);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it('reuses private application state across sessions while removing ephemeral trust and descriptors', async () => {
@@ -59,6 +88,7 @@ describe('LocalWhisperDevelopmentSession', () => {
         }),
       },
       command: { run: async () => 'a'.repeat(40) },
+      electron: { resolve: async () => electronPath },
       createServer: () => ({
         start: async () => {
           events.push('server-start');
@@ -68,7 +98,8 @@ describe('LocalWhisperDevelopmentSession', () => {
           events.push('server-stop');
         },
       }),
-      launch: async (_executable, arguments_) => {
+      launch: async (executable, arguments_) => {
+        assert.equal(executable, electronPath);
         const userDataArgument = arguments_[0];
         const activationArgument = arguments_[2];
         assert.equal(userDataArgument?.startsWith('--user-data-dir='), true);
