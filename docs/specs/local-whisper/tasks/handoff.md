@@ -7,14 +7,15 @@
   and committed as `043aba8`, `b48877d`, and `a4a0a2a`. Tasks 20–22 have not
   started.
 - No candidate input digest, platform branch/result/evidence index, predecessor
-  result, aggregate root, Production verdict, push, PR, signing, upload,
-  publication, support promotion, tag, or release exists.
-- The authorized development app and session are stopped. The explicitly
-  authorized authenticated CPU runtime was downloaded and remains installed;
-  the saved CUDA/GPU `base/full` selection was restored. Shutdown left no
-  development Electron, worker, launcher, model-guard, filesystem-guard, or
-  helper process, and desktop animations were restored to their prior enabled
-  state.
+  result, aggregate root, Production verdict, PR, signing, upload, publication,
+  support promotion, tag, or release exists. The settings redesign `0e50716d`,
+  resource-preview fix `90c0d8dd`, and live selected-GPU VRAM fix `c258a24` are
+  committed on the current branch.
+- The authorized development app is running the current build with the Local
+  Whisper settings window open after live resource verification. The model is
+  unloaded. The authenticated CPU runtime remains installed, the saved
+  CUDA/GPU Large v3 Turbo Q5_0 selection remains active, and desktop animations
+  remain enabled.
 
 ## Task 23 implementation
 
@@ -41,6 +42,19 @@
   post-load device proof remain intact, while one duplicate registry worker
   discovery is removed from each successful GPU load.
 
+## Settings-window follow-ups
+
+- Redesigned and committed the Local Whisper settings experience as `0e50716d`,
+  including the window-centered loader and a continuous canvas/scrollbar-gutter
+  background without a visible right-edge seam.
+- Added selected-model RAM/VRAM peaks, live system RAM, safe-reserve values, and
+  fail-closed resource presentation as `90c0d8dd`.
+- Added bounded, shell-free `nvidia-smi` sampling for the exact selected private
+  PCI identity. The process graph caches samples only against the current opaque
+  NVIDIA device, republishes them after device refresh and compatibility
+  preflight, and leaves availability unknown on unsupported or failed telemetry.
+  This follow-up is committed as `c258a24`.
+
 ## Changed files
 
 - Shared/main/preload: `src/shared/localWhisper/ipc.ts`,
@@ -60,6 +74,12 @@
   `runtime/local-whisper/whisper-cpp/tests/model_format_preflight_test.cpp`,
   `src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts`, and
   `tests/main/localWhisper/composition/LocalWhisperProductionWorkerPort.test.ts`.
+- Settings resource follow-up: `src/main/main.ts`,
+  `src/main/localWhisper/capability/NvidiaSmiVramAvailability.ts`,
+  `src/main/localWhisper/capability/SelectedDeviceVramAvailability.ts`,
+  `src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts`,
+  their focused capability/composition tests, and the Linux qualification
+  dependency stub.
 - Plan/readiness: `scripts/local-whisper/validate-task-plan.mjs`,
   `scripts/local-whisper/implementation-readiness/LocalWhisperImplementationReadinessVerifier.ts`,
   and the revision-19 local-whisper specification, decisions, task packets,
@@ -103,11 +123,20 @@
   about 12.65 GB was available while about 12.88 GB was required. Runtime
   restart reuse was also reconfirmed without a backend redownload; older
   duplicate development-runtime directories remain untouched.
+- The settings follow-up passed Local Whisper capability (22), IPC (60),
+  composition (105), composition activation (41), and UI verification tests,
+  plus focused ESLint, Prettier, TypeScript typecheck, webpack build, and
+  `git diff --check`.
+- Live verification on the selected NVIDIA device showed 9.16 GiB available,
+  7.96 GiB safe to reserve, a 6.00 GiB selected-model peak, and `Safe to load`.
+  The centered layout and continuous scrollbar-gutter background were also
+  confirmed. The private temporary screenshot was deleted.
 
 ## Exact next packet and blockers
 
-- No Task 23 blocker remains. Its implementation and follow-up fixes are
-  committed; push remains unperformed.
+- No Task 23 or settings-resource blocker remains. The settings redesign and
+  resource-preview follow-ups and the live VRAM fix are committed on the current
+  branch.
 - The exact next packet is `20_linux_qualification.md`, which requires a later
   incremental-implementation invocation after Task 23 review/commit. Stop before
   push, qualification, candidate freeze, PR, signing, upload, publication, tag,
