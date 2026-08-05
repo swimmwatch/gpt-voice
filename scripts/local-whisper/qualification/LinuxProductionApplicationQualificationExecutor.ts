@@ -98,6 +98,7 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
             appRevision: policy.appRevision,
             architecture: 'x64',
             availableMemoryBytes: freemem,
+            availableVramBytes: () => Promise.resolve(null),
             configurationRoot,
             environment: Object.freeze({
               HOME: homeRoot,

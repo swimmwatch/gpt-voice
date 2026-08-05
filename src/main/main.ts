@@ -34,6 +34,7 @@ import { resolveStreamingVoiceProviderCapability } from './providers/streamingVo
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
+import { NvidiaSmiVramAvailability } from './localWhisper/capability/NvidiaSmiVramAvailability';
 import {
   ProductionLocalWhisperEnvironmentFactory,
   createProductionLocalWhisperEnvironment,
@@ -56,6 +57,8 @@ const CLOAK_BROWSER_PACKAGE_NAME = 'cloakbrowser';
 const PLAYWRIGHT_PACKAGE_NAME = 'playwright-core';
 const UNKNOWN_RUNTIME_VERSION = 'unknown';
 const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
+const LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS = 2_000;
+const LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES = 4_096;
 // CloakBrowser is ESM while the Electron main bundle is CommonJS.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
 const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
@@ -155,6 +158,28 @@ function runTextAutomationCommand(command: string, args: string[]): Promise<void
   });
 }
 
+function runLocalWhisperNvidiaSmiCommand(executablePath: string, arguments_: readonly string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      executablePath,
+      [...arguments_],
+      {
+        encoding: 'utf8',
+        maxBuffer: LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES,
+        timeout: LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS,
+        windowsHide: true,
+      },
+      (error, stdout) => {
+        if (error) {
+          reject(error instanceof Error ? error : new Error('NVIDIA VRAM query failed'));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
+}
+
 /**
  * Constructs and starts the process-owned application graph.
  */
@@ -183,10 +208,17 @@ async function bootstrapMainProcess(): Promise<void> {
     homeDirectory: os.homedir,
     platform: process.platform,
   });
+  const localWhisperVramAvailability = new NvidiaSmiVramAvailability({
+    platform: process.platform,
+    environment: process.env,
+    pathExists: fs.existsSync,
+    command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
+  });
   const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
     appRevision: app.getVersion(),
     architecture: process.arch,
     availableMemoryBytes: os.freemem,
+    availableVramBytes: (nativeIdentity) => localWhisperVramAvailability.sample(nativeIdentity),
     configurationRoot: appConfigPaths.appDirectory,
     environment: process.env,
     fileSystem: fs,

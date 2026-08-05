@@ -27,6 +27,7 @@ function dependencies(calls: { reads: number; spawns: number }): LocalWhisperPro
     appRevision: 'fixture-app-v1',
     architecture: 'x64',
     availableMemoryBytes: () => 8 * 1024 ** 3,
+    availableVramBytes: () => Promise.resolve(null),
     configurationRoot: '/tmp/local-whisper-composition-settings',
     environment: Object.freeze({ XDG_DATA_HOME: '/tmp/local-whisper-composition-data' }),
     fileSystem: {} as never,

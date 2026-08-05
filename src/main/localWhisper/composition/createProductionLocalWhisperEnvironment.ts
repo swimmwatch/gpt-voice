@@ -29,6 +29,7 @@ import {
 
 import { LocalWhisperCapabilityService } from '../capability/LocalWhisperCapabilityService';
 import { LocalWhisperResourcePolicy } from '../capability/LocalWhisperResourcePolicy';
+import { SelectedDeviceVramAvailability } from '../capability/SelectedDeviceVramAvailability';
 import { ArtifactCatalogResolver } from '../artifacts/ArtifactCatalogResolver';
 import { ArtifactProgressStore } from '../artifacts/ArtifactProgressStore';
 import { ArtifactTransferJournalRepository } from '../artifacts/ArtifactTransferJournalRepository';
@@ -119,6 +120,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
   readonly appRevision: string;
   readonly architecture: string;
   readonly availableMemoryBytes: () => number;
+  readonly availableVramBytes: (nativeIdentity: string) => Promise<number | null>;
   readonly configurationRoot: string;
   readonly environment: Readonly<NodeJS.ProcessEnv>;
   readonly fileSystem: ProductionFileSystem;
@@ -588,7 +590,11 @@ function factsSnapshot(
   inventory: LocalWhisperInventorySnapshot,
   context: LocalWhisperSettingsValidationContext,
   settingsSnapshot: LocalWhisperSettingsSnapshot,
-  sample: { readonly availableMemoryBytes: () => number; readonly now: number | null },
+  sample: {
+    readonly availableMemoryBytes: () => number;
+    readonly availableVramBytes: () => number | null;
+    readonly now: number | null;
+  },
   progress: readonly LocalWhisperArtifactProgress[] = Object.freeze([]),
 ): LocalWhisperSnapshotFacts {
   const artifacts = rendererArtifacts(catalog, inventory);
@@ -609,7 +615,7 @@ function factsSnapshot(
         qualifiedPeak: peak,
         availability: Object.freeze({
           freeRamBytes: sampledAvailableMemoryBytes(sample.availableMemoryBytes),
-          freeVramBytes: null,
+          freeVramBytes: sample.availableVramBytes(),
         }),
       })
     : null;
@@ -876,7 +882,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
             ownership: sessionOwnership,
           }),
       });
-      topologyAuthority = new LocalWhisperDeviceTopologyAuthority(
+      const deviceTopologyAuthority = new LocalWhisperDeviceTopologyAuthority(
         new LocalWhisperDeviceIdentityRepository(
           new FileLocalWhisperDeviceIdentityStore({
             filePath: join(privateStateRoot, 'device-identity.json'),
@@ -887,6 +893,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
           this.dependencies.randomBytes,
         ),
       );
+      topologyAuthority = deviceTopologyAuthority;
       const runtimeAuthorityFactory = new LocalWhisperRuntimeLaunchAuthorityFactory(managedStore);
       const modelAuthorityFactory = new LocalWhisperModelLaunchAuthorityFactory({
         randomBytes: this.dependencies.randomBytes,
@@ -912,11 +919,18 @@ export class ProductionLocalWhisperEnvironmentFactory {
           : fallbackSettings(context);
       if (!initialSettingsSnapshot) throw new Error('Local Whisper catalog has no valid default settings');
       let settingsSnapshot: LocalWhisperSettingsSnapshot = initialSettingsSnapshot;
-      facts = new LocalWhisperDynamicSnapshotFacts(
-        factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
+      const selectedVram = new SelectedDeviceVramAvailability({
+        resolve: (deviceId, registryFingerprint) => deviceTopologyAuthority.resolve(deviceId, registryFingerprint),
+        sample: this.dependencies.availableVramBytes,
+      });
+      const resourceSample = (now: number | null) =>
+        Object.freeze({
           availableMemoryBytes: this.dependencies.availableMemoryBytes,
-          now: null,
-        }),
+          availableVramBytes: () => selectedVram.availableBytes(settingsSnapshot.settings.execution),
+          now,
+        });
+      facts = new LocalWhisperDynamicSnapshotFacts(
+        factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, resourceSample(null)),
       );
       const setup = selectedArtifactSetup(settingsSnapshot.settings, inventory);
       const capabilityService = new LocalWhisperCapabilityService();
@@ -938,12 +952,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
         save: (settings: LocalWhisperSettings) => {
           const saved = settingsRepository.save(settings, context);
           settingsSnapshot = saved;
-          facts?.update(
-            factsSnapshot(loaded.catalog, inventory, context, saved, {
-              availableMemoryBytes: this.dependencies.availableMemoryBytes,
-              now: null,
-            }),
-          );
+          facts?.update(factsSnapshot(loaded.catalog, inventory, context, saved, resourceSample(null)));
           return Promise.resolve();
         },
         reset: () => {
@@ -956,12 +965,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
             dependentSelections: Object.freeze({ values: Object.freeze({}) }),
             repairIssues: Object.freeze([]),
           });
-          facts?.update(
-            factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
-              availableMemoryBytes: this.dependencies.availableMemoryBytes,
-              now: null,
-            }),
-          );
+          facts?.update(factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, resourceSample(null)));
           return Promise.resolve();
         },
       });
@@ -972,6 +976,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
         logicalProcessorCount: context.logicalProcessorCount,
         modelAuthorities: modelAuthorityFactory,
         onTopology: (snapshot) => {
+          selectedVram.updateTopology(snapshot);
           context = validationContext(loaded.catalog, this.dependencies, snapshot.devices);
           if (settingsSnapshot.repairIssues.length > 0) {
             const revalidated = validateLocalWhisperSettings(settingsSnapshot.settings, context);
@@ -984,19 +989,29 @@ export class ProductionLocalWhisperEnvironmentFactory {
             }
           }
           facts?.update(
-            factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
-              availableMemoryBytes: this.dependencies.availableMemoryBytes,
-              now: this.dependencies.now(),
-            }),
+            factsSnapshot(
+              loaded.catalog,
+              inventory,
+              context,
+              settingsSnapshot,
+              resourceSample(this.dependencies.now()),
+            ),
           );
         },
         platform: context.platform,
         randomBytes: this.dependencies.randomBytes,
         registryDiscovery,
         runtimeAuthorities: runtimeAuthorityFactory,
-        topology: topologyAuthority,
+        topology: deviceTopologyAuthority,
       });
-      await restoreLocalWhisperStartupDeviceTopology(inventory, context, workerPort);
+      const refreshAvailableDevices = async (configurationEpoch: number): Promise<void> => {
+        await workerPort.refreshAvailableDevices(configurationEpoch);
+        await selectedVram.refresh(settingsSnapshot.settings.execution);
+        facts?.update(
+          factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, resourceSample(this.dependencies.now())),
+        );
+      };
+      await restoreLocalWhisperStartupDeviceTopology(inventory, context, { refreshAvailableDevices });
       const artifactInventory = new LocalWhisperProductionArtifactInventory({
         catalog: loaded.catalog,
         initialInventory: inventory,
@@ -1004,17 +1019,20 @@ export class ProductionLocalWhisperEnvironmentFactory {
         onInventoryChanged: (nextInventory) => {
           inventory = nextInventory;
           facts?.update(
-            factsSnapshot(loaded.catalog, nextInventory, context, settingsSnapshot, {
-              availableMemoryBytes: this.dependencies.availableMemoryBytes,
-              now: this.dependencies.now(),
-            }),
+            factsSnapshot(
+              loaded.catalog,
+              nextInventory,
+              context,
+              settingsSnapshot,
+              resourceSample(this.dependencies.now()),
+            ),
           );
           if (
             nextInventory.runtimes.some(
               ({ backend, state, target }) => backend === 'cuda' && target === 'gpu' && state === 'Installed',
             )
           ) {
-            void workerPort.refreshAvailableDevices(nextInventory.revision).catch(() => undefined);
+            void refreshAvailableDevices(nextInventory.revision).catch(() => undefined);
           }
         },
         store: managedStore,
@@ -1045,10 +1063,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
             inventory,
             context,
             settingsSnapshot,
-            {
-              availableMemoryBytes: this.dependencies.availableMemoryBytes,
-              now: this.dependencies.now(),
-            },
+            resourceSample(this.dependencies.now()),
             projected,
           ),
         );
@@ -1134,6 +1149,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
             }
             const execution = request.settings.execution;
             let device = null;
+            let freeVramBytes: number | null = null;
             let backendProbe = staticBackendProbe(request.settings, context.logicalProcessorCount);
             if (execution.target === 'gpu') {
               try {
@@ -1144,8 +1160,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
                   launchMode: 'registry',
                 });
                 const registry = await registryDiscovery?.discover(authority, request.signal);
-                if (!registry || !topologyAuthority) throw new Error('Local Whisper registry unavailable');
-                const topology = topologyAuthority.update(registry);
+                if (!registry) throw new Error('Local Whisper registry unavailable');
+                const topology = deviceTopologyAuthority.update(registry);
+                selectedVram.updateTopology(topology);
                 context = validationContext(loaded.catalog, this.dependencies, topology.devices);
                 if (!isValidLocalWhisperPublicSettings(request.settings, context)) {
                   throw new Error('Local Whisper selected device unavailable');
@@ -1154,11 +1171,15 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 if (!selected) throw new Error('Local Whisper selected device unavailable');
                 device = Object.freeze({ id: selected.id, vendor: selected.vendor, available: selected.available });
                 backendProbe = discoveredBackendProbe(request.settings);
+                freeVramBytes = await selectedVram.refresh(request.settings.execution);
                 facts?.update(
-                  factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, {
-                    availableMemoryBytes: this.dependencies.availableMemoryBytes,
-                    now: this.dependencies.now(),
-                  }),
+                  factsSnapshot(
+                    loaded.catalog,
+                    inventory,
+                    context,
+                    settingsSnapshot,
+                    resourceSample(this.dependencies.now()),
+                  ),
                 );
               } catch (error) {
                 const code =
@@ -1192,7 +1213,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
               qualifiedPeak: null,
               availability: {
                 freeRamBytes: Math.max(0, Math.trunc(this.dependencies.availableMemoryBytes())),
-                freeVramBytes: null,
+                freeVramBytes,
               },
               capabilityFingerprint: capabilityFingerprint(loaded.catalog, request.settings, inventory.revision),
             });
@@ -1234,7 +1255,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
       const ownedStore = store;
       const ownedFacts = facts;
       const ownedRegistryDiscovery = registryDiscovery;
-      const ownedTopologyAuthority = topologyAuthority;
+      const ownedTopologyAuthority = deviceTopologyAuthority;
       const ownedLifecycle = lifecycle;
       return Object.freeze({
         coordinator,
@@ -1255,13 +1276,14 @@ export class ProductionLocalWhisperEnvironmentFactory {
           open: () => Promise.resolve({ success: false as const, code: 'INVALID_SETTINGS' as const }),
         },
         refreshDevices: (configurationEpoch: number) =>
-          disposed ? Promise.resolve() : workerPort.refreshAvailableDevices(configurationEpoch),
+          disposed ? Promise.resolve() : refreshAvailableDevices(configurationEpoch),
         dispose: async () => {
           if (disposed) return;
           disposed = true;
           await ownedLifecycle.shutdownFullLoad().catch(() => undefined);
           ownedRegistryDiscovery.dispose();
           ownedTopologyAuthority.invalidate();
+          selectedVram.invalidate();
           unsubscribeArtifactProgress?.();
           ownedFacts.dispose();
           await ownedStore.dispose();
