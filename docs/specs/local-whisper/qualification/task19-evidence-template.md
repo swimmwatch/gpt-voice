@@ -1,6 +1,6 @@
 # Local Whisper Task 19 Functional Evidence
 
-Recorded on 2026-08-04 for `AC-MAN-015`. This is bounded ordinary-application
+Recorded on 2026-08-05 for `AC-MAN-015`. This is bounded ordinary-application
 functional evidence only. It is not Linux qualification, Windows
 qualification, candidate freeze, or a Production verdict.
 
@@ -39,12 +39,22 @@ qualification, candidate freeze, or a Production verdict.
 - [x] CUDA unload reached `ValidatedUnloaded` and left zero worker, launcher,
       model-guard, or owned NVIDIA allocation. Session trust, loopback server,
       and task-owned ephemeral resources then exited cleanly.
-- [x] Saved settings were restored to CPU, `base/full`, and English. All six
-      models plus the CPU and CUDA runtimes remain installed in managed storage.
+- [x] Saved CUDA/GPU, `base/full`, and English settings survived a clean
+      restart. Before settings were opened, the main provider status was
+      available on demand; the installed runtime was reused without another
+      download, and startup registry discovery left no worker or launcher.
+- [x] All six models plus the CPU and CUDA runtimes remain installed in managed
+      storage. The selected CUDA model remains unloaded until an explicit load
+      or transcription request.
 
 ## Verification verdict
 
 - [x] Every focused Task 19 command and every applicable project command passed.
+- [x] Fedora smoke used disposable container dependencies, preserved the host
+      Electron executable byte-for-byte, passed packaged-runtime verification
+      and the 10-run startup benchmark, and was followed by a successful
+      ordinary development-app launch without another Local Whisper runtime
+      download.
 - [x] The readiness command reported `implementationReady: true`, Linux and
       Windows qualification `Pending`, and `productionReady: false`.
 - [x] `AC-MAN-015`: **Passed**.
