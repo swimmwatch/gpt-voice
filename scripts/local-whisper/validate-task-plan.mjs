@@ -8,6 +8,8 @@ const tasksRoot = path.join(specificationRoot, 'tasks');
 const manifestPath = path.join(tasksRoot, 'acceptance-owners.json');
 const schemaPath = path.join(tasksRoot, 'acceptance-owners.schema.json');
 const specificationPath = path.join(specificationRoot, 'spec.md');
+const PLAN_REVISION = 21;
+const TASK_COUNT = 25;
 
 const REQUIRED_REPLACEMENT_HEADINGS = [
   'Outcome',
@@ -25,9 +27,9 @@ const REQUIRED_REPLACEMENT_HEADINGS = [
   'References',
   'Completion And Handoff',
 ];
-const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-3])$/u;
-const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2[0-3])_[a-z\d_]+\.md$/u;
-const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-3])-[a-z\d-]+$/u;
+const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5])$/u;
+const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2[0-5])_[a-z\d_]+\.md$/u;
+const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5])-[a-z\d-]+$/u;
 const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06\d|07[0-7])$/u;
 
 function fail(message) {
@@ -85,7 +87,7 @@ function validateManifestShape(manifest, schema) {
     ['schemaVersion', 'planRevision', 'taskFiles', 'verificationCommands', 'automatedAcceptanceOwners'],
     'manifest',
   );
-  if (manifest.schemaVersion !== 1 || manifest.planRevision !== 19) fail('manifest version is unexpected');
+  if (manifest.schemaVersion !== 1 || manifest.planRevision !== PLAN_REVISION) fail('manifest version is unexpected');
   if (!Array.isArray(manifest.verificationCommands)) fail('verificationCommands must be an array');
   if (!Array.isArray(manifest.automatedAcceptanceOwners)) fail('automatedAcceptanceOwners must be an array');
 }
@@ -108,11 +110,12 @@ async function loadInputs() {
 async function validateTaskFiles(manifest, taskDirectoryEntries) {
   const taskFiles = assertRecord(manifest.taskFiles, 'taskFiles');
   const taskIds = Object.keys(taskFiles).sort();
-  const expectedTaskIds = Array.from({ length: 23 }, (_, index) => String(index + 1).padStart(2, '0'));
+  const expectedTaskIds = Array.from({ length: TASK_COUNT }, (_, index) => String(index + 1).padStart(2, '0'));
   if (taskIds.length !== expectedTaskIds.length || taskIds.some((task, index) => task !== expectedTaskIds[index])) {
-    fail('taskFiles must contain exactly Tasks 01 through 23');
+    fail('taskFiles must contain exactly Tasks 01 through 25');
   }
   if (taskFiles['23'] !== '23_main_window_residency_control.md') fail('Task 23 packet filename is unexpected');
+  if (taskFiles['25'] !== '25_linux_qualification_finalization.md') fail('Task 25 packet filename is unexpected');
 
   const numberedFiles = taskDirectoryEntries
     .filter((entry) => entry.isFile() && /^\d{2}_.*\.md$/u.test(entry.name))
@@ -247,7 +250,7 @@ async function main() {
   const commandById = validateVerificationCommands(manifest, packetByTask, taskIds);
   validateAcceptanceOwners(manifest, specification, packetByTask, commandById);
 
-  process.stdout.write('Local Whisper task plan is structurally valid: 23 packets, 76 unique AC-AUTO owners.\n');
+  process.stdout.write('Local Whisper task plan is structurally valid: 25 packets, 76 unique AC-AUTO owners.\n');
 }
 
 main().catch((error) => {

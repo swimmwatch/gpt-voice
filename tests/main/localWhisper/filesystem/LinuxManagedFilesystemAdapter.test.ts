@@ -246,395 +246,406 @@ afterEach(async () => {
   }
 });
 
-describe('LinuxManagedFilesystemAdapter real openat2 contract', { skip: process.platform !== 'linux' }, () => {
-  test('rejects a forged destructive-removal clearance', () => {
-    const descriptor = createDescriptor();
-    assert.throws(
-      () => new ManagedArtifactRemovalClearance(Symbol('forged'), descriptor.artifactId),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'INVALID_CLEARANCE',
-    );
-  });
+describe(
+  'LinuxManagedFilesystemAdapter real openat2 contract',
+  { skip: process.platform !== 'linux' || !existsSync(GUARD_PATH) },
+  () => {
+    test('rejects a forged destructive-removal clearance', () => {
+      const descriptor = createDescriptor();
+      assert.throws(
+        () => new ManagedArtifactRemovalClearance(Symbol('forged'), descriptor.artifactId),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'INVALID_CLEARANCE',
+      );
+    });
 
-  test('promotes a fully verified staging tree and deletes only its exact manifest', async () => {
-    const harness = createHarness('install-delete');
-    await harness.store.initialize();
-    await installFixture(harness);
-
-    const installed = await harness.store.leaseInstalledArtifact(harness.descriptor, 'load');
-    assert.throws(() => JSON.stringify(installed), /LEASE_NOT_SERIALIZABLE/);
-    await installed.release();
-
-    await harness.store.deleteArtifact(harness.descriptor, removalClearanceIssuer.issue(harness.descriptor.artifactId));
-    await assert.rejects(
-      harness.store.leaseInstalledArtifact(harness.descriptor, 'verify'),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
-    );
-    await harness.store.dispose();
-  });
-
-  test('shares immutable read ownership while keeping mutation blocked until every reader releases', async () => {
-    const harness = createHarness('shared-read-lock');
-    await harness.store.initialize();
-    await installFixture(harness);
-
-    const load = await harness.store.leaseInstalledArtifact(harness.descriptor, 'load');
-    const verify = await harness.store.leaseInstalledArtifact(harness.descriptor, 'verify');
-    const clearance = removalClearanceIssuer.issue(harness.descriptor.artifactId);
-
-    await load.release();
-    await assert.rejects(
-      harness.store.deleteArtifact(harness.descriptor, clearance),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
-    );
-    await verify.release();
-    await harness.store.deleteArtifact(harness.descriptor, clearance);
-
-    await assert.rejects(
-      harness.store.leaseInstalledArtifact(harness.descriptor, 'integrity'),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
-    );
-    await harness.store.dispose();
-  });
-
-  test('returns an anchored exact runtime-worker launch lease', async () => {
-    const descriptor = createRuntimeDescriptor();
-    const harness = createHarness('runtime-launch-lease', undefined, descriptor);
-    await harness.store.initialize();
-    await installFiles(harness, runtimeContents(descriptor));
-
-    const launch = await harness.store.leaseInstalledRuntimeForLaunch(descriptor);
-
-    assert.equal(launch.workerFileSha256, sha256(RUNTIME_WORKER_CONTENT));
-    assert.equal(launch.workerFileIdentity.type, 'regular');
-    assert.equal(
-      launch.workerExecutablePath,
-      path.join(
-        harness.managedRoot,
-        'runtimes',
-        descriptor.canonicalName,
-        getManagedArtifactStorageFileName(descriptor, descriptor.expectedFiles[0].fileId),
-      ),
-    );
-    assert.ok(existsSync(path.join(launch.workingDirectoryPath, 'libcudart.so.12')));
-    assert.equal(launch.workingDirectoryPath, path.dirname(launch.workerExecutablePath));
-    await launch.revalidate();
-    const movedWorker = `${launch.workerExecutablePath}.moved`;
-    renameSync(launch.workerExecutablePath, movedWorker);
-    writeFileSync(launch.workerExecutablePath, RUNTIME_WORKER_CONTENT, { mode: 0o700 });
-    await assert.rejects(
-      launch.revalidate(),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
-    );
-    await launch.runtimeLease.release();
-    await harness.store.dispose();
-  });
-
-  test('rejects runtime manifests without exactly one executable', async () => {
-    for (const executableCount of [0, 2]) {
-      const descriptor = createRuntimeDescriptor(executableCount);
-      const harness = createHarness(`runtime-executable-count-${executableCount}`, undefined, descriptor);
+    test('promotes a fully verified staging tree and deletes only its exact manifest', async () => {
+      const harness = createHarness('install-delete');
       await harness.store.initialize();
+      await installFixture(harness);
+
+      const installed = await harness.store.leaseInstalledArtifact(harness.descriptor, 'load');
+      assert.throws(() => JSON.stringify(installed), /LEASE_NOT_SERIALIZABLE/);
+      await installed.release();
+
+      await harness.store.deleteArtifact(
+        harness.descriptor,
+        removalClearanceIssuer.issue(harness.descriptor.artifactId),
+      );
+      await assert.rejects(
+        harness.store.leaseInstalledArtifact(harness.descriptor, 'verify'),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
+      );
+      await harness.store.dispose();
+    });
+
+    test('shares immutable read ownership while keeping mutation blocked until every reader releases', async () => {
+      const harness = createHarness('shared-read-lock');
+      await harness.store.initialize();
+      await installFixture(harness);
+
+      const load = await harness.store.leaseInstalledArtifact(harness.descriptor, 'load');
+      const verify = await harness.store.leaseInstalledArtifact(harness.descriptor, 'verify');
+      const clearance = removalClearanceIssuer.issue(harness.descriptor.artifactId);
+
+      await load.release();
+      await assert.rejects(
+        harness.store.deleteArtifact(harness.descriptor, clearance),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
+      );
+      await verify.release();
+      await harness.store.deleteArtifact(harness.descriptor, clearance);
+
+      await assert.rejects(
+        harness.store.leaseInstalledArtifact(harness.descriptor, 'integrity'),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
+      );
+      await harness.store.dispose();
+    });
+
+    test('returns an anchored exact runtime-worker launch lease', async () => {
+      const descriptor = createRuntimeDescriptor();
+      const harness = createHarness('runtime-launch-lease', undefined, descriptor);
+      await harness.store.initialize();
+      await installFiles(harness, runtimeContents(descriptor));
+
+      const launch = await harness.store.leaseInstalledRuntimeForLaunch(descriptor);
+
+      assert.equal(launch.workerFileSha256, sha256(RUNTIME_WORKER_CONTENT));
+      assert.equal(launch.workerFileIdentity.type, 'regular');
+      assert.equal(
+        launch.workerExecutablePath,
+        path.join(
+          harness.managedRoot,
+          'runtimes',
+          descriptor.canonicalName,
+          getManagedArtifactStorageFileName(descriptor, descriptor.expectedFiles[0].fileId),
+        ),
+      );
+      assert.ok(existsSync(path.join(launch.workingDirectoryPath, 'libcudart.so.12')));
+      assert.equal(launch.workingDirectoryPath, path.dirname(launch.workerExecutablePath));
+      await launch.revalidate();
+      const movedWorker = `${launch.workerExecutablePath}.moved`;
+      renameSync(launch.workerExecutablePath, movedWorker);
+      writeFileSync(launch.workerExecutablePath, RUNTIME_WORKER_CONTENT, { mode: 0o700 });
+      await assert.rejects(
+        launch.revalidate(),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+      );
+      await launch.runtimeLease.release();
+      await harness.store.dispose();
+    });
+
+    test('rejects runtime manifests without exactly one executable', async () => {
+      for (const executableCount of [0, 2]) {
+        const descriptor = createRuntimeDescriptor(executableCount);
+        const harness = createHarness(`runtime-executable-count-${executableCount}`, undefined, descriptor);
+        await harness.store.initialize();
+        await assert.rejects(
+          harness.store.leaseInstalledRuntimeForLaunch(descriptor),
+          (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+        );
+        await harness.store.dispose();
+      }
+    });
+
+    test('releases the runtime lease when launch identity revalidation fails', async () => {
+      const descriptor = createRuntimeDescriptor();
+      const harness = createHarness('runtime-launch-revalidation', undefined, descriptor);
+      await harness.store.initialize();
+      await installFiles(harness, runtimeContents(descriptor));
+      const originalRevalidate = harness.adapter.revalidate.bind(harness.adapter);
+      let revalidationCount = 0;
+      harness.adapter.revalidate = async (token, expectedIdentity) => {
+        revalidationCount += 1;
+        if (revalidationCount === 2) throw new ManagedFilesystemAdapterError('IDENTITY_CHANGED');
+        await originalRevalidate(token, expectedIdentity);
+      };
+
       await assert.rejects(
         harness.store.leaseInstalledRuntimeForLaunch(descriptor),
         (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
       );
+      harness.adapter.revalidate = originalRevalidate;
+      const recoveredLease = await harness.store.leaseInstalledArtifact(descriptor, 'verify');
+      await recoveredLease.release();
       await harness.store.dispose();
-    }
-  });
-
-  test('releases the runtime lease when launch identity revalidation fails', async () => {
-    const descriptor = createRuntimeDescriptor();
-    const harness = createHarness('runtime-launch-revalidation', undefined, descriptor);
-    await harness.store.initialize();
-    await installFiles(harness, runtimeContents(descriptor));
-    const originalRevalidate = harness.adapter.revalidate.bind(harness.adapter);
-    let revalidationCount = 0;
-    harness.adapter.revalidate = async (token, expectedIdentity) => {
-      revalidationCount += 1;
-      if (revalidationCount === 2) throw new ManagedFilesystemAdapterError('IDENTITY_CHANGED');
-      await originalRevalidate(token, expectedIdentity);
-    };
-
-    await assert.rejects(
-      harness.store.leaseInstalledRuntimeForLaunch(descriptor),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
-    );
-    harness.adapter.revalidate = originalRevalidate;
-    const recoveredLease = await harness.store.leaseInstalledArtifact(descriptor, 'verify');
-    await recoveredLease.release();
-    await harness.store.dispose();
-  });
-
-  test('discards only a proven partial staging tree through anchored file identities', async () => {
-    const harness = createHarness('discard-partial');
-    await harness.store.initialize();
-    const staging = await harness.store.createStaging(harness.descriptor);
-    const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
-    await harness.store.appendStagedFile(file, CONTENT.subarray(0, 7));
-    await harness.store.sealStagedFile(file);
-
-    await harness.store.discardStaging(staging);
-
-    assert.deepEqual(readdirSync(path.join(harness.managedRoot, 'staging')), []);
-    assert.equal(existsSync(path.join(harness.managedRoot, 'models', harness.descriptor.canonicalName)), false);
-    await harness.store.dispose();
-  });
-
-  test('anchors a managed root beneath an ordinary path containing spaces', async () => {
-    const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
-    temporaryRoots.push(temporaryRoot);
-    const adapter = new LinuxManagedFilesystemAdapter(
-      new NativeManagedFilesystemGuardTransport({ executablePath: GUARD_PATH, spawnProcess: spawn }),
-    );
-    const root = await adapter.initialize(
-      path.join(temporaryRoot, 'data with spaces', 'com.swimmwatch.gptvoice', 'local-whisper'),
-    );
-    await adapter.revalidate(root.token, root.identity);
-    await adapter.release(root.token);
-    await adapter.dispose();
-  });
-
-  test('serializes the same artifact across duplicate app instances', async () => {
-    const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
-    temporaryRoots.push(temporaryRoot);
-    const first = createHarness('first-instance', temporaryRoot);
-    const second = createHarness('second-instance', temporaryRoot);
-    await first.store.initialize();
-    await second.store.initialize();
-
-    const firstStaging = await first.store.createStaging(first.descriptor);
-    await assert.rejects(
-      second.store.createStaging(second.descriptor),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
-    );
-    await firstStaging.release();
-    const secondStaging = await second.store.createStaging(second.descriptor);
-    await secondStaging.release();
-    await first.store.dispose();
-    await second.store.dispose();
-  });
-
-  test('reconstructs installed evidence only from the exact managed manifest', async () => {
-    const harness = createHarness('inventory-evidence');
-    const catalog = loadCatalogForContent();
-    const descriptor = createManagedModelDescriptor(catalog, catalog.payload.models[0]);
-    const catalogHarness = { ...harness, descriptor };
-    await harness.store.initialize();
-    await installFixture(catalogHarness);
-    mkdirSync(path.join(harness.managedRoot, 'models', 'unknown-safe-directory'), { mode: 0o700 });
-    const outside = path.join(harness.temporaryRoot, 'unknown-link-target');
-    mkdirSync(outside, { mode: 0o700 });
-    symlinkSync(outside, path.join(harness.managedRoot, 'models', 'unknown-link'));
-
-    const evidence = await harness.store.buildEvidenceSnapshot(catalog);
-    const model = evidence.getModelEvidence(getLocalWhisperModelIdentityKey(catalog.payload.models[0].identity));
-    assert.equal(model.kind, 'installed');
-    if (model.kind === 'installed') {
-      assert.equal(model.manifestValid, true);
-      assert.equal(model.files[0].sha256, sha256(CONTENT));
-    }
-    assert.deepEqual(evidence.listUnmanagedEvidence(), [
-      { recoveryLabel: 'Unmanaged Local Whisper storage entry' },
-      { recoveryLabel: 'Unmanaged Local Whisper storage entry' },
-    ]);
-    await harness.store.dispose();
-  });
-
-  test('classifies a known symlinked identity as corrupt without granting deletion authority', async () => {
-    const harness = createHarness('corrupt-symlink-evidence');
-    const catalog = loadCatalogForContent();
-    const descriptor = createManagedModelDescriptor(catalog, catalog.payload.models[0]);
-    await harness.store.initialize();
-    const outside = path.join(harness.temporaryRoot, 'known-link-target');
-    mkdirSync(outside, { mode: 0o700 });
-    symlinkSync(outside, path.join(harness.managedRoot, 'models', descriptor.canonicalName));
-
-    const evidence = await harness.store.buildEvidenceSnapshot(catalog);
-    const model = evidence.getModelEvidence(getLocalWhisperModelIdentityKey(catalog.payload.models[0].identity));
-    assert.deepEqual(model, {
-      kind: 'installed',
-      manifestIdentityKey: descriptor.identityKey,
-      manifestValid: false,
-      files: [],
-    });
-    assert.deepEqual(evidence.listUnmanagedEvidence(), [{ recoveryLabel: 'Unmanaged Local Whisper storage entry' }]);
-    await harness.store.dispose();
-  });
-
-  test('never overwrites an older immutable revision during atomic promotion', async () => {
-    const harness = createHarness('promotion-conflict');
-    await harness.store.initialize();
-    await installFixture(harness);
-    const staging = await harness.store.createStaging(harness.descriptor);
-    const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
-    await harness.store.appendStagedFile(file, CONTENT);
-    await harness.store.sealStagedFile(file);
-
-    await assert.rejects(
-      harness.store.promote(harness.descriptor, staging),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
-    );
-    assert.equal(readFileSync(installedFilePath(harness), 'utf8'), CONTENT.toString('utf8'));
-    await harness.store.dispose();
-  });
-
-  test('rejects case-colliding or undeclared staging entries before promotion', async () => {
-    const harness = createHarness('case-collision');
-    await harness.store.initialize();
-    const staging = await harness.store.createStaging(harness.descriptor);
-    const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
-    await harness.store.appendStagedFile(file, CONTENT);
-    await harness.store.sealStagedFile(file);
-    const stagingName = readdirSync(path.join(harness.managedRoot, 'staging'))[0];
-    assert.ok(stagingName);
-    writeFileSync(path.join(harness.managedRoot, 'staging', stagingName, 'FILE-ambiguous'), CONTENT, {
-      mode: 0o600,
     });
 
-    await assert.rejects(
-      harness.store.promote(harness.descriptor, staging),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
-    );
-    assert.equal(existsSync(path.join(harness.managedRoot, 'models', harness.descriptor.canonicalName)), false);
-    await harness.store.dispose();
-  });
+    test('discards only a proven partial staging tree through anchored file identities', async () => {
+      const harness = createHarness('discard-partial');
+      await harness.store.initialize();
+      const staging = await harness.store.createStaging(harness.descriptor);
+      const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
+      await harness.store.appendStagedFile(file, CONTENT.subarray(0, 7));
+      await harness.store.sealStagedFile(file);
 
-  test('fails closed on a held-directory rename and replacement race', async () => {
-    const harness = createHarness('rename-race');
-    await harness.store.initialize();
-    await installFixture(harness);
-    const root = await harness.adapter.initialize(harness.managedRoot);
-    const opened = await harness.adapter.openArtifactDirectory(root.token, 'models', harness.descriptor.canonicalName);
-    assert.ok(opened);
+      await harness.store.discardStaging(staging);
 
-    const original = path.dirname(installedFilePath(harness));
-    const moved = `${original}-moved`;
-    renameSync(original, moved);
-    mkdirSync(original, { mode: 0o700 });
-    await assert.rejects(
-      harness.adapter.revalidate(opened.token, opened.identity),
-      (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IDENTITY_CHANGED',
-    );
-    await harness.adapter.release(opened.token);
-    await harness.adapter.release(root.token);
-    await harness.store.dispose();
-  });
+      assert.deepEqual(readdirSync(path.join(harness.managedRoot, 'staging')), []);
+      assert.equal(existsSync(path.join(harness.managedRoot, 'models', harness.descriptor.canonicalName)), false);
+      await harness.store.dispose();
+    });
 
-  test('quarantines and preserves an artifact containing an unexpected symlink', async () => {
-    const harness = createHarness('symlink-delete');
-    await harness.store.initialize();
-    await installFixture(harness);
-    const outside = path.join(harness.temporaryRoot, 'outside.txt');
-    writeFileSync(outside, 'must survive', { mode: 0o600 });
-    symlinkSync(outside, path.join(path.dirname(installedFilePath(harness)), 'unexpected-link'));
+    test('anchors a managed root beneath an ordinary path containing spaces', async () => {
+      const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
+      temporaryRoots.push(temporaryRoot);
+      const adapter = new LinuxManagedFilesystemAdapter(
+        new NativeManagedFilesystemGuardTransport({ executablePath: GUARD_PATH, spawnProcess: spawn }),
+      );
+      const root = await adapter.initialize(
+        path.join(temporaryRoot, 'data with spaces', 'com.swimmwatch.gptvoice', 'local-whisper'),
+      );
+      await adapter.revalidate(root.token, root.identity);
+      await adapter.release(root.token);
+      await adapter.dispose();
+    });
 
-    await assert.rejects(
-      harness.store.deleteArtifact(harness.descriptor, removalClearanceIssuer.issue(harness.descriptor.artifactId)),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'DELETE_FAILED',
-    );
-    assert.equal(readFileSync(outside, 'utf8'), 'must survive');
-    assert.equal(readdirSync(path.join(harness.managedRoot, 'quarantine')).length, 1);
-    await harness.store.dispose();
-  });
+    test('serializes the same artifact across duplicate app instances', async () => {
+      const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
+      temporaryRoots.push(temporaryRoot);
+      const first = createHarness('first-instance', temporaryRoot);
+      const second = createHarness('second-instance', temporaryRoot);
+      await first.store.initialize();
+      await second.store.initialize();
 
-  test('rejects an exact-file identity swap inside a held quarantine lease', async () => {
-    const harness = createHarness('file-id-race');
-    await harness.store.initialize();
-    await installFixture(harness);
-    const root = await harness.adapter.initialize(harness.managedRoot);
-    const artifact = await harness.adapter.openArtifactDirectory(
-      root.token,
-      'models',
-      harness.descriptor.canonicalName,
-    );
-    assert.ok(artifact);
-    const quarantine = await harness.adapter.quarantineArtifactDirectory(
-      root.token,
-      artifact.token,
-      'models',
-      harness.descriptor.canonicalName,
-      'quarantine-race-00000001',
-    );
-    const entries = await harness.adapter.inspectDirectory(quarantine.token, [
-      { canonicalName: 'managed-manifest-v1', mode: 0o600 },
-      {
-        canonicalName: getManagedArtifactFileName(harness.descriptor.expectedFiles[0].fileId),
+      const firstStaging = await first.store.createStaging(first.descriptor);
+      await assert.rejects(
+        second.store.createStaging(second.descriptor),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
+      );
+      await firstStaging.release();
+      const secondStaging = await second.store.createStaging(second.descriptor);
+      await secondStaging.release();
+      await first.store.dispose();
+      await second.store.dispose();
+    });
+
+    test('reconstructs installed evidence only from the exact managed manifest', async () => {
+      const harness = createHarness('inventory-evidence');
+      const catalog = loadCatalogForContent();
+      const descriptor = createManagedModelDescriptor(catalog, catalog.payload.models[0]);
+      const catalogHarness = { ...harness, descriptor };
+      await harness.store.initialize();
+      await installFixture(catalogHarness);
+      mkdirSync(path.join(harness.managedRoot, 'models', 'unknown-safe-directory'), { mode: 0o700 });
+      const outside = path.join(harness.temporaryRoot, 'unknown-link-target');
+      mkdirSync(outside, { mode: 0o700 });
+      symlinkSync(outside, path.join(harness.managedRoot, 'models', 'unknown-link'));
+
+      const evidence = await harness.store.buildEvidenceSnapshot(catalog);
+      const model = evidence.getModelEvidence(getLocalWhisperModelIdentityKey(catalog.payload.models[0].identity));
+      assert.equal(model.kind, 'installed');
+      if (model.kind === 'installed') {
+        assert.equal(model.manifestValid, true);
+        assert.equal(model.files[0].sha256, sha256(CONTENT));
+      }
+      assert.deepEqual(evidence.listUnmanagedEvidence(), [
+        { recoveryLabel: 'Unmanaged Local Whisper storage entry' },
+        { recoveryLabel: 'Unmanaged Local Whisper storage entry' },
+      ]);
+      await harness.store.dispose();
+    });
+
+    test('classifies a known symlinked identity as corrupt without granting deletion authority', async () => {
+      const harness = createHarness('corrupt-symlink-evidence');
+      const catalog = loadCatalogForContent();
+      const descriptor = createManagedModelDescriptor(catalog, catalog.payload.models[0]);
+      await harness.store.initialize();
+      const outside = path.join(harness.temporaryRoot, 'known-link-target');
+      mkdirSync(outside, { mode: 0o700 });
+      symlinkSync(outside, path.join(harness.managedRoot, 'models', descriptor.canonicalName));
+
+      const evidence = await harness.store.buildEvidenceSnapshot(catalog);
+      const model = evidence.getModelEvidence(getLocalWhisperModelIdentityKey(catalog.payload.models[0].identity));
+      assert.deepEqual(model, {
+        kind: 'installed',
+        manifestIdentityKey: descriptor.identityKey,
+        manifestValid: false,
+        files: [],
+      });
+      assert.deepEqual(evidence.listUnmanagedEvidence(), [{ recoveryLabel: 'Unmanaged Local Whisper storage entry' }]);
+      await harness.store.dispose();
+    });
+
+    test('never overwrites an older immutable revision during atomic promotion', async () => {
+      const harness = createHarness('promotion-conflict');
+      await harness.store.initialize();
+      await installFixture(harness);
+      const staging = await harness.store.createStaging(harness.descriptor);
+      const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
+      await harness.store.appendStagedFile(file, CONTENT);
+      await harness.store.sealStagedFile(file);
+
+      await assert.rejects(
+        harness.store.promote(harness.descriptor, staging),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
+      );
+      assert.equal(readFileSync(installedFilePath(harness), 'utf8'), CONTENT.toString('utf8'));
+      await harness.store.dispose();
+    });
+
+    test('rejects case-colliding or undeclared staging entries before promotion', async () => {
+      const harness = createHarness('case-collision');
+      await harness.store.initialize();
+      const staging = await harness.store.createStaging(harness.descriptor);
+      const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
+      await harness.store.appendStagedFile(file, CONTENT);
+      await harness.store.sealStagedFile(file);
+      const stagingName = readdirSync(path.join(harness.managedRoot, 'staging'))[0];
+      assert.ok(stagingName);
+      writeFileSync(path.join(harness.managedRoot, 'staging', stagingName, 'FILE-ambiguous'), CONTENT, {
         mode: 0o600,
-      },
-    ]);
-    const expected = entries.find(({ canonicalName }) => canonicalName.startsWith('file-'));
-    assert.ok(expected);
-    const quarantineName = readdirSync(path.join(harness.managedRoot, 'quarantine'))[0];
-    assert.ok(quarantineName);
-    const filePath = path.join(harness.managedRoot, 'quarantine', quarantineName, expected.canonicalName);
-    renameSync(filePath, `${filePath}.swapped-out`);
-    writeFileSync(filePath, CONTENT, { mode: 0o600 });
+      });
 
-    await assert.rejects(
-      harness.adapter.deleteQuarantinedFile(quarantine.token, expected.canonicalName, expected.identity),
-      (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IDENTITY_CHANGED',
-    );
-    await harness.adapter.release(quarantine.token);
-    await harness.adapter.release(artifact.token);
-    await harness.adapter.release(root.token);
-    await harness.store.dispose();
-  });
+      await assert.rejects(
+        harness.store.promote(harness.descriptor, staging),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
+      );
+      assert.equal(existsSync(path.join(harness.managedRoot, 'models', harness.descriptor.canonicalName)), false);
+      await harness.store.dispose();
+    });
 
-  test('rejects hard-linked manifest files before deletion', async () => {
-    const harness = createHarness('hardlink-delete');
-    await harness.store.initialize();
-    await installFixture(harness);
-    const outsideLink = path.join(harness.temporaryRoot, 'outside-hardlink');
-    linkSync(installedFilePath(harness), outsideLink);
+    test('fails closed on a held-directory rename and replacement race', async () => {
+      const harness = createHarness('rename-race');
+      await harness.store.initialize();
+      await installFixture(harness);
+      const root = await harness.adapter.initialize(harness.managedRoot);
+      const opened = await harness.adapter.openArtifactDirectory(
+        root.token,
+        'models',
+        harness.descriptor.canonicalName,
+      );
+      assert.ok(opened);
 
-    await assert.rejects(
-      harness.store.deleteArtifact(harness.descriptor, removalClearanceIssuer.issue(harness.descriptor.artifactId)),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'DELETE_FAILED',
-    );
-    assert.equal(readFileSync(outsideLink, 'utf8'), CONTENT.toString('utf8'));
-    await harness.store.dispose();
-  });
+      const original = path.dirname(installedFilePath(harness));
+      const moved = `${original}-moved`;
+      renameSync(original, moved);
+      mkdirSync(original, { mode: 0o700 });
+      await assert.rejects(
+        harness.adapter.revalidate(opened.token, opened.identity),
+        (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IDENTITY_CHANGED',
+      );
+      await harness.adapter.release(opened.token);
+      await harness.adapter.release(root.token);
+      await harness.store.dispose();
+    });
 
-  test('rejects a symlinked managed-root component instead of following it', async () => {
-    const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
-    temporaryRoots.push(temporaryRoot);
-    const dataRoot = path.join(temporaryRoot, 'data');
-    const outside = path.join(temporaryRoot, 'outside');
-    mkdirSync(dataRoot, { mode: 0o700 });
-    mkdirSync(outside, { mode: 0o700 });
-    symlinkSync(outside, path.join(dataRoot, 'com.swimmwatch.gptvoice'));
-    const harness = createHarness('root-symlink', temporaryRoot);
+    test('quarantines and preserves an artifact containing an unexpected symlink', async () => {
+      const harness = createHarness('symlink-delete');
+      await harness.store.initialize();
+      await installFixture(harness);
+      const outside = path.join(harness.temporaryRoot, 'outside.txt');
+      writeFileSync(outside, 'must survive', { mode: 0o600 });
+      symlinkSync(outside, path.join(path.dirname(installedFilePath(harness)), 'unexpected-link'));
 
-    await assert.rejects(
-      harness.store.initialize(),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'STORAGE_UNAVAILABLE',
-    );
-    assert.deepEqual(readdirSync(outside), []);
-    await harness.store.dispose();
-  });
+      await assert.rejects(
+        harness.store.deleteArtifact(harness.descriptor, removalClearanceIssuer.issue(harness.descriptor.artifactId)),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'DELETE_FAILED',
+      );
+      assert.equal(readFileSync(outside, 'utf8'), 'must survive');
+      assert.equal(readdirSync(path.join(harness.managedRoot, 'quarantine')).length, 1);
+      await harness.store.dispose();
+    });
 
-  test('recovers only a stale full-owner lock and fails closed on malformed metadata', async () => {
-    const stale = createHarness('stale-lock');
-    await stale.store.initialize();
-    const lockPath = path.join(stale.managedRoot, 'locks', `lock-${stale.descriptor.canonicalName}`);
-    writeFileSync(
-      lockPath,
-      `old-instance-nonce-0000\n${process.pid}\nnot-the-current-start\nstaging\n${stale.descriptor.artifactId}\n`,
-      { mode: 0o600 },
-    );
-    chmodSync(lockPath, 0o600);
-    const staging = await stale.store.createStaging(stale.descriptor);
-    await staging.release();
-    await stale.store.dispose();
+    test('rejects an exact-file identity swap inside a held quarantine lease', async () => {
+      const harness = createHarness('file-id-race');
+      await harness.store.initialize();
+      await installFixture(harness);
+      const root = await harness.adapter.initialize(harness.managedRoot);
+      const artifact = await harness.adapter.openArtifactDirectory(
+        root.token,
+        'models',
+        harness.descriptor.canonicalName,
+      );
+      assert.ok(artifact);
+      const quarantine = await harness.adapter.quarantineArtifactDirectory(
+        root.token,
+        artifact.token,
+        'models',
+        harness.descriptor.canonicalName,
+        'quarantine-race-00000001',
+      );
+      const entries = await harness.adapter.inspectDirectory(quarantine.token, [
+        { canonicalName: 'managed-manifest-v1', mode: 0o600 },
+        {
+          canonicalName: getManagedArtifactFileName(harness.descriptor.expectedFiles[0].fileId),
+          mode: 0o600,
+        },
+      ]);
+      const expected = entries.find(({ canonicalName }) => canonicalName.startsWith('file-'));
+      assert.ok(expected);
+      const quarantineName = readdirSync(path.join(harness.managedRoot, 'quarantine'))[0];
+      assert.ok(quarantineName);
+      const filePath = path.join(harness.managedRoot, 'quarantine', quarantineName, expected.canonicalName);
+      renameSync(filePath, `${filePath}.swapped-out`);
+      writeFileSync(filePath, CONTENT, { mode: 0o600 });
 
-    const malformed = createHarness('malformed-lock', stale.temporaryRoot);
-    await malformed.store.initialize();
-    writeFileSync(lockPath, 'malformed\n', { mode: 0o600 });
-    await assert.rejects(
-      malformed.store.createStaging(malformed.descriptor),
-      (error) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
-    );
-    assert.equal(readFileSync(lockPath, 'utf8'), 'malformed\n');
-    await malformed.store.dispose();
-  });
-});
+      await assert.rejects(
+        harness.adapter.deleteQuarantinedFile(quarantine.token, expected.canonicalName, expected.identity),
+        (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IDENTITY_CHANGED',
+      );
+      await harness.adapter.release(quarantine.token);
+      await harness.adapter.release(artifact.token);
+      await harness.adapter.release(root.token);
+      await harness.store.dispose();
+    });
+
+    test('rejects hard-linked manifest files before deletion', async () => {
+      const harness = createHarness('hardlink-delete');
+      await harness.store.initialize();
+      await installFixture(harness);
+      const outsideLink = path.join(harness.temporaryRoot, 'outside-hardlink');
+      linkSync(installedFilePath(harness), outsideLink);
+
+      await assert.rejects(
+        harness.store.deleteArtifact(harness.descriptor, removalClearanceIssuer.issue(harness.descriptor.artifactId)),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'DELETE_FAILED',
+      );
+      assert.equal(readFileSync(outsideLink, 'utf8'), CONTENT.toString('utf8'));
+      await harness.store.dispose();
+    });
+
+    test('rejects a symlinked managed-root component instead of following it', async () => {
+      const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
+      temporaryRoots.push(temporaryRoot);
+      const dataRoot = path.join(temporaryRoot, 'data');
+      const outside = path.join(temporaryRoot, 'outside');
+      mkdirSync(dataRoot, { mode: 0o700 });
+      mkdirSync(outside, { mode: 0o700 });
+      symlinkSync(outside, path.join(dataRoot, 'com.swimmwatch.gptvoice'));
+      const harness = createHarness('root-symlink', temporaryRoot);
+
+      await assert.rejects(
+        harness.store.initialize(),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'STORAGE_UNAVAILABLE',
+      );
+      assert.deepEqual(readdirSync(outside), []);
+      await harness.store.dispose();
+    });
+
+    test('recovers only a stale full-owner lock and fails closed on malformed metadata', async () => {
+      const stale = createHarness('stale-lock');
+      await stale.store.initialize();
+      const lockPath = path.join(stale.managedRoot, 'locks', `lock-${stale.descriptor.canonicalName}`);
+      writeFileSync(
+        lockPath,
+        `old-instance-nonce-0000\n${process.pid}\nnot-the-current-start\nstaging\n${stale.descriptor.artifactId}\n`,
+        { mode: 0o600 },
+      );
+      chmodSync(lockPath, 0o600);
+      const staging = await stale.store.createStaging(stale.descriptor);
+      await staging.release();
+      await stale.store.dispose();
+
+      const malformed = createHarness('malformed-lock', stale.temporaryRoot);
+      await malformed.store.initialize();
+      writeFileSync(lockPath, 'malformed\n', { mode: 0o600 });
+      await assert.rejects(
+        malformed.store.createStaging(malformed.descriptor),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
+      );
+      assert.equal(readFileSync(lockPath, 'utf8'), 'malformed\n');
+      await malformed.store.dispose();
+    });
+  },
+);

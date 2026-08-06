@@ -32,7 +32,22 @@ describe('window appearance', () => {
     assert.match(windowSource, /providerSettingsWindowController\.getWindows\(\)/u);
     assert.match(windowSource, /getAppUrl\('provider-settings\.html'\)/u);
     assert.match(windowSource, /searchParams\.set\('providerId', providerId\)/u);
-    assert.match(windowSource, /width: 560,[\s\S]*height: 680,[\s\S]*minWidth: 440,[\s\S]*minHeight: 520,/u);
+    assert.match(windowSource, /const PROVIDER_SETTINGS_CONTENT_WIDTH = 560;/u);
+    assert.match(windowSource, /const PROVIDER_SETTINGS_CONTENT_HEIGHT = 680;/u);
+    assert.match(windowSource, /const LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH = 912;/u);
+    assert.match(windowSource, /const LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT = 820;/u);
+    assert.match(
+      windowSource,
+      /width: isLocalWhisperSettings \? LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH : PROVIDER_SETTINGS_CONTENT_WIDTH,/u,
+    );
+    assert.match(
+      windowSource,
+      /height: isLocalWhisperSettings \? LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT : PROVIDER_SETTINGS_CONTENT_HEIGHT,/u,
+    );
+    assert.match(
+      windowSource,
+      /minWidth: PROVIDER_SETTINGS_MIN_WIDTH,[\s\S]*minHeight: PROVIDER_SETTINGS_MIN_HEIGHT,/u,
+    );
     assert.match(windowSource, /resizable: true,/u);
   });
 });

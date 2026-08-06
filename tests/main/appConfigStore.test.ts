@@ -108,7 +108,7 @@ describe('AppConfigStore', () => {
     assert.equal(fs.existsSync(second.paths.appDirectory), false);
     assert.equal(first.store.getSnapshot().provider, 'openai-api');
     assert.equal(first.store.getSnapshot().locale, 'ru');
-    assert.equal(second.store.getSnapshot().provider, 'chatgpt');
+    assert.equal(second.store.getSnapshot().provider, null);
     assert.equal(second.store.getSnapshot().locale, 'en');
   });
 
@@ -131,7 +131,7 @@ describe('AppConfigStore', () => {
     fixture.store.setProvider('claude-web');
     fixture.store.setPrettifySettings({ claudeCli: { model: 'claude-sonnet' } });
 
-    assert.equal(snapshot.provider, 'chatgpt');
+    assert.equal(snapshot.provider, null);
     assert.equal(snapshot.prettifySettings.claudeCli.model, '');
     assert.equal(fixture.store.getSnapshot().provider, 'claude-web');
     assert.equal(fixture.store.getSnapshot().prettifySettings.claudeCli.model, 'claude-sonnet');

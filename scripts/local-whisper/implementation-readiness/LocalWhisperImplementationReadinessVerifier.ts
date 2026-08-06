@@ -242,6 +242,9 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'start:local-whisper:development',
 ]);
 
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 21;
+const IMPLEMENTATION_READINESS_TASK_COUNT = 25;
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-21-acceptance-registry';
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
   /(?:^|\/)(?:candidate-input|platform-input|profile-(?:cpu|cuda)|platform-graph|platform-result|evidence-index|aggregate-result)\.json$/u;
@@ -385,9 +388,9 @@ export class LocalWhisperImplementationReadinessVerifier {
       json(
         await this.readRequired(
           'docs/specs/local-whisper/tasks/acceptance-owners.json',
-          'revision-19-acceptance-registry',
+          ACCEPTANCE_REGISTRY_CONTRACT_ID,
         ),
-        'revision-19-acceptance-registry',
+        ACCEPTANCE_REGISTRY_CONTRACT_ID,
       ),
       'revision-19-acceptance-registry',
     );
@@ -401,25 +404,28 @@ export class LocalWhisperImplementationReadinessVerifier {
       ),
       'revision-19-acceptance-schema',
     );
-    const taskFiles = record(manifest.taskFiles, 'revision-19-acceptance-registry');
-    const expectedTasks = Array.from({ length: 23 }, (_, index) => String(index + 1).padStart(2, '0'));
+    const taskFiles = record(manifest.taskFiles, ACCEPTANCE_REGISTRY_CONTRACT_ID);
+    const expectedTasks = Array.from({ length: IMPLEMENTATION_READINESS_TASK_COUNT }, (_, index) =>
+      String(index + 1).padStart(2, '0'),
+    );
     const owners = manifest.automatedAcceptanceOwners;
     const commands = manifest.verificationCommands;
     const properties = record(schema.properties, 'revision-19-acceptance-schema');
     const planRevision = record(properties.planRevision, 'revision-19-acceptance-schema');
     if (!Array.isArray(owners) || !Array.isArray(commands)) {
-      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-19-acceptance-registry');
+      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', ACCEPTANCE_REGISTRY_CONTRACT_ID);
     }
-    const ownerRecords = owners.map((owner) => record(owner, 'revision-19-acceptance-registry'));
-    const commandRecords = commands.map((command) => record(command, 'revision-19-acceptance-registry'));
+    const ownerRecords = owners.map((owner) => record(owner, ACCEPTANCE_REGISTRY_CONTRACT_ID));
+    const commandRecords = commands.map((command) => record(command, ACCEPTANCE_REGISTRY_CONTRACT_ID));
     const task23Commands = commandRecords
       .filter((command) => command.task === '23')
       .map((command) => [command.id, command.command]);
     if (
       manifest.schemaVersion !== 1 ||
-      manifest.planRevision !== 19 ||
+      manifest.planRevision !== IMPLEMENTATION_READINESS_PLAN_REVISION ||
       JSON.stringify(Object.keys(taskFiles).sort()) !== JSON.stringify(expectedTasks) ||
       taskFiles['23'] !== '23_main_window_residency_control.md' ||
+      taskFiles['25'] !== '25_linux_qualification_finalization.md' ||
       JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
       !commandRecords.some((value) => {
         return (
@@ -437,9 +443,9 @@ export class LocalWhisperImplementationReadinessVerifier {
       ['AC-AUTO-059', 'AC-AUTO-076', 'AC-AUTO-077'].some(
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '23',
       ) ||
-      planRevision.const !== 19
+      planRevision.const !== IMPLEMENTATION_READINESS_PLAN_REVISION
     ) {
-      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-19-acceptance-registry');
+      throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', ACCEPTANCE_REGISTRY_CONTRACT_ID);
     }
   }
 
