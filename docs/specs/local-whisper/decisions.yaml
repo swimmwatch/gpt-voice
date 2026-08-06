@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-04'
+updated_at: '2026-08-06'
 decisions:
   - id: outcome.local-voice-provider
     revision: 1
@@ -7930,3 +7930,132 @@ decisions:
     rationale: The user explicitly approved plan revision 20 through the durable workspace interview. The audited Task 24 Windows runtime-delivery readiness packet now precedes candidate freeze, while Tasks 20–22 retain separate qualification and aggregate authority. This approval authorizes no implementation or manual/external action.
     supersedes_revision: 19
     requirement_ids: []
+
+  - id: planning.task20-task24-concurrency
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user wants Task 20 to begin on Linux while Task 24 begins in parallel on a separate Windows computer.
+      - Task 20 currently freezes the shared candidate and produces authoritative Linux qualification evidence, while Task 24 may still change production Windows runtime, catalog, development-activation, or package code.
+      - The specification requires both platform branches to consume one unchanged shared candidate identity.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task20-task24-concurrency-round-82
+      question_id: planning.task20-task24-concurrency
+      idempotency_key: planning.task20-task24-concurrency:v1
+      last_status: answered
+      sequence: 82
+      revision: 1
+    question:
+      text: How should Task 20 and Task 24 run in parallel without invalidating shared qualification evidence?
+      kind: single
+      options:
+        - id: parallel-preflight-then-final-freeze
+          label: Parallel preflight, final freeze after Task 24 (Recommended)
+          description: Start Task 20's candidate-independent Linux preparation now alongside Task 24; freeze the shared candidate and run authoritative Linux qualification only after Task 24 is complete and committed.
+        - id: freeze-and-requalify
+          label: Freeze then requalify if needed
+          description: Let Task 20 fully qualify now, then repeat the candidate freeze and Linux qualification if Task 24 changes the candidate.
+        - id: remain-sequential
+          label: Keep sequential
+          description: Keep Task 24 fully complete before any Task 20 work begins.
+    answer:
+      selected_ids: []
+      text: Let's do it sequentially. Let's do 20 first, then 24.
+    rationale: The user selected sequential execution with Task 20 beginning before Task 24. Because the approved specification requires both platform branches to use one unchanged shared candidate, Task 20 must be split into candidate-independent preparation before Task 24 and authoritative finalization after Task 24 is complete and committed. This avoids creating Linux qualification evidence that a Task 24 production change would invalidate.
+    supersedes_revision: 1
+    requirement_ids: [QUAL-001, QUAL-002, QUAL-003, QUAL-004, COMP-012, DIST-001, DIST-002, MODEL-011, PKG-011]
+
+  - id: acceptance.plan-revision-21-coverage-audit
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 21 has exactly 25 self-contained packets, including Task 20 Linux preflight and Task 25 Linux qualification finalization.
+      - Task 20 precedes Task 24. Task 20 has no candidate/evidence authority; Task 24 must complete and commit before Task 25 freezes the shared candidate. Tasks 21 and 22 consume Task 25's immutable Linux branch.
+      - The acceptance-owner registry declares plan revision 21, 25 task files, at least one exact `rtk` verification command per packet, and the unchanged 76 primary automated acceptance owners.
+      - Direct registry/packet structural audit, JSON/YAML parsing, targeted Prettier, and `git diff --check` passed.
+      - The executable validator correctly reports its documented revision-19/23-packet hard-code against the new revision-21 registry. Updating that validator is an explicit Task 24 implementation responsibility; its current failure is not an approval or execution failure.
+    answer:
+      selected_ids: [plan-revision-21-audited]
+      text: ''
+    rationale: Revision 21 makes the user-selected Task 20 then Task 24 sequence independently executable without producing Linux evidence that Task 24 could invalidate. The approved specification's single unchanged candidate constraint remains intact because only Task 25 can freeze the shared candidate.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, QUAL-002, QUAL-003, QUAL-004, COMP-012, DIST-001, DIST-002, MODEL-011, PKG-011]
+
+  - id: approval.plan-revision-21
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user selected sequential execution: Task 20 first, then Task 24.
+      - Revision 21 turns Task 20 into candidate-independent Linux preparation, preserves Task 24 as Windows delivery readiness, and adds Task 25 for the final shared-candidate freeze and authoritative Linux qualification.
+      - The revision-21 coverage audit passed its direct structural, parsing, formatting, and diff checks. The currently hard-coded executable validator remains Task 24 work.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: plan-revision-21-approval-round-83
+      question_id: approval.plan-revision-21
+      idempotency_key: approval.plan-revision-21:v1
+      last_status: answered
+      sequence: 83
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 21 proceed after making Task 20 Linux preflight run first, Task 24 Windows readiness second, and Task 25 the only authoritative Linux qualification freeze?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 21 (Recommended)
+          description: Approve the audited 25-packet plan; this authorizes no implementation, network/manual action, commit, or push.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 21 in Draft and revise the Task 20/24/25 sequencing, scope, or gates.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Stop with revision 21 in Draft and retain revision 20 as the last approved plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the audited 25-packet revision through the durable workspace interview. This approval authorizes no packet execution, network/manual action, commit, or push.
+    supersedes_revision: 20
+    requirement_ids: []
+
+  - id: execution.local-whisper-task-20-linux-preflight
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly invoked Incremental Implementation for Task 20.
+      - Task 20 is the approved candidate-independent Linux preflight packet and forbids candidate freeze, production changes, Windows work, commits, pushes, and qualification evidence adoption.
+      - Network, model/corpus transfer, private raw-evidence handling, and hardware preparation remain separately manual-gated and are not included in this execution authorization.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-20-execution-round-84
+      question_id: execution.local-whisper-task-20-linux-preflight
+      idempotency_key: execution.local-whisper-task-20-linux-preflight:v1
+      last_status: answered
+      sequence: 84
+      revision: 1
+    question:
+      text: Should Codex execute the approved Task 20 Linux Qualification Preparation packet now, limited to candidate-independent local checks and documentation handoff updates?
+      kind: single
+      options:
+        - id: execute-task-20
+          label: Execute Task 20 (Recommended)
+          description: Run only Task 20's permitted local deterministic preflight work; do not use network/manual gates, freeze evidence, commit, or push.
+        - id: defer-task-20
+          label: Defer Task 20
+          description: Keep Task 20 unchecked and make no implementation changes.
+        - id: revise-task-20
+          label: Revise Task 20
+          description: Return to planning before execution because its scope or manual gates need to change.
+    answer:
+      selected_ids: [execute-task-20]
+      text: ''
+    rationale: The user explicitly authorized the approved Task 20 candidate-independent Linux preflight. The execution is limited to local deterministic checks and safe documentation handoff updates; every network, hardware, private-evidence, candidate-freeze, commit, push, and downstream-packet boundary remains excluded.
+    supersedes_revision: null
+    requirement_ids: [REL-001, COMP-012, MODEL-011, QUAL-001, QUAL-002, QUAL-003, QUAL-004, PRIV-005, OPS-003]

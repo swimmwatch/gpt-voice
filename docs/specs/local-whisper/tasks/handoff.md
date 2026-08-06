@@ -2,10 +2,11 @@
 
 ## Authoritative state
 
-- Specification revision 15 and plan revision 20 are Approved. Tasks 01–19 are
-  complete and committed. Task 23 and its Q5_0/load-path follow-ups are complete
-  and committed as `043aba8`, `b48877d`, and `a4a0a2a`. Task 24 and
-  Tasks 20–22 have not started.
+- Specification revision 15 and plan revision 21 are Approved. Tasks 01–19 are
+  complete and committed. Task 23 and its
+  Q5_0/load-path follow-ups are complete and committed as `043aba8`,
+  `b48877d`, and `a4a0a2a`. Task 20's local deterministic preflight is complete
+  and uncommitted. Tasks 24, 25, 21, and 22 have not started.
 - No candidate input digest, platform branch/result/evidence index, predecessor
   result, aggregate root, Production verdict, PR, signing, upload, publication,
   support promotion, tag, or release exists. The settings redesign `0e50716d`,
@@ -56,6 +57,43 @@
   verification commands while preserving all 76 existing primary automated
   acceptance owners. Updating the executable plan validator and implementing
   those commands belongs to Task 24.
+
+## Plan revision 21
+
+- The user approved sequential work: Task 20 starts first, then Task 24. To
+  preserve the approved single-candidate contract, Task 20 is now a complete,
+  candidate-independent Linux preflight only; it cannot freeze or adopt any
+  qualification identity or evidence.
+- Task 24 follows the completed Task 20 preflight on Windows. New Task 25
+  revalidates every advisory observation against Task 24's final committed
+  source, then owns the shared candidate freeze and authoritative Linux branch.
+  Task 21 consumes Task 25's immutable Linux branch; Task 22 validates all 25
+  packets.
+- The acceptance registry declares 25 packets and shifts the existing final
+  Linux verification command to Task 25. The executable validator remains
+  revision-19/23-packet hard-coded until Task 24 updates it to plan revision 21
+  and 25 packets.
+
+## Task 20 Linux preflight
+
+- Task-20-specific changes: `tests/renderer/localWhisper/LocalWhisperAccessibility.test.ts`,
+  `docs/specs/local-whisper/decisions.yaml`, `tasks/todo.md`, and this handoff.
+  The remaining dirty plan artifacts belong to approved plan revision 21 and are
+  intentionally separate from the completed packet.
+- Completed only the authorized candidate-independent local deterministic
+  preflight. No model/corpus transfer, CUDA/hardware check, private raw-evidence
+  creation, candidate freeze, platform branch, qualification result, or
+  Production claim occurred.
+- Fixed the Local Whisper accessibility test's native-title regex so it retains
+  the same element/attribute assertion without triggering the repository regex
+  linter. No production behavior changed.
+- Passed qualification (52 pass, 1 intentional skip), artifacts (26), packaging
+  (11), composition activation (43), supervisor (42), filesystem guard native
+  (18), launcher native (10), focused accessibility (12), typecheck, type tests,
+  and lint with zero errors. Lint still reports 67 pre-existing warnings.
+- Pending manual gates: exact public model/corpus availability/materialization,
+  Linux host/CUDA readiness, and private raw-evidence handling. Task 25 must
+  revalidate all future authoritative inputs after Task 24's final commit.
 
 ## Settings-window follow-ups
 
@@ -161,10 +199,10 @@
 - No Task 23 or settings-resource blocker remains. The settings redesign and
   resource-preview follow-ups and the live VRAM fix are committed on the current
   branch.
-- No packet execution is authorized by plan approval. The exact next packet is
-  `24_windows_runtime_delivery_readiness.md` and requires a separate
-  incremental-implementation authorization including any Windows-host,
-  network, application-launch, and unpacked-package manual gates. Stop before
-  Task 20, push, qualification, candidate freeze, PR, signing, upload,
+- Task 20 is complete and uncommitted. The exact next packet is
+  `24_windows_runtime_delivery_readiness.md`; it requires separate
+  incremental-implementation authorization and its Windows-host, network,
+  application-launch, and unpacked-package manual gates. Stop before Task 24,
+  candidate freeze, Task 25, push, qualification, PR, signing, upload,
   publication, tag, or release unless separately authorized by the applicable
   workflow.

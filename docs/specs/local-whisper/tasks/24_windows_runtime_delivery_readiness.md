@@ -3,8 +3,8 @@
 ## Outcome
 
 Make the existing Local Whisper Windows x64 CPU and NVIDIA CUDA product paths
-actually buildable, installable, and testable before any qualification
-candidate is frozen. Produce deterministic Windows native helpers and
+actually buildable, installable, and testable after Task 20 Linux preparation
+but before any qualification candidate is frozen. Produce deterministic Windows native helpers and
 on-demand CPU/CUDA runtime packs, generalize the authenticated development
 activation and catalog/runtime tooling to Windows without changing the Linux
 contract, validate unpacked Windows packaging, and pass a bounded ordinary-app
@@ -18,11 +18,12 @@ qualification packet.
 
 ## Prerequisites
 
-- Specification revision 15 is Approved and plan revision 20 is Approved.
+- Specification revision 15 is Approved and plan revision 21 is Approved.
 - Tasks 01–19 and 23, including their follow-up fixes and `AC-MAN-015`–
   `AC-MAN-016`, are complete and committed.
-- Tasks 20–22 have not started and no candidate, Linux/Windows branch, result,
-  evidence index, predecessor result, or aggregate root has been frozen.
+- Task 20 Linux preflight is complete and committed but created no candidate,
+  Linux/Windows branch, profile, graph, result, evidence index, predecessor
+  result, or aggregate root. Tasks 25, 21, and 22 have not started.
 - The Task 17 public fixture digest remains
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
 - An authorized Windows x64 host can provide the pinned MSVC v143 `14.39`,
@@ -74,18 +75,20 @@ qualification packet.
   ordinary-app `base/full` CPU and CUDA setup/load/transcribe/unload/restart
   smoke with safe sanitized evidence.
 - Update Windows setup/troubleshooting documentation and the plan validator,
-  acceptance registry, checklist, and handoff for plan revision 20.
+  acceptance registry, checklist, and handoff for plan revision 21, including
+  Task 25's final Linux qualification command and 25-packet validation.
 
 ## Out Of Scope
 
-- Freezing Task 20's shared candidate or any Linux/Windows platform input,
+- Freezing Task 25's shared candidate or any Linux/Windows platform input,
   profile, graph, measurement series, result, evidence index, predecessor
   result, or aggregate root.
 - Running the all-six-model Windows accuracy, RTF, RAM/VRAM, repetition,
   cancellation, crash, suspend/resume, installer upgrade/uninstall,
   predecessor, and evidence-sealing matrix. Task 21 owns those gates.
 - Changing support tiers or promoting Windows CPU/CUDA to an unconditional
-  Production claim. Both remain conditional until Tasks 20–22 complete.
+  Production claim. Both remain conditional until Tasks 20, 24, 25, 21, and 22
+  complete.
 - AMD or Intel GPU enablement, Windows arm64, additional CUDA architectures,
   macOS execution, CPU fallback from a failed GPU selection, or a second engine.
 - Production private keys, signing, legal approval, GitHub Release runtime
@@ -278,7 +281,7 @@ evidence. This bounded smoke does not run or claim Task 21 qualification.
   remain unchanged. A platform discriminator must be explicit and fail closed.
 - Windows Vulkan stays `Preview · Untested`; HIP remains Linux-only Preview;
   Metal/macOS remains Planned and unavailable.
-- Task 24 readiness cannot authorize Task 20, Task 21, production collection,
+- Task 24 readiness cannot authorize Task 25, Task 21, production collection,
   support promotion, upload, publication, or release.
 
 ## Expected Files Or Components
@@ -325,8 +328,8 @@ evidence. This bounded smoke does not run or claim Task 21 qualification.
   missing DLL, wrong compute target, insufficient known resource, tampered
   archive/helper/model, and stale selection all remain Not ready with safe typed
   failures and no automatic download or fallback.
-- Task 24 records no qualification/Production verdict and leaves Tasks 20–22
-  unchecked. Plan validation recognizes 24 packets and all 76 existing primary
+- Task 24 records no qualification/Production verdict and leaves Tasks 25, 21,
+  and 22 unchecked. Plan validation recognizes 25 packets and all 76 existing primary
   automated acceptance owners without changing their ownership.
 
 ## Verification
@@ -431,11 +434,11 @@ Do not run `run:local-whisper:qualification:linux`,
 
 Mark Task 24 complete only after both registered commands pass, all required
 Windows native/package checks pass, the bounded ordinary-app CPU/CUDA smoke is
-recorded with sanitized evidence, Linux regressions are clear, and no
-qualification or production authority was created.
+recorded with sanitized evidence, Linux regressions are clear, Task 20 remains
+preflight-only, and no qualification or production authority was created.
 
 Update `todo.md` and `handoff.md` with changed files, exact checks, the Windows
 host/profile IDs, safe pass/failure codes, temporary-root cleanup, and remaining
-manual gates. Stop before Task 20, candidate freeze, Task 21, commit, push, PR,
+manual gates. Stop before Task 25, candidate freeze, Task 21, commit, push, PR,
 signing, upload, publication, tag, support promotion, or release unless each is
 separately authorized.

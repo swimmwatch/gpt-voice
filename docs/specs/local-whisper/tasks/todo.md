@@ -1,14 +1,16 @@
 # Local Whisper Task Checklist
 
-Plan revision: **20 (Approved)**
+Plan revision: **21 (Approved)**
 
 Specification baseline: **revision 15 (Approved)**
 
 Execution state: Tasks 01–19 are complete and committed. Task 23 implementation,
 Large v3 Turbo Q5_0 compatibility and load-path follow-up fixes, automated
 verification, and the authorized CPU/CUDA `AC-MAN-016` smoke are complete and
-committed. Task 24 is the exact next packet before candidate freeze. Tasks
-20–22 remain deferred.
+committed. Task 20 Linux Qualification Preparation has completed its authorized
+local deterministic preflight without freezing or adopting qualification
+evidence. Task 24 is next on Windows, then Task 25 freezes and qualifies the
+final Linux candidate. Tasks 21–22 remain deferred.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -30,8 +32,9 @@ committed. Task 24 is the exact next packet before candidate freeze. Tasks
 - [x] [18 Migration, Privacy, Diagnostics, Documentation, And macOS Skeleton](18_migration_privacy_diagnostics_and_macos_skeleton.md) — `16b32ca`
 - [x] [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md) — `b8941279`, Fedora fix `caaecaed`, handoff `4bcd21fa`
 - [x] [23 Main-Window Local Whisper Residency Control](23_main_window_residency_control.md) — `043aba8`, Q5_0 fix `b48877d`, load optimization `a4a0a2a`
+- [x] [20 Linux Qualification Preparation](20_linux_qualification.md) — local deterministic preflight, uncommitted
 - [ ] [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md)
-- [ ] [20 Linux Qualification](20_linux_qualification.md)
+- [ ] [25 Linux Qualification Finalization](25_linux_qualification_finalization.md)
 - [ ] [21 Windows Qualification](21_windows_qualification.md)
 - [ ] [22 Aggregate Production Readiness And Release Blockers](22_aggregate_and_release_blockers.md)
 
@@ -41,7 +44,8 @@ Linux qualification run is non-authoritative and must not be adopted. Candidate
 SemVer input remains `2.4.0`; the Task 17 fixture digest remains
 `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
 AMD remains **Preview · Untested** and macOS remains
-**Planned · Unavailable**. Task 24 execution and Windows-host/network/package
-manual gates require separate authorization. Task 20 execution, push, PR,
-production signing, upload, publication, support promotion, tag, and release
-remain separate authorization boundaries.
+**Planned · Unavailable**. Task 20's network/model/corpus/hardware checks were
+not authorized and remain pending manual gates. Task 24 Windows-host/network/
+package and Task 25 final Linux qualification gates each require separate
+authorization. Push, PR, production signing, upload, publication, support
+promotion, tag, and release remain separate authorization boundaries.

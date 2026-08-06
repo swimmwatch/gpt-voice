@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Reconcile the immutable Task 20 Linux and Task 21 Windows branches without
+Reconcile the immutable Task 25 Linux and Task 21 Windows branches without
 rerunning their expensive profiles. Validate all automated ownership, seal
 `aggregateEvidenceDigest`, prove allowed qualification-to-production deltas,
 validate protected production trust/legal/provenance/SBOM/notice/
@@ -16,8 +16,9 @@ upload, platform evidence, support promotion, or release authority.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 20 are approved.
-- Tasks 19, 23, and 24 implementation/delivery readiness and Tasks 20–21 platform qualifications are
+- Specification revision 15 and plan revision 21 are approved.
+- Tasks 19, 20, 23, and 24 implementation/preflight/delivery readiness and
+  Tasks 25 and 21 platform qualifications are
   complete. Both platform branches bind the exact same `candidateInputDigest`
   and are immutable, schema-valid, privacy-safe, and available by digest.
 - Protected production catalog/keyring/origin, legal, provenance, SBOM,
@@ -42,7 +43,7 @@ upload, platform evidence, support promotion, or release authority.
 
 ## In Scope
 
-- Validate `acceptance-owners.json`, exact packet commands, Tasks 01–24, and
+- Validate `acceptance-owners.json`, exact packet commands, Tasks 01–25, and
   all canonical automated acceptance IDs (`001`–`054`, `056`–`077`).
 - Validate one unchanged shared candidate and exactly Linux x64 and Windows x64
   platform input/profile/graph/result/evidence-index chains.
@@ -91,7 +92,7 @@ qualification-to-production-delta digest. It is the only layer allowed to bind
 both platform branches. It cannot rewrite a prior document or compensate for a
 failed/missing branch.
 
-The task-plan registry must contain Tasks 01–24, at least one exact registered
+The task-plan registry must contain Tasks 01–25, at least one exact registered
 verification command per packet, and one primary owner for every canonical
 automated acceptance ID. Duplicate, missing, reordered, stale-task, or cross-
 task command ownership fails closed.
@@ -142,7 +143,7 @@ or private key.
 - Qualification-to-production manifest comparator, production collection
   guard, origin verifier, and privacy-safe readiness report.
 - Updated task-plan registry/validator and aggregate tests covering all 76
-  automated acceptance IDs and Tasks 01–24.
+  automated acceptance IDs and Tasks 01–25.
 - `package.json` aggregate verification command plus final `todo.md` and
   `handoff.md` status.
 
@@ -212,7 +213,8 @@ Do not run platform qualification to repair or replace Tasks 20–21 evidence.
 ## References
 
 - Specification revision 15 Sections 9.6, 12.1, 18.3, 19.1–19.3, and 22.
-- Immutable Task 20 Linux and Task 21 Windows handoffs.
+- Task 20 advisory preflight, immutable Task 25 Linux, and Task 21 Windows
+  handoffs.
 - Task 17 fixture identity, production packaging/release conventions, and
   privacy-safe evidence templates.
 

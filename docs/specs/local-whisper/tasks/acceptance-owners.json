@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "planRevision": 20,
+  "planRevision": 21,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -25,7 +25,8 @@
     "21": "21_windows_qualification.md",
     "22": "22_aggregate_and_release_blockers.md",
     "23": "23_main_window_residency_control.md",
-    "24": "24_windows_runtime_delivery_readiness.md"
+    "24": "24_windows_runtime_delivery_readiness.md",
+    "25": "25_linux_qualification_finalization.md"
   },
   "verificationCommands": [
     {
@@ -259,6 +260,11 @@
       "command": "rtk npm run verify:local-whisper:ui"
     },
     {
+      "id": "task-20-linux-qualification-preflight",
+      "task": "20",
+      "command": "rtk npm run test:local-whisper:qualification"
+    },
+    {
       "id": "task-24-windows-readiness-tests",
       "task": "24",
       "command": "rtk npm run test:local-whisper:windows-readiness"
@@ -269,8 +275,8 @@
       "command": "rtk npm run verify:local-whisper:windows-readiness"
     },
     {
-      "id": "task-20-linux-qualification",
-      "task": "20",
+      "id": "task-25-linux-qualification",
+      "task": "25",
       "command": "rtk npm run verify:local-whisper:qualification:linux"
     },
     {

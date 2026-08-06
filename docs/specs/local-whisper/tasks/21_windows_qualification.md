@@ -3,7 +3,7 @@
 ## Outcome
 
 On an authorized representative Windows x64 host, consume Task 24's verified
-Windows delivery tooling plus the unchanged Task 20 shared candidate and read-only Linux branch, freeze a distinct Windows
+Windows delivery tooling plus the unchanged Task 25 shared candidate and read-only Linux branch, freeze a distinct Windows
 platform input/profile graph, then execute and seal the complete Windows CPU
 and NVIDIA CUDA technical qualification for all six canonical models.
 
@@ -14,15 +14,16 @@ result/evidence branch for Task 22 without mutating shared or Linux evidence.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 20 are approved.
-- Tasks 19, 23, and 24 are complete and committed; Task 23 automated acceptance and
-  `AC-MAN-016` passed before Task 20 froze the shared candidate.
+- Specification revision 15 and plan revision 21 are approved.
+- Tasks 19, 20, 23, 24, and 25 are complete and committed; Task 23 automated
+  acceptance and `AC-MAN-016` passed before Task 25 froze the shared candidate.
 - Task 24's exact Windows CPU/CUDA workers and reproducible runtime-pack
   tooling, authenticated development activation, native helpers, unpacked
-  package checks, and bounded ordinary-app CPU/CUDA smoke passed before Task 20
+  package checks, and bounded ordinary-app CPU/CUDA smoke passed before Task 25
   froze the shared candidate. Task 21 may execute those frozen tools but may not
   repair production behavior inside qualification.
-- Task 20 is complete and supplies one immutable `candidateInputDigest` plus
+- Task 20 supplies only preflight preparation. Task 25 is complete and supplies
+  one immutable `candidateInputDigest` plus
   Linux platform input/profile/graph/result/evidence-index digests. It
   explicitly created no Windows branch or aggregate root.
 - The Task 17 fixture digest is
@@ -154,7 +155,7 @@ provider switch, suspend/resume, app exit, offline restart, and exact cleanup.
 
 ### Privacy and predecessor
 
-Select the highest stable predecessor before Task 20's shared UTC cutoff. If
+Select the highest stable predecessor before Task 25's shared UTC cutoff. If
 no later stable exists, execute `GPT-Voice.Setup.2.3.0.exe` with SHA-256
 `0e2aa1ea97ba357db6d35f53debd01ca1c6124ae10b9f537b2af4427a0328cd0`.
 It remains Not ready, preserves new namespaces, performs no Local Whisper
@@ -166,7 +167,7 @@ sanitized and digest-linked only.
 
 ## Contracts And Boundaries
 
-- Task 21 consumes but cannot mutate Task 20's shared input or Linux branch.
+- Task 21 consumes but cannot mutate Task 25's shared input or Linux branch.
 - Representative Windows execution occurs only on Windows in this packet.
 - Platform, hardware, deterministic, privacy, legal, and publication evidence
   are non-substitutable.
@@ -257,7 +258,8 @@ Do not run Linux qualification or `verify:local-whisper:all`.
 
 - Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
-- Immutable Task 20 shared/Linux handoff and Tasks 19/23/24 implementation-
+- Task 20 advisory preflight, immutable Task 25 shared/Linux handoff, and Tasks
+  19/23/24 implementation-
   readiness handoffs.
 - Project Windows native-quality, packaging, installer, privacy, diagnostics,
   and release conventions.
