@@ -1,5 +1,4 @@
 import { VoiceProviderSelectionService } from '@main/localWhisper/ipc/VoiceProviderSelectionService';
-import { INITIAL_LOCAL_WHISPER_RUNTIME_SNAPSHOT } from '@shared/localWhisper';
 
 const LEGACY_PROVIDER_IDS = ['chatgpt', 'openai-api', 'claude-web'] as const;
 
@@ -46,9 +45,6 @@ export class LegacyVoiceProviderCompatibilityFixture {
           this.readinessRevision += 1;
           return {};
         },
-      },
-      localWhisper: {
-        getReadinessSnapshot: () => ({ snapshot: INITIAL_LOCAL_WHISPER_RUNTIME_SNAPSHOT, failure: null }),
       },
       getReadinessRevision: () => this.readinessRevision,
     });

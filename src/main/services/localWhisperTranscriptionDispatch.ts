@@ -28,6 +28,8 @@ function toAuditCauseCode(failure: LocalWhisperRendererSafeFailure): NonNullable
   switch (failure.code) {
     case 'AUDIO_FORMAT_UNSUPPORTED':
       return 'invalid-audio';
+    case 'EMPTY_TRANSCRIPTION':
+      return 'empty-result';
     case 'INVALID_SETTINGS':
     case 'SETTINGS_VERSION_UNSUPPORTED':
       return 'invalid-settings';

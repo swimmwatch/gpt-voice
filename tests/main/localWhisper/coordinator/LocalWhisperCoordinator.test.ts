@@ -655,6 +655,36 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(workers.resident.terminateCount, 0);
     assert.equal(coordinator.snapshot.runtime.residency, 'Loaded');
     assert.equal(coordinator.snapshot.runtime.activity, 'Idle');
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
+    assert.equal(coordinator.snapshot.runtime.blockingCode, null);
+  });
+
+  it('keeps a healthy resident worker ready after an empty transcription', async () => {
+    const { coordinator, workers } = harness();
+    await coordinator.loadNow();
+    workers.resident.transcriptionResult = { success: false, code: 'EMPTY_TRANSCRIPTION' };
+
+    const first = await coordinator.transcribe({
+      dispatch: coordinator.captureDispatchSnapshot(),
+      buffer: Uint8Array.from([1, 2]).buffer,
+      mimeType: 'audio/wav',
+    });
+
+    assert.equal(first.success, false);
+    if (!first.success) assert.equal(first.error.code, 'EMPTY_TRANSCRIPTION');
+    assert.equal(workers.resident.terminateCount, 0);
+    assert.equal(coordinator.snapshot.runtime.residency, 'Loaded');
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
+    assert.equal(coordinator.snapshot.runtime.blockingCode, null);
+
+    workers.resident.transcriptionResult = { success: true, value: 'retry transcript' };
+    const retry = await coordinator.transcribe({
+      dispatch: coordinator.captureDispatchSnapshot(),
+      buffer: Uint8Array.from([1, 2]).buffer,
+      mimeType: 'audio/wav',
+    });
+    assert.equal(retry.success, true);
+    assert.equal(workers.loadCount, 1);
   });
 
   it('terminates a cooperatively cancelled worker when post-cancel authority is uncertain', async () => {

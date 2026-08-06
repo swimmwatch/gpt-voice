@@ -352,7 +352,8 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
       this.activity = 'Idle';
       if (operation.abortController.signal.aborted) {
         if (!result.success && result.code === 'CANCELLED' && (await worker.revalidate().catch(() => false))) {
-          this.publishFailure('CANCELLED');
+          this.failure = null;
+          this.publish();
         } else {
           await this.terminateResident();
           this.residency = 'Unloaded';
@@ -680,13 +681,13 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     code: LocalWhisperFailureCode,
     worker: LocalWhisperResidentWorkerLease,
   ): Promise<void> {
-    if (code === 'AUDIO_FORMAT_UNSUPPORTED') {
-      this.failure = createLocalWhisperRendererSafeFailure(code);
+    if (code === 'AUDIO_FORMAT_UNSUPPORTED' || code === 'EMPTY_TRANSCRIPTION') {
+      this.failure = null;
       this.publish();
       return;
     }
     if (code === 'CANCELLED' && (await worker.revalidate().catch(() => false))) {
-      this.failure = createLocalWhisperRendererSafeFailure(code);
+      this.failure = null;
       this.publish();
       return;
     }

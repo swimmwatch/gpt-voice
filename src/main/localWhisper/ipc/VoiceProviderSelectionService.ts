@@ -1,10 +1,8 @@
 import {
   createLocalWhisperRendererSafeFailure,
-  LOCAL_WHISPER_PROVIDER_ID,
   type LocalWhisperFailureCode,
   type LocalWhisperProviderSelectionResult,
 } from '@shared/localWhisper';
-import type { LocalWhisperProviderReadiness } from '../coordinator/LocalWhisperCoordinatorTypes';
 
 export interface VoiceProviderSelectionConfigPort {
   getSnapshot(): { readonly provider: string | null };
@@ -21,15 +19,10 @@ export interface VoiceProviderSelectionRegistryPort {
   isKnownProviderId(providerId: unknown): providerId is string;
 }
 
-export interface VoiceProviderSelectionLocalWhisperPort {
-  getReadinessSnapshot(): LocalWhisperProviderReadiness;
-}
-
 export interface VoiceProviderSelectionServiceDependencies {
   readonly config: VoiceProviderSelectionConfigPort;
   readonly runtime: VoiceProviderSelectionRuntimePort;
   readonly registry: VoiceProviderSelectionRegistryPort;
-  readonly localWhisper: VoiceProviderSelectionLocalWhisperPort;
   readonly getReadinessRevision: () => number;
 }
 
@@ -53,11 +46,6 @@ export class VoiceProviderSelectionService {
     }
     if (this.switching) return this.failure(previousProviderId, 'OPERATION_CONFLICT');
     if (providerId === previousProviderId) return this.success(previousProviderId);
-    if (providerId === LOCAL_WHISPER_PROVIDER_ID) {
-      const failureCode = this.getLocalWhisperSelectionFailure();
-      if (failureCode) return this.failure(previousProviderId, failureCode);
-    }
-
     this.switching = true;
     try {
       const status = await this.dependencies.runtime.switchProvider(providerId);
@@ -129,11 +117,5 @@ export class VoiceProviderSelectionService {
       readinessRevision: this.dependencies.getReadinessRevision(),
       error: createLocalWhisperRendererSafeFailure(code),
     });
-  }
-
-  private getLocalWhisperSelectionFailure(): LocalWhisperFailureCode | null {
-    const readiness = this.dependencies.localWhisper.getReadinessSnapshot();
-    if (readiness.snapshot.operationalStatus === 'Ready') return null;
-    return readiness.failure?.code ?? readiness.snapshot.blockingCode ?? 'OPERATION_CONFLICT';
   }
 }

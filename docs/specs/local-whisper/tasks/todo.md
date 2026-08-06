@@ -9,11 +9,14 @@ Large v3 Turbo Q5_0 compatibility and load-path follow-up fixes, automated
 verification, and the authorized CPU/CUDA `AC-MAN-016` smoke are complete and
 committed. Task 20 Linux Qualification Preparation completed its authorized
 local deterministic preflight without freezing or adopting qualification
-evidence. Task 24 Windows Runtime Delivery Readiness is complete and
-uncommitted for review: deterministic Windows CPU and RTX 50 `sm_120a` packs,
-native helpers, development activation, unpacked packaging, and bounded
-ordinary-app CPU/RTX 5090 smoke all passed under specification revision 17 and
-plan revision 23. Tasks 26, 25, 21, and 22 remain unstarted.
+evidence. Task 24 Windows Runtime Delivery Readiness was committed and pushed
+as `7ebb102`; its provider-selection, CUDA-runtime acquisition, transfer-journal
+performance, recoverable-transcription state, and automatic-language native
+transcription follow-up is complete and included in the authorized review
+commit. Deterministic Windows CPU and RTX 50
+`sm_120a` packs, native helpers, development activation, unpacked packaging,
+and bounded ordinary-app CPU/RTX 5090 smoke all passed under specification
+revision 17 and plan revision 23. Tasks 26, 25, 21, and 22 remain unstarted.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -36,7 +39,7 @@ plan revision 23. Tasks 26, 25, 21, and 22 remain unstarted.
 - [x] [19 Cross-Platform Implementation Readiness](19_cross_platform_implementation_readiness.md) — `b8941279`, Fedora fix `caaecaed`, handoff `4bcd21fa`
 - [x] [23 Main-Window Local Whisper Residency Control](23_main_window_residency_control.md) — `043aba8`, Q5_0 fix `b48877d`, load optimization `a4a0a2a`
 - [x] [20 Linux Qualification Preparation](20_linux_qualification.md) — advisory local deterministic preflight; reconciliation completed against the clean `b796c46f` checkout, with no Task 20 delta to commit
-- [x] [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md) — complete and uncommitted for review; CPU/RTX 5090 `sm_120a` readiness smoke passed, with no Production claim
+- [x] [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md) — baseline pushed as `7ebb102`; provider-selection, CUDA-runtime acquisition, transfer-journal performance, recoverable-transcription state, and automatic-language native transcription follow-up included in the authorized review commit; CPU/RTX 5090 `sm_120a` readiness smoke passed, with no Production claim
 - [ ] [26 Hardware-Matched NVIDIA CUDA Runtime Expansion](26_hardware_matched_nvidia_cuda_runtime_expansion.md)
 - [ ] [25 Linux Qualification Finalization](25_linux_qualification_finalization.md)
 - [ ] [21 Windows Qualification](21_windows_qualification.md)
@@ -55,6 +58,6 @@ freezing qualification evidence. Task 25 final Linux qualification remains
 separately deferred. RTX 30 `sm_86` and RTX 40 `sm_89` physical checks remain
 **Pending — external representative hardware required**; this RTX 5090 host
 has supplied only the Windows `sm_120a` readiness smoke. The exact next packet
-is Task 26; it has not started. Push, PR, production
+is Task 26; it has not started. Any further commit or push, PR work, production
 signing, upload, publication, support promotion, tag, and release remain
 separate authorization boundaries.

@@ -303,7 +303,7 @@ class WindowsApplicationSmoke {
       ...current.settings,
       runtimeRevision: backend === 'cpu' ? CPU_RUNTIME_REVISION : CUDA_RUNTIME_REVISION,
       model: { family: 'base', revision: MODEL_REVISION, variant: 'full' },
-      language: 'en',
+      language: 'auto',
       decoding: { strategy: 'greedy', temperatureHundredths: 0 },
       execution:
         backend === 'cpu'

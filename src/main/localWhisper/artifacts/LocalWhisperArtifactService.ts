@@ -32,6 +32,9 @@ import { StreamingArtifactExtractor } from './StreamingArtifactExtractor';
 import { StreamingArtifactVerifier } from './StreamingArtifactVerifier';
 
 const OPERATION_ID_PATTERN = /^[\w-]{16,128}$/u;
+// A crash may safely replay the bounded tail because resume truncates to the authenticated journal offset.
+// Avoid one atomic journal rewrite per transport chunk on Windows filesystems.
+const TRANSFER_JOURNAL_PROGRESS_INTERVAL_BYTES = 4 * 1024 * 1024;
 
 type DownloadMode = 'download' | 'resume' | 'retry' | 'update';
 
@@ -191,6 +194,7 @@ export class LocalWhisperArtifactService {
   ): Promise<LocalWhisperArtifactOperationResult> {
     let journal: ArtifactTransferJournal | null = null;
     let resume: { readonly offset: number; readonly spoolId: string; readonly validator: string } | null = null;
+    let latestReceivedBytes = 0;
     try {
       const classification = await this.dependencies.journals.classifyResume(spec);
       if (mode === 'resume') {
@@ -240,12 +244,15 @@ export class LocalWhisperArtifactService {
         signal,
         onProgress: async (receivedBytes) => {
           if (!journal) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
-          journal = await this.dependencies.journals.update(journal, {
-            receivedLength: receivedBytes,
-            serverValidator: journal.serverValidator,
-            state: 'Downloading',
-            updatedAtMs: this.dependencies.clock.now(),
-          });
+          latestReceivedBytes = receivedBytes;
+          if (receivedBytes - journal.receivedLength >= TRANSFER_JOURNAL_PROGRESS_INTERVAL_BYTES) {
+            journal = await this.dependencies.journals.update(journal, {
+              receivedLength: receivedBytes,
+              serverValidator: journal.serverValidator,
+              state: 'Downloading',
+              updatedAtMs: this.dependencies.clock.now(),
+            });
+          }
           this.publish(operationId, spec, mode, 'Downloading', receivedBytes, null, false);
         },
       });
@@ -266,6 +273,18 @@ export class LocalWhisperArtifactService {
       });
       return this.success(operationId, spec.artifactId, 'Installed', inventoryRevision);
     } catch (error) {
+      if (journal && latestReceivedBytes > journal.receivedLength) {
+        try {
+          journal = await this.dependencies.journals.update(journal, {
+            receivedLength: latestReceivedBytes,
+            serverValidator: journal.serverValidator,
+            state: 'Downloading',
+            updatedAtMs: this.dependencies.clock.now(),
+          });
+        } catch {
+          // The prior durable offset is still safe: resume will truncate and replay only its bounded tail.
+        }
+      }
       const code = errorCode(error, 'DOWNLOAD_FAILED');
       return await this.finishFailedTransfer(spec, operationId, mode, journal, code);
     }

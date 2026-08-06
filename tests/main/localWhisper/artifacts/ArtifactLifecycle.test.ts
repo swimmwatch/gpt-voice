@@ -91,6 +91,20 @@ function queueSuccess(operationId: string, artifact: LocalWhisperArtifactId): Lo
 }
 
 describe('LocalWhisperArtifactService lifecycle', () => {
+  test('batches durable journal writes while retaining renderer progress for a large transfer', async () => {
+    const transfer = Buffer.alloc(10 * 1024 * 1024, 0x51);
+    const harness = createArtifactServiceHarness({ modelTransfer: transfer, transferChunkBytes: 64 * 1024 });
+
+    const result = await harness.service.startDownload({
+      artifactId: harness.catalogFixture.model.artifactId,
+      expectedInventoryRevision: harness.inventory.revision,
+    }).completion;
+
+    assert.equal(result.success, true);
+    assert.ok(harness.journalStore.writes <= 4);
+    assert.equal(harness.progress.get(result.operationId)?.receivedBytes, transfer.byteLength);
+  });
+
   test('installs exact signed model and runtime revisions and refreshes inventory', async () => {
     const harness = createArtifactServiceHarness();
     const model = harness.service.startDownload({

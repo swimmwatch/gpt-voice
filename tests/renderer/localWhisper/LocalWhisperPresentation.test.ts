@@ -197,6 +197,8 @@ describe('Local Whisper action and main status presentation', () => {
         TooltipProvider,
         null,
         createElement(LocalWhisperMainStatusIndicator, {
+          connectedLabel: 'Connected',
+          notConnectedLabel: 'Not connected',
           snapshot: mainStatus({ ...baseline, operationalStatus: 'Unsupported' }),
         }),
       ),
@@ -206,7 +208,7 @@ describe('Local Whisper action and main status presentation', () => {
     assert.match(markup, /border-0/u);
     assert.match(markup, /bg-transparent/u);
     assert.match(markup, /lucide-circle-off/u);
-    assert.match(markup, /aria-label="Unsupported\./u);
+    assert.match(markup, /aria-label="Not connected\./u);
     assert.doesNotMatch(markup, />Unsupported</u);
   });
 
@@ -240,11 +242,20 @@ describe('Local Whisper action and main status presentation', () => {
     });
     const presentation = getLocalWhisperMainStatusPresentation(snapshot);
     const markup = renderToStaticMarkup(
-      createElement(TooltipProvider, null, createElement(LocalWhisperMainStatusIndicator, { snapshot })),
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(LocalWhisperMainStatusIndicator, {
+          connectedLabel: 'Connected',
+          notConnectedLabel: 'Not connected',
+          snapshot,
+        }),
+      ),
     );
 
     assert.equal(presentation.label, 'Not ready');
     assert.equal(presentation.tone, 'blocked');
+    assert.match(markup, /aria-label="Not connected\./u);
     assert.match(markup, /lucide-circle-off/u);
     assert.doesNotMatch(markup, /lucide-circle-check/u);
   });

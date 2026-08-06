@@ -176,7 +176,6 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       config: this.dependencies.ipc.config,
       runtime: this.controllers.backgroundBrowserService,
       registry: this.controllers.voiceProviderRegistry,
-      localWhisper: this.controllers.localWhisperCoordinator,
       getReadinessRevision: () => this.controllers.localWhisperSnapshots.snapshot.snapshotRevision,
     });
     const ipcController = new MainIpcController({

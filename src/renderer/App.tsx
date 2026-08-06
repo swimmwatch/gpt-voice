@@ -78,7 +78,7 @@ import {
 const App: React.FC = () => {
   const desktopApi = useDesktopApi();
   const localWhisperMain = useLocalWhisperMainStatus(desktopApi);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialVoiceProviderLoading, setIsInitialVoiceProviderLoading] = useState(true);
   const [firstLaunchStartupState, dispatchFirstLaunchStartup] = useReducer(
     reduceFirstLaunchStartupState,
     createFirstLaunchStartupState(),
@@ -142,7 +142,7 @@ const App: React.FC = () => {
     prettifyPending: isInitialPrettifyProviderLoading,
     translationConnection: translationConnectionState,
     translationSettingsPending: !hasLoadedInitialTranslationSettings,
-    voicePending: isLoading,
+    voicePending: isInitialVoiceProviderLoading,
   });
 
   useWindowStartupReady(isI18nReady && !firstLaunchStartupPresentation.isPending);
@@ -365,7 +365,6 @@ const App: React.FC = () => {
     ): ProviderLoginState => {
       const loginState = getProviderLoginState(authType, hasSession, backgroundStatus);
       setIsLoggedIn(loginState.isLoggedIn);
-      setIsLoading(loginState.isLoading);
       setProviderConnectionReason(loginState.reason);
       setProviderConnectionFailureStatus(null);
 
@@ -391,13 +390,13 @@ const App: React.FC = () => {
   const handleProviderSelectionEvent = useEffectEvent((event: ProviderSelectionEvent): void => {
     switch (event.type) {
       case 'bootstrap-completed':
+        setIsInitialVoiceProviderLoading(false);
         setProviders(event.providers);
         if (event.providerId === null || event.authType === null) {
           activeProviderIdRef.current = null;
           activeProviderAuthTypeRef.current = null;
           setActiveProviderId(null);
           setIsLoggedIn(false);
-          setIsLoading(false);
           setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
           setProviderConnectionFailureStatus(null);
           return;
@@ -408,14 +407,13 @@ const App: React.FC = () => {
         applyProviderLoginState(event.authType, event.runtime.hasSession, event.runtime.backgroundStatus);
         return;
       case 'bootstrap-failed': {
-        setIsLoading(false);
+        setIsInitialVoiceProviderLoading(false);
         applyBrowserProviderFailure(event.error);
         return;
       }
       case 'switch-started':
         recordingActionsRef.current.cancelStreamingForProviderChange();
         setIsLoggingIn(false);
-        setIsLoading(true);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
         setProviderConnectionFailureStatus(null);
         return;
@@ -439,10 +437,7 @@ const App: React.FC = () => {
         }
         const committedProvider = providers.find((provider) => provider.id === event.result.committedProviderId);
         const committedAuthType = committedProvider?.authType ?? activeProviderAuthTypeRef.current;
-        if (committedAuthType === null) {
-          setIsLoading(false);
-          return;
-        }
+        if (committedAuthType === null) return;
         activeProviderIdRef.current = event.result.committedProviderId;
         activeProviderAuthTypeRef.current = committedAuthType;
         setActiveProviderId(event.result.committedProviderId);
@@ -462,10 +457,7 @@ const App: React.FC = () => {
         if (event.committedProviderId && event.runtime) {
           const committedProvider = providers.find((provider) => provider.id === event.committedProviderId);
           const committedAuthType = committedProvider?.authType ?? activeProviderAuthTypeRef.current;
-          if (committedAuthType === null) {
-            setIsLoading(false);
-            return;
-          }
+          if (committedAuthType === null) return;
           activeProviderIdRef.current = event.committedProviderId;
           activeProviderAuthTypeRef.current = committedAuthType;
           setActiveProviderId(event.committedProviderId);
@@ -485,7 +477,7 @@ const App: React.FC = () => {
         return;
       }
       case 'switch-settled':
-        setIsLoading(false);
+        return;
     }
   });
 
@@ -550,7 +542,6 @@ const App: React.FC = () => {
         }
         preserveStatusRef.current = false;
         setIsLoggedIn(true);
-        setIsLoading(false);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
         setProviderConnectionFailureStatus(null);
       }),
@@ -651,7 +642,6 @@ const App: React.FC = () => {
   const applyProviderSettingsSnapshot = useCallback(
     (settings: ProviderSettings): void => {
       if (settings.authType === 'browserSession') {
-        setIsLoading(false);
         setProviderConnectionFailureStatus(null);
         if (!settings.hasSession) {
           setIsLoggedIn(false);
@@ -668,7 +658,6 @@ const App: React.FC = () => {
         configured ? PROVIDER_CONNECTION_REASONS.ApiConfigured : PROVIDER_CONNECTION_REASONS.ApiNotConfigured,
       );
       setProviderConnectionFailureStatus(null);
-      setIsLoading(false);
       if (configured) {
         preserveStatusRef.current = false;
         setStatusAndNotify(translatedStatus('status.providerConfigured', { provider: activeProviderName }));

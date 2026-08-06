@@ -3,10 +3,13 @@ import { describe, it } from 'node:test';
 
 import {
   ProductionLocalWhisperEnvironmentFactory,
+  createLocalWhisperRendererOptions,
   createProductionLocalWhisperEnvironment,
   restoreLocalWhisperStartupDeviceTopology,
   type LocalWhisperProductionEnvironmentDependencies,
 } from '@main/localWhisper/composition/createProductionLocalWhisperEnvironment';
+import type { LocalWhisperAuthenticatedCatalog } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
+import type { LocalWhisperSettings, LocalWhisperSettingsValidationContext } from '@shared/localWhisper';
 import {
   PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
   createPackagedLocalWhisperCatalogTrustPolicy,
@@ -53,6 +56,85 @@ function dependencies(calls: { reads: number; spawns: number }): LocalWhisperPro
 }
 
 describe('production Local Whisper environment activation', () => {
+  it('keeps a trusted CUDA pack selectable for acquisition before device discovery', () => {
+    const payload = createQualificationCatalogPayload();
+    const sourceRuntime = payload.runtimes[0];
+    const model = payload.models[0];
+    assert.ok(sourceRuntime);
+    assert.ok(model);
+    const cudaRuntime = Object.freeze({
+      ...sourceRuntime,
+      identity: Object.freeze({
+        ...sourceRuntime.identity,
+        architecture: 'x64' as const,
+        backend: 'cuda' as const,
+        computeTargets: Object.freeze(['sm_120a-real']),
+        dependencyFamily: 'windows-msvc' as const,
+        platform: 'win32' as const,
+        target: 'gpu' as const,
+      }),
+    });
+    const catalog: LocalWhisperAuthenticatedCatalog = Object.freeze({
+      signingKeyId: cudaRuntime.identity.signingKeyId,
+      payload: Object.freeze({ ...payload, runtimes: Object.freeze([cudaRuntime]) }),
+      isModelDenylisted: () => false,
+      isRuntimeDenylisted: () => false,
+    });
+    const context: LocalWhisperSettingsValidationContext = Object.freeze({
+      architecture: 'x64',
+      eligibleGpuCombinations: Object.freeze([]),
+      knownDevices: Object.freeze([]),
+      knownModelSelections: Object.freeze([
+        {
+          engine: 'whisperCpp' as const,
+          family: model.identity.logicalModel,
+          recommended: model.recommended,
+          revision: model.identity.artifactRevision,
+          variant: model.identity.variant,
+        },
+      ]),
+      knownRuntimeSelections: Object.freeze([
+        {
+          backend: 'cuda' as const,
+          engine: 'whisperCpp' as const,
+          recommended: true,
+          revision: cudaRuntime.identity.packRevision,
+          target: 'gpu' as const,
+        },
+      ]),
+      logicalProcessorCount: 8,
+      platform: 'win32',
+    });
+    const settings: LocalWhisperSettings = Object.freeze({
+      decoding: Object.freeze({ strategy: 'greedy', temperatureHundredths: 0 }),
+      engine: 'whisperCpp',
+      execution: Object.freeze({ backend: 'cpu', cpuThreads: 'auto', target: 'cpu' }),
+      initialPrompt: '',
+      language: 'auto',
+      model: Object.freeze({
+        family: model.identity.logicalModel,
+        revision: model.identity.artifactRevision,
+        variant: model.identity.variant,
+      }),
+      runtimeRevision: null,
+      schemaVersion: 1,
+    });
+
+    const options = createLocalWhisperRendererOptions(catalog, context, settings, false);
+    const cudaRuntimeOption = options.find(
+      (option) => option.group === 'runtime' && option.id === cudaRuntime.identity.packRevision,
+    );
+    const cudaBackendOption = options.find((option) => option.group === 'backend' && option.id === 'cuda');
+    const gpuTargetOption = options.find((option) => option.group === 'target' && option.id === 'gpu');
+
+    assert.equal(cudaRuntimeOption?.available, true);
+    assert.equal(cudaRuntimeOption?.reason, null);
+    assert.equal(cudaBackendOption?.available, false);
+    assert.equal(cudaBackendOption?.reason, 'DEVICE_NOT_FOUND');
+    assert.equal(gpuTargetOption?.available, false);
+    assert.equal(gpuTargetOption?.reason, 'DEVICE_NOT_FOUND');
+  });
+
   it('restores startup topology when CUDA is already installed for the current host', async () => {
     const refreshes: number[] = [];
 

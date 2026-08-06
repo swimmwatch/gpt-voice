@@ -328,8 +328,8 @@ function option(input: {
   });
 }
 
-/** Projects only catalog and opaque runtime facts into renderer-safe options. */
-function rendererOptions(
+/** Projects catalog acquisition choices separately from trusted device execution choices. */
+export function createLocalWhisperRendererOptions(
   catalog: LocalWhisperAuthenticatedCatalog,
   context: LocalWhisperSettingsValidationContext,
   settings: LocalWhisperSettings,
@@ -349,9 +349,8 @@ function rendererOptions(
       vendor: vendorForBackend(identity.backend),
       hipApproved: false,
     });
-    const deviceUnavailable = identity.target === 'gpu' && context.knownDevices.length === 0;
     const blocked = catalog.isRuntimeDenylisted(getLocalWhisperRuntimeIdentityKey(identity));
-    const available = support.available && !deviceUnavailable && !blocked && entry.qualificationStatus !== 'planned';
+    const available = support.available && !blocked && entry.qualificationStatus !== 'planned';
     return option({
       group: 'runtime',
       id: identity.packRevision,
@@ -362,9 +361,7 @@ function rendererOptions(
         ? 'RUNTIME_BLOCKED'
         : entry.qualificationStatus === 'planned'
           ? 'RUNTIME_INCOMPATIBLE'
-          : deviceUnavailable
-            ? 'DEVICE_NOT_FOUND'
-            : support.failureCode,
+          : support.failureCode,
       selected: settings.runtimeRevision === identity.packRevision,
       recommended: entry.recommended,
       saved: configured && settings.runtimeRevision === identity.packRevision,
@@ -621,7 +618,12 @@ function factsSnapshot(
     : null;
   return Object.freeze({
     catalogRevision: catalog.payload.catalogRevision,
-    options: rendererOptions(catalog, context, settingsSnapshot.settings, settingsSnapshot.configured),
+    options: createLocalWhisperRendererOptions(
+      catalog,
+      context,
+      settingsSnapshot.settings,
+      settingsSnapshot.configured,
+    ),
     validationIssues: settingsSnapshot.repairIssues,
     host: Object.freeze({
       label:

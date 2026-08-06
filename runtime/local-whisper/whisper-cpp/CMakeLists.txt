@@ -11,6 +11,12 @@ if(NOT FETCHCONTENT_FULLY_DISCONNECTED)
   message(FATAL_ERROR "Local Whisper native builds must remain disconnected")
 endif()
 
+if(MSVC)
+  add_compile_options(
+    "$<$<COMPILE_LANGUAGE:C,CXX>:/experimental:deterministic;/pathmap:${CMAKE_BINARY_DIR}=.>"
+    "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/experimental:deterministic;-Xcompiler=/pathmap:${CMAKE_BINARY_DIR}=.>")
+endif()
+
 option(LOCAL_WHISPER_ENABLE_SANITIZERS "Enable ASan and UBSan" OFF)
 option(LOCAL_WHISPER_BUILD_ENGINE "Build the production Whisper.cpp worker" OFF)
 option(LOCAL_WHISPER_BUILD_DIRECT_ENGINE "Build the qualification-only direct engine" OFF)

@@ -10,7 +10,7 @@ import {
   createTranscriptionResultCacheKey,
 } from '@main/services/transcriptionResultCache';
 import type { TextActionResultCache } from '@main/services/textActionCache';
-import { RecordingVoiceProviderAudit } from './voiceAuditTestUtils';
+import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 import { RecordingTranscriptionHistoryRepository } from '../repositories/recordingTranscriptionHistoryRepository';
 import {
   createLocalWhisperActionFailure,
@@ -27,6 +27,7 @@ import {
 
 interface DispatchHarness {
   readonly audio: ArrayBuffer;
+  readonly audit: RecordingVoiceProviderAudit;
   readonly cache: TextActionResultCache;
   readonly clipboard: string[];
   readonly coordinator: RecordingLocalWhisperCoordinator;
@@ -58,8 +59,9 @@ function createHarness(audio = createCanonicalLocalWhisperWav()): DispatchHarnes
   const clipboard: string[] = [];
   const history = new RecordingTranscriptionHistoryRepository();
   const logs: unknown[][] = [];
+  const audit = new RecordingVoiceProviderAudit();
   const dispatch = new LocalWhisperTranscriptionDispatch({
-    audit: new RecordingVoiceProviderAudit(),
+    audit,
     cache,
     historyRepository: history,
     logger: {
@@ -83,7 +85,7 @@ function createHarness(audio = createCanonicalLocalWhisperWav()): DispatchHarnes
       text,
     );
   };
-  return { audio, cache, clipboard, coordinator, dispatch, events, history, logs, provider, seedCache };
+  return { audio, audit, cache, clipboard, coordinator, dispatch, events, history, logs, provider, seedCache };
 }
 
 function withSnapshot(
@@ -258,12 +260,21 @@ describe('LocalWhisperTranscriptionDispatch', () => {
   });
 
   it('keeps coordinator failure, cancellation, and empty output free of success mutations', async () => {
-    const outcomes = [
-      createLocalWhisperActionFailure('transcribe', 'TRANSCRIPTION_FAILED', READY_LOCAL_WHISPER_SNAPSHOT),
-      createLocalWhisperActionFailure('transcribe', 'CANCELLED', READY_LOCAL_WHISPER_SNAPSHOT),
-      createLocalWhisperActionSuccess('transcribe', READY_LOCAL_WHISPER_SNAPSHOT, '   '),
+    const cases = [
+      {
+        outcome: createLocalWhisperActionFailure('transcribe', 'TRANSCRIPTION_FAILED', READY_LOCAL_WHISPER_SNAPSHOT),
+        auditCause: 'unexpected-failure',
+      },
+      {
+        outcome: createLocalWhisperActionFailure('transcribe', 'CANCELLED', READY_LOCAL_WHISPER_SNAPSHOT),
+        auditCause: 'cancelled',
+      },
+      {
+        outcome: createLocalWhisperActionSuccess('transcribe', READY_LOCAL_WHISPER_SNAPSHOT, '   '),
+        auditCause: 'empty-result',
+      },
     ];
-    for (const outcome of outcomes) {
+    for (const { outcome, auditCause } of cases) {
       const harness = createHarness();
       harness.coordinator.transcriptionResult = outcome;
 
@@ -274,6 +285,7 @@ describe('LocalWhisperTranscriptionDispatch', () => {
       assert.equal(harness.history.addedEntries.length, 0);
       assert.equal(harness.cache.size(), 0);
       assert.equal(harness.events.includes('cache-write'), false);
+      assert.equal(getTerminalEvents(harness.audit.operations[0])[0]?.metadata?.causeCode, auditCause);
     }
   });
 

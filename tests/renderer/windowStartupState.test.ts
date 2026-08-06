@@ -35,7 +35,8 @@ describe('window startup state', () => {
     assert.match(source, /prettifyPending: isInitialPrettifyProviderLoading/u);
     assert.match(source, /translationConnection: translationConnectionState/u);
     assert.match(source, /translationSettingsPending: !hasLoadedInitialTranslationSettings/u);
-    assert.match(source, /voicePending: isLoading/u);
+    assert.match(source, /voicePending: isInitialVoiceProviderLoading/u);
+    assert.doesNotMatch(source, /voicePending: isLoading[,\s]/u);
     assert.match(source, /onFirstLaunchStartupSnapshot\(acceptSnapshot\)/u);
     assert.match(source, /getFirstLaunchStartupSnapshot\(\)\s*\.then\(acceptSnapshot\)/u);
     assert.ok(

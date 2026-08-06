@@ -188,7 +188,11 @@ function MainToolbar({
           {activeProviderId !== null &&
             (isLocalWhisperProvider ? (
               <>
-                <LocalWhisperMainStatusIndicator snapshot={localWhisperStatus} />
+                <LocalWhisperMainStatusIndicator
+                  connectedLabel={t('provider.connected')}
+                  notConnectedLabel={t('provider.notConnected')}
+                  snapshot={localWhisperStatus}
+                />
                 <LocalWhisperMainResidencyControl
                   failure={localWhisperResidencyFailure}
                   failureSequence={localWhisperResidencyFailureSequence}

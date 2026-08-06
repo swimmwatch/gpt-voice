@@ -67,6 +67,7 @@ export class RealArtifactClock implements ArtifactClock {
 
 export class MemoryArtifactJournalStore implements ArtifactTransferJournalStore {
   public readonly values = new Map<LocalWhisperArtifactId, unknown>();
+  public writes = 0;
 
   public async list(): Promise<readonly unknown[]> {
     return [...this.values.values()].map((value) => structuredClone(value));
@@ -78,6 +79,7 @@ export class MemoryArtifactJournalStore implements ArtifactTransferJournalStore 
   }
 
   public async write(artifactId: LocalWhisperArtifactId, value: unknown): Promise<void> {
+    this.writes += 1;
     this.values.set(artifactId, structuredClone(value));
   }
 
@@ -334,7 +336,7 @@ export function entry(
   });
 }
 
-export function createArtifactCatalogFixture(): ArtifactCatalogFixture {
+export function createArtifactCatalogFixture(modelTransfer: Uint8Array = MODEL_TRANSFER): ArtifactCatalogFixture {
   const source = createFixtureCatalogPayload();
   const sourceRuntime = source.runtimes[0];
   const sourceModel = source.models[0];
@@ -364,8 +366,8 @@ export function createArtifactCatalogFixture(): ArtifactCatalogFixture {
         sha256: sha256(MODEL_FILE),
       },
     ],
-    transferSizeBytes: MODEL_TRANSFER.byteLength,
-    transferSha256: sha256(MODEL_TRANSFER),
+    transferSizeBytes: modelTransfer.byteLength,
+    transferSha256: sha256(modelTransfer),
     installedSizeBytes: MODEL_FILE.byteLength,
   };
   const payload = { ...source, runtimes: [runtime], models: [model] };
@@ -384,8 +386,10 @@ export function createArtifactCatalogFixture(): ArtifactCatalogFixture {
   };
 }
 
-async function* byteStream(value: Uint8Array, start: number): AsyncIterable<Uint8Array> {
-  yield Uint8Array.from(value.subarray(start));
+async function* byteStream(value: Uint8Array, start: number, chunkBytes = value.byteLength): AsyncIterable<Uint8Array> {
+  for (let offset = start; offset < value.byteLength; offset += chunkBytes) {
+    yield Uint8Array.from(value.subarray(offset, Math.min(offset + chunkBytes, value.byteLength)));
+  }
 }
 
 export interface ArtifactServiceHarness {
@@ -407,11 +411,14 @@ export function createArtifactServiceHarness(
     readonly journalStore?: MemoryArtifactJournalStore;
     readonly worker?: FixtureStreamingArtifactWorker;
     readonly client?: RecordingArtifactHttpClient;
+    readonly modelTransfer?: Uint8Array;
+    readonly transferChunkBytes?: number;
   } = {},
 ): ArtifactServiceHarness {
-  const catalogFixture = createArtifactCatalogFixture();
+  const modelTransfer = options.modelTransfer ?? MODEL_TRANSFER;
+  const catalogFixture = createArtifactCatalogFixture(modelTransfer);
   const transfers = new Map([
-    [catalogFixture.model.requestUrl, MODEL_TRANSFER],
+    [catalogFixture.model.requestUrl, modelTransfer],
     [catalogFixture.runtime.requestUrl, RUNTIME_TRANSFER],
   ]);
   const client =
@@ -422,7 +429,7 @@ export function createArtifactServiceHarness(
       const start = request.rangeStart ?? 0;
       return {
         status: start > 0 ? 206 : 200,
-        body: byteStream(value, start),
+        body: byteStream(value, start, options.transferChunkBytes),
         headers: {
           contentLength: value.byteLength - start,
           contentRange: start > 0 ? `bytes ${start}-${value.byteLength - 1}/${value.byteLength}` : null,
@@ -435,7 +442,7 @@ export function createArtifactServiceHarness(
   const worker = options.worker ?? new FixtureStreamingArtifactWorker();
   worker.fixtures.set(catalogFixture.model.artifactId, {
     entries: [entry(catalogFixture.model.expectedFiles[0].fileId, MODEL_FILE)],
-    transferSha256: sha256(MODEL_TRANSFER),
+    transferSha256: sha256(modelTransfer),
   });
   worker.fixtures.set(catalogFixture.runtime.artifactId, {
     entries: [

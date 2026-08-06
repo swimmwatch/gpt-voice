@@ -26,7 +26,8 @@ describe('Local Whisper UI contracts', () => {
     const statusBranch = toolbar.indexOf('isLocalWhisperProvider ?');
     const loginBranch = toolbar.indexOf(': isLoggedIn ?');
     assert.ok(statusBranch >= 0 && loginBranch > statusBranch);
-    assert.match(toolbar, /<LocalWhisperMainStatusIndicator snapshot=\{localWhisperStatus\}/u);
+    assert.match(toolbar, /<LocalWhisperMainStatusIndicator[\s\S]*snapshot=\{localWhisperStatus\}/u);
+    assert.match(toolbar, /notConnectedLabel=\{t\('provider\.notConnected'\)\}/u);
     assert.match(toolbar, /<LocalWhisperMainResidencyControl/u);
     assert.match(app, /useLocalWhisperMainStatus\(desktopApi\)/u);
     assert.doesNotMatch(toolbar.slice(statusBranch, loginBranch), /onProviderLogin|LogIn/u);

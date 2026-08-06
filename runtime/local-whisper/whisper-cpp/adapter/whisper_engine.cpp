@@ -201,7 +201,9 @@ whisper_full_params inference_parameters(const TranscriptionOptions& options,
       options.initial_prompt.empty() ? nullptr : options.initial_prompt.c_str();
   parameters.carry_initial_prompt = false;
   parameters.language = options.language.empty() ? nullptr : options.language.c_str();
-  parameters.detect_language = options.language.empty() || options.language == "auto";
+  // whisper.cpp already auto-detects when language is null or "auto". Its
+  // detect_language flag is detection-only and returns before transcription.
+  parameters.detect_language = false;
   parameters.temperature = static_cast<float>(options.temperature_hundredths) / 100.0F;
   parameters.temperature_inc = 0.0F;
   parameters.vad = false;
