@@ -8059,3 +8059,267 @@ decisions:
     rationale: The user explicitly authorized the approved Task 20 candidate-independent Linux preflight. The execution is limited to local deterministic checks and safe documentation handoff updates; every network, hardware, private-evidence, candidate-freeze, commit, push, and downstream-packet boundary remains excluded.
     supersedes_revision: null
     requirement_ids: [REL-001, COMP-012, MODEL-011, QUAL-001, QUAL-002, QUAL-003, QUAL-004, PRIV-005, OPS-003]
+
+  - id: compatibility.hardware-matched-cuda-runtime-delivery
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested RTX 30-, 40-, and 50-series support through separate Linux and Windows task packets.
+      - The user explicitly required runtime download and installation choices to be derived from the user's GPU and other compatibility parameters rather than exposing every catalog artifact.
+      - NVIDIA's current CUDA GPU table maps GeForce RTX 30, 40, and 50 families to compute capabilities 8.6, 8.9, and 12.0 respectively.
+      - CUDA Toolkit 12.8.1 nvcc supports `sm_86`, `sm_89`, `sm_120`, and `sm_120a`; CMake accepts an explicit list of real and virtual CUDA architectures.
+      - The current product catalog publishes one hard-coded `sm-120a` CUDA row and renderer-safe runtime options are filtered only by OS and CPU architecture, so hardware applicability is not currently available before installation.
+    prompt_mcp: null
+    question:
+      text: How should Local Whisper deliver CUDA runtimes for RTX 30-, 40-, and 50-series hardware?
+      kind: single
+      options:
+        - id: hardware-matched-runtime-only
+          label: Hardware-matched runtime only
+          description: Publish independently authenticated compute-target runtime packs and expose/download only the exact pack applicable to the selected device and host prerequisites.
+        - id: unified-fat-runtime
+          label: Unified multi-architecture runtime
+          description: Publish one larger CUDA pack containing all supported targets and offer the same download on every supported NVIDIA device.
+    answer:
+      selected_ids: [hardware-matched-runtime-only]
+      text: ''
+    rationale: The current user instruction explicitly requires a hardware-derived runtime and forbids presenting every available download or installation option. Independently versioned compute-target packs satisfy that contract and avoid transferring unrelated device code.
+    supersedes_revision: null
+    requirement_ids: [CAP-018, COMP-013, DIST-003, RUNTIME-005, UI-010]
+
+  - id: compatibility.hardware-suitability-filter-boundary
+    revision: 1
+    category: compatibility
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - Compute capability, platform, CPU architecture, driver version, total RAM/VRAM, and installed disk capacity are stable enough to determine whether a runtime or model can ever be applicable on the current host.
+      - Free RAM, free VRAM, and free disk space are transient; using them to remove catalog choices would make valid options disappear while other applications are running.
+      - Existing Local Whisper requirements prohibit automatic backend, device, runtime, model, or CPU fallback and already perform authoritative resource validation before load.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [stable-capability-filter-transient-load-gate]
+      text: ''
+    rationale: Filter renderer choices by stable applicability and express transient resource shortage as an unavailable/retryable state. Recheck free resources before download and load without silently changing the selection.
+    supersedes_revision: null
+    requirement_ids: [CAP-018, COMP-013, UI-010, VAL-004]
+
+  - id: compatibility.rtx-family-scope
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - NVIDIA lists both desktop and laptop GeForce RTX products within the 30-, 40-, and 50-series compute-capability families.
+      - Desktop and laptop products share compute targets but differ materially in VRAM capacity, power limits, sustained performance, and qualification coverage.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: rtx-runtime-scope-round-85
+      question_id: compatibility.rtx-family-scope
+      idempotency_key: compatibility.rtx-family-scope:v1
+      last_status: answered
+      sequence: 66
+      revision: 1
+    question:
+      text: Which RTX 30-, 40-, and 50-series devices should the support contract cover?
+      kind: single
+      options:
+        - id: desktop-and-laptop
+          label: Desktop and laptop GPUs (Recommended)
+          description: Support GeForce desktop and laptop devices in the three compute-capability families, subject to driver and per-model memory requirements.
+        - id: desktop-only
+          label: Desktop GPUs only
+          description: Limit the initial support and qualification contract to desktop GeForce cards.
+        - id: tested-devices-only
+          label: Named tested devices only
+          description: Support only individually allowlisted GPU models that receive representative qualification evidence.
+    answer:
+      selected_ids: [desktop-and-laptop]
+      text: ''
+    rationale: The user explicitly selected desktop and laptop GeForce RTX 30-, 40-, and 50-series devices, with final applicability still constrained by exact compute target, driver, and resource requirements.
+    supersedes_revision: null
+    requirement_ids: [COMP-013, QUAL-005]
+
+  - id: acceptance.cuda-compute-target-qualification
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - A successful `sm_120a` build or RTX 50 run does not execute or validate the `sm_86` and `sm_89` runtime packs.
+      - Linux and Windows have distinct native workers, dependency closures, packaging, process ownership, resource sampling, and driver behavior.
+      - The existing specification does not permit one operating system's NVIDIA evidence to substitute for the other.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: rtx-runtime-scope-round-85
+      question_id: acceptance.cuda-compute-target-qualification
+      idempotency_key: acceptance.cuda-compute-target-qualification:v1
+      last_status: answered
+      sequence: 67
+      revision: 1
+    question:
+      text: What hardware evidence should be required before RTX 30-, 40-, and 50-series CUDA support is labeled Production?
+      kind: single
+      options:
+        - id: each-target-each-os
+          label: Every target on both OSes (Recommended)
+          description: Require representative `sm_86`, `sm_89`, and `sm_120a` execution on both Linux and Windows before each platform family becomes Production.
+        - id: each-target-one-os
+          label: Every target on one OS
+          description: Run each target on one operating system and rely on deterministic build/package checks for the other.
+        - id: implementation-only
+          label: Implementation readiness only
+          description: Build and expose all targets but keep their support conditional without mandatory representative hardware qualification.
+    answer:
+      selected_ids: [each-target-each-os]
+      text: ''
+    rationale: The user explicitly requires representative `sm_86`, `sm_89`, and `sm_120a` execution on both Linux and Windows before the corresponding RTX-family CUDA support is labeled Production.
+    supersedes_revision: null
+    requirement_ids: [QUAL-005, AC-MAN-017, AC-MAN-018]
+
+  - id: acceptance.revision-16-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: a supported RTX 30-, 40-, or 50-series desktop/laptop device receives only its exact hardware-applicable CUDA runtime and compatible model setup actions; unsupported or temporarily resource-constrained states have bounded recovery guidance and no fallback.'
+      - 'Operator perspective: the base installer remains small, runtime transfer stays explicit, the driver remains system-owned, CUDA 13-capable drivers can execute the bundled CUDA 12.8.1 runtime when they meet the pack floor, and each runtime remains independently signed, denylistable, removable, and auditable.'
+      - 'Implementer perspective: the inference worker/protocol/provider/artifact pipeline remain reusable; the cross-cutting work is isolated to pre-install inventory, applicability resolution, settings keys/migration, catalog projection, per-target build metadata, and qualification matrices.'
+      - 'Tester perspective: deterministic tests cover malformed/ambiguous inventory, exact one-pack resolution, migration, transient resource changes, cross-target substitution, and six independent Linux/Windows hardware cells, with one target or OS unable to satisfy another.'
+      - 'Security-reviewer perspective: main uses a reviewed absolute-path shell-free NVIDIA inventory boundary, retains raw hardware identities privately, exposes only opaque applicable options, authenticates every compatibility field, and preserves the post-install worker device-proof authority.'
+      - 'Maintainer perspective: three explicit real-code targets avoid opaque fat binaries and PTX-JIT behavior; unknown future compute capabilities remain unsupported until an intentional catalog/profile/specification revision, while current CPU, AMD Preview, model, provider, and release-trust contracts remain intact.'
+      - Research, specification, decision-ledger, Prettier, and whitespace checks pass for revision 16 Draft artifacts.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved product, failure, interface, privacy, migration, compatibility, or acceptance decision after the user's scope and qualification answers were committed.
+    supersedes_revision: null
+    requirement_ids: [CAP-018, COMP-013, DIST-003, PRIV-006, QUAL-005, RUNTIME-005, UI-010, VAL-004, AC-AUTO-078, AC-AUTO-079, AC-AUTO-080, AC-AUTO-081, AC-AUTO-082, AC-MAN-017, AC-MAN-018]
+
+  - id: approval.spec
+    revision: 16
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 16 maps RTX 30, 40, and 50 desktop/laptop families to independently authenticated Linux/Windows `sm_86-real`, `sm_89-real`, and `sm_120a-real` CUDA 12.8.1 packs.
+      - Main-owned pre-install hardware inventory and authenticated applicability metadata ensure renderer snapshots expose only the matching runtime and suitable model setup actions without raw hardware data.
+      - Runtime download remains an explicit user action; stored selections never migrate silently; transient resource shortages disable/retry rather than hide or replace a valid selection; no PTX, CPU, backend, device, runtime, or model fallback is introduced.
+      - Existing worker registry/device proof remains authoritative after installation, so hardware detection is not treated as execution proof.
+      - Each of the three compute targets requires representative physical execution on both Linux and Windows before its platform cell is Production-eligible.
+      - The research and six-perspective gap analysis find the change cross-cutting but not an inference rewrite: build/catalog/capability/qualification are the primary affected areas.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-19
+      question_id: approval.spec
+      idempotency_key: approval.spec:v16
+      last_status: answered
+      sequence: 68
+      revision: 16
+      supersedes_revision: 15
+    question:
+      text: How should Local Whisper specification revision 16 proceed after adding hardware-matched RTX 30/40/50 runtime delivery and per-target qualification?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 16 (Recommended)
+          description: Make the per-target packs, pre-install applicability filter, migration, privacy, and six-cell qualification contract authoritative.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 16 in Draft and revise hardware scope, filtering, runtime packaging, migration, driver, privacy, or qualification behavior.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 15 remains the approved specification baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved specification revision 16 through the durable workspace interview. Hardware-matched RTX 30/40/50 runtime delivery, main-owned applicability filtering, preserved explicit download and no-fallback behavior, private hardware evidence, safe settings migration, and independent Linux/Windows qualification for all three compute targets are now authoritative.
+    supersedes_revision: 15
+    requirement_ids: []
+
+  - id: acceptance.user-available-rtx-evidence
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly stated that they cannot test on RTX 30- or RTX 40-series GPUs and can test only on RTX 50-series hardware.
+      - The repository already records an available Linux RTX 5070 Ti Laptop GPU with compute capability 12.0.
+      - The user previously reported an available Windows RTX 5090 host with current NVIDIA drivers.
+      - Revision 16 requires independent physical execution evidence for `sm_86`, `sm_89`, and `sm_120a` on both Linux and Windows before each cell is Production-eligible.
+    prompt_mcp: null
+    question:
+      text: Which RTX compute-target hardware can the user personally test?
+      kind: multiple
+      options:
+        - id: sm120a-only
+          label: RTX 50 only
+          description: The user can supply physical-device evidence only for `sm_120a`; RTX 30/40 require external representative hosts.
+    answer:
+      selected_ids: [sm120a-only]
+      text: ''
+    rationale: RTX 30/40 support remains in scope, but the user's implementation sessions cannot complete or waive their Linux/Windows physical-hardware gates. Those cells remain Pending until separate representative hardware is available.
+    supersedes_revision: null
+    requirement_ids: [QUAL-006, OPS-004, AC-MAN-017, AC-MAN-018]
+
+  - id: acceptance.revision-17-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: available RTX 50 systems can validate the matching `sm_120a` flow without creating an expectation that the user obtain RTX 30/40 hardware.'
+      - 'Operator perspective: unavailable `sm_86`/`sm_89` hardware evidence is reported as Pending with an external-host requirement, not fabricated, waived, or misreported as a product failure.'
+      - 'Implementer perspective: deterministic RTX 30/40 build, catalog, filtering, packaging, and test work remains executable; implementation handoff is not blocked by unavailable representative hardware.'
+      - 'Tester perspective: Linux/Windows `sm_120a` manual gates are locally executable, while four RTX 30/40 platform cells remain separately traceable manual gates that RTX 50, mocks, compilation, or CI cannot satisfy.'
+      - 'Security-reviewer perspective: no new hardware identity, diagnostics, network, process, IPC, or privacy behavior is introduced by recording evidence availability.'
+      - 'Maintainer perspective: RTX 30/40 support scope and qualification standards remain unchanged; only test ownership and Pending-state reporting are clarified for future task packets and handoffs.'
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The clarification changes no runtime behavior, support target, fallback rule, or Production threshold; it prevents planning from assigning unavailable physical-hardware execution to the user.
+    supersedes_revision: null
+    requirement_ids: [QUAL-006, OPS-004, AC-MAN-017, AC-MAN-018]
+
+  - id: approval.spec
+    revision: 17
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 17 records that the user can test only RTX 50 / `sm_120a` hardware on their available Linux and Windows systems.
+      - RTX 30 / `sm_86` and RTX 40 / `sm_89` support remains in scope and retains the same per-OS Production qualification requirement.
+      - Implementation packets may complete deterministic non-hardware work for RTX 30/40 and hand off with their representative physical-device checks explicitly Pending.
+      - RTX 50 runs, mocks, emulation, compile-only checks, or CI cannot satisfy or waive an unavailable RTX 30/40 hardware cell.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-20
+      question_id: approval.spec
+      idempotency_key: approval.spec:v17
+      last_status: answered
+      sequence: 69
+      revision: 17
+      supersedes_revision: 16
+    question:
+      text: How should Local Whisper specification revision 17 proceed after recording that the user can test only RTX 50-series hardware?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 17 (Recommended)
+          description: Keep RTX 30/40 support in scope, allow implementation handoff with their physical gates Pending, and assign those gates to future external representative hosts.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 17 in Draft and revise which support targets, gates, or evidence-ownership constraints remain.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 16 remains the approved specification baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 17. Their available RTX 50 Linux/Windows systems may execute only `sm_120a` hardware gates; RTX 30/40 implementation remains in scope while `sm_86`/`sm_89` physical qualification stays Pending for future external representative hosts.
+    supersedes_revision: 16
+    requirement_ids: []

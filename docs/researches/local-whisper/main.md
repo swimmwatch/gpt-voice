@@ -1,6 +1,6 @@
 # Local Whisper Runtime and GPU Compatibility Research
 
-Date: 2026-07-31
+Date: 2026-08-06
 Scope: local Whisper inference engines, NVIDIA/AMD feasibility, future Apple Silicon direction, model artifacts, device validation, and packaging constraints
 
 ## Executive Conclusion
@@ -218,8 +218,100 @@ A read-only probe on 2026-07-31 observed:
 - an additional Intel integrated GPU.
 
 This can support NVIDIA Linux qualification and hybrid-device selection tests.
-It supplies no evidence for Windows, AMD, or Apple Silicon. Windows NVIDIA
-production eligibility remains conditional on a separate hardware gate.
+The user additionally reports an available Windows RTX 5090 host with current
+drivers. The user cannot test on RTX 30- or RTX 40-series hardware; their
+available NVIDIA devices cover only RTX 50 / compute capability 12.0. They can
+therefore supply `sm_120a` execution evidence on Linux and Windows, but no
+`sm_86` or `sm_89` physical-device evidence. Those four platform/target gates
+require separately authorized external representative hardware and must remain
+Pending until it exists. RTX 50 evidence does not substitute for them. The
+available systems also supply no AMD or Apple Silicon evidence.
+
+## RTX 30, 40, and 50 Runtime Applicability Update
+
+NVIDIA's current compute-capability table maps GeForce RTX 30, RTX 40, and RTX
+50 desktop and laptop families to compute capabilities 8.6, 8.9, and 12.0.
+CUDA Toolkit 12.8.1 can emit `sm_86`, `sm_89`, `sm_120`, and `sm_120a` code.
+CMake supports explicit per-target real or virtual architecture lists, while
+`whisper.cpp` exposes the CUDA build through `GGML_CUDA` and forwards an
+explicit `CMAKE_CUDA_ARCHITECTURES` value.
+
+One `sm_120a-real` worker is therefore not an RTX 30/40/50 compatibility
+artifact. NVIDIA documents that cubins are compatible only within allowed
+compute-capability relationships and that an application fails when neither a
+compatible cubin nor PTX is present. Architecture-conditional `a` targets are
+not general forward/backward-compatibility artifacts. The selected product
+contract should consequently publish independently authenticated
+`sm_86-real`, `sm_89-real`, and `sm_120a-real` packs per operating system and
+must not use PTX JIT or a mismatched cubin as silent fallback.
+
+The installed CUDA Toolkit is not a user prerequisite because the application
+runtime pack owns its reviewed CUDA runtime/cuBLAS closure. The NVIDIA driver
+remains system-owned. CUDA 12.x minor-version compatibility has documented
+driver floors, but the product should retain stricter pack-specific minimum
+drivers from its qualified toolchain profiles and reject a driver that does not
+meet the selected pack's exact prerequisite. A host with a CUDA 13-capable
+driver can run the shipped CUDA 12.8 application runtime through NVIDIA's
+backward driver compatibility; the user's separately installed toolkit does
+not select the pack.
+
+### Pre-install discovery and option filtering
+
+The current implementation cannot satisfy hardware-matched first installation:
+
+- the qualification catalog producer requires exactly one CPU and one CUDA
+  runtime and hard-codes `sm-120a`;
+- the production settings context filters runtime rows only by operating system
+  and CPU architecture;
+- GPU identity is normally discovered from the already installed worker, which
+  creates a circular dependency when the application must choose a pack before
+  downloading that worker;
+- the stored runtime-selection key and renderer option compatibility do not
+  distinguish CUDA compute targets; and
+- the current shell-free, exact-path `nvidia-smi` adapter reads only free VRAM,
+  although the same main-owned boundary can be extended to collect a bounded
+  pre-install inventory such as PCI identity, compute capability, driver
+  version, and total/free VRAM.
+
+The least disruptive architecture is one main-owned pre-install NVIDIA
+inventory service behind the existing external-command port. It should use
+only reviewed absolute `nvidia-smi` locations, no shell and no ambient `PATH`,
+strictly bound output, project hardware identities to per-install opaque IDs,
+and retain raw PCI/driver/device data in main. The authenticated catalog then
+feeds a pure applicability resolver. Renderer snapshots receive only suitable
+CPU/CUDA devices, runtime revisions, model installation actions, and sanitized
+reasons. The installed worker's existing registry and device-proof protocol
+remain authoritative after download, so pre-install discovery never proves
+execution by itself.
+
+Stable suitability inputs are platform, CPU architecture/ISA, selected GPU,
+compute capability, driver floor, total RAM/VRAM, catalog compatibility, and
+installed-disk capacity. Transient free RAM/VRAM/disk must be rechecked before
+download and load, but should disable the applicable action with a recovery
+message rather than make a valid option appear and disappear. Unknown,
+malformed, unsupported, or changed hardware fails closed without offering a
+CUDA download and without silently selecting CPU, another GPU, another pack,
+or another model.
+
+### Expected implementation impact
+
+This is a cross-cutting compatibility expansion, not a rewrite of inference.
+
+| Area | Impact | Expected change |
+| --- | --- | --- |
+| `whisper.cpp` inference and framed worker protocol | Low | Rebuild unchanged pinned sources for two additional real CUDA targets; retain load, transcription, cancellation, and device proof. |
+| Toolchain locks, native build, manifests, SBOM, signing, and runtime-pack production | High | Add four new OS/target profiles and packs (`sm_86`/`sm_89` on Linux and Windows), make target identity explicit, and reproduce/audit every archive independently. |
+| Catalog and settings contracts | Medium-high | Replace the one-CUDA-row assumption, add compute-target applicability to runtime selection, and migrate stored selections without silently changing an existing revision. |
+| Pre-install capability discovery | Medium-high | Add a bounded main-owned NVIDIA inventory before worker installation, opaque device projection, driver/compute/memory validation, refresh/staleness handling, and post-install reconciliation. |
+| Renderer | Low-medium | Reuse current Select, artifact, status, tooltip, and button components while projecting only applicable actions and one matching runtime per selected device. |
+| Packaging, CI, and qualification | High | Multiply deterministic CUDA artifacts and require representative `sm_86`, `sm_89`, and `sm_120a` execution on both Linux and Windows before Production claims. |
+
+Most provider, IPC transport, artifact download/extraction, managed filesystem,
+model authority, worker supervision, residency, transcription, and unload code
+can remain unchanged. A reasonable planning estimate is that roughly 15–25%
+of the Local Whisper integration surface will be touched, concentrated in
+catalog/selection, capability discovery, build metadata, tests, and evidence.
+The native speech-recognition algorithm does not need to be rewritten.
 
 ## Authoritative Sources
 
@@ -240,6 +332,14 @@ production eligibility remains conditional on a separate hardware gate.
 - [AMD Windows HIP SDK requirements](https://rocm.docs.amd.com/projects/install-on-windows/en/latest/reference/system-requirements.html)
 - [AMD Windows component limitations](https://rocm.docs.amd.com/projects/install-on-windows/en/latest/conceptual/component-support.html)
 - [CUDA 12.4 driver compatibility](https://docs.nvidia.com/cuda/archive/12.4.0/cuda-toolkit-release-notes/index.html#cuda-toolkit-and-minimum-required-driver-version-for-cuda-minor-version-compatibility)
+- [NVIDIA CUDA GPU compute-capability table](https://developer.nvidia.com/cuda-gpus)
+- [CUDA 12.8.1 nvcc architecture targets](https://docs.nvidia.com/cuda/archive/12.8.1/cuda-compiler-driver-nvcc/index.html#gpu-feature-list)
+- [CUDA Blackwell application compatibility](https://docs.nvidia.com/cuda/blackwell-compatibility-guide/index.html)
+- [CUDA minor-version compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html)
+- [CUDA 12.8.1 release and driver versions](https://docs.nvidia.com/cuda/archive/12.8.1/cuda-toolkit-release-notes/index.html#cuda-toolkit-and-minimum-required-driver-version-for-cuda-minor-version-compatibility)
+- [CMake `CUDA_ARCHITECTURES`](https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html)
+- [NVIDIA System Management Interface](https://docs.nvidia.com/deploy/nvidia-smi/index.html)
+- [CUDA Driver API device attributes](https://docs.nvidia.com/cuda/archive/12.8.1/cuda-driver-api/group__CUDA__DEVICE.html)
 - [CUDA redistribution terms](https://docs.nvidia.com/cuda/eula/index.html#attachment-a)
 - [Vulkan support checks](https://docs.vulkan.org/guide/latest/checking_for_support.html)
 - [DirectML maintenance status](https://github.com/microsoft/DirectML#readme)
