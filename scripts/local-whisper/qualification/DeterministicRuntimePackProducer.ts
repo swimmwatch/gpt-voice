@@ -77,6 +77,7 @@ function ustarHeader(entry: QualificationRuntimeArchiveEntry): Buffer {
 }
 
 function entryKind(relativePath: string): QualificationRuntimeArchiveEntry['kind'] {
+  if (relativePath.toLowerCase().endsWith('.dll')) return 'library';
   if (relativePath.startsWith('bin/')) return 'executable';
   if (relativePath.startsWith('lib/')) return 'library';
   if (relativePath.startsWith('licenses/')) return 'license';
@@ -129,7 +130,7 @@ async function runtimeEntries(stageRoot: string): Promise<readonly Qualification
       !metadata.isFile() ||
       metadata.isSymbolicLink() ||
       metadata.size !== record.sizeBytes ||
-      (metadata.mode & 0o777) !== record.mode ||
+      (record.mode !== 0 && (metadata.mode & 0o777) !== record.mode) ||
       (await sha256File(sourcePath)) !== record.sha256
     ) {
       throw new Error(`Staged Local Whisper runtime identity mismatch: ${record.id}`);

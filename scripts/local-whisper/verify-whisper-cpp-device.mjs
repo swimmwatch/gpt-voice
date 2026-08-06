@@ -3,7 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import { captureToolchainInputLock, verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import { auditWindows } from './verify-windows-runtime-pack.mjs';
 import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
 import { cudaStageRoot } from './stage-whisper-cpp-cuda.mjs';
 import {
@@ -13,7 +14,6 @@ import {
   taskCacheRoot,
   toolchainRoot,
   whisperCppRoot,
-  workspaceRoot,
 } from './whisper-cpp-build-core.mjs';
 
 export const CUDA_PROFILE = 'linux-x64-cuda-12.8.1-sm120a-v1';
@@ -259,9 +259,9 @@ export function verifyLinuxCudaPack() {
   return { binary, root };
 }
 
-export function verifyWindowsCudaContract() {
-  const profile = requireProfile(WINDOWS_CUDA_PROFILE);
-  verifyToolchainContract(profile, { contractOnly: true });
+export function verifyWindowsCudaPack() {
+  const profile = captureToolchainInputLock(requireProfile(WINDOWS_CUDA_PROFILE), toolchainRoot);
+  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false });
   const authority = readFileSync(
     resolve(whisperCppRoot, 'platform', 'windows', 'device_authority_windows.cpp'),
     'utf8',
@@ -270,10 +270,5 @@ export function verifyWindowsCudaContract() {
   assert.match(authority, /STD_INPUT_HANDLE/u);
   const cmake = readFileSync(resolve(whisperCppRoot, 'CMakeLists.txt'), 'utf8');
   assert.match(cmake, /windows-x64-cuda-12\.8\.1-sm120a-v1/u);
-  const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
-  const windowsJob = workflow.slice(workflow.indexOf('native-quality-windows:'), workflow.indexOf('\n  quality:'));
-  assert.match(windowsJob, /runs-on: windows-latest/u);
-  assert.match(windowsJob, /windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1/u);
-  assert.match(windowsJob, /--contract-only/u);
-  assert.doesNotMatch(windowsJob, /linux-x64-cuda-12\.8\.1-sm120a-v1/u);
+  auditWindows(WINDOWS_CUDA_PROFILE);
 }

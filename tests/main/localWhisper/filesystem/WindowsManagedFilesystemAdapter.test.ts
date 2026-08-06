@@ -11,6 +11,7 @@ import {
   ManagedArtifactStore,
   ManagedArtifactStoreError,
   getManagedArtifactFileName,
+  getManagedArtifactStorageFileName,
   type ManagedArtifactDescriptor,
 } from '@main/localWhisper/filesystem/ManagedArtifactStore';
 import { ManagedArtifactLockRepository } from '@main/localWhisper/filesystem/ManagedArtifactLockRepository';
@@ -123,6 +124,37 @@ afterEach(async () => {
 });
 
 describe('WindowsManagedFilesystemAdapter real handle contract', { skip: process.platform !== 'win32' }, () => {
+  test('maps authenticated runtime roles to canonical Windows loader names', () => {
+    const roles = [
+      ['worker', 'executable', 'worker.exe'],
+      ['runtime-microsoft-vc-runtime-14.51.36247.0-msvcp140', 'library', 'msvcp140.dll'],
+      ['runtime-microsoft-vc-runtime-14.51.36247.0-vcruntime140', 'library', 'vcruntime140.dll'],
+      ['runtime-microsoft-vc-runtime-14.51.36247.0-vcruntime140-1', 'library', 'vcruntime140_1.dll'],
+      ['runtime-cuda-runtime-12.8.1', 'library', 'cudart64_12.dll'],
+      ['runtime-cublas-12.8.1', 'library', 'cublas64_12.dll'],
+      ['runtime-cublas-lt-12.8.1', 'library', 'cublasLt64_12.dll'],
+    ] as const;
+    const canonicalName = `runtime-${sha256('windows-runtime-loader-fixture')}`;
+    const descriptor: ManagedArtifactDescriptor = Object.freeze({
+      artifactId: artifactId(canonicalName),
+      canonicalName,
+      catalogDigest: sha256('windows-runtime-loader-catalog'),
+      expectedFiles: Object.freeze(
+        roles.map(([fileId, kind]) =>
+          Object.freeze({ fileId: artifactId(fileId), kind, mode: 0, sha256: sha256(fileId), sizeBytes: 1 }),
+        ),
+      ),
+      identityKey: 'windows-runtime-loader-fixture',
+      kind: 'runtime',
+      namespace: 'runtimes',
+      runtimePlatform: 'win32',
+    });
+    assert.deepEqual(
+      descriptor.expectedFiles.map((file) => getManagedArtifactStorageFileName(descriptor, file.fileId)),
+      roles.map(([, , fileName]) => fileName),
+    );
+  });
+
   test('promotes, reopens, and exactly deletes a managed artifact', async () => {
     const harness = await createHarness('install-delete');
     await harness.store.initialize();

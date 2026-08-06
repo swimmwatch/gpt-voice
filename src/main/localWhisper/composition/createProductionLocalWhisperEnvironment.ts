@@ -846,6 +846,8 @@ export class ProductionLocalWhisperEnvironmentFactory {
               environment: this.dependencies.environment,
               getProcessStartIdentity: (pid) => adapter.getProcessStartIdentity(pid),
               launcherExecutablePath: resources.launcherExecutable,
+              launcherExecutableSha256: resources.launcherSha256,
+              modelGuardExecutablePath: resources.filesystemGuardExecutable,
               spawnProcess: this.dependencies.spawnProcess,
             });
       const createWorkerOwnership = (role: 'registry' | 'session'): WorkerProcessOwnership =>

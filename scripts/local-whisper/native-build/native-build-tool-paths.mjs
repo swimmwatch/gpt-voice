@@ -1,17 +1,19 @@
 import { resolve } from 'node:path';
 
-/** Resolves explicit overrides or the repository-pinned Linux native build tools. */
+/** Resolves explicit overrides or the repository-pinned native build tools. */
 export function resolveNativeBuildToolPaths({ environment, platform, workspaceRoot }) {
-  if (platform !== 'linux') {
+  const toolchainRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains');
+  if (platform === 'win32') {
     return Object.freeze({
-      cmake: environment.CMAKE_COMMAND || 'cmake',
-      compiler: environment.CXX || null,
-      ninja: environment.NINJA_COMMAND || null,
+      cmake: resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'cmake.exe'),
+      ctest: resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest.exe'),
+      compiler: resolve(toolchainRoot, 'msvc-14.39', 'bin', 'Hostx64', 'x64', 'cl.exe'),
+      ninja: resolve(toolchainRoot, 'ninja-1.12.1', 'ninja.exe'),
     });
   }
-  const toolchainRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains');
   return Object.freeze({
     cmake: environment.CMAKE_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'cmake'),
+    ctest: environment.CTEST_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest'),
     compiler: environment.CXX || resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin', 'clang++'),
     ninja: environment.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja'),
   });

@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
+import process from 'node:process';
 import test from 'node:test';
 
 import Ajv2020 from 'ajv/dist/2020.js';
@@ -283,101 +284,113 @@ test('sanitizer fixture identity is complete, immutable, and bound by the Clang 
   ]);
 });
 
-test('tool capture preserves reviewed multi-call invocation paths while hashing canonical bytes', () => {
-  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-multicall-tool-'));
-  const driver = resolve(root, 'canonical-driver');
-  const invocation = resolve(root, 'reviewed-invocation');
-  writeFileSync(
-    driver,
-    '#!/bin/sh\ncase "$0" in\n  *reviewed-invocation) printf "reviewed-mode\\n" ;;\n  *) exit 9 ;;\nesac\n',
-    { mode: 0o700 },
-  );
-  symlinkSync(driver, invocation);
+test(
+  'tool capture preserves reviewed multi-call invocation paths while hashing canonical bytes',
+  { skip: process.platform !== 'linux' },
+  () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-multicall-tool-'));
+    const driver = resolve(root, 'canonical-driver');
+    const invocation = resolve(root, 'reviewed-invocation');
+    writeFileSync(
+      driver,
+      '#!/bin/sh\ncase "$0" in\n  *reviewed-invocation) printf "reviewed-mode\\n" ;;\n  *) exit 9 ;;\nesac\n',
+      { mode: 0o700 },
+    );
+    symlinkSync(driver, invocation);
 
-  const profile = readJson(resolve(toolchainRoot, 'profiles', 'linux-x64-clang-18.1.3-asan-ubsan-v1.json'));
-  profile.qualificationState = 'candidate-unqualified';
-  profile.evidenceDigest = null;
-  for (const tool of profile.tools) {
-    tool.pathKind = 'systemAbsolute';
-    tool.path = invocation;
-    tool.version = 'reviewed-mode';
-    tool.sha256 = null;
-  }
-  for (const component of [...profile.runtime, ...profile.licenses]) {
-    if (component.pathKind === 'outputRelative') continue;
-    component.pathKind = 'systemAbsolute';
-    component.path = driver;
-    component.sha256 = null;
-  }
-  for (const dependency of profile.dynamicDependencies) {
-    const runtime = profile.runtime.find(({ id }) => id === dependency.id);
-    dependency.pathKind = runtime.pathKind;
-    dependency.path = runtime.path;
-    dependency.sha256 = null;
-  }
+    const profile = readJson(resolve(toolchainRoot, 'profiles', 'linux-x64-clang-18.1.3-asan-ubsan-v1.json'));
+    profile.qualificationState = 'candidate-unqualified';
+    profile.evidenceDigest = null;
+    for (const tool of profile.tools) {
+      tool.pathKind = 'systemAbsolute';
+      tool.path = invocation;
+      tool.version = 'reviewed-mode';
+      tool.sha256 = null;
+    }
+    for (const component of [...profile.runtime, ...profile.licenses]) {
+      if (component.pathKind === 'outputRelative') continue;
+      component.pathKind = 'systemAbsolute';
+      component.path = driver;
+      component.sha256 = null;
+    }
+    for (const dependency of profile.dynamicDependencies) {
+      const runtime = profile.runtime.find(({ id }) => id === dependency.id);
+      dependency.pathKind = runtime.pathKind;
+      dependency.path = runtime.path;
+      dependency.sha256 = null;
+    }
 
-  const captured = captureToolchainInputLock(profile, root);
-  const expectedSha256 = sha256(readFileSync(driver));
-  assert.equal(resolveProfileTool(captured, root, 'linker'), invocation);
-  assert.equal(
-    captured.tools.every(({ sha256: toolSha256 }) => toolSha256 === expectedSha256),
-    true,
-  );
-});
+    const captured = captureToolchainInputLock(profile, root);
+    const expectedSha256 = sha256(readFileSync(driver));
+    assert.equal(resolveProfileTool(captured, root, 'linker'), invocation);
+    assert.equal(
+      captured.tools.every(({ sha256: toolSha256 }) => toolSha256 === expectedSha256),
+      true,
+    );
+  },
+);
 
-test('strict qualification evidence rejects boolean-only and missing executable facts', () => {
-  const profile = qualifiedCandidateProfile();
-  const evidence = completeEvidence(profile);
-  const schema = readJson(resolve(toolchainRoot, 'schema', 'native-toolchain-evidence.schema.json'));
-  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
-  assert.equal(validate(evidence), true, JSON.stringify(validate.errors));
-  assert.equal(verifyQualificationEvidence(profile, evidence), true);
-  assert.equal(qualifyToolchainProfile(profile, evidence).qualificationState, 'qualified');
+test(
+  'strict qualification evidence rejects boolean-only and missing executable facts',
+  { skip: process.platform !== 'linux' },
+  () => {
+    const profile = qualifiedCandidateProfile();
+    const evidence = completeEvidence(profile);
+    const schema = readJson(resolve(toolchainRoot, 'schema', 'native-toolchain-evidence.schema.json'));
+    const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
+    assert.equal(validate(evidence), true, JSON.stringify(validate.errors));
+    assert.equal(verifyQualificationEvidence(profile, evidence), true);
+    assert.equal(qualifyToolchainProfile(profile, evidence).qualificationState, 'qualified');
 
-  const booleanOnly = { ...evidence, cleanStartVerified: true };
-  assert.equal(validate(booleanOnly), false);
-  const missingTrigger = globalThis.structuredClone(evidence);
-  missingTrigger.executions.pop();
-  assert.throws(() => verifyQualificationEvidence(profile, missingTrigger));
-  const successfulTrigger = globalThis.structuredClone(evidence);
-  successfulTrigger.executions[1].exitStatus = 0;
-  assert.throws(() => verifyQualificationEvidence(profile, successfulTrigger));
-  const changedProfile = globalThis.structuredClone(profile);
-  changedProfile.cmakeCache.CMAKE_CXX_STANDARD = '23';
-  assert.throws(() => verifyQualificationEvidence(changedProfile, evidence));
-  const leakedToolPath = globalThis.structuredClone(evidence);
-  leakedToolPath.toolIdentities[0].path = '/private/build-root/tool';
-  assert.throws(() => verifyQualificationEvidence(profile, leakedToolPath));
-});
+    const booleanOnly = { ...evidence, cleanStartVerified: true };
+    assert.equal(validate(booleanOnly), false);
+    const missingTrigger = globalThis.structuredClone(evidence);
+    missingTrigger.executions.pop();
+    assert.throws(() => verifyQualificationEvidence(profile, missingTrigger));
+    const successfulTrigger = globalThis.structuredClone(evidence);
+    successfulTrigger.executions[1].exitStatus = 0;
+    assert.throws(() => verifyQualificationEvidence(profile, successfulTrigger));
+    const changedProfile = globalThis.structuredClone(profile);
+    changedProfile.cmakeCache.CMAKE_CXX_STANDARD = '23';
+    assert.throws(() => verifyQualificationEvidence(changedProfile, evidence));
+    const leakedToolPath = globalThis.structuredClone(evidence);
+    leakedToolPath.toolIdentities[0].path = '/private/build-root/tool';
+    assert.throws(() => verifyQualificationEvidence(profile, leakedToolPath));
+  },
+);
 
-test('readelf closure accepts only staged or reviewed identities and ignores a malicious CWD', () => {
-  const implementation = readFileSync(
-    resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-build', 'elf-dependency-core.mjs'),
-    'utf8',
-  );
-  assert.doesNotMatch(implementation, /\bldd\b/u);
-  const fixture = compileClosureFixture();
-  const maliciousCwd = resolve(fixture.root, 'malicious-cwd');
-  mkdirSync(maliciousCwd, { mode: 0o700 });
-  writeFileSync(resolve(maliciousCwd, 'liblocal_whisper_fixture.so.1'), 'malicious\n', { mode: 0o600 });
-  const closure = verifyElfDependencyClosure(closureInputs(fixture));
-  assert.deepEqual(
-    closure.records.map(({ fileId }) => fileId),
-    ['clean-start', 'fixture-library'],
-  );
-  assert.equal(
-    closure.records[0].needed.find(({ soname }) => soname === 'liblocal_whisper_fixture.so.1').resolutionKind,
-    'staged',
-  );
-  assert.throws(() =>
-    verifyElfDependencyClosure({
-      ...closureInputs(fixture),
-      environment: { LANG: 'C', LD_LIBRARY_PATH: maliciousCwd },
-    }),
-  );
-});
+test(
+  'readelf closure accepts only staged or reviewed identities and ignores a malicious CWD',
+  { skip: process.platform !== 'linux' },
+  () => {
+    const implementation = readFileSync(
+      resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-build', 'elf-dependency-core.mjs'),
+      'utf8',
+    );
+    assert.doesNotMatch(implementation, /\bldd\b/u);
+    const fixture = compileClosureFixture();
+    const maliciousCwd = resolve(fixture.root, 'malicious-cwd');
+    mkdirSync(maliciousCwd, { mode: 0o700 });
+    writeFileSync(resolve(maliciousCwd, 'liblocal_whisper_fixture.so.1'), 'malicious\n', { mode: 0o600 });
+    const closure = verifyElfDependencyClosure(closureInputs(fixture));
+    assert.deepEqual(
+      closure.records.map(({ fileId }) => fileId),
+      ['clean-start', 'fixture-library'],
+    );
+    assert.equal(
+      closure.records[0].needed.find(({ soname }) => soname === 'liblocal_whisper_fixture.so.1').resolutionKind,
+      'staged',
+    );
+    assert.throws(() =>
+      verifyElfDependencyClosure({
+        ...closureInputs(fixture),
+        environment: { LANG: 'C', LD_LIBRARY_PATH: maliciousCwd },
+      }),
+    );
+  },
+);
 
-test('readelf closure fails when a required staged library is missing', () => {
+test('readelf closure fails when a required staged library is missing', { skip: process.platform !== 'linux' }, () => {
   const fixture = compileClosureFixture();
   const inputs = closureInputs(fixture);
   const absent = `${fixture.library}.absent`;
@@ -386,27 +399,31 @@ test('readelf closure fails when a required staged library is missing', () => {
   renameSync(absent, fixture.library);
 });
 
-test('relocated synthetic stage starts network-denied with an empty inherited environment', () => {
-  const fixture = compileClosureFixture();
-  const relocatedRoot = resolve(fixture.root, 'relocated');
-  const maliciousCwd = resolve(fixture.root, 'malicious-relocation-cwd');
-  mkdirSync(resolve(relocatedRoot, 'bin'), { mode: 0o700, recursive: true });
-  mkdirSync(resolve(relocatedRoot, 'lib'), { mode: 0o700, recursive: true });
-  mkdirSync(maliciousCwd, { mode: 0o700 });
-  copyFileSync(fixture.binary, resolve(relocatedRoot, 'bin', 'clean-start'));
-  copyFileSync(fixture.library, resolve(relocatedRoot, 'lib', 'liblocal_whisper_fixture.so.1'));
-  chmodSync(resolve(relocatedRoot, 'bin', 'clean-start'), 0o755);
-  writeFileSync(resolve(maliciousCwd, 'liblocal_whisper_fixture.so.1'), 'malicious\n', { mode: 0o600 });
-  const relocatedFixture = {
-    ...fixture,
-    stagingRoot: relocatedRoot,
-  };
-  assert.equal(verifyElfDependencyClosure(closureInputs(relocatedFixture, relocatedRoot)).records.length, 2);
-  const result = run('/usr/bin/unshare', ['-Urn', '--', resolve(relocatedRoot, 'bin', 'clean-start')], {
-    cwd: maliciousCwd,
-    env: { LANG: 'C', LC_ALL: 'C' },
-    allowFailure: true,
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /LOCAL_WHISPER_RELOCATED_CLEAN_OK/u);
-});
+test(
+  'relocated synthetic stage starts network-denied with an empty inherited environment',
+  { skip: process.platform !== 'linux' },
+  () => {
+    const fixture = compileClosureFixture();
+    const relocatedRoot = resolve(fixture.root, 'relocated');
+    const maliciousCwd = resolve(fixture.root, 'malicious-relocation-cwd');
+    mkdirSync(resolve(relocatedRoot, 'bin'), { mode: 0o700, recursive: true });
+    mkdirSync(resolve(relocatedRoot, 'lib'), { mode: 0o700, recursive: true });
+    mkdirSync(maliciousCwd, { mode: 0o700 });
+    copyFileSync(fixture.binary, resolve(relocatedRoot, 'bin', 'clean-start'));
+    copyFileSync(fixture.library, resolve(relocatedRoot, 'lib', 'liblocal_whisper_fixture.so.1'));
+    chmodSync(resolve(relocatedRoot, 'bin', 'clean-start'), 0o755);
+    writeFileSync(resolve(maliciousCwd, 'liblocal_whisper_fixture.so.1'), 'malicious\n', { mode: 0o600 });
+    const relocatedFixture = {
+      ...fixture,
+      stagingRoot: relocatedRoot,
+    };
+    assert.equal(verifyElfDependencyClosure(closureInputs(relocatedFixture, relocatedRoot)).records.length, 2);
+    const result = run('/usr/bin/unshare', ['-Urn', '--', resolve(relocatedRoot, 'bin', 'clean-start')], {
+      cwd: maliciousCwd,
+      env: { LANG: 'C', LC_ALL: 'C' },
+      allowFailure: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /LOCAL_WHISPER_RELOCATED_CLEAN_OK/u);
+  },
+);

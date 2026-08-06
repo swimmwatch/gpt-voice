@@ -10,8 +10,14 @@ namespace local_whisper::fs_guard {
 namespace {
 
 bool is_runtime_launch_file_name(const std::string_view value) noexcept {
-  if (value == "worker")
-    return true;
+  constexpr std::array<std::string_view, 8> exact_names = {
+      "worker",           "worker.exe",         "msvcp140.dll",
+      "vcruntime140.dll", "vcruntime140_1.dll", "cudart64_12.dll",
+      "cublas64_12.dll",  "cublasLt64_12.dll"};
+  for (const auto name : exact_names) {
+    if (value == name)
+      return true;
+  }
   constexpr std::array<std::string_view, 3> prefixes = {"libcudart.so.", "libcublas.so.",
                                                         "libcublasLt.so."};
   for (const auto prefix : prefixes) {

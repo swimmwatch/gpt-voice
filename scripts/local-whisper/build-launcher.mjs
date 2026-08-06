@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
+import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 
 const workspaceRoot = resolve(import.meta.dirname, '..', '..');
 const sourceDirectory = resolve(workspaceRoot, 'runtime', 'local-whisper', 'launcher');
@@ -26,15 +27,25 @@ const configureArguments = [
   preset,
   `-DLOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY=${outputDirectory}`,
 ];
-if (process.platform === 'linux') {
+if (process.platform === 'linux' || process.platform === 'win32') {
   configureArguments.push(`-DCMAKE_CXX_COMPILER=${tools.compiler}`);
   configureArguments.push(`-DCMAKE_MAKE_PROGRAM=${tools.ninja}`);
 }
+const buildEnvironment =
+  process.platform === 'win32'
+    ? resolveWindowsMsvcBuildEnvironment({
+        environment: process.env,
+        includeCuda: false,
+        toolchainRoot: resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),
+        tools,
+      })
+    : process.env;
 
 function run(arguments_) {
   const result = spawnSync(tools.cmake, arguments_, {
     cwd: sourceDirectory,
     encoding: 'utf8',
+    env: buildEnvironment,
     shell: false,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

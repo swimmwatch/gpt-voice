@@ -63,8 +63,8 @@ function loader(arguments_: readonly string[], isPackaged = false, openFile = op
     },
     isPackaged,
     openFile,
-    platform: 'linux',
-    userId: process.getuid?.(),
+    platform: process.platform,
+    userId: process.platform === 'linux' ? process.getuid?.() : undefined,
   });
 }
 
@@ -73,8 +73,12 @@ describe('LocalWhisperDevelopmentActivationLoader', () => {
     root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-activation-'));
     const certificatePath = path.join(root, 'certificate.pem');
     const keyPath = path.join(root, 'certificate-key.pem');
+    const openssl =
+      process.platform === 'win32'
+        ? path.join(process.env.ProgramFiles ?? '', 'Git', 'usr', 'bin', 'openssl.exe')
+        : '/usr/bin/openssl';
     const generated = spawnSync(
-      '/usr/bin/openssl',
+      openssl,
       [
         'req',
         '-x509',
@@ -147,7 +151,12 @@ describe('LocalWhisperDevelopmentActivationLoader', () => {
     });
 
     const linkPath = path.join(root, 'activation-link.json');
-    await symlink(valid, linkPath);
+    try {
+      await symlink(valid, linkPath);
+    } catch (error) {
+      assert.equal((error as NodeJS.ErrnoException).code, 'EPERM');
+      return;
+    }
     assert.deepEqual(await loader([`${LOCAL_WHISPER_DEVELOPMENT_ACTIVATION_ARGUMENT}${linkPath}`]).load(), {
       status: 'unavailable',
     });

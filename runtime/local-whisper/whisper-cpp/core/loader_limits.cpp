@@ -9,7 +9,7 @@ namespace generated_limits = local_whisper::whisper_cpp::generated;
 LoaderLimits::LoaderLimits() {
   if (generated_limits::kTableId != std::string_view("whisper-cpp-loader-limits-v1") ||
       generated_limits::kTableSha256 !=
-          std::string_view("5585ea2aeeb4d4b6a4293f8a044487e8d629d899e9d760d9f143a9fb4c702ff5")) {
+          std::string_view("fa66ffe2e61ff30d649bf45b0c4b37a659a230c1159dffbeb51c329c3687bd7a")) {
     throw CoreError(FailureCode::model_load_failed, "loader limit identity mismatch");
   }
 }

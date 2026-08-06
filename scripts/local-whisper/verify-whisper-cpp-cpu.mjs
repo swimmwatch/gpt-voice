@@ -6,7 +6,8 @@ import process from 'node:process';
 
 import { cpuStageRoot } from './stage-whisper-cpp-cpu.mjs';
 import { canonicalDigest, sha256 } from './source-import/native-source-core.mjs';
-import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import { captureToolchainInputLock, verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import { auditWindows } from './verify-windows-runtime-pack.mjs';
 import {
   approvedMediumModel,
   captureWorkerRegistry,
@@ -28,6 +29,7 @@ import {
   requireProfile,
   sourceLockPath,
   taskCacheRoot,
+  toolchainRoot,
   whisperCppRoot,
   workspaceRoot,
 } from './whisper-cpp-build-core.mjs';
@@ -235,17 +237,15 @@ function verifyLinux(profileId) {
   runSelfTest(pack.binary);
 }
 
-function verifyWindowsContract(profileId, contractOnly) {
-  assert.equal(contractOnly, true, 'Windows Task 10 verification is contract-only');
-  const profile = requireProfile(profileId);
-  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: true });
+function verifyWindowsPack(profileId) {
+  const profile = captureToolchainInputLock(requireProfile(profileId), toolchainRoot);
+  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false });
   const authority = readFileSync(resolve(whisperCppRoot, 'platform', 'windows', 'model_authority_windows.cpp'), 'utf8');
   const channel = readFileSync(resolve(whisperCppRoot, 'platform', 'windows', 'worker_protocol_windows.cpp'), 'utf8');
   for (const marker of [
     '#include <algorithm>',
     'GetFileInformationByHandleEx',
     'GetFileSizeEx',
-    'FILE_ACCESS_INFO',
     'OVERLAPPED',
     'ReadFile',
     'CloseHandle',
@@ -255,12 +255,7 @@ function verifyWindowsContract(profileId, contractOnly) {
   }
   for (const marker of ['ReadFile', 'WriteFile', 'decode_frame', 'validate_bounded_json'])
     assert.ok(channel.includes(marker), `Windows worker protocol contract: ${marker}`);
-  const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
-  const windowsJob = workflow.slice(workflow.indexOf('native-quality-windows:'), workflow.indexOf('\n  quality:'));
-  assert.match(windowsJob, /runs-on: windows-latest/u);
-  assert.match(windowsJob, /windows-x64-cpu-msvc-19\.39-v1/u);
-  assert.match(windowsJob, /--contract-only/u);
-  assert.doesNotMatch(windowsJob, /linux-x64-cpu-baseline-v1/u);
+  auditWindows(profileId);
 }
 
 async function probeIntegration(binary) {
@@ -434,9 +429,10 @@ try {
   const includeCancellation = arguments_.has('include-cancellation');
   if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
   if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
-    if (includeCancellation) throw new Error('Windows contract cannot execute cancellation');
-    if (mode !== 'verify') throw new Error('Windows contract supports verify mode only');
-    verifyWindowsContract(profileId, contractOnly);
+    if (contractOnly) throw new Error('Task 24 Windows verification requires the materialized runtime pack');
+    if (includeCancellation) throw new Error('Windows CPU cancellation is owned by the native integration suite');
+    if (mode !== 'verify') throw new Error('Windows CPU verification supports verify mode only');
+    verifyWindowsPack(profileId);
   } else if (profileId === 'linux-x64-cpu-baseline-v1') {
     if (contractOnly) throw new Error('Linux CPU verification cannot be contract-only');
     if (includeCancellation && mode !== 'integration')

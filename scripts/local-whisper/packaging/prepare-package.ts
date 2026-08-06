@@ -41,12 +41,15 @@ function buildHelpers(platform: 'darwin' | 'linux' | 'win32'): LocalWhisperHelpe
   const localCmake = path.join(localToolchains, 'cmake-3.31.8', 'bin', 'cmake');
   const localNinja = path.join(localToolchains, 'ninja-1.12.1', 'ninja');
   const localClang = path.join(localToolchains, 'clang-18.1.3', 'usr', 'bin', 'clang++-18');
-  const buildEnvironment = {
-    ...process.env,
-    CMAKE_COMMAND: requiredTool(process.env.CMAKE_COMMAND, 'cmake', localCmake),
-    NINJA_COMMAND: optionalTool(process.env.NINJA_COMMAND, 'ninja', localNinja),
-    CXX: requiredTool(process.env.CXX, 'clang++', localClang),
-  };
+  const buildEnvironment =
+    platform === 'win32'
+      ? process.env
+      : {
+          ...process.env,
+          CMAKE_COMMAND: requiredTool(process.env.CMAKE_COMMAND, 'cmake', localCmake),
+          NINJA_COMMAND: optionalTool(process.env.NINJA_COMMAND, 'ninja', localNinja),
+          CXX: requiredTool(process.env.CXX, 'clang++', localClang),
+        };
   for (const script of ['build-fs-guard.mjs', 'build-launcher.mjs']) {
     const result = spawnSync(process.execPath, [path.join(workspaceRoot, 'scripts', 'local-whisper', script)], {
       cwd: workspaceRoot,

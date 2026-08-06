@@ -14,9 +14,11 @@ import {
 
 const OUTPUT_ROOT = resolve(workspaceRoot, '.cache', 'local-whisper', 'qualification', 'runtime-packs');
 
-function profileFor(backend) {
-  if (backend === 'cpu') return 'linux-x64-cpu-baseline-v1';
-  if (backend === 'cuda') return 'linux-x64-cuda-12.8.1-sm120a-v1';
+function profileFor(backend, platform) {
+  if (platform === 'win32' && backend === 'cpu') return 'windows-x64-cpu-msvc-19.39-v1';
+  if (platform === 'win32' && backend === 'cuda') return 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
+  if (platform === 'linux' && backend === 'cpu') return 'linux-x64-cpu-baseline-v1';
+  if (platform === 'linux' && backend === 'cuda') return 'linux-x64-cuda-12.8.1-sm120a-v1';
   throw new Error('Expected --backend=cpu or --backend=cuda');
 }
 
@@ -33,21 +35,22 @@ function resetOutput(path) {
   mkdirSync(path, { mode: 0o700, recursive: true });
 }
 
-function buildAndStage(profileId, backend, repetition) {
+function buildAndStage(profileId, backend, platform, repetition) {
   const configured = configureBuild(profileId, {
     engine: true,
-    networkDenied: true,
-    rootTag: `task19-runtime-${backend}-${repetition}`,
+    networkDenied: platform === 'linux',
+    rootTag: `${platform === 'win32' ? 'task24-windows' : 'task19'}-runtime-${backend}-${repetition}`,
     tests: false,
   });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
   return backend === 'cpu'
-    ? stageCpuPack(profileId, configured.buildRoot)
-    : stageCudaPack(profileId, configured.buildRoot);
+    ? stageCpuPack(profileId, configured.buildRoot, configured.profile)
+    : stageCudaPack(profileId, configured.buildRoot, configured.profile);
 }
 
-async function produce(backend) {
-  const profileId = profileFor(backend);
+async function produce(backend, platform) {
+  if (platform !== process.platform) throw new Error(`Runtime pack production requires native ${platform}`);
+  const profileId = profileFor(backend, platform);
   requireVerifiedInputs(profileId);
   const backendRoot = resolve(OUTPUT_ROOT, backend);
   resetOutput(backendRoot);
@@ -55,13 +58,13 @@ async function produce(backend) {
   const secondOutput = resolve(backendRoot, 'build-b');
   const producer = new DeterministicRuntimePackProducer();
 
-  const firstStage = buildAndStage(profileId, backend, 'a');
+  const firstStage = buildAndStage(profileId, backend, platform, 'a');
   const first = await producer.produce({
     stageRoot: firstStage,
     outputDirectory: firstOutput,
     profileId,
   });
-  const secondStage = buildAndStage(profileId, backend, 'b');
+  const secondStage = buildAndStage(profileId, backend, platform, 'b');
   const second = await producer.produce({
     stageRoot: secondStage,
     outputDirectory: secondOutput,
@@ -72,11 +75,12 @@ async function produce(backend) {
 
   const reproducibility = {
     schemaVersion: 1,
-    specificationRevision: 10,
+    specificationRevision: platform === 'win32' ? 17 : 10,
     backend,
     profileId,
     cleanRootCount: 2,
-    networkIsolation: 'user-network-namespace',
+    networkIsolation:
+      platform === 'win32' ? 'fetchcontent-disconnected-isolated-toolchain' : 'user-network-namespace',
     archiveSha256: first.archive.sha256,
     packRecordDigest: canonicalDigest(first),
     reproducible: true,
@@ -98,4 +102,5 @@ async function produce(backend) {
 }
 
 const backendArgument = process.argv.find((value) => value.startsWith('--backend='));
-await produce(backendArgument?.slice('--backend='.length));
+const platformArgument = process.argv.find((value) => value.startsWith('--platform='));
+await produce(backendArgument?.slice('--backend='.length), platformArgument?.slice('--platform='.length) ?? 'linux');

@@ -24,16 +24,25 @@ import {
 
 const sha = (digit: string): string => digit.repeat(64);
 
-function runtime(backend: 'cpu' | 'cuda'): QualificationRuntimeCatalogSeed {
+function runtime(backend: 'cpu' | 'cuda', platform: 'linux' | 'win32' = 'linux'): QualificationRuntimeCatalogSeed {
   const cpu = backend === 'cpu';
   return {
     backend,
+    platform,
+    architecture: 'x64',
     archiveFileName: `runtime-${backend}.tar.gz`,
     archiveSizeBytes: cpu ? 100 : 200,
     archiveSha256: cpu ? sha('1') : sha('2'),
     archiveSignature: Buffer.from(`signature-${backend}`).toString('base64'),
     buildRevision: cpu ? sha('3') : sha('4'),
-    packRevision: `linux-x64-${backend}-v2.4.0`,
+    packRevision:
+      platform === 'linux'
+        ? cpu
+          ? 'whisper-cpp-linux-x64-cpu-baseline-v1'
+          : 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1'
+        : cpu
+          ? 'whisper-cpp-windows-x64-cpu-v1'
+          : 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
     expectedFiles: [
       {
         fileId: toLocalWhisperArtifactId('worker')!,
@@ -54,6 +63,7 @@ function runtime(backend: 'cpu' | 'cuda'): QualificationRuntimeCatalogSeed {
 describe('LocalWhisperQualificationCatalogProducer', () => {
   it('produces an authenticated closed six-model/two-runtime qualification payload', () => {
     const payload = new LocalWhisperQualificationCatalogProducer().produce({
+      platform: 'linux',
       candidateSemVer: '2.4.0',
       catalogRevision: 'qualification-catalog-v2.4.0',
       qualificationKeyId: 'qualification-key-v1',
@@ -124,6 +134,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
   it('rejects non-loopback runtime origins and incomplete runtime matrices', () => {
     const producer = new LocalWhisperQualificationCatalogProducer();
     const seed = {
+      platform: 'linux',
       candidateSemVer: '2.4.0',
       catalogRevision: 'qualification-catalog-v2.4.0',
       qualificationKeyId: 'qualification-key-v1',
@@ -134,5 +145,52 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
     } as const;
     assert.throws(() => producer.produce({ ...seed, runtimeOrigin: 'https://example.com' }), /loopback/u);
     assert.throws(() => producer.produce({ ...seed, runtimes: [runtime('cpu')] }), /one CPU and one CUDA/u);
+    assert.throws(
+      () => producer.produce({ ...seed, runtimes: [runtime('cpu'), runtime('cuda', 'win32')] }),
+      /platform contract/u,
+    );
+  });
+
+  it('produces only the closed Windows x64 CPU and sm_120a rows', () => {
+    const payload = new LocalWhisperQualificationCatalogProducer().produce({
+      platform: 'win32',
+      candidateSemVer: '2.4.0',
+      catalogRevision: 'windows-development-catalog-v2.4.0',
+      qualificationKeyId: 'qualification-key-v1',
+      runtimeOriginId: 'qualification-runtime-origin',
+      runtimeOrigin: 'https://127.0.0.1:39443',
+      sourceCommit: 'a'.repeat(40),
+      runtimes: [runtime('cuda', 'win32'), runtime('cpu', 'win32')],
+      qualificationStatus: 'estimateOnly',
+    });
+    assert.deepEqual(
+      payload.runtimes.map(({ identity }) => ({
+        platform: identity.platform,
+        architecture: identity.architecture,
+        backend: identity.backend,
+        packRevision: identity.packRevision,
+        computeTargets: identity.computeTargets,
+      })),
+      [
+        {
+          platform: 'win32',
+          architecture: 'x64',
+          backend: 'cpu',
+          packRevision: 'whisper-cpp-windows-x64-cpu-v1',
+          computeTargets: ['x86-64-sse2'],
+        },
+        {
+          platform: 'win32',
+          architecture: 'x64',
+          backend: 'cuda',
+          packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
+          computeTargets: ['sm-120a'],
+        },
+      ],
+    );
+    assert.equal(
+      payload.models.every(({ compatibleRuntimePackRevisions }) => compatibleRuntimePackRevisions.length === 2),
+      true,
+    );
   });
 });

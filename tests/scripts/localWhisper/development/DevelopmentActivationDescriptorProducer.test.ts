@@ -18,6 +18,7 @@ import type { DevelopmentRuntimeInput } from '@scripts/local-whisper/development
 import { EphemeralQualificationTlsIdentityFactory } from '@scripts/local-whisper/qualification/EphemeralQualificationTlsIdentity';
 
 function runtime(backend: 'cpu' | 'cuda', index: number): DevelopmentRuntimeInput {
+  const platform = process.platform === 'win32' ? 'win32' : 'linux';
   return Object.freeze({
     backend,
     archivePath: `/tmp/development-${backend}.tar.gz`,
@@ -25,8 +26,17 @@ function runtime(backend: 'cpu' | 'cuda', index: number): DevelopmentRuntimeInpu
     archiveSha256: String(index + 1).repeat(64),
     catalog: Object.freeze({
       backend,
+      platform,
+      architecture: 'x64',
       buildRevision: String(index + 5).repeat(64),
-      packRevision: `development-${backend}-runtime-v1`,
+      packRevision:
+        platform === 'win32'
+          ? backend === 'cpu'
+            ? 'whisper-cpp-windows-x64-cpu-v1'
+            : 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1'
+          : backend === 'cpu'
+            ? 'whisper-cpp-linux-x64-cpu-baseline-v1'
+            : 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
       expectedFiles: Object.freeze([
         Object.freeze({
           fileId: toLocalWhisperArtifactId(`development-${backend}-worker`)!,
@@ -63,6 +73,7 @@ describe('DevelopmentActivationDescriptorProducer', () => {
         appRevision: '2.4.0',
         certificatePem: tls.certificatePem,
         descriptorPath,
+        platform: process.platform === 'win32' ? 'win32' : 'linux',
         resourcesPath: path.join(root, 'resources'),
         runtimeAttestation,
         runtimeOrigin: 'https://127.0.0.1:39443',
@@ -79,8 +90,8 @@ describe('DevelopmentActivationDescriptorProducer', () => {
           }).load().success,
         isPackaged: false,
         openFile: openLocalWhisperActivationFile,
-        platform: 'linux',
-        userId: process.getuid?.(),
+        platform: process.platform,
+        userId: process.platform === 'linux' ? process.getuid?.() : undefined,
       }).load();
       assert.equal(activation.status, 'active');
       if (activation.status !== 'active' || !activation.catalogInput.trustPolicy) return;

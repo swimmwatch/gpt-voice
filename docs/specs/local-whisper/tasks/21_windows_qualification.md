@@ -2,34 +2,40 @@
 
 ## Outcome
 
-On an authorized representative Windows x64 host, consume Task 24's verified
-Windows delivery tooling plus the unchanged Task 25 shared candidate and read-only Linux branch, freeze a distinct Windows
-platform input/profile graph, then execute and seal the complete Windows CPU
-and NVIDIA CUDA technical qualification for all six canonical models.
+On authorized representative Windows x64 hosts, consume Tasks 24/26 verified
+Windows delivery tooling plus the unchanged Task 25 shared candidate and
+read-only Linux branch, freeze a distinct Windows platform input/profile graph,
+then execute and seal the complete Windows CPU plus `sm_86`/`sm_89`/`sm_120a`
+NVIDIA CUDA technical qualification for all six canonical models.
 
 Validate the real Windows filesystem, launcher/Job Object, worker, runtime
 pack, installer/package, transport, lifecycle, resource, privacy, offline, and
-predecessor behavior implemented by Tasks 19, 23, and 24. Produce one privacy-safe Windows
-result/evidence branch for Task 22 without mutating shared or Linux evidence.
+predecessor behavior implemented by Tasks 19, 23, 24, and 26. Produce one
+privacy-safe Windows result/evidence branch for Task 22 without mutating shared
+or Linux evidence.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 21 are approved.
-- Tasks 19, 20, 23, 24, and 25 are complete and committed; Task 23 automated
+- Specification revision 17 and plan revision 23 are approved.
+- Tasks 19, 20, 23, 24, 26, and 25 are complete and committed; Task 23 automated
   acceptance and `AC-MAN-016` passed before Task 25 froze the shared candidate.
-- Task 24's exact Windows CPU/CUDA workers and reproducible runtime-pack
+- Task 24's exact Windows CPU/`sm_120a` workers and reproducible runtime-pack
   tooling, authenticated development activation, native helpers, unpacked
   package checks, and bounded ordinary-app CPU/CUDA smoke passed before Task 25
   froze the shared candidate. Task 21 may execute those frozen tools but may not
-  repair production behavior inside qualification.
+  repair production behavior inside qualification. Task 26's `sm_86`/`sm_89`/
+  `sm_120a` pack, applicability, migration, and deterministic validation work
+  is also complete and committed.
 - Task 20 supplies only preflight preparation. Task 25 is complete and supplies
   one immutable `candidateInputDigest` plus
   Linux platform input/profile/graph/result/evidence-index digests. It
   explicitly created no Windows branch or aggregate root.
 - The Task 17 fixture digest is
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
-- An authorized representative Windows x64 CPU/NVIDIA host and the exact
-  pinned MSVC/CUDA/CMake/SDK/Ninja inputs are available.
+- An authorized representative Windows x64 CPU/NVIDIA host exists for each
+  physical `sm_86`, `sm_89`, and `sm_120a` cell, with exact pinned
+  MSVC/CUDA/CMake/SDK/Ninja inputs. The currently available RTX 5090 is only
+  the `sm_120a` host; RTX 30/40 cells require external representative hosts.
 - Task 21 has separate execution authorization on Windows.
 
 ## Owned Requirements
@@ -40,8 +46,8 @@ result/evidence branch for Task 22 without mutating shared or Linux evidence.
 - Supporting Windows evidence for `AC-AUTO-064`–`AC-AUTO-070` and
   `AC-AUTO-072`–`AC-AUTO-077`; primary automated ownership remains Task 19 or
   Task 23 except aggregate `AC-AUTO-071` in Task 22.
-- `AC-MAN-003`; Windows `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and
-  `AC-MAN-013`; Windows technical inputs for `AC-MAN-014`.
+- `AC-MAN-003`; Windows `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`,
+  `AC-MAN-013`, and `AC-MAN-018`; Windows technical inputs for `AC-MAN-014`.
 - Consume but do not reinterpret or replace Task 23 `AC-MAN-016` evidence.
 - No Linux mutation, aggregate verdict, or production authority.
 
@@ -49,21 +55,23 @@ result/evidence branch for Task 22 without mutating shared or Linux evidence.
 
 - Validate the unchanged shared candidate and complete read-only Linux branch
   before creating any Windows identity.
-- Reproduce and verify Task 24's Windows native helpers, CPU/CUDA workers,
+- Reproduce and verify Tasks 24/26 Windows native helpers, CPU plus
+  `sm_86`/`sm_89`/`sm_120a` CUDA workers,
   runtime archives, manifests, and package inputs from the frozen candidate;
   reject any source, toolchain, dependency, archive, or package identity drift.
 - Build and freeze exact Windows application packages, qualification catalog/
   keyring/origin, CPU/CUDA runtime archives, direct-engine binaries,
   toolchains, notices/SBOM/provenance, qualification server, and predecessor in
   `platformInputDigest`.
-- Freeze CPU/CUDA Windows profiles and `platformGraphDigest` before
+- Freeze CPU plus `sm_86`/`sm_89`/`sm_120a` Windows profiles and `platformGraphDigest` before
   measurement; seal series, result, and evidence index afterward.
 - Execute real Windows native build quality, filesystem/reparse safety,
   inherited handle authority, suspended launcher/Job Object ownership,
   CPU/CUDA workers, installer/package, application, IPC/UI, diagnostics,
   resource, lifecycle, privacy, offline, transport, and downgrade gates.
-- Qualify all six canonical models on Windows CPU and representative NVIDIA
-  CUDA using the frozen FLEURS/direct-engine methods.
+- Qualify all six canonical models on Windows CPU and each representative
+  `sm_86`, `sm_89`, and `sm_120a` NVIDIA CUDA device using the frozen
+  FLEURS/direct-engine methods.
 - Adopt only sanitized checksum-linked evidence and hand immutable Windows
   digests to Task 22.
 
@@ -108,7 +116,7 @@ Prove the frozen candidate values:
 | CMake                       | `3.31.8`        |
 | Windows SDK                 | `10.0.26100.0`  |
 | Ninja                       | `1.12.1`        |
-| Effective CUDA architecture | `120a-real`     |
+| Effective CUDA architectures | `86-real`, `89-real`, and `120a-real`, one exact profile per cell |
 
 Reject ambient MSVC/toolchain substitution, a generic Visual Studio label, or
 requested CUDA architecture without generated-code proof.
@@ -138,7 +146,7 @@ archives and the approved anonymous public Hugging Face redirect policy for
 models. Exercise range/resume/validator/cancellation/update/deletion/offline
 behavior without credentials, private headers, alternate origins, or fallback.
 
-For each canonical model, Windows CPU and CUDA pass full load, warm-up,
+For each canonical model, Windows CPU and each CUDA compute-target cell pass full load, warm-up,
 application/direct-engine WER parity within 1.00 percentage point, owned RAM/
 VRAM measurement, unload, and recovery. `base/full` additionally passes median
 RTF `<= 1.0` over five exact 60-second fixtures. CPU proves no GPU
@@ -168,6 +176,9 @@ sanitized and digest-linked only.
 ## Contracts And Boundaries
 
 - Task 21 consumes but cannot mutate Task 25's shared input or Linux branch.
+- The RTX 5090 may supply only `sm_120a` evidence. Windows `sm_86` and `sm_89`
+  execution remains **Pending — external representative hardware required**
+  until the applicable host is separately authorized.
 - Representative Windows execution occurs only on Windows in this packet.
 - Platform, hardware, deterministic, privacy, legal, and publication evidence
   are non-substitutable.
@@ -181,7 +192,7 @@ sanitized and digest-linked only.
   loopback transport, resource measurement, lifecycle, privacy, offline,
   installer, and predecessor tooling under
   `scripts/local-whisper/qualification/`. Product/runtime delivery tooling is
-  consumed from Task 24 and is not reimplemented here.
+  consumed from Tasks 24/26 and is not reimplemented here.
 - Windows native/runtime/package test infrastructure and exact pinned profiles.
 - Windows platform input/profile/graph/result/evidence documents conforming to
   the corrected v2 schemas and unchanged `candidateInputDigest`.
@@ -194,7 +205,7 @@ sanitized and digest-linked only.
   freeze or execution.
 - The exact Windows input, complete profiles, and graph freeze before
   measurements and contain no aggregate/backward edge.
-- Every required all-six-model CPU/CUDA, filesystem/process, native,
+- Every required all-six-model CPU plus `sm_86`/`sm_89`/`sm_120a`, filesystem/process, native,
   installer, transport, lifecycle, resource, privacy, offline, and predecessor
   row passes or Task 21 remains incomplete with a precise failure.
 - CPU proves no GPU use; CUDA proves exact device, real inference, owned
@@ -248,7 +259,9 @@ Do not run Linux qualification or `verify:local-whisper:all`.
 
 ## Manual Gates
 
-- Authorized representative Windows x64 CPU/NVIDIA host and exact toolchain.
+- Authorized representative Windows x64 CPU/NVIDIA hosts and exact toolchains:
+  the available RTX 5090 supplies only `sm_120a`; `sm_86` and `sm_89` remain
+  **Pending — external representative hardware required**.
 - `AC-MAN-003`, Windows `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and
   Windows `AC-MAN-013` execution.
 - Production signing, legal approval, final upload, aggregation, publication,
@@ -256,10 +269,10 @@ Do not run Linux qualification or `verify:local-whisper:all`.
 
 ## References
 
-- Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3,
+- Specification revision 17 Sections 6, 8.2, 9.1–9.6, 12.1–12.5, 18.3,
   19.1–19.3, and 22.
 - Task 20 advisory preflight, immutable Task 25 shared/Linux handoff, and Tasks
-  19/23/24 implementation-
+  19/23/24/26 implementation-
   readiness handoffs.
 - Project Windows native-quality, packaging, installer, privacy, diagnostics,
   and release conventions.

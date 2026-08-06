@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
@@ -11,11 +12,15 @@ const IMPORTER_FILES = Object.freeze([
   'source-definitions.mjs',
 ]);
 
+export function canonicalImporterSourceBytes(source) {
+  return Buffer.from(source.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+}
+
 export function importerImplementationDigest() {
   const directory = import.meta.dirname;
   const files = IMPORTER_FILES.map((name) => ({
     name,
-    sha256: sha256(readFileSync(resolve(directory, name))),
+    sha256: sha256(canonicalImporterSourceBytes(readFileSync(resolve(directory, name)))),
   }));
   return canonicalDigest(files);
 }

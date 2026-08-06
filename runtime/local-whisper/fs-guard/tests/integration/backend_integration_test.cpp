@@ -6,6 +6,7 @@
 #include "platform/windows/windows_backend.hpp"
 
 #include <windows.h>
+#include <winioctl.h>
 #else
 #include "platform/linux/linux_backend.hpp"
 
@@ -15,11 +16,14 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace local_whisper::fs_guard {
 namespace {
@@ -78,6 +82,57 @@ private:
   std::filesystem::path path_;
 };
 
+#if defined(_WIN32)
+struct MountPointReparseData final {
+  DWORD tag;
+  WORD data_length;
+  WORD reserved;
+  WORD substitute_offset;
+  WORD substitute_length;
+  WORD print_offset;
+  WORD print_length;
+  wchar_t path_buffer[1];
+};
+
+void create_junction(const std::filesystem::path& link, const std::filesystem::path& target) {
+  std::filesystem::create_directories(link);
+  std::filesystem::create_directories(target);
+  const std::wstring print_name = std::filesystem::absolute(target).native();
+  const std::wstring substitute_name = L"\\??\\" + print_name;
+  const std::size_t path_bytes =
+      (substitute_name.size() + 1 + print_name.size() + 1) * sizeof(wchar_t);
+  const std::size_t total_bytes = offsetof(MountPointReparseData, path_buffer) + path_bytes;
+  std::vector<unsigned char> storage(total_bytes);
+  auto* data = reinterpret_cast<MountPointReparseData*>(storage.data());
+  data->tag = IO_REPARSE_TAG_MOUNT_POINT;
+  data->data_length = static_cast<WORD>(total_bytes - 8);
+  data->reserved = 0;
+  data->substitute_offset = 0;
+  data->substitute_length = static_cast<WORD>(substitute_name.size() * sizeof(wchar_t));
+  data->print_offset = static_cast<WORD>((substitute_name.size() + 1) * sizeof(wchar_t));
+  data->print_length = static_cast<WORD>(print_name.size() * sizeof(wchar_t));
+  std::memcpy(data->path_buffer, substitute_name.c_str(),
+              (substitute_name.size() + 1) * sizeof(wchar_t));
+  std::memcpy(reinterpret_cast<unsigned char*>(data->path_buffer) + data->print_offset,
+              print_name.c_str(), (print_name.size() + 1) * sizeof(wchar_t));
+
+  const HANDLE handle =
+      CreateFileW(link.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                  FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    throw std::runtime_error("junction handle unavailable");
+  }
+  DWORD returned = 0;
+  const BOOL result =
+      DeviceIoControl(handle, FSCTL_SET_REPARSE_POINT, data, static_cast<DWORD>(total_bytes),
+                      nullptr, 0, &returned, nullptr);
+  CloseHandle(handle);
+  if (result == FALSE) {
+    throw std::runtime_error("junction creation failed");
+  }
+}
+#endif
+
 TEST(RealBackendIntegrationTest, CompletesTheManagedArtifactLifecycle) {
   TemporaryManagedRoot root_path;
   auto backend = make_backend();
@@ -91,9 +146,12 @@ TEST(RealBackendIntegrationTest, CompletesTheManagedArtifactLifecycle) {
   EXPECT_TRUE(backend->write_file({file[0], base64url_encode("hello")}).empty());
   const auto sealed = backend->seal_file({file[0]});
   ASSERT_EQ(sealed.size(), 1U);
+  EXPECT_TRUE(backend->release({file[0]}).empty());
   EXPECT_FALSE(backend->list({staging[0], {"file-model|384"}}).empty());
+  EXPECT_TRUE(backend->revalidate({staging[0], staging[1]}).empty());
 
   ASSERT_EQ(backend->promote({root[0], staging[0], "models", kArtifactName}).size(), 1U);
+  EXPECT_TRUE(backend->release({staging[0]}).empty());
   const auto opened = backend->open_artifact({root[0], "models", kArtifactName});
   ASSERT_EQ(opened.size(), 2U);
   EXPECT_TRUE(backend->revalidate({opened[0], opened[1]}).empty());
@@ -101,6 +159,7 @@ TEST(RealBackendIntegrationTest, CompletesTheManagedArtifactLifecycle) {
   const auto quarantined =
       backend->quarantine({root[0], opened[0], "models", kArtifactName, kNonce});
   ASSERT_EQ(quarantined.size(), 2U);
+  EXPECT_TRUE(backend->release({opened[0]}).empty());
   EXPECT_TRUE(backend->delete_file({quarantined[0], "file-model", sealed[0]}).empty());
   EXPECT_TRUE(backend->remove_quarantine({root[0], quarantined[0]}).empty());
 
@@ -140,6 +199,40 @@ TEST(RealBackendIntegrationTest, GuardApplicationUsesTheRealBackendThroughStream
   EXPECT_EQ(application.run(input, output), 0);
   EXPECT_TRUE(output.str().starts_with("1\t1\tOK\t"));
 }
+
+#if defined(_WIN32)
+TEST(RealBackendIntegrationTest, RejectsHardLinksCaseAliasesAndJunctions) {
+  TemporaryManagedRoot root_path;
+  auto backend = make_backend();
+  const auto root = backend->initialize({platform_name(), root_path.path().string()});
+
+  const auto staging = backend->create_staging({root[0], "model", kArtifactName, kNonce});
+  const auto file = backend->create_file({staging[0], "file-model", "384"});
+  EXPECT_TRUE(backend->write_file({file[0], base64url_encode("hello")}).empty());
+  EXPECT_TRUE(backend->seal_file({file[0]}).size() == 1U);
+  EXPECT_TRUE(backend->release({file[0]}).empty());
+  const auto staged_path =
+      root_path.path() / "staging" / ("stage-" + kArtifactName + "-" + kNonce) / "file-model";
+  const auto outside_link = root_path.path().parent_path() / "outside-hardlink";
+  ASSERT_NE(CreateHardLinkW(outside_link.c_str(), staged_path.c_str(), nullptr), FALSE);
+  EXPECT_THROW(static_cast<void>(backend->list({staging[0], {"file-model|384"}})), GuardError);
+  ASSERT_NE(DeleteFileW(outside_link.c_str()), FALSE);
+
+  std::string case_alias = kArtifactName;
+  case_alias[0] = 'M';
+  EXPECT_THROW(static_cast<void>(backend->open_artifact({root[0], "models", case_alias})),
+               GuardError);
+
+  const auto junction = root_path.path() / "models" / kArtifactName;
+  const auto junction_target = root_path.path().parent_path() / "junction-target";
+  create_junction(junction, junction_target);
+  EXPECT_EQ(backend->list_namespace({root[0], "models"}), ResponseFields({"unmanaged-entry"}));
+  ASSERT_NE(RemoveDirectoryW(junction.c_str()), FALSE);
+
+  EXPECT_TRUE(backend->release({staging[0]}).empty());
+  EXPECT_TRUE(backend->release({root[0]}).empty());
+}
+#endif
 
 #if !defined(_WIN32)
 TEST(RealBackendIntegrationTest, ReportsAUnixSymlinkAsUnmanaged) {

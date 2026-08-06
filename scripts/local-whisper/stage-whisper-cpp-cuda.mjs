@@ -26,6 +26,7 @@ import {
   taskCacheRoot,
   toolchainRoot,
 } from './whisper-cpp-build-core.mjs';
+import { stageWindowsRuntimePack } from './native-build/windows-runtime-pack-core.mjs';
 
 const CUDA_PROFILE = 'linux-x64-cuda-12.8.1-sm120a-v1';
 const ELF_DYNAMIC = 2;
@@ -127,9 +128,13 @@ export function cudaStageRoot(profileId) {
   return resolve(taskCacheRoot, 'stage', profileId);
 }
 
-export function stageCudaPack(profileId, buildRoot) {
-  if (profileId !== CUDA_PROFILE) throw new Error(`Task 11 stages only ${CUDA_PROFILE}`);
-  const profile = requireProfile(profileId);
+export function stageCudaPack(profileId, buildRoot, executionProfile = null) {
+  if (profileId === 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1') {
+    if (!executionProfile) throw new Error('Windows CUDA staging requires the captured execution profile');
+    return stageWindowsRuntimePack({ backend: 'cuda', buildRoot, profile: executionProfile });
+  }
+  if (profileId !== CUDA_PROFILE) throw new Error(`Unsupported CUDA staging profile: ${profileId}`);
+  const profile = executionProfile ?? requireProfile(profileId);
   const patchLock = readJson(patchLockPath);
   const nlohmannLock = readJson(nlohmannSourceLockPath);
   const table = readJson(limitTablePath);

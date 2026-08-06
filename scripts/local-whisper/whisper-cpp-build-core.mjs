@@ -16,7 +16,9 @@ import process from 'node:process';
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { verifyLoaderLimitAuthority } from './native-build/loader-limit-core.mjs';
+import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 import {
+  captureToolchainInputLock,
   resolveProfileTool,
   verifyToolchainContract,
   verifyToolchainInputs,
@@ -262,6 +264,11 @@ export function preparePatchedSource(profileId = 'linux-x64-cpu-baseline-v1') {
   cpSync(sourceRoot, contract.sourceRoot, { recursive: true });
   git(contract.sourceRoot, ['init', '--quiet']);
   git(contract.sourceRoot, ['add', '--force', '.']);
+  if (process.platform === 'win32') {
+    for (const entry of sourceLock.manifest.filter(({ mode }) => mode === '100755')) {
+      git(contract.sourceRoot, ['update-index', '--chmod=+x', '--', entry.path]);
+    }
+  }
   git(contract.sourceRoot, [
     '-c',
     'user.name=Local Whisper Build',
@@ -289,11 +296,15 @@ export function preparePatchedSource(profileId = 'linux-x64-cpu-baseline-v1') {
 }
 
 function profileTools(profile) {
-  const inputs = verifyToolchainInputs(profile, toolchainRoot, { allowCandidate: false });
+  const inputs = verifyToolchainInputs(profile, toolchainRoot, { allowCandidate: profile.target.os === 'windows' });
   return {
     cmake: resolveProfileTool(profile, toolchainRoot, 'cmake'),
     cCompiler: resolveProfileTool(profile, toolchainRoot, 'c-compiler'),
     cxxCompiler: resolveProfileTool(profile, toolchainRoot, 'cxx-compiler'),
+    cudaHostCompiler:
+      profile.target.os === 'windows' && profile.tools.some((tool) => tool.role === 'cuda-compiler')
+        ? inputs.tools.get('cxx-compiler').path
+        : null,
     cudaCompiler: profile.tools.some((tool) => tool.role === 'cuda-compiler')
       ? resolveProfileTool(profile, toolchainRoot, 'cuda-compiler')
       : null,
@@ -323,7 +334,7 @@ function networkDeniedEnvironment(profile, tools) {
 
 function runBuildCommand(configured, command, arguments_, label) {
   if (!configured.networkDenied) {
-    run(command, arguments_, { label });
+    run(command, arguments_, { env: configured.environment, label });
     return;
   }
   run(configured.networkHarness, ['-Urn', '--', command, ...arguments_], {
@@ -337,18 +348,31 @@ export function configureBuild(
   profileId,
   { directEngine = false, engine, networkDenied = false, rootTag = '', tests },
 ) {
-  const profile = requireProfile(profileId);
+  const profileTemplate = requireProfile(profileId);
+  const profile =
+    profileTemplate.target.os === 'windows'
+      ? captureToolchainInputLock(profileTemplate, toolchainRoot)
+      : profileTemplate;
   if (isAmdPreviewProfile(profileId)) {
     throw new Error('AMD Preview profiles are contract-only until the packet manual gates pass');
   }
-  if (profile.target.os !== 'linux') throw new Error('Local configure requires a Linux profile');
-  verifyToolchainContract(profile, { allowCandidate: false, contractOnly: false });
+  const hostOs = process.platform === 'win32' ? 'windows' : process.platform;
+  if (profile.target.os !== hostOs) {
+    throw new Error(`Local configure requires a ${hostOs} profile`);
+  }
+  verifyToolchainContract(profile, { allowCandidate: profile.target.os === 'windows', contractOnly: false });
   const tools = profileTools(profile);
   if (rootTag !== '' && !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(rootTag)) {
     throw new Error('Native build root tag is invalid');
   }
   const buildKind = directEngine ? 'direct-engine' : engine ? 'engine' : 'quality';
-  const buildRoot = resolve(taskCacheRoot, 'build', `${profileId}-${buildKind}${rootTag === '' ? '' : `-${rootTag}`}`);
+  const buildRootName =
+    profile.target.os === 'windows'
+      ? `${profileId.includes('cuda') ? 'wcuda' : profileId.includes('amd') ? 'wamd' : 'wcpu'}-${
+          directEngine ? 'direct' : engine ? 'engine' : 'quality'
+        }${rootTag === '' ? '' : `-${rootTag}`}`
+      : `${profileId}-${buildKind}${rootTag === '' ? '' : `-${rootTag}`}`;
+  const buildRoot = resolve(taskCacheRoot, 'build', buildRootName);
   removeTaskOwnedTree(buildRoot);
   mkdirSync(buildRoot, { mode: 0o700, recursive: true });
   const arguments_ = [
@@ -372,15 +396,23 @@ export function configureBuild(
     `-DLOCAL_WHISPER_BACKEND_ID=${profileId.includes('cuda') ? 'cuda' : 'cpu'}`,
     `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${profileId.includes('clang-18.1.3') ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_SOURCE_ROOT=${engine || directEngine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
-    `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId)}`,
+    `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId, profile)}`,
   ];
-  if (tools.cudaCompiler !== null) arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
+  if (tools.cudaCompiler !== null) {
+    arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
+    if (profile.target.os === 'windows') {
+      arguments_.push(`-DCMAKE_CUDA_HOST_COMPILER=${tools.cudaHostCompiler.replaceAll('\\', '/')}`);
+    }
+  }
   if (engine || directEngine) {
     for (const [key, value] of Object.entries(profile.cmakeCache).sort(([left], [right]) =>
       left.localeCompare(right),
     )) {
       if (key === 'LOCAL_WHISPER_SOURCE_ROOT') continue;
-      arguments_.push(`-D${key}=${value}`);
+      const configuredValue = value.startsWith('toolchainRoot:')
+        ? resolve(toolchainRoot, ...value.slice('toolchainRoot:'.length).split('/'))
+        : value;
+      arguments_.push(`-D${key}=${configuredValue}`);
     }
   } else {
     arguments_.push(`-DCMAKE_BUILD_TYPE=${profileId.includes('clang-18.1.3') ? 'Debug' : 'Release'}`);
@@ -388,7 +420,22 @@ export function configureBuild(
   }
   const configured = {
     buildRoot,
-    environment: networkDenied ? networkDeniedEnvironment(profile, tools) : process.env,
+    environment:
+      profile.target.os === 'windows'
+        ? resolveWindowsMsvcBuildEnvironment({
+            environment: process.env,
+            includeCuda: tools.cudaCompiler !== null,
+            toolchainRoot,
+            tools: {
+              cmake: tools.cmake,
+              compiler: tools.cxxCompiler,
+              cudaHostCompiler: tools.cudaHostCompiler,
+              ninja: tools.ninja,
+            },
+          })
+        : networkDenied
+          ? networkDeniedEnvironment(profile, tools)
+          : process.env,
     networkDenied,
     networkHarness: networkDenied ? resolveProfileTool(profile, toolchainRoot, 'network-harness') : null,
     profile,
@@ -416,10 +463,10 @@ export function buildTargets(configured, targets) {
 }
 
 export function runTests(configured, label) {
-  const ctest = resolve(configured.tools.cmake, '..', 'ctest');
+  const ctest = resolve(configured.tools.cmake, '..', process.platform === 'win32' ? 'ctest.exe' : 'ctest');
   run(ctest, ['--test-dir', configured.buildRoot, '--output-on-failure', '-L', label], {
     env: {
-      ...process.env,
+      ...configured.environment,
       ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
       UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
     },
@@ -467,17 +514,18 @@ export function runFormattingAndTidy(configured, engineConfigured) {
   }
 }
 
-export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1') {
+export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1', executionProfile = null) {
   const patchLock = readJson(patchContract(profileId).lockPath);
   const table = readJson(limitTablePath);
-  const profile = requireProfile(profileId);
+  const profile = executionProfile ?? requireProfile(profileId);
+  if (profile.profileId !== profileId) throw new Error('Runtime build identity profile mismatch');
   return canonicalDigest({
     sourceLockId: patchLock.sourceLockId,
     patchedManifestSha256: patchLock.finalManifestSha256,
     patchLockId: patchLock.lockId,
     tableSha256: table.tableSha256,
     profileId: profile.profileId,
-    profileEvidenceDigest: profile.evidenceDigest,
+    profileEvidenceDigest: profile.target.os === 'windows' ? canonicalDigest(profile) : profile.evidenceDigest,
   });
 }
 

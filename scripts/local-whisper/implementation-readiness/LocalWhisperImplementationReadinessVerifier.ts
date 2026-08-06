@@ -238,13 +238,16 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'produce:local-whisper:qualification:runtime-pack:cuda',
   'verify:local-whisper:qualification:inputs',
   'verify:local-whisper:implementation-readiness',
+  'test:local-whisper:windows-readiness',
+  'verify:local-whisper:windows-readiness',
   'test:local-whisper:development',
   'start:local-whisper:development',
 ]);
 
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 21;
-const IMPLEMENTATION_READINESS_TASK_COUNT = 25;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-21-acceptance-registry';
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 17;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 23;
+const IMPLEMENTATION_READINESS_TASK_COUNT = 26;
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-23-acceptance-registry';
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
   /(?:^|\/)(?:candidate-input|platform-input|profile-(?:cpu|cuda)|platform-graph|platform-result|evidence-index|aggregate-result)\.json$/u;
@@ -277,7 +280,7 @@ function hasResource(value: unknown, from: string, to: string): boolean {
 function expectedAcceptanceIds(): readonly string[] {
   return Object.freeze([
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 22 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 27 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ]);
 }
 
@@ -392,17 +395,17 @@ export class LocalWhisperImplementationReadinessVerifier {
         ),
         ACCEPTANCE_REGISTRY_CONTRACT_ID,
       ),
-      'revision-19-acceptance-registry',
+      ACCEPTANCE_REGISTRY_CONTRACT_ID,
     );
     const schema = record(
       json(
         await this.readRequired(
           'docs/specs/local-whisper/tasks/acceptance-owners.schema.json',
-          'revision-19-acceptance-schema',
+          ACCEPTANCE_REGISTRY_CONTRACT_ID,
         ),
-        'revision-19-acceptance-schema',
+        ACCEPTANCE_REGISTRY_CONTRACT_ID,
       ),
-      'revision-19-acceptance-schema',
+      ACCEPTANCE_REGISTRY_CONTRACT_ID,
     );
     const taskFiles = record(manifest.taskFiles, ACCEPTANCE_REGISTRY_CONTRACT_ID);
     const expectedTasks = Array.from({ length: IMPLEMENTATION_READINESS_TASK_COUNT }, (_, index) =>
@@ -410,8 +413,9 @@ export class LocalWhisperImplementationReadinessVerifier {
     );
     const owners = manifest.automatedAcceptanceOwners;
     const commands = manifest.verificationCommands;
-    const properties = record(schema.properties, 'revision-19-acceptance-schema');
-    const planRevision = record(properties.planRevision, 'revision-19-acceptance-schema');
+    const properties = record(schema.properties, ACCEPTANCE_REGISTRY_CONTRACT_ID);
+    const specificationRevision = record(properties.specificationRevision, ACCEPTANCE_REGISTRY_CONTRACT_ID);
+    const planRevision = record(properties.planRevision, ACCEPTANCE_REGISTRY_CONTRACT_ID);
     if (!Array.isArray(owners) || !Array.isArray(commands)) {
       throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', ACCEPTANCE_REGISTRY_CONTRACT_ID);
     }
@@ -422,10 +426,12 @@ export class LocalWhisperImplementationReadinessVerifier {
       .map((command) => [command.id, command.command]);
     if (
       manifest.schemaVersion !== 1 ||
+      manifest.specificationRevision !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       manifest.planRevision !== IMPLEMENTATION_READINESS_PLAN_REVISION ||
       JSON.stringify(Object.keys(taskFiles).sort()) !== JSON.stringify(expectedTasks) ||
       taskFiles['23'] !== '23_main_window_residency_control.md' ||
       taskFiles['25'] !== '25_linux_qualification_finalization.md' ||
+      taskFiles['26'] !== '26_hardware_matched_nvidia_cuda_runtime_expansion.md' ||
       JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
       !commandRecords.some((value) => {
         return (
@@ -434,6 +440,12 @@ export class LocalWhisperImplementationReadinessVerifier {
           value.command === 'rtk npm run verify:local-whisper:implementation-readiness'
         );
       }) ||
+      !commandRecords.some(
+        (value) =>
+          value.id === 'task-26-hardware-matched-cuda-tests' &&
+          value.task === '26' &&
+          value.command === 'rtk npm run test:local-whisper:hardware-matched-cuda',
+      ) ||
       JSON.stringify(task23Commands) !==
         JSON.stringify([
           ['task-23-main-residency-ipc', 'rtk npm run test:local-whisper:ipc'],
@@ -443,6 +455,10 @@ export class LocalWhisperImplementationReadinessVerifier {
       ['AC-AUTO-059', 'AC-AUTO-076', 'AC-AUTO-077'].some(
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '23',
       ) ||
+      ['AC-AUTO-078', 'AC-AUTO-079', 'AC-AUTO-080', 'AC-AUTO-081', 'AC-AUTO-082'].some(
+        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '26',
+      ) ||
+      specificationRevision.const !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       planRevision.const !== IMPLEMENTATION_READINESS_PLAN_REVISION
     ) {
       throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', ACCEPTANCE_REGISTRY_CONTRACT_ID);

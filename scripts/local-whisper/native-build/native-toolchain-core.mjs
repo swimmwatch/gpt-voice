@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, resolve } from 'node:path';
+import process from 'node:process';
 
 import { canonicalDigest, canonicalJson, sha256, validateRelativePath } from '../source-import/native-source-core.mjs';
 import {
@@ -155,18 +157,52 @@ function verifyAmdContract(profile, options) {
 }
 
 function verifyWindowsToolchainContract(profile, options) {
-  if (
-    !options.contractOnly ||
-    profile.target.os !== 'windows' ||
-    profile.qualificationState !== 'pending-windows-qualification'
+  if (profile.target.os !== 'windows') throw new Error('Windows native profile target mismatch');
+  const inputs = [
+    ...profile.tools,
+    ...profile.runtime,
+    ...profile.licenses.filter(({ pathKind }) => pathKind !== 'outputRelative'),
+  ];
+  if (options.contractOnly) {
+    if (
+      profile.qualificationState !== 'pending-windows-qualification' ||
+      profile.evidenceDigest !== null ||
+      inputs.some(({ sha256: identity }) => identity !== null)
+    ) {
+      throw new Error('Windows static contract must remain pending and contain no acquired identities');
+    }
+  } else if (
+    !options.allowCandidate ||
+    profile.qualificationState !== 'candidate-unqualified' ||
+    profile.evidenceDigest !== null ||
+    inputs.some(({ sha256: identity }) => !/^[a-f0-9]{64}$/u.test(identity ?? ''))
   ) {
-    throw new Error('Windows native profile is contract-only until Task 21 qualification');
-  }
-  if (profile.evidenceDigest !== null || profile.tools.some((tool) => tool.sha256 !== null)) {
-    throw new Error('Windows candidate must not claim representative qualification evidence');
+    throw new Error('Windows native inputs must be a hashed Task 24 candidate until Task 21 qualification');
   }
   if (canonicalJson(profile.environmentAllowlist) !== canonicalJson(WINDOWS_ENVIRONMENT_ALLOWLIST)) {
     throw new Error('Windows native profile environment allowlist changed');
+  }
+  if (profile.profileId.includes('-cpu-') || profile.profileId.includes('-cuda-')) {
+    if (
+      profile.target.abi !== 'msvc-v143-14.39-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0' ||
+      canonicalJson(profile.sourceLockIds) !== canonicalJson(['whisper-cpp-v1.9.1-f049fff']) ||
+      profile.qualificationFixture !== null ||
+      canonicalJson(profile.sbomComponents).includes('crt-14.39') ||
+      [...profile.runtime, ...profile.dynamicDependencies].some(({ id }) => id.includes('crt-14.39'))
+    ) {
+      throw new Error('Windows MSVC 14.39 and VC Runtime 14.51.36247.0 identities are not separated');
+    }
+    for (const dependency of profile.dynamicDependencies) {
+      const runtime = profile.runtime.find(({ id }) => id === dependency.id);
+      if (
+        !runtime ||
+        runtime.pathKind !== dependency.pathKind ||
+        runtime.path !== dependency.path ||
+        runtime.sha256 !== dependency.sha256
+      ) {
+        throw new Error(`Windows dynamic dependency has no matching runtime identity: ${dependency.id}`);
+      }
+    }
   }
   return true;
 }
@@ -277,17 +313,69 @@ export function verifyProfileQualificationFixture(profile, workspaceRoot) {
   return true;
 }
 
-function toolVersion(path, expected) {
-  const result = spawnSync(path, ['--version'], {
-    cwd: '/',
+function runToolVersion(path, arguments_, environment, acceptedStatuses = [0]) {
+  const result = spawnSync(path, arguments_, {
+    cwd: dirname(path),
     encoding: 'utf8',
-    env: { LANG: 'C', LC_ALL: 'C' },
+    env: environment,
     maxBuffer: 1024 * 1024,
     shell: false,
+    windowsHide: true,
   });
-  if (result.error || result.status !== 0) throw new Error(`Native tool version probe failed: ${path}`);
-  const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
-  if (!output.includes(expected)) throw new Error(`Native tool version mismatch: ${path}`);
+  if (result.error || !acceptedStatuses.includes(result.status)) {
+    throw new Error(`Native tool version probe failed: ${path}`);
+  }
+  return `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
+}
+
+function probeMsvcCompiler(path, expected, environment) {
+  const versionOutput = runToolVersion(path, ['/?'], environment);
+  const banner = expected.replace(' (_MSC_VER=1939)', '');
+  if (!versionOutput.includes(banner)) throw new Error(`Native tool version mismatch: ${path}`);
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-msvc-version-'));
+  try {
+    const source = resolve(root, 'msc-ver.c');
+    writeFileSync(
+      source,
+      '#if !defined(_MSC_VER) || _MSC_VER != 1939\n#error unexpected _MSC_VER\n#endif\nLOCAL_WHISPER_MSC_VER=_MSC_VER\n',
+      'utf8',
+    );
+    const probeOutput = runToolVersion(path, ['/nologo', '/EP', '/TC', source], environment);
+    if (!probeOutput.includes('LOCAL_WHISPER_MSC_VER=1939')) {
+      throw new Error(`Native MSVC _MSC_VER probe failed: ${path}`);
+    }
+    return `${versionOutput}\n${probeOutput}`;
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+}
+
+function toolVersion(path, component) {
+  const windowsEnvironment = {
+    SystemRoot: process.env.SystemRoot,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
+    VSLANG: '1033',
+    WINDIR: process.env.WINDIR,
+  };
+  const linuxEnvironment = { LANG: 'C', LC_ALL: 'C' };
+  const environment = process.platform === 'win32' ? windowsEnvironment : linuxEnvironment;
+  let output;
+  if (process.platform === 'win32' && ['c-compiler', 'cxx-compiler'].includes(component.role)) {
+    output = probeMsvcCompiler(path, component.version, environment);
+  } else {
+    const arguments_ =
+      process.platform === 'win32' && ['archiver', 'linker', 'pe-inspector'].includes(component.role)
+        ? ['/?']
+        : ['--version'];
+    output = runToolVersion(
+      path,
+      arguments_,
+      environment,
+      process.platform === 'win32' && ['archiver', 'linker', 'pe-inspector'].includes(component.role) ? [0, 1100] : [0],
+    );
+    if (!output.includes(component.version)) throw new Error(`Native tool version mismatch: ${path}`);
+  }
   return sha256(Buffer.from(output, 'utf8'));
 }
 
@@ -300,7 +388,7 @@ function verifyIdentity(component, toolchainRoot, outputRoot, executeVersion = f
   // Some multi-call tool drivers select their mode from argv[0]. Execute the
   // reviewed path (which may be a pinned symlink such as ld.lld) while hashing
   // the canonical target bytes.
-  const versionOutputSha256 = executeVersion ? toolVersion(path, component.version) : null;
+  const versionOutputSha256 = executeVersion ? toolVersion(path, component) : null;
   return Object.freeze({ path: canonicalPath, sha256: actualSha256, versionOutputSha256 });
 }
 
@@ -326,12 +414,15 @@ export function verifyToolchainInputs(profile, toolchainRoot, options = {}) {
 }
 
 export function captureToolchainInputLock(profile, toolchainRoot) {
-  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false });
+  verifyToolchainContract(profile, {
+    allowCandidate: profile.target.os !== 'windows',
+    contractOnly: profile.target.os === 'windows',
+  });
   const captured = globalThis.structuredClone(profile);
   for (const tool of captured.tools) {
     const path = componentPath(tool, toolchainRoot);
     if (!existsSync(path)) throw new Error(`Native tool acquisition is incomplete: ${path}`);
-    toolVersion(path, tool.version);
+    toolVersion(path, tool);
     tool.sha256 = sha256(readFileSync(realpathSync(path)));
   }
   for (const component of [...captured.runtime, ...captured.licenses]) {

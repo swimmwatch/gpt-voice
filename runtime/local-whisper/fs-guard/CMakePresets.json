@@ -30,21 +30,21 @@
     {
       "name": "windows-release",
       "displayName": "Windows production guard",
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/../../../.cache/local-whisper/fs-guard/build-windows-release",
       "cacheVariables": {
-        "BUILD_TESTING": "OFF"
+        "BUILD_TESTING": "OFF",
+        "CMAKE_BUILD_TYPE": "Release"
       }
     },
     {
       "name": "windows-test",
       "displayName": "Windows MSVC native tests",
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
+      "generator": "Ninja",
       "binaryDir": "${sourceDir}/../../../.cache/local-whisper/fs-guard/build-windows-test",
       "cacheVariables": {
-        "BUILD_TESTING": "ON"
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     }
   ],
@@ -59,13 +59,11 @@
     },
     {
       "name": "windows-release",
-      "configurePreset": "windows-release",
-      "configuration": "Release"
+      "configurePreset": "windows-release"
     },
     {
       "name": "windows-test",
-      "configurePreset": "windows-test",
-      "configuration": "Debug"
+      "configurePreset": "windows-test"
     }
   ],
   "testPresets": [
@@ -84,14 +82,12 @@
     {
       "name": "windows-unit",
       "configurePreset": "windows-test",
-      "configuration": "Debug",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "unit" } }
     },
     {
       "name": "windows-integration",
       "configurePreset": "windows-test",
-      "configuration": "Debug",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "integration" } }
     }

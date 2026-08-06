@@ -564,15 +564,17 @@ class MainProcessCompositionHarness {
     fs.writeFileSync(this.configFile, JSON.stringify({ provider: providerId }), 'utf8');
   }
 
-  public cleanup(): void {
-    fs.rmSync(this.temporaryDirectory, { force: true, recursive: true });
+  public async cleanup(): Promise<void> {
+    this.app.emitWillQuit({ preventDefault: () => undefined });
+    await flushAsyncWork();
+    fs.rmSync(this.temporaryDirectory, { force: true, maxRetries: 100, recursive: true, retryDelay: 25 });
   }
 }
 
 const harnesses: MainProcessCompositionHarness[] = [];
 
-afterEach(() => {
-  for (const harness of harnesses) harness.cleanup();
+afterEach(async () => {
+  for (const harness of harnesses) await harness.cleanup();
   harnesses.length = 0;
 });
 

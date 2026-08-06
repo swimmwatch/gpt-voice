@@ -35,11 +35,16 @@ export function readQualificationFixtureIdentity(workspaceRoot, fixtureId) {
       throw new Error(`Sanitizer fixture entry is not an owned regular file: ${relativePath}`);
     }
     const bytes = readFileSync(path);
+    const text = bytes.toString('utf8');
+    if (Buffer.from(text, 'utf8').compare(bytes) !== 0 || /\r(?!\n)/u.test(text)) {
+      throw new Error(`Qualification fixture entry is not canonical UTF-8 text: ${relativePath}`);
+    }
+    const canonicalBytes = Buffer.from(text.replaceAll('\r\n', '\n'), 'utf8');
     return Object.freeze({
       mode: stat.mode & 0o111 ? '100755' : '100644',
       path: relativePath,
-      sha256: sha256(bytes),
-      sizeBytes: bytes.byteLength,
+      sha256: sha256(canonicalBytes),
+      sizeBytes: canonicalBytes.byteLength,
     });
   });
   return Object.freeze({

@@ -8,16 +8,33 @@ import type { QualificationRuntimeCatalogSeed } from '../qualification/Qualifica
 
 const SHA256_PATTERN = /^[a-f\d]{64}$/u;
 
+export type DevelopmentRuntimePlatform = 'linux' | 'win32';
+export type DevelopmentRuntimePlatformSelector = DevelopmentRuntimePlatform | 'current';
+
 const RUNTIME_PROFILES = Object.freeze({
-  cpu: Object.freeze({
-    profileId: 'linux-x64-cpu-baseline-v1',
-    packRevision: 'whisper-cpp-linux-x64-cpu-baseline-v1',
-    prerequisites: Object.freeze(['glibc-2.39']),
+  linux: Object.freeze({
+    cpu: Object.freeze({
+      profileId: 'linux-x64-cpu-baseline-v1',
+      packRevision: 'whisper-cpp-linux-x64-cpu-baseline-v1',
+      prerequisites: Object.freeze(['glibc-2.39']),
+    }),
+    cuda: Object.freeze({
+      profileId: 'linux-x64-cuda-12.8.1-sm120a-v1',
+      packRevision: 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
+      prerequisites: Object.freeze(['cuda-runtime-12.8.1', 'cublas-12.8.1', 'cublas-lt-12.8.1']),
+    }),
   }),
-  cuda: Object.freeze({
-    profileId: 'linux-x64-cuda-12.8.1-sm120a-v1',
-    packRevision: 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
-    prerequisites: Object.freeze(['cuda-runtime-12.8.1', 'cublas-12.8.1', 'cublas-lt-12.8.1']),
+  win32: Object.freeze({
+    cpu: Object.freeze({
+      profileId: 'windows-x64-cpu-msvc-19.39-v1',
+      packRevision: 'whisper-cpp-windows-x64-cpu-v1',
+      prerequisites: Object.freeze(['cpu-x86-64-sse2']),
+    }),
+    cuda: Object.freeze({
+      profileId: 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
+      packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
+      prerequisites: Object.freeze(['nvidia-driver-570-65-or-newer']),
+    }),
   }),
 });
 
@@ -120,7 +137,7 @@ function parseRecord(value: unknown, expectedProfile: string): RuntimePackRecord
 function parseRuntimeManifestIdentity(
   value: unknown,
   backend: DevelopmentRuntimeInput['backend'],
-  profile: (typeof RUNTIME_PROFILES)[DevelopmentRuntimeInput['backend']],
+  profile: (typeof RUNTIME_PROFILES)[DevelopmentRuntimePlatform][DevelopmentRuntimeInput['backend']],
 ): RuntimeManifestIdentity {
   if (
     !isRecord(value) ||
@@ -139,15 +156,32 @@ function parseRuntimeManifestIdentity(
   return Object.freeze({ runtimeBuildDigest: value.runtimeBuildDigest });
 }
 
+export function resolveDevelopmentRuntimePlatform(
+  selector: DevelopmentRuntimePlatformSelector,
+  hostPlatform: NodeJS.Platform = process.platform,
+): DevelopmentRuntimePlatform {
+  const platform = selector === 'current' ? hostPlatform : selector;
+  if ((platform !== 'linux' && platform !== 'win32') || hostPlatform !== platform) {
+    throw new Error('Local Whisper development runtime host invalid');
+  }
+  return platform;
+}
+
 /** Authenticates the deterministic CPU/CUDA runtime-pack outputs consumed by one development session. */
 export class DevelopmentRuntimeInputLoader {
-  public async load(workspaceRoot: string): Promise<readonly DevelopmentRuntimeInput[]> {
-    if (process.platform !== 'linux' || !path.isAbsolute(workspaceRoot)) {
+  public constructor(private readonly hostPlatform: NodeJS.Platform = process.platform) {}
+
+  public async load(
+    workspaceRoot: string,
+    requestedPlatform: DevelopmentRuntimePlatformSelector,
+  ): Promise<readonly DevelopmentRuntimeInput[]> {
+    const platform = resolveDevelopmentRuntimePlatform(requestedPlatform, this.hostPlatform);
+    if (!path.isAbsolute(workspaceRoot)) {
       throw new Error('Local Whisper development runtime host invalid');
     }
     const inputs: DevelopmentRuntimeInput[] = [];
     for (const backend of ['cpu', 'cuda'] as const) {
-      const profile = RUNTIME_PROFILES[backend];
+      const profile = RUNTIME_PROFILES[platform][backend];
       const packRoot = path.join(
         workspaceRoot,
         '.cache',
@@ -193,6 +227,8 @@ export class DevelopmentRuntimeInputLoader {
           archiveSha256: record.archive.sha256,
           catalog: Object.freeze({
             backend,
+            platform,
+            architecture: 'x64',
             buildRevision: runtimeManifest.runtimeBuildDigest,
             packRevision: profile.packRevision,
             expectedFiles: record.expectedFiles,

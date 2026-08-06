@@ -18,7 +18,13 @@ export interface NativeOwnedWorkerProcessDependencies {
 
 /** Owns the launcher streams and the platform-specific forced-termination path. */
 export class NativeOwnedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
-  public constructor(private readonly dependencies: NativeOwnedWorkerProcessDependencies) {}
+  private closed = false;
+
+  public constructor(private readonly dependencies: NativeOwnedWorkerProcessDependencies) {
+    dependencies.child.once('close', () => {
+      this.closed = true;
+    });
+  }
 
   public get pid(): number {
     const pid = this.dependencies.child.pid;
@@ -71,7 +77,7 @@ export class NativeOwnedWorkerProcess implements LocalWhisperOwnedWorkerProcess 
 
   public waitForExit(timeoutMs: number): Promise<boolean> {
     const { child } = this.dependencies;
-    if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+    if (this.closed) return new Promise<boolean>((resolve) => setImmediate(() => resolve(true)));
     if (timeoutMs <= 0) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => {
       let settled = false;
@@ -80,13 +86,15 @@ export class NativeOwnedWorkerProcess implements LocalWhisperOwnedWorkerProcess 
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
-        child.off('exit', onExit);
+        child.off('close', onClose);
         resolve(value);
       };
-      const onExit = (): void => finish(true);
-      child.once('exit', onExit);
+      const onClose = (): void => {
+        setImmediate(() => finish(true));
+      };
+      child.once('close', onClose);
       timer = setTimeout(() => finish(false), timeoutMs);
-      if (child.exitCode !== null || child.signalCode !== null) finish(true);
+      if (this.closed) setImmediate(() => finish(true));
     });
   }
 }

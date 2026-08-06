@@ -8323,3 +8323,135 @@ decisions:
     rationale: The user explicitly approved revision 17. Their available RTX 50 Linux/Windows systems may execute only `sm_120a` hardware gates; RTX 30/40 implementation remains in scope while `sm_86`/`sm_89` physical qualification stays Pending for future external representative hosts.
     supersedes_revision: 16
     requirement_ids: []
+
+  - id: planning.revision-22-task-separation
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - The approved revision-17 contract adds independent `sm_86-real`, `sm_89-real`, and `sm_120a-real` delivery plus applicability and migration requirements that do not fit the already authorized Windows CPU/RTX 5090 `sm_120a` readiness packet.
+      - The current task authorization is limited to Task 24 and explicitly excludes any newly added RTX expansion packet.
+      - The available Windows RTX 5090 and Linux RTX 50 hosts can execute only `sm_120a` hardware work; physical RTX 30/40 checks require external representative hosts and must remain Pending.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Plan revision 22 preserves Task 24 as Windows CPU plus `sm_120a` readiness and creates Task 26 for deterministic hardware-matched RTX expansion. This draft requires separate plan approval and does not authorize either packet.
+    supersedes_revision: null
+    requirement_ids: [CAP-018, COMP-013, DIST-003, QUAL-005, QUAL-006, RUNTIME-005, UI-010, VAL-004, OPS-004, AC-AUTO-078, AC-AUTO-079, AC-AUTO-080, AC-AUTO-081, AC-AUTO-082, AC-MAN-017, AC-MAN-018]
+
+  - id: approval.plan
+    revision: 22
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly instructed Codex to continue Task 24 after reviewing the revision-22 compatibility repair.
+      - Revision 22 keeps Task 24 limited to Windows CPU plus RTX 50 `sm_120a` readiness and defers the separate RTX 30/40/50 expansion to Task 26.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve-plan-and-execute-task-24]
+      text: Continue task 24
+    rationale: The user approved the aligned plan and separately authorized execution of Task 24 only. Task 26 and all qualification/release packets remain out of scope.
+    supersedes_revision: 21
+    requirement_ids: []
+
+  - id: planning.windows-vc-runtime-separation
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user asked whether a suitable modern runtime could replace the unavailable MSVC 14.39 redistributable, then explicitly instructed Codex to review the specification, resolve the issue, and invoke planning-and-task-breakdown.
+      - Approved specification requirements PKG-004, COMP-009, and PKG-010 separately require an exact compiler/toolkit pair and a reviewed redistributable runtime closure; they do not require the VC Runtime minor to equal the compiler minor.
+      - NVIDIA CUDA 12.8.1 documents Windows host-compiler support for MSVC 193x / Visual Studio 2022, so Task 24 retains MSVC v143 14.39 and `_MSC_VER 1939` rather than substituting Visual Studio 2026 build tools.
+      - Microsoft documents that the deployed Visual C++ v14 Redistributable may be the same or newer than the build tool version and recommends the latest supported v14 runtime.
+      - The exact versioned Microsoft x64 object reports file/product version 14.51.36247.0, byte length 18731856, valid Microsoft Corporation Authenticode, and SHA-256 843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c.
+    prompt_mcp: null
+    question:
+      text: How should Task 24 resolve the unavailable deployable MSVC 14.39 runtime without changing its CUDA 12.8.1 build toolchain?
+      kind: single
+      options:
+        - id: separate-latest-pinned-v14-runtime
+          label: Separate pinned modern v14 runtime
+          description: Keep MSVC 14.39 for compilation and package the exact reviewed Microsoft VC Runtime 14.51.36247.0 app-local closure.
+    answer:
+      selected_ids: [separate-latest-pinned-v14-runtime]
+      text: ''
+    rationale: The compiler and deployment runtime are separate compatibility authorities. Keeping MSVC 14.39 preserves the approved CUDA 12.8.1 host-toolchain contract, while the exact Microsoft VC Runtime 14.51.36247.0 object provides a current binary-compatible v14 closure without a floating build input or compiler substitution.
+    supersedes_revision: null
+    requirement_ids: [PKG-004, PKG-010, COMP-009, AC-AUTO-061, AC-AUTO-070]
+
+  - id: planning.revision-23-vc-runtime-repair
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 22 and Task 24 correctly keep Windows readiness separate from Task 26 and qualification, but the two frozen Windows profiles incorrectly encode the compiler minor as `crt-14.39` and point to deployable DLLs that the exact MSVC 14.39 Build Tools payload does not provide.
+      - Plan revision 23 changes no packet order, requirement ownership, acceptance ownership, support tier, target, CUDA version, compiler, SDK, package authority, or manual hardware assignment.
+      - Task 24 now pins the exact signed Microsoft VC Runtime acquisition object independently, retains both existing `msvc-19.39` profile IDs, requires import-derived app-local DLL hashes, and keeps production redistribution approval with Task 22.
+      - RTX 30/40 physical checks remain Pending on external representative hardware; this Windows RTX 5090 host remains assigned only CPU and `sm_120a` readiness work.
+      - Direct draft validation parsed the YAML/JSON artifacts, validated the acceptance registry against its revision-23 schema, confirmed 26 packet identities and 81 unique automated owners, checked all required Task 24 headings and exact runtime/toolchain values, passed targeted Prettier and `git diff --check`, and found no coverage or sequencing change.
+      - The executable task-plan validator still expects plan revision 22 and therefore reports `manifest version is unexpected`; updating that production validator to revision 23 remains the first Task 24 implementation action after plan approval, not a planning edit.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The coverage and executability audit found this to be an implementation-local dependency-lock repair under the already approved specification, not a product, platform, fallback, privacy, qualification, or release-contract change. No active requirement or acceptance owner is lost or duplicated.
+    supersedes_revision: null
+    requirement_ids: [PKG-004, PKG-010, COMP-009, IMPL-001, IMPL-002, AC-AUTO-061, AC-AUTO-070]
+
+  - id: approval.plan
+    revision: 23
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 23 keeps the approved specification revision 17 and all revision-22 sequencing, packet boundaries, and acceptance ownership unchanged.
+      - MSVC v143 14.39 / `_MSC_VER 1939`, Windows SDK 10.0.26100.0, CMake 3.31.8, Ninja 1.12.1, CUDA 12.8.1 / nvcc 12.8.93, `120a-real`, and driver floor 570.65 remain exact Task 24 build and execution inputs.
+      - The deployable Microsoft VC Runtime becomes a separate exact 14.51.36247.0 x64 input with a versioned Microsoft URL, fixed size and SHA-256, valid Microsoft Authenticode requirement, import-derived app-local DLL closure, and no moving URL or ambient discovery.
+      - Task 24 remains the only executable packet after approval; Tasks 26, 25, 21, and 22, candidate freeze, qualification, commit, push, signing, upload, publication, tag, and release remain unauthorized.
+    prompt_mcp: null
+    question:
+      text: How should Local Whisper plan revision 23 proceed after separating the exact MSVC 14.39 build toolchain from the pinned Microsoft VC Runtime 14.51.36247.0 app-local closure?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 23 (Recommended)
+          description: Approve the dependency-lock repair and allow a separate authorization to resume Task 24 under the revised packet.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 23 in Draft and revise the runtime version, acquisition identity, materialization, closure, or verification contract.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; plan revision 22 remains the approved baseline and Task 24 stays blocked on its stale CRT contract.
+    answer:
+      selected_ids: [approve]
+      text: aproved
+    rationale: The Prompt MCP approval surface was not callable in this Windows client, and the user explicitly approved plan revision 23 in chat after reviewing the draft. The compiler/runtime separation and exact dependency-lock repair are now authoritative.
+    supersedes_revision: 22
+    requirement_ids: []
+
+  - id: execution.task-24-plan-23
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly wrote `fix all issues` immediately after approving plan revision 23.
+      - The active request remains limited to Task 24 Windows Runtime Delivery Readiness and retains the original prohibitions on Tasks 26, 25, 21, and 22, commit, push, PR, qualification evidence freeze, signing, upload, publication, tag, and release.
+    prompt_mcp: null
+    question:
+      text: Which packet is authorized for implementation after plan revision 23 approval?
+      kind: single
+      options:
+        - id: task-24-only
+          label: Resume Task 24 only
+          description: Fix and verify every remaining Task 24 issue without starting another packet or committing the result.
+    answer:
+      selected_ids: [task-24-only]
+      text: fix all issues
+    rationale: Plan approval and execution authorization are recorded as separate decisions. Exactly Task 24 may resume; all later packets and external release actions remain unauthorized.
+    supersedes_revision: null
+    requirement_ids: []

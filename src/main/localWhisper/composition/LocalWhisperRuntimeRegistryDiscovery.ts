@@ -153,7 +153,10 @@ export class LocalWhisperRuntimeRegistryDiscovery {
     try {
       process = await this.ownership.launch(authority);
       process.stderr.resume();
-      const output = collectOutput(process);
+      const output = collectOutput(process).then(
+        (value) => Object.freeze({ success: true as const, value }),
+        (error: unknown) => Object.freeze({ success: false as const, error }),
+      );
       const abort = (): void => {
         void process?.requestTreeTermination().catch(() => undefined);
       };
@@ -178,7 +181,9 @@ export class LocalWhisperRuntimeRegistryDiscovery {
       }
       await this.ownership.releaseAfterConfirmedExit();
       if (signal.aborted) throw new LocalWhisperRuntimeRegistryDiscoveryError('CANCELLED');
-      return parseRegistry(await output, authority);
+      const collected = await output;
+      if (!collected.success) throw collected.error;
+      return parseRegistry(collected.value, authority);
     } catch (error) {
       if (process && exited) await this.ownership.releaseAfterConfirmedExit().catch(() => undefined);
       if (!process && !authority.runtimeLease.released) {

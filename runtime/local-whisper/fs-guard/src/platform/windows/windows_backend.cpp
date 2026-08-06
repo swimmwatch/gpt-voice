@@ -12,6 +12,7 @@
 #include <winternl.h>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -43,22 +44,28 @@ public:
                                              FILE_OPEN_FOR_BACKUP_INTENT;
   static constexpr ULONG kFileOptions =
       FILE_NON_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT;
-  static constexpr ACCESS_MASK kDirectoryAccess = FILE_LIST_DIRECTORY | FILE_TRAVERSE |
-                                                  FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY |
-                                                  FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES |
-                                                  READ_CONTROL | WRITE_DAC | DELETE | SYNCHRONIZE;
+  static constexpr ACCESS_MASK kDirectoryAccess =
+      FILE_LIST_DIRECTORY | FILE_TRAVERSE | FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY |
+      FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | FILE_DELETE_CHILD | READ_CONTROL | WRITE_DAC |
+      WRITE_OWNER | DELETE | SYNCHRONIZE;
   static constexpr ACCESS_MASK kTraverseAccess =
       FILE_LIST_DIRECTORY | FILE_TRAVERSE | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE;
-  static constexpr ACCESS_MASK kFileAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_APPEND_DATA |
-                                             FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES |
-                                             READ_CONTROL | WRITE_DAC | DELETE | SYNCHRONIZE;
+  static constexpr ACCESS_MASK kFileAccess =
+      FILE_READ_DATA | FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_READ_ATTRIBUTES |
+      FILE_WRITE_ATTRIBUTES | READ_CONTROL | WRITE_DAC | WRITE_OWNER | DELETE | SYNCHRONIZE;
+  static constexpr ACCESS_MASK kFileInspectionAccess =
+      FILE_READ_DATA | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE;
   static constexpr NTSTATUS kStatusNameCollision = static_cast<NTSTATUS>(0xC0000035L);
   static constexpr NTSTATUS kStatusNameNotFound = static_cast<NTSTATUS>(0xC0000034L);
   static constexpr NTSTATUS kStatusPathNotFound = static_cast<NTSTATUS>(0xC000003AL);
+  static constexpr FILE_INFORMATION_CLASS kFileRenameInformation =
+      static_cast<FILE_INFORMATION_CLASS>(10);
 
   using NtCreateFileFunction = NTSTATUS(NTAPI*)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES,
                                                 PIO_STATUS_BLOCK, PLARGE_INTEGER, ULONG, ULONG,
                                                 ULONG, ULONG, PVOID, ULONG);
+  using NtSetInformationFileFunction = NTSTATUS(NTAPI*)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG,
+                                                        FILE_INFORMATION_CLASS);
 
   ~Impl() noexcept {
     for (auto& [token, lease] : leases) {
@@ -97,6 +104,17 @@ public:
       throw GuardError("UNSUPPORTED");
     const auto function =
         reinterpret_cast<NtCreateFileFunction>(GetProcAddress(module, "NtCreateFile"));
+    if (function == nullptr)
+      throw GuardError("UNSUPPORTED");
+    return function;
+  }
+
+  NtSetInformationFileFunction nt_set_information_file() {
+    const HMODULE module = GetModuleHandleW(L"ntdll.dll");
+    if (module == nullptr)
+      throw GuardError("UNSUPPORTED");
+    const auto function = reinterpret_cast<NtSetInformationFileFunction>(
+        GetProcAddress(module, "NtSetInformationFile"));
     if (function == nullptr)
       throw GuardError("UNSUPPORTED");
     return function;
@@ -228,9 +246,10 @@ public:
                                FILE_ALL_ACCESS, sid)) {
       throw GuardError("IO_FAILED");
     }
-    const DWORD result = SetSecurityInfo(
-        handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
-        sid, nullptr, acl, nullptr);
+    const DWORD result = SetSecurityInfo(handle, SE_FILE_OBJECT,
+                                         OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION |
+                                             PROTECTED_DACL_SECURITY_INFORMATION,
+                                         sid, nullptr, acl, nullptr);
     if (result != ERROR_SUCCESS)
       throw GuardError("IO_FAILED");
   }
@@ -255,11 +274,11 @@ public:
     const bool control_ok = GetSecurityDescriptorControl(descriptor, &control, &revision) != FALSE;
     const bool ace_ok = GetAce(acl, 0, &raw_ace) != FALSE;
     const auto* ace = static_cast<ACCESS_ALLOWED_ACE*>(raw_ace);
-    const bool valid = control_ok && ace_ok && EqualSid(owner, current) != FALSE &&
-                       (control & SE_DACL_PROTECTED) != 0 &&
-                       ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
-                       EqualSid(&ace->SidStart, current) != FALSE &&
-                       (ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS;
+    const bool valid =
+        control_ok && ace_ok && EqualSid(owner, current) != FALSE &&
+        (control & SE_DACL_PROTECTED) != 0 && ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
+        EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&ace->SidStart)), current) != FALSE &&
+        (ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS;
     LocalFree(descriptor);
     if (!valid)
       throw GuardError("UNSAFE_ENTRY");
@@ -303,6 +322,20 @@ public:
     return duplicate;
   }
 
+  std::wstring native_path(HANDLE handle) {
+    const DWORD length = GetFinalPathNameByHandleW(handle, nullptr, 0, VOLUME_NAME_DOS);
+    if (length == 0)
+      throw GuardError("IO_FAILED");
+    std::vector<wchar_t> buffer(length);
+    const DWORD written = GetFinalPathNameByHandleW(handle, buffer.data(), length, VOLUME_NAME_DOS);
+    if (written == 0 || written >= length)
+      throw GuardError("IO_FAILED");
+    const std::wstring path(buffer.data(), written);
+    if (!path.starts_with(L"\\\\?\\"))
+      throw GuardError("UNSAFE_ENTRY");
+    return L"\\??\\" + path.substr(4);
+  }
+
   void set_disposition(HANDLE handle) {
     FILE_DISPOSITION_INFO disposition{TRUE};
     if (!SetFileInformationByHandle(handle, FileDispositionInfo, &disposition,
@@ -313,20 +346,23 @@ public:
 
   void rename_handle(HANDLE handle, HANDLE destination_parent,
                      const std::wstring& destination_name) {
+    const std::wstring destination_path =
+        native_path(destination_parent) + L"\\" + destination_name;
     const std::size_t bytes =
-        offsetof(FILE_RENAME_INFO, FileName) + destination_name.size() * sizeof(wchar_t);
+        offsetof(FILE_RENAME_INFO, FileName) + destination_path.size() * sizeof(wchar_t);
     std::vector<unsigned char> storage(bytes);
     auto* information = reinterpret_cast<FILE_RENAME_INFO*>(storage.data());
     information->ReplaceIfExists = FALSE;
-    information->RootDirectory = destination_parent;
-    information->FileNameLength = static_cast<DWORD>(destination_name.size() * sizeof(wchar_t));
-    std::memcpy(information->FileName, destination_name.data(), information->FileNameLength);
-    if (!SetFileInformationByHandle(handle, FileRenameInfo, information,
-                                    static_cast<DWORD>(bytes))) {
-      throw GuardError(GetLastError() == ERROR_ALREADY_EXISTS || GetLastError() == ERROR_FILE_EXISTS
-                           ? "CONFLICT"
-                           : "IO_FAILED");
-    }
+    information->RootDirectory = nullptr;
+    information->FileNameLength = static_cast<DWORD>(destination_path.size() * sizeof(wchar_t));
+    std::memcpy(information->FileName, destination_path.data(), information->FileNameLength);
+    IO_STATUS_BLOCK status_block{};
+    const NTSTATUS status = nt_set_information_file()(
+        handle, &status_block, information, static_cast<ULONG>(bytes), kFileRenameInformation);
+    if (status == kStatusNameCollision)
+      throw GuardError("CONFLICT");
+    if (status < 0)
+      throw GuardError("IO_FAILED");
   }
 
   std::string add_lease(Lease lease) {
@@ -525,7 +561,8 @@ public:
         throw GuardError("IO_FAILED");
       }
     }
-    const NTSTATUS finish = BCryptFinishHash(hash, digest.data(), digest.size(), 0);
+    const NTSTATUS finish =
+        BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0);
     BCryptDestroyHash(hash);
     BCryptCloseAlgorithmProvider(algorithm, 0);
     if (finish < 0)
@@ -580,8 +617,8 @@ public:
         throw GuardError("UNSAFE_ENTRY");
       }
       bool created = false;
-      HANDLE file =
-          relative_open(directory.handle, wide_name, kFileAccess, FILE_OPEN, kFileOptions, created);
+      HANDLE file = relative_open(directory.handle, wide_name, kFileInspectionAccess, FILE_OPEN,
+                                  kFileOptions, created);
       if (file == INVALID_HANDLE_VALUE)
         throw GuardError("IDENTITY_CHANGED");
       verify_private_acl(file);
@@ -632,8 +669,8 @@ public:
       throw GuardError("UNSAFE_ENTRY");
     std::array<char, 2048> buffer{};
     DWORD count = 0;
-    if (!ReadFile(handle, buffer.data(), buffer.size() - 1, &count, nullptr) || count == 0 ||
-        count >= buffer.size() - 1) {
+    if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size() - 1), &count, nullptr) ||
+        count == 0 || count >= buffer.size() - 1) {
       throw GuardError("UNSAFE_ENTRY");
     }
     return std::string(buffer.data(), count);
@@ -1005,8 +1042,16 @@ public:
     if (arguments.size() != 2)
       throw GuardError("INVALID_INPUT");
     Lease& lease = require_lease(arguments[0]);
-    if (identity_string(lease.handle, lease.parent, lease.mode) != arguments[1]) {
-      throw GuardError("IDENTITY_CHANGED");
+    const auto expected = split(arguments[1], '|');
+    const auto current = split(identity_string(lease.handle, lease.parent, lease.mode), '|');
+    if (expected.size() != 7 || current.size() != 7)
+      throw GuardError("INVALID_INPUT");
+    const bool directory = current[6] == "directory";
+    for (std::size_t index = 0; index < current.size(); ++index) {
+      if (directory && index == 5)
+        continue;
+      if (current[index] != expected[index])
+        throw GuardError("IDENTITY_CHANGED");
     }
     bool created = false;
     HANDLE named = relative_open(

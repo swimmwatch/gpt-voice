@@ -99,6 +99,7 @@ function run(command, arguments_, options = {}) {
     cwd: options.cwd,
     encoding: options.encoding,
     env: options.env,
+    input: options.input,
     maxBuffer: MAX_GIT_OUTPUT_BYTES,
     shell: false,
     stdio: options.stdio,
@@ -390,12 +391,40 @@ export function buildIndexManifest(repositoryRoot, regularBytesCeiling = 17_179_
   const decoder = new TextDecoder('utf-8', { fatal: true });
   const entries = [];
   const records = output.byteLength === 0 ? [] : output.subarray(0, -1).toString('binary').split('\0');
-  for (const rawRecord of records) {
+  const parsedRecords = records.map((rawRecord) => {
     const record = decoder.decode(Buffer.from(rawRecord, 'binary'));
     const match = /^(\d{6}) ([a-f0-9]{40}) \d+\t(.+)$/su.exec(record);
     if (!match) throw new Error('Unexpected Git index record');
     const [, mode, gitObjectId, rawPath] = match;
-    const path = validateRelativePath(rawPath);
+    return Object.freeze({ gitObjectId, mode, path: validateRelativePath(rawPath) });
+  });
+  const blobObjectIds = [
+    ...new Set(parsedRecords.filter(({ mode }) => mode !== '160000').map(({ gitObjectId }) => gitObjectId)),
+  ];
+  const batch =
+    blobObjectIds.length === 0
+      ? Buffer.alloc(0)
+      : runGit(repositoryRoot, ['cat-file', '--batch'], {
+          input: Buffer.from(`${blobObjectIds.join('\n')}\n`, 'ascii'),
+        });
+  const blobs = new Map();
+  let batchOffset = 0;
+  for (const expectedObjectId of blobObjectIds) {
+    const headerEnd = batch.indexOf(0x0a, batchOffset);
+    if (headerEnd < 0) throw new Error('Truncated Git batch header');
+    const header = batch.subarray(batchOffset, headerEnd).toString('ascii');
+    const match = /^([a-f0-9]{40}) blob (\d+)$/u.exec(header);
+    if (!match || match[1] !== expectedObjectId) throw new Error('Unexpected Git batch object');
+    const sizeBytes = Number(match[2]);
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) throw new Error('Unsafe Git batch object size');
+    const contentStart = headerEnd + 1;
+    const contentEnd = contentStart + sizeBytes;
+    if (contentEnd >= batch.length || batch[contentEnd] !== 0x0a) throw new Error('Truncated Git batch object');
+    blobs.set(expectedObjectId, batch.subarray(contentStart, contentEnd));
+    batchOffset = contentEnd + 1;
+  }
+  if (batchOffset !== batch.length) throw new Error('Unexpected trailing Git batch output');
+  for (const { gitObjectId, mode, path } of parsedRecords) {
     if (mode === '160000') {
       entries.push({
         path,
@@ -408,7 +437,8 @@ export function buildIndexManifest(repositoryRoot, regularBytesCeiling = 17_179_
       });
       continue;
     }
-    const bytes = runGit(repositoryRoot, ['cat-file', 'blob', gitObjectId]);
+    const bytes = blobs.get(gitObjectId);
+    if (!bytes) throw new Error('Git batch object is missing');
     if (mode === '120000') {
       entries.push({
         path,

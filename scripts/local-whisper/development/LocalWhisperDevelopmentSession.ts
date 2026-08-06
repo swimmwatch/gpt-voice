@@ -14,7 +14,11 @@ import {
   DEVELOPMENT_RUNTIME_ATTESTATION_FILE_NAME,
   DevelopmentRuntimeAttestationStore,
 } from './DevelopmentRuntimeAttestationStore';
-import { DevelopmentRuntimeInputLoader } from './DevelopmentRuntimeInputs';
+import {
+  DevelopmentRuntimeInputLoader,
+  resolveDevelopmentRuntimePlatform,
+  type DevelopmentRuntimePlatformSelector,
+} from './DevelopmentRuntimeInputs';
 
 const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const APPLICATION_STATE_DIRECTORY_NAME = 'application-state';
@@ -95,7 +99,8 @@ export function developmentElectronEnvironment(environment: Readonly<NodeJS.Proc
 export class DevelopmentElectronRuntimeResolver {
   public async resolve(workspaceRoot: string): Promise<string> {
     const workspace = path.resolve(workspaceRoot);
-    const expectedExecutable = path.join(workspace, 'node_modules', 'electron', 'dist', 'electron');
+    const executableName = process.platform === 'win32' ? 'electron.exe' : 'electron';
+    const expectedExecutable = path.join(workspace, 'node_modules', 'electron', 'dist', executableName);
     let resolvedExecutable: unknown;
     try {
       const workspaceRequire = createRequire(path.join(workspace, 'package.json'));
@@ -111,7 +116,7 @@ export class DevelopmentElectronRuntimeResolver {
       !electronIdentity?.isFile() ||
       electronIdentity.isSymbolicLink() ||
       electronIdentity.size <= 0 ||
-      (electronIdentity.mode & 0o111) === 0
+      (process.platform !== 'win32' && (electronIdentity.mode & 0o111) === 0)
     ) {
       throw new Error('Local Whisper development Electron runtime unavailable');
     }
@@ -123,10 +128,18 @@ export class DevelopmentElectronRuntimeResolver {
 export class LocalWhisperDevelopmentSession {
   public constructor(private readonly dependencies: DevelopmentSessionDependencies) {}
 
-  public async run(workspaceRoot: string): Promise<void> {
+  public async run(
+    workspaceRoot: string,
+    requestedPlatform: DevelopmentRuntimePlatformSelector = 'current',
+  ): Promise<void> {
+    const platform = resolveDevelopmentRuntimePlatform(requestedPlatform);
     const workspace = path.resolve(workspaceRoot);
-    if (process.platform !== 'linux' || !path.isAbsolute(workspaceRoot) || workspace === path.parse(workspace).root) {
-      throw new Error('Local Whisper development session requires a Linux workspace');
+    if (
+      (process.platform !== 'linux' && process.platform !== 'win32') ||
+      !path.isAbsolute(workspaceRoot) ||
+      workspace === path.parse(workspace).root
+    ) {
+      throw new Error('Local Whisper development session requires a supported absolute workspace');
     }
     const packageValue = JSON.parse(await readFile(path.join(workspace, 'package.json'), 'utf8')) as unknown;
     if (
@@ -140,12 +153,15 @@ export class LocalWhisperDevelopmentSession {
     const appRevision = String((packageValue as Record<string, unknown>).version);
     const electronExecutable = await this.dependencies.electron.resolve(workspace);
     const [runtimes, sourceCommit] = await Promise.all([
-      this.dependencies.runtimes.load(workspace),
+      this.dependencies.runtimes.load(workspace, platform),
       this.dependencies.command.run({
-        command: '/usr/bin/git',
+        command: process.platform === 'win32' ? 'git.exe' : '/usr/bin/git',
         arguments: ['rev-parse', 'HEAD'],
         cwd: workspace,
-        environment: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
+        environment:
+          process.platform === 'win32'
+            ? { ...process.env, LANG: 'C', LC_ALL: 'C' }
+            : { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
       }),
     ]);
     if (!/^[a-f\d]{40}$/u.test(sourceCommit)) throw new Error('Local Whisper development source identity invalid');
@@ -172,7 +188,7 @@ export class LocalWhisperDevelopmentSession {
     const terminateApplication = (): void => application?.terminate();
     try {
       await Promise.all([
-        this.dependencies.resources.stage(workspace, resourcesPath),
+        this.dependencies.resources.stage(workspace, resourcesPath, platform),
         mkdir(userDataPath, { recursive: true, mode: 0o700 }),
       ]);
       const runtimeAttestation = await this.dependencies.attestations.load(
@@ -194,6 +210,7 @@ export class LocalWhisperDevelopmentSession {
         appRevision,
         certificatePem: tls.certificatePem,
         descriptorPath,
+        platform,
         resourcesPath,
         runtimeAttestation,
         runtimeOrigin: identity.origin,

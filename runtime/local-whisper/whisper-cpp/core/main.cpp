@@ -13,9 +13,18 @@
 #include <optional>
 #include <string_view>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 int main(int argc, char** argv) {
   if (argc != 2)
     return 2;
+#ifdef _WIN32
+  if (_setmode(_fileno(stdin), _O_BINARY) == -1 || _setmode(_fileno(stdout), _O_BINARY) == -1)
+    return 20;
+#endif
   const std::string_view mode(argv[1]);
   try {
     local_whisper::whisper_cpp::CpuProbe probe;

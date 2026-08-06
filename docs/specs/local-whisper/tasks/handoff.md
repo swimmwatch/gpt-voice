@@ -2,207 +2,118 @@
 
 ## Authoritative state
 
-- Specification revision 15 and plan revision 21 are Approved. Tasks 01–19 are
-  complete and committed. Task 23 and its
-  Q5_0/load-path follow-ups are complete and committed as `043aba8`,
-  `b48877d`, and `a4a0a2a`. Task 20's local deterministic preflight is complete
-  and uncommitted. Tasks 24, 25, 21, and 22 have not started.
-- No candidate input digest, platform branch/result/evidence index, predecessor
-  result, aggregate root, Production verdict, PR, signing, upload, publication,
-  support promotion, tag, or release exists. The settings redesign `0e50716d`,
-  resource-preview fix `90c0d8dd`, and live selected-GPU VRAM fix `c258a24` are
-  committed on the current branch.
-- The authorized development app is running the current build with the Local
-  Whisper settings window open after live resource verification. The model is
-  unloaded. The authenticated CPU runtime remains installed, the saved
-  CUDA/GPU Large v3 Turbo Q5_0 selection remains active, and desktop animations
-  remain enabled.
+- Specification revision **17** and plan revision **23** are Approved and
+  aligned across the plan, checklist, handoff, acceptance registry, and Task 24
+  packet. Plan revision 21 and its revision-15 Task 24 contract are historical
+  only.
+- Task 24 Windows Runtime Delivery Readiness is complete and uncommitted for
+  review. Work began from a clean native-Windows checkout whose HEAD contains
+  `b796c46f`. Tasks 26, 25, 21, and 22 have not started.
+- Task 24 covers Windows x64 CPU and RTX 50 `sm_120a` readiness only. It creates
+  no candidate input digest, qualification result, evidence index, Production
+  verdict, signing authority, upload, publication, support promotion, tag, or
+  release.
 
-## Task 23 implementation
+## Task 24 result
 
-- Added the separate exact `local-whisper:main:residency-command` IPC channel,
-  closed positive-revision `load|unload` request/result validators, exact main
-  sender/provider/revision/action authorization, exactly-once coordinator
-  delegation, and sanitized lifecycle audit/result projection.
-- Added preload/renderer contract parity and revision-aware pending, result,
-  subscription, reload, and replacement reconciliation without optimistic
-  residency or duplicate invocation.
-- Added the localized accessible main-toolbar Load/Free control with focusable
-  disabled reasons, tooltips, status announcements, failure alert, reduced-motion
-  spinner contract, and compact-layout styling. Remote providers and Ollama
-  Prettify remain separate.
-- Added provider-switch conflict, malformed/stale/forged IPC, revision ordering,
-  accessibility, localization, composition, and plan-readiness regression
-  coverage. Revision-19 validation now owns 23 packets and 76 automated
-  acceptance IDs.
-- Corrected GGML Q5_0 preflight so the model-header file type is `8` while the
-  tensor type remains `6`; the regression accepts the upstream versioned
-  `ftype = 2008` used by Large v3 Turbo Q5_0.
-- Reused the GPU binding already proven by successful post-load device evidence
-  for the immediately following binding revalidation. Required pre-load and
-  post-load device proof remain intact, while one duplicate registry worker
-  discovery is removed from each successful GPU load.
-
-## Plan revision 20
-
-- Added Task 24 before candidate freeze. It owns deterministic Windows
-  x64 CPU/CUDA runtime delivery, Windows authenticated development activation,
-  native-helper and unpacked-package verification, reusable/manual-gated
-  Windows automation, and one bounded ordinary-app CPU/CUDA smoke.
-- Task 24 creates no candidate or qualification evidence. Task 20 now depends
-  on Task 24 before freezing the shared candidate; Task 21 consumes Task 24's
-  frozen delivery tooling and remains the all-six-model immutable Windows
-  qualification; Task 22 validates all 24 packets.
-- The acceptance registry/schema declares 24 packets and two exact Task 24
-  verification commands while preserving all 76 existing primary automated
-  acceptance owners. Updating the executable plan validator and implementing
-  those commands belongs to Task 24.
-
-## Plan revision 21
-
-- The user approved sequential work: Task 20 starts first, then Task 24. To
-  preserve the approved single-candidate contract, Task 20 is now a complete,
-  candidate-independent Linux preflight only; it cannot freeze or adopt any
-  qualification identity or evidence.
-- Task 24 follows the completed Task 20 preflight on Windows. New Task 25
-  revalidates every advisory observation against Task 24's final committed
-  source, then owns the shared candidate freeze and authoritative Linux branch.
-  Task 21 consumes Task 25's immutable Linux branch; Task 22 validates all 25
-  packets.
-- The acceptance registry declares 25 packets and shifts the existing final
-  Linux verification command to Task 25. The executable validator remains
-  revision-19/23-packet hard-coded until Task 24 updates it to plan revision 21
-  and 25 packets.
-
-## Task 20 Linux preflight
-
-- Task-20-specific changes: `tests/renderer/localWhisper/LocalWhisperAccessibility.test.ts`,
-  `docs/specs/local-whisper/decisions.yaml`, `tasks/todo.md`, and this handoff.
-  The remaining dirty plan artifacts belong to approved plan revision 21 and are
-  intentionally separate from the completed packet.
-- Completed only the authorized candidate-independent local deterministic
-  preflight. No model/corpus transfer, CUDA/hardware check, private raw-evidence
-  creation, candidate freeze, platform branch, qualification result, or
-  Production claim occurred.
-- Fixed the Local Whisper accessibility test's native-title regex so it retains
-  the same element/attribute assertion without triggering the repository regex
-  linter. No production behavior changed.
-- Passed qualification (52 pass, 1 intentional skip), artifacts (26), packaging
-  (11), composition activation (43), supervisor (42), filesystem guard native
-  (18), launcher native (10), focused accessibility (12), typecheck, type tests,
-  and lint with zero errors. Lint still reports 67 pre-existing warnings.
-- Pending manual gates: exact public model/corpus availability/materialization,
-  Linux host/CUDA readiness, and private raw-evidence handling. Task 25 must
-  revalidate all future authoritative inputs after Task 24's final commit.
-
-## Settings-window follow-ups
-
-- Redesigned and committed the Local Whisper settings experience as `0e50716d`,
-  including the window-centered loader and a continuous canvas/scrollbar-gutter
-  background without a visible right-edge seam.
-- Added selected-model RAM/VRAM peaks, live system RAM, safe-reserve values, and
-  fail-closed resource presentation as `90c0d8dd`.
-- Added bounded, shell-free `nvidia-smi` sampling for the exact selected private
-  PCI identity. The process graph caches samples only against the current opaque
-  NVIDIA device, republishes them after device refresh and compatibility
-  preflight, and leaves availability unknown on unsupported or failed telemetry.
-  This follow-up is committed as `c258a24`.
+- Sanitized host/toolchain identity: Git for Windows `2.55.0.windows.3`,
+  PowerShell `7.6.4`, Node `v24.18.1`, npm `11.9.0`, rtk `0.42.4`, MSVC v143
+  `14.39` with `_MSC_VER == 1939`, Windows SDK `10.0.26100.0`, CMake `3.31.8`,
+  Ninja `1.12.1`, LLVM/clang-format `18.1.3`, CUDA Toolkit `12.8.1` with nvcc
+  `12.8.93`, NVIDIA driver `610.88`, and an RTX 5090 reporting compute
+  capability `12.0`.
+- Exact profiles are `windows-x64-cpu-msvc-19.39-v1` and
+  `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1`. Both use the independently
+  authenticated Microsoft VC Runtime x64 `14.51.36247.0` app-local closure.
+  npm registry connectivity was verified, `ci:install` passed, and the Windows
+  CloakBrowser input was prepared only for the authorized application/package
+  checks.
+- Added deterministic native-Windows tool activation, authenticated VC Runtime
+  materialization, PE dependency closure, CPU/CUDA pack production, explicit
+  platform-aware catalog/runtime tooling, Windows development activation,
+  native filesystem guard and launcher behavior, base-resource boundaries, and
+  unpacked-package inspection. Existing provider, artifact, IPC, settings,
+  capability, worker, residency, and packaging components remain the only
+  application path.
+- Independent checks run concurrently where their outputs are isolated. CUDA
+  compilation uses eight jobs. CPU and CUDA archive production intentionally
+  runs sequentially because concurrent producers shared Windows toolchain/temp
+  state and produced non-identical first-build bytes; the sequential boundary
+  restores the required exact reproducibility contract.
+- CPU pack: archive SHA-256
+  `e8368bff71b6f04e75ea40c5ad45eadeaa14670972a0678fe8bbfdfa78c83b14`,
+  pack-record digest
+  `090affa9dcd01fcdd9513ea3207100076b057a0ed03a5590c2325a46558e36e8`,
+  reproducibility digest
+  `227fe499f898a12219dad834943eef8aa463ab6f8570a47ac0c0d7e0f55f68c7`.
+- CUDA pack: archive SHA-256
+  `f5bd1533e4c6cfca19af0ce9949fed4d29638d5a4565c93c4e2885b7525c2bd9`,
+  pack-record digest
+  `f2f0629ce3943de9049a78bdae12bca8d7c46d97cd2d29ffb2277826c7366bc6`,
+  reproducibility digest
+  `ce4229a99148f95cb0996f67d4be3c727ca13a97955668ff50abc648b35ff6ad`.
+  Both records report `reproducible: true` from two clean roots.
+- The unpacked application contains exactly the authenticated
+  `fs-guard.exe` and `local-whisper-launcher.exe` base helpers. Workers, CUDA
+  libraries, models, development trust, and qualification inputs are absent
+  from base resources.
 
 ## Changed files
 
-- Shared/main/preload: `src/shared/localWhisper/ipc.ts`,
-  `src/main/localWhisper/ipc/LocalWhisperIpcController.ts`,
-  `src/main/localWhisper/audit/LocalWhisperCommandAudit.ts`,
-  `src/main/di/mainProcessCompositionRoot.ts`, `src/main/preloadApi.ts`.
-- Renderer: `src/renderer/App.tsx`, `src/renderer/components/MainToolbar.tsx`,
-  `src/renderer/localWhisper/LocalWhisperPresentation.ts`,
-  `src/renderer/localWhisper/LocalWhisperRendererService.ts`,
-  `src/renderer/localWhisper/useLocalWhisperMainStatus.ts`,
-  `src/renderer/localWhisper/components/LocalWhisperMainResidencyControl.tsx`,
-  `src/renderer/styles/globals.css`, and `src/renderer/types.d.ts`.
-- Localization: all 11 `src/main/i18n/` locale catalogs.
-- Tests: shared IPC, main IPC/coordinator/composition/preload, renderer service,
-  presentation, UI, and accessibility contracts under `tests/`.
-- Follow-up fixes: `runtime/local-whisper/whisper-cpp/core/model_format_preflight.cpp`,
-  `runtime/local-whisper/whisper-cpp/tests/model_format_preflight_test.cpp`,
-  `src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts`, and
-  `tests/main/localWhisper/composition/LocalWhisperProductionWorkerPort.test.ts`.
-- Settings resource follow-up: `src/main/main.ts`,
-  `src/main/localWhisper/capability/NvidiaSmiVramAvailability.ts`,
-  `src/main/localWhisper/capability/SelectedDeviceVramAvailability.ts`,
-  `src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts`,
-  their focused capability/composition tests, and the Linux qualification
-  dependency stub.
-- Plan/readiness: `scripts/local-whisper/validate-task-plan.mjs`,
-  `scripts/local-whisper/implementation-readiness/LocalWhisperImplementationReadinessVerifier.ts`,
-  and the revision-19 local-whisper specification, decisions, task packets,
-  acceptance-owner registry/schema, checklist, and this handoff.
-- Plan revision 20 draft: Local Whisper `decisions.yaml`, `tasks/plan.md`,
-  `tasks/todo.md`, `tasks/handoff.md`, Task 20–22 prerequisite/boundary updates,
-  new `24_windows_runtime_delivery_readiness.md`, and the acceptance-owner
-  registry/schema.
+- Plan/readiness: `docs/specs/local-whisper/decisions.yaml`, plan revision 23
+  task packets and registries under `docs/specs/local-whisper/tasks/`,
+  `scripts/local-whisper/validate-task-plan.mjs`, and the implementation-
+  readiness verifier and tests.
+- Native/runtime profiles: the two Windows profiles, the exact VC Runtime lock
+  and schema under `runtime/local-whisper/toolchains/`, Windows process-identity
+  common code, and the existing fs-guard, launcher, and whisper.cpp Windows
+  sources/build definitions and tests under `runtime/local-whisper/`.
+- Tooling: `package.json`; Windows toolchain, runtime-materializer, PE audit,
+  runtime-pack, integration, application-smoke, unpacked-package, and aggregate
+  readiness tooling under `scripts/local-whisper/`; plus the existing source-
+  import, native-build, development, qualification, packaging, and pack-audit
+  components generalized for explicit Windows input.
+- Application/runtime: the existing Local Whisper artifact, capability,
+  composition, development, filesystem, packaging, and supervisor components
+  under `src/main/localWhisper/`, with focused fixtures and tests under
+  `tests/`.
+- User and task documentation: `docs/local-whisper.md`, `todo.md`, and this
+  handoff. `git diff --name-only` is the authoritative complete uncommitted file
+  list.
 
 ## Verification
 
-- Plan revision 20 JSON/YAML parsing, acceptance-registry JSON Schema,
-  24-packet/76-owner structural coverage, exact Task 24 command registration,
-  targeted Prettier, and `git diff --check` passed. The current executable
-  plan validator reports its expected revision-19/23-packet hard-code; updating
-  that validator is the first Task 24 implementation responsibility.
-- Passed `test:local-whisper:ipc` (55),
-  `test:local-whisper:composition` (105), `verify:local-whisper:ui`,
-  `test:local-whisper:acceptance-ownership`, and
-  `verify:local-whisper:implementation-readiness`.
-- Passed `typecheck`, `test:types`, `format:check`, and `git diff --check`.
-  `lint` reported zero errors and 62 pre-existing warnings. The full unit suite
-  passed 1,747 tests with one intentional skip.
-- Passed the Whisper.cpp loader suite under GCC and Clang ASan/UBSan, CPU and
-  CUDA integration for the canonical Linux profiles, and CPU/CUDA pack audits.
-- Authorized CUDA smoke passed with the saved installed stack: Load entered the
-  pending state and created one GPU worker, a simultaneous provider switch was
-  rejected while Local Whisper remained selected, renderer reload replayed the
-  Loaded state without replacing or duplicating the worker, and keyboard focus,
-  tooltip, pending status, compact English layout, and keyboard Free behavior
-  were visible. Free removed the worker and GPU allocation.
-- After explicit authorization, the missing authenticated CPU runtime was
-  downloaded through the development artifact flow. CPU selection and Save
-  succeeded without the prior save error; CPU Load reached Loaded without an
-  NVIDIA compute allocation, and CPU Free removed its worker.
-- Reduced motion was verified after restarting Electron with desktop animations
-  disabled: pending-spinner captures 600 ms apart had identical decoded pixels.
-  The final CUDA Load/Free again created and removed the GPU worker/allocation.
-  The CUDA/GPU `base/full` selection was restored and saved, desktop animations
-  were re-enabled, and private temporary screenshots were deleted.
-- Large v3 Turbo Q5_0 loaded successfully twice through the ordinary
-  application after the header fix. Direct CUDA engine loads were approximately
-  2.37–2.74 seconds for Base, 5.50–5.52 seconds for Large v3 Turbo, and 9.06
-  seconds for Large v3. Ordinary application loads remained approximately 70
-  seconds for Base and 80–122 seconds for Large v3 Turbo because guarded runtime
-  verification, registry/device proof, and warm-up dominate the native load.
-  The duplicate post-load registry discovery described above is now removed;
-  no post-fix ordinary-application timing claim has been recorded.
-- A later Large v3 Turbo attempt correctly failed the conservative memory gate:
-  about 12.65 GB was available while about 12.88 GB was required. Runtime
-  restart reuse was also reconfirmed without a backend redownload; older
-  duplicate development-runtime directories remain untouched.
-- The settings follow-up passed Local Whisper capability (22), IPC (60),
-  composition (105), composition activation (41), and UI verification tests,
-  plus focused ESLint, Prettier, TypeScript typecheck, webpack build, and
-  `git diff --check`.
-- Live verification on the selected NVIDIA device showed 9.16 GiB available,
-  7.96 GiB safe to reserve, a 6.00 GiB selected-model peak, and `Safe to load`.
-  The centered layout and continuous scrollbar-gutter background were also
-  confirmed. The private temporary screenshot was deleted.
+- Passed registered commands:
+  `npm run test:local-whisper:windows-readiness` and
+  `npm run verify:local-whisper:windows-readiness`. The aggregate completed in
+  692.7 seconds and covered focused contracts, native quality, release helpers,
+  deterministic CPU/CUDA packs, direct CPU/CUDA integrations, pack audit,
+  production build, unpacked Windows packaging, and packaged-resource checks.
+- Passed filesystem native tests, launcher native tests, supervisor (43),
+  composition (118), development, capability, packaging, acceptance ownership,
+  implementation readiness, TypeScript typecheck/type tests, ESLint, Prettier,
+  C++ clang-format checks, production build, `dist:win -- --dir`,
+  `verify:packaged`, and `git diff --check`.
+- Bounded ordinary-app smoke passed in 274.3 seconds: CPU ran without GPU
+  initialization; CUDA used the exact RTX 5090 `sm_120a` selection with no
+  fallback; Check compatibility, Load, one pinned public deterministic WAV
+  transcription, Free, restart-offline reuse, and cleanup all passed.
+- The Linux-only common-native clang-tidy/sanitizer command remains an external
+  Linux CI gate by design; it was not represented as a Windows pass. Task 21
+  qualification commands and the all-model Windows matrix were not run.
 
-## Exact next packet and blockers
+## Cleanup, remaining gates, and next packet
 
-- No Task 23 or settings-resource blocker remains. The settings redesign and
-  resource-preview follow-ups and the live VRAM fix are committed on the current
-  branch.
-- Task 20 is complete and uncommitted. The exact next packet is
-  `24_windows_runtime_delivery_readiness.md`; it requires separate
-  incremental-implementation authorization and its Windows-host, network,
-  application-launch, and unpacked-package manual gates. Stop before Task 24,
-  candidate freeze, Task 25, push, qualification, PR, signing, upload,
-  publication, tag, or release unless separately authorized by the applicable
-  workflow.
+- The fresh task-owned application-data root and ephemeral TLS certificate/key
+  were removed after the smoke. No screenshots, transcripts, raw audio,
+  hardware identifiers, private paths, certificates, or complete logs were
+  retained as repository evidence. Download/build/dependency caches and pack
+  outputs remain outside Git; no release installer was installed or removed.
+- No Task 24 blocker remains for review. RTX 30 `sm_86` and RTX 40 `sm_89`
+  physical checks are explicitly **Pending — external representative hardware
+  required**. This RTX 5090 result cannot satisfy or waive them.
+- The exact next packet is
+  `26_hardware_matched_nvidia_cuda_runtime_expansion.md`. Do not start it until
+  separately authorized. Stop before Task 25 candidate freeze/qualification,
+  Task 21 Windows qualification, Task 22 aggregate readiness, commit, push, PR,
+  signing, upload, publication, support promotion, tag, or release.

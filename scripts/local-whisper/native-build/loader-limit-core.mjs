@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 import { canonicalDigest, readJson, sha256, verifySourceLock } from '../source-import/native-source-core.mjs';
 
@@ -24,7 +24,7 @@ export function loaderLimitToolDigest() {
     resolve(import.meta.dirname, 'derive-whisper-cpp-loader-limits.mjs'),
     resolve(import.meta.dirname, 'loader-limit-core.mjs'),
     resolve(import.meta.dirname, 'verify-whisper-cpp-loader-limits.mjs'),
-  ].map((path) => ({ path: path.split('/').at(-1), sha256: sha256(readFileSync(path)) }));
+  ].map((path) => ({ path: basename(path), sha256: sha256(readFileSync(path)) }));
   return canonicalDigest(files);
 }
 

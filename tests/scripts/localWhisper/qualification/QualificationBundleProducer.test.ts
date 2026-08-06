@@ -37,6 +37,7 @@ describe('LocalWhisperQualificationBundleProducer', () => {
         const result = await new LocalWhisperQualificationBundleProducer().produce({
           outputDirectory: output,
           catalog: {
+            platform: 'linux',
             candidateSemVer: '2.4.0',
             catalogRevision: 'qualification-catalog-v2.4.0',
             runtimeOriginId: 'qualification-runtime-origin',
@@ -47,8 +48,13 @@ describe('LocalWhisperQualificationBundleProducer', () => {
             archivePath: backend === 'cpu' ? runtimeCpu : runtimeCuda,
             catalog: {
               backend,
+              platform: 'linux',
+              architecture: 'x64',
               buildRevision: backend === 'cpu' ? sha('1') : sha('2'),
-              packRevision: `linux-x64-${backend}-v2.4.0`,
+              packRevision:
+                backend === 'cpu'
+                  ? 'whisper-cpp-linux-x64-cpu-baseline-v1'
+                  : 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
               expectedFiles: [
                 {
                   fileId: toLocalWhisperArtifactId('worker')!,
@@ -123,6 +129,7 @@ describe('LocalWhisperQualificationBundleProducer', () => {
         new LocalWhisperQualificationBundleProducer().produce({
           outputDirectory: path.join(root, 'bundle'),
           catalog: {
+            platform: 'linux',
             candidateSemVer: '2.4.0',
             catalogRevision: 'qualification-catalog-v2.4.0',
             runtimeOriginId: 'qualification-runtime-origin',
@@ -133,8 +140,13 @@ describe('LocalWhisperQualificationBundleProducer', () => {
             archivePath: backend === 'cpu' ? runtimeCpu : runtimeCuda,
             catalog: {
               backend,
+              platform: 'linux',
+              architecture: 'x64',
               buildRevision: backend === 'cpu' ? sha('1') : sha('2'),
-              packRevision: `linux-x64-${backend}-v2.4.0`,
+              packRevision:
+                backend === 'cpu'
+                  ? 'whisper-cpp-linux-x64-cpu-baseline-v1'
+                  : 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
               expectedFiles: [
                 {
                   fileId: toLocalWhisperArtifactId('worker')!,

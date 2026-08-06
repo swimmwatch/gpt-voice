@@ -163,8 +163,8 @@ async function readActivationDocument(
       !Number.isSafeInteger(metadata.size) ||
       metadata.size <= 0 ||
       metadata.size > MAX_ACTIVATION_DOCUMENT_BYTES ||
-      (metadata.mode & 0o077) !== 0 ||
-      (dependencies.userId !== undefined && metadata.uid !== dependencies.userId)
+      (dependencies.platform === 'linux' && (metadata.mode & 0o077) !== 0) ||
+      (dependencies.platform === 'linux' && dependencies.userId !== undefined && metadata.uid !== dependencies.userId)
     ) {
       return null;
     }
@@ -191,7 +191,7 @@ export class LocalWhisperDevelopmentActivationLoader {
     if (activationLike.length === 0) return Object.freeze({ status: 'absent' });
     if (
       this.dependencies.isPackaged ||
-      this.dependencies.platform !== 'linux' ||
+      (this.dependencies.platform !== 'linux' && this.dependencies.platform !== 'win32') ||
       activationLike.length !== 1 ||
       exact.length !== 1 ||
       activationLike[0] !== exact[0]

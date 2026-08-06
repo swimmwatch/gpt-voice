@@ -258,6 +258,7 @@ class ConformanceWorker {
     if (this.mode === 'crash') return this.exit(17);
     if (this.mode === 'hang') return;
     if (this.mode === 'stream-close') {
+      if (process.platform === 'win32') return this.exit(0);
       process.stdout.end();
       return;
     }

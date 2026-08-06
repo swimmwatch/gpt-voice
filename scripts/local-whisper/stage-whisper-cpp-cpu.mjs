@@ -13,6 +13,7 @@ import {
   requireProfile,
   taskCacheRoot,
 } from './whisper-cpp-build-core.mjs';
+import { stageWindowsRuntimePack } from './native-build/windows-runtime-pack-core.mjs';
 
 function assertOwnedPath(path) {
   const child = relative(taskCacheRoot, path);
@@ -40,9 +41,13 @@ export function cpuStageRoot(profileId) {
   return resolve(taskCacheRoot, 'stage', profileId);
 }
 
-export function stageCpuPack(profileId, buildRoot) {
-  if (profileId !== 'linux-x64-cpu-baseline-v1') throw new Error('Task 10 stages only the qualified Linux CPU profile');
-  const profile = requireProfile(profileId);
+export function stageCpuPack(profileId, buildRoot, executionProfile = null) {
+  if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
+    if (!executionProfile) throw new Error('Windows CPU staging requires the captured execution profile');
+    return stageWindowsRuntimePack({ backend: 'cpu', buildRoot, profile: executionProfile });
+  }
+  if (profileId !== 'linux-x64-cpu-baseline-v1') throw new Error('Unsupported CPU staging profile');
+  const profile = executionProfile ?? requireProfile(profileId);
   const patchLock = readJson(patchLockPath);
   const nlohmannLock = readJson(nlohmannSourceLockPath);
   const table = readJson(limitTablePath);

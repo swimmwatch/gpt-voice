@@ -209,7 +209,9 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
     request: Parameters<LocalWhisperCoordinatorWorkerPort['loadFresh']>[0],
   ): Promise<LocalWhisperCoordinatorWorkerResult<LocalWhisperResidentWorkerLease>> {
     if (request.signal.aborted) return failure('CANCELLED');
-    if (this.dependencies.platform !== 'linux') return failure('PLANNED_UNAVAILABLE');
+    if (this.dependencies.platform !== 'linux' && this.dependencies.platform !== 'win32') {
+      return failure('PLANNED_UNAVAILABLE');
+    }
     const runtime = runtimeFor(this.dependencies.catalog, request.settings);
     const model = modelFor(this.dependencies.catalog, request.settings);
     if (!runtime) return failure('RUNTIME_INCOMPATIBLE');

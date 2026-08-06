@@ -24,9 +24,24 @@ const RUNTIMES = Object.freeze([
   }),
 ]);
 
+const WINDOWS_RUNTIMES = Object.freeze([
+  Object.freeze({
+    backend: 'cpu' as const,
+    profileId: 'windows-x64-cpu-msvc-19.39-v1',
+    packRevision: 'whisper-cpp-windows-x64-cpu-v1',
+    runtimeBuildDigest: '1'.repeat(64),
+  }),
+  Object.freeze({
+    backend: 'cuda' as const,
+    profileId: 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
+    packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
+    runtimeBuildDigest: '2'.repeat(64),
+  }),
+]);
+
 async function stageRuntime(
   workspace: string,
-  runtime: (typeof RUNTIMES)[number],
+  runtime: (typeof RUNTIMES)[number] | (typeof WINDOWS_RUNTIMES)[number],
 ): Promise<{ readonly manifestPath: string; readonly packPath: string }> {
   const stageRoot = path.join(workspace, '.cache', 'local-whisper', 'whisper-cpp', 'stage', runtime.profileId);
   const packRoot = path.join(
@@ -85,12 +100,12 @@ async function stageRuntime(
   return Object.freeze({ manifestPath, packPath });
 }
 
-describe('DevelopmentRuntimeInputLoader', { skip: process.platform !== 'linux' }, () => {
+describe('DevelopmentRuntimeInputLoader', () => {
   it('binds each catalog runtime to the authenticated worker build digest', async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-runtime-'));
     try {
       await Promise.all(RUNTIMES.map((runtime) => stageRuntime(workspace, runtime)));
-      const loaded = await new DevelopmentRuntimeInputLoader().load(workspace);
+      const loaded = await new DevelopmentRuntimeInputLoader('linux').load(workspace, 'linux');
       assert.deepEqual(
         loaded.map(({ backend, catalog }) => ({ backend, buildRevision: catalog.buildRevision })),
         RUNTIMES.map(({ backend, runtimeBuildDigest }) => ({ backend, buildRevision: runtimeBuildDigest })),
@@ -117,9 +132,35 @@ describe('DevelopmentRuntimeInputLoader', { skip: process.platform !== 'linux' }
         productionOrigin: false,
       });
       await assert.rejects(
-        () => new DevelopmentRuntimeInputLoader().load(workspace),
+        () => new DevelopmentRuntimeInputLoader('linux').load(workspace, 'linux'),
         /Local Whisper development runtime manifest identity changed/u,
       );
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('selects the closed Windows profiles and freezes current to the admitted host', async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-runtime-'));
+    try {
+      await Promise.all(WINDOWS_RUNTIMES.map((runtime) => stageRuntime(workspace, runtime)));
+      const loader = new DevelopmentRuntimeInputLoader('win32');
+      const loaded = await loader.load(workspace, 'current');
+      assert.deepEqual(
+        loaded.map(({ backend, catalog }) => ({
+          backend,
+          platform: catalog.platform,
+          architecture: catalog.architecture,
+          packRevision: catalog.packRevision,
+        })),
+        WINDOWS_RUNTIMES.map(({ backend, packRevision }) => ({
+          backend,
+          platform: 'win32',
+          architecture: 'x64',
+          packRevision,
+        })),
+      );
+      await assert.rejects(loader.load(workspace, 'linux'), /runtime host invalid/u);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

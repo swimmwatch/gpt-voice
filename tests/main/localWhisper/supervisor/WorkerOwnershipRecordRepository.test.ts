@@ -46,7 +46,7 @@ test('ownership record store writes private atomic state and removes only an exa
     const expected = record();
     await value.store.write(expected);
     assert.deepEqual(await value.store.read(), { kind: 'valid', record: expected });
-    assert.equal(fs.statSync(value.filePath).mode & 0o777, 0o600);
+    assert.equal(fs.statSync(value.filePath).mode & 0o777, process.platform === 'win32' ? 0o666 : 0o600);
 
     await assert.rejects(value.store.remove({ ...expected, processStartIdentity: 'different-process' }), /changed/u);
     assert.equal(fs.existsSync(value.filePath), true);

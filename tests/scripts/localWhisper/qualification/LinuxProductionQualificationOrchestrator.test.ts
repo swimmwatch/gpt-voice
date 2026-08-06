@@ -32,8 +32,12 @@ function loadedEvidence(root: string): LoadedLinuxQualificationEvidence {
       archivePath: path.join(root, `${backend}.tar.gz`),
       catalog: Object.freeze({
         backend,
+        platform: 'linux',
+        architecture: 'x64',
         buildRevision: revision(`${backend}-build-v1`),
-        packRevision: revision(`linux-x64-${backend}-v2.4.0`),
+        packRevision: revision(
+          backend === 'cpu' ? 'whisper-cpp-linux-x64-cpu-baseline-v1' : 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
+        ),
         expectedFiles: Object.freeze([]),
         prerequisites: Object.freeze([`${backend}-prerequisite`]),
         provenanceId: `${backend}-provenance`,

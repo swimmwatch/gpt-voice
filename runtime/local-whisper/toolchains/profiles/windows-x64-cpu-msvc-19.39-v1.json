@@ -2,8 +2,19 @@
   "$schema": "../schema/native-toolchain-lock.schema.json",
   "schemaId": "local-whisper-native-toolchain-lock-v1",
   "profileId": "windows-x64-cpu-msvc-19.39-v1",
-  "target": { "os": "windows", "architecture": "x64", "abi": "msvc-v143-crt-14.39-windows-sdk-10.0.26100.0" },
+  "target": {
+    "os": "windows",
+    "architecture": "x64",
+    "abi": "msvc-v143-14.39-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0"
+  },
   "tools": [
+    {
+      "role": "c-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/cl.exe",
+      "version": "Microsoft (R) C/C++ Optimizing Compiler Version 19.39 (_MSC_VER=1939)",
+      "sha256": null
+    },
     {
       "role": "cxx-compiler",
       "pathKind": "toolchainRootRelative",
@@ -26,6 +37,13 @@
       "sha256": null
     },
     {
+      "role": "pe-inspector",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/dumpbin.exe",
+      "version": "Microsoft (R) COFF/PE Dumper Version 14.39",
+      "sha256": null
+    },
+    {
       "role": "cmake",
       "pathKind": "toolchainRootRelative",
       "path": "cmake-3.31.8/bin/cmake.exe",
@@ -42,15 +60,27 @@
   ],
   "runtime": [
     {
-      "id": "msvc-crt-14.39",
+      "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140",
       "pathKind": "toolchainRootRelative",
-      "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140-1",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140_1.dll",
       "sha256": null
     },
     {
       "id": "windows-sdk-10.0.26100.0",
       "pathKind": "toolchainRootRelative",
-      "path": "windows-sdk-10.0.26100.0/Lib/um/x64/kernel32.lib",
+      "path": "windows-sdk-10.0.26100.0/Lib/10.0.26100.0/um/x64/kernel32.lib",
       "sha256": null
     }
   ],
@@ -79,9 +109,21 @@
   "outputs": [{ "id": "whisper-static", "pathKind": "outputRelative", "path": "src/whisper.lib", "sha256": null }],
   "dynamicDependencies": [
     {
-      "id": "msvc-crt-14.39",
+      "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140",
       "pathKind": "toolchainRootRelative",
-      "path": "msvc-14.39/redist/x64/Microsoft.VC143.CRT/vcruntime140.dll",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140-1",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140_1.dll",
       "sha256": null
     }
   ],
@@ -89,11 +131,24 @@
     {
       "id": "visual-studio-build-tools-14.39",
       "pathKind": "toolchainRootRelative",
-      "path": "msvc-14.39/license.txt",
+      "path": "licenses/visual-studio-2022-build-tools.html",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-license",
+      "pathKind": "toolchainRootRelative",
+      "path": "licenses/visual-cpp-v14-runtime.html",
       "sha256": null
     }
   ],
-  "sbomComponents": ["msvc-14.39", "windows-sdk-10.0.26100.0", "cmake-3.31.8", "ninja-1.12.1", "whisper-cpp-v1.9.1"],
+  "sbomComponents": [
+    "msvc-14.39",
+    "microsoft-vc-runtime-14.51.36247.0-x64",
+    "windows-sdk-10.0.26100.0",
+    "cmake-3.31.8",
+    "ninja-1.12.1",
+    "whisper-cpp-v1.9.1"
+  ],
   "qualificationState": "pending-windows-qualification",
   "evidenceDigest": null,
   "minimumDriver": null

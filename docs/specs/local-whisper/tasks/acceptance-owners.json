@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
-  "planRevision": 21,
+  "specificationRevision": 17,
+  "planRevision": 23,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -26,7 +27,8 @@
     "22": "22_aggregate_and_release_blockers.md",
     "23": "23_main_window_residency_control.md",
     "24": "24_windows_runtime_delivery_readiness.md",
-    "25": "25_linux_qualification_finalization.md"
+    "25": "25_linux_qualification_finalization.md",
+    "26": "26_hardware_matched_nvidia_cuda_runtime_expansion.md"
   },
   "verificationCommands": [
     {
@@ -273,6 +275,16 @@
       "id": "task-24-windows-readiness-verification",
       "task": "24",
       "command": "rtk npm run verify:local-whisper:windows-readiness"
+    },
+    {
+      "id": "task-26-hardware-matched-cuda-tests",
+      "task": "26",
+      "command": "rtk npm run test:local-whisper:hardware-matched-cuda"
+    },
+    {
+      "id": "task-26-hardware-matched-cuda-verification",
+      "task": "26",
+      "command": "rtk npm run verify:local-whisper:hardware-matched-cuda"
     },
     {
       "id": "task-25-linux-qualification",
@@ -679,6 +691,31 @@
       "acceptanceId": "AC-AUTO-077",
       "primaryTask": "23",
       "verificationCommandIds": ["task-23-main-residency-ipc", "task-23-main-residency-composition"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-078",
+      "primaryTask": "26",
+      "verificationCommandIds": ["task-26-hardware-matched-cuda-tests"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-079",
+      "primaryTask": "26",
+      "verificationCommandIds": ["task-26-hardware-matched-cuda-tests", "task-26-hardware-matched-cuda-verification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-080",
+      "primaryTask": "26",
+      "verificationCommandIds": ["task-26-hardware-matched-cuda-verification"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-081",
+      "primaryTask": "26",
+      "verificationCommandIds": ["task-26-hardware-matched-cuda-tests"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-082",
+      "primaryTask": "26",
+      "verificationCommandIds": ["task-26-hardware-matched-cuda-verification"]
     }
   ]
 }

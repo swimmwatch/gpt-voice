@@ -115,6 +115,7 @@ export class StreamingArtifactExtractor {
             throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
           }
           await this.store.sealStagedFile(fileLease);
+          await fileLease.release();
         } catch (error) {
           await fileLease.release().catch(() => undefined);
           throw error;

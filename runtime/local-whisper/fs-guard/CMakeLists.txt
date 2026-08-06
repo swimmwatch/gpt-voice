@@ -46,9 +46,13 @@ target_include_directories(local_whisper_authority_records PUBLIC ../common/incl
 fs_guard_apply_quality(local_whisper_authority_records)
 
 if(WIN32)
+  target_sources(local_whisper_authority_records PRIVATE
+    ../common/src/windows_process_identity.cpp
+  )
   add_library(fs_guard_platform STATIC
     src/platform/windows/windows_backend.cpp
     src/platform/windows/windows_model_authority_server.cpp
+    src/platform/windows/windows_model_launch_application.cpp
   )
   target_link_libraries(fs_guard_platform
     PUBLIC fs_guard_core local_whisper_authority_records advapi32 bcrypt)

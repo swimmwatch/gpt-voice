@@ -220,6 +220,7 @@ export class LinuxProductionQualificationOrchestrator {
       const bundle = await this.dependencies.bundleProducer.produce({
         outputDirectory: path.join(input.privateRunRoot, 'bundle'),
         catalog: {
+          platform: 'linux',
           candidateSemVer: input.candidateSemVer,
           catalogRevision: `qualification-catalog-v${input.candidateSemVer}`,
           runtimeOriginId: 'qualification-runtime-origin',

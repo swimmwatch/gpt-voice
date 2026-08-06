@@ -10,6 +10,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -51,15 +52,39 @@ const workspaceRoot = resolve(__dirname, '..', '..');
 const outputDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'launcher');
 const executableSuffix = process.platform === 'win32' ? '.exe' : '';
 const fixturePaths: FixturePaths = {
-  authorityWorkerSource: resolve(outputDirectory, 'fixtures', 'local-whisper-authority-worker-fixture'),
-  fsGuard: resolve(workspaceRoot, '.cache', 'local-whisper', 'fs-guard', 'fs-guard'),
+  authorityWorkerSource: resolve(
+    outputDirectory,
+    'fixtures',
+    `local-whisper-authority-worker-fixture${executableSuffix}`,
+  ),
+  fsGuard: resolve(workspaceRoot, '.cache', 'local-whisper', 'fs-guard', `fs-guard${executableSuffix}`),
   launcher: resolve(outputDirectory, `local-whisper-launcher${executableSuffix}`),
   identityProbe: resolve(outputDirectory, 'fixtures', `local-whisper-launcher-identity-fixture${executableSuffix}`),
   workerSource: resolve(outputDirectory, 'fixtures', `local-whisper-launcher-fixture-worker${executableSuffix}`),
 };
 const fixtureExecutablePaths = [fixturePaths.launcher, fixturePaths.identityProbe, fixturePaths.workerSource] as const;
-const linuxModelLaunchFixturePaths = [fixturePaths.fsGuard, fixturePaths.authorityWorkerSource] as const;
+const modelLaunchFixturePaths = [fixturePaths.fsGuard, fixturePaths.authorityWorkerSource] as const;
 const runtimeDirectoryPrefix = 'gpt-voice-local-whisper-launcher-';
+const WINDOWS_UNLINK_RETRY_COUNT = 100;
+const WINDOWS_UNLINK_RETRY_DELAY_MS = 50;
+
+async function unlinkFixtureFile(filePath: string): Promise<void> {
+  for (let attempt = 0; attempt < WINDOWS_UNLINK_RETRY_COUNT; attempt += 1) {
+    try {
+      unlinkSync(filePath);
+      return;
+    } catch (error: unknown) {
+      const retryable =
+        process.platform === 'win32' &&
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'EPERM' &&
+        attempt + 1 < WINDOWS_UNLINK_RETRY_COUNT;
+      if (!retryable) throw error;
+      await new Promise<void>((resolve) => setTimeout(resolve, WINDOWS_UNLINK_RETRY_DELAY_MS));
+    }
+  }
+}
 
 function parseParentDeathState(source: string): ParentDeathState {
   const value: unknown = JSON.parse(source);
@@ -140,6 +165,7 @@ function sha256(path: string): string {
 }
 
 function fileIdentity(path: string): ManagedArtifactIdentitySnapshot {
+  if (process.platform === 'win32') return parseIdentity(runProbe(['--model', path]));
   const value = statSync(path, { bigint: true });
   const parent = statSync(dirname(path), { bigint: true });
   return {
@@ -275,8 +301,8 @@ async function readControl(reader: ReturnType<typeof bufferedReader>): Promise<R
 async function verifyModelLaunchChain(): Promise<void> {
   const directory = mkdtempSync(resolve(tmpdir(), 'gpt-voice-local-whisper-model-launch-'));
   chmodSync(directory, 0o700);
-  const worker = resolve(directory, 'worker');
-  const launcher = resolve(directory, 'launcher');
+  const worker = resolve(directory, `worker${executableSuffix}`);
+  const launcher = resolve(directory, `launcher${executableSuffix}`);
   const model = resolve(directory, 'model.ggml');
   copyFileSync(fixturePaths.launcher, launcher);
   chmodSync(launcher, 0o500);
@@ -370,7 +396,12 @@ async function verifyModelLaunchChain(): Promise<void> {
       await owned.waitForExit(5_000);
     }
     await Promise.all([runtimeLease.release(), modelLease.release()]);
-    rmSync(directory, { force: true, recursive: true });
+    for (const filePath of [launcher, model, worker]) {
+      if (!existsSync(filePath)) continue;
+      chmodSync(filePath, 0o600);
+      await unlinkFixtureFile(filePath);
+    }
+    rmSync(directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
   }
 }
 
@@ -432,7 +463,7 @@ async function verifyControlClosure(): Promise<void> {
     }
     await terminateUnrelated(unrelated);
     await runtime.authority.runtimeLease.release();
-    rmSync(runtime.directory, { force: true, recursive: true });
+    rmSync(runtime.directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
   }
 }
 
@@ -453,7 +484,7 @@ async function verifyHungTreeHardKill(): Promise<void> {
       await owned.waitForExit(5_000);
     }
     await runtime.authority.runtimeLease.release();
-    rmSync(runtime.directory, { force: true, recursive: true });
+    rmSync(runtime.directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
   }
 }
 
@@ -483,7 +514,7 @@ async function verifyParentDeath(): Promise<void> {
   try {
     assert.equal(await waitUntil(() => !isAlive(state.workerPid) && !isAlive(state.descendantPid), 12_000), true);
   } finally {
-    rmSync(state.directory, { force: true, recursive: true });
+    rmSync(state.directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
   }
 }
 
@@ -494,16 +525,13 @@ async function main(): Promise<void> {
   for (const path of fixtureExecutablePaths) {
     if (!existsSync(path)) throw new Error(`Missing launcher verification fixture: ${basename(path)}`);
   }
-  if (process.platform === 'linux') {
-    for (const path of linuxModelLaunchFixturePaths) {
-      if (!existsSync(path)) throw new Error(`Missing model launch verification fixture: ${basename(path)}`);
-    }
+  for (const path of modelLaunchFixturePaths) {
+    if (!existsSync(path)) throw new Error(`Missing model launch verification fixture: ${basename(path)}`);
   }
   if (process.argv.includes('--parent-death-child')) await runParentDeathChild();
   if (process.argv.includes('--model-launch-only')) {
-    if (process.platform !== 'linux') throw new Error('Model launch verification requires Linux');
     await verifyModelLaunchChain();
-    process.stdout.write('Local Whisper model launch chain verified on linux\n');
+    process.stdout.write(`Local Whisper model launch chain verified on ${process.platform}\n`);
     return;
   }
   if (!process.argv.includes('--fixture')) throw new Error('Launcher verification requires --fixture');
@@ -511,7 +539,7 @@ async function main(): Promise<void> {
   await verifyControlClosure();
   await verifyHungTreeHardKill();
   await verifyParentDeath();
-  if (process.platform === 'linux') await verifyModelLaunchChain();
+  await verifyModelLaunchChain();
   process.stdout.write(`Local Whisper launcher fixture verified on ${process.platform}\n`);
 }
 

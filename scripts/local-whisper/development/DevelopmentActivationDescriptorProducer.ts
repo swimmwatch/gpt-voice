@@ -12,12 +12,13 @@ import { LOCAL_WHISPER_DEVELOPMENT_DISPLAY_LABEL } from '@main/localWhisper/deve
 import { sha256Bytes, writeCanonicalJson } from '../packaging/fileIntegrity';
 import { LocalWhisperQualificationCatalogProducer } from '../qualification/QualificationCatalogProducer';
 import type { DevelopmentRuntimeAttestation } from './DevelopmentRuntimeAttestationStore';
-import type { DevelopmentRuntimeInput } from './DevelopmentRuntimeInputs';
+import type { DevelopmentRuntimeInput, DevelopmentRuntimePlatform } from './DevelopmentRuntimeInputs';
 
 export interface DevelopmentActivationDescriptorInput {
   readonly appRevision: string;
   readonly certificatePem: string;
   readonly descriptorPath: string;
+  readonly platform: DevelopmentRuntimePlatform;
   readonly resourcesPath: string;
   readonly runtimeAttestation: DevelopmentRuntimeAttestation;
   readonly runtimeOrigin: string;
@@ -33,7 +34,8 @@ export class DevelopmentActivationDescriptorProducer {
       !path.isAbsolute(input.resourcesPath) ||
       !/^[a-f\d]{40}$/u.test(input.sourceCommit) ||
       input.runtimes.length !== 2 ||
-      new Set(input.runtimes.map(({ backend }) => backend)).size !== 2
+      new Set(input.runtimes.map(({ backend }) => backend)).size !== 2 ||
+      input.runtimes.some(({ catalog }) => catalog.platform !== input.platform || catalog.architecture !== 'x64')
     ) {
       throw new Error('Local Whisper development descriptor input invalid');
     }
@@ -52,6 +54,7 @@ export class DevelopmentActivationDescriptorProducer {
       .digest('hex')
       .slice(0, 24)}`;
     const catalog = new LocalWhisperQualificationCatalogProducer().produce({
+      platform: input.platform,
       candidateSemVer: input.appRevision,
       appRevision: input.appRevision,
       catalogRevision,

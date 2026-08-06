@@ -354,8 +354,8 @@ local_whisper::common::AuthorityBinding model_binding(const LaunchRequest& reque
 
 class LinuxLauncher final : public PlatformLauncher {
 public:
-  int run(const LaunchRequest& request, int control_descriptor,
-          int acknowledgment_descriptor) override {
+  int run(const LaunchRequest& request, int control_descriptor, int acknowledgment_descriptor,
+          int authority_descriptor) override {
     const std::filesystem::path worker_path(request.worker_path);
     const std::filesystem::path working_directory(request.working_directory);
     if (!worker_path.is_absolute() || !working_directory.is_absolute() ||
@@ -410,8 +410,8 @@ public:
     if (full_load) {
       authority_binding = model_binding(request);
       LinuxModelAuthorityClient authority_client;
-      model_authority.emplace(authority_client.acquire(5, authority_binding));
-      static_cast<void>(close(5));
+      model_authority.emplace(authority_client.acquire(authority_descriptor, authority_binding));
+      static_cast<void>(close(authority_descriptor));
       std::array<int, 2> input_pipe{};
       if (pipe2(input_pipe.data(), O_CLOEXEC) != 0)
         throw std::runtime_error("launcher worker pipe creation failed");

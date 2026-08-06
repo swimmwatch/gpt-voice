@@ -6,6 +6,16 @@ import { QualificationCommandRunner, type QualificationCommandPort } from './Lin
 
 const CERTIFICATE_NAME = 'qualification-certificate.pem';
 const PRIVATE_KEY_NAME = 'qualification-private-key.pem';
+const LINUX_OPENSSL_PATH = '/usr/bin/openssl';
+const WINDOWS_GIT_OPENSSL_RELATIVE_PATH = path.join('Git', 'usr', 'bin', 'openssl.exe');
+
+function qualificationOpenSslCommand(): string {
+  if (process.platform === 'linux') return LINUX_OPENSSL_PATH;
+  if (process.platform === 'win32' && process.env.ProgramFiles) {
+    return path.join(process.env.ProgramFiles, WINDOWS_GIT_OPENSSL_RELATIVE_PATH);
+  }
+  throw new Error('Qualification TLS OpenSSL unavailable');
+}
 
 export interface QualificationTlsMaterial {
   readonly certificatePem: string;
@@ -20,7 +30,7 @@ export class EphemeralQualificationTlsIdentityFactory {
 
   public async create(parentDirectory: string): Promise<QualificationTlsMaterial> {
     if (
-      process.platform !== 'linux' ||
+      (process.platform !== 'linux' && process.platform !== 'win32') ||
       !path.isAbsolute(parentDirectory) ||
       path.resolve(parentDirectory) === path.parse(path.resolve(parentDirectory)).root
     ) {
@@ -32,7 +42,7 @@ export class EphemeralQualificationTlsIdentityFactory {
     const privateKeyPath = path.join(root, PRIVATE_KEY_NAME);
     try {
       await this.commands.run({
-        command: '/usr/bin/openssl',
+        command: qualificationOpenSslCommand(),
         arguments: [
           'req',
           '-x509',
@@ -54,7 +64,10 @@ export class EphemeralQualificationTlsIdentityFactory {
           certificatePath,
         ],
         cwd: root,
-        environment: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
+        environment:
+          process.platform === 'win32'
+            ? { LANG: 'C', LC_ALL: 'C', PATH: path.dirname(qualificationOpenSslCommand()) }
+            : { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
       });
       await Promise.all([chmod(certificatePath, 0o400), chmod(privateKeyPath, 0o400)]);
       const [certificateMetadata, privateMetadata, certificatePem, privateKeyPem] = await Promise.all([

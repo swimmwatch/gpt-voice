@@ -8,8 +8,9 @@ const tasksRoot = path.join(specificationRoot, 'tasks');
 const manifestPath = path.join(tasksRoot, 'acceptance-owners.json');
 const schemaPath = path.join(tasksRoot, 'acceptance-owners.schema.json');
 const specificationPath = path.join(specificationRoot, 'spec.md');
-const PLAN_REVISION = 21;
-const TASK_COUNT = 25;
+const SPECIFICATION_REVISION = 17;
+const PLAN_REVISION = 23;
+const TASK_COUNT = 26;
 
 const REQUIRED_REPLACEMENT_HEADINGS = [
   'Outcome',
@@ -27,10 +28,10 @@ const REQUIRED_REPLACEMENT_HEADINGS = [
   'References',
   'Completion And Handoff',
 ];
-const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5])$/u;
-const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2[0-5])_[a-z\d_]+\.md$/u;
-const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5])-[a-z\d-]+$/u;
-const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06\d|07[0-7])$/u;
+const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-6])$/u;
+const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2[0-6])_[a-z\d_]+\.md$/u;
+const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-6])-[a-z\d-]+$/u;
+const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06\d|07\d|08[0-2])$/u;
 
 function fail(message) {
   throw new Error(`Local Whisper task-plan validation failed: ${message}`);
@@ -52,7 +53,7 @@ function assertExactKeys(value, expectedKeys, label) {
 function expectedAcceptanceIds() {
   return [
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 22 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 27 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ];
 }
 
@@ -84,10 +85,16 @@ function validateManifestShape(manifest, schema) {
   assertRecord(manifest, 'manifest');
   assertExactKeys(
     manifest,
-    ['schemaVersion', 'planRevision', 'taskFiles', 'verificationCommands', 'automatedAcceptanceOwners'],
+    ['schemaVersion', 'specificationRevision', 'planRevision', 'taskFiles', 'verificationCommands', 'automatedAcceptanceOwners'],
     'manifest',
   );
-  if (manifest.schemaVersion !== 1 || manifest.planRevision !== PLAN_REVISION) fail('manifest version is unexpected');
+  if (
+    manifest.schemaVersion !== 1 ||
+    manifest.specificationRevision !== SPECIFICATION_REVISION ||
+    manifest.planRevision !== PLAN_REVISION
+  ) {
+    fail('manifest version is unexpected');
+  }
   if (!Array.isArray(manifest.verificationCommands)) fail('verificationCommands must be an array');
   if (!Array.isArray(manifest.automatedAcceptanceOwners)) fail('automatedAcceptanceOwners must be an array');
 }
@@ -112,10 +119,13 @@ async function validateTaskFiles(manifest, taskDirectoryEntries) {
   const taskIds = Object.keys(taskFiles).sort();
   const expectedTaskIds = Array.from({ length: TASK_COUNT }, (_, index) => String(index + 1).padStart(2, '0'));
   if (taskIds.length !== expectedTaskIds.length || taskIds.some((task, index) => task !== expectedTaskIds[index])) {
-    fail('taskFiles must contain exactly Tasks 01 through 25');
+    fail('taskFiles must contain exactly Tasks 01 through 26');
   }
   if (taskFiles['23'] !== '23_main_window_residency_control.md') fail('Task 23 packet filename is unexpected');
   if (taskFiles['25'] !== '25_linux_qualification_finalization.md') fail('Task 25 packet filename is unexpected');
+  if (taskFiles['26'] !== '26_hardware_matched_nvidia_cuda_runtime_expansion.md') {
+    fail('Task 26 packet filename is unexpected');
+  }
 
   const numberedFiles = taskDirectoryEntries
     .filter((entry) => entry.isFile() && /^\d{2}_.*\.md$/u.test(entry.name))
@@ -193,7 +203,7 @@ function validateAcceptanceOwners(manifest, specification, packetByTask, command
     specificationAcceptanceIds.length !== canonicalAcceptanceIds.length ||
     specificationAcceptanceIds.some((id, index) => id !== canonicalAcceptanceIds[index])
   ) {
-    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–077');
+    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–082');
   }
 
   const ownersByAcceptanceId = new Map();
@@ -241,6 +251,9 @@ function validateAcceptanceOwners(manifest, specification, packetByTask, command
   for (const acceptanceId of ['AC-AUTO-059', 'AC-AUTO-076', 'AC-AUTO-077']) {
     if (ownersByAcceptanceId.get(acceptanceId) !== '23') fail(`${acceptanceId} must be owned by Task 23`);
   }
+  for (const acceptanceId of ['AC-AUTO-078', 'AC-AUTO-079', 'AC-AUTO-080', 'AC-AUTO-081', 'AC-AUTO-082']) {
+    if (ownersByAcceptanceId.get(acceptanceId) !== '26') fail(`${acceptanceId} must be owned by Task 26`);
+  }
 }
 
 async function main() {
@@ -250,7 +263,7 @@ async function main() {
   const commandById = validateVerificationCommands(manifest, packetByTask, taskIds);
   validateAcceptanceOwners(manifest, specification, packetByTask, commandById);
 
-  process.stdout.write('Local Whisper task plan is structurally valid: 25 packets, 76 unique AC-AUTO owners.\n');
+  process.stdout.write('Local Whisper task plan is structurally valid: 26 packets, 81 unique AC-AUTO owners.\n');
 }
 
 main().catch((error) => {

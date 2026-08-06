@@ -181,7 +181,7 @@ nlohmann::json load_message() {
       {"deviceBinding", {{"kind", "cpu"}}},
       {"residency",
        {{"engine", "whisperCpp"},
-        {"runtimePackRevision", "whisper-cpp-linux-x64-cpu-baseline-v1"},
+        {"runtimePackRevision", LOCAL_WHISPER_RUNTIME_REVISION},
         {"target", "cpu"},
         {"backend", "cpu"},
         {"deviceId", nullptr},

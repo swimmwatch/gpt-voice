@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Make the existing Local Whisper Windows x64 CPU and NVIDIA CUDA product paths
+Make the existing Local Whisper Windows x64 CPU and RTX 50 `sm_120a` NVIDIA CUDA product paths
 actually buildable, installable, and testable after Task 20 Linux preparation
 but before any qualification candidate is frozen. Produce deterministic Windows native helpers and
 on-demand CPU/CUDA runtime packs, generalize the authenticated development
@@ -18,18 +18,26 @@ qualification packet.
 
 ## Prerequisites
 
-- Specification revision 15 is Approved and plan revision 21 is Approved.
+- Specification revision 17 is Approved and plan revision 23 is Approved.
 - Tasks 01–19 and 23, including their follow-up fixes and `AC-MAN-015`–
   `AC-MAN-016`, are complete and committed.
 - Task 20 Linux preflight is complete and committed but created no candidate,
   Linux/Windows branch, profile, graph, result, evidence index, predecessor
-  result, or aggregate root. Tasks 25, 21, and 22 have not started.
+  result, or aggregate root. Tasks 26, 25, 21, and 22 have not started.
 - The Task 17 public fixture digest remains
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
 - An authorized Windows x64 host can provide the pinned MSVC v143 `14.39`,
   `_MSC_VER 1939`, Windows SDK `10.0.26100.0`, CMake `3.31.8`, Ninja `1.12.1`,
   and CUDA `12.8.1` inputs. CUDA smoke additionally requires a physical NVIDIA
   device compatible with the frozen `120a-real` target and driver `>= 570.65`.
+- The Windows runtime input is the separately pinned Microsoft Visual C++ v14
+  x64 Redistributable `14.51.36247.0`, byte length `18,731,856`, SHA-256
+  `843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c`,
+  downloaded only from the versioned Microsoft URL
+  `https://aka.ms/vs/18/release/14.51.36247/VC_redist.x64.exe` and accepted only
+  with a valid Authenticode chain whose publisher subject is Microsoft
+  Corporation. The moving `https://aka.ms/vc14/vc_redist.x64.exe` alias is
+  discovery evidence only and is never a build input.
 - Task 24 has separate implementation and Windows-host execution authorization.
   Network, app launch, packaging, and hardware checks remain manual gates below.
 
@@ -72,11 +80,13 @@ qualification packet.
   Windows workflow validate Windows artifacts without weakening trust-purpose
   isolation or enabling production collection.
 - Add deterministic Windows unit/integration/package coverage plus a bounded
-  ordinary-app `base/full` CPU and CUDA setup/load/transcribe/unload/restart
-  smoke with safe sanitized evidence.
+  ordinary-app `base/full` CPU and RTX 5090 `sm_120a` setup/load/transcribe/
+  unload/restart smoke with safe sanitized evidence.
 - Update Windows setup/troubleshooting documentation and the plan validator,
-  acceptance registry, checklist, and handoff for plan revision 21, including
-  Task 25's final Linux qualification command and 25-packet validation.
+  acceptance registry, checklist, and handoff for plan revision 23, including
+  Task 26's deferred RTX 30/40 expansion contract, 26-packet validation, and
+  all 81 primary automated acceptance owners. This is structural plan support;
+  Task 24 does not implement Task 26 behavior.
 
 ## Out Of Scope
 
@@ -89,8 +99,10 @@ qualification packet.
 - Changing support tiers or promoting Windows CPU/CUDA to an unconditional
   Production claim. Both remain conditional until Tasks 20, 24, 25, 21, and 22
   complete.
-- AMD or Intel GPU enablement, Windows arm64, additional CUDA architectures,
-  macOS execution, CPU fallback from a failed GPU selection, or a second engine.
+- AMD or Intel GPU enablement, Windows arm64, `sm_86`/`sm_89` runtime delivery
+  or physical testing, macOS execution, CPU fallback from a failed GPU
+  selection, or a second engine. Task 26 owns the hardware-matched RTX 30/40
+  expansion; its physical gates require external representative hardware.
 - Production private keys, signing, legal approval, GitHub Release runtime
   upload, final origin parity, production catalog collection, push, PR, tag,
   publication, support promotion, or release.
@@ -101,12 +113,40 @@ qualification packet.
 
 ### 1. Closed Windows platform identities
 
-Support exactly `win32/x64` with the existing engine and runtime identities:
+Support exactly `win32/x64` with the existing engine and runtime identities for
+CPU and the RTX 50 `sm_120a` path only:
 
-| Target | Backend | Toolchain profile                              | Required runtime closure                                                                             |
-| ------ | ------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| CPU    | `cpu`   | `windows-x64-cpu-msvc-19.39-v1`                | Windows worker plus reviewed MSVC runtime files; no CUDA library or GPU initialization               |
-| GPU    | `cuda`  | `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1` | Windows worker, reviewed MSVC runtime, `cudart64_12.dll`, `cublas64_12.dll`, and `cublasLt64_12.dll` |
+| Target       | Backend | Toolchain profile                                      | Required runtime closure                                                                                                                                                 |
+| ------------ | ------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CPU          | `cpu`   | `windows-x64-cpu-msvc-19.39-v1`                        | Windows worker plus the exact import-derived Microsoft VC Runtime 14.51.36247.0 x64 app-local DLL closure; no CUDA library or GPU initialization                          |
+| GPU / RTX 50 | `cuda`  | `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1`         | Windows worker, the same exact VC Runtime closure, `cudart64_12.dll`, `cublas64_12.dll`, and `cublasLt64_12.dll`                                                          |
+
+Build-tool and deployment-runtime identities are independent and fail closed.
+The existing profile IDs continue to name the compiler/toolset and therefore
+remain unchanged. Their ABI strings, runtime component IDs, paths, SBOM entries,
+licenses, and dependency closure must distinguish MSVC v143 `14.39` from VC
+Runtime `14.51.36247.0`; no identifier may continue to imply `crt-14.39`.
+`cl.exe`, `link.exe`, `lib.exe`, `_MSC_VER`, the Windows SDK, CMake, Ninja, and
+CUDA versions remain exactly pinned and may not be replaced by Visual Studio
+2026 build tools or another compiler minor.
+
+The signed Redistributable installer is a verified acquisition object, never a
+runtime-pack member and never executed by the application. A task-owned
+materialization step may run only under the manual gate below. It must verify
+the installer size, SHA-256, file/product version, x64 architecture, and valid
+Microsoft Authenticode publisher before any install effect. The trusted
+installer may then install exactly that development prerequisite under UAC. A
+repository-owned materializer must verify the registered x64 runtime version is
+exactly `14.51.36247.0`, read only a closed named allowlist of Microsoft-signed
+runtime DLLs from the absolute native Windows system directory, reject a
+pre-existing different runtime version, and copy the permitted files into a
+fresh isolated toolchain root. From that point onward System32 is not a build or
+pack input. The materializer records every copied DLL's SHA-256 and file version;
+the final worker/helper PE import graphs select the exact staged subset and
+reject missing, additional, wrong-version, wrong-architecture, unsigned, or
+ambient `PATH` inputs. Windows-owned system DLLs remain declared prerequisites
+and are not copied. Production redistribution approval remains a Task 22
+external gate.
 
 The CUDA profile keeps `CMAKE_CUDA_ARCHITECTURES=120a-real`, CUDA toolkit
 `12.8.1`, minimum driver `570.65`, and exactly one CUDA backend. The CPU profile
@@ -114,6 +154,9 @@ keeps explicit baseline ISA/thread checks and initializes no GPU. Reject x86,
 arm64, other CUDA targets, driver/toolchain substitution, missing DLLs,
 unexpected dynamic dependencies, or mixed Linux/Windows identities. Do not
 silently choose another backend, device, runtime, model, or target.
+`sm_86-real` and `sm_89-real` are deliberately unavailable in this packet;
+their deterministic delivery, applicability, and external physical-gate
+handoff belong to Task 26.
 
 ### 2. Deterministic native builds and runtime packs
 
@@ -128,6 +171,13 @@ run MSVC native unit/integration tests; prove the requested CUDA architecture is
 present in generated code; inspect PE imports and dependency closure; and test
 startup from a clean malicious working directory with the launcher's sanitized
 environment. A successful compile or link alone is not readiness.
+
+Before the network-denied build begins, materialize the Microsoft VC Runtime
+once into a fresh task-owned root from the exact verified acquisition object.
+Normal configure/build/test/pack commands accept only that explicit local root;
+they do not download, install, repair, upgrade, or discover a system VC Runtime.
+The final PE-import audit and clean relocated startup determine the exact staged
+DLL subset, and the profile/runtime manifest must bind every staged DLL hash.
 
 Produce each runtime pack twice from independent clean roots and require equal
 source/patched-tree identities, installed-file manifests, archive size,
@@ -254,10 +304,10 @@ graph:
    through normal progress-reporting actions;
 3. select CPU, check compatibility, Load, transcribe one pinned public FLEURS
    WAV, verify a non-empty result, Free, and prove no GPU initialization;
-4. install the authenticated Windows CUDA runtime, select the exact NVIDIA
-   device, check compatibility, Load, transcribe the same WAV, verify a
+4. install the authenticated Windows `sm_120a` CUDA runtime, select the exact
+   RTX 5090 NVIDIA device, check compatibility, Load, transcribe the same WAV, verify a
    non-empty result, Free, and prove the worker/allocation is removed;
-5. restart offline, reuse the installed CPU and CUDA runtimes/model without a
+5. restart offline, reuse the installed CPU and `sm_120a` CUDA runtimes/model without a
    transfer, repeat one Load/Free path, and confirm no inference network egress;
 6. verify keyboard access, status/failure text, progress, Connected gating, and
    the main-window Load/Free control at the existing compact dimensions.
@@ -281,14 +331,20 @@ evidence. This bounded smoke does not run or claim Task 21 qualification.
   remain unchanged. A platform discriminator must be explicit and fail closed.
 - Windows Vulkan stays `Preview · Untested`; HIP remains Linux-only Preview;
   Metal/macOS remains Planned and unavailable.
-- Task 24 readiness cannot authorize Task 25, Task 21, production collection,
-  support promotion, upload, publication, or release.
+- Task 24 readiness cannot authorize Task 26, Task 25, Task 21, production
+  collection, support promotion, upload, publication, or release.
 
 ## Expected Files Or Components
 
 - `runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.39-v1.json`
   and `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json`, plus only the
-  reviewed Windows evidence/lock metadata required to remove placeholders.
+  reviewed Windows evidence/lock metadata required to remove placeholders. Do
+  not add `sm_86` or `sm_89` profiles in this packet.
+- A repository-owned exact acquisition lock at
+  `runtime/local-whisper/toolchains/locks/microsoft-vc-runtime-14.51.36247.0-x64-v1.json`
+  plus the narrow schema/verifier/materializer support needed to authenticate
+  the signed installer and populate an isolated app-local DLL root. Installer
+  bytes, extracted DLLs, certificates, and installer logs remain outside Git.
 - Existing native build/stage/audit scripts under `scripts/local-whisper/` and
   Windows C++ sources under `runtime/local-whisper/`, extended without
   regressing Linux contracts.
@@ -303,15 +359,20 @@ evidence. This bounded smoke does not run or claim Task 21 qualification.
 - Focused shared/main composition, capability, filesystem, supervisor,
   development, packaging, native, workflow, and Windows-readiness tests.
 - Windows Local Whisper setup/troubleshooting documentation and plan revision
-  20 artifacts: `validate-task-plan.mjs`, acceptance registry/schema,
-  `plan.md`, `todo.md`, and `handoff.md`.
+  23 artifacts: `validate-task-plan.mjs`, the implementation-readiness registry
+  verifier, acceptance registry/schema, `plan.md`, `todo.md`, and `handoff.md`.
+  Registry support must recognize Task 26 and `AC-AUTO-078`–`AC-AUTO-082`
+  without implementing or running that packet.
 
 ## Acceptance Criteria
 
-- Windows x64 CPU and CUDA native workers/helpers build under the exact pinned
-  profiles with warnings as errors, deterministic manifests, proven dependency
-  closure, and no network during configure/build/test/pack.
-- Independent CPU/CUDA runtime builds reproduce identical strict archives and
+- Windows x64 CPU and `sm_120a` CUDA native workers/helpers build under exact
+  MSVC 14.39 profiles with the separately pinned VC Runtime 14.51.36247.0
+  closure, warnings as errors, deterministic manifests, proven dependency
+  closure, and no network during configure/build/test/pack. Replacing the
+  compiler, accepting a floating/current runtime, or retaining a `crt-14.39`
+  profile identity fails validation.
+- Independent CPU/`sm_120a` CUDA runtime builds reproduce identical strict archives and
   expose Windows catalog rows compatible with all six canonical model objects.
 - Linux inputs produce unchanged identities and pass their existing automated
   tests; mixed platform identities fail closed.
@@ -322,15 +383,16 @@ evidence. This bounded smoke does not run or claim Task 21 qualification.
   no inference worker/runtime/model or development trust, and remains
   production-disabled and uncollectable.
 - The bounded Windows CPU smoke passes without GPU initialization; the bounded
-  CUDA smoke proves the exact selected NVIDIA device with no fallback; unload,
+  RTX 5090 `sm_120a` CUDA smoke proves the exact selected NVIDIA device with no fallback; unload,
   restart reuse, offline inference, and cleanup pass.
 - Unsupported architecture, missing runtime/model, incompatible driver/device,
   missing DLL, wrong compute target, insufficient known resource, tampered
   archive/helper/model, and stale selection all remain Not ready with safe typed
   failures and no automatic download or fallback.
-- Task 24 records no qualification/Production verdict and leaves Tasks 25, 21,
-  and 22 unchecked. Plan validation recognizes 25 packets and all 76 existing primary
-  automated acceptance owners without changing their ownership.
+- Task 24 records no qualification/Production verdict and leaves Tasks 26, 25,
+  21, and 22 unchecked. Plan validation recognizes 26 packets and all 81
+  primary automated acceptance owners without changing Task 26's exclusive
+  ownership of `AC-AUTO-078`–`AC-AUTO-082`.
 
 ## Verification
 
@@ -384,8 +446,9 @@ Do not run `run:local-whisper:qualification:linux`,
 - A product/runtime/package defect found before candidate freeze remains Task 24
   work if it fits this packet. A support-contract, dependency, trust, or
   architecture change returns to specification/planning before implementation.
-- Missing Windows host/toolchain/NVIDIA hardware, a failed bounded smoke, or an
-  unavailable exact model/runtime input keeps Task 24 incomplete or Pending.
+- Missing Windows host/toolchain/NVIDIA hardware, a failed bounded `sm_120a`
+  smoke, or an unavailable exact model/runtime input keeps Task 24 incomplete
+  or Pending.
   Linux results, mocks, Wine, cross-compilation, compile-only CI, another CUDA
   target, or CPU fallback cannot substitute for the missing check.
 - Preserve installed user artifacts on code rollback. Remove only exact
@@ -403,6 +466,21 @@ Do not run `run:local-whisper:qualification:linux`,
   MSVC/SDK/CMake/Ninja/CUDA inputs. Installation, licenses, and any external
   downloads require explicit human authorization and remain outside routine
   automated execution.
+- `MANUAL GATE — Microsoft VC Runtime materialization`: acquire only the exact
+  versioned Microsoft x64 Redistributable object declared in Section 1, verify
+  its size/hash/version/Authenticode publisher before effect, and materialize
+  the import-derived app-local DLL closure into a fresh task-owned toolchain
+  root. UAC may be used only to install that verified Microsoft development
+  prerequisite. Before copying any DLL, verify the registered x64 runtime is
+  exactly `14.51.36247.0`; resolve the closed DLL allowlist only from the
+  absolute native Windows system directory, then sever that system dependency
+  by hashing and copying the files into the isolated root. Do not use a moving
+  URL, Dev Essentials credentials, a different installed runtime, PATH lookup,
+  an unsigned extractor, or System32 during normal build/pack execution. Remove
+  installer logs and temporary materialization roots after their exact task
+  ownership is validated; retain only permitted outside-Git dependency cache
+  inputs needed to finish the authorized task. Do not uninstall or downgrade a
+  shared system runtime during cleanup.
 - `MANUAL GATE — public model download`: permit anonymous HTTPS transfer only
   for the exact pinned `base/full` Hugging Face object and authenticated redirect
   targets used by the bounded smoke. No token, cookie, mirror, upload, or moving
@@ -415,30 +493,37 @@ Do not run `run:local-whisper:qualification:linux`,
   in Section 8. Do not use private microphone audio or retain private output.
 - `MANUAL GATE — unpacked package`: build and inspect `dist:win -- --dir` only;
   installer installation/removal and Task 21 qualification remain separate.
+- `MANUAL GATE — RTX 30/40 physical hardware`: no such run is assigned to this
+  computer or Task 24. Windows `sm_86` and `sm_89` execution remains
+  **Pending — external representative hardware required** and cannot be
+  substituted by the RTX 5090, compilation, mocks, emulation, or CI.
 - Commit, push, PR, production signing, runtime upload, publication, support
   promotion, tag, and release require later explicit authorization.
 
 ## References
 
-- Specification revision 15 Sections 5–7, 9.1–9.6, 11, 12, 14–18, 19.1,
-  19.3, and 22; especially `IMPL-001`, `QUAL-004`, and `OPS-003` completion
-  boundaries.
+- Specification revision 17 Sections 5–7, 8.2, 9.1–9.6, 11, 12, 14–18, 19.1,
+  19.3, and 22; especially `IMPL-001`, `QUAL-004`, `QUAL-006`, and `OPS-003`
+  completion boundaries.
 - Completed Task 19 development-activation/implementation-readiness contract
   and Task 23 main-window residency contract.
-- Task 21 Windows qualification packet as the downstream immutable evidence
-  consumer; Task 24 must not absorb its representative qualification matrix.
+- Task 26 hardware-matched NVIDIA expansion packet and Task 21 Windows
+  qualification packet as downstream immutable consumers; Task 24 must not
+  absorb either packet's `sm_86`/`sm_89` or representative qualification matrix.
 - Project native C++20, Electron/main ownership, packaging, privacy, and release
   conventions.
 
 ## Completion And Handoff
 
 Mark Task 24 complete only after both registered commands pass, all required
-Windows native/package checks pass, the bounded ordinary-app CPU/CUDA smoke is
-recorded with sanitized evidence, Linux regressions are clear, Task 20 remains
-preflight-only, and no qualification or production authority was created.
+Windows native/package checks pass, the bounded ordinary-app CPU/RTX 5090
+`sm_120a` smoke is recorded with sanitized evidence, Linux regressions are
+clear, Task 20 remains preflight-only, Task 26 remains unchecked, and no
+qualification or production authority was created.
 
 Update `todo.md` and `handoff.md` with changed files, exact checks, the Windows
-host/profile IDs, safe pass/failure codes, temporary-root cleanup, and remaining
-manual gates. Stop before Task 25, candidate freeze, Task 21, commit, push, PR,
+host/profile IDs, safe pass/failure codes, temporary-root cleanup, remaining
+manual gates, and the explicit external Pending state for RTX 30/40 physical
+checks. Stop before Task 26, Task 25, candidate freeze, Task 21, commit, push, PR,
 signing, upload, publication, tag, support promotion, or release unless each is
 separately authorized.

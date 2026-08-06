@@ -14,16 +14,17 @@ Whisper route in this release.
 
 ## Platform status
 
-| Platform | Target | Backend | Current claim |
-| --- | --- | --- | --- |
-| Linux x64 | CPU | CPU | Production candidate; release qualification still required |
-| Linux x64 | NVIDIA GPU | CUDA | Production candidate for approved immutable packs; release qualification still required |
-| Windows x64 | CPU | CPU | Source and contract coverage only until representative Task 19 execution |
-| Windows x64 | NVIDIA GPU | CUDA | Source and contract coverage only until representative Task 19 execution |
-| Linux x64 | AMD GPU | Vulkan | Preview · Untested; no physical AMD success claim |
-| Windows x64 | AMD GPU | Vulkan | Preview · Untested; representative execution deferred |
-| Linux x64 | AMD GPU | HIP | Preview · Untested and available only for an exact approved distribution, kernel, driver, runtime, PCI/GFX, permission, and dependency row |
-| macOS arm64 | Apple GPU | Metal | Planned · Unavailable; no download, CPU exception, helper, worker, load, Ready, or transcription |
+| Platform    | Target                             | Backend | Current claim                                                                                                                              |
+| ----------- | ---------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Linux x64   | CPU                                | CPU     | Production candidate; release qualification still required                                                                                 |
+| Linux x64   | NVIDIA GPU                         | CUDA    | Production candidate for approved immutable packs; release qualification still required                                                    |
+| Windows x64 | CPU                                | CPU     | Task 24 runtime-delivery readiness and bounded ordinary-app smoke passed; Task 21 release qualification remains required                   |
+| Windows x64 | NVIDIA RTX 50 (`sm_120a`)          | CUDA    | Task 24 runtime-delivery readiness and bounded RTX 5090 smoke passed; Task 21 release qualification remains required                       |
+| Windows x64 | NVIDIA RTX 30/40 (`sm_86`/`sm_89`) | CUDA    | Task 26 delivery work and physical checks on external representative hardware remain pending                                               |
+| Linux x64   | AMD GPU                            | Vulkan  | Preview · Untested; no physical AMD success claim                                                                                          |
+| Windows x64 | AMD GPU                            | Vulkan  | Preview · Untested; representative execution deferred                                                                                      |
+| Linux x64   | AMD GPU                            | HIP     | Preview · Untested and available only for an exact approved distribution, kernel, driver, runtime, PCI/GFX, permission, and dependency row |
+| macOS arm64 | Apple GPU                          | Metal   | Planned · Unavailable; no download, CPU exception, helper, worker, load, Ready, or transcription                                           |
 
 There is no silent backend, device, engine, model, or CPU fallback. A saved
 unavailable choice remains visible and Not ready until the user changes it.
@@ -32,22 +33,22 @@ unavailable choice remains visible and Not ready until the user changes it.
 
 The Local Whisper page exposes these fields and actions:
 
-| Field | Input and validation |
-| --- | --- |
-| Engine | Read-only `whisperCpp`; no engine selector or alternate model format |
-| Target | `GPU` or `CPU`; must match an installed catalog runtime and platform policy |
-| Backend | GPU: `cuda`, `vulkan`, or an approved Linux `hip`; future macOS uses non-actionable `metal`. CPU requires `cpu` |
-| Device | One main-derived opaque choice compatible with the backend; raw UUID, serial, PCI topology, native index, and registry identity are never exposed |
-| Runtime revision | One immutable signed catalog revision for the exact platform, architecture, target, and backend |
-| Model family | `tiny`, `base`, `small`, `medium`, `large-v3`, or `large-v3-turbo` |
-| Model revision | One immutable `whisper.cpp`-native `ggml` artifact; no implicit conversion |
-| Model variant | `full` or catalog-approved `q5_0`; `q5_0` is limited to Large-v3 and Large-v3-turbo |
-| Language | `auto` or one app-shipped canonical Whisper.cpp language ID; free text and aliases are rejected |
-| Initial prompt | Optional private text, at most 1,000 Unicode scalar values; invalid Unicode is rejected and the renderer receives only presence |
-| Temperature | 0.00 through 1.00 in 0.05 steps |
-| Strategy | `greedy`, `beamSearch`, or `bestOfSampling` |
-| Beam size / Best of | Integer 1–20, visible only for the matching strategy |
-| CPU threads | `auto` or an integer from 1 through the sanitized logical-processor count; visible only for CPU |
+| Field               | Input and validation                                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Engine              | Read-only `whisperCpp`; no engine selector or alternate model format                                                                              |
+| Target              | `GPU` or `CPU`; must match an installed catalog runtime and platform policy                                                                       |
+| Backend             | GPU: `cuda`, `vulkan`, or an approved Linux `hip`; future macOS uses non-actionable `metal`. CPU requires `cpu`                                   |
+| Device              | One main-derived opaque choice compatible with the backend; raw UUID, serial, PCI topology, native index, and registry identity are never exposed |
+| Runtime revision    | One immutable signed catalog revision for the exact platform, architecture, target, and backend                                                   |
+| Model family        | `tiny`, `base`, `small`, `medium`, `large-v3`, or `large-v3-turbo`                                                                                |
+| Model revision      | One immutable `whisper.cpp`-native `ggml` artifact; no implicit conversion                                                                        |
+| Model variant       | `full` or catalog-approved `q5_0`; `q5_0` is limited to Large-v3 and Large-v3-turbo                                                               |
+| Language            | `auto` or one app-shipped canonical Whisper.cpp language ID; free text and aliases are rejected                                                   |
+| Initial prompt      | Optional private text, at most 1,000 Unicode scalar values; invalid Unicode is rejected and the renderer receives only presence                   |
+| Temperature         | 0.00 through 1.00 in 0.05 steps                                                                                                                   |
+| Strategy            | `greedy`, `beamSearch`, or `bestOfSampling`                                                                                                       |
+| Beam size / Best of | Integer 1–20, visible only for the matching strategy                                                                                              |
+| CPU threads         | `auto` or an integer from 1 through the sanitized logical-processor count; visible only for CPU                                                   |
 
 Validation is cross-field and atomic. Missing, corrupt, or newer stored fields
 produce a repair state or `SETTINGS_VERSION_UNSUPPORTED`; they never silently
@@ -63,14 +64,14 @@ These family ranges are approximate planning estimates, not guarantees. Exact
 catalog estimates depend on the selected runtime, quantization, backend, and
 pack. Qualified peaks and current free-memory headroom take precedence.
 
-| Model family | Approximate VRAM | Approximate RAM |
-| --- | ---: | ---: |
-| Tiny | 1–2 GiB | 2–4 GiB |
-| Base | 1–2 GiB | 2–4 GiB |
-| Small | 2–3 GiB | 4–6 GiB |
-| Medium | 3–6 GiB | 6–10 GiB |
-| Large-v3 | 6–8 GiB | 10–16 GiB |
-| Large-v3-turbo | 3–6 GiB | 6–10 GiB |
+| Model family   | Approximate VRAM | Approximate RAM |
+| -------------- | ---------------: | --------------: |
+| Tiny           |          1–2 GiB |         2–4 GiB |
+| Base           |          1–2 GiB |         2–4 GiB |
+| Small          |          2–3 GiB |         4–6 GiB |
+| Medium         |          3–6 GiB |        6–10 GiB |
+| Large-v3       |          6–8 GiB |       10–16 GiB |
+| Large-v3-turbo |          3–6 GiB |        6–10 GiB |
 
 CPU execution has no model-VRAM requirement but still needs RAM. Disk storage
 is separate from RAM/VRAM and includes immutable runtime/model artifacts plus
@@ -103,6 +104,36 @@ dispatch. HIP requires an exact approved OS/distribution, kernel, driver,
 runtime-library closure, PCI/GFX row, PCIe atomics state, and device-access
 permissions. GPT-Voice does not install drivers, SDKs, groups, udev rules, or
 system packages and never changes permissions automatically.
+
+## Windows x64 setup and troubleshooting
+
+The Windows base application contains only the authenticated filesystem guard
+and operation-scoped launcher. CPU and CUDA workers, their app-local runtime
+libraries, and models remain separate immutable downloads. Installing a CUDA
+Toolkit or adding CUDA directories to `PATH` is not an application
+prerequisite: the approved CUDA pack carries its closed CUDA 12.8.1 runtime
+dependency set. The CPU pack initializes no GPU runtime.
+
+The currently tested NVIDIA delivery row is RTX 50 `sm_120a`, with a driver at
+or above the catalog minimum of `570.65`. RTX 30 `sm_86` and RTX 40 `sm_89`
+must not use the RTX 50 pack and remain unavailable until Task 26 supplies
+their independently authenticated packs and representative-hardware checks.
+GPT-Voice never silently falls back from a selected GPU runtime to CPU.
+
+Use `Check compatibility` before `Load now`. A Not ready result should retain
+the selected configuration and expose a safe failure code. Typical recovery is
+to install the exact selected runtime and model, update an incompatible NVIDIA
+driver from NVIDIA's official distribution, free the reported RAM or VRAM, or
+remove and redownload a corrupt immutable artifact. Do not copy DLLs, workers,
+or models into managed storage, select an ambient CUDA installation, disable
+Windows security protections, or substitute a runtime built for another GPU
+target.
+
+Task 24 proved deterministic CPU and RTX 5090 `sm_120a` runtime packs, load,
+one public deterministic WAV transcription, unload, restart-offline reuse, and
+cleanup through the ordinary non-packaged application. It did not run the
+Task 21 all-model Windows qualification matrix, install a release installer,
+or create a Production claim.
 
 ## Offline and privacy behavior
 
@@ -156,7 +187,7 @@ OpenAI API. The older application must preserve unknown Local Whisper
 namespaces and must not execute or delete them.
 
 Repository fixtures model that preceding registry/chooser contract, but they
-are not real-binary evidence. Release support remains blocked until Task 19
+are not real-binary evidence. Release support remains blocked until Task 21
 runs the exact immediately preceding packaged binary and records its version,
 hash, signature/provenance when available, and nonprivate fixture outcome. Any
 difference blocks rollback guidance until the contract and this document are
@@ -168,8 +199,11 @@ corrected.
   frozen approval metadata.
 - License, redistribution, notices, SBOM, provenance, source, toolchain, and
   dependency-closure approval for every runtime and model component.
-- Representative Windows CPU/CUDA packaging, helper, worker, device-proof,
-  lifecycle, and same-fixture-digest execution.
+- Task 21 representative Windows CPU/CUDA qualification, including the
+  all-model lifecycle, resource, repetition, cancellation, package, and
+  preceding-binary matrix.
+- Task 26 hardware-matched NVIDIA delivery and external RTX 30/40 physical
+  execution; RTX 5090 evidence cannot satisfy those gates.
 - Offline traffic review, privacy/diagnostics review, migration and exact
   previous-binary rollback evidence.
 - AMD claims review and physical AMD qualification before any promotion beyond

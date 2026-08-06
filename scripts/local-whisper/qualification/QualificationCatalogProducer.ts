@@ -28,6 +28,35 @@ const MODEL_ORIGIN = 'https://huggingface.co';
 const MODEL_POLICY_ID = 'upstream-model-policy-v1';
 const RUNTIME_POLICY_ID = 'qualification-runtime-policy-v1';
 
+export type QualificationCatalogPlatform = 'linux' | 'win32';
+
+const RUNTIME_CONTRACTS = Object.freeze({
+  linux: Object.freeze({
+    cpu: Object.freeze({
+      packRevision: 'whisper-cpp-linux-x64-cpu-baseline-v1',
+      dependencyFamily: 'glibc',
+      computeTargets: Object.freeze(['x86-64-v2']),
+    }),
+    cuda: Object.freeze({
+      packRevision: 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
+      dependencyFamily: 'cuda-12.8.1',
+      computeTargets: Object.freeze(['sm-120a']),
+    }),
+  }),
+  win32: Object.freeze({
+    cpu: Object.freeze({
+      packRevision: 'whisper-cpp-windows-x64-cpu-v1',
+      dependencyFamily: 'msvc-v143-vc-runtime-14.51.36247.0',
+      computeTargets: Object.freeze(['x86-64-sse2']),
+    }),
+    cuda: Object.freeze({
+      packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
+      dependencyFamily: 'cuda-12.8.1',
+      computeTargets: Object.freeze(['sm-120a']),
+    }),
+  }),
+});
+
 const APPROXIMATE_MEMORY_BYTES: Readonly<Record<string, { readonly ram: number; readonly vram: number }>> =
   Object.freeze({
     tiny: Object.freeze({ ram: 4 * GIBIBYTE, vram: 2 * GIBIBYTE }),
@@ -40,6 +69,8 @@ const APPROXIMATE_MEMORY_BYTES: Readonly<Record<string, { readonly ram: number; 
 
 export interface QualificationRuntimeCatalogSeed {
   readonly backend: 'cpu' | 'cuda';
+  readonly platform: QualificationCatalogPlatform;
+  readonly architecture: 'x64';
   readonly archiveFileName: string;
   readonly archiveSizeBytes: number;
   readonly archiveSha256: string;
@@ -55,6 +86,7 @@ export interface QualificationRuntimeCatalogSeed {
 }
 
 export interface QualificationCatalogSeed {
+  readonly platform: QualificationCatalogPlatform;
   readonly candidateSemVer: string;
   readonly appRevision?: string;
   readonly catalogRevision: string;
@@ -137,16 +169,24 @@ export class LocalWhisperQualificationCatalogProducer {
       .sort((left, right) => left.backend.localeCompare(right.backend, 'en'))
       .map((runtime): LocalWhisperCatalogRuntimeEntry => {
         const cpu = runtime.backend === 'cpu';
+        const contract = RUNTIME_CONTRACTS[seed.platform][runtime.backend];
+        if (
+          runtime.platform !== seed.platform ||
+          runtime.architecture !== 'x64' ||
+          runtime.packRevision !== contract.packRevision
+        ) {
+          throw new Error('Qualification catalog runtime platform contract invalid');
+        }
         const identity: LocalWhisperRuntimeIdentity = Object.freeze({
           engine: 'whisperCpp',
-          platform: 'linux',
+          platform: seed.platform,
           architecture: 'x64',
           target: cpu ? 'cpu' : 'gpu',
           backend: runtime.backend,
-          dependencyFamily: cpu ? 'glibc' : 'cuda-12.8.1',
+          dependencyFamily: contract.dependencyFamily,
           upstreamRevision: revisionId('whisper-cpp-v1.9.1-f049fff'),
           buildRevision: revisionId(runtime.buildRevision),
-          computeTargets: cpu ? ['x86-64-v2'] : ['sm-120a'],
+          computeTargets: contract.computeTargets,
           protocolVersion: 1,
           packRevision: revisionId(runtime.packRevision),
           catalogRevision,
@@ -222,8 +262,11 @@ export class LocalWhisperQualificationCatalogProducer {
       purpose: 'qualification',
       catalogRevision,
       displayMetadata: {
-        title: 'Local Whisper Linux qualification catalog',
-        summary: 'Single-use catalog for the frozen Linux qualification branch.',
+        title: `Local Whisper ${seed.platform === 'linux' ? 'Linux' : 'Windows'} qualification catalog`,
+        summary:
+          seed.platform === 'linux'
+            ? 'Single-use catalog for the frozen Linux qualification branch.'
+            : 'Single-use catalog for Windows development readiness.',
       },
       compatibleAppRevisions: [appRevision],
       workerProtocolVersion: 1,

@@ -5,6 +5,8 @@ import process from 'node:process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
+import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
+import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 
 const allowedActions = new Set(['format', 'lint', 'unit', 'integration', 'all']);
 const action = process.argv[2];
@@ -32,16 +34,26 @@ const googleTestSource = resolve(
 );
 const toolchainRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains');
 const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
-const cmake =
-  process.env.CMAKE_COMMAND ||
-  (process.platform === 'linux' ? resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'cmake') : 'cmake');
-const ctest =
-  process.env.CTEST_COMMAND ||
-  (process.platform === 'linux' ? resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest') : 'ctest');
+const nativeBuildTools = resolveNativeBuildToolPaths({
+  environment: process.env,
+  platform: process.platform,
+  workspaceRoot,
+});
+const { cmake, ctest } = nativeBuildTools;
+const buildEnvironment =
+  process.platform === 'win32'
+    ? resolveWindowsMsvcBuildEnvironment({
+        environment: process.env,
+        includeCuda: false,
+        toolchainRoot,
+        tools: nativeBuildTools,
+      })
+    : process.env;
 
 function run(command, arguments_) {
   const result = spawnSync(command, arguments_, {
     cwd: sourceDirectory,
+    env: buildEnvironment,
     shell: false,
     stdio: 'inherit',
   });

@@ -1,12 +1,14 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, statfsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, statfsSync } from 'node:fs';
 import { arch, platform, release, tmpdir } from 'node:os';
 import * as path from 'node:path';
 import process from 'node:process';
 
 import { LinuxManagedFilesystemAdapter } from '../../src/main/localWhisper/filesystem/LinuxManagedFilesystemAdapter';
 import { ManagedArtifactPathResolver } from '../../src/main/localWhisper/filesystem/ManagedArtifactPathResolver';
+import type { ManagedFilesystemPlatformAdapter } from '../../src/main/localWhisper/filesystem/ManagedFilesystemPlatformAdapter';
 import { NativeManagedFilesystemGuardTransport } from '../../src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport';
+import { WindowsManagedFilesystemAdapter } from '../../src/main/localWhisper/filesystem/WindowsManagedFilesystemAdapter';
 
 const allowedArguments = new Set(['--fixture']);
 if (process.argv.slice(2).some((argument) => !allowedArguments.has(argument))) {
@@ -14,19 +16,19 @@ if (process.argv.slice(2).some((argument) => !allowedArguments.has(argument))) {
   process.exit(2);
 }
 
-if (platform() !== 'linux') {
+if (platform() !== 'linux' && platform() !== 'win32') {
   process.stdout.write(
     `${JSON.stringify({
       architecture: arch(),
       platform: platform(),
-      status: platform() === 'darwin' ? 'planned-unavailable' : 'manual-gate-required',
+      status: platform() === 'darwin' ? 'planned-unavailable' : 'unsupported',
     })}\n`,
   );
   process.exit(platform() === 'darwin' ? 0 : 2);
 }
 
 if (arch() !== 'x64') {
-  process.stderr.write('Linux Local Whisper filesystem verification requires x64\n');
+  process.stderr.write('Local Whisper filesystem verification requires x64\n');
   process.exit(2);
 }
 
@@ -35,33 +37,43 @@ async function main(): Promise<void> {
   if (!path.basename(temporaryRoot).startsWith('gpt-voice-local-whisper-verify-')) {
     throw new Error('Refusing unvalidated verification root');
   }
-  let adapter: LinuxManagedFilesystemAdapter | null = null;
+  let adapter: (ManagedFilesystemPlatformAdapter & { dispose(): Promise<void> }) | null = null;
   try {
+    const hostPlatform = platform() as 'linux' | 'win32';
+    const configuredBase = path.join(temporaryRoot, 'data');
+    mkdirSync(configuredBase, { mode: 0o700, recursive: true });
     const resolution = new ManagedArtifactPathResolver({
-      environment: { XDG_DATA_HOME: path.join(temporaryRoot, 'data') },
+      environment: hostPlatform === 'win32' ? { LOCALAPPDATA: configuredBase } : { XDG_DATA_HOME: configuredBase },
       homeDirectory: () => path.join(temporaryRoot, 'home'),
-      platform: 'linux',
+      platform: hostPlatform,
     }).resolve();
     if (resolution.availability !== 'available') throw new Error('Managed storage unavailable');
-    adapter = new LinuxManagedFilesystemAdapter(
-      new NativeManagedFilesystemGuardTransport({
-        executablePath: path.resolve('.cache', 'local-whisper', 'fs-guard', 'fs-guard'),
-        spawnProcess: spawn,
-      }),
-    );
+    const transport = new NativeManagedFilesystemGuardTransport({
+      executablePath: path.resolve(
+        '.cache',
+        'local-whisper',
+        'fs-guard',
+        hostPlatform === 'win32' ? 'fs-guard.exe' : 'fs-guard',
+      ),
+      spawnProcess: spawn,
+    });
+    adapter =
+      hostPlatform === 'win32'
+        ? new WindowsManagedFilesystemAdapter(transport)
+        : new LinuxManagedFilesystemAdapter(transport);
     const root = await adapter.initialize(resolution.managedRoot);
     await adapter.revalidate(root.token, root.identity);
     await adapter.release(root.token);
     await adapter.dispose();
     adapter = null;
-    const fileSystem = statfsSync(temporaryRoot);
+    const fileSystem = hostPlatform === 'linux' ? String(statfsSync(temporaryRoot).type) : 'ntfs-volume-bound';
     process.stdout.write(
       `${JSON.stringify({
         architecture: arch(),
-        filesystemType: String(fileSystem.type),
+        filesystemType: fileSystem,
         kernelRelease: release(),
-        nativeGuard: 'openat2-held-descriptor',
-        platform: 'linux',
+        nativeGuard: hostPlatform === 'win32' ? 'ntcreatefile-held-handle' : 'openat2-held-descriptor',
+        platform: hostPlatform,
         status: 'verified-fixture',
       })}\n`,
     );

@@ -45,6 +45,9 @@ target_include_directories(local_whisper_authority_records PUBLIC ../common/incl
 local_whisper_launcher_apply_quality(local_whisper_authority_records)
 
 if(WIN32)
+  target_sources(local_whisper_authority_records PRIVATE
+    ../common/src/windows_process_identity.cpp
+  )
   add_library(local_whisper_launcher_platform STATIC
     src/platform/windows/windows_launcher.cpp
     src/platform/windows/windows_model_authority_client.cpp
@@ -112,16 +115,19 @@ if(BUILD_TESTING)
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
   )
 
+  add_executable(local-whisper-authority-worker-fixture
+    tests/fixtures/authority_worker.cpp
+  )
+  target_link_libraries(local-whisper-authority-worker-fixture
+    PRIVATE local_whisper_launcher_platform)
+  local_whisper_launcher_apply_quality(local-whisper-authority-worker-fixture)
+  set_target_properties(local-whisper-authority-worker-fixture PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
+  )
+
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_executable(local-whisper-authority-worker-fixture
-      tests/fixtures/authority_worker.cpp
-    )
-    target_link_libraries(local-whisper-authority-worker-fixture
-      PRIVATE local_whisper_launcher_platform)
-    local_whisper_launcher_apply_quality(local-whisper-authority-worker-fixture)
-    set_target_properties(local-whisper-authority-worker-fixture PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
-    )
 
     add_executable(local_whisper_launcher_integration_tests
       tests/integration/model_authority_handoff_test.cpp

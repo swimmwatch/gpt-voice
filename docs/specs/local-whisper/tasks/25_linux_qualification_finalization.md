@@ -2,16 +2,16 @@
 
 ## Outcome
 
-After Task 20's advisory Linux preflight and Task 24's final committed Windows
+After Task 20's advisory Linux preflight and Tasks 24/26 final committed
 delivery source, freeze one fresh shared candidate and execute authoritative
-Linux x64 CPU and available NVIDIA CUDA technical qualification for all six
-canonical models. Seal only the Linux platform input/profile/graph/result/
-evidence branch; create no Windows identity or aggregate root.
+Linux x64 CPU plus `sm_86`/`sm_89`/`sm_120a` NVIDIA CUDA technical qualification
+for all six canonical models. Seal only the Linux platform input/profile/graph/
+result/evidence branch; create no Windows identity or aggregate root.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 21 are approved.
-- Tasks 19, 23, and 24 are complete, reviewed, and committed. Task 24's final
+- Specification revision 17 and plan revision 23 are approved.
+- Tasks 19, 23, 24, and 26 are complete, reviewed, and committed. Their final
   source is the only source eligible for the shared candidate.
 - Task 20 is complete and supplies only advisory preparation results. Recheck
   every source, toolchain, package, runtime, model, corpus, direct-engine, and
@@ -45,7 +45,7 @@ evidence branch; create no Windows identity or aggregate root.
   patches, schemas, trust/transfer/redirect/algorithm revisions, all six exact
   models, FLEURS/performance fixtures, required matrix, Task 17 digest, and
   predecessor-selection rule.
-- Build exact Linux CPU/CUDA runtime packs twice in independent clean
+- Build exact Linux CPU plus `sm_86`/`sm_89`/`sm_120a` CUDA runtime packs twice in independent clean
   network-denied roots; require identical archives, manifests, signature
   inputs, provenance, SBOM, and notices. Verify/materialize exact model and
   FLEURS bytes and direct-engine binaries.
@@ -71,7 +71,7 @@ evidence branch; create no Windows identity or aggregate root.
 
 ### Fresh shared candidate and Linux branch
 
-The shared candidate is frozen only after Tasks 19, 20, 23, and 24's final
+The shared candidate is frozen only after Tasks 19, 20, 23, 24, and 26's final
 clean committed source exists. It contains no platform package/runtime/direct-
 engine/toolchain, profile, result, evidence-index, platform-graph, or aggregate
 digest. The Linux platform input binds exact Linux application packages,
@@ -132,13 +132,13 @@ paths/identities, environment, audio, transcripts, keys, and measurements.
 
 ## Acceptance Criteria
 
-- One fresh acyclic shared/Linux graph is frozen from Task 24's final committed
+- One fresh acyclic shared/Linux graph is frozen from Tasks 24/26 final committed
   implementation identity, and Task 20 preflight observations are revalidated.
 - Two clean network-denied CPU/CUDA runtime builds are byte-identical; all
   model/corpus/direct-engine/package inputs match frozen identities.
-- All six CPU/CUDA rows and every transport/resource/lifecycle/offline/privacy/
-  cleanup/predecessor gate pass, or Task 25 remains incomplete with a precise
-  failure.
+- All CPU plus `sm_86`/`sm_89`/`sm_120a` transport/resource/lifecycle/offline/
+  privacy/cleanup/predecessor rows pass, or Task 25 remains incomplete with a
+  precise failure or an explicit external-hardware Pending state.
 - Linux evidence is privacy-safe, schema-valid, checksum-linked, immutable, and
   consumable unchanged by Task 21; no Windows identity exists.
 
@@ -192,6 +192,10 @@ Do not invoke the Windows qualification command or
 - Authorized Linux x64 CPU/NVIDIA host, exact pinned toolchains, public model
   and corpus access, candidate SemVer `2.4.0`, fresh UTC cutoff, and private raw
   evidence storage.
+- The available Linux RTX 50 host may execute only `sm_120a`. Linux `sm_86` and
+  `sm_89` physical qualification is **Pending — external representative
+  hardware required** and cannot be substituted by an RTX 50, mock,
+  emulation, cross-target build, or CI result.
 - `AC-MAN-001`, Linux `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, and Linux
   `AC-MAN-013` execution.
 - Commit, push, PR, production signing, legal approval, upload, publication,
@@ -199,10 +203,10 @@ Do not invoke the Windows qualification command or
 
 ## References
 
-- Specification revision 15 Sections 9.2, 9.6, 12.1–12.5, 18.3, 19.1–19.3,
-  and 22.
-- Task 20 advisory preflight, Tasks 19/23/24 final committed handoffs, Task 17
-  fixture identity, versioned qualification schemas, and Linux evidence template.
+- Specification revision 17 Sections 6, 8.2, 9.1–9.6, 12.1–12.5, 18.3,
+  19.1–19.3, and 22.
+- Task 20 advisory preflight, Tasks 19/23/24/26 final committed handoffs, Task
+  17 fixture identity, versioned qualification schemas, and Linux evidence template.
 
 ## Completion And Handoff
 

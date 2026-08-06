@@ -3,13 +3,15 @@ import { Buffer } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
 import { validateDerivationInputs } from '../../../../scripts/local-whisper/native-build/loader-limit-core.mjs';
+import { resolveWindowsMsvcBuildEnvironment } from '../../../../scripts/local-whisper/native-build/windows-msvc-build-environment.mjs';
+import { parseDumpbinDependencies } from '../../../../scripts/local-whisper/native-build/windows-pe-dependency-core.mjs';
 import {
   qualifyToolchainProfile,
   verifyToolchainContract,
@@ -27,10 +29,25 @@ import {
   verifySourceLock,
 } from '../../../../scripts/local-whisper/source-import/native-source-core.mjs';
 import { applyPatchLock, verifyPatchLock } from '../../../../scripts/local-whisper/source-import/native-patch-core.mjs';
+import {
+  canonicalImporterSourceBytes,
+  importerImplementationDigest,
+} from '../../../../scripts/local-whisper/source-import/importer-identity.mjs';
 
 const workspaceRoot = resolve(import.meta.dirname, '..', '..', '..', '..');
 const sourceRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'sources');
 const toolchainRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains');
+
+test('native source importer identity is invariant across checkout line endings', () => {
+  assert.deepEqual(
+    canonicalImporterSourceBytes(Buffer.from('first\r\nsecond\n', 'utf8')),
+    Buffer.from('first\nsecond\n', 'utf8'),
+  );
+  for (const lockId of ['nlohmann-json-v3.12.0-subset', 'googletest-v1.17.0-52eb810', 'whisper-cpp-v1.9.1-f049fff']) {
+    const lock = readJson(resolve(sourceRoot, 'locks', `${lockId}.json`));
+    assert.equal(lock.importer.implementationSha256, importerImplementationDigest());
+  }
+});
 
 function git(repository, arguments_) {
   const result = spawnSync('git', arguments_, {
@@ -330,6 +347,69 @@ test('toolchain schemas preserve Linux candidates and Windows qualification-only
     assert.equal(verifyToolchainContract(profile, { contractOnly: true }), true);
     assert.throws(() => verifyToolchainContract(profile, { contractOnly: false }));
   }
+});
+
+test('Windows CUDA environment derives the exact Visual Studio instance from the verified host compiler', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-environment-'));
+  const toolchain = resolve(root, 'toolchains');
+  const msvcRoot = resolve(toolchain, 'msvc-14.39');
+  const sdkRoot = resolve(toolchain, 'windows-sdk-10.0.26100.0');
+  const cudaRoot = resolve(toolchain, 'cuda-12.8.1');
+  const vsInstallRoot = resolve(root, 'Microsoft Visual Studio', '2022', 'BuildTools');
+  const vcInstallRoot = resolve(vsInstallRoot, 'VC');
+  const msvcInstallationRoot = resolve(vcInstallRoot, 'Tools', 'MSVC', '14.39.33519');
+  const cudaHostCompiler = resolve(msvcInstallationRoot, 'bin', 'Hostx64', 'x64', 'cl.exe');
+  const systemRoot = resolve(root, 'Windows');
+  for (const directory of [
+    resolve(msvcRoot, 'include'),
+    resolve(msvcRoot, 'lib', 'x64'),
+    resolve(sdkRoot, 'bin', '10.0.26100.0', 'x64'),
+    resolve(sdkRoot, 'Include', '10.0.26100.0', 'um'),
+    resolve(sdkRoot, 'Lib', '10.0.26100.0', 'um', 'x64'),
+    resolve(cudaRoot, 'bin'),
+    resolve(vcInstallRoot, 'Auxiliary', 'Build'),
+    resolve(systemRoot, 'System32'),
+  ]) {
+    mkdirSync(directory, { recursive: true });
+  }
+  writeFileSync(resolve(vcInstallRoot, 'Auxiliary', 'Build', 'vcvarsall.bat'), '@exit /b 0\r\n');
+
+  const environment = resolveWindowsMsvcBuildEnvironment({
+    environment: {
+      SystemRoot: systemRoot,
+      TEMP: resolve(root, 'temp'),
+      TMP: resolve(root, 'temp'),
+      WINDIR: systemRoot,
+    },
+    includeCuda: true,
+    toolchainRoot: toolchain,
+    tools: {
+      cmake: resolve(toolchain, 'cmake-3.31.8', 'bin', 'cmake.exe'),
+      compiler: resolve(msvcRoot, 'bin', 'Hostx64', 'x64', 'cl.exe'),
+      cudaHostCompiler,
+      ninja: resolve(toolchain, 'ninja-1.12.1', 'ninja.exe'),
+    },
+  });
+
+  assert.equal(environment.Platform, 'x64');
+  assert.equal(environment.PROCESSOR_ARCHITECTURE, 'AMD64');
+  assert.equal(environment.VCToolsVersion, '14.39.33519');
+  assert.equal(environment.VCToolsInstallDir, `${msvcInstallationRoot}${sep}`);
+  assert.equal(environment.VCINSTALLDIR, `${vcInstallRoot}${sep}`);
+  assert.equal(environment.VSINSTALLDIR, `${vsInstallRoot}${sep}`);
+  assert.equal(environment.VSCMD_ARG_HOST_ARCH, 'x64');
+  assert.equal(environment.VSCMD_ARG_TGT_ARCH, 'x64');
+});
+
+test('Windows PE dependency parser is case-preserving, closed, and rejects duplicate imports', () => {
+  assert.deepEqual(
+    parseDumpbinDependencies(
+      `\n  Image has the following dependencies:\n\n    KERNEL32.dll\n    MSVCP140.dll\n\n  Summary\n`,
+    ),
+    ['KERNEL32.dll', 'MSVCP140.dll'],
+  );
+  assert.throws(() => parseDumpbinDependencies('KERNEL32.dll\r\nkernel32.DLL\r\n'));
+  assert.throws(() => parseDumpbinDependencies('no imports'));
 });
 
 test('CUDA profile rejects native, virtual, bare, and silently changed architectures', () => {

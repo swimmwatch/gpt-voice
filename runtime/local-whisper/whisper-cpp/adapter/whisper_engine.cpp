@@ -377,7 +377,9 @@ public:
   }
 
   [[nodiscard]] DeviceLoadEvidence load_evidence(const DeviceOperationAuthority& authority) const {
-    if (!kGpuWorker || context_.get() == nullptr || !selected_.has_value())
+    if constexpr (!kGpuWorker)
+      throw CoreError(FailureCode::device_proof_failed, "accelerator model evidence unavailable");
+    if (context_.get() == nullptr || !selected_.has_value())
       throw CoreError(FailureCode::device_proof_failed, "accelerator model evidence unavailable");
     whisper_local_device_evidence native{};
     if (!whisper_local_get_device_evidence(context_.get(), &native) ||

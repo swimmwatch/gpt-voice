@@ -15,7 +15,7 @@ TEST(LoaderLimits, PreservesReviewedIdentityAndEveryRangeBoundary) {
   const LoaderLimits limits;
   EXPECT_EQ(limits.table_id(), "whisper-cpp-loader-limits-v1");
   EXPECT_EQ(limits.table_sha256(),
-            "5585ea2aeeb4d4b6a4293f8a044487e8d629d899e9d760d9f143a9fb4c702ff5");
+            "fa66ffe2e61ff30d649bf45b0c4b37a659a230c1159dffbeb51c329c3687bd7a");
   const std::array ranges = {
       limits.authenticated_model_bytes(),
       limits.vocabulary_count(),

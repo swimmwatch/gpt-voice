@@ -7,6 +7,7 @@
 #include <winnt.h>
 
 #include "local_whisper/common/sha256.hpp"
+#include "local_whisper/common/windows_process_identity.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
 
 #include <algorithm>
@@ -69,41 +70,26 @@ void write_exact(HANDLE handle, std::span<const std::uint8_t> bytes) {
   }
 }
 
-std::array<std::uint8_t, 32> process_start_identity() {
-  FILETIME creation{};
-  FILETIME exit{};
-  FILETIME kernel{};
-  FILETIME user{};
-  if (!GetProcessTimes(GetCurrentProcess(), &creation, &exit, &kernel, &user))
-    throw CoreError(FailureCode::model_authority_invalid, "Windows process identity failed");
-  std::array<std::uint8_t, 20> input{};
-  const auto pid = static_cast<std::uint64_t>(GetCurrentProcessId());
-  const auto ticks =
-      (static_cast<std::uint64_t>(creation.dwHighDateTime) << 32U) | creation.dwLowDateTime;
-  constexpr std::array<std::uint8_t, 4> domain = {'L', 'W', 'P', 'S'};
-  std::copy(domain.begin(), domain.end(), input.begin());
-  for (std::size_t index = 0; index < 8U; ++index) {
-    input[4U + index] = static_cast<std::uint8_t>(pid >> ((7U - index) * 8U));
-    input[12U + index] = static_cast<std::uint8_t>(ticks >> ((7U - index) * 8U));
+UniqueHandle restrict_to_read_only(UniqueHandle handle) {
+  HANDLE restricted = INVALID_HANDLE_VALUE;
+  if (!DuplicateHandle(GetCurrentProcess(), handle.get(), GetCurrentProcess(), &restricted,
+                       GENERIC_READ, FALSE, 0)) {
+    throw CoreError(FailureCode::model_authority_invalid, "Windows authority restriction failed");
   }
-  return local_whisper::common::sha256(input);
+  return UniqueHandle(restricted);
 }
 
 class WindowsHandleSource final : public RandomAccessModelSource {
 public:
-  explicit WindowsHandleSource(UniqueHandle handle) : handle_(std::move(handle)) {
+  explicit WindowsHandleSource(UniqueHandle handle)
+      : handle_(restrict_to_read_only(std::move(handle))) {
     FILE_STANDARD_INFO standard{};
-    FILE_ACCESS_INFO access{};
     LARGE_INTEGER offset{};
     valid_ = GetFileInformationByHandleEx(handle_.get(), FileStandardInfo, &standard,
                                           sizeof(standard)) != FALSE &&
-             GetFileInformationByHandleEx(handle_.get(), FileAccessInfo, &access, sizeof(access)) !=
-                 FALSE &&
+             GetFileType(handle_.get()) == FILE_TYPE_DISK &&
              SetFilePointerEx(handle_.get(), {}, &offset, FILE_CURRENT) != FALSE &&
-             standard.Directory == FALSE && standard.EndOfFile.QuadPart > 0 &&
-             (access.AccessFlags &
-              (FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA)) == 0U &&
-             offset.QuadPart == 0;
+             standard.Directory == FALSE && standard.EndOfFile.QuadPart > 0 && offset.QuadPart == 0;
   }
 
   [[nodiscard]] bool is_read_only_regular() const noexcept override { return valid_; }
@@ -172,7 +158,8 @@ ModelAuthority ModelAuthority::receive_from_standard_channels() {
   const auto acknowledgment =
       local_whisper::common::encode_authority_record(local_whisper::common::AuthorityAcknowledgment{
           transfer->binding, local_whisper::common::AuthorityCarrierKind::windows_worker_handle,
-          transfer->carrier_value, GetCurrentProcessId(), process_start_identity()});
+          transfer->carrier_value, GetCurrentProcessId(),
+          local_whisper::common::windows_process_start_identity_sha256(GetCurrentProcess())});
   write_exact(output, acknowledgment);
   std::array<std::uint8_t, 1> release{};
   read_exact(input, release);

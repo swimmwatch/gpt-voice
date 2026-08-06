@@ -66,7 +66,8 @@ endforeach()
 
 function(local_whisper_apply_quality target)
   if(MSVC)
-    target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc /Brepro)
+    target_link_options(${target} PRIVATE /Brepro)
   else()
     target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
     if(LOCAL_WHISPER_ENABLE_SANITIZERS)
@@ -90,6 +91,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_sources(local_whisper_worker_common PRIVATE
     ../common/src/authority_bootstrap.cpp
     ../common/src/linux_process_identity.cpp
+  )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+  target_sources(local_whisper_worker_common PRIVATE
+    ../common/src/windows_process_identity.cpp
   )
 endif()
 target_include_directories(local_whisper_worker_common

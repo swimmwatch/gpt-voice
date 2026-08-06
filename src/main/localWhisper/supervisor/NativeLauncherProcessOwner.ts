@@ -79,14 +79,14 @@ function modelGuardBootstrapLine(
   const model = authority.modelGuardAuthority;
   const guardPath = dependencies.modelGuardExecutablePath;
   const launcherDigest = dependencies.launcherExecutableSha256;
+  const path = dependencies.platform === 'win32' ? win32 : posix;
   if (
-    dependencies.platform !== 'linux' ||
     authority.launchMode !== 'fullLoad' ||
     !model ||
     !guardPath ||
     !launcherDigest ||
-    !posix.isAbsolute(guardPath) ||
-    !posix.isAbsolute(model.modelFilePath)
+    !path.isAbsolute(guardPath) ||
+    !path.isAbsolute(model.modelFilePath)
   ) {
     throw new Error('Local Whisper model guard launch authority unavailable');
   }
@@ -265,6 +265,11 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         const newline = bytes.indexOf(0x0a);
         if (newline < 0) return;
         const line = bytes.subarray(0, newline).toString('utf8');
+        const failure = /^FAILED\t([A-Z][A-Z0-9_]{0,63})$/u.exec(line);
+        if (failure && newline === bytes.byteLength - 1) {
+          finish(null, new Error(`Local Whisper launcher rejected: ${failure[1]}`));
+          return;
+        }
         if (!/^READY\t[1-9]\d{0,19}$/u.test(line) || newline !== bytes.byteLength - 1) {
           finish(null, new Error('Invalid Local Whisper launcher acknowledgment'));
           return;

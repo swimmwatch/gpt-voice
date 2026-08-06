@@ -194,7 +194,11 @@ std::uint64_t parse_pid(std::string_view value) {
 int main(int argc, char** argv) {
   try {
     if (argc == 4 && std::string_view(argv[1]) == "--paths") {
-      std::cout << path_identity(argv[2], 0700U) << '\n' << path_identity(argv[3], 0500U) << '\n';
+      std::cout << path_identity(argv[2], 0700U) << '\n' << path_identity(argv[3], 0U) << '\n';
+      return 0;
+    }
+    if (argc == 3 && std::string_view(argv[1]) == "--model") {
+      std::cout << path_identity(argv[2], 0600U) << '\n';
       return 0;
     }
     if (argc == 3 && std::string_view(argv[1]) == "--process") {

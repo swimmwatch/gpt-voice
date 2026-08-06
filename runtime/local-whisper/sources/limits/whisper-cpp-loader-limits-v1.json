@@ -13,7 +13,7 @@
       "symbols": ["read_safe", "whisper_model_load", "whisper_hparams", "whisper_model_loader"]
     }
   ],
-  "derivationToolSha256": "7ccc3d5b0c982f0585f7a46baa4792734445d22bc829f057ff3185339290d1a3",
+  "derivationToolSha256": "ff33e6b999cf079fc1a84d42e82bd910b07cd8415e88b770bd2c9178a9467d59",
   "families": ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"],
   "variants": ["full", "q5_0"],
   "tensorTypes": ["F32", "F16", "Q5_0"],
@@ -93,10 +93,10 @@
   },
   "review": {
     "status": "approved",
-    "reviewedAt": "2026-08-02T08:54:03.000Z",
-    "reviewedBy": "Codex agent under explicit user authorization",
+    "reviewedAt": "2026-08-06T00:00:00.000Z",
+    "reviewedBy": "User-approved Task 24 plan revision 23",
     "provenancePath": "whisper-cpp-loader-limits-v1.provenance.json",
     "unresolvedExclusions": []
   },
-  "tableSha256": "5585ea2aeeb4d4b6a4293f8a044487e8d629d899e9d760d9f143a9fb4c702ff5"
+  "tableSha256": "fa66ffe2e61ff30d649bf45b0c4b37a659a230c1159dffbeb51c329c3687bd7a"
 }

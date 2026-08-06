@@ -43,6 +43,9 @@ export type { ManagedArtifactStoreErrorCode } from './ManagedArtifactStoreError'
 const CANONICAL_ARTIFACT_NAME_PATTERN = /^(?:model|runtime)-[a-f0-9]{64}$/;
 const CANONICAL_FILE_NAME_PATTERN = /^file-[\w-]{1,192}$/;
 const LINUX_RUNTIME_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cuda-runtime)-(\d+)\.\d+\.\d+$/u;
+const WINDOWS_CUDA_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cuda-runtime)-(\d+)\.\d+\.\d+$/u;
+const WINDOWS_VC_RUNTIME_LIBRARY_ROLE_PATTERN =
+  /^runtime-microsoft-vc-runtime-\d+\.\d+\.\d+\.\d+-(msvcp140|vcruntime140|vcruntime140-1)$/u;
 const OPERATION_NONCE_PATTERN = /^[\w-]{16,128}$/;
 const MANAGED_MANIFEST_NAME = 'managed-manifest-v1';
 const MANAGED_MANIFEST_MODE = 0o600;
@@ -161,9 +164,27 @@ function linuxRuntimeStorageFileName(expected: ManagedArtifactExpectedFile): str
   return `lib${library}.so.${major}`;
 }
 
+function windowsRuntimeStorageFileName(expected: ManagedArtifactExpectedFile): string | null {
+  if (expected.kind === 'executable' && expected.fileId === 'worker') return 'worker.exe';
+  if (expected.kind !== 'library') return null;
+  const vcRuntime = WINDOWS_VC_RUNTIME_LIBRARY_ROLE_PATTERN.exec(expected.fileId)?.[1];
+  if (vcRuntime) return `${vcRuntime === 'vcruntime140-1' ? 'vcruntime140_1' : vcRuntime}.dll`;
+  const cudaRuntime = WINDOWS_CUDA_LIBRARY_ROLE_PATTERN.exec(expected.fileId);
+  if (!cudaRuntime) return null;
+  const [, family, major] = cudaRuntime;
+  if (!family || !major) throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+  const library = family === 'cublas-lt' ? 'cublasLt' : family === 'cuda-runtime' ? 'cudart' : family;
+  return `${library}64_${major}.dll`;
+}
+
 function descriptorFileName(descriptor: ManagedArtifactDescriptor, expected: ManagedArtifactExpectedFile): string {
-  if (descriptor.kind === 'runtime' && descriptor.runtimePlatform === 'linux') {
-    const launchFileName = linuxRuntimeStorageFileName(expected);
+  if (descriptor.kind === 'runtime') {
+    const launchFileName =
+      descriptor.runtimePlatform === 'linux'
+        ? linuxRuntimeStorageFileName(expected)
+        : descriptor.runtimePlatform === 'win32'
+          ? windowsRuntimeStorageFileName(expected)
+          : null;
     if (launchFileName) return launchFileName;
   }
   return getManagedArtifactFileName(expected.fileId);

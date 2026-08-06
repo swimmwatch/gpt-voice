@@ -22,7 +22,11 @@ describe('LocalWhisperDevelopmentSession', () => {
   it('resolves a lazily installed Electron runtime through the workspace package entrypoint', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-electron-'));
     const electronPackageRoot = path.join(root, 'node_modules', 'electron');
-    const electronPath = path.join(electronPackageRoot, 'dist', 'electron');
+    const electronPath = path.join(
+      electronPackageRoot,
+      'dist',
+      process.platform === 'win32' ? 'electron.exe' : 'electron',
+    );
     try {
       await mkdir(path.dirname(electronPath), { recursive: true });
       await Promise.all([
@@ -41,7 +45,11 @@ describe('LocalWhisperDevelopmentSession', () => {
       const resolver = new DevelopmentElectronRuntimeResolver();
       assert.equal(await resolver.resolve(root), electronPath);
       await chmod(electronPath, 0o600);
-      await assert.rejects(resolver.resolve(root), /Electron runtime unavailable/u);
+      if (process.platform === 'win32') {
+        assert.equal(await resolver.resolve(root), electronPath);
+      } else {
+        await assert.rejects(resolver.resolve(root), /Electron runtime unavailable/u);
+      }
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -49,7 +57,13 @@ describe('LocalWhisperDevelopmentSession', () => {
 
   it('reuses private application state across sessions while removing ephemeral trust and descriptors', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-session-'));
-    const electronPath = path.join(root, 'node_modules', 'electron', 'dist', 'electron');
+    const electronPath = path.join(
+      root,
+      'node_modules',
+      'electron',
+      'dist',
+      process.platform === 'win32' ? 'electron.exe' : 'electron',
+    );
     await mkdir(path.dirname(electronPath), { recursive: true });
     await Promise.all([
       writeFile(path.join(root, 'package.json'), JSON.stringify({ version: '2.4.0' }), { mode: 0o600 }),

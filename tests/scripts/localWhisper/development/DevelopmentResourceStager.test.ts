@@ -22,7 +22,7 @@ describe('DevelopmentResourceStager', () => {
         writeFile(launcherPath, 'launcher', { encoding: 'utf8', mode: 0o700 }),
       ]);
       const resourcesPath = path.join(root, 'resources');
-      await new DevelopmentResourceStager().stage(root, resourcesPath);
+      await new DevelopmentResourceStager().stage(root, resourcesPath, 'linux');
       const resolved = await new LocalWhisperPackagedResourceResolver({
         platform: 'linux',
         resourcesPath,
@@ -32,6 +32,32 @@ describe('DevelopmentResourceStager', () => {
       if (resolved.availability !== 'available') return;
       assert.equal(path.basename(resolved.filesystemGuardExecutable), 'fs-guard');
       assert.equal(path.basename(resolved.launcherExecutable), 'local-whisper-launcher');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('stages Windows helper names and zero manifest modes', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-resources-'));
+    try {
+      const guardPath = path.join(root, '.cache', 'local-whisper', 'fs-guard', 'fs-guard.exe');
+      const launcherPath = path.join(root, '.cache', 'local-whisper', 'launcher', 'local-whisper-launcher.exe');
+      await Promise.all([
+        mkdir(path.dirname(guardPath), { recursive: true }),
+        mkdir(path.dirname(launcherPath), { recursive: true }),
+      ]);
+      await Promise.all([writeFile(guardPath, 'guard'), writeFile(launcherPath, 'launcher')]);
+      const resourcesPath = path.join(root, 'resources');
+      await new DevelopmentResourceStager().stage(root, resourcesPath, 'win32');
+      const resolved = await new LocalWhisperPackagedResourceResolver({
+        platform: 'win32',
+        resourcesPath,
+        readFile,
+      }).resolve();
+      assert.equal(resolved.availability, 'available');
+      if (resolved.availability !== 'available') return;
+      assert.equal(path.basename(resolved.filesystemGuardExecutable), 'fs-guard.exe');
+      assert.equal(path.basename(resolved.launcherExecutable), 'local-whisper-launcher.exe');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

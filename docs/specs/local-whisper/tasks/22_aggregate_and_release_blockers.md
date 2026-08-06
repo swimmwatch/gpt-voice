@@ -16,8 +16,8 @@ upload, platform evidence, support promotion, or release authority.
 
 ## Prerequisites
 
-- Specification revision 15 and plan revision 21 are approved.
-- Tasks 19, 20, 23, and 24 implementation/preflight/delivery readiness and
+- Specification revision 17 and plan revision 23 are approved.
+- Tasks 19, 20, 23, 24, and 26 implementation/preflight/delivery readiness and
   Tasks 25 and 21 platform qualifications are
   complete. Both platform branches bind the exact same `candidateInputDigest`
   and are immutable, schema-valid, privacy-safe, and available by digest.
@@ -36,15 +36,16 @@ upload, platform evidence, support promotion, or release authority.
   applicable release/privacy/packaging/diagnostics/documentation requirements.
 - Primary automated acceptance: `AC-AUTO-002`, `AC-AUTO-023`,
   `AC-AUTO-032`, `AC-AUTO-040`, and `AC-AUTO-071`.
-- Reconciliation of all 76 automated primary owners, including Task 19
+- Reconciliation of all 81 automated primary owners, including Task 19
   `AC-AUTO-064`–`AC-AUTO-070` and `AC-AUTO-072`–`AC-AUTO-075`, plus Task 23
-  amended `AC-AUTO-059` and new `AC-AUTO-076`–`AC-AUTO-077`.
-- Aggregate/manual reconciliation of `AC-MAN-001`–`AC-MAN-016`.
+  amended `AC-AUTO-059`, `AC-AUTO-076`–`AC-AUTO-077`, and Task 26
+  `AC-AUTO-078`–`AC-AUTO-082`.
+- Aggregate/manual reconciliation of `AC-MAN-001`–`AC-MAN-018`.
 
 ## In Scope
 
-- Validate `acceptance-owners.json`, exact packet commands, Tasks 01–25, and
-  all canonical automated acceptance IDs (`001`–`054`, `056`–`077`).
+- Validate `acceptance-owners.json`, exact packet commands, Tasks 01–26, and
+  all canonical automated acceptance IDs (`001`–`054`, `056`–`082`).
 - Validate one unchanged shared candidate and exactly Linux x64 and Windows x64
   platform input/profile/graph/result/evidence-index chains.
 - Seal canonical `aggregateEvidenceDigest` over the shared input, both
@@ -92,7 +93,7 @@ qualification-to-production-delta digest. It is the only layer allowed to bind
 both platform branches. It cannot rewrite a prior document or compensate for a
 failed/missing branch.
 
-The task-plan registry must contain Tasks 01–25, at least one exact registered
+The task-plan registry must contain Tasks 01–26, at least one exact registered
 verification command per packet, and one primary owner for every canonical
 automated acceptance ID. Duplicate, missing, reordered, stale-task, or cross-
 task command ownership fails closed.
@@ -127,7 +128,7 @@ or private key.
 
 ## Contracts And Boundaries
 
-- Tasks 19, 23, 20, and 21 evidence is immutable input and is never rerun or
+- Tasks 19, 23, 20, 24, 26, 25, and 21 evidence is immutable input and is never rerun or
   repaired here.
 - Platform, aggregate, trust, legal, publication, and release evidence classes
   are distinct and non-substitutable.
@@ -142,14 +143,14 @@ or private key.
   `scripts/local-whisper/qualification/`.
 - Qualification-to-production manifest comparator, production collection
   guard, origin verifier, and privacy-safe readiness report.
-- Updated task-plan registry/validator and aggregate tests covering all 76
-  automated acceptance IDs and Tasks 01–25.
+- Updated task-plan registry/validator and aggregate tests covering all 81
+  automated acceptance IDs and Tasks 01–26.
 - `package.json` aggregate verification command plus final `todo.md` and
   `handoff.md` status.
 
 ## Acceptance Criteria
 
-- All 76 automated primary owners and registered commands validate exactly
+- All 81 automated primary owners and registered commands validate exactly
   once against the approved packets.
 - One aggregate root seals the unchanged shared/Linux/Windows identities and
   rejects every mixed, partial, mutated, backward, or private graph.
@@ -212,7 +213,8 @@ Do not run platform qualification to repair or replace Tasks 20–21 evidence.
 
 ## References
 
-- Specification revision 15 Sections 9.6, 12.1, 18.3, 19.1–19.3, and 22.
+- Specification revision 17 Sections 6, 8.2, 9.1, 9.6, 12.1, 18.3, 19.1–19.3,
+  and 22.
 - Task 20 advisory preflight, immutable Task 25 Linux, and Task 21 Windows
   handoffs.
 - Task 17 fixture identity, production packaging/release conventions, and

@@ -361,6 +361,8 @@ async function loadRuntime(cacheRoot: string, backend: 'cpu' | 'cuda'): Promise<
       archivePath,
       catalog: Object.freeze({
         backend,
+        platform: 'linux',
+        architecture: 'x64',
         buildRevision: runtimeBuildDigest,
         packRevision,
         expectedFiles,
