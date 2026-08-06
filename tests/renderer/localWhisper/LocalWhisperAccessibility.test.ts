@@ -108,7 +108,7 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
       source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'),
       source('src/renderer/localWhisper/components/LocalWhisperMainResidencyControl.tsx'),
     ].join('\n');
-    assert.doesNotMatch(nativeTitleSources, /<(?:button|div|span|svg|PiInfo|Button)\b[^>]*\btitle=/u);
+    assert.doesNotMatch(nativeTitleSources, /<(?:button|div|span|svg|PiInfo|Button)\b[^>]*\stitle=/u);
     assert.match(tooltipSources, /@renderer\/components\/ui\/tooltip/u);
     assert.match(tooltipSources, /<TooltipTrigger asChild>/u);
     assert.match(tooltipSources, /<TooltipContent>/u);
