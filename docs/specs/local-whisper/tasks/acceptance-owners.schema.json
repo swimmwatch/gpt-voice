@@ -21,16 +21,16 @@
       "const": 20
     },
     "planRevision": {
-      "const": 26
+      "const": 28
     },
     "taskFiles": {
       "type": "object",
-      "minProperties": 30,
-      "maxProperties": 30,
+      "minProperties": 31,
+      "maxProperties": 31,
       "patternProperties": {
-        "^(0[1-9]|1[0-9]|2[0-9]|30)$": {
+        "^(0[1-9]|1[0-9]|2[0-9]|3[01])$": {
           "type": "string",
-          "pattern": "^(0[1-9]|1[0-9]|2[0-9]|30)_[a-z0-9_]+\\.md$"
+          "pattern": "^(0[1-9]|1[0-9]|2[0-9]|3[01])_[a-z0-9_]+\\.md$"
         }
       },
       "additionalProperties": false
@@ -40,7 +40,7 @@
     },
     "verificationCommands": {
       "type": "array",
-      "minItems": 29,
+      "minItems": 30,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -48,11 +48,11 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)-[a-z0-9-]+$"
+            "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])-[a-z0-9-]+$"
           },
           "task": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])$"
           },
           "command": {
             "type": "string",
@@ -76,7 +76,7 @@
           },
           "primaryTask": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])$"
           },
           "verificationCommandIds": {
             "type": "array",
@@ -84,7 +84,7 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)-[a-z0-9-]+$"
+              "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])-[a-z0-9-]+$"
             }
           }
         }

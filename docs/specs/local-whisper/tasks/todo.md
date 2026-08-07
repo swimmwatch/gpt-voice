@@ -1,6 +1,6 @@
 # Local Whisper Task Checklist
 
-Plan revision: **26 (Approved)**
+Plan revision: **28 (Approved)**
 
 Specification baseline: **revision 20 (Approved)**
 
@@ -19,8 +19,13 @@ and bounded ordinary-app CPU/RTX 5090 smoke passed without creating Production
 evidence. Task 25 RTX 50 Readiness Closure is complete:
 deterministic inventory, applicability, catalog, migration, renderer-projection,
 and acquisition-guard checks passed without physical-host or qualification
-evidence. Tasks 27, 30, 28, 29, 21, and 22 remain unstarted. Task 26 is
-retained only as deferred, non-executable RTX 30/40 future work.
+evidence. Task 27's authorized local automated scope is implemented and verified but its
+external/manual gates remain pending. Revision 28 selects a locked
+acquisition-only WASM XZ decoder plus strict project-owned TAR parsing for the
+official Linux CUDA `.tar.xz` inputs; source/submodule/license review,
+production locks, closed profiles, and hosted rows still remain. Tasks 31, 30,
+28, 29, 21, and 22 remain unstarted. Task 26 is retained only as deferred,
+non-executable RTX 30/40 future work.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -45,7 +50,8 @@ retained only as deferred, non-executable RTX 30/40 future work.
 - [x] [20 Linux Qualification Preparation](20_linux_qualification.md) — advisory local deterministic preflight; reconciliation completed against the clean `b796c46f` checkout, with no Task 20 delta to commit
 - [x] [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md) — baseline pushed as `7ebb102`; provider-selection, CUDA-runtime acquisition, transfer-journal performance, recoverable-transcription state, and automatic-language native transcription follow-up included in the authorized review commit; CPU/RTX 5090 `sm_120a` readiness smoke passed, with no Production claim
 - [x] [25 RTX 50 Readiness Closure](25_rtx50_readiness_closure.md) — deterministic verification passed
-- [ ] [27 Hosted Production-Equivalent CI Builders](27_hosted_production_equivalent_ci.md)
+- [ ] [27 Immutable Hosted Toolchain Inputs And Disconnected Build Enforcement](27_hosted_production_equivalent_ci.md) — local raw/ZIP and fail-closed build-boundary scope implemented; revision 28 adds the selected locked WASM XZ plus strict TAR contract, while reviewed decoder/license provenance, production locks, official object acquisition, profile closure, and hosted Linux/Windows rows remain
+- [ ] [31 Hosted Production-Equivalent CI Builders](31_hosted_production_equivalent_ci_builders.md)
 - [ ] [30 Release Branch Preparation And Pull Request Policy](30_release_branch_preparation_and_pr_policy.md)
 - [ ] [28 Protected Signed Release Candidates](28_protected_signed_release_candidates.md)
 - [ ] [29 Linux RTX 50 Qualification](29_linux_rtx50_qualification.md)
@@ -62,10 +68,11 @@ AMD remains **Preview · Untested** and macOS remains
 **Planned · Unavailable**. Task 20's network/model/corpus/hardware checks were
 not authorized and remain pending manual gates. Task 24's scoped Windows
 host/network/application/unpacked-package gates passed without qualification
-evidence. The active sequence is Task 25 → 27 → 30 → 28 → 29 → 21 → 22. Task
-30 implements release preparation policy but creates no branch or PR. RTX 30/40
-checks are excluded rather than Pending. Task 27 is the next packet and requires
-its own incremental-implementation authorization. Every later packet and any
+evidence. Task 30 implements release preparation policy but creates no branch
+or PR. RTX 30/40 checks are excluded rather than Pending. Revision 28 makes the
+active sequence Task 27 → 31 → 30 → 28 → 29 → 21 → 22 authoritative. Task 27
+remains active for the selected XZ/TAR remediation and separately authorized
+external/manual gates; every later packet and any
 commit, push, release branch/PR,
 repository merge-setting change, production secret, signing, qualification,
 merge, tag, upload, publication, support promotion, or release require their

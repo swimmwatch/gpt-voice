@@ -2,15 +2,16 @@
 
 Status: Approved
 
-Revision: 26
+Revision: 28
 
 Specification baseline: approved `spec.md` revision 20. This revision preserves
-completed Tasks 01–20, 23, and 24; keeps Task 26 deferred and non-executable;
-adds Task 30 release-branch preparation after Task 27; and revises Tasks 28, 29,
-21, and 22 for exact release-PR head qualification, pre-merge aggregate
-readiness, preserving merge verification, post-merge immutable tag creation,
-and exact delivery. No candidate freezes before Tasks 25, 27, and 30 pass, and
-no platform qualification runs before Task 28 freezes final signed bytes.
+completed Tasks 01–20 and 23–25; keeps Task 26 deferred and non-executable;
+retains the Task 27/31 split from revision 27; and resolves official Linux CUDA
+`.tar.xz` materialization through one locked acquisition-only WASM XZ decoder
+plus a strict streaming project-owned TAR parser. Existing release preparation,
+candidate, qualification, merge, tag, and delivery boundaries remain unchanged.
+No candidate freezes before Tasks 27, 31, and 30 pass, and no platform
+qualification runs before Task 28 freezes final signed bytes.
 
 ## Goal
 
@@ -53,37 +54,42 @@ remain in the linked packet.
 | [20 Linux Qualification Preparation](20_linux_qualification.md)                                                                 | On Linux, validate candidate-independent qualification tooling, input materialization, host/toolchain readiness, and deterministic checks without freezing or adopting evidence.                                                                                                                                                                            | 19, 23                                     | Candidate-independent preparation for Linux slices of `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-004`, `PRIV-005`, and `OPS-003`; no primary-owner change, qualification identity, or verdict                                                                                                                                                                                                                                                                                                                                                             |
 | [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md)                                               | Build deterministic Windows CPU and RTX 50 `sm_120a` workers/runtime packs with MSVC 14.39 and the separately pinned Microsoft VC Runtime 14.51.36247.0 closure, extend authenticated development activation and package validation to Windows, and pass bounded ordinary-app CPU/RTX 5090 smoke after Task 20 preparation but before any candidate freeze. | 19, 20, 23                                 | Windows `sm_120a` readiness slices of `IMPL-001`–`IMPL-002`, `COMP-004`, `COMP-008`, `COMP-012`, `CPU-001`, `DIST-001`–`DIST-002`, `PKG-002`–`PKG-005`, `PKG-009`–`PKG-011`, `SEC-008`, `SEC-011`, `SEC-014`–`SEC-015`, `DEV-001`, `MODEL-011`, `QUAL-004`, `OPS-003`; supporting existing automated/manual acceptance only; it owns neither `sm_86`/`sm_89` delivery nor qualification evidence.                                                                                                                                                                   |
 | [25 RTX 50 Readiness Closure](25_rtx50_readiness_closure.md)                                                                    | Close cross-platform pre-install inventory, exact `sm_120a-real` applicability, catalog, migration, renderer filtering, and fail-closed negative fixtures without freezing a candidate.                                                                                                                                                                     | 19, 20, 23, 24                             | `CAP-018`, `COMP-013`, `DIST-003`, `PRIV-006`, `RUNTIME-005`, `UI-010`, `VAL-004`, `QUAL-005`–`QUAL-006`, `OPS-004`; primary `AC-AUTO-078`, `AC-AUTO-079`, `AC-AUTO-081`                                                                                                                                                                                                                                                                                                                                                                                            |
-| [27 Hosted Production-Equivalent CI Builders](27_hosted_production_equivalent_ci.md)                                            | Build and verify Linux/Windows applications plus CPU/RTX 50 packs in read-only hosted CI with reproducibility, disconnected-build, permission, and no-publication guarantees.                                                                                                                                                                               | 25                                         | `CI-001`–`CI-003`; build slices of `PKG-002`–`PKG-004`, `PKG-009`–`PKG-010`, `SEC-003`, `REL-002`; primary `AC-AUTO-083`–`AC-AUTO-084`                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| [30 Release Branch Preparation And Pull Request Policy](30_release_branch_preparation_and_pr_policy.md)                         | Implement canonical committed version/changelog/manual-registry preparation, deterministic exact-head identity, read-only `release/v<SemVer>` PR checks, and repository merge-commit-only policy verification without creating a release attempt.                                                                                                           | 25, 27                                     | Preparation slices of `CI-004`, `CI-008`, `QUAL-004`, `REL-002`; primary `AC-AUTO-085`; supporting `AC-MAN-014`, `AC-MAN-019`                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| [28 Protected Signed Release Candidates](28_protected_signed_release_candidates.md)                                             | Consume one exact Task 30-qualified release PR head and freeze its complete natively signed six-output candidate generation and signed release manifest without merging, tagging, uploading, or publishing.                                                                                                                                                 | 27, 30                                     | Candidate/signing slices of `CI-004`–`CI-008`, `DIST-004`, `PKG-011`–`PKG-012`, `SEC-014`, `REL-002`; primary `AC-AUTO-086`–`AC-AUTO-089`; supporting `AC-AUTO-085`, `AC-MAN-014`, `AC-MAN-019`                                                                                                                                                                                                                                                                                                                                                                     |
-| [29 Linux RTX 50 Qualification](29_linux_rtx50_qualification.md)                                                                | Consume Task 30/28 exact release head and Linux candidates, freeze the shared/Linux graph, and execute all-six-model CPU/RTX 50 package, transport, parity, resource, lifecycle, privacy, offline, cleanup, and predecessor qualification before merge.                                                                                                     | 20, 25, 27, 30, 28                         | Linux `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-005`, `PRIV-005`–`PRIV-006`, `OPS-003`–`OPS-004`; Linux `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, `AC-MAN-013`, `AC-MAN-017`; support for `AC-AUTO-080`, `AC-AUTO-082`, `AC-AUTO-087`, `AC-MAN-014`                                                                                                                                                                                                                                                                                         |
-| [21 Windows RTX 50 Qualification](21_windows_qualification.md)                                                                  | Consume the same exact release head/Windows candidates plus Task 29 unchanged shared/Linux branch, then execute and seal the all-six-model Windows CPU/RTX 50 branch before merge.                                                                                                                                                                          | 24, 25, 27, 30, 28, 29                     | Windows `REL-001`, `COMP-012`–`COMP-013`, `MODEL-011`, `QUAL-001`–`QUAL-006`, `PRIV-005`–`PRIV-006`, `OPS-003`–`OPS-004`; Windows `AC-MAN-002`–`AC-MAN-008`, `AC-MAN-013`, `AC-MAN-018`; support for `AC-AUTO-080`, `AC-AUTO-082`, `AC-AUTO-087`, `AC-MAN-014`                                                                                                                                                                                                                                                                                                      |
+| [27 Immutable Hosted Toolchain Inputs And Disconnected Build Enforcement](27_hosted_production_equivalent_ci.md)                | Pin and materialize every official Linux/Windows toolchain input, including Linux CUDA `.tar.xz` through one locked WASM XZ decoder and strict TAR parser; close profiles, separate the driver stub from physical proof, and enforce network denial.                                                                                                        | 25                                         | Preparation slices of `CI-001`–`CI-003`, `PKG-002`–`PKG-004`, `PKG-009`–`PKG-010`, `SEC-003`; support for `AC-AUTO-080`, `AC-AUTO-083`, `AC-AUTO-084`                                                                                                                                                                                                                                                                                                                                                                                                               |
+| [31 Hosted Production-Equivalent CI Builders](31_hosted_production_equivalent_ci_builders.md)                                   | Build and verify Linux/Windows applications plus CPU/RTX 50 packs on public read-only hosted runners with reproducibility, disconnected-build, permission, no-installable-upload, and no-hardware-claim guarantees.                                                                                                                                         | 25, 27                                     | `CI-001`–`CI-003`; build slices of `PKG-002`–`PKG-004`, `PKG-009`–`PKG-010`, `SEC-003`, `REL-002`; primary `AC-AUTO-080`, `AC-AUTO-083`, `AC-AUTO-084`                                                                                                                                                                                                                                                                                                                                                                                                              |
+| [30 Release Branch Preparation And Pull Request Policy](30_release_branch_preparation_and_pr_policy.md)                         | Implement canonical committed version/changelog/manual-registry preparation, deterministic exact-head identity, read-only `release/v<SemVer>` PR checks, and repository merge-commit-only policy verification without creating a release attempt.                                                                                                           | 25, 27, 31                                 | Preparation slices of `CI-004`, `CI-008`, `QUAL-004`, `REL-002`; primary `AC-AUTO-085`; supporting `AC-MAN-014`, `AC-MAN-019`                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| [28 Protected Signed Release Candidates](28_protected_signed_release_candidates.md)                                             | Consume one exact Task 30-qualified release PR head and freeze its complete natively signed six-output candidate generation and signed release manifest without merging, tagging, uploading, or publishing.                                                                                                                                                 | 27, 31, 30                                 | Candidate/signing slices of `CI-004`–`CI-008`, `DIST-004`, `PKG-011`–`PKG-012`, `SEC-014`, `REL-002`; primary `AC-AUTO-086`–`AC-AUTO-089`; supporting `AC-AUTO-085`, `AC-MAN-014`, `AC-MAN-019`                                                                                                                                                                                                                                                                                                                                                                     |
+| [29 Linux RTX 50 Qualification](29_linux_rtx50_qualification.md)                                                                | Consume Task 30/28 exact release head and Linux candidates, freeze the shared/Linux graph, and execute all-six-model CPU/RTX 50 package, transport, parity, resource, lifecycle, privacy, offline, cleanup, and predecessor qualification before merge.                                                                                                     | 20, 25, 27, 31, 30, 28                     | Linux `REL-001`, `COMP-012`, `MODEL-011`, `QUAL-001`–`QUAL-005`, `PRIV-005`–`PRIV-006`, `OPS-003`–`OPS-004`; Linux `AC-MAN-001`, `AC-MAN-002`, `AC-MAN-004`–`AC-MAN-008`, `AC-MAN-013`, `AC-MAN-017`; support for `AC-AUTO-080`, `AC-AUTO-082`, `AC-AUTO-087`, `AC-MAN-014`                                                                                                                                                                                                                                                                                         |
+| [21 Windows RTX 50 Qualification](21_windows_qualification.md)                                                                  | Consume the same exact release head/Windows candidates plus Task 29 unchanged shared/Linux branch, then execute and seal the all-six-model Windows CPU/RTX 50 branch before merge.                                                                                                                                                                          | 24, 25, 27, 31, 30, 28, 29                 | Windows `REL-001`, `COMP-012`–`COMP-013`, `MODEL-011`, `QUAL-001`–`QUAL-006`, `PRIV-005`–`PRIV-006`, `OPS-003`–`OPS-004`; Windows `AC-MAN-002`–`AC-MAN-008`, `AC-MAN-013`, `AC-MAN-018`; support for `AC-AUTO-080`, `AC-AUTO-082`, `AC-AUTO-087`, `AC-MAN-014`                                                                                                                                                                                                                                                                                                      |
 | [22 Aggregate Production Readiness And Release Delivery](22_aggregate_and_release_blockers.md)                                  | Seal pre-merge aggregate readiness for the exact release PR, verify its separately authorized preserving merge, and only under later tag/release authorizations tag the qualified head and non-clobberingly stage, verify, and publish its exact assets.                                                                                                    | 21, 28, 29, 30                             | Aggregate `REL-001`–`REL-002`, `CI-004`, `CI-007`–`CI-008`, `DIST-001`–`DIST-004`, `PKG-011`–`PKG-012`, `SEC-014`, `COMP-012`–`COMP-013`, `QUAL-001`–`QUAL-006`, `OPS-002`–`OPS-004`; primary `AC-AUTO-002`, `AC-AUTO-023`, `AC-AUTO-032`, `AC-AUTO-040`, `AC-AUTO-071`, `AC-AUTO-082`, `AC-AUTO-090`; support for Task 30-primary `AC-AUTO-085`; reconciliation through `AC-MAN-019`                                                                                                                                                                               |
 | [26 Deferred RTX 30/40 CUDA Runtime Expansion](26_hardware_matched_nvidia_cuda_runtime_expansion.md)                            | Preserve postponed RTX 30/40 intent as non-executable future work requiring a new approved specification and plan revision.                                                                                                                                                                                                                                 | Deferred · no active dependencies          | No active revision-20 requirement, acceptance owner, verification command, qualification gate, or support claim.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Sequencing
 
 ```text
-completed and committed: 01–20, 23, 24
-planned next after plan approval and separate execution authorization: 25
+completed and committed: 01–20, 23, 24, 25
+planned next after plan approval and separate execution authorization: 27
 deferred outside the active chain: 26 (RTX 30/40; non-executable)
 
-25 -> 27 -> 30 -> 28 -> 29 -> 21 -> 22
+27 -> 31 -> 30 -> 28 -> 29 -> 21 -> 22
 ```
 
-- Tasks 01–20, 23, and 24 remain completed foundations and are not reopened.
-- Task 25 closes only the remaining RTX 50 applicability implementation gap;
-  it creates no candidate or qualification identity.
-- Task 27 adds the six production-equivalent hosted build classes under
-  read-only non-production CI and hands one unchanged builder contract to the
-  protected workflow.
+- Tasks 01–20 and 23–25 remain completed foundations and are not reopened.
+- Task 27 pins every official hosted build input, closes the Linux/Windows
+  profiles, materializes official Linux CUDA `.tar.xz` inputs through one
+  verified acquisition-only WASM decoder and strict streaming TAR parser,
+  separates CUDA driver-stub linking from physical driver proof, and enforces
+  network-denied build execution on both public-runner platforms.
+- Task 31 uses Task 27 unchanged to add the six production-equivalent hosted
+  build classes under read-only non-production CI and hands one unchanged
+  builder contract to the protected workflow.
 - Task 30 adds canonical committed package/changelog/manual-registry
   preparation, generated identity, read-only `release/v<SemVer>` PR checks,
   and verification that repository settings allow merge commits only. It
   creates no branch, commit, PR, or release attempt.
 - Task 28 consumes the exact Task 30-qualified release PR head and uses the
-  unchanged Task 27 builder contract inside the protected environment to freeze
-  final signed application/runtime candidates and the signed release manifest.
+  unchanged Task 31 builder contract rooted in Task 27 inputs inside the
+  protected environment to freeze final signed application/runtime candidates
+  and the signed release manifest.
   It merges, tags, uploads, and publishes nothing.
 - Task 29 consumes exact Task 28 Linux bytes and creates the shared candidate
   plus Linux branch. Task 21 then adds only the Windows branch against the same
@@ -113,10 +119,10 @@ deferred outside the active chain: 26 (RTX 30/40; non-executable)
   representative Windows evidence to Task 21. Task 06's packaging ownership
   reference to Task 17 remains distinct from this execution boundary.
 - Task 20 and Task 24 readiness evidence remains advisory until the final
-  source/candidates are frozen. Missing Task 25 readiness or Task 27 hosted
-  build evidence blocks Task 30. Missing Task 30 release preparation blocks
-  Task 28. Missing Task 29 Linux or Task 21 Windows qualification blocks Task
-  22 pre-merge readiness. Mocks, Wine,
+  source/candidates are frozen. Missing Task 27 immutable-toolchain evidence or
+  Task 31 hosted build evidence blocks Task 30. Missing Task 30 release
+  preparation blocks Task 28. Missing Task 29 Linux or Task 21 Windows
+  qualification blocks Task 22 pre-merge readiness. Mocks, Wine,
   cross-compilation, the other platform, and compile-only CI cannot substitute
   for representative evidence.
 
@@ -193,10 +199,19 @@ deferred outside the active chain: 26 (RTX 30/40; non-executable)
   one active CUDA catalog row per platform, renderer-safe filtering, and
   negative `sm_86`/`sm_89`/malformed/ambiguous/cross-platform fixtures. No raw
   hardware identity or out-of-scope action crosses IPC.
-- `TASK 27 HOSTED BUILDERS`: build all six production-equivalent output classes
-  on hosted Linux/Windows runners under read-only non-production authority.
-  CI artifacts are short-lived qualification inputs, never installation
-  origins; no physical GPU or production secret is used.
+- `TASK 27 HOSTED TOOLCHAINS`: use public GitHub-hosted runners, but acquire and
+  verify every official compiler, SDK, CUDA, build, runtime, and packaging input
+  through checksum/signature-locked platform manifests. Linux CUDA `.tar.xz`
+  uses only the reviewed acquisition-only `xz-decompress@0.2.3` object plus a
+  bounded project-owned GZIP/XZ/TAR path; ambient `tar`/`xz`, package-manager
+  installation, native bindings, and mutable resolution are forbidden. After
+  provisioning, configure/build/test/pack is network-denied on both platforms.
+  CUDA uses the reviewed toolkit driver stub only for linking; no physical GPU
+  or production secret is used.
+- `TASK 31 HOSTED BUILDERS`: build all six production-equivalent output classes
+  on public Linux/Windows runners under read-only non-production authority by
+  consuming Task 27 unchanged. CI retains only bounded non-installation reports,
+  never application/runtime bytes or installation origins.
 - `TASK 30 RELEASE PREPARATION`: implement non-mutating committed version/
   changelog/manual-registry validation, deterministic release identity, and
   read-only `release/v<SemVer>` pull-request policy. The committed package
@@ -256,17 +271,18 @@ deferred outside the active chain: 26 (RTX 30/40; non-executable)
 
 ## Approval Boundary
 
-Revision 26 is Approved and reconciles approved specification revision 20. It
-preserves completed work, keeps Tasks 25/27 unchanged, adds Task 30 release
-preparation, revises Tasks 28/29/21 for one unchanged pre-merge release head,
-assigns aggregate pre-merge readiness plus preserving-merge/tag/delivery policy
-to Task 22, and retains Task 26 only as deferred RTX 30/40 future work.
+Revision 28 is Approved and remains reconciled with approved specification
+revision 20. It preserves completed work, the revision-27 Task 27/31 split,
+every release boundary, Task 31 ownership of
+`AC-AUTO-080`/`083`/`084`, and deferred Task 26. Its only sequencing-neutral
+contract change is the selected immutable WASM XZ decoder plus strict streaming
+TAR materialization required for official Linux CUDA inputs.
 
 Plan approval authorizes no new packet execution, application launch, hardware
 use, commit, push, pull request, repository-setting change, candidate freeze,
 qualification, private signing, merge, tag, upload, publication, support
-promotion, or release. The existing separate Task 25 authorization remains
-valid because its packet scope is unchanged; each later active packet requires
-its own incremental-implementation authorization. Each invocation executes
+promotion, or release. Revision 28 approval authorizes no execution; each
+active packet still requires its own incremental-implementation authorization.
+Each invocation executes
 exactly one packet, updates `todo.md` and `handoff.md`, and stops before
 committing that packet or opening the next one.

@@ -9,8 +9,8 @@ const manifestPath = path.join(tasksRoot, 'acceptance-owners.json');
 const schemaPath = path.join(tasksRoot, 'acceptance-owners.schema.json');
 const specificationPath = path.join(specificationRoot, 'spec.md');
 const SPECIFICATION_REVISION = 20;
-const PLAN_REVISION = 26;
-const TASK_COUNT = 30;
+const PLAN_REVISION = 28;
+const TASK_COUNT = 31;
 const DEFERRED_TASKS = Object.freeze(['26']);
 
 const REQUIRED_REPLACEMENT_HEADINGS = [
@@ -29,10 +29,10 @@ const REQUIRED_REPLACEMENT_HEADINGS = [
   'References',
   'Completion And Handoff',
 ];
-const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2\d|30)$/u;
-const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2\d|30)_[a-z\d_]+\.md$/u;
-const ACTIVE_TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5]|2[7-9]|30)$/u;
-const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5]|2[7-9]|30)-[a-z\d-]+$/u;
+const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2\d|3[01])$/u;
+const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2\d|3[01])_[a-z\d_]+\.md$/u;
+const ACTIVE_TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5]|2[7-9]|3[01])$/u;
+const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5]|2[7-9]|3[01])-[a-z\d-]+$/u;
 const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06\d|07\d|08\d|090)$/u;
 
 function fail(message) {
@@ -129,7 +129,7 @@ async function validateTaskFiles(manifest, taskDirectoryEntries) {
   const taskIds = Object.keys(taskFiles).sort();
   const expectedTaskIds = Array.from({ length: TASK_COUNT }, (_, index) => String(index + 1).padStart(2, '0'));
   if (taskIds.length !== expectedTaskIds.length || taskIds.some((task, index) => task !== expectedTaskIds[index])) {
-    fail('taskFiles must contain exactly Tasks 01 through 30');
+    fail('taskFiles must contain exactly Tasks 01 through 31');
   }
   if (taskFiles['23'] !== '23_main_window_residency_control.md') fail('Task 23 packet filename is unexpected');
   if (taskFiles['25'] !== '25_rtx50_readiness_closure.md') fail('Task 25 packet filename is unexpected');
@@ -147,6 +147,9 @@ async function validateTaskFiles(manifest, taskDirectoryEntries) {
   }
   if (taskFiles['30'] !== '30_release_branch_preparation_and_pr_policy.md') {
     fail('Task 30 packet filename is unexpected');
+  }
+  if (taskFiles['31'] !== '31_hosted_production_equivalent_ci_builders.md') {
+    fail('Task 31 packet filename is unexpected');
   }
 
   const numberedFiles = taskDirectoryEntries
@@ -275,11 +278,11 @@ function assertFixedAcceptanceOwners(ownersByAcceptanceId) {
     ['AC-AUTO-077', '23'],
     ['AC-AUTO-078', '25'],
     ['AC-AUTO-079', '25'],
-    ['AC-AUTO-080', '27'],
+    ['AC-AUTO-080', '31'],
     ['AC-AUTO-081', '25'],
     ['AC-AUTO-082', '22'],
-    ['AC-AUTO-083', '27'],
-    ['AC-AUTO-084', '27'],
+    ['AC-AUTO-083', '31'],
+    ['AC-AUTO-084', '31'],
     ['AC-AUTO-085', '30'],
     ['AC-AUTO-086', '28'],
     ['AC-AUTO-087', '28'],
@@ -339,7 +342,7 @@ async function main() {
   validateAcceptanceOwners(manifest, specification, packetByTask, commandById, deferredTasks);
 
   process.stdout.write(
-    'Local Whisper task plan is structurally valid: 29 active packets, 1 deferred packet, 89 unique AC-AUTO owners.\n',
+    'Local Whisper task plan is structurally valid: 30 active packets, 1 deferred packet, 89 unique AC-AUTO owners.\n',
   );
 }
 

@@ -11,9 +11,10 @@ tag, or release.
 
 ## Prerequisites
 
-- Specification revision 20 and plan revision 26 are approved.
-- Tasks 25 and 27 are complete, reviewed, and committed; Task 27's unchanged
-  hosted builder contract remains the only application/runtime build path.
+- Specification revision 20 and plan revision 27 are approved.
+- Tasks 25, 27, and 31 are complete, reviewed, and committed. Task 31's
+  unchanged hosted builder contract, rooted in Task 27's immutable inputs and
+  disconnected executor, remains the only application/runtime build path.
 - The current planned release is `2.4.0`, but Task 30 implementation does not
   mutate the current branch to that version or claim that a release attempt
   exists.
@@ -106,8 +107,9 @@ release-PR gate and Task 28.
 
 - Task 30 owns release preparation and read-only PR policy only. Task 28 owns
   production secrets, final signing, and candidate freeze.
-- Task 27's builder contract remains unchanged; release preparation may select
-  its exact source but cannot fork or rewrite it.
+- Task 31's builder contract and Task 27's input/isolation contract remain
+  unchanged; release preparation may select their exact source but cannot fork
+  or rewrite either one.
 - The changelog and committed version files are reviewable source. The
   generated manifest is derived evidence and cannot override them.
 - PR/fork/main validation receives no signing, merge, tag, release, or
@@ -193,8 +195,8 @@ rtk npm run verify:local-whisper:release-preparation
 
 - Specification revision 20 Sections 18.3–18.5, 19.1
   (`AC-AUTO-085`), `AC-MAN-014`, `AC-MAN-019`, and Section 22.
-- Task 27 builder handoff; Tasks 28, 29, 21, and 22 manual/identity contracts;
-  release/project conventions.
+- Task 27 toolchain and Task 31 builder handoffs; Tasks 28, 29, 21, and 22
+  manual/identity contracts; release/project conventions.
 - Decisions `planning.release-version-authority`,
   `planning.release-branch-name`, and `planning.release-merge-enforcement`.
 

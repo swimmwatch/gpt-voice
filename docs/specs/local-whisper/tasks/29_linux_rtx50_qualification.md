@@ -9,10 +9,10 @@ qualification, and seal only the privacy-safe Linux branch for Task 21.
 
 ## Prerequisites
 
-- Specification revision 20 and plan revision 26 are approved.
-- Tasks 25, 27, 30, and 28 are complete and committed or otherwise immutable
-  as required by their handoffs; the Task 30 release preparation and Task 28
-  signed generation are read-only.
+- Specification revision 20 and plan revision 27 are approved.
+- Tasks 25, 27, 31, 30, and 28 are complete and committed or otherwise
+  immutable as required by their handoffs; the Task 30 release preparation and
+  Task 28 signed generation are read-only.
 - The `release/v2.4.0` pull request remains open, current with `main`, and
   unchanged at the exact Task 28 head; the final tag does not exist.
 - Task 20 advisory preparation is revalidated against the final Task 28 source
@@ -182,7 +182,7 @@ rtk npm run verify:local-whisper:qualification:linux
 
 - Specification revision 20 Sections 9.2, 9.6, 12.1–12.5, 18.3–18.5,
   19.1–19.3, and 22.
-- Tasks 20, 25, 27, 30, and 28 handoffs; Task 17 fixture identity; Linux
+- Tasks 20, 25, 27, 31, 30, and 28 handoffs; Task 17 fixture identity; Linux
   evidence template.
 
 ## Completion And Handoff

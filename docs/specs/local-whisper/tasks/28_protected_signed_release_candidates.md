@@ -11,9 +11,10 @@ release manifest. Merge and publish nothing.
 
 ## Prerequisites
 
-- Specification revision 20 and plan revision 26 are approved.
-- Tasks 25, 27, and 30 are complete, reviewed, and committed; Task 27 builders
-  are the sole application/runtime build implementation.
+- Specification revision 20 and plan revision 27 are approved.
+- Tasks 25, 27, 31, and 30 are complete, reviewed, and committed. Task 31
+  builders using Task 27 immutable inputs are the sole application/runtime
+  build implementation.
 - Under separate authority, repository merge settings permit merge commits
   only and one current `release/v2.4.0` pull request into `main` has complete
   committed preparation, a clean frozen head, and a passing Task 30 digest.
@@ -87,8 +88,9 @@ reviewers approve before secrets become available. Signing jobs log only safe
 key IDs/certificate metadata and signed digests—never keys, tokens, certificate
 secrets, signer responses, or private material.
 
-Task 27 builders run unchanged. Native signing occurs before the candidates
-are declared frozen. Runtime archive bytes remain deterministic; detached
+Task 31 builders and Task 27 input/isolation contracts run unchanged. Native
+signing occurs before the candidates are declared frozen. Runtime archive
+bytes remain deterministic; detached
 signatures do not alter them. Native application signatures are part of the
 final installer bytes. Every later platform result must name those final
 digests plus the exact release PR head and Task 30 preparation digest. Any
@@ -200,7 +202,7 @@ rtk npm run test:local-whisper:release-policy
 
 - Specification revision 20 Sections 9.6, 12.1, 18.3–18.5, 19.1
   (`AC-AUTO-085`–`AC-AUTO-089`), and 22.
-- Tasks 27/30 handoffs, packaging/release conventions, and decisions
+- Tasks 27/31/30 handoffs, packaging/release conventions, and decisions
   `security.ci-signing-custody`, `security.application-artifact-signing`, and
   `distribution.ci-artifact-promotion` revision 2 plus
   `planning.release-version-authority` and `planning.release-branch-name`.

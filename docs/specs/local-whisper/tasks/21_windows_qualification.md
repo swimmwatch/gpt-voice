@@ -9,9 +9,9 @@ seal one privacy-safe Windows branch for Task 22.
 
 ## Prerequisites
 
-- Specification revision 20 and plan revision 26 are approved.
-- Tasks 24, 25, 27, 30, 28, and 29 are complete; Task 30 preparation, Task 28
-  candidates, and the Task 29 shared/Linux identities are immutable and
+- Specification revision 20 and plan revision 27 are approved.
+- Tasks 24, 25, 27, 31, 30, 28, and 29 are complete; Task 30 preparation, Task
+  28 candidates, and the Task 29 shared/Linux identities are immutable and
   read-only.
 - The `release/v2.4.0` pull request remains open, current with `main`, and
   unchanged at the exact Task 28 head; the final tag does not exist.
@@ -188,7 +188,7 @@ rtk npm run verify:local-whisper:qualification:windows
 
 - Specification revision 20 Sections 9.6, 12.1–12.5, 18.3–18.5, 19.1–19.3,
   and 22.
-- Tasks 24, 25, 27, 30, 28, and 29 handoffs and Windows evidence template.
+- Tasks 24, 25, 27, 31, 30, 28, and 29 handoffs and Windows evidence template.
 
 ## Completion And Handoff
 

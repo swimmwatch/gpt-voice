@@ -14,8 +14,10 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { assertClosedHostedWindowsProfile } from './native-build/hosted-toolchain-core.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { verifyLoaderLimitAuthority } from './native-build/loader-limit-core.mjs';
+import { resolveNetworkDeniedCommand } from './native-build/network-denied-build-core.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 import {
   captureToolchainInputLock,
@@ -316,6 +318,7 @@ function profileTools(profile) {
 
 function networkDeniedEnvironment(profile, tools) {
   const values = {
+    ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
     LANG: 'C',
     LC_ALL: 'C',
     PATH: [
@@ -328,19 +331,27 @@ function networkDeniedEnvironment(profile, tools) {
         '/bin',
       ]),
     ].join(':'),
+    UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
   };
   return Object.fromEntries(profile.environmentAllowlist.map((key) => [key, values[key]]));
 }
 
-function runBuildCommand(configured, command, arguments_, label) {
+function runBuildCommand(configured, command, arguments_, label, environment = configured.environment) {
   if (!configured.networkDenied) {
-    run(command, arguments_, { env: configured.environment, label });
+    run(command, arguments_, { env: environment, label });
     return;
   }
-  run(configured.networkHarness, ['-Urn', '--', command, ...arguments_], {
+  const networkDenied = resolveNetworkDeniedCommand({
+    arguments_,
+    buildRoot: configured.buildRoot,
+    command,
+    profile: configured.profile,
+    toolchainRoot,
+  });
+  run(networkDenied.command, networkDenied.arguments, {
     cwd: configured.buildRoot,
-    env: configured.environment,
-    label: `${label} in network-denied namespace`,
+    env: environment,
+    label: `${label} in ${networkDenied.strategy}`,
   });
 }
 
@@ -350,7 +361,7 @@ export function configureBuild(
 ) {
   const profileTemplate = requireProfile(profileId);
   const profile =
-    profileTemplate.target.os === 'windows'
+    profileTemplate.target.os === 'windows' && !networkDenied
       ? captureToolchainInputLock(profileTemplate, toolchainRoot)
       : profileTemplate;
   if (isAmdPreviewProfile(profileId)) {
@@ -360,6 +371,7 @@ export function configureBuild(
   if (profile.target.os !== hostOs) {
     throw new Error(`Local configure requires a ${hostOs} profile`);
   }
+  if (profile.target.os === 'windows' && networkDenied) assertClosedHostedWindowsProfile(profile);
   verifyToolchainContract(profile, { allowCandidate: profile.target.os === 'windows', contractOnly: false });
   const tools = profileTools(profile);
   if (rootTag !== '' && !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(rootTag)) {
@@ -437,7 +449,6 @@ export function configureBuild(
           ? networkDeniedEnvironment(profile, tools)
           : process.env,
     networkDenied,
-    networkHarness: networkDenied ? resolveProfileTool(profile, toolchainRoot, 'network-harness') : null,
     profile,
     tools,
   };
@@ -464,14 +475,18 @@ export function buildTargets(configured, targets) {
 
 export function runTests(configured, label) {
   const ctest = resolve(configured.tools.cmake, '..', process.platform === 'win32' ? 'ctest.exe' : 'ctest');
-  run(ctest, ['--test-dir', configured.buildRoot, '--output-on-failure', '-L', label], {
-    env: {
-      ...configured.environment,
-      ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
-      UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
-    },
-    label: `${label} tests`,
-  });
+  const environment = {
+    ...configured.environment,
+    ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
+    UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
+  };
+  runBuildCommand(
+    configured,
+    ctest,
+    ['--test-dir', configured.buildRoot, '--output-on-failure', '-L', label],
+    `${label} tests`,
+    environment,
+  );
 }
 
 export function projectNativeFiles() {

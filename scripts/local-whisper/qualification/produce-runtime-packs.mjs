@@ -38,7 +38,7 @@ function resetOutput(path) {
 function buildAndStage(profileId, backend, platform, repetition) {
   const configured = configureBuild(profileId, {
     engine: true,
-    networkDenied: platform === 'linux',
+    networkDenied: true,
     rootTag: `${platform === 'win32' ? 'task24-windows' : 'task19'}-runtime-${backend}-${repetition}`,
     tests: false,
   });
@@ -79,8 +79,7 @@ async function produce(backend, platform) {
     backend,
     profileId,
     cleanRootCount: 2,
-    networkIsolation:
-      platform === 'win32' ? 'fetchcontent-disconnected-isolated-toolchain' : 'user-network-namespace',
+    networkIsolation: platform === 'win32' ? 'fetchcontent-disconnected-isolated-toolchain' : 'user-network-namespace',
     archiveSha256: first.archive.sha256,
     packRecordDigest: canonicalDigest(first),
     reproducible: true,

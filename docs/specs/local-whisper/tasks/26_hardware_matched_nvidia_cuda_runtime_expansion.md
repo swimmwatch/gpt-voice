@@ -11,7 +11,7 @@ task packet.
 
 ## Prerequisites
 
-- Specification revision 20 and plan revision 26 are approved.
+- Specification revision 20 and plan revision 27 are approved.
 - A future user request explicitly reopens RTX 30/40 support.
 - A later specification revision defines the supported devices, runtime
   identities, driver/toolchain contract, migration, UI behavior, privacy, and
@@ -26,7 +26,7 @@ task packet.
 - Historical revision-17 ownership of `CAP-018`, `COMP-013`, `DIST-003`,
   `PRIV-006`, `QUAL-005`–`QUAL-006`, `RUNTIME-005`, `UI-010`, `VAL-004`,
   `OPS-004`, `AC-AUTO-078`–`AC-AUTO-082`, and `AC-MAN-017`–`AC-MAN-018` is
-  superseded. Active RTX 50 ownership is assigned by plan revision 26.
+  superseded. Active RTX 50 ownership is assigned by plan revision 27.
 
 ## In Scope
 
@@ -63,10 +63,10 @@ release impact before executable work is planned.
 
 ## Contracts And Boundaries
 
-- Task 26 is absent from the active dependency chain. Tasks 25, 27, 28, 29,
-  21, and 22 do not wait for it and must not consume evidence from it.
-- RTX 50 / `sm_120a` remains owned by the active Tasks 25, 27, 28, 29, 21,
-  and 22.
+- Task 26 is absent from the active dependency chain. Tasks 27, 31, 30, 28,
+  29, 21, and 22 do not wait for it and must not consume evidence from it.
+- RTX 50 / `sm_120a` remains owned by the active Tasks 25, 27, 31, 28, 29,
+  21, and 22.
 - CPU, AMD Preview, and macOS Planned/unavailable boundaries are unchanged.
 - No future support claim follows from retaining this file.
 
@@ -78,7 +78,7 @@ release impact before executable work is planned.
 
 ## Acceptance Criteria
 
-- Plan revision 26 marks Task 26 deferred and non-executable.
+- Plan revision 27 marks Task 26 deferred and non-executable.
 - Task 26 has no registered verification command and no primary automated
   acceptance owner.
 - Active plan sequencing and candidate freeze do not depend on Task 26.
@@ -93,7 +93,7 @@ acceptance owner assigned to deferred Task 26.
 
 ## Failure And Rollback
 
-- If any active artifact still depends on Task 26, plan revision 26 remains
+- If any active artifact still depends on Task 26, plan revision 27 remains
   Draft until that dependency is removed.
 - If RTX 30/40 implementation becomes required, return to specification work;
   do not edit around this deferral inside an implementation session.
@@ -118,5 +118,5 @@ acceptance owner assigned to deferred Task 26.
 ## Completion And Handoff
 
 Task 26 remains unchecked and deferred. It cannot be completed under
-specification revision 20. The active handoff points to Task 25 and records no
+specification revision 20. The active handoff points to Task 27 and records no
 RTX 30/40 blocker.

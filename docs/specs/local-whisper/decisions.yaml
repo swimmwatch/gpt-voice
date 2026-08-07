@@ -9668,3 +9668,311 @@ decisions:
     rationale: The user explicitly approved plan revision 26. The authoritative sequence is Task 25 → 27 → 30 → 28 → 29 → 21 → 22; Task 26 remains deferred. Task 30 owns committed release preparation and read-only release-PR/repository-setting policy, while downstream packets bind one unchanged head through signing, pre-merge qualification, aggregate readiness, preserving merge verification, post-merge tag, and exact delivery. Existing Task 25 execution authorization remains separate and valid; every later packet and external release action remains unauthorized.
     supersedes_revision: 25
     requirement_ids: []
+
+  - id: planning.hosted-toolchain-provisioning
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - GitHub-hosted Linux and Windows runner images are moving environments; their preinstalled compilers, SDKs, CUDA components, packaging tools, and transitive helper binaries cannot be treated as immutable build inputs.
+      - The existing Linux CUDA profile depends on a driver-side `libcuda.so.1` captured from a physical NVIDIA host even though hosted CUDA compilation requires no physical GPU.
+      - The Windows profiles retain uncaptured tool/runtime hashes, and the current build core captures ambient MSVC state instead of materializing a verified hosted toolchain root.
+      - The approved specification requires every source, compiler, SDK, CUDA, build-tool, dependency, packaging, license, and runtime-closure input to be explicit and verified before configure, build, test, and pack run without network access.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: hosted-toolchain-remediation-round-94
+      question_id: planning.hosted-toolchain-provisioning
+      idempotency_key: planning.hosted-toolchain-provisioning:v1
+      last_status: answered
+      sequence: 94
+      revision: 1
+    question:
+      text: Which immutable provisioning strategy should the hosted Linux and Windows production-equivalent builders use?
+      kind: single
+      options:
+        - id: checksum-locked-platform-manifests
+          label: Checksum-locked manifests (Recommended)
+          description: Research and pin each official Linux/Windows compiler, SDK, CUDA 12.8.1, CMake, Ninja, signature, size, SHA-256, and license input; verify them before disconnecting, use the reviewed CUDA driver stub only for linking, and require a real driver only in later hardware qualification.
+        - id: digest-pinned-builder-bundles
+          label: Pinned builder bundles
+          description: Use a Linux builder image by immutable OCI digest and an authenticated Windows toolchain bundle with equivalent locks, then run the same disconnected compiler and pack-producer contract.
+        - id: block-for-published-toolchains
+          label: Wait for toolchain artifacts
+          description: Keep hosted builders blocked until separately approved immutable Linux and Windows toolchain artifacts have been produced and made available.
+    answer:
+      selected_ids: [checksum-locked-platform-manifests]
+      text: ''
+    rationale: Public GitHub-hosted runners remain the execution environment, but their ambient tools are never build authority. A network-capable provisioning phase may acquire only official objects named by reviewed platform manifests with exact origin, size, SHA-256, signature/provenance, component, extraction, and license identities. Configure through pack assembly then consumes only the verified materialized roots with network access denied. Linux CUDA compilation links against the reviewed CUDA 12.8.1 toolkit driver stub without shipping it or claiming device proof; a real NVIDIA driver remains a later physical-qualification prerequisite.
+    supersedes_revision: null
+    requirement_ids:
+      [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-004, PKG-010, SEC-003, AC-AUTO-080, AC-AUTO-083, AC-AUTO-084]
+
+  - id: planning.hosted-toolchain-packet-decomposition
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The first decomposition question did not state clearly that every option could continue using public GitHub-hosted runners.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: hosted-toolchain-decomposition-round-95
+      question_id: planning.hosted-toolchain-packet-decomposition
+      idempotency_key: planning.hosted-toolchain-packet-decomposition:v1
+      last_status: answered
+      sequence: 95
+      revision: 1
+    question:
+      text: How should the plan separate immutable toolchain preparation from hosted production-equivalent builds?
+      kind: single
+      options:
+        - id: split-task27-and-task31
+          label: Split Task 27 and 31 (Recommended)
+          description: Make Task 27 own researched checksum-locked Linux/Windows acquisition manifests, verification, and disconnected-build enforcement; add Task 31 for the read-only hosted six-output workflow after those inputs are proven.
+        - id: keep-single-task27
+          label: Keep one Task 27
+          description: Keep acquisition research, materializers, disconnected-build repair, hosted workflow orchestration, and actual Linux/Windows hosted execution in one larger packet.
+        - id: defer-hosted-builders
+          label: Prepare inputs only
+          description: Revise Task 27 to prepare immutable toolchains and leave hosted six-output builders blocked without adding an executable follow-up packet.
+    answer:
+      selected_ids: []
+      text: Why we cant use public runners?
+    rationale: This response requested clarification rather than selecting a decomposition. Public runners are supported; their moving ambient tools are the rejected authority. Revision 2 supersedes this question after making that boundary explicit.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003]
+
+  - id: planning.hosted-toolchain-packet-decomposition
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Both packet choices use public GitHub-hosted Linux and Windows runners.
+      - Immutable toolchain acquisition/materialization and six-output hosted build orchestration have independent failure, verification, rollback, and handoff boundaries.
+      - Separating them keeps exact toolchain research and disconnected-build enforcement reviewable before any hosted output claims depend on those inputs.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: hosted-toolchain-decomposition-round-96
+      question_id: planning.hosted-toolchain-packet-decomposition
+      idempotency_key: planning.hosted-toolchain-packet-decomposition:v2
+      supersedes_revision: 1
+      last_status: answered
+      sequence: 96
+      revision: 2
+    question:
+      text: Both choices use public GitHub-hosted Linux and Windows runners. Should immutable toolchain preparation and the hosted six-output builds be separate task packets?
+      kind: single
+      options:
+        - id: split-task27-and-task31
+          label: Split Task 27 and 31 (Recommended)
+          description: Task 27 pins and verifies official toolchain inputs plus disconnected-build enforcement; Task 31 then uses those inputs on public runners to build and verify all six output classes.
+        - id: keep-single-task27
+          label: Keep one Task 27
+          description: One larger packet researches and pins toolchains, repairs disconnected builds, creates public-runner workflows, and executes both hosted platforms.
+        - id: defer-hosted-builders
+          label: Prepare inputs only
+          description: Task 27 prepares immutable inputs, while hosted six-output workflows remain blocked with no executable follow-up packet.
+    answer:
+      selected_ids: [split-task27-and-task31]
+      text: ''
+    rationale: Task 27 owns official checksum/signature-locked Linux and Windows acquisition manifests, materialization, profile completion, and cross-platform disconnected-build enforcement. Task 31 consumes that frozen contract on public GitHub-hosted runners and owns all six production-equivalent build classes plus their read-only workflow proof. Neither packet requires a physical GPU or receives production signing, publication, or release authority.
+    supersedes_revision: 1
+    requirement_ids:
+      [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-004, PKG-010, SEC-003, AC-AUTO-080, AC-AUTO-083, AC-AUTO-084]
+
+  - id: planning.revision-27-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 27 contains 31 numbered packets, with 30 active packets and only Task 26 deferred and non-executable.
+      - The active sequence is Task 27 immutable hosted inputs and disconnected-build enforcement, Task 31 public-runner six-output builders, Task 30 release preparation, Task 28 protected signed candidates, Task 29 Linux qualification, Task 21 Windows qualification, and Task 22 aggregate pre-merge readiness plus preserving merge/tag/release delivery.
+      - Task 27 uses public GitHub-hosted runners but rejects their ambient tools as authority; it owns official checksum/signature-locked acquisition manifests, deterministic materialization, profile completion, CUDA driver-stub separation, and enforced Linux/Windows network denial.
+      - Task 31 consumes Task 27 unchanged and owns all six production-equivalent hosted output classes, runtime reproducibility, read-only workflow policy, no installable validation upload, and no hardware claim.
+      - '`AC-AUTO-080`, `AC-AUTO-083`, and `AC-AUTO-084` move from Task 27 to Task 31; all 89 automated acceptance criteria retain exactly one active primary owner and at least one registered exact verification command.'
+      - Every distinct active non-approval identifier extracted from specification revision 20 is mapped by at least one active self-contained packet; the dependency graph is acyclic and contains no edge to deferred Task 26.
+      - The acceptance registry conforms to its revision-27 JSON Schema; decisions YAML parses; all task files exist with required headings; registered commands occur in their owning packets; targeted Prettier, direct ESLint for the task-plan validator, and `git diff --check` pass.
+      - The checked-in task-plan validator intentionally still encodes plan revision 26 and reports `manifest version is unexpected`; updating its revision, Task 31, active-task patterns, and fixed owners is explicitly the first implementation responsibility of Task 27 and no production script is changed during planning.
+      - Plan approval authorizes no Task 27/31/30/28/29/21/22 execution, network acquisition, public workflow run, commit, push, PR, repository-setting change, signing, qualification, merge, tag, upload, publication, support promotion, or release.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The revision-27 coverage and executability audit found no missing requirement owner, circular dependency, deferred-task leak, absent packet heading, unregistered verification command, unowned automated acceptance criterion, toolchain-authority ambiguity, CUDA physical-driver dependency for hosted compilation, or duplicated build implementation. The only expected failing repository check is the revision-26 executable validator that Task 27 is explicitly required to migrate before its own verification can pass.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 27
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user selected checksum/signature-locked platform manifests while retaining public GitHub-hosted Linux and Windows runners.
+      - Task 27 now owns immutable official toolchain/packaging acquisition, materialization, profile completion, CUDA driver-stub separation, and Linux/Windows disconnected-build enforcement.
+      - Task 31 consumes Task 27 unchanged and owns all six public-runner production-equivalent output classes plus `AC-AUTO-080`, `AC-AUTO-083`, and `AC-AUTO-084`.
+      - Revision 27 reports 30 active packets, one deferred packet, 89 unique automated owners, complete active requirement mapping, valid JSON Schema/YAML, required packet headings and commands, and an acyclic dependency graph.
+      - The checked-in revision-26 task-plan validator migration is an explicit Task 27 implementation action; plan approval does not authorize that code change or any packet/external execution.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-27
+      question_id: approval.plan-revision-27
+      idempotency_key: approval.plan-revision-27:v1
+      last_status: answered
+      sequence: 97
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 27 proceed after retaining public runners and separating immutable hosted toolchains from the six-output hosted builders?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 27 (Recommended)
+          description: Make Task 27 → 31 → 30 → 28 → 29 → 21 → 22 authoritative; each packet and every external action still requires separate authorization.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 27 in Draft and revise public-runner provisioning, packet boundaries, dependencies, ownership, verification, or manual gates.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 26 remains the last approved plan, with Task 27 still blocked by its incomplete hosted toolchain contract.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 27. Public runners remain the target; ambient runner tools are not trusted build inputs. The authoritative sequence is Task 27 → 31 → 30 → 28 → 29 → 21 → 22, with Task 26 deferred. Every packet, network acquisition, public workflow run, commit, push, PR, protected/release action, signing, qualification, merge, tag, upload, publication, support promotion, and release remains separately unauthorized.
+    supersedes_revision: 26
+    requirement_ids: []
+
+  - id: planning.hosted-tar-xz-materializer
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The official NVIDIA CUDA 12.8.1 Linux redistribution records for `cuda_nvcc`, `cuda_cudart`, `cuda_cccl`, and `libcublas` provide `.tar.xz` inputs with vendor SHA-256 digests; the corresponding Windows inputs are ZIP archives.
+      - Task 27 currently materializes only raw files and hardened ZIP archives, so it cannot consume the approved official Linux CUDA inputs.
+      - Using ambient GitHub-runner `tar` or `xz`, installing a package-manager tool, or downloading an unpinned helper would violate the approved immutable-toolchain and network-denied build contract.
+      - Published `xz-decompress@0.2.3` provides Node-compatible XZ decompression through WebAssembly without native runtime dependencies and has a fixed npm tarball, registry integrity, upstream Git commit, and MIT license that can be reviewed and locked before use.
+      - The exact npm registry object is 14,444 bytes with SHA-256 `b590b7ea774bd82e812d74c572d6c9fcd4abef4da752c974e8d335439f63e69c`, npm SRI `sha512-O8v6HG8T0PrKBcpyWA13GkSYWFvncwzuzcLx5A7++l3HsE3atmoetXjIxrZ/JV/nbvSZ7WS4+3XvREZuVn+rEA==`, and upstream `gitHead` `02e7ec3ee164de24cd3d1baf76911dd0be68a7c0`; its package contains five files but no standalone license text, so source/submodule/license review remains fail-closed.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: hosted-toolchain-extraction-round-98
+      question_id: planning.hosted-tar-xz-materializer
+      idempotency_key: planning.hosted-tar-xz-materializer:v1
+      last_status: answered
+      sequence: 99
+      revision: 1
+    question:
+      text: How should Task 27 materialize the official Linux CUDA `.tar.xz` inputs without trusting ambient runner tools?
+      kind: single
+      options:
+        - id: pinned-wasm-extractor
+          label: Pinned WASM extractor (Recommended)
+          description: Lock and review one immutable XZ WebAssembly decoder artifact, run it only from the verified provisioning root, and keep strict TAR parsing and path validation in project code.
+        - id: vendored-source-decoder
+          label: Vendored source decoder
+          description: Vendor and review deterministic XZ decoder source in the repository, then maintain its build or execution path as part of Task 27.
+        - id: separate-bootstrap-packet
+          label: Separate bootstrap packet
+          description: Add a new prerequisite packet that prepares and proves an immutable decompressor before Task 27 resumes.
+    answer:
+      selected_ids: [pinned-wasm-extractor]
+      text: ''
+    rationale: Task 27 will acquire one reviewed XZ WebAssembly decoder through the same immutable acquisition lock as every other hosted input, verify it before use, and execute it only from the verified provisioning root. Project-owned streaming TAR parsing will enforce declared entries, normalized paths, file types, bounded safe relative links, sizes, collisions, and hashes. Ambient `tar`/`xz`, package-manager installation, mutable dependency resolution, and native decoder bindings remain forbidden. The decoder is acquisition-only and cannot enter application or runtime-pack outputs.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
+
+  - id: planning.revision-28-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 28 preserves all 31 packets, 30 active packets, deferred non-executable Task 26, and the acyclic Task 27 → 31 → 30 → 28 → 29 → 21 → 22 active sequence.
+      - Task 27 keeps its existing requirement slices and Task 31 retains primary ownership of `AC-AUTO-080`, `AC-AUTO-083`, and `AC-AUTO-084`; no requirement, acceptance owner, verification command, dependency, or release boundary moved.
+      - Task 27 now binds the selected acquisition-only `xz-decompress@0.2.3` candidate by exact npm size, SHA-256, SRI, and upstream commit, requires source/submodule/license review, and assigns bounded streaming GZIP/XZ/TAR parsing plus declared safe CUDA symlink handling to the existing materializer boundary.
+      - The revision-28 read-only audit validated JSON Schema and YAML, all packet files and required headings, every registered verification command, all 89 unique automated owners against specification revision 20, the unchanged active sequence, decision normalization, and the Task 27 decoder identity.
+      - Targeted Prettier for all revised planning files and `rtk git diff --check` pass.
+      - The checked-in Task 27 executable validator intentionally still encodes plan revision 27 and reports `manifest version is unexpected`; migrating that constant to revision 28 is implementation work required before Task 27 can complete.
+      - Plan approval authorizes no Task 27/31/30/28/29/21/22 execution, decoder or production-object acquisition, public workflow run, commit, push, PR, repository-setting mutation, signing, qualification, merge, tag, upload, publication, support promotion, or release.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The revision-28 coverage and executability audit found no missing packet, heading, requirement owner, registered command, automated acceptance owner, active dependency, or trust-boundary assignment. The sole expected executable-validator mismatch is explicitly owned by the resumed Task 27 implementation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 28
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user selected one checksum/provenance-locked WASM XZ decoder with strict project-owned TAR parsing for official Linux CUDA `.tar.xz` inputs.
+      - Revision 28 preserves the approved specification, Task 27/31 packet split, active sequence, requirement ownership, deferred RTX 30/40 scope, and every release/manual gate.
+      - Task 27 now names the exact decoder candidate and requires fail-closed package/source/submodule/license review, streaming bounded XZ/TAR processing, declared safe relative CUDA symlinks, no ambient archive commands, and no shipped decoder bytes.
+      - Structural coverage, ownership, decision, formatting, and diff audits pass; the revision-27 executable validator migration remains Task 27 implementation work.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-28
+      question_id: approval.plan-revision-28
+      idempotency_key: approval.plan-revision-28:v1
+      last_status: answered
+      sequence: 100
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 28 proceed after resolving official Linux CUDA `.tar.xz` materialization with a locked acquisition-only WASM decoder and strict TAR parser?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 28 (Recommended)
+          description: Make the unchanged Task 27 → 31 → 30 → 28 → 29 → 21 → 22 sequence authoritative, with separate authorization still required before Task 27 remediation or any external action.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 28 in Draft and revise the decoder identity, TAR/link contract, packet scope, verification, dependencies, or manual gates.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 27 remains authoritative and Task 27 stays blocked on Linux `.tar.xz` materialization.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 28. The authoritative active sequence remains Task 27 → 31 → 30 → 28 → 29 → 21 → 22, with Task 26 deferred. Task 27 must complete the locked acquisition-only WASM XZ decoder, strict streaming TAR materializer, provenance/license closure, immutable toolchain inputs, disconnected builds, and hosted preparation gates before Task 31 begins. Approval grants no packet execution or external action.
+    supersedes_revision: 27
+    requirement_ids: []
+
+  - id: execution.task-27-revision-28
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Plan revision 28 is approved and identifies Task 27 as the exact next packet.
+      - The worktree contains the handoff-described uncommitted Task 27 raw/ZIP materializer, disconnected-build boundary, focused tests, and revision-27 validator migration; no completed preceding packet requires a commit before this continuation.
+      - The approved Task 27 packet adds the local XZ/TAR remediation and revision-28 validator migration but retains external production-object acquisition, full provenance/license closure, hosted workflow execution, commit, push, and release operations as separate manual gates.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: execution-round-101
+      question_id: execution.task-27-revision-28
+      idempotency_key: execution.task-27-revision-28:v1
+      last_status: answered
+      sequence: 101
+      revision: 1
+    question:
+      text: Which action should this incremental implementation pass take for approved Local Whisper Task 27 revision 28?
+      kind: single
+      options:
+        - id: execute-local-remediation
+          label: Execute Task 27 local remediation (Recommended)
+          description: Implement only the locked WASM XZ/TAR materializer and validator migration, run local deterministic checks, update Task 27 handoff state, and stop before every network, hosted, commit, push, or release gate.
+        - id: return-to-plan
+          label: Return to planning
+          description: Do not change implementation; revise the Task 27 contract before resuming work.
+        - id: leave-unexecuted
+          label: Leave Task 27 unexecuted
+          description: Preserve the approved plan and current worktree without implementation changes.
+    answer:
+      selected_ids: [execute-local-remediation]
+      text: ''
+    rationale: The user authorized one incremental pass that resumes only Task 27's local XZ/TAR materializer and revision-28 validator remediation, focused local verification, and accurate handoff updates. Networked production-object acquisition, provenance/license closure, hosted workflow execution, commit, push, PR, signing, qualification, merge, tag, upload, publication, and release remain outside this authorization.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]

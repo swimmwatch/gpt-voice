@@ -11,9 +11,10 @@ verify, and publish its complete same-tag GitHub Release asset set.
 
 ## Prerequisites
 
-- Specification revision 20 and plan revision 26 are approved.
-- Tasks 25, 27, 30, 28, 29, and 21 are complete; their release preparation,
-  source, candidate, platform, result, and evidence identities are immutable.
+- Specification revision 20 and plan revision 27 are approved.
+- Tasks 25, 27, 31, 30, 28, 29, and 21 are complete; their toolchain, builder,
+  release preparation, source, candidate, platform, result, and evidence
+  identities are immutable.
 - The exact `release/v2.4.0` pull request remains open, current with `main`, and
   unchanged at the Task 28 head before aggregate pre-merge readiness; the final
   `v2.4.0` tag does not exist.
@@ -235,9 +236,9 @@ rtk npm run verify:local-whisper:all
 ## References
 
 - Specification revision 20 Sections 9.6, 12.1, 18.3–18.5, 19.1–19.3, and 22.
-- Tasks 27, 30, 28, 29, and 21 immutable handoffs; release/project conventions;
-  signed release-manifest, preparation, and aggregate evidence schemas; decision
-  `planning.release-merge-enforcement`.
+- Tasks 27, 31, 30, 28, 29, and 21 immutable handoffs; release/project
+  conventions; signed release-manifest, preparation, and aggregate evidence
+  schemas; decision `planning.release-merge-enforcement`.
 
 ## Completion And Handoff
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "specificationRevision": 20,
-  "planRevision": 26,
+  "planRevision": 28,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -32,7 +32,8 @@
     "27": "27_hosted_production_equivalent_ci.md",
     "28": "28_protected_signed_release_candidates.md",
     "29": "29_linux_rtx50_qualification.md",
-    "30": "30_release_branch_preparation_and_pr_policy.md"
+    "30": "30_release_branch_preparation_and_pr_policy.md",
+    "31": "31_hosted_production_equivalent_ci_builders.md"
   },
   "deferredTasks": ["26"],
   "verificationCommands": [
@@ -292,13 +293,23 @@
       "command": "rtk npm run verify:local-whisper:rtx50-readiness"
     },
     {
-      "id": "task-27-ci-build-tests",
+      "id": "task-27-hosted-toolchain-tests",
       "task": "27",
+      "command": "rtk npm run test:local-whisper:hosted-toolchains"
+    },
+    {
+      "id": "task-27-hosted-toolchain-verification",
+      "task": "27",
+      "command": "rtk npm run verify:local-whisper:hosted-toolchains"
+    },
+    {
+      "id": "task-31-ci-build-tests",
+      "task": "31",
       "command": "rtk npm run test:local-whisper:ci-builds"
     },
     {
-      "id": "task-27-ci-build-verification",
-      "task": "27",
+      "id": "task-31-ci-build-verification",
+      "task": "31",
       "command": "rtk npm run verify:local-whisper:ci-builds"
     },
     {
@@ -759,8 +770,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-080",
-      "primaryTask": "27",
-      "verificationCommandIds": ["task-27-ci-build-verification"]
+      "primaryTask": "31",
+      "verificationCommandIds": ["task-31-ci-build-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-081",
@@ -774,13 +785,13 @@
     },
     {
       "acceptanceId": "AC-AUTO-083",
-      "primaryTask": "27",
-      "verificationCommandIds": ["task-27-ci-build-tests", "task-27-ci-build-verification"]
+      "primaryTask": "31",
+      "verificationCommandIds": ["task-31-ci-build-tests", "task-31-ci-build-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-084",
-      "primaryTask": "27",
-      "verificationCommandIds": ["task-27-ci-build-verification"]
+      "primaryTask": "31",
+      "verificationCommandIds": ["task-31-ci-build-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-085",

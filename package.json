@@ -136,6 +136,8 @@
     "verify:local-whisper:packaging": "npm run test:local-whisper:packaging && npm run test:local-whisper:packaging:fixtures && npm run verify:local-whisper:packaging:policy && npm run verify:local-whisper:packaging:linux && npm run verify:local-whisper:packaging:release-guard",
     "test:local-whisper:native-sources": "node --test \"tests/runtime/localWhisper/nativeSources/*.test.mjs\"",
     "test:local-whisper:native-build-audits": "node --test \"tests/runtime/localWhisper/nativeSources/nativeBuildAudits.test.mjs\"",
+    "test:local-whisper:hosted-toolchains": "node --test \"tests/runtime/localWhisper/hostedToolchains/*.test.mjs\"",
+    "verify:local-whisper:hosted-toolchains": "npm run test:local-whisper:hosted-toolchains && node scripts/local-whisper/native-build/verify-hosted-toolchains.mjs",
     "test:local-whisper:native-sanitizer-proof": "node scripts/local-whisper/native-build/test-native-sanitizer-proof.mjs",
     "verify:local-whisper:native-source": "node scripts/local-whisper/source-import/verify-native-source.mjs",
     "verify:local-whisper:loader-limits": "node scripts/local-whisper/native-build/verify-whisper-cpp-loader-limits.mjs",
