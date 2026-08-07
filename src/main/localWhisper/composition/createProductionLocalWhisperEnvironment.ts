@@ -28,8 +28,13 @@ import {
 } from '@shared/localWhisper';
 
 import { LocalWhisperCapabilityService } from '../capability/LocalWhisperCapabilityService';
+import {
+  NvidiaCudaRuntimeApplicability,
+  type NvidiaCudaRuntimeApplicabilitySnapshot,
+} from '../capability/NvidiaCudaRuntimeApplicability';
 import { LocalWhisperResourcePolicy } from '../capability/LocalWhisperResourcePolicy';
 import { SelectedDeviceVramAvailability } from '../capability/SelectedDeviceVramAvailability';
+import type { NvidiaHostInventoryResult } from '../capability/NvidiaSmiHostInventory';
 import { ArtifactCatalogResolver } from '../artifacts/ArtifactCatalogResolver';
 import { ArtifactProgressStore } from '../artifacts/ArtifactProgressStore';
 import { ArtifactTransferJournalRepository } from '../artifacts/ArtifactTransferJournalRepository';
@@ -133,6 +138,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
   readonly platform: NodeJS.Platform;
   readonly randomNonce: () => string;
   readonly randomBytes: (size: number) => Uint8Array;
+  readonly readNvidiaInventory: () => Promise<NvidiaHostInventoryResult>;
   readonly readFile: (path: string) => Promise<Uint8Array>;
   readonly resourcesPath: string;
   readonly spawnProcess: typeof spawn;
@@ -209,41 +215,76 @@ function actions(item: {
   return Object.freeze([]);
 }
 
+function selectedRuntimeEntry(
+  catalog: LocalWhisperAuthenticatedCatalog,
+  settings: LocalWhisperSettings,
+  applicability: NvidiaCudaRuntimeApplicability,
+  cuda: NvidiaCudaRuntimeApplicabilitySnapshot,
+) {
+  return catalog.payload.runtimes.find((entry) => {
+    const { identity } = entry;
+    if (identity.packRevision !== settings.runtimeRevision) return false;
+    if (settings.execution.target === 'cpu') {
+      return identity.target === 'cpu' && identity.backend === 'cpu';
+    }
+    return (
+      identity.target === 'gpu' &&
+      identity.backend === settings.execution.backend &&
+      identity.backend === 'cuda' &&
+      applicability.supports(cuda, entry, settings.execution.deviceId)
+    );
+  });
+}
+
 function rendererArtifacts(
   catalog: LocalWhisperAuthenticatedCatalog,
   inventory: LocalWhisperInventorySnapshot,
+  settings: LocalWhisperSettings,
+  applicability: NvidiaCudaRuntimeApplicability,
+  cuda: NvidiaCudaRuntimeApplicabilitySnapshot,
 ): readonly LocalWhisperRendererArtifact[] {
-  const runtimes = catalog.payload.runtimes.map((entry, index) => {
+  const selectedRuntime = selectedRuntimeEntry(catalog, settings, applicability, cuda);
+  const runtimes = catalog.payload.runtimes.flatMap((entry, index) => {
+    if (entry !== selectedRuntime) return [];
     const item = inventory.runtimes[index];
+    if (!item) return [];
     const descriptor = createManagedRuntimeDescriptor(catalog, entry);
-    return Object.freeze({
-      kind: 'runtime' as const,
-      id: descriptor.artifactId,
-      revision: entry.identity.packRevision,
-      label: `Whisper.cpp ${entry.identity.backend.toUpperCase()} runtime`,
-      state: item.state,
-      transferSizeBytes: item.transferSizeBytes,
-      installedSizeBytes: item.installedSizeBytes,
-      updateAvailable: item.updateAvailable,
-      actions: actions(item),
-      references: Object.freeze([]),
-    });
+    return [
+      Object.freeze({
+        kind: 'runtime' as const,
+        id: descriptor.artifactId,
+        revision: entry.identity.packRevision,
+        label: `Whisper.cpp ${entry.identity.backend.toUpperCase()} runtime`,
+        state: item.state,
+        transferSizeBytes: item.transferSizeBytes,
+        installedSizeBytes: item.installedSizeBytes,
+        updateAvailable: item.updateAvailable,
+        actions: actions(item),
+        references: Object.freeze([]),
+      }),
+    ];
   });
-  const models = catalog.payload.models.map((entry, index) => {
+  const models = catalog.payload.models.flatMap((entry, index) => {
+    if (!selectedRuntime || !entry.compatibleRuntimePackRevisions.includes(selectedRuntime.identity.packRevision)) {
+      return [];
+    }
     const item = inventory.models[index];
+    if (!item) return [];
     const descriptor = createManagedModelDescriptor(catalog, entry);
-    return Object.freeze({
-      kind: 'model' as const,
-      id: descriptor.artifactId,
-      revision: entry.identity.artifactRevision,
-      label: `${entry.identity.logicalModel} · ${entry.identity.variant}`,
-      state: item.state,
-      transferSizeBytes: item.transferSizeBytes,
-      installedSizeBytes: item.installedSizeBytes,
-      updateAvailable: item.updateAvailable,
-      actions: actions(item),
-      references: Object.freeze([]),
-    });
+    return [
+      Object.freeze({
+        kind: 'model' as const,
+        id: descriptor.artifactId,
+        revision: entry.identity.artifactRevision,
+        label: `${entry.identity.logicalModel} · ${entry.identity.variant}`,
+        state: item.state,
+        transferSizeBytes: item.transferSizeBytes,
+        installedSizeBytes: item.installedSizeBytes,
+        updateAvailable: item.updateAvailable,
+        actions: actions(item),
+        references: Object.freeze([]),
+      }),
+    ];
   });
   return Object.freeze([...runtimes, ...models]);
 }
@@ -334,11 +375,14 @@ export function createLocalWhisperRendererOptions(
   context: LocalWhisperSettingsValidationContext,
   settings: LocalWhisperSettings,
   configured: boolean,
+  cudaRuntimeIdentityKeys: readonly string[] = Object.freeze([]),
+  cudaUnavailableReason: LocalWhisperFailureCode | null = null,
 ): readonly LocalWhisperRendererOption[] {
   const supportPolicy = new LocalWhisperSupportPolicy();
-  const currentRuntimes = catalog.payload.runtimes.filter(
-    (entry) => entry.identity.platform === context.platform && entry.identity.architecture === context.architecture,
-  );
+  const currentRuntimes = catalog.payload.runtimes.filter(({ identity }) => {
+    if (identity.platform !== context.platform || identity.architecture !== context.architecture) return false;
+    return identity.target === 'cpu' || cudaRuntimeIdentityKeys.includes(getLocalWhisperRuntimeIdentityKey(identity));
+  });
   const runtimeOptions = currentRuntimes.map((entry) => {
     const identity = entry.identity;
     const support = supportPolicy.evaluate({
@@ -394,7 +438,7 @@ export function createLocalWhisperRendererOptions(
       available: gpuRuntimeAvailable && context.knownDevices.length > 0,
       tier: 'Production',
       reason: !gpuRuntimeAvailable
-        ? 'RUNTIME_INCOMPATIBLE'
+        ? (cudaUnavailableReason ?? 'RUNTIME_INCOMPATIBLE')
         : context.knownDevices.length > 0
           ? null
           : 'DEVICE_NOT_FOUND',
@@ -532,6 +576,7 @@ function validationContext(
   catalog: LocalWhisperAuthenticatedCatalog,
   dependencies: LocalWhisperProductionEnvironmentDependencies,
   knownDevices: readonly LocalWhisperDeviceDescriptor[] = Object.freeze([]),
+  cudaRuntimeIdentityKeys: readonly string[] = Object.freeze([]),
 ): LocalWhisperSettingsValidationContext {
   const currentPlatform = platform(dependencies.platform);
   const currentArchitecture = architecture(dependencies.architecture);
@@ -543,7 +588,11 @@ function validationContext(
     knownRuntimeSelections: Object.freeze(
       catalog.payload.runtimes
         .filter(
-          (entry) => entry.identity.platform === currentPlatform && entry.identity.architecture === currentArchitecture,
+          (entry) =>
+            entry.identity.platform === currentPlatform &&
+            entry.identity.architecture === currentArchitecture &&
+            (entry.identity.target === 'cpu' ||
+              cudaRuntimeIdentityKeys.includes(getLocalWhisperRuntimeIdentityKey(entry.identity))),
         )
         .map((entry) =>
           Object.freeze({
@@ -581,12 +630,22 @@ function validationContext(
   });
 }
 
+function reconcileNvidiaTopology(
+  topology: readonly LocalWhisperDeviceDescriptor[],
+  inventory: NvidiaCudaRuntimeApplicabilitySnapshot,
+): readonly LocalWhisperDeviceDescriptor[] {
+  const runtimeIds = new Set(topology.map(({ id }) => id));
+  return Object.freeze(inventory.devices.filter(({ id }) => runtimeIds.has(id)));
+}
+
 /** Builds renderer-safe catalog, inventory, and read-only resource facts for the current selection. */
 function factsSnapshot(
   catalog: LocalWhisperAuthenticatedCatalog,
   inventory: LocalWhisperInventorySnapshot,
   context: LocalWhisperSettingsValidationContext,
   settingsSnapshot: LocalWhisperSettingsSnapshot,
+  applicability: NvidiaCudaRuntimeApplicability,
+  cuda: NvidiaCudaRuntimeApplicabilitySnapshot,
   sample: {
     readonly availableMemoryBytes: () => number;
     readonly availableVramBytes: () => number | null;
@@ -594,8 +653,6 @@ function factsSnapshot(
   },
   progress: readonly LocalWhisperArtifactProgress[] = Object.freeze([]),
 ): LocalWhisperSnapshotFacts {
-  const artifacts = rendererArtifacts(catalog, inventory);
-  const installed = artifacts.filter((artifact) => artifact.state === 'Installed');
   const estimate = selectedMemoryEstimate(catalog, settingsSnapshot.settings);
   const inventoryPeak = inventory.qualifiedMemoryPeak;
   const peak =
@@ -616,6 +673,8 @@ function factsSnapshot(
         }),
       })
     : null;
+  const artifacts = rendererArtifacts(catalog, inventory, settingsSnapshot.settings, applicability, cuda);
+  const installed = [...inventory.runtimes, ...inventory.models].filter(({ state }) => state === 'Installed');
   return Object.freeze({
     catalogRevision: catalog.payload.catalogRevision,
     options: createLocalWhisperRendererOptions(
@@ -623,6 +682,8 @@ function factsSnapshot(
       context,
       settingsSnapshot.settings,
       settingsSnapshot.configured,
+      cuda.runtimeIdentityKeys,
+      cuda.unavailableReason,
     ),
     validationIssues: settingsSnapshot.repairIssues,
     host: Object.freeze({
@@ -886,17 +947,16 @@ export class ProductionLocalWhisperEnvironmentFactory {
             ownership: sessionOwnership,
           }),
       });
-      const deviceTopologyAuthority = new LocalWhisperDeviceTopologyAuthority(
-        new LocalWhisperDeviceIdentityRepository(
-          new FileLocalWhisperDeviceIdentityStore({
-            filePath: join(privateStateRoot, 'device-identity.json'),
-            platform: this.dependencies.platform,
-            createTemporaryPath: () => join(privateStateRoot, `device-identity.${this.dependencies.randomNonce()}.tmp`),
-            fileSystem: this.dependencies.fileSystem,
-          }),
-          this.dependencies.randomBytes,
-        ),
+      const deviceIdentities = new LocalWhisperDeviceIdentityRepository(
+        new FileLocalWhisperDeviceIdentityStore({
+          filePath: join(privateStateRoot, 'device-identity.json'),
+          platform: this.dependencies.platform,
+          createTemporaryPath: () => join(privateStateRoot, `device-identity.${this.dependencies.randomNonce()}.tmp`),
+          fileSystem: this.dependencies.fileSystem,
+        }),
+        this.dependencies.randomBytes,
       );
+      const deviceTopologyAuthority = new LocalWhisperDeviceTopologyAuthority(deviceIdentities);
       topologyAuthority = deviceTopologyAuthority;
       const runtimeAuthorityFactory = new LocalWhisperRuntimeLaunchAuthorityFactory(managedStore);
       const modelAuthorityFactory = new LocalWhisperModelLaunchAuthorityFactory({
@@ -906,7 +966,18 @@ export class ProductionLocalWhisperEnvironmentFactory {
       const evidence = await managedStore.buildEvidenceSnapshot(loaded.catalog);
       const inventoryRepository = new LocalWhisperInventoryRepository();
       let inventory = inventoryRepository.reconstruct({ catalog: loaded.catalog, evidence });
-      let context = validationContext(loaded.catalog, this.dependencies);
+      const cudaApplicability = new NvidiaCudaRuntimeApplicability({
+        catalog: loaded.catalog,
+        platform: platform(this.dependencies.platform),
+        architecture: architecture(this.dependencies.architecture),
+        identities: deviceIdentities,
+      });
+      const cuda = cudaApplicability.resolve(
+        await this.dependencies
+          .readNvidiaInventory()
+          .catch(() => Object.freeze({ available: false as const, reason: 'DEVICE_NOT_FOUND' as const })),
+      );
+      let context = validationContext(loaded.catalog, this.dependencies, cuda.devices, cuda.runtimeIdentityKeys);
       const settingsRepository = new LocalWhisperSettingsRepository(
         new FileLocalWhisperPrivateJsonStore({
           filePath: resolveLocalWhisperSettingsFile(this.dependencies.configurationRoot),
@@ -934,7 +1005,15 @@ export class ProductionLocalWhisperEnvironmentFactory {
           now,
         });
       facts = new LocalWhisperDynamicSnapshotFacts(
-        factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, resourceSample(null)),
+        factsSnapshot(
+          loaded.catalog,
+          inventory,
+          context,
+          settingsSnapshot,
+          cudaApplicability,
+          cuda,
+          resourceSample(null),
+        ),
       );
       const setup = selectedArtifactSetup(settingsSnapshot.settings, inventory);
       const capabilityService = new LocalWhisperCapabilityService();
@@ -956,7 +1035,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
         save: (settings: LocalWhisperSettings) => {
           const saved = settingsRepository.save(settings, context);
           settingsSnapshot = saved;
-          facts?.update(factsSnapshot(loaded.catalog, inventory, context, saved, resourceSample(null)));
+          facts?.update(
+            factsSnapshot(loaded.catalog, inventory, context, saved, cudaApplicability, cuda, resourceSample(null)),
+          );
           return Promise.resolve();
         },
         reset: () => {
@@ -969,7 +1050,17 @@ export class ProductionLocalWhisperEnvironmentFactory {
             dependentSelections: Object.freeze({ values: Object.freeze({}) }),
             repairIssues: Object.freeze([]),
           });
-          facts?.update(factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, resourceSample(null)));
+          facts?.update(
+            factsSnapshot(
+              loaded.catalog,
+              inventory,
+              context,
+              settingsSnapshot,
+              cudaApplicability,
+              cuda,
+              resourceSample(null),
+            ),
+          );
           return Promise.resolve();
         },
       });
@@ -981,7 +1072,12 @@ export class ProductionLocalWhisperEnvironmentFactory {
         modelAuthorities: modelAuthorityFactory,
         onTopology: (snapshot) => {
           selectedVram.updateTopology(snapshot);
-          context = validationContext(loaded.catalog, this.dependencies, snapshot.devices);
+          context = validationContext(
+            loaded.catalog,
+            this.dependencies,
+            reconcileNvidiaTopology(snapshot.devices, cuda),
+            cuda.runtimeIdentityKeys,
+          );
           if (settingsSnapshot.repairIssues.length > 0) {
             const revalidated = validateLocalWhisperSettings(settingsSnapshot.settings, context);
             if (revalidated.success) {
@@ -998,6 +1094,8 @@ export class ProductionLocalWhisperEnvironmentFactory {
               inventory,
               context,
               settingsSnapshot,
+              cudaApplicability,
+              cuda,
               resourceSample(this.dependencies.now()),
             ),
           );
@@ -1012,7 +1110,15 @@ export class ProductionLocalWhisperEnvironmentFactory {
         await workerPort.refreshAvailableDevices(configurationEpoch);
         await selectedVram.refresh(settingsSnapshot.settings.execution);
         facts?.update(
-          factsSnapshot(loaded.catalog, inventory, context, settingsSnapshot, resourceSample(this.dependencies.now())),
+          factsSnapshot(
+            loaded.catalog,
+            inventory,
+            context,
+            settingsSnapshot,
+            cudaApplicability,
+            cuda,
+            resourceSample(this.dependencies.now()),
+          ),
         );
       };
       await restoreLocalWhisperStartupDeviceTopology(inventory, context, { refreshAvailableDevices });
@@ -1028,6 +1134,8 @@ export class ProductionLocalWhisperEnvironmentFactory {
               nextInventory,
               context,
               settingsSnapshot,
+              cudaApplicability,
+              cuda,
               resourceSample(this.dependencies.now()),
             ),
           );
@@ -1067,6 +1175,8 @@ export class ProductionLocalWhisperEnvironmentFactory {
             inventory,
             context,
             settingsSnapshot,
+            cudaApplicability,
+            cuda,
             resourceSample(this.dependencies.now()),
             projected,
           ),
@@ -1113,8 +1223,29 @@ export class ProductionLocalWhisperEnvironmentFactory {
           worker: new FileBackedArtifactStreamingWorker(join(rootResolution.managedRoot, 'staging', 'transfers')),
         }),
       });
+      const canAcquireArtifact = (artifactId: string): boolean => {
+        const runtime = loaded.catalog.payload.runtimes.find(
+          (entry) => createManagedRuntimeDescriptor(loaded.catalog, entry).artifactId === artifactId,
+        );
+        const selectedRuntime = selectedRuntimeEntry(
+          loaded.catalog,
+          settingsSnapshot.settings,
+          cudaApplicability,
+          cuda,
+        );
+        if (runtime) return runtime === selectedRuntime;
+        const model = loaded.catalog.payload.models.find(
+          (entry) => createManagedModelDescriptor(loaded.catalog, entry).artifactId === artifactId,
+        );
+        return (
+          model !== undefined &&
+          selectedRuntime !== undefined &&
+          model.compatibleRuntimePackRevisions.includes(selectedRuntime.identity.packRevision)
+        );
+      };
       const artifactPort = new LocalWhisperProductionArtifactPort({
         catalog: loaded.catalog,
+        canAcquire: canAcquireArtifact,
         clearance: removalClearanceIssuer,
         inventory: artifactInventory,
         service: artifactService,
@@ -1167,7 +1298,12 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 if (!registry) throw new Error('Local Whisper registry unavailable');
                 const topology = deviceTopologyAuthority.update(registry);
                 selectedVram.updateTopology(topology);
-                context = validationContext(loaded.catalog, this.dependencies, topology.devices);
+                context = validationContext(
+                  loaded.catalog,
+                  this.dependencies,
+                  reconcileNvidiaTopology(topology.devices, cuda),
+                  cuda.runtimeIdentityKeys,
+                );
                 if (!isValidLocalWhisperPublicSettings(request.settings, context)) {
                   throw new Error('Local Whisper selected device unavailable');
                 }
@@ -1182,6 +1318,8 @@ export class ProductionLocalWhisperEnvironmentFactory {
                     inventory,
                     context,
                     settingsSnapshot,
+                    cudaApplicability,
+                    cuda,
                     resourceSample(this.dependencies.now()),
                   ),
                 );

@@ -99,6 +99,7 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
             architecture: 'x64',
             availableMemoryBytes: freemem,
             availableVramBytes: () => Promise.resolve(null),
+            readNvidiaInventory: () => Promise.resolve({ available: false, reason: 'DEVICE_NOT_FOUND' }),
             configurationRoot,
             environment: Object.freeze({
               HOME: homeRoot,

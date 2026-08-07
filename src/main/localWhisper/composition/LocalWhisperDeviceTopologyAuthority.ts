@@ -54,12 +54,7 @@ export class LocalWhisperDeviceTopologyAuthority {
       this.generationValue += 1;
       this.fingerprintValue = fingerprint;
       this.projected.clear();
-      const opaqueIds = this.identities.projectOpaqueIds(
-        registry.entries.map(
-          (entry) =>
-            `runtime=${registry.engineId}|digest=${registry.runtimeBuildDigest}|backend=${registry.backendId}|device=${entry.nativeIdentity}`,
-        ),
-      );
+      const opaqueIds = this.identities.projectOpaqueIds(registry.entries.map(({ nativeIdentity }) => nativeIdentity));
       registry.entries.forEach((entry, index) => {
         const id = opaqueIds[index];
         if (!id) throw new Error('Local Whisper opaque device projection failed');

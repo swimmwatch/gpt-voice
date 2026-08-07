@@ -9,7 +9,12 @@ import {
   type LocalWhisperProductionEnvironmentDependencies,
 } from '@main/localWhisper/composition/createProductionLocalWhisperEnvironment';
 import type { LocalWhisperAuthenticatedCatalog } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
-import type { LocalWhisperSettings, LocalWhisperSettingsValidationContext } from '@shared/localWhisper';
+import {
+  toLocalWhisperOpaqueDeviceId,
+  type LocalWhisperSettings,
+  type LocalWhisperSettingsValidationContext,
+} from '@shared/localWhisper';
+import { getLocalWhisperRuntimeIdentityKey } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import {
   PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
   createPackagedLocalWhisperCatalogTrustPolicy,
@@ -43,6 +48,7 @@ function dependencies(calls: { reads: number; spawns: number }): LocalWhisperPro
     platform: 'linux',
     randomBytes: (size) => Buffer.alloc(size, 1),
     randomNonce: () => 'local-whisper-nonce-0001',
+    readNvidiaInventory: () => Promise.resolve({ available: false, reason: 'DEVICE_NOT_FOUND' }),
     readFile: () => {
       calls.reads += 1;
       return Promise.reject(new Error('Packaged resources must not be read'));
@@ -56,7 +62,7 @@ function dependencies(calls: { reads: number; spawns: number }): LocalWhisperPro
 }
 
 describe('production Local Whisper environment activation', () => {
-  it('keeps a trusted CUDA pack selectable for acquisition before device discovery', () => {
+  it('does not project a CUDA acquisition action before trusted hardware inventory succeeds', () => {
     const payload = createQualificationCatalogPayload();
     const sourceRuntime = payload.runtimes[0];
     const model = payload.models[0];
@@ -64,6 +70,14 @@ describe('production Local Whisper environment activation', () => {
     assert.ok(model);
     const cudaRuntime = Object.freeze({
       ...sourceRuntime,
+      applicability: {
+        computeTarget: 'sm_120a-real' as const,
+        minimumDriverVersion: '570.65',
+        minimumComputeCapability: '12.0' as const,
+        maximumComputeCapability: '12.0' as const,
+        minimumTotalVramBytes: 6 * 1024 ** 3,
+        policyRevision: 'rtx50-sm120a-policy-v1' as never,
+      },
       identity: Object.freeze({
         ...sourceRuntime.identity,
         architecture: 'x64' as const,
@@ -127,12 +141,43 @@ describe('production Local Whisper environment activation', () => {
     const cudaBackendOption = options.find((option) => option.group === 'backend' && option.id === 'cuda');
     const gpuTargetOption = options.find((option) => option.group === 'target' && option.id === 'gpu');
 
-    assert.equal(cudaRuntimeOption?.available, true);
-    assert.equal(cudaRuntimeOption?.reason, null);
-    assert.equal(cudaBackendOption?.available, false);
-    assert.equal(cudaBackendOption?.reason, 'DEVICE_NOT_FOUND');
+    assert.equal(cudaRuntimeOption, undefined);
+    assert.equal(cudaBackendOption, undefined);
     assert.equal(gpuTargetOption?.available, false);
-    assert.equal(gpuTargetOption?.reason, 'DEVICE_NOT_FOUND');
+    assert.equal(gpuTargetOption?.reason, 'RUNTIME_INCOMPATIBLE');
+
+    const deviceId = toLocalWhisperOpaqueDeviceId(`device-v1-${'a'.repeat(64)}`)!;
+    const eligibleContext: LocalWhisperSettingsValidationContext = Object.freeze({
+      ...context,
+      knownDevices: Object.freeze([
+        Object.freeze({
+          id: deviceId,
+          label: 'NVIDIA GPU 1',
+          vendor: 'nvidia',
+          available: true,
+          eligibleBackends: Object.freeze(['cuda'] as const),
+        }),
+      ]),
+      eligibleGpuCombinations: Object.freeze([Object.freeze({ engine: 'whisperCpp', backend: 'cuda', deviceId })]),
+    });
+    const eligibleSettings: LocalWhisperSettings = Object.freeze({
+      ...settings,
+      runtimeRevision: cudaRuntime.identity.packRevision,
+      execution: Object.freeze({ target: 'gpu', backend: 'cuda', deviceId }),
+    });
+    const eligibleOptions = createLocalWhisperRendererOptions(
+      catalog,
+      eligibleContext,
+      eligibleSettings,
+      false,
+      Object.freeze([getLocalWhisperRuntimeIdentityKey(cudaRuntime.identity)]),
+    );
+
+    assert.equal(
+      eligibleOptions.find((option) => option.group === 'runtime' && option.id === cudaRuntime.identity.packRevision)
+        ?.available,
+      true,
+    );
   });
 
   it('restores startup topology when CUDA is already installed for the current host', async () => {

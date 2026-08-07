@@ -35,6 +35,7 @@ import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
 import { NvidiaSmiVramAvailability } from './localWhisper/capability/NvidiaSmiVramAvailability';
+import { NvidiaSmiHostInventory } from './localWhisper/capability/NvidiaSmiHostInventory';
 import {
   ProductionLocalWhisperEnvironmentFactory,
   createProductionLocalWhisperEnvironment,
@@ -214,6 +215,12 @@ async function bootstrapMainProcess(): Promise<void> {
     pathExists: fs.existsSync,
     command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
   });
+  const localWhisperNvidiaInventory = new NvidiaSmiHostInventory({
+    platform: process.platform,
+    environment: process.env,
+    pathExists: fs.existsSync,
+    command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
+  });
   const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
     appRevision: app.getVersion(),
     architecture: process.arch,
@@ -231,6 +238,7 @@ async function bootstrapMainProcess(): Promise<void> {
     platform: process.platform,
     randomBytes,
     randomNonce: randomUUID,
+    readNvidiaInventory: () => localWhisperNvidiaInventory.read(),
     readFile,
     resourcesPath: activation.status === 'active' ? activation.resourcesPath : process.resourcesPath,
     spawnProcess: spawn,

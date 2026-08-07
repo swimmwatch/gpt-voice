@@ -1,8 +1,8 @@
 # Local Whisper Task Checklist
 
-Plan revision: **23 (Approved)**
+Plan revision: **26 (Approved)**
 
-Specification baseline: **revision 17 (Approved)**
+Specification baseline: **revision 20 (Approved)**
 
 Execution state: Tasks 01–19 are complete and committed. Task 23 implementation,
 Large v3 Turbo Q5_0 compatibility and load-path follow-up fixes, automated
@@ -15,8 +15,12 @@ performance, recoverable-transcription state, and automatic-language native
 transcription follow-up is complete and included in the authorized review
 commit. Deterministic Windows CPU and RTX 50
 `sm_120a` packs, native helpers, development activation, unpacked packaging,
-and bounded ordinary-app CPU/RTX 5090 smoke all passed under specification
-revision 17 and plan revision 23. Tasks 26, 25, 21, and 22 remain unstarted.
+and bounded ordinary-app CPU/RTX 5090 smoke passed without creating Production
+evidence. Task 25 RTX 50 Readiness Closure is complete:
+deterministic inventory, applicability, catalog, migration, renderer-projection,
+and acquisition-guard checks passed without physical-host or qualification
+evidence. Tasks 27, 30, 28, 29, 21, and 22 remain unstarted. Task 26 is
+retained only as deferred, non-executable RTX 30/40 future work.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -40,24 +44,29 @@ revision 17 and plan revision 23. Tasks 26, 25, 21, and 22 remain unstarted.
 - [x] [23 Main-Window Local Whisper Residency Control](23_main_window_residency_control.md) — `043aba8`, Q5_0 fix `b48877d`, load optimization `a4a0a2a`
 - [x] [20 Linux Qualification Preparation](20_linux_qualification.md) — advisory local deterministic preflight; reconciliation completed against the clean `b796c46f` checkout, with no Task 20 delta to commit
 - [x] [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md) — baseline pushed as `7ebb102`; provider-selection, CUDA-runtime acquisition, transfer-journal performance, recoverable-transcription state, and automatic-language native transcription follow-up included in the authorized review commit; CPU/RTX 5090 `sm_120a` readiness smoke passed, with no Production claim
-- [ ] [26 Hardware-Matched NVIDIA CUDA Runtime Expansion](26_hardware_matched_nvidia_cuda_runtime_expansion.md)
-- [ ] [25 Linux Qualification Finalization](25_linux_qualification_finalization.md)
-- [ ] [21 Windows Qualification](21_windows_qualification.md)
-- [ ] [22 Aggregate Production Readiness And Release Blockers](22_aggregate_and_release_blockers.md)
+- [x] [25 RTX 50 Readiness Closure](25_rtx50_readiness_closure.md) — deterministic verification passed
+- [ ] [27 Hosted Production-Equivalent CI Builders](27_hosted_production_equivalent_ci.md)
+- [ ] [30 Release Branch Preparation And Pull Request Policy](30_release_branch_preparation_and_pr_policy.md)
+- [ ] [28 Protected Signed Release Candidates](28_protected_signed_release_candidates.md)
+- [ ] [29 Linux RTX 50 Qualification](29_linux_rtx50_qualification.md)
+- [ ] [21 Windows RTX 50 Qualification](21_windows_qualification.md)
+- [ ] [22 Aggregate Production Readiness And Release Delivery](22_aggregate_and_release_blockers.md)
+- [ ] [26 Deferred RTX 30/40 CUDA Runtime Expansion](26_hardware_matched_nvidia_cuda_runtime_expansion.md) — **Deferred · Non-executable**; not part of the active sequence or release gate
 
-No `candidateInputDigest`, Linux or Windows platform branch, result, evidence
-index, predecessor result, or aggregate root is frozen. The interrupted private
-Linux qualification run is non-authoritative and must not be adopted. Candidate
-SemVer input remains `2.4.0`; the Task 17 fixture digest remains
+No final signed candidate, `candidateInputDigest`, Linux/Windows branch,
+aggregate root, GitHub Release asset, or publication exists. The interrupted
+private Linux run is non-authoritative and must not be adopted. Candidate SemVer
+input remains `2.4.0`; the Task 17 fixture digest remains
 `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
 AMD remains **Preview · Untested** and macOS remains
 **Planned · Unavailable**. Task 20's network/model/corpus/hardware checks were
 not authorized and remain pending manual gates. Task 24's scoped Windows
-host/network/application/unpacked-package gates passed without creating or
-freezing qualification evidence. Task 25 final Linux qualification remains
-separately deferred. RTX 30 `sm_86` and RTX 40 `sm_89` physical checks remain
-**Pending — external representative hardware required**; this RTX 5090 host
-has supplied only the Windows `sm_120a` readiness smoke. The exact next packet
-is Task 26; it has not started. Any further commit or push, PR work, production
-signing, upload, publication, support promotion, tag, and release remain
-separate authorization boundaries.
+host/network/application/unpacked-package gates passed without qualification
+evidence. The active sequence is Task 25 → 27 → 30 → 28 → 29 → 21 → 22. Task
+30 implements release preparation policy but creates no branch or PR. RTX 30/40
+checks are excluded rather than Pending. Task 27 is the next packet and requires
+its own incremental-implementation authorization. Every later packet and any
+commit, push, release branch/PR,
+repository merge-setting change, production secret, signing, qualification,
+merge, tag, upload, publication, support promotion, or release require their
+own authority.

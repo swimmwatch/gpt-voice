@@ -188,6 +188,32 @@ describe('LocalWhisperCatalogRepository', () => {
     );
   });
 
+  it('rejects CUDA targets and applicability rows outside the single RTX 50 contract', () => {
+    const sm86 = createQualificationCatalogPayload();
+    const sm89 = createQualificationCatalogPayload();
+    const missingApplicability = createQualificationCatalogPayload();
+    const crossPlatform = createQualificationCatalogPayload();
+    const duplicateCuda = createQualificationCatalogPayload();
+    const cuda86 = sm86.runtimes.find(({ identity }) => identity.backend === 'cuda');
+    const cuda89 = sm89.runtimes.find(({ identity }) => identity.backend === 'cuda');
+    const missing = missingApplicability.runtimes.find(({ identity }) => identity.backend === 'cuda');
+    const cross = crossPlatform.runtimes.find(({ identity }) => identity.backend === 'cuda');
+    const duplicate = duplicateCuda.runtimes.find(({ identity }) => identity.backend === 'cuda');
+    assert.ok(cuda86 && cuda89 && missing && cross && duplicate);
+    (cuda86.identity.computeTargets as string[])[0] = 'sm_86-real';
+    (cuda89.identity.computeTargets as string[])[0] = 'sm_89-real';
+    delete (missing as Partial<Mutable<LocalWhisperCatalogRuntimeEntry>>).applicability;
+    (cross.identity as Mutable<typeof cross.identity>).platform = 'win32';
+    (duplicateCuda.runtimes as LocalWhisperCatalogRuntimeEntry[]).push(structuredClone(duplicate));
+
+    for (const payload of [sm86, sm89, missingApplicability, crossPlatform, duplicateCuda]) {
+      assert.deepEqual(createQualificationRepository(signQualificationCatalog(payload)).load(), {
+        success: false,
+        code: 'CATALOG_INVALID',
+      });
+    }
+  });
+
   it('rejects schema, purpose, keyring, and origin substitution across catalog trust domains', () => {
     const v2FixturePurpose = createQualificationCatalogPayload();
     (v2FixturePurpose as Mutable<typeof v2FixturePurpose>).purpose = 'fixture';

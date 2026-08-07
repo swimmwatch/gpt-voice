@@ -14,6 +14,7 @@ import {
   type LocalWhisperCatalogModelEntry,
   type LocalWhisperCatalogPayload,
   type LocalWhisperCatalogRuntimeEntry,
+  type LocalWhisperCatalogCudaApplicability,
 } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import {
   LOCAL_WHISPER_RELEASE_MODEL_MATRIX,
@@ -40,7 +41,7 @@ const RUNTIME_CONTRACTS = Object.freeze({
     cuda: Object.freeze({
       packRevision: 'whisper-cpp-linux-x64-cuda-12.8.1-sm120a-v1',
       dependencyFamily: 'cuda-12.8.1',
-      computeTargets: Object.freeze(['sm-120a']),
+      computeTargets: Object.freeze(['sm_120a-real']),
     }),
   }),
   win32: Object.freeze({
@@ -52,7 +53,7 @@ const RUNTIME_CONTRACTS = Object.freeze({
     cuda: Object.freeze({
       packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
       dependencyFamily: 'cuda-12.8.1',
-      computeTargets: Object.freeze(['sm-120a']),
+      computeTargets: Object.freeze(['sm_120a-real']),
     }),
   }),
 });
@@ -66,6 +67,17 @@ const APPROXIMATE_MEMORY_BYTES: Readonly<Record<string, { readonly ram: number; 
     'large-v3': Object.freeze({ ram: 16 * GIBIBYTE, vram: 8 * GIBIBYTE }),
     'large-v3-turbo': Object.freeze({ ram: 10 * GIBIBYTE, vram: 6 * GIBIBYTE }),
   });
+
+function cudaApplicability(platform: QualificationCatalogPlatform): LocalWhisperCatalogCudaApplicability {
+  return Object.freeze({
+    computeTarget: 'sm_120a-real',
+    minimumDriverVersion: platform === 'linux' ? '570.26' : '570.65',
+    minimumComputeCapability: '12.0',
+    maximumComputeCapability: '12.0',
+    minimumTotalVramBytes: 6 * 1024 ** 3,
+    policyRevision: revisionId('rtx50-sm120a-policy-v1'),
+  });
+}
 
 export interface QualificationRuntimeCatalogSeed {
   readonly backend: 'cpu' | 'cuda';
@@ -204,6 +216,7 @@ export class LocalWhisperQualificationCatalogProducer {
         });
         return Object.freeze({
           identity,
+          applicability: cpu ? null : cudaApplicability(seed.platform),
           recommended: true,
           qualificationStatus: seed.qualificationStatus ?? 'planned',
           licenseIds: Object.freeze(runtime.licenseIds.map(artifactId)),

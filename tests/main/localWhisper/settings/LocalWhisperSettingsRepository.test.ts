@@ -24,6 +24,7 @@ import {
 const temporaryDirectories: string[] = [];
 const RUNTIME_REVISION = toLocalWhisperRevisionId('whisper-cpp-cpu-pack-v1')!;
 const CUDA_RUNTIME_REVISION = toLocalWhisperRevisionId('whisper-cpp-cuda-pack-v1')!;
+const LEGACY_CUDA_RUNTIME_REVISION = toLocalWhisperRevisionId('whisper-cpp-cuda-sm86-pack-v1')!;
 const MODEL_REVISION = toLocalWhisperRevisionId('base-ggml-v1')!;
 const CUDA_DEVICE_ID = toLocalWhisperOpaqueDeviceId(`device-v1-${'a'.repeat(64)}`)!;
 
@@ -266,6 +267,35 @@ describe('LocalWhisperSettingsRepository', () => {
     const restored = validateLocalWhisperSettings(beforeDiscovery.snapshot.settings, createCudaContext(true));
     assert.equal(restored.success, true);
     if (restored.success) assert.deepEqual(restored.settings, settings);
+  });
+
+  it('preserves a legacy CUDA selection as selected-but-unavailable without rewriting it', () => {
+    const { repository } = createHarness();
+    const legacy = { ...createCudaSettings(), runtimeRevision: LEGACY_CUDA_RUNTIME_REVISION };
+    const legacyContext = {
+      ...createCudaContext(true),
+      knownRuntimeSelections: [
+        {
+          engine: 'whisperCpp' as const,
+          target: 'gpu' as const,
+          backend: 'cuda' as const,
+          revision: LEGACY_CUDA_RUNTIME_REVISION,
+          recommended: true,
+        },
+      ],
+    };
+    repository.save(legacy, legacyContext);
+
+    const loaded = repository.load(createCudaContext(true));
+
+    assert.equal(loaded.status, 'repairable');
+    if (loaded.status === 'repairable') {
+      assert.equal(loaded.snapshot.settings.runtimeRevision, LEGACY_CUDA_RUNTIME_REVISION);
+      assert.equal(
+        loaded.snapshot.repairIssues.some(({ path }) => path === 'runtimeRevision'),
+        true,
+      );
+    }
   });
 
   it('opens future schemas read-only and permits only explicit settings reset', () => {

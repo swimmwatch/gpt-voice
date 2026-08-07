@@ -1,35 +1,46 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gpt-voice.local/schemas/local-whisper-acceptance-owners-v1.json",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-acceptance-owners-v2.json",
   "title": "Local Whisper automated acceptance ownership",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "specificationRevision", "planRevision", "taskFiles", "verificationCommands", "automatedAcceptanceOwners"],
+  "required": [
+    "schemaVersion",
+    "specificationRevision",
+    "planRevision",
+    "taskFiles",
+    "deferredTasks",
+    "verificationCommands",
+    "automatedAcceptanceOwners"
+  ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "specificationRevision": {
-      "const": 17
+      "const": 20
     },
     "planRevision": {
-      "const": 23
+      "const": 26
     },
     "taskFiles": {
       "type": "object",
-      "minProperties": 26,
-      "maxProperties": 26,
+      "minProperties": 30,
+      "maxProperties": 30,
       "patternProperties": {
-        "^(0[1-9]|1[0-9]|2[0-6])$": {
+        "^(0[1-9]|1[0-9]|2[0-9]|30)$": {
           "type": "string",
-          "pattern": "^(0[1-9]|1[0-9]|2[0-6])_[a-z0-9_]+\\.md$"
+          "pattern": "^(0[1-9]|1[0-9]|2[0-9]|30)_[a-z0-9_]+\\.md$"
         }
       },
       "additionalProperties": false
     },
+    "deferredTasks": {
+      "const": ["26"]
+    },
     "verificationCommands": {
       "type": "array",
-      "minItems": 26,
+      "minItems": 29,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -37,11 +48,11 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^task-(0[1-9]|1[0-9]|2[0-6])-[a-z0-9-]+$"
+            "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)-[a-z0-9-]+$"
           },
           "task": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-6])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)$"
           },
           "command": {
             "type": "string",
@@ -52,8 +63,8 @@
     },
     "automatedAcceptanceOwners": {
       "type": "array",
-      "minItems": 81,
-      "maxItems": 81,
+      "minItems": 89,
+      "maxItems": 89,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -61,11 +72,11 @@
         "properties": {
           "acceptanceId": {
             "type": "string",
-            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-9]|07[0-9]|08[0-2])$"
+            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-9]|07[0-9]|08[0-9]|090)$"
           },
           "primaryTask": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-6])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)$"
           },
           "verificationCommandIds": {
             "type": "array",
@@ -73,7 +84,7 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^task-(0[1-9]|1[0-9]|2[0-6])-[a-z0-9-]+$"
+              "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|30)-[a-z0-9-]+$"
             }
           }
         }

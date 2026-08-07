@@ -106,6 +106,7 @@ export class LocalWhisperProductionArtifactInventory implements ArtifactInventor
 
 export interface LocalWhisperProductionArtifactPortDependencies {
   readonly catalog: LocalWhisperAuthenticatedCatalog;
+  readonly canAcquire: (artifactId: LocalWhisperArtifactId) => boolean;
   readonly clearance: LocalWhisperProductionRemovalClearancePort;
   readonly inventory: LocalWhisperProductionArtifactInventory;
   readonly service: LocalWhisperProductionArtifactLifecyclePort;
@@ -171,7 +172,9 @@ export class LocalWhisperProductionArtifactPort
     }
     const artifactId =
       command.kind === 'update' ? this.resolveUpdate(command.artifactKind, command.artifactId) : command.artifactId;
-    if (!artifactId) return Object.freeze({ success: false, code: 'INVALID_SETTINGS' });
+    if (!artifactId || !this.dependencies.canAcquire(artifactId)) {
+      return Object.freeze({ success: false, code: 'INVALID_SETTINGS' });
+    }
     const request = Object.freeze({ artifactId, expectedInventoryRevision: command.expectedInventoryEpoch });
     const handle =
       command.kind === 'download'

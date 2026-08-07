@@ -25,6 +25,7 @@ import { FIXTURE_CATALOG_KEY_ID, FIXTURE_CATALOG_PUBLIC_KEY_PEM, signFixtureCata
 export const QUALIFICATION_APP_REVISION = toLocalWhisperRevisionId('app-v2.4.0')!;
 export const QUALIFICATION_CATALOG_REVISION = toLocalWhisperRevisionId('qualification-catalog-v2.4.0')!;
 export const QUALIFICATION_RUNTIME_REVISION = toLocalWhisperRevisionId('linux-x64-cpu-v2.4.0')!;
+export const QUALIFICATION_CUDA_RUNTIME_REVISION = toLocalWhisperRevisionId('linux-x64-cuda-sm120a-v2.4.0')!;
 export const QUALIFICATION_RUNTIME_ORIGIN_ID = toLocalWhisperArtifactId('qualification-runtime-origin')!;
 export const QUALIFICATION_RUNTIME_ORIGIN = 'https://127.0.0.1:39443';
 export const QUALIFICATION_MODEL_ORIGIN_ID = toLocalWhisperArtifactId('public-hugging-face-model-origin')!;
@@ -67,7 +68,7 @@ function modelEntry(expected: (typeof LOCAL_WHISPER_RELEASE_MODEL_MATRIX)[number
     transferSignature: null,
     signingKeyId: null,
     installedSizeBytes: expected.sizeBytes,
-    compatibleRuntimePackRevisions: [QUALIFICATION_RUNTIME_REVISION],
+    compatibleRuntimePackRevisions: [QUALIFICATION_RUNTIME_REVISION, QUALIFICATION_CUDA_RUNTIME_REVISION],
     recommended: true,
     qualificationStatus: 'qualified',
     provenanceId: toLocalWhisperArtifactId(`provenance-${expected.family}-${expected.variant}`)!,
@@ -85,14 +86,19 @@ function modelEntry(expected: (typeof LOCAL_WHISPER_RELEASE_MODEL_MATRIX)[number
   };
 }
 
-function memoryEstimate(model: LocalWhisperModelIdentity, sizeBytes: number): LocalWhisperMemoryEstimateRecord {
+function memoryEstimate(
+  model: LocalWhisperModelIdentity,
+  sizeBytes: number,
+  target: 'cpu' | 'gpu',
+  runtimePackRevision: typeof QUALIFICATION_RUNTIME_REVISION,
+): LocalWhisperMemoryEstimateRecord {
   return {
-    target: 'cpu',
-    backend: 'cpu',
-    runtimePackRevision: QUALIFICATION_RUNTIME_REVISION,
+    target,
+    backend: target === 'cpu' ? 'cpu' : 'cuda',
+    runtimePackRevision,
     model,
     estimatedPeakRamBytes: sizeBytes * 2 + 512 * 1024 ** 2,
-    estimatedPeakVramBytes: 'notApplicable',
+    estimatedPeakVramBytes: target === 'cpu' ? 'notApplicable' : 6 * 1024 ** 3,
     evidenceBasis: 'derived',
     sourceBuildRevision: toLocalWhisperRevisionId('qualification-estimate-v1')!,
     methodologyLabel: 'Deterministic qualification catalog fixture estimate',
@@ -177,6 +183,7 @@ export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload 
           sbomRevision: toLocalWhisperRevisionId('qualification-runtime-sbom-v1')!,
           noticeIds: [toLocalWhisperArtifactId('qualification-runtime-notice')!],
         },
+        applicability: null,
         recommended: true,
         qualificationStatus: 'qualified',
         licenseIds: [toLocalWhisperArtifactId('mit-license')!],
@@ -190,9 +197,67 @@ export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload 
         },
         sbomId: toLocalWhisperArtifactId('qualification-runtime-sbom')!,
       },
+      {
+        identity: {
+          engine: 'whisperCpp',
+          platform: 'linux',
+          architecture: 'x64',
+          target: 'gpu',
+          backend: 'cuda',
+          dependencyFamily: 'cuda-12.8.1',
+          upstreamRevision: toLocalWhisperRevisionId('whisper-cpp-upstream-v1')!,
+          buildRevision: toLocalWhisperRevisionId('qualification-cuda-build-v1')!,
+          computeTargets: ['sm_120a-real'],
+          protocolVersion: 1,
+          packRevision: QUALIFICATION_CUDA_RUNTIME_REVISION,
+          catalogRevision: QUALIFICATION_CATALOG_REVISION,
+          appRevision: QUALIFICATION_APP_REVISION,
+          signingKeyId: toLocalWhisperArtifactId('qualification-artifact-key-v1')!,
+          archiveSizeBytes: 81,
+          archiveSha256: 'e'.repeat(64),
+          archiveSignature: Buffer.from('qualification CUDA runtime signature').toString('base64'),
+          originId: QUALIFICATION_RUNTIME_ORIGIN_ID,
+          expectedFiles: [
+            {
+              fileId: toLocalWhisperArtifactId('whisper-cpp-cuda-worker')!,
+              kind: 'executable',
+              mode: 0o500,
+              sizeBytes: 101,
+              sha256: 'f'.repeat(64),
+            },
+          ],
+          prerequisites: ['nvidia-driver-570-26-or-newer'],
+          provenanceId: toLocalWhisperArtifactId('qualification-cuda-runtime-provenance')!,
+          sbomRevision: toLocalWhisperRevisionId('qualification-cuda-runtime-sbom-v1')!,
+          noticeIds: [toLocalWhisperArtifactId('qualification-cuda-runtime-notice')!],
+        },
+        applicability: {
+          computeTarget: 'sm_120a-real',
+          minimumDriverVersion: '570.26',
+          minimumComputeCapability: '12.0',
+          maximumComputeCapability: '12.0',
+          minimumTotalVramBytes: 6 * 1024 ** 3,
+          policyRevision: toLocalWhisperRevisionId('rtx50-sm120a-policy-v1')!,
+        },
+        recommended: true,
+        qualificationStatus: 'qualified',
+        licenseIds: [toLocalWhisperArtifactId('mit-license')!],
+        transferProfile: 'restricted-tar-gzip-v1',
+        source: {
+          repository: 'swimmwatch/gpt-voice',
+          commit: RUNTIME_SOURCE_COMMIT,
+          file: 'runtime-linux-x64-cuda-sm120a.tar.gz',
+          url: `${QUALIFICATION_RUNTIME_ORIGIN}/runtime/runtime-linux-x64-cuda-sm120a.tar.gz`,
+          redirectPolicyId: QUALIFICATION_RUNTIME_POLICY_ID,
+        },
+        sbomId: toLocalWhisperArtifactId('qualification-cuda-runtime-sbom')!,
+      },
     ],
     models,
-    memoryEstimates: models.map((entry) => memoryEstimate(entry.identity, entry.transferSizeBytes)),
+    memoryEstimates: models.flatMap((entry) => [
+      memoryEstimate(entry.identity, entry.transferSizeBytes, 'cpu', QUALIFICATION_RUNTIME_REVISION),
+      memoryEstimate(entry.identity, entry.transferSizeBytes, 'gpu', QUALIFICATION_CUDA_RUNTIME_REVISION),
+    ]),
     qualifiedMemoryPeaks: [],
     denylist: { runtimes: [], models: [] },
   } satisfies LocalWhisperCatalogPayload);

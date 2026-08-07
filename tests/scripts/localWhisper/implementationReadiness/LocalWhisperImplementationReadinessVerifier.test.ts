@@ -74,11 +74,11 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
   it('rejects a stale task registry revision', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
-    const changed = source.replace('"planRevision": 23', '"planRevision": 22');
+    const changed = source.replace('"planRevision": 26', '"planRevision": 25');
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-23-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-26-acceptance-registry'),
     );
   });
 
@@ -92,7 +92,7 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-23-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-26-acceptance-registry'),
     );
   });
 

@@ -7313,6 +7313,643 @@ decisions:
     supersedes_revision: 17
     requirement_ids: []
 
+  - id: planning.revision-24-rtx50-only-roadmap
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 18 narrows current NVIDIA CUDA delivery and qualification to Linux and Windows RTX 50 / `sm_120a` only.
+      - The user selected retaining Task 26 as a deferred future RTX 30/40 packet rather than removing the recorded intent.
+      - Repository inspection found the current production composition permits the trusted CUDA pack to be selected for download before GPU topology discovery, while revision 18 requires main-owned pre-install RTX 50 applicability before the action is offered.
+      - Task 25 is the first active pre-freeze packet and therefore owns the bounded cross-platform RTX 50 applicability closure before it freezes the shared candidate and runs Linux qualification.
+      - Task 21 consumes Task 25 unchanged for Windows RTX 50 qualification; Task 22 aggregates the two platform branches.
+      - The revision-24 registry encodes 25 active packets and one deferred packet, removes Task 26 commands and acceptance ownership, assigns `AC-AUTO-078`, `AC-AUTO-079`, and `AC-AUTO-081` to Task 25, and assigns `AC-AUTO-080` and `AC-AUTO-082` to Task 22.
+      - The task-plan validator, acceptance ownership check, revision-18 changed-requirement coverage audit, Prettier, ESLint, YAML/JSON parsing, and `git diff --check` pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Plan revision 24 preserves completed work, gives every active revision-18 requirement an executable owner, prevents deferred Task 26 from masquerading as active work, and keeps post-freeze production repair prohibited.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        CAP-018,
+        COMP-013,
+        DIST-003,
+        PRIV-006,
+        QUAL-005,
+        QUAL-006,
+        RUNTIME-005,
+        UI-010,
+        VAL-004,
+        OPS-004,
+        AC-AUTO-078,
+        AC-AUTO-079,
+        AC-AUTO-080,
+        AC-AUTO-081,
+        AC-AUTO-082,
+        AC-MAN-017,
+        AC-MAN-018,
+      ]
+
+  - id: approval.plan
+    revision: 24
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - Plan revision 24 is aligned to approved specification revision 18.
+      - Active sequence is Task 25, then Task 21, then Task 22; completed Tasks 01–20, 23, and 24 remain unchanged.
+      - Task 25 closes the cross-platform RTX 50-only pre-install applicability gap before candidate freeze, then owns Linux CPU/`sm_120a` qualification.
+      - Task 21 owns Windows CPU/`sm_120a` qualification and Task 22 owns aggregate per-platform runtime/evidence reconciliation.
+      - Task 26 remains visible but deferred and non-executable, with no command, acceptance owner, dependency, evidence input, or release gate.
+      - Structural validation reports 25 active packets, one deferred packet, and 81 unique automated acceptance owners.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-24
+      question_id: approval.plan-revision-24
+      idempotency_key: approval.plan-revision-24:v1
+      last_status: answered
+      sequence: 85
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 24 proceed with the RTX 50-only active roadmap and deferred Task 26?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 24
+          description: Make Task 25 → Task 21 → Task 22 the active sequence and keep Task 26 non-executable until a future specification revision.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 24 in Draft and revise packet scope, sequencing, ownership, or deferral handling.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; plan revision 23 remains the approved planning baseline.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 24 through the durable workspace interview. Task 25 → Task 21 → Task 22 is the authoritative active sequence; Task 26 remains deferred and non-executable until a future approved specification and plan revision.
+    supersedes_revision: 23
+    requirement_ids: []
+
+  - id: operations.ci-current-baseline
+    revision: 1
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - '`.github/workflows/pr-checks.yml` builds and audits the real Linux CPU runtime pack but does not build a Linux CUDA runtime pack.'
+      - The Windows PR job validates the CPU and RTX 50 CUDA source/profile contracts only; it does not compile or package the Windows CUDA worker.
+      - Local Whisper packaging workflows consume synthetic fixture resources. The Windows consumer is a gated reusable workflow and is not an ordinary PR production-runtime build.
+      - '`.github/workflows/release-builds.yml` builds and publishes Linux and Windows application artifacts but prepares Local Whisper resources in `disabled` mode.'
+      - No checked-in workflow builds, signs, uploads, or verifies production Local Whisper CPU/RTX 50 runtime packs at their final GitHub Release origin.
+      - GitHub-hosted runners expose no representative RTX 50 GPU, so current CI cannot produce physical-device qualification evidence.
+      - Plan revision 24 names `test:local-whisper:rtx50-applicability` and `verify:local-whisper:rtx50-readiness`, but those commands are not yet present in `package.json` or a GitHub Actions workflow.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The existing pipeline validates the base application, fixtures, CPU native quality, and release packaging, but it is not an end-to-end production Local Whisper runtime pipeline.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, CI-004, CI-005, CI-006, CI-007, CI-008, REL-002]
+
+  - id: scope.ci-delivery-outputs
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - Base application installers and Local Whisper runtime packs have intentionally separate delivery lifecycles; inference workers, CUDA libraries, and models remain on demand rather than entering the base installer.
+      - The existing release workflow already owns Linux and Windows application artifacts, while the missing capability is production CPU/RTX 50 runtime-pack compilation, trust, and publication.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-87
+      question_id: scope.ci-delivery-outputs
+      idempotency_key: scope.ci-delivery-outputs:v1
+      last_status: answered
+      sequence: 72
+      revision: 1
+    question:
+      text: Which production outputs should the Local Whisper CI/CD contract own?
+      kind: single
+      options:
+        - id: app-and-runtime-assets
+          label: Application and runtime assets
+          description: Build and verify Linux/Windows application installers plus separate CPU and RTX 50 runtime packs, keeping workers and CUDA libraries out of the base installer.
+        - id: runtime-assets-only
+          label: Runtime assets only
+          description: Leave the existing application release workflow unchanged and add only production Local Whisper runtime-pack delivery.
+        - id: application-assets-only
+          label: Application assets only
+          description: Continue publishing the application while keeping production Local Whisper worker/runtime compilation and upload manual.
+    answer:
+      selected_ids: [app-and-runtime-assets]
+      text: ''
+    rationale: CI/CD shall own compatible Linux/Windows application installers and separately delivered CPU/RTX 50 runtime packs. Workers, CUDA libraries, and models remain outside the base installer and are installed only through the authenticated on-demand flow.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, PKG-009, REL-002]
+
+  - id: operations.gpu-runner-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - GitHub-hosted Linux and Windows runners cannot execute representative RTX 50 device-proof or performance checks.
+      - The user has representative RTX 50 Linux and Windows machines, but self-hosted runners introduce privileged-code, secret, network, persistence, and cleanup risks.
+      - Deterministic CUDA compilation and pack verification do not require a physical GPU; Production qualification still requires the independent Linux and Windows hardware gates from specification revision 18.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-87
+      question_id: operations.gpu-runner-policy
+      idempotency_key: operations.gpu-runner-policy:v1
+      last_status: answered
+      sequence: 73
+      revision: 1
+    question:
+      text: How should CI use the available RTX 50 machines?
+      kind: single
+      options:
+        - id: protected-self-hosted-gates
+          label: Protected self-hosted gates
+          description: Run bounded Linux and Windows RTX 50 smoke/qualification only through manually approved, isolated self-hosted workflows; never on pull requests from untrusted code.
+        - id: manual-hardware-only
+          label: Keep hardware checks manual
+          description: Use hosted CI only for deterministic builds and packs; execute and import representative RTX 50 evidence outside GitHub Actions under separate authorization.
+        - id: optional-nonblocking-runners
+          label: Optional nonblocking runners
+          description: Permit protected self-hosted smoke for diagnostics, but keep all release eligibility based on separately controlled manual hardware qualification.
+    answer:
+      selected_ids: [optional-nonblocking-runners]
+      text: ''
+    rationale: Protected self-hosted RTX 50 workflows may provide diagnostic smoke, but they are nonblocking and cannot replace the separately controlled Linux and Windows representative qualification evidence or receive production signing/publishing authority.
+    supersedes_revision: null
+    requirement_ids: [CI-005, QUAL-005, AC-MAN-017, AC-MAN-018]
+
+  - id: operations.release-trigger-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Current PR and main-branch workflows validate code and fixture packaging with read-only repository permissions.
+      - Current application publication occurs only for a GitHub `release` event; a manual dispatch builds artifacts but does not enter the publish job.
+      - Production Local Whisper publication must not be triggered by ordinary pull requests or branch pushes because signing, legal, qualification, and final-origin gates remain external authorities.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-87
+      question_id: operations.release-trigger-policy
+      idempotency_key: operations.release-trigger-policy:v1
+      last_status: answered
+      sequence: 74
+      revision: 1
+    question:
+      text: Which CI trigger policy should govern production Local Whisper publication?
+      kind: single
+      options:
+        - id: validate-pr-publish-approved-release
+          label: Validate PRs, publish approved releases
+          description: PR/main CI performs deterministic checks only; a protected approved release workflow builds or promotes exact artifacts and publishes after every gate passes.
+        - id: manual-dispatch-only
+          label: Manual dispatch only
+          description: Build and publish production artifacts only from an explicitly dispatched protected workflow with a reviewed tag/input.
+        - id: publish-on-main
+          label: Publish from main
+          description: Automatically publish production runtime assets after qualifying changes land on the main branch.
+    answer:
+      selected_ids: [validate-pr-publish-approved-release]
+      text: ''
+    rationale: Pull-request and main-branch CI perform deterministic validation only. Production signing and publication occur only in a protected, explicitly approved release workflow after every technical and external gate is satisfied.
+    supersedes_revision: null
+    requirement_ids: [CI-003, CI-004, CI-006, REL-002]
+
+  - id: security.ci-signing-custody
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Existing requirements prohibit private signing keys in the repository or delivered clients.
+      - Production runtime catalogs and artifacts require authenticated identities; ordinary PR jobs have read-only permissions and must not receive production signing authority.
+      - GitHub Environments can gate protected secrets and reviewers, while an external OIDC-backed signing service can avoid long-lived signing keys in GitHub.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-87
+      question_id: security.ci-signing-custody
+      idempotency_key: security.ci-signing-custody:v1
+      last_status: answered
+      sequence: 75
+      revision: 1
+    question:
+      text: Where should production artifact and catalog signing authority live?
+      kind: single
+      options:
+        - id: protected-github-environment
+          label: Protected GitHub environment
+          description: Use environment-scoped signing secrets with required reviewers, least permissions, no fork/PR exposure, audit logs, and documented rotation/revocation.
+        - id: external-oidc-signer
+          label: External OIDC signing service
+          description: Exchange GitHub OIDC identity for short-lived signing authority in an external service; keep long-lived private material outside GitHub.
+        - id: defer-signing-and-publication
+          label: Defer production signing
+          description: Let CI build qualification artifacts but block production publication until a separate signing architecture is approved.
+    answer:
+      selected_ids: [protected-github-environment]
+      text: ''
+    rationale: Production signing authority shall use environment-scoped GitHub secrets guarded by required reviewers, least permissions, fork/PR exclusion, auditability, rotation, and revocation. No self-hosted GPU or ordinary validation job receives those secrets.
+    supersedes_revision: null
+    requirement_ids: [CI-006, SEC-003, SEC-014, PKG-002, REL-002]
+
+  - id: distribution.runtime-release-layout
+    revision: 1
+    category: distribution
+    state: answered
+    provenance: user
+    evidence:
+      - Runtime packs are app-version-pinned, independently authenticated, and downloaded explicitly from immutable project-controlled GitHub Release assets.
+      - Publishing application installers and compatible runtime packs under one release tag simplifies version binding and rollback, while separate runtime releases allow independent runtime updates but add catalog and retention complexity.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-87
+      question_id: distribution.runtime-release-layout
+      idempotency_key: distribution.runtime-release-layout:v1
+      last_status: answered
+      sequence: 76
+      revision: 1
+    question:
+      text: How should production Local Whisper runtime packs be organized on GitHub Releases?
+      kind: single
+      options:
+        - id: same-application-release
+          label: Same application release
+          description: Publish compatible Linux/Windows CPU and RTX 50 packs as separate immutable assets under the same application release tag and bind the production catalog to those exact assets.
+        - id: separate-runtime-release
+          label: Separate runtime release
+          description: Publish runtime packs under a dedicated immutable runtime release/version and let application catalogs reference the reviewed compatible runtime release.
+        - id: qualification-only-no-production-layout
+          label: Qualification artifacts only
+          description: Keep CI artifacts temporary and defer any production GitHub Release layout until a later specification revision.
+    answer:
+      selected_ids: [same-application-release]
+      text: ''
+    rationale: Compatible Linux/Windows CPU and RTX 50 runtime packs shall be separate immutable assets under the same application release tag, with the production catalog bound to their exact names, lengths, digests, signatures, platform, target, and app revision.
+    supersedes_revision: null
+    requirement_ids: [DIST-001, CI-007, REL-002]
+
+  - id: distribution.ci-artifact-promotion
+    revision: 1
+    category: distribution
+    state: superseded
+    provenance: user
+    evidence:
+      - Runtime-pack bytes are already independently authenticated and qualified, so rebuilding them after qualification creates avoidable identity drift.
+      - Production application installers may differ from qualification packages only in explicitly approved production trust, catalog, origin, release, signing, and notice metadata; executable or runtime deltas are prohibited.
+      - The current release workflow rebuilds installers and uses clobbering GitHub Release upload behavior, which is incompatible with immutable runtime asset identities unless tightened.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-88
+      question_id: distribution.ci-artifact-promotion
+      idempotency_key: distribution.ci-artifact-promotion:v1
+      last_status: answered
+      sequence: 77
+      revision: 1
+    question:
+      text: How should the approved release workflow turn qualified artifacts into production release assets?
+      kind: single
+      options:
+        - id: promote-runtime-rebuild-app-controlled
+          label: Promote runtimes, controlled app rebuild
+          description: Publish exact qualified runtime-pack bytes; rebuild installers only from the frozen candidate with approved production metadata/signing deltas and deterministic comparison.
+        - id: rebuild-all-byte-identical
+          label: Rebuild everything identically
+          description: Rebuild runtime packs and installers in the release workflow and publish only when every output is byte-identical to its qualification object.
+        - id: rebuild-and-requalify-release
+          label: Rebuild and requalify
+          description: Rebuild every artifact during release and repeat complete technical and hardware qualification before publication.
+    answer:
+      selected_ids: [rebuild-all-byte-identical]
+      text: ''
+    rationale: The user selected release-workflow rebuilds with byte-identical output. This answer conflicts with the separately selected native signing requirement because native signatures alter final installer bytes; revision 2 resolves which invariant governs.
+    supersedes_revision: null
+    requirement_ids: [CI-008, PKG-011, QUAL-004, REL-002]
+
+  - id: security.application-artifact-signing
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - The current Windows release sets `CSC_IDENTITY_AUTO_DISCOVERY=false`, so application installers are not guaranteed to carry an approved Authenticode signature.
+      - Production Local Whisper catalogs and runtime packs already require signatures, but publishing complete application-plus-runtime delivery also needs a clear installer and checksum authenticity policy.
+      - Linux artifact formats differ in native signing support, so one signed release manifest can bind every filename, size, SHA-256, platform, architecture, and role even when format-specific signatures also exist.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-88
+      question_id: security.application-artifact-signing
+      idempotency_key: security.application-artifact-signing:v1
+      last_status: answered
+      sequence: 78
+      revision: 1
+    question:
+      text: Which signing policy should production application and runtime releases require?
+      kind: single
+      options:
+        - id: native-signing-and-release-manifest
+          label: Native signing plus release manifest
+          description: Require Windows Authenticode, applicable Linux package-native signatures, signed catalogs/runtime packs, and one signed checksum manifest covering every published asset.
+        - id: runtime-signing-only
+          label: Sign Local Whisper assets only
+          description: Sign runtime packs and catalogs but preserve the existing application installer signing behavior.
+        - id: signed-manifest-only
+          label: Signed manifest only
+          description: Bind every asset through one signed checksum manifest without requiring operating-system-native installer signatures.
+    answer:
+      selected_ids: [native-signing-and-release-manifest]
+      text: ''
+    rationale: Production releases require Windows Authenticode, applicable Linux package-native signatures, signed catalogs and runtime packs, and one signed manifest binding every published asset's filename, size, SHA-256, platform, architecture, and role.
+    supersedes_revision: null
+    requirement_ids: [CI-006, PKG-002, PKG-012, SEC-014, REL-002]
+
+  - id: distribution.ci-artifact-promotion
+    revision: 2
+    category: distribution
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 1 selected byte-identical release rebuilds.
+      - The user separately requires Windows Authenticode and applicable Linux native package signatures.
+      - Native signing changes final package bytes and commonly adds timestamped signature material, so a release-time signed package cannot be byte-identical to an earlier unsigned qualification package.
+      - Runtime archives can retain exact bytes with detached signatures, but signed application installers need either pre-qualification signing and exact promotion or an explicitly bounded signing-only delta.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: ci-release-round-89
+      question_id: distribution.ci-artifact-promotion
+      idempotency_key: distribution.ci-artifact-promotion:v2
+      supersedes_revision: 1
+      last_status: answered
+      sequence: 79
+      revision: 2
+    question:
+      text: Which invariant should resolve the conflict between byte-identical rebuilds and native installer signing?
+      kind: single
+      options:
+        - id: qualify-signed-promote-exact
+          label: Qualify signed artifacts, then promote (Recommended)
+          description: Build and sign final candidates in the protected environment, qualify those exact bytes, and publish them unchanged without a release-time rebuild.
+        - id: deterministic-payload-signing-delta
+          label: Deterministic payload plus signing delta
+          description: Require byte-identical unsigned payloads and runtime archives, then allow only verified native-signature/timestamp wrappers and approved release metadata to change final installer bytes.
+        - id: no-native-signature-byte-identity
+          label: Preserve exact bytes without native signing
+          description: Keep release-time byte identity by dropping the native installer-signing requirement and relying on detached signed manifests.
+    answer:
+      selected_ids: [qualify-signed-promote-exact]
+      text: ''
+    rationale: Final application installers and runtime packs are built and signed as protected release candidates, the exact signed bytes are qualified, and the approved publication workflow promotes those same bytes unchanged. No release-time rebuild or post-qualification mutation is allowed.
+    supersedes_revision: 1
+    requirement_ids: [CI-008, PKG-011, PKG-012, QUAL-004, REL-002]
+
+  - id: distribution.installable-binary-origin
+    revision: 1
+    category: distribution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly required every binary that must be installed to be downloaded from the GitHub Release.
+      - The selected release layout places compatible application and Local Whisper runtime assets under the same approved application release tag.
+      - Local Whisper models already have a separate pinned public Hugging Face source contract and are not executable/native binary artifacts.
+    prompt_mcp: null
+    question:
+      text: Which origin is authoritative for user-installable application and Local Whisper native binaries?
+      kind: single
+      options:
+        - id: immutable-approved-github-release
+          label: Approved GitHub Release only
+          description: Install only immutable application and Local Whisper native/runtime assets published under the approved GitHub Release; reject CI artifacts, branch/raw URLs, mirrors, and arbitrary origins.
+    answer:
+      selected_ids: [immutable-approved-github-release]
+      text: ''
+    rationale: Application installers and on-demand Local Whisper native workers/runtime dependencies must resolve only to authenticated immutable assets under the approved same-tag GitHub Release. Base-installer helpers arrive only inside that authenticated installer. CI artifacts are qualification/promotion inputs, never end-user installation origins. Pinned model downloads remain governed by the existing Hugging Face model-source contract.
+    supersedes_revision: null
+    requirement_ids: [CI-007, DIST-001, DIST-004, PKG-009, SEC-003, REL-002, AC-AUTO-089]
+
+  - id: acceptance.revision-19-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: every application installer, bundled native helper/browser, and on-demand Local Whisper native runtime resolves only from authenticated immutable assets in the approved same-tag GitHub Release; pinned model data remains the sole Hugging Face exception.'
+      - 'Operator perspective: PR/main validation is read-only, production authority is isolated behind a reviewed GitHub Environment, all six release output classes have explicit owners, partial publication remains non-installable, retries preserve exact candidates, and rollback selects a prior immutable release.'
+      - 'Implementer perspective: hosted builders, signing order, candidate identities, same-tag catalog/manifest bindings, self-hosted runner isolation, no-clobber upload, final-origin verification, and no-post-qualification mutation are explicit without prescribing task-local workflow filenames.'
+      - 'Tester perspective: deterministic acceptance covers triggers, permissions, real cross-platform builds, reproducibility, malicious inputs, signing custody, complete asset sets, exact promotion, fault recovery, origin rejection, and final-origin parity; manual acceptance covers both RTX 50 qualification cells and the protected release path.'
+      - 'Security-reviewer perspective: production keys and publication tokens never reach forks, PR/main validation, self-hosted GPU runners, artifacts, logs, clients, or the repository; signed manifests and catalog/runtime signatures bind all installable assets and renderer input cannot expand origins.'
+      - 'Maintainer perspective: one app tag owns compatible installers and runtime packs, release assets are immutable and non-clobbering, a new candidate generation is required for any changed byte, CI never pushes source, models retain their existing pinned origin, and RTX 30/40 remain deferred.'
+      - Current workflows do not yet satisfy this contract; revision 19 specifies future behavior and does not claim that production Local Whisper delivery is already configured.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved outcome, failure, interface, architecture, privacy, operations, compatibility, or acceptance choice after exact signed-candidate promotion and immutable GitHub Release origin were committed.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        CI-001,
+        CI-002,
+        CI-003,
+        CI-004,
+        CI-005,
+        CI-006,
+        CI-007,
+        CI-008,
+        DIST-004,
+        PKG-012,
+        REL-002,
+        AC-AUTO-083,
+        AC-AUTO-084,
+        AC-AUTO-085,
+        AC-AUTO-086,
+        AC-AUTO-087,
+        AC-AUTO-088,
+        AC-AUTO-089,
+        AC-AUTO-090,
+        AC-MAN-019,
+      ]
+
+  - id: approval.spec
+    revision: 19
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - Revision 19 makes hosted CI own production-equivalent Linux/Windows application, CPU-runtime, and RTX 50 runtime builders while PR/main workflows remain read-only validation paths.
+      - Production signing and publication authority are isolated behind a reviewer-protected GitHub Environment and never exposed to fork, PR/main, or self-hosted GPU jobs.
+      - Final application candidates receive native signatures, runtime/catalog assets retain independent signatures, and one signed release manifest binds every published object.
+      - Final signed candidates are qualified as immutable objects and later promoted unchanged; rebuilds, re-signing, timestamp replacement, repackaging, metadata mutation, and asset clobbering are prohibited.
+      - Compatible Linux/Windows installers and CPU/RTX 50 runtime packs are separate immutable assets under the same approved application GitHub Release tag.
+      - Every user-installable application, bundled native helper/browser, and Local Whisper native runtime comes from that approved GitHub Release; the six exact pinned Hugging Face model objects remain the sole non-GitHub binary-delivery exception.
+      - Partial upload or verification failure leaves staging non-installable and recoverable; rollback selects a prior immutable approved release rather than mutating an existing tag.
+      - RTX 50-only scope, RTX 30/40 deferral, CPU behavior, privacy, explicit download, no fallback, and manual Linux/Windows hardware gates remain unchanged.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-22
+      question_id: approval.spec
+      idempotency_key: approval.spec:v19
+      supersedes_revision: 18
+      last_status: answered
+      sequence: 80
+      revision: 19
+    question:
+      text: How should Local Whisper specification revision 19 proceed after adding the complete CI/CD and immutable GitHub Release delivery contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 19 (Recommended)
+          description: Make protected exact-candidate CI/CD, signing, same-tag GitHub Release assets, and final-origin verification authoritative.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 19 in Draft and revise its build, signing, qualification, publication, origin, or recovery contract.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 18 remains the approved specification baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 19. The authoritative contract now requires protected production-equivalent CI/CD, exact signed-candidate qualification and promotion, immutable same-tag GitHub Release application/runtime assets, final-origin verification, non-clobbering recovery, and the pinned Hugging Face model exception.
+    supersedes_revision: 18
+    requirement_ids: []
+
+  - id: planning.revision-25-packet-decomposition
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 19 separates implementation readiness, final signed-candidate freeze, Linux qualification, Windows qualification, and aggregate production readiness into ordered boundaries.
+      - Current Task 25 combines remaining implementation readiness, candidate freeze, and Linux qualification, so it would freeze before the newly required protected signing boundary.
+      - Hosted PR/main builders use read-only non-production authority, while final signing uses protected environment secrets and physical qualification consumes immutable signed candidates; combining those boundaries increases packet size and trust-scope coupling.
+      - Tasks 21 and 22 already provide focused Windows and aggregate boundaries, and Task 26 must remain deferred and non-executable.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: ci-release-plan-round-86
+      question_id: planning.revision-25-packet-decomposition
+      idempotency_key: planning.revision-25-packet-decomposition:v1
+      last_status: answered
+      sequence: 86
+      revision: 1
+    question:
+      text: How should plan revision 25 split the new CI/CD work from readiness and platform qualification?
+      kind: single
+      options:
+        - id: separate-ci-signing-linux
+          label: Separate all three boundaries (Recommended)
+          description: Use Task 25 for RTX 50 readiness, Task 27 for hosted CI builders, Task 28 for protected signing/final candidates, Task 29 for Linux qualification, then Tasks 21 and 22.
+        - id: combine-ci-with-readiness
+          label: Combine CI with readiness
+          description: Put hosted builders into Task 25, then use separate final-candidate and Linux packets before Tasks 21 and 22.
+        - id: combine-ci-with-signing
+          label: Combine CI with signing
+          description: Keep Task 25 focused on readiness but combine hosted validation and protected final-candidate automation in one larger task before Linux qualification.
+    answer:
+      selected_ids: [separate-ci-signing-linux]
+      text: ''
+    rationale: Plan revision 25 uses independent packets for remaining RTX 50 readiness, hosted production-equivalent CI builders, protected final-candidate signing, Linux qualification, Windows qualification, and aggregate release readiness. This preserves focused verification and isolates read-only CI, production secrets, physical hardware, and publication authority.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.revision-25-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 25 contains 29 numbered packets, with 28 active packets and only Task 26 deferred and non-executable.
+      - The active sequence is Task 25 readiness, Task 27 hosted builders, Task 28 protected signed candidates, Task 29 Linux qualification, Task 21 Windows qualification, and Task 22 aggregate release delivery.
+      - Every 89 automated acceptance criterion from `AC-AUTO-001`–`AC-AUTO-054` and `AC-AUTO-056`–`AC-AUTO-090` has exactly one active primary owner and at least one registered exact packet verification command.
+      - All 313 active non-approval specification identifiers are mapped into at least one self-contained numbered packet.
+      - The acceptance registry conforms to its JSON Schema and the task-plan validator confirms every numbered file, deferred boundary, command, and primary owner.
+      - New Task 25, 27, 28, and 29 commands are implementation outputs owned by their packets; their current absence from `package.json` is explicit rather than an executability ambiguity.
+      - Candidate freeze, production secrets, hardware qualification, commit, push, PR, GitHub Release staging/upload/publication, support promotion, tag, and release remain explicit independent manual gates.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The coverage and executability audit found no missing requirement owner, circular active dependency, deferred-task leak, unregistered acceptance owner, missing packet heading, or implicit external authority.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 25
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - Approved specification revision 19 requires hosted production-equivalent builds, protected signed-candidate freeze, exact-byte platform qualification, and immutable same-tag GitHub Release delivery.
+      - The user selected separate packets for hosted CI, protected signing/final candidates, and Linux qualification.
+      - Plan revision 25 preserves completed Tasks 01–20, 23, and 24; keeps Task 26 deferred; and orders Tasks 25, 27, 28, 29, 21, and 22.
+      - Task 22 describes build-to-release deployment but treats every upload, publication, support, tag, and release operation as a separately authorized manual gate.
+      - Structural validation reports 28 active packets, one deferred packet, 89 unique automated acceptance owners, and complete active requirement coverage.
+      - The first Prompt MCP registration attempt returned `conflict` because cross-question `supersedes_revision` metadata was supplied for a new semantic question ID; no answer was stored, and the corrected retry omits that in-question revision field while retaining ledger supersession of plan revision 24.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-25
+      question_id: approval.plan-revision-25
+      idempotency_key: approval.plan-revision-25:v1
+      last_status: answered
+      sequence: 87
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 25 proceed after reconciling specification revision 19 and separating readiness, hosted CI, protected signing, Linux qualification, Windows qualification, and release delivery?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 25 (Recommended)
+          description: Make the six-packet active sequence and its independent manual gates authoritative without starting implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 25 in Draft and revise packet scope, dependencies, ownership, verification, or manual gates.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; plan revision 24 remains the approved planning baseline for specification revision 18.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 25. The authoritative remaining sequence is Task 25, Task 27, Task 28, Task 29, Task 21, and Task 22; Task 26 remains deferred and every execution or external release action remains separately gated.
+    supersedes_revision: 24
+    requirement_ids: []
+
+  - id: execution.task-25-revision-25
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Approved plan revision 25 makes Task 25 the exact next packet.
+      - Task 25 is limited to deterministic cross-platform RTX 50 inventory, applicability, catalog, migration, renderer filtering, and negative fixtures.
+      - Task 25 creates no candidate, signing input, platform qualification evidence, GitHub Release asset, or external publication action.
+      - Task 27 and every later packet, commit, push, PR, protected secret, signing, hardware qualification, upload, publication, support promotion, tag, and release remain separately gated.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: task-25-revision-25-start-round-88
+      question_id: execution.task-25-revision-25
+      idempotency_key: execution.task-25-revision-25:v1
+      last_status: answered
+      sequence: 88
+      revision: 1
+    question:
+      text: Should the next incremental-implementation invocation execute exactly Task 25 from approved plan revision 25?
+      kind: single
+      options:
+        - id: authorize-task-25
+          label: Authorize Task 25 (Recommended)
+          description: Allow only the RTX 50 readiness-closure packet, its deterministic checks, todo/handoff updates, and stop before commit or Task 27.
+        - id: do-not-start
+          label: Do not start
+          description: Keep Task 25 pending and authorize no implementation, application launch, hardware use, candidate work, or external action.
+    answer:
+      selected_ids: [authorize-task-25]
+      text: ''
+    rationale: The user authorized exactly Task 25 for the next incremental-implementation invocation. The authorization covers only its readiness-closure source/tests, deterministic verification, todo/handoff updates, and stop boundary; it excludes commit and every later or external action.
+    supersedes_revision: null
+    requirement_ids: []
+
   - id: execution.task-19-revision-18
     revision: 1
     category: execution
@@ -8198,7 +8835,24 @@ decisions:
     answer: null
     rationale: The six-perspective review found no unresolved product, failure, interface, privacy, migration, compatibility, or acceptance decision after the user's scope and qualification answers were committed.
     supersedes_revision: null
-    requirement_ids: [CAP-018, COMP-013, DIST-003, PRIV-006, QUAL-005, RUNTIME-005, UI-010, VAL-004, AC-AUTO-078, AC-AUTO-079, AC-AUTO-080, AC-AUTO-081, AC-AUTO-082, AC-MAN-017, AC-MAN-018]
+    requirement_ids:
+      [
+        CAP-018,
+        COMP-013,
+        DIST-003,
+        PRIV-006,
+        QUAL-005,
+        RUNTIME-005,
+        UI-010,
+        VAL-004,
+        AC-AUTO-078,
+        AC-AUTO-079,
+        AC-AUTO-080,
+        AC-AUTO-081,
+        AC-AUTO-082,
+        AC-MAN-017,
+        AC-MAN-018,
+      ]
 
   - id: approval.spec
     revision: 16
@@ -8338,7 +8992,25 @@ decisions:
     answer: null
     rationale: Plan revision 22 preserves Task 24 as Windows CPU plus `sm_120a` readiness and creates Task 26 for deterministic hardware-matched RTX expansion. This draft requires separate plan approval and does not authorize either packet.
     supersedes_revision: null
-    requirement_ids: [CAP-018, COMP-013, DIST-003, QUAL-005, QUAL-006, RUNTIME-005, UI-010, VAL-004, OPS-004, AC-AUTO-078, AC-AUTO-079, AC-AUTO-080, AC-AUTO-081, AC-AUTO-082, AC-MAN-017, AC-MAN-018]
+    requirement_ids:
+      [
+        CAP-018,
+        COMP-013,
+        DIST-003,
+        QUAL-005,
+        QUAL-006,
+        RUNTIME-005,
+        UI-010,
+        VAL-004,
+        OPS-004,
+        AC-AUTO-078,
+        AC-AUTO-079,
+        AC-AUTO-080,
+        AC-AUTO-081,
+        AC-AUTO-082,
+        AC-MAN-017,
+        AC-MAN-018,
+      ]
 
   - id: approval.plan
     revision: 22
@@ -8454,4 +9126,545 @@ decisions:
       text: fix all issues
     rationale: Plan approval and execution authorization are recorded as separate decisions. Exactly Task 24 may resume; all later packets and external release actions remain unauthorized.
     supersedes_revision: null
+    requirement_ids: []
+
+  - id: compatibility.rtx-family-scope
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly instructed that RTX 30- and RTX 40-series implementation be postponed.
+      - The user explicitly limited the current Local Whisper NVIDIA CUDA support scope to RTX 50-series hardware.
+      - Task 24 already completed Windows CPU plus RTX 50 `sm_120a` delivery readiness, and the available Linux and Windows qualification hosts are RTX 50 systems.
+    prompt_mcp: null
+    question:
+      text: Which NVIDIA RTX families are in the current Local Whisper release scope?
+      kind: single
+      options:
+        - id: rtx50-only
+          label: RTX 50 only
+          description: Support and qualify desktop and laptop RTX 50 hardware through the exact `sm_120a-real` runtime on Linux and Windows; defer RTX 30/40.
+    answer:
+      selected_ids: [rtx50-only]
+      text: ''
+    rationale: The active compatibility, runtime-delivery, and qualification contract is narrowed to RTX 50. RTX 30/40 must fail closed and cannot be claimed as supported until a later approved specification revision restores them.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        CAP-018,
+        COMP-013,
+        DIST-003,
+        QUAL-005,
+        QUAL-006,
+        RUNTIME-005,
+        UI-010,
+        VAL-004,
+        AC-AUTO-078,
+        AC-AUTO-079,
+        AC-AUTO-080,
+        AC-AUTO-081,
+        AC-AUTO-082,
+        AC-MAN-017,
+        AC-MAN-018,
+      ]
+
+  - id: planning.deferred-rtx-roadmap-disposition
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Removing RTX 30/40 from the active support contract eliminates their current build, selection, migration, and qualification gates.
+      - The current roadmap contains Task 26 specifically for the RTX 30/40/50 expansion and makes Tasks 25, 21, and 22 depend on it.
+      - Keeping a clearly deferred future packet preserves intent without representing RTX 30/40 as currently supported; removing it entirely produces a smaller active roadmap but loses the recorded future work item.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: compatibility-round-86
+      question_id: planning.deferred-rtx-roadmap-disposition
+      idempotency_key: planning.deferred-rtx-roadmap-disposition:v1
+      last_status: answered
+      sequence: 70
+      revision: 1
+    question:
+      text: How should the roadmap represent the postponed RTX 30/40 work?
+      kind: single
+      options:
+        - id: retain-deferred-future-packet
+          label: Keep a deferred future task
+          description: Remove Task 26 from the active dependency chain but retain it as explicitly deferred and unavailable until a future specification revision.
+        - id: remove-from-roadmap
+          label: Remove it from the roadmap
+          description: Remove Task 26 and all active roadmap references; future RTX 30/40 work would require new specification and planning from scratch.
+    answer:
+      selected_ids: [retain-deferred-future-packet]
+      text: ''
+    rationale: Task 26 remains visible as future RTX 30/40 work but is removed from the active dependency chain and cannot be executed or used for current support claims until a future approved specification revision restores that scope.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: acceptance.cuda-compute-target-qualification
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user narrowed the current NVIDIA CUDA support, implementation, and qualification scope to RTX 50-series hardware.
+      - Linux and Windows each have an available representative RTX 50 host, while RTX 30/40 are intentionally postponed.
+      - Out-of-scope targets must remain fail-closed and must not remain active release gates.
+    prompt_mcp: null
+    question:
+      text: Which NVIDIA CUDA hardware cells must pass before the current RTX 50 support claim is Production-eligible?
+      kind: single
+      options:
+        - id: rtx50-each-os
+          label: RTX 50 on both operating systems
+          description: Require representative `sm_120a` execution independently on Linux and Windows; exclude RTX 30/40 from current gates.
+    answer:
+      selected_ids: [rtx50-each-os]
+      text: ''
+    rationale: Current qualification consists only of Linux `sm_120a` and Windows `sm_120a`. RTX 30/40 implementation and evidence are deferred, carry no current support claim, and cannot block RTX 50 readiness.
+    supersedes_revision: 1
+    requirement_ids: [QUAL-005, QUAL-006, AC-AUTO-082, AC-MAN-017, AC-MAN-018]
+
+  - id: acceptance.revision-18-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: supported RTX 50 desktop/laptop devices receive only the exact `sm_120a-real` action; RTX 30/40 devices receive no misleading runtime option or fallback.'
+      - 'Operator perspective: active Linux/Windows catalogs contain one CUDA pack each, RTX 30/40 are not Pending release blockers, and future expansion requires a new approved specification and plan revision.'
+      - 'Implementer perspective: current inventory, applicability, migration, settings, catalog, packaging, and qualification work is bounded to `sm_120a`; negative tests preserve fail-closed handling for every other target.'
+      - 'Tester perspective: deterministic checks reject injected `sm_86`/`sm_89` catalog, settings, worker, and qualification identities; representative manual execution covers Linux and Windows RTX 50 independently.'
+      - 'Security-reviewer perspective: narrowing the allowlist does not expand renderer, IPC, filesystem, process, network, hardware-identity, or diagnostics authority and preserves existing privacy boundaries.'
+      - 'Maintainer perspective: Task 26 remains documented as non-executable future work, while the active release gates and support labels contain only CPU and RTX 50 NVIDIA paths plus the unchanged AMD Preview and macOS Planned boundaries.'
+      - Revision 18 retains explicit download, authenticated artifacts, exact device proof, no PTX, no fallback, and system-owned driver rules.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved product, failure, interface, privacy, migration, compatibility, or acceptance choice after the RTX 50-only scope and deferred-roadmap disposition were committed.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        CAP-018,
+        COMP-013,
+        DIST-003,
+        QUAL-005,
+        QUAL-006,
+        RUNTIME-005,
+        UI-010,
+        VAL-004,
+        OPS-004,
+        AC-AUTO-078,
+        AC-AUTO-079,
+        AC-AUTO-080,
+        AC-AUTO-081,
+        AC-AUTO-082,
+        AC-MAN-017,
+        AC-MAN-018,
+      ]
+
+  - id: approval.spec
+    revision: 18
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - Revision 18 limits current NVIDIA CUDA delivery and support to RTX 50 desktop/laptop devices through one Linux and one Windows `sm_120a-real` pack.
+      - RTX 30 / `sm_86` and RTX 40 / `sm_89` receive no runtime action, implementation requirement, qualification row, Pending release gate, or support claim.
+      - The Linux and Windows RTX 50 qualification cells remain independent and require their complete platform evidence before Production eligibility.
+      - Task 26 remains visible as future deferred work but is non-executable until a later approved specification revision restores RTX 30/40 scope.
+      - CPU, AMD Preview, macOS Planned, explicit-download, system-driver, CUDA 12.8.1, privacy, trust, no-PTX, and no-fallback contracts are unchanged.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-21
+      question_id: approval.spec
+      idempotency_key: approval.spec:v18
+      last_status: answered
+      sequence: 71
+      revision: 18
+      supersedes_revision: 17
+    question:
+      text: How should Local Whisper specification revision 18 proceed after narrowing current NVIDIA support to RTX 50 only?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 18
+          description: Make RTX 50-only Linux/Windows delivery and qualification authoritative while retaining RTX 30/40 as non-executable future work.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 18 in Draft and revise the support, fail-closed, qualification, or future-roadmap contract.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 17 remains the approved specification baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 18. Current NVIDIA CUDA delivery and qualification are limited to independent Linux and Windows RTX 50 `sm_120a` cells; RTX 30/40 remain fail-closed, unsupported, and non-executable future work until another approved specification revision.
+    supersedes_revision: 17
+    requirement_ids: []
+
+  - id: operations.release-branch-lifecycle
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requires release preparation to occur on a dedicated release branch before it is merged into `main`.
+      - The release branch must review every registered manual release and qualification script, complete the changelog, update every canonical version-bearing file, and commit the complete release-preparation change set.
+      - The user explicitly requires this preparation to be exercised through a release pull request into `main`, rather than by mutating release metadata only inside a later publication job.
+      - The repository currently has no changelog file, and `scripts/apply-release-version.mjs` currently rewrites only `package.json` and `package-lock.json` from a supplied release tag during the build workflow.
+    prompt_mcp: null
+    question:
+      text: What preparation must the release branch complete before its release pull request can merge into `main`?
+      kind: multiple
+      options:
+        - id: review-manual-scripts
+          label: Review manual scripts
+          description: Review every registered manual release and qualification script against the candidate release.
+        - id: complete-changelog
+          label: Complete changelog
+          description: Add complete user-facing release notes for the candidate version.
+        - id: update-version-files
+          label: Update version files
+          description: Update every canonical version-bearing repository file consistently.
+        - id: commit-release-preparation
+          label: Commit release preparation
+          description: Commit the complete bounded preparation change set on the release branch before opening or updating the release pull request.
+    answer:
+      selected_ids: [review-manual-scripts, complete-changelog, update-version-files, commit-release-preparation]
+      text: ''
+    rationale: Release metadata and manual-review evidence become reviewable source changes on the release branch. The release pull request is the sole path for those changes into `main`; publication automation must not invent or silently rewrite them afterward.
+    supersedes_revision: null
+    requirement_ids: [CI-004, CI-008, REL-002, AC-MAN-019]
+
+  - id: operations.release-pr-manual-gate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requires the manual checks shown in the exact-signed-byte qualification stage to finish before the release branch is merged into `main`.
+      - Existing specification revision 19 already requires Linux RTX 50 and Windows RTX 50 qualification of the exact signed candidate bytes before publication.
+      - The release pull request therefore needs an objective, immutable association between each required manual result and the candidate generation represented by its head revision.
+    prompt_mcp: null
+    question:
+      text: When must the exact signed-candidate manual Linux and Windows qualification gates complete?
+      kind: single
+      options:
+        - id: before-release-pr-merge
+          label: Before release PR merge
+          description: Block merging the release branch into `main` until every required manual release and platform qualification gate passes for its frozen candidate generation.
+    answer:
+      selected_ids: [before-release-pr-merge]
+      text: ''
+    rationale: The release pull request remains blocked until its exact candidate generation has complete Linux and Windows manual evidence; a successful merge records that the reviewed release candidate passed every pre-merge gate.
+    supersedes_revision: null
+    requirement_ids: [CI-004, CI-008, QUAL-004, REL-002, AC-MAN-017, AC-MAN-018, AC-MAN-019]
+
+  - id: operations.release-tag-anchor
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Exact signed candidates are bound to the frozen release pull-request head source revision before the requested pre-merge manual qualification.
+      - A GitHub squash or rebase merge changes commit identity, while a merge commit preserves the qualified pull-request head as a parent reachable from `main`.
+      - Creating or moving the final release tag before the merge would weaken the approved immutable, non-clobbering tag contract.
+      - Tagging a new merge commit would require rebuilding and requalifying final artifacts unless the specification changes from commit identity to a weaker tree-only identity.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-branch-round-90
+      question_id: operations.release-tag-anchor
+      idempotency_key: operations.release-tag-anchor:v1
+      last_status: answered
+      sequence: 81
+      revision: 1
+    question:
+      text: Which commit should the final immutable release tag reference when exact signed candidates are qualified before the release pull request merges?
+      kind: single
+      options:
+        - id: qualified-release-pr-head
+          label: Tag qualified PR head (Recommended)
+          description: Merge without rewriting the qualified release-branch head, then create the immutable tag on that exact commit after it is reachable from `main`; prohibit squash/rebase for the release PR.
+        - id: merged-main-and-requalify
+          label: Requalify merged main
+          description: Merge first, rebuild and sign candidates from the resulting `main` commit, repeat Linux and Windows qualification, and only then create the tag.
+        - id: tag-before-merge
+          label: Tag before merge
+          description: Create the final tag on the qualified release-branch head before merging; publication still waits for the release PR, but a failed merge leaves a reserved tag.
+    answer:
+      selected_ids: [qualified-release-pr-head]
+      text: ''
+    rationale: The frozen release pull-request head is the sole source identity for protected candidates and manual qualification. After a merge method preserves that commit in `main`, the immutable final tag is created on the same qualified commit. Squash/rebase, conflict-resolution changes, tag movement, and post-qualification source or metadata mutation invalidate the generation and require a new candidate and manual gates.
+    supersedes_revision: null
+    requirement_ids: [CI-004, CI-008, REL-002]
+
+  - id: acceptance.revision-20-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: the release branch exposes committed changelog and version preparation, and the release pull request cannot merge until its exact signed Linux and Windows candidates pass every registered manual gate.'
+      - 'Operator perspective: release preparation, candidate freeze, manual qualification, aggregate pre-merge readiness, preserving merge, post-merge tag creation, draft staging, final-origin verification, and publication have distinct objective boundaries and authorities.'
+      - 'Implementer perspective: one deterministic version manifest and one complete manual-script registry replace ambient build-time mutation; the qualified release pull-request head is the common source identity across builders, candidates, evidence, merge, tag, and publication.'
+      - 'Tester perspective: automated policy coverage rejects dirty or mutable heads, stale bases, missing scripts, incomplete changelogs, inconsistent versions, post-freeze commits, rewritten merges, premature or moved tags, wrong tag targets, and post-qualification artifact changes.'
+      - 'Security-reviewer perspective: feature pull requests and ordinary CI remain read-only; manual GPU jobs receive no signing/publication secret; tag, upload, and publication authority remain protected and separate; no workflow may rewrite tracked release metadata or clobber an immutable tag.'
+      - 'Maintainer perspective: release pull requests prohibit squash/rebase, any required content or base update creates a new candidate generation, the tag is created only after the unchanged qualified head becomes reachable from `main`, and rollback selects an older immutable release.'
+      - The current repository has no changelog, mutates `package.json` and `package-lock.json` from the supplied tag during release builds, permits clobbering uploads, and has no implemented release-branch/manual-registry gate; revision 20 specifies future behavior and does not claim it exists.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved outcome, failure, interface, architecture, privacy, operations, compatibility, migration, or acceptance choice after the release-branch head and tag anchor were committed.
+    supersedes_revision: null
+    requirement_ids: [CI-004, CI-008, QUAL-004, REL-002, AC-AUTO-085, AC-MAN-014, AC-MAN-017, AC-MAN-018, AC-MAN-019]
+
+  - id: approval.spec
+    revision: 20
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 20 makes a dedicated release branch and release pull request own committed changelog, canonical version/tag-derived inputs, and review of every registered manual release and qualification script.
+      - Protected candidate signing and the complete Linux/Windows manual qualifications occur against the frozen release pull-request head before merge.
+      - Aggregate pre-merge readiness blocks the pull request until every candidate, manual result, legal/signing/reviewer approval, and release identity is complete and current.
+      - Release pull requests must preserve the qualified head reachable from `main`; squash, rebase, conflict-resolution mutation, stale-base updates, and post-freeze commits invalidate the candidate generation.
+      - The immutable final tag is created only after merge and points to the exact qualified release pull-request head; tag movement, reuse, pre-merge creation, and tagging a different merge commit are prohibited.
+      - Tag creation, GitHub draft staging, upload, final-origin verification, publication, and release remain separately authorized external actions.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-23
+      question_id: approval.spec
+      idempotency_key: approval.spec:v20
+      supersedes_revision: 19
+      last_status: answered
+      sequence: 82
+      revision: 20
+    question:
+      text: How should Local Whisper specification revision 20 proceed after adding the release-branch, pre-merge manual qualification, preserving merge, and post-merge tag contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 20 (Recommended)
+          description: Make the release branch and pull-request lifecycle authoritative, including committed changelog/version preparation, pre-merge exact-byte manual gates, and post-merge tagging of the unchanged qualified head.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 20 in Draft and revise its release preparation, manual gate, merge, tag, or publication boundaries.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 19 remains the approved specification baseline.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 20. The authoritative contract now requires committed release-branch preparation, exact signed-candidate Linux and Windows manual qualification before merge, a release-PR merge that preserves the qualified head reachable from `main`, and post-merge creation of the immutable final tag on that exact commit. Tagging, upload, publication, and release remain separately authorized actions.
+    supersedes_revision: 19
+    requirement_ids: []
+
+  - id: planning.revision-26-packet-decomposition
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 20 adds release-branch preparation before protected candidate freeze and preserving merge/tag behavior after platform qualification.
+      - Task 28 already owns protected candidate signing and is too late to create or commit the release branch preparation that its candidates must consume.
+      - Task 22 already owns aggregate readiness and release delivery, so it can add the pre-merge status, preserving merge verification, post-merge tag, and delivery boundaries without duplicating candidate or platform work.
+      - A focused Task 30 can own changelog/version/manual-registry preparation and release-PR policy while Tasks 25 and 27 remain unchanged.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-lifecycle-plan-round-89
+      question_id: planning.revision-26-packet-decomposition
+      idempotency_key: planning.revision-26-packet-decomposition:v1
+      last_status: answered
+      sequence: 89
+      revision: 1
+    question:
+      text: How should plan revision 26 decompose the approved release-branch lifecycle?
+      kind: single
+      options:
+        - id: task30-preparation-revise-downstream
+          label: Add one preparation packet (Recommended)
+          description: Add Task 30 before Task 28 for committed release preparation and release-PR policy, then revise Tasks 28, 29, 21, and 22 for exact-head qualification, preserving merge, tag, and delivery.
+        - id: task30-task31-split
+          label: Add preparation and merge packets
+          description: Add Task 30 for release preparation and Task 31 for aggregate pre-merge/merge/tag orchestration, leaving Task 22 focused on final delivery.
+        - id: fold-into-existing-packets
+          label: Fold into Tasks 28 and 22
+          description: Add no packet; combine release preparation with protected signing in Task 28 and combine merge/tag with delivery in Task 22.
+    answer:
+      selected_ids: [task30-preparation-revise-downstream]
+      text: ''
+    rationale: Plan revision 26 adds one focused Task 30 before protected candidate production. Task 30 owns committed release preparation and release-PR policy; Tasks 28, 29, 21, and 22 retain their existing trust and platform boundaries while adding exact-head qualification, preserving merge, tag, and delivery requirements.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.release-version-authority
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - '`package.json` and `package-lock.json` currently contain the application version, while `scripts/apply-release-version.mjs` rewrites them from an external tag only during release builds.'
+      - Specification revision 20 prohibits silent build-time tracked-file rewriting and requires committed, mutually consistent version/tag-derived inputs plus one deterministic version manifest.
+      - The repository currently has no separate tracked release-version manifest or changelog.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-lifecycle-plan-round-89
+      question_id: planning.release-version-authority
+      idempotency_key: planning.release-version-authority:v1
+      last_status: answered
+      sequence: 90
+      revision: 1
+    question:
+      text: Which committed source should be canonical for the release version and expected tag?
+      kind: single
+      options:
+        - id: package-json-generated-manifest
+          label: Package version plus generated manifest (Recommended)
+          description: Commit the version in `package.json`, require matching package-lock and changelog entries, derive `v<version>`, and generate a deterministic identity manifest that workflows only validate.
+        - id: tracked-release-version-manifest
+          label: Tracked release-version manifest
+          description: Add one committed release-version manifest as canonical and require package files, changelog, catalogs, and expected tag to match it exactly.
+        - id: explicit-input-must-match-commits
+          label: Explicit input validated against commits
+          description: Keep the protected workflow SemVer input but admit it only when it exactly matches every committed version-bearing file and generated manifest.
+    answer:
+      selected_ids: [package-json-generated-manifest]
+      text: ''
+    rationale: The committed `package.json` version is canonical. `package-lock.json`, the versioned changelog section, catalog/compatibility inputs, and expected `v<SemVer>` tag must match it; a deterministic generated release-version identity manifest binds those values for candidate, qualification, merge, tag, and publication workflows without mutating tracked files.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.release-branch-name
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - A deterministic release-branch pattern lets policy distinguish a release pull request from feature pull requests without renderer or user-supplied authority.
+      - The approved specification requires one dedicated release branch but intentionally leaves its implementation-local name to planning.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-lifecycle-plan-round-89
+      question_id: planning.release-branch-name
+      idempotency_key: planning.release-branch-name:v1
+      last_status: answered
+      sequence: 91
+      revision: 1
+    question:
+      text: Which branch-name contract should identify release pull requests?
+      kind: single
+      options:
+        - id: release-v-semver
+          label: release/vSemVer (Recommended)
+          description: Require `release/v<SemVer>` and verify that its version matches the committed canonical version and expected tag.
+        - id: release-semver
+          label: release/SemVer
+          description: Require `release/<SemVer>` while keeping the final Git tag in `v<SemVer>` form.
+        - id: metadata-identified-release-branch
+          label: Metadata-identified branch
+          description: Allow another branch name only when immutable release-PR metadata identifies the attempt and matches its committed version manifest.
+    answer:
+      selected_ids: [release-v-semver]
+      text: ''
+    rationale: Release pull requests use exactly `release/v<SemVer>` and target `main`; the branch version, committed package version, changelog version, generated manifest, and expected final tag must agree before protected candidate work can begin.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.release-merge-enforcement
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - The qualified release pull-request head must remain an unchanged commit reachable from `main`; squash and rebase are prohibited only for release pull requests, not necessarily for every feature pull request.
+      - GitHub repository-wide merge-method settings would affect all pull requests, while an environment-protected merge job can compare the expected head/base immediately before one exact merge operation.
+      - Tag creation remains a later separately approved job and must fail unless the merged history contains the exact qualified head.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-lifecycle-plan-round-89
+      question_id: planning.release-merge-enforcement
+      idempotency_key: planning.release-merge-enforcement:v1
+      last_status: answered
+      sequence: 92
+      revision: 1
+    question:
+      text: How should GitHub enforce the preserving merge for a qualified release pull request?
+      kind: single
+      options:
+        - id: protected-exact-head-merge-job
+          label: Protected exact-head merge job (Recommended)
+          description: After manual merge authorization, a least-privilege protected job revalidates the PR head/base and required evidence, performs merge-commit mode with the expected head SHA, and verifies the qualified head is reachable from `main`.
+        - id: repository-wide-merge-commit-only
+          label: Repository-wide merge commits
+          description: Disable squash and rebase repository-wide so every pull request, including releases, can merge only with a merge commit; still verify the exact qualified head afterward.
+    answer:
+      selected_ids: [repository-wide-merge-commit-only]
+      text: ''
+    rationale: GitHub repository settings must disable squash and rebase merging for every pull request and permit merge commits only. Task 30 implements deterministic policy verification and documentation, while changing the external repository setting remains separately authorized. Task 22 still verifies that the exact qualified release pull-request head is an unchanged ancestor of `main` before tag creation.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.revision-26-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Plan revision 26 contains 30 numbered packets, with 29 active packets and only Task 26 deferred and non-executable.
+      - The active sequence is Task 25 readiness, Task 27 hosted builders, Task 30 release preparation, Task 28 protected signed candidates, Task 29 Linux qualification, Task 21 Windows qualification, and Task 22 aggregate pre-merge readiness plus tag/release delivery.
+      - Task 30 owns committed package/changelog/manual-registry preparation, generated release identity, read-only `release/v<SemVer>` PR policy, and repository merge-setting verification without creating an external release attempt.
+      - '`package.json` is the committed version authority, `package-lock.json` and the changelog must match, the branch is `release/v<SemVer>`, the expected tag is `v<SemVer>`, and workflows generate but never use a manifest to overwrite tracked source.'
+      - Repository-wide merge settings require merge commits and disable squash/rebase. Changing those settings, creating/updating/merging a release PR, creating a tag, and publishing remain separate manual gates.
+      - Every 89 automated acceptance criterion from `AC-AUTO-001`–`AC-AUTO-054` and `AC-AUTO-056`–`AC-AUTO-090` has exactly one active primary owner and at least one registered exact verification command; `AC-AUTO-085` moves from Task 28 to Task 30.
+      - All 313 active non-approval specification identifiers are mapped into at least one self-contained active packet.
+      - The acceptance registry conforms to its JSON Schema; the task-plan validator reports 29 active packets, one deferred packet, and 89 unique owners; ESLint, Prettier, YAML/JSON parsing, and `git diff --check` pass.
+      - Commands introduced by Tasks 30 and 22 are explicit implementation outputs and their current absence from `package.json` is not a planning executability ambiguity.
+      - Existing execution authorization for unchanged Task 25 remains a separate decision; plan approval authorizes no Task 27/30/28/29/21/22 execution, commit, push, release branch/PR, repository-setting mutation, signing, qualification, merge, tag, upload, publication, or release.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The revision-26 coverage and executability audit found no missing requirement owner, circular active dependency, deferred-task leak, unregistered automated acceptance owner, missing packet heading, implicit external authority, or release-identity gap.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 26
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 20 requires committed release preparation, exact signed-byte Linux/Windows qualification before merge, a preserving release-PR merge, post-merge tagging of the qualified head, and separately authorized delivery.
+      - The user selected one new Task 30 plus downstream packet revisions, canonical committed `package.json` version authority with a generated manifest, `release/v<SemVer>`, and repository-wide merge-commit-only settings.
+      - Plan revision 26 preserves completed Tasks 01–20, 23, and 24; keeps Task 25 and Task 27 scopes unchanged; adds Task 30; revises Tasks 28, 29, 21, and 22; and keeps Task 26 deferred.
+      - Structural validation reports 29 active packets, one deferred packet, 89 unique automated acceptance owners, and complete mapping of all 313 active specification identifiers.
+      - Task 25 remains separately authorized by the existing execution decision because its outcome, implementation scope, verification, and stop boundary are unchanged; every later packet and release action remains unauthorized.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-26
+      question_id: approval.plan-revision-26
+      idempotency_key: approval.plan-revision-26:v1
+      last_status: answered
+      sequence: 93
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 26 proceed after adding the release-branch preparation packet and reconciling exact-head qualification, preserving merge, tag, and delivery boundaries?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 26 (Recommended)
+          description: Make Task 25 → 27 → 30 → 28 → 29 → 21 → 22 authoritative while preserving independent authorization for every external release action.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 26 in Draft and revise packet scope, dependencies, ownership, version/branch policy, merge enforcement, verification, or manual gates.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; plan revision 25 remains the last approved plan but is stale against specification revision 20.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 26. The authoritative sequence is Task 25 → 27 → 30 → 28 → 29 → 21 → 22; Task 26 remains deferred. Task 30 owns committed release preparation and read-only release-PR/repository-setting policy, while downstream packets bind one unchanged head through signing, pre-merge qualification, aggregate readiness, preserving merge verification, post-merge tag, and exact delivery. Existing Task 25 execution authorization remains separate and valid; every later packet and external release action remains unauthorized.
+    supersedes_revision: 25
     requirement_ids: []

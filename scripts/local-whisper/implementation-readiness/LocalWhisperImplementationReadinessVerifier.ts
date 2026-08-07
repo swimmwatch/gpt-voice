@@ -93,6 +93,20 @@ const SOURCE_CONTRACTS: readonly SourceContract[] = Object.freeze([
     ]),
   }),
   Object.freeze({
+    id: 'rtx50-preinstall-applicability',
+    path: 'src/main/localWhisper/capability/NvidiaCudaRuntimeApplicability.ts',
+    markers: Object.freeze(['export class NvidiaCudaRuntimeApplicability', "'sm_120a-real'", 'minimumDriverVersion']),
+  }),
+  Object.freeze({
+    id: 'rtx50-bounded-nvidia-inventory',
+    path: 'src/main/localWhisper/capability/NvidiaSmiHostInventory.ts',
+    markers: Object.freeze([
+      "'/usr/bin/nvidia-smi'",
+      "'--query-gpu=pci.bus_id,compute_cap,driver_version,memory.total'",
+      'NVIDIA_SMI_MAXIMUM_OUTPUT_CHARACTERS',
+    ]),
+  }),
+  Object.freeze({
     id: 'authenticated-transfer-profiles',
     path: 'src/main/localWhisper/artifacts/ArtifactCatalogResolver.ts',
     markers: Object.freeze(["'restricted-tar-gzip-v1'", "'pinned-raw-model-v1'", 'credentialForwarding: false']),
@@ -226,6 +240,7 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'test:local-whisper:acceptance-ownership',
   'test:local-whisper:artifacts',
   'test:local-whisper:catalog',
+  'test:local-whisper:rtx50-applicability',
   'test:local-whisper:packaging',
   'test:local-whisper:composition',
   'test:local-whisper:fs-guard:native',
@@ -238,16 +253,17 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'produce:local-whisper:qualification:runtime-pack:cuda',
   'verify:local-whisper:qualification:inputs',
   'verify:local-whisper:implementation-readiness',
+  'verify:local-whisper:rtx50-readiness',
   'test:local-whisper:windows-readiness',
   'verify:local-whisper:windows-readiness',
   'test:local-whisper:development',
   'start:local-whisper:development',
 ]);
 
-const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 17;
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 23;
-const IMPLEMENTATION_READINESS_TASK_COUNT = 26;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-23-acceptance-registry';
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 20;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 26;
+const IMPLEMENTATION_READINESS_TASK_COUNT = 30;
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-26-acceptance-registry';
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
   /(?:^|\/)(?:candidate-input|platform-input|profile-(?:cpu|cuda)|platform-graph|platform-result|evidence-index|aggregate-result)\.json$/u;
@@ -280,7 +296,7 @@ function hasResource(value: unknown, from: string, to: string): boolean {
 function expectedAcceptanceIds(): readonly string[] {
   return Object.freeze([
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 27 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 35 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ]);
 }
 
@@ -425,13 +441,14 @@ export class LocalWhisperImplementationReadinessVerifier {
       .filter((command) => command.task === '23')
       .map((command) => [command.id, command.command]);
     if (
-      manifest.schemaVersion !== 1 ||
+      manifest.schemaVersion !== 2 ||
       manifest.specificationRevision !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       manifest.planRevision !== IMPLEMENTATION_READINESS_PLAN_REVISION ||
       JSON.stringify(Object.keys(taskFiles).sort()) !== JSON.stringify(expectedTasks) ||
       taskFiles['23'] !== '23_main_window_residency_control.md' ||
-      taskFiles['25'] !== '25_linux_qualification_finalization.md' ||
+      taskFiles['25'] !== '25_rtx50_readiness_closure.md' ||
       taskFiles['26'] !== '26_hardware_matched_nvidia_cuda_runtime_expansion.md' ||
+      taskFiles['27'] !== '27_hosted_production_equivalent_ci.md' ||
       JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
       !commandRecords.some((value) => {
         return (
@@ -442,9 +459,15 @@ export class LocalWhisperImplementationReadinessVerifier {
       }) ||
       !commandRecords.some(
         (value) =>
-          value.id === 'task-26-hardware-matched-cuda-tests' &&
-          value.task === '26' &&
-          value.command === 'rtk npm run test:local-whisper:hardware-matched-cuda',
+          value.id === 'task-25-rtx50-applicability-tests' &&
+          value.task === '25' &&
+          value.command === 'rtk npm run test:local-whisper:rtx50-applicability',
+      ) ||
+      !commandRecords.some(
+        (value) =>
+          value.id === 'task-25-rtx50-readiness-verification' &&
+          value.task === '25' &&
+          value.command === 'rtk npm run verify:local-whisper:rtx50-readiness',
       ) ||
       JSON.stringify(task23Commands) !==
         JSON.stringify([
@@ -455,9 +478,11 @@ export class LocalWhisperImplementationReadinessVerifier {
       ['AC-AUTO-059', 'AC-AUTO-076', 'AC-AUTO-077'].some(
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '23',
       ) ||
-      ['AC-AUTO-078', 'AC-AUTO-079', 'AC-AUTO-080', 'AC-AUTO-081', 'AC-AUTO-082'].some(
-        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '26',
+      ['AC-AUTO-078', 'AC-AUTO-079', 'AC-AUTO-081'].some(
+        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '25',
       ) ||
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-080')?.primaryTask !== '27' ||
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-082')?.primaryTask !== '22' ||
       specificationRevision.const !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       planRevision.const !== IMPLEMENTATION_READINESS_PLAN_REVISION
     ) {

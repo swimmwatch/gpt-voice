@@ -169,7 +169,7 @@ function command(
   });
 }
 
-function harness(error: Error | null = null, cancelResult = false) {
+function harness(error: Error | null = null, cancelResult = false, canAcquire: () => boolean = () => true) {
   const catalogValue = catalog();
   const inventoryRepository = new LocalWhisperInventoryRepository();
   const initialInventory = inventoryRepository.reconstruct({
@@ -231,6 +231,7 @@ function harness(error: Error | null = null, cancelResult = false) {
   };
   const port = new LocalWhisperProductionArtifactPort({
     catalog: catalogValue,
+    canAcquire: () => canAcquire(),
     clearance: new ManagedArtifactRemovalClearanceIssuer(),
     inventory,
     service,
@@ -262,6 +263,24 @@ describe('LocalWhisperProductionArtifactPort', () => {
       success: true,
     });
     assert.deepEqual(values.cancelCalls, ['operation-id-0001']);
+  });
+
+  it('rejects forged artifact acquisition before creating a transfer operation', async () => {
+    const values = harness(null, false, () => false);
+    const descriptor = createManagedRuntimeDescriptor(values.catalogValue, values.catalogValue.payload.runtimes[0]);
+
+    assert.deepEqual(
+      await values.port.execute({
+        kind: 'download',
+        artifactKind: 'runtime',
+        artifactId: descriptor.artifactId,
+        artifactRevision: values.catalogValue.payload.runtimes[0]!.identity.packRevision,
+        expectedSnapshotRevision: 1,
+        expectedConfigurationEpoch: 1,
+        expectedInventoryEpoch: values.initialInventory.revision,
+      }),
+      { success: false, code: 'INVALID_SETTINGS' },
+    );
   });
 
   it('deletes one exact catalog model and atomically publishes reconstructed inventory', async () => {

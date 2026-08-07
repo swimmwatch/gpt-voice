@@ -55,6 +55,16 @@ export interface LocalWhisperCatalogDisplayMetadata {
   readonly summary: string;
 }
 
+/** Authenticated CUDA applicability facts consumed only by main-process catalog filtering. */
+export interface LocalWhisperCatalogCudaApplicability {
+  readonly computeTarget: 'sm_120a-real';
+  readonly minimumDriverVersion: string;
+  readonly minimumComputeCapability: '12.0';
+  readonly maximumComputeCapability: '12.0';
+  readonly minimumTotalVramBytes: number;
+  readonly policyRevision: LocalWhisperRevisionId;
+}
+
 export interface LocalWhisperCatalogModelFileIdentity {
   readonly fileId: LocalWhisperArtifactId;
   readonly kind: 'data' | 'config' | 'tokenizer' | 'notice';
@@ -65,6 +75,7 @@ export interface LocalWhisperCatalogModelFileIdentity {
 
 export interface LocalWhisperCatalogRuntimeEntry {
   readonly identity: LocalWhisperRuntimeIdentity;
+  readonly applicability?: LocalWhisperCatalogCudaApplicability | null;
   readonly recommended: boolean;
   readonly qualificationStatus: 'qualified' | 'estimateOnly' | 'planned';
   readonly licenseIds: readonly LocalWhisperArtifactId[];

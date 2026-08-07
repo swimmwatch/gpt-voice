@@ -210,6 +210,7 @@ class WindowsApplicationSmoke {
       qualificationHooks,
       randomBytes: (size) => randomBytes(size),
       randomNonce: () => randomBytes(24).toString('base64url'),
+      readNvidiaInventory: () => Promise.resolve({ available: false, reason: 'DEVICE_NOT_FOUND' }),
       readFile: async (filePath) => await readFile(filePath),
       resourcesPath: activation.resourcesPath,
       spawnProcess: spawn,
