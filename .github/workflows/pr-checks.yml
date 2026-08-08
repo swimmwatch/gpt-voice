@@ -196,6 +196,55 @@ jobs:
       - name: Run Windows Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
 
+  local-whisper-remediation:
+    name: Local Whisper Remediation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Cache npm and Electron binaries
+        uses: actions/cache@v6
+        with:
+          path: |
+            ${{ env.NPM_CONFIG_CACHE }}
+            ${{ env.ELECTRON_CACHE }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: ${{ runner.os }}-local-whisper-remediation-${{ hashFiles('package-lock.json', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-local-whisper-remediation-
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Run Local Whisper remediation checks
+        run: |
+          npm run test:local-whisper:artifacts
+          npm run test:local-whisper:ipc
+          npm run test:local-whisper:composition
+          npm run verify:local-whisper:ui
+          node --import tsx --test tests/scripts/localWhisper/qualification/QualificationArtifactHttpClient.test.ts tests/scripts/localWhisper/qualification/QualificationHttpsArtifactServer.test.ts
+          npm run typecheck
+          npm run test:types
+          npm run lint
+          npm run format:check
+          npm run build:prod
+
   quality:
     name: Quality Gates
     runs-on: ubuntu-latest

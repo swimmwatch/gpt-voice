@@ -79,7 +79,7 @@ describe('NVIDIA RTX 50 pre-install inventory', () => {
       command: {
         run: async (executablePath, arguments_) => {
           calls.push({ executablePath, arguments_ });
-        return '00000000:01:00.0, 12.0, 570.26, 8192\n';
+          return '00000000:01:00.0, 12.0, 570.26, 8192\n';
         },
       },
     });

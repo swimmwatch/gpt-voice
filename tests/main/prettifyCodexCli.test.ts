@@ -464,10 +464,13 @@ describe('CodexCliPrettifyAdapter', () => {
       success('ignored auth status'),
     ]).createAdapter();
 
-    assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: new AbortController().signal }), {
-      capabilityVersion: '0.147.0',
-      success: true,
-    });
+    assert.deepEqual(
+      await adapter.checkAvailability({ settings: getSettings(), signal: new AbortController().signal }),
+      {
+        capabilityVersion: '0.147.0',
+        success: true,
+      },
+    );
   });
 
   it('maps every runner failure safely and does not interpret auth output', async () => {

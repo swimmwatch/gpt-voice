@@ -883,3 +883,29 @@ decisions:
     rationale: The user's implementation request explicitly authorizes only Packet 03; Packet 04 remains out of scope.
     supersedes_revision: null
     requirement_ids: [EXEC-AUTH-003]
+
+  - id: authorization.execution-packet-04
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/04_cross_platform_remediation_gate.md
+      - The user explicitly approved the Packet 04 preparation and cross-platform gate plan on 2026-08-08.
+    prompt_mcp: null
+    question:
+      text: Do you authorize an incremental-implementation invocation to execute only Packet 04 Cross-Platform Remediation Gate?
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize packet 04
+          description: Implement and locally verify the Packet 04 workflow gate, record unavailable external evidence as pending, and do not commit or start another packet.
+        - id: hold-for-review
+          label: Hold for review
+          description: Leave Packet 04 unexecuted until a later authorization.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: The user explicitly authorized Packet 04 implementation while requiring GitHub Actions and desktop smoke evidence to remain pending.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-004]

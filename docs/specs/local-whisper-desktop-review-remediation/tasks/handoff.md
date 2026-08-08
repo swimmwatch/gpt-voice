@@ -32,6 +32,10 @@
 - `tests/main/localWhisper/ipc/LocalWhisperIpcController.test.ts`
 - `tests/main/localWhisper/ipc/localWhisperIpcTestUtils.ts`
 - `tests/main/windowManager.test.ts`
+- `.github/workflows/pr-checks.yml`
+- `docs/specs/local-whisper-desktop-review-remediation/decisions.yaml`
+- `tests/main/localWhisper/capability/NvidiaRtx50Applicability.test.ts`
+- `tests/main/prettifyCodexCli.test.ts`
 
 ## Checks
 
@@ -54,11 +58,14 @@
 - `npm run typecheck` passes.
 - `npm run test:types` passes.
 - Scoped `npx eslint` and `npx prettier --check` for the Packet 03 authority, controller, fakes, and window tests pass.
+- Packet 04 adds the read-only `local-whisper-remediation` matrix job for `ubuntu-latest` and `windows-latest`, with Node.js 24, 60-minute timeout, npm/Electron caches, and deterministic remediation checks. The existing unconditional `quality` job retains `npm run audit:prod`.
+- Local Packet 04 preflight passes: `npm run test:local-whisper:artifacts` (32 tests), `npm run test:local-whisper:ipc` (88 tests), `npm run test:local-whisper:composition`, `npm run verify:local-whisper:ui`, qualification HTTPS tests (6 tests), `npm run typecheck`, `npm run test:types`, `npm run lint` (88 pre-existing warnings and no errors), `npm run build:prod` (webpack performance warnings only), and `npm run audit:prod` (0 vulnerabilities).
+- `npm run format:check` and `npm run test:types` pass after formatting-only changes to `tests/main/localWhisper/capability/NvidiaRtx50Applicability.test.ts` and `tests/main/prettifyCodexCli.test.ts`. Their focused test command passes (21 tests).
 
 ## Exact Next Step
 
-- Review the uncommitted Packet 03 changes. Then obtain separate execution authorization for [04 Cross-Platform Remediation Gate](04_cross_platform_remediation_gate.md) before executing only that packet in a fresh `incremental-implementation` invocation.
+- Separately authorize a Packet 04 commit/push, GitHub Actions matrix execution, and Linux/Windows desktop smoke before marking Packet 04 complete.
 
 ## Blockers
 
-- No Packet 03 blocker remains. Linux and Windows desktop navigation-invalidation smoke remains mandatory in packet 04.
+- Packet 04 remains incomplete only because the GitHub Actions Linux/Windows matrix and Linux/Windows x64 desktop smoke are pending. No external validation was requested or run.
