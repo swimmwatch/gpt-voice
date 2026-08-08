@@ -202,9 +202,9 @@ jobs:
           if (!(Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio locator is unavailable' }
           $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if ([string]::IsNullOrWhiteSpace($installationPath)) { throw 'Visual Studio C++ build tools are unavailable' }
-          $vcvars = Join-Path $installationPath 'VC\Auxiliary\Build\vcvars64.bat'
+          $vcvars = Join-Path $installationPath 'VC\Auxiliary\Build\vcvarsall.bat'
           if (!(Test-Path -LiteralPath $vcvars)) { throw 'Visual Studio x64 developer environment is unavailable' }
-          $captured = & cmd.exe /d /s /c "call `"$vcvars`" -no_logo -arch=x64 -host_arch=x64 && set"
+          $captured = & cmd.exe /d /c "call `"$vcvars`" x64 && set"
           if ($LASTEXITCODE -ne 0) { throw 'Visual Studio developer environment initialization failed' }
           $required = @('INCLUDE', 'LIB', 'LIBPATH', 'PATH', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR')
           $values = @{}
