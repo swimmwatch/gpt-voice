@@ -1,6 +1,8 @@
 /* eslint-disable max-classes-per-file -- the fixture doubles model distinct clock, record, process, and ownership lifecycles. */
 import assert from 'node:assert/strict';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 import { test } from 'node:test';
@@ -207,12 +209,20 @@ class FixtureWorkerProcess implements LocalWhisperOwnedWorkerProcess {
 }
 
 class FixtureProcessOwner implements LocalWhisperWorkerProcessOwner {
-  public constructor(private readonly mode: WorkerMode) {}
+  public constructor(
+    private readonly mode: WorkerMode,
+    private readonly lateCancelReadyPath: string | null,
+  ) {}
 
   public async launch(): Promise<LocalWhisperOwnedWorkerProcess> {
     const child = spawn(process.execPath, ['--import', 'tsx', WORKER_PATH, this.mode], {
       cwd: process.cwd(),
-      env: process.env,
+      env: {
+        ...process.env,
+        ...(this.lateCancelReadyPath
+          ? { LOCAL_WHISPER_CONFORMANCE_LATE_CANCEL_READY_PATH: this.lateCancelReadyPath }
+          : {}),
+      },
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
@@ -253,13 +263,16 @@ function lease(kind: 'model' | 'runtime', releases: { value: number }): ManagedA
 }
 
 function harness(mode: WorkerMode) {
+  const lateCancelReadyDirectory =
+    mode === 'cancel-too-late' ? mkdtempSync(resolve(tmpdir(), 'local-whisper-conformance-')) : null;
+  const lateCancelReadyPath = lateCancelReadyDirectory ? resolve(lateCancelReadyDirectory, 'late-cancel-ready') : null;
   const clock = new FakeClock();
   const releasedRuntime = { value: 0 };
   const releasedModel = { value: 0 };
   const runtimeLease = lease('runtime', releasedRuntime);
   const modelLease = lease('model', releasedModel);
   const ownership = new WorkerProcessOwnership({
-    processOwner: new FixtureProcessOwner(mode),
+    processOwner: new FixtureProcessOwner(mode, lateCancelReadyPath),
     randomNonce: () => 'conformance_nonce_1234',
     recordStore: new MemoryRecordStore(),
   });
@@ -296,7 +309,25 @@ function harness(mode: WorkerMode) {
     workingDirectoryPath: resolve('tests/fixtures/local-whisper/worker'),
     revalidate: async () => undefined,
   };
-  return { authority, clock, modelLease, releasedModel, releasedRuntime, supervisor };
+  return {
+    authority,
+    clock,
+    dispose: () => {
+      if (lateCancelReadyDirectory) rmSync(lateCancelReadyDirectory, { force: true, recursive: true });
+    },
+    modelLease,
+    releasedModel,
+    releasedRuntime,
+    supervisor,
+    waitForLateCancellationReady: async () => {
+      if (!lateCancelReadyPath) throw new Error('Late cancellation marker unavailable');
+      const deadline = Date.now() + 5_000;
+      while (!existsSync(lateCancelReadyPath)) {
+        if (Date.now() >= deadline) throw new Error('Late cancellation marker timed out');
+        await new Promise<void>((resolve) => setTimeout(resolve, 5));
+      }
+    },
+  };
 }
 
 test('standalone conformance worker consumes every checked-in golden vector', () => {
@@ -350,41 +381,58 @@ test('standalone conformance worker completes a fresh full-load lifecycle withou
 
 test('standalone conformance worker preserves transcript-first cancellation and warmed reuse', async () => {
   const value = harness('cancel-too-late');
-  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
-  assert.equal(
-    (
-      await value.supervisor.load({
-        ...bindingAuthority(),
-        configurationEpoch: 1,
-        modelLease: value.modelLease,
-        residency: residency(),
-        revalidate: async () => undefined,
-      })
-    ).success,
-    true,
-  );
-  assert.equal((await value.supervisor.warmup(1)).success, true);
-  const transcription = value.supervisor.transcribe({
-    audio: canonicalWav(),
-    configurationEpoch: 1,
-    settingsEpoch: 1,
-    options: { language: null, initialPrompt: '', temperatureHundredths: 0, strategy: 'greedy', candidateCount: null },
-  });
-  await Promise.resolve();
-  const cancellation = await value.supervisor.cancel();
-  const transcript = await transcription;
-  assert.equal(cancellation.success, false);
-  if (!cancellation.success) assert.equal(cancellation.error.code, 'OPERATION_CONFLICT');
-  assert.equal(transcript.success, true);
-  assert.equal(value.supervisor.state, 'warmed');
-  const reuse = await value.supervisor.transcribe({
-    audio: canonicalWav(),
-    configurationEpoch: 1,
-    settingsEpoch: 1,
-    options: { language: null, initialPrompt: '', temperatureHundredths: 0, strategy: 'greedy', candidateCount: null },
-  });
-  assert.equal(reuse.success, true);
-  assert.equal((await value.supervisor.unload(1)).success, true);
+  try {
+    assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+    assert.equal(
+      (
+        await value.supervisor.load({
+          ...bindingAuthority(),
+          configurationEpoch: 1,
+          modelLease: value.modelLease,
+          residency: residency(),
+          revalidate: async () => undefined,
+        })
+      ).success,
+      true,
+    );
+    assert.equal((await value.supervisor.warmup(1)).success, true);
+    const transcription = value.supervisor.transcribe({
+      audio: canonicalWav(),
+      configurationEpoch: 1,
+      settingsEpoch: 1,
+      options: {
+        language: null,
+        initialPrompt: '',
+        temperatureHundredths: 0,
+        strategy: 'greedy',
+        candidateCount: null,
+      },
+    });
+    await value.waitForLateCancellationReady();
+    const cancellation = await value.supervisor.cancel();
+    const transcript = await transcription;
+    assert.equal(cancellation.success, false);
+    if (!cancellation.success) assert.equal(cancellation.error.code, 'OPERATION_CONFLICT');
+    assert.equal(transcript.success, true);
+    assert.equal(value.supervisor.state, 'warmed');
+    const reuse = await value.supervisor.transcribe({
+      audio: canonicalWav(),
+      configurationEpoch: 1,
+      settingsEpoch: 1,
+      options: {
+        language: null,
+        initialPrompt: '',
+        temperatureHundredths: 0,
+        strategy: 'greedy',
+        candidateCount: null,
+      },
+    });
+    assert.equal(reuse.success, true);
+    assert.equal((await value.supervisor.unload(1)).success, true);
+  } finally {
+    await value.supervisor.shutdown();
+    value.dispose();
+  }
 });
 
 test('standalone probe worker exits without becoming a full-load worker', async () => {

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
@@ -347,6 +347,8 @@ class ConformanceWorker {
     this.activeRequestId = null;
     if (this.mode === 'cancel-too-late' && !this.cancelRaceComplete) {
       this.completedTranscriptionRequestId = requestId;
+      const readyPath = process.env.LOCAL_WHISPER_CONFORMANCE_LATE_CANCEL_READY_PATH;
+      if (readyPath) writeFileSync(readyPath, 'ready\n', { encoding: 'utf8', flag: 'wx', mode: 0o600 });
       return;
     }
     this.respond({
