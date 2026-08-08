@@ -58,16 +58,16 @@
 - `npm run typecheck` passes.
 - `npm run test:types` passes.
 - Scoped `npx eslint` and `npx prettier --check` for the Packet 03 authority, controller, fakes, and window tests pass.
-- Packet 04 adds the read-only `local-whisper-remediation` matrix job for `ubuntu-latest` and `windows-latest`, with Node.js 24, 60-minute timeout, npm/Electron caches, and deterministic remediation checks. The existing unconditional `quality` job retains `npm run audit:prod`.
+- The dedicated `local-whisper-remediation` matrix was removed at the user's direction after CI evidence was collected; the existing unconditional `quality` job remains unchanged.
 - Local Packet 04 preflight passes: `npm run test:local-whisper:artifacts` (32 tests), `npm run test:local-whisper:ipc` (88 tests), `npm run test:local-whisper:composition`, `npm run verify:local-whisper:ui`, qualification HTTPS tests (6 tests), `npm run typecheck`, `npm run test:types`, `npm run lint` (88 pre-existing warnings and no errors), `npm run build:prod` (webpack performance warnings only), and `npm run audit:prod` (0 vulnerabilities).
 - `npm run format:check` and `npm run test:types` pass after formatting-only changes to `tests/main/localWhisper/capability/NvidiaRtx50Applicability.test.ts` and `tests/main/prettifyCodexCli.test.ts`. Their focused test command passes (21 tests).
-- GitHub Actions [workflow dispatch run 31271967296](https://github.com/swimmwatch/gpt-voice/actions/runs/31271967296) passed the `Local Whisper Remediation` job on both `ubuntu-latest` and `windows-latest`, including the full Packet 04 command sequence.
-- The same workflow’s overall conclusion is failure outside the Packet 04 matrix: existing Linux and Windows native-quality source-integrity checks failed, and the existing `quality` job’s full unit-test step failed. The Packet 04 remediation jobs completed successfully and no unrelated failure was changed.
+- GitHub Actions [workflow dispatch run 31271967296](https://github.com/swimmwatch/gpt-voice/actions/runs/31271967296) previously passed the temporary `Local Whisper Remediation` job on both `ubuntu-latest` and `windows-latest`; this historical result is not an active merge gate after the user-directed rollback.
+- The same workflow’s overall conclusion is failure outside the removed matrix: existing Linux and Windows native-quality source-integrity checks failed, and the existing `quality` job’s full unit-test step failed. No unrelated failure was changed.
 
 ## Exact Next Step
 
-- Complete the pending Linux x64 and Windows x64 desktop smoke gates, then resolve the unrelated native-quality and full-unit-test CI failures through their owning workstreams before marking Packet 04 complete.
+- Packet 04's dedicated CI gate is rolled back. Do not reintroduce it or mark Packet 04 complete without a fresh specification or planning decision.
 
 ## Blockers
 
-- Packet 04 remains incomplete because Linux and Windows x64 desktop smoke gates are pending. The overall workflow also remains failing due to unrelated native-quality source-integrity and full-unit-test failures; the dedicated Packet 04 matrix passed on both runners.
+- Packet 04 remains unchecked because its dedicated CI gate was rolled back at the user's direction. Existing native-quality source-integrity and full-unit-test CI failures remain outside this workstream.

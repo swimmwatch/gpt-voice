@@ -909,3 +909,28 @@ decisions:
     rationale: The user explicitly authorized Packet 04 implementation while requiring GitHub Actions and desktop smoke evidence to remain pending.
     supersedes_revision: null
     requirement_ids: [EXEC-AUTH-004]
+
+  - id: scope.packet-04-remediation-ci
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user clarified that "these jobs" means the newly added Local Whisper Remediation matrix on 2026-08-08.
+    prompt_mcp: null
+    question:
+      text: Should the newly added Local Whisper Remediation GitHub Actions matrix remain after its CI result is observed?
+      kind: single
+      options:
+        - id: retain-matrix
+          label: Retain matrix
+          description: Keep the dedicated Ubuntu and Windows remediation workflow job.
+        - id: remove-matrix
+          label: Remove matrix
+          description: Remove the dedicated remediation workflow job and leave the Packet 04 gate rolled back.
+    answer:
+      selected_ids: [remove-matrix]
+      text: ''
+    rationale: The user selected the newly added remediation matrix for deletion.
+    supersedes_revision: null
+    requirement_ids: [GAT-001]
