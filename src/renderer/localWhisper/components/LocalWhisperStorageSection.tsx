@@ -1,5 +1,6 @@
 import { PiDatabase, PiHardDrives } from 'react-icons/pi';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { useI18n } from '@renderer/hooks/useI18n';
 import { formatLocalWhisperBytes } from '../LocalWhisperPresentation';
 import { LocalWhisperDisclosure } from './LocalWhisperSection';
 
@@ -17,18 +18,19 @@ export default function LocalWhisperStorageSection({
   pendingAction,
   onOpenStorageFolder,
 }: LocalWhisperStorageSectionProps): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <LocalWhisperDisclosure
       className="lw-storage-disclosure"
       icon={PiDatabase}
-      summary={`${formatLocalWhisperBytes(aggregateBytes)} used`}
-      title="Storage"
+      summary={t('localWhisper.settings.used', { size: formatLocalWhisperBytes(aggregateBytes, t) })}
+      title={t('localWhisper.settings.storage')}
     >
       <div className="lw-storage-summary">
         <PiHardDrives aria-hidden="true" />
         <div>
-          <strong>Local Whisper storage</strong>
-          <span>{storageSummary} · Runtime packages, model files, and verification metadata.</span>
+          <strong>{t('localWhisper.settings.storageTitle')}</strong>
+          <span>{t('localWhisper.settings.storageDescription', { summary: storageSummary })}</span>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -38,11 +40,11 @@ export default function LocalWhisperStorageSection({
               onClick={onOpenStorageFolder}
               type="button"
             >
-              Open folder
+              {t('localWhisper.settings.openFolder')}
             </button>
           </TooltipTrigger>
           {pendingAction !== null ? (
-            <TooltipContent>Disabled while another action is in progress.</TooltipContent>
+            <TooltipContent>{t('localWhisper.settings.disabledActionBusy')}</TooltipContent>
           ) : null}
         </Tooltip>
       </div>

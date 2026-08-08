@@ -94,9 +94,9 @@ describe('Local Whisper UI contracts', () => {
   it('distinguishes catalog unavailability from unsupported platforms and labels development artifacts', () => {
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
     assert.match(page, /CATALOG_UNAVAILABLE/u);
-    assert.match(page, />Catalog unavailable</u);
-    assert.match(page, />Development qualification artifacts</u);
-    assert.match(page, /Production artifacts have not been published/u);
+    assert.match(page, /t\('localWhisper\.settings\.catalogUnavailable'\)/u);
+    assert.match(page, /t\('localWhisper\.settings\.developmentArtifacts'\)/u);
+    assert.match(page, /t\('localWhisper\.settings\.catalogUnavailableDescription'\)/u);
     assert.doesNotMatch(page, /Catalog unavailable[\s\S]{0,120}border border/u);
   });
 
@@ -135,10 +135,26 @@ describe('Local Whisper UI contracts', () => {
 
   it('keeps Storage focused on the managed folder without duplicating artifact controls', () => {
     const storage = source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx');
-    assert.match(storage, /formatLocalWhisperBytes\(aggregateBytes\)/u);
-    assert.match(storage, />\s*Open folder\s*</u);
+    assert.match(storage, /formatLocalWhisperBytes\(aggregateBytes, t\)/u);
+    assert.match(storage, /t\('localWhisper\.settings\.openFolder'\)/u);
     assert.doesNotMatch(storage, /installed artifacts|artifacts\.map|LocalWhisperArtifact/u);
     assert.doesNotMatch(storage, /onArtifactAction|onViewReference|getLatestLocalWhisperArtifactProgress/u);
+  });
+
+  it('describes an unavailable saved GPU without exposing an internal validation key', () => {
+    const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
+    assert.match(page, /localWhisper\.settings\.savedDeviceUnavailable/u);
+    assert.doesNotMatch(page, /`\$\{issue\.path\}: \$\{issue\.reason\}`/u);
+  });
+
+  it('does not expose a stale saved GPU device as a selectable option', () => {
+    const runtime = source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx');
+    assert.match(
+      runtime,
+      /const selectedDeviceUnavailable =\s*draft\.deviceId !== null && !deviceOptions\.some\(\(option\) => option\.id === draft\.deviceId\);/u,
+    );
+    assert.match(runtime, /value=\{selectedDeviceUnavailable \? null : draft\.deviceId\}/u);
+    assert.match(runtime, /t\('localWhisper\.settings\.savedDeviceUnavailable'\)/u);
   });
 
   it('rejects forged host and resource facts at the renderer IPC boundary', () => {

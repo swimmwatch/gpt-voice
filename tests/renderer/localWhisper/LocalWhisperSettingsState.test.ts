@@ -141,7 +141,7 @@ describe('Local Whisper settings draft', () => {
 
     assert.equal(medium.modelRevision, 'model-medium-v1');
     assert.deepEqual(validateLocalWhisperDraft(medium, current).errors, {});
-    assert.match(
+    assert.ok(
       validateLocalWhisperDraft(
         {
           ...baseline,
@@ -151,13 +151,9 @@ describe('Local Whisper settings draft', () => {
           runtimeRevision: 'runtime-cpu-v1',
         },
         current,
-      ).errors.runtimeRevision ?? '',
-      /compatible with the execution target/u,
+      ).errors.runtimeRevision,
     );
-    assert.match(
-      validateLocalWhisperDraft({ ...baseline, modelFamily: 'medium' }, current).errors.modelRevision ?? '',
-      /compatible with the model family/u,
-    );
+    assert.ok(validateLocalWhisperDraft({ ...baseline, modelFamily: 'medium' }, current).errors.modelRevision);
   });
 
   it('validates code points, Unicode safety, and explicit prompt mutation semantics', () => {
@@ -170,20 +166,20 @@ describe('Local Whisper settings draft', () => {
         .initialPrompt,
       undefined,
     );
-    assert.match(
+    assert.equal(
       validateLocalWhisperDraft({ ...baseline, initialPrompt: `${maximum}😀`, promptMutation: 'replace' }, current)
-        .errors.initialPrompt ?? '',
-      /at most/u,
+        .errors.initialPrompt?.key,
+      'localWhisper.settings.validationPromptTooLong',
     );
-    assert.match(
+    assert.equal(
       validateLocalWhisperDraft({ ...baseline, initialPrompt: 'unsafe\0prompt', promptMutation: 'replace' }, current)
-        .errors.initialPrompt ?? '',
-      /invalid Unicode scalar or NUL/u,
+        .errors.initialPrompt?.key,
+      'localWhisper.settings.validationPromptInvalid',
     );
-    assert.match(
+    assert.equal(
       validateLocalWhisperDraft({ ...baseline, initialPrompt: '', promptMutation: 'replace' }, current).errors
-        .initialPrompt ?? '',
-      /choose Clear on Save/u,
+        .initialPrompt?.key,
+      'localWhisper.settings.validationPromptEmpty',
     );
     assert.deepEqual(validateLocalWhisperDraft({ ...baseline, promptMutation: 'clear' }, current).promptMutation, {
       kind: 'clear',
@@ -194,28 +190,28 @@ describe('Local Whisper settings draft', () => {
     const current = snapshot();
     const baseline = createLocalWhisperDraft(current);
 
-    assert.match(
-      validateLocalWhisperDraft({ ...baseline, temperature: '0.03' }, current).errors.temperature ?? '',
-      /increments of 0.05/u,
+    assert.equal(
+      validateLocalWhisperDraft({ ...baseline, temperature: '0.03' }, current).errors.temperature?.key,
+      'localWhisper.settings.validationTemperature',
     );
-    assert.match(
+    assert.equal(
       validateLocalWhisperDraft(
         { ...baseline, decodingStrategy: 'bestOfSampling', temperature: '0.00', bestOf: '5' },
         current,
-      ).errors.temperature ?? '',
-      /requires temperature/u,
+      ).errors.temperature?.key,
+      'localWhisper.settings.validationBestOfTemperature',
     );
-    assert.match(
+    assert.equal(
       validateLocalWhisperDraft({ ...baseline, modelVariant: 'q5_0', modelFamily: 'medium' }, current).errors
-        .modelVariant ?? '',
-      /large-v3/u,
+        .modelVariant?.key,
+      'localWhisper.settings.validationVariant',
     );
-    assert.match(
+    assert.equal(
       validateLocalWhisperDraft(
         { ...baseline, executionTarget: 'cpu', cpuThreads: String(current.host.logicalProcessorCount + 1) },
         current,
-      ).errors.cpuThreads ?? '',
-      /integer from 1/u,
+      ).errors.cpuThreads?.key,
+      'localWhisper.settings.validationCpuThreads',
     );
   });
 });

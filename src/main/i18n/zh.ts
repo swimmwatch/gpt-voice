@@ -1,6 +1,9 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
 
+import localWhisperSettingsTranslations from './localWhisperSettings/zh';
+
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('zh'),
   'translate.provider': '翻译提供商',
   'translate.saving': '正在保存...',

@@ -1,6 +1,9 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
 
+import localWhisperSettingsTranslations from './localWhisperSettings/uk';
+
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('uk'),
   'translate.provider': 'Постачальник перекладу',
   'translate.saving': 'Збереження...',

@@ -123,7 +123,7 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.match(runtime, /aria-pressed=\{selected\}/u);
     assert.match(inference, /focus-visible:ring-2|focus-within:ring-2/u);
     assert.match(page, /saveDisabledReason/u);
-    assert.match(page, /Reset is disabled while another action is in progress/u);
+    assert.match(page, /t\('localWhisper\.settings\.disabledBusy'\)/u);
   });
 
   it('announces progress and failures and restores focus after rejected destructive actions', () => {

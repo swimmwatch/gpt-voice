@@ -16,6 +16,7 @@ import {
 } from 'react-icons/pi';
 import { SiNvidia } from 'react-icons/si';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { useI18n } from '@renderer/hooks/useI18n';
 import type { LocalWhisperRendererSnapshot } from '@shared/localWhisper';
 import {
   formatLocalWhisperBytes,
@@ -26,6 +27,8 @@ import {
   getLocalWhisperResourceSafetyPresentation,
   getLocalWhisperUnloadAvailability,
   isLocalWhisperArtifactProgressActive,
+  formatLocalWhisperRuntimeState,
+  translateLocalWhisperPresentationMessage,
   type LocalWhisperActionAvailability,
   type LocalWhisperResourceMeterPresentation,
 } from '../LocalWhisperPresentation';
@@ -121,6 +124,7 @@ function ResourceMeter({
   readonly meter: LocalWhisperResourceMeterPresentation;
   readonly tone: 'ram' | 'vram';
 }): React.JSX.Element {
+  const { t } = useI18n();
   const safe = numericBytes(meter.safeReservableBytes);
   const peak = numericBytes(meter.peakBytes);
   const scale = Math.max(meter.availableBytes ?? 0, safe ?? 0, peak ?? 0, 1);
@@ -130,12 +134,16 @@ function ResourceMeter({
     <div className="lw-resource-meter">
       <div className="lw-resource-meter-heading">
         <strong>{label}</strong>
-        <span>{formatLocalWhisperBytes(meter.availableBytes)} available</span>
+        <span>
+          {formatLocalWhisperBytes(meter.availableBytes, t)} {t('localWhisper.settings.available')}
+        </span>
       </div>
       <div
-        aria-label={`${label}: ${formatLocalWhisperBytes(meter.peakBytes)} peak, ${formatLocalWhisperBytes(
-          meter.safeReservableBytes,
-        )} safe to reserve`}
+        aria-label={t('localWhisper.settings.resourceMeterLabel', {
+          label,
+          peak: formatLocalWhisperBytes(meter.peakBytes, t),
+          safe: formatLocalWhisperBytes(meter.safeReservableBytes, t),
+        })}
         className="lw-capacity-track"
         role="img"
       >
@@ -144,8 +152,12 @@ function ResourceMeter({
         {safe === null ? null : <span className="lw-safe-marker" style={{ left: `${safeWidth}%` }} />}
       </div>
       <div className="lw-resource-meter-meta">
-        <span>{formatLocalWhisperBytes(meter.safeReservableBytes)} safe to reserve</span>
-        <span>{formatLocalWhisperBytes(meter.peakBytes)} peak</span>
+        <span>
+          {formatLocalWhisperBytes(meter.safeReservableBytes, t)} {t('localWhisper.settings.safeToReserve')}
+        </span>
+        <span>
+          {formatLocalWhisperBytes(meter.peakBytes, t)} {t('localWhisper.settings.peak')}
+        </span>
       </div>
     </div>
   );
@@ -172,14 +184,30 @@ function primaryAction(
   load: LocalWhisperActionAvailability,
   unload: LocalWhisperActionAvailability,
   callbacks: Pick<LocalWhisperStatusSectionProps, 'onCheck' | 'onLoad' | 'onUnload'>,
+  translate: ReturnType<typeof useI18n>['t'],
 ): PrimaryAction {
   if (connected || unload.visible) {
-    return { availability: unload, icon: PiMemory, label: 'Free model', onClick: callbacks.onUnload };
+    return {
+      availability: unload,
+      icon: PiMemory,
+      label: translate('localWhisper.settings.freeModel'),
+      onClick: callbacks.onUnload,
+    };
   }
   if (check.visible && check.enabled && !load.enabled) {
-    return { availability: check, icon: PiShieldCheck, label: 'Check compatibility', onClick: callbacks.onCheck };
+    return {
+      availability: check,
+      icon: PiShieldCheck,
+      label: translate('localWhisper.settings.checkCompatibility'),
+      onClick: callbacks.onCheck,
+    };
   }
-  return { availability: load, icon: PiCloudArrowUp, label: 'Load model', onClick: callbacks.onLoad };
+  return {
+    availability: load,
+    icon: PiCloudArrowUp,
+    label: translate('localWhisper.settings.loadModel'),
+    onClick: callbacks.onLoad,
+  };
 }
 
 /** Renders readiness, exact technical identity, residency, and main-owned resource safety. */
@@ -190,6 +218,7 @@ export default function LocalWhisperStatusSection({
   onLoad,
   onUnload,
 }: LocalWhisperStatusSectionProps): React.JSX.Element {
+  const { t } = useI18n();
   const pending = pendingAction !== null || snapshot.progress.some(isLocalWhisperArtifactProgressActive);
   const runtime = snapshot.runtime;
   const connected = runtime.operationalStatus === 'Ready' || runtime.operationalStatus === 'Busy';
@@ -197,7 +226,8 @@ export default function LocalWhisperStatusSection({
   const selectedDevice =
     snapshot.settings.execution.target === 'cpu'
       ? snapshot.host.label
-      : (getLocalWhisperOption(snapshot, 'device', snapshot.selectedDeviceId)?.label ?? 'Selected GPU');
+      : (getLocalWhisperOption(snapshot, 'device', snapshot.selectedDeviceId)?.label ??
+        t('localWhisper.settings.selectedGpu'));
   const backend =
     snapshot.settings.execution.target === 'cpu'
       ? 'CPU'
@@ -206,12 +236,12 @@ export default function LocalWhisperStatusSection({
     .split('-')
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(' ');
-  const quantization = snapshot.settings.model.variant === 'q5_0' ? 'Q5_0' : 'Full';
+  const quantization = snapshot.settings.model.variant === 'q5_0' ? 'Q5_0' : t('localWhisper.settings.full');
   const resourceSafety = getLocalWhisperResourceSafetyPresentation(snapshot);
   const check = getLocalWhisperCheckAvailability(snapshot, pending);
   const load = getLocalWhisperLoadAvailability(snapshot, pending);
   const unload = getLocalWhisperUnloadAvailability(snapshot, pending);
-  const action = primaryAction(connected, check, load, unload, { onCheck, onLoad, onUnload });
+  const action = primaryAction(connected, check, load, unload, { onCheck, onLoad, onUnload }, t);
   const ActionIcon = action.icon;
   const actionPending =
     pendingAction === 'checkCompatibility' || pendingAction === 'load' || pendingAction === 'unload';
@@ -223,39 +253,44 @@ export default function LocalWhisperStatusSection({
       type="button"
     >
       <ActionIcon aria-hidden="true" />
-      {actionPending ? 'Working…' : action.label}
+      {actionPending ? t('localWhisper.settings.working') : action.label}
     </button>
   );
   const bannerTitle = connected
-    ? 'Connected'
+    ? t('localWhisper.settings.connected')
     : runtime.residency === 'Loading'
-      ? 'Loading model'
+      ? t('localWhisper.main.loadingModel')
       : runtime.capability === 'Checking'
-        ? 'Checking resources'
-        : 'Not connected';
+        ? t('localWhisper.settings.checkingResources')
+        : t('localWhisper.settings.notConnected');
   const verdictLabel =
     resourceSafety.status === 'safe'
-      ? 'Safe to load'
+      ? t('localWhisper.settings.safeToLoad')
       : resourceSafety.status === 'blocked'
-        ? 'Load blocked'
-        : 'Check required';
+        ? t('localWhisper.settings.loadBlocked')
+        : t('localWhisper.settings.checkRequired');
   const ResourceSafetyIcon = resourceSafety.status === 'safe' ? PiShieldCheck : PiWarningCircle;
 
   const technicalDetails: readonly DetailItemProps[] = [
-    { icon: PiTerminalWindow, label: 'Runtime', value: 'Whisper.cpp' },
+    { icon: PiTerminalWindow, label: t('localWhisper.settings.runtime'), value: 'Whisper.cpp' },
     {
       accent: backend === 'CUDA' ? 'nvidia' : undefined,
       icon: backend === 'CUDA' ? SiNvidia : PiCpu,
-      label: 'Backend',
+      label: t('localWhisper.settings.backend'),
       value: backend,
     },
-    { accent: 'green', icon: PiCpu, label: 'Device', value: selectedDevice },
-    { accent: 'blue', icon: PiBrain, label: 'Model', value: model },
-    { accent: 'purple', icon: PiSlidersHorizontal, label: 'Quantization', value: quantization },
+    { accent: 'green', icon: PiCpu, label: t('localWhisper.settings.device'), value: selectedDevice },
+    { accent: 'blue', icon: PiBrain, label: t('localWhisper.settings.model'), value: model },
+    {
+      accent: 'purple',
+      icon: PiSlidersHorizontal,
+      label: t('localWhisper.settings.quantization'),
+      value: quantization,
+    },
     {
       accent: 'blue',
       icon: PiTag,
-      label: 'Revision',
+      label: t('localWhisper.settings.revision'),
       title: snapshot.settings.model.revision,
       value: snapshot.settings.model.revision,
     },
@@ -263,11 +298,28 @@ export default function LocalWhisperStatusSection({
 
   return (
     <div aria-live="polite" className="lw-status-stack">
-      <section aria-label="Local Whisper readiness" className="lw-readiness-rail">
-        <ReadinessStep label="Runtime" state={runtime.runtimeSetup} tone={setupTone(runtime.runtimeSetup)} />
-        <ReadinessStep label="Model" state={runtime.modelSetup} tone={setupTone(runtime.modelSetup)} />
-        <ReadinessStep label="Compatibility" state={runtime.capability} tone={capabilityTone(runtime.capability)} />
-        <ReadinessStep label="Model state" last state={runtime.residency} tone={residencyTone(runtime.residency)} />
+      <section aria-label={t('localWhisper.settings.readiness')} className="lw-readiness-rail">
+        <ReadinessStep
+          label={t('localWhisper.settings.runtime')}
+          state={formatLocalWhisperRuntimeState(runtime.runtimeSetup, t)}
+          tone={setupTone(runtime.runtimeSetup)}
+        />
+        <ReadinessStep
+          label={t('localWhisper.settings.model')}
+          state={formatLocalWhisperRuntimeState(runtime.modelSetup, t)}
+          tone={setupTone(runtime.modelSetup)}
+        />
+        <ReadinessStep
+          label={t('localWhisper.settings.compatibility')}
+          state={formatLocalWhisperRuntimeState(runtime.capability, t)}
+          tone={capabilityTone(runtime.capability)}
+        />
+        <ReadinessStep
+          label={t('localWhisper.settings.modelState')}
+          last
+          state={formatLocalWhisperRuntimeState(runtime.residency, t)}
+          tone={residencyTone(runtime.residency)}
+        />
       </section>
 
       <section className={`lw-provider-banner${connected ? ' connected' : ''}`}>
@@ -275,44 +327,58 @@ export default function LocalWhisperStatusSection({
         <div>
           <strong>{bannerTitle}</strong>
           <span>
-            {connected
-              ? 'Local Whisper is ready for transcription.'
-              : 'Local Whisper becomes available after a model is loaded.'}
+            {connected ? t('localWhisper.settings.readyDescription') : t('localWhisper.settings.modelLoadRequired')}
           </span>
           {!action.availability.enabled && action.availability.disabledReason ? (
-            <span className="lw-disabled-reason">{action.availability.disabledReason}</span>
+            <span className="lw-disabled-reason">
+              {translateLocalWhisperPresentationMessage(action.availability.disabledReason, t)}
+            </span>
           ) : null}
         </div>
         {action.availability.visible ? (
           <Tooltip>
             <TooltipTrigger asChild>{primaryActionButton}</TooltipTrigger>
             {action.availability.disabledReason ? (
-              <TooltipContent>{action.availability.disabledReason}</TooltipContent>
+              <TooltipContent>
+                {translateLocalWhisperPresentationMessage(action.availability.disabledReason, t)}
+              </TooltipContent>
             ) : null}
           </Tooltip>
         ) : null}
       </section>
 
-      <LocalWhisperDisclosure className="lw-technical-disclosure" defaultOpen title="Technical details">
+      <LocalWhisperDisclosure
+        className="lw-technical-disclosure"
+        defaultOpen
+        title={t('localWhisper.settings.technicalDetails')}
+      >
         <div className="lw-technical-grid">
           {technicalDetails.map((item) => (
             <DetailItem key={item.label} {...item} />
           ))}
         </div>
-        <span className="sr-only">Runtime revision: {selectedRuntime ?? snapshot.settings.runtimeRevision}</span>
+        <span className="sr-only">
+          {t('localWhisper.settings.runtimeRevision', {
+            revision: selectedRuntime ?? snapshot.settings.runtimeRevision ?? t('localWhisper.settings.unknown'),
+          })}
+        </span>
       </LocalWhisperDisclosure>
 
-      <LocalWhisperPanel className="lw-resource-panel" icon={PiShieldCheck} title="Resource safety">
+      <LocalWhisperPanel
+        className="lw-resource-panel"
+        icon={PiShieldCheck}
+        title={t('localWhisper.settings.resourceSafety')}
+      >
         <div className="lw-resource-grid">
-          <ResourceMeter label="System RAM" meter={resourceSafety.ram} tone="ram" />
-          <ResourceMeter label="GPU VRAM" meter={resourceSafety.vram} tone="vram" />
+          <ResourceMeter label={t('localWhisper.settings.systemRam')} meter={resourceSafety.ram} tone="ram" />
+          <ResourceMeter label={t('localWhisper.settings.gpuVram')} meter={resourceSafety.vram} tone="vram" />
         </div>
         <div className="lw-requirement-row">
           <PiCube aria-hidden="true" />
-          <span>Model requirement</span>
+          <span>{t('localWhisper.settings.modelRequirement')}</span>
           <strong>
-            {formatLocalWhisperBytes(resourceSafety.vram.peakBytes)} VRAM +{' '}
-            {formatLocalWhisperBytes(resourceSafety.ram.peakBytes)} RAM
+            {formatLocalWhisperBytes(resourceSafety.vram.peakBytes, t)} VRAM +{' '}
+            {formatLocalWhisperBytes(resourceSafety.ram.peakBytes, t)} RAM
           </strong>
         </div>
         <div className={`lw-safety-note ${resourceSafety.status}`}>
@@ -323,8 +389,12 @@ export default function LocalWhisperStatusSection({
 
       {snapshot.failure ? (
         <div className="lw-alert" role="status">
-          <strong>{formatLocalWhisperFailureCode(snapshot.failure.code)}</strong>
-          <span>Recovery: {formatLocalWhisperRecoveryAction(snapshot.failure.recoveryAction)}.</span>
+          <strong>{formatLocalWhisperFailureCode(snapshot.failure.code, t)}</strong>
+          <span>
+            {t('localWhisper.settings.recovery', {
+              action: formatLocalWhisperRecoveryAction(snapshot.failure.recoveryAction, t),
+            })}
+          </span>
         </div>
       ) : null}
     </div>

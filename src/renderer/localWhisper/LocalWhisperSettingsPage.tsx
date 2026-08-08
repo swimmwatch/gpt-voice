@@ -2,12 +2,17 @@ import { useEffect, useRef } from 'react';
 import { PiArrowCounterClockwise, PiFloppyDisk, PiInfo, PiWaveform } from 'react-icons/pi';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { useI18n } from '@renderer/hooks/useI18n';
 import type { ElectronAPI } from '@renderer/types';
 import LocalWhisperInferenceSections from './components/LocalWhisperInferenceSections';
 import LocalWhisperRuntimeModelSection from './components/LocalWhisperRuntimeModelSection';
 import LocalWhisperStatusSection from './components/LocalWhisperStatusSection';
 import LocalWhisperStorageSection from './components/LocalWhisperStorageSection';
-import { isLocalWhisperArtifactProgressActive, isLocalWhisperPlatformUnavailable } from './LocalWhisperPresentation';
+import {
+  isLocalWhisperArtifactProgressActive,
+  isLocalWhisperPlatformUnavailable,
+  translateLocalWhisperActionError,
+} from './LocalWhisperPresentation';
 import useLocalWhisperSettings from './useLocalWhisperSettings';
 import './LocalWhisperSettingsPage.css';
 
@@ -18,50 +23,57 @@ function CatalogChannelNotice({
   readonly catalogUnavailable: boolean;
   readonly developmentArtifactsActive: boolean;
 }): React.JSX.Element | null {
+  const { t } = useI18n();
   if (catalogUnavailable) {
     return (
       <div className="lw-notice" role="status">
-        <strong>Catalog unavailable</strong>
-        <span>
-          Production artifacts have not been published. For qualification, launch the non-packaged app with its
-          generated development activation descriptor.
-        </span>
+        <strong>{t('localWhisper.settings.catalogUnavailable')}</strong>
+        <span>{t('localWhisper.settings.catalogUnavailableDescription')}</span>
       </div>
     );
   }
   if (!developmentArtifactsActive) return null;
   return (
     <div className="lw-notice" role="status">
-      <strong>Development qualification artifacts</strong>
-      <span>
-        This temporary channel is for local functional verification and does not indicate production readiness.
-      </span>
+      <strong>{t('localWhisper.settings.developmentArtifacts')}</strong>
+      <span>{t('localWhisper.settings.developmentArtifactsDescription')}</span>
     </div>
   );
 }
 
-function saveDisabledReason(input: {
-  readonly platformUnavailable: boolean;
-  readonly catalogUnavailable: boolean;
-  readonly lifecycleBusy: boolean;
-  readonly valid: boolean;
-  readonly dirty: boolean;
-}): string | null {
-  if (input.platformUnavailable) return 'This platform is unavailable in the current release.';
-  if (input.catalogUnavailable) return 'A trusted Local Whisper catalog is not active.';
-  if (input.lifecycleBusy) return 'Another Local Whisper action is in progress.';
-  if (!input.valid) return 'Fix the highlighted settings before saving.';
-  return input.dirty ? null : 'No unsaved changes.';
+function saveDisabledReason(
+  translate: ReturnType<typeof useI18n>['t'],
+  input: {
+    readonly platformUnavailable: boolean;
+    readonly catalogUnavailable: boolean;
+    readonly lifecycleBusy: boolean;
+    readonly valid: boolean;
+    readonly dirty: boolean;
+  },
+): string | null {
+  if (input.platformUnavailable) return translate('localWhisper.settings.disabledPlatform');
+  if (input.catalogUnavailable) return translate('localWhisper.settings.disabledCatalog');
+  if (input.lifecycleBusy) return translate('localWhisper.settings.disabledBusy');
+  if (!input.valid) return translate('localWhisper.settings.disabledInvalid');
+  return input.dirty ? null : translate('localWhisper.settings.disabledNoChanges');
 }
 
 function artifactDisabledReason(
+  translate: ReturnType<typeof useI18n>['t'],
   platformUnavailable: boolean,
   catalogUnavailable: boolean,
   commandBusy: boolean,
 ): string | null {
-  if (platformUnavailable) return 'Artifact actions are unavailable on a planned or unsupported platform.';
-  if (catalogUnavailable) return 'Artifact actions require an active trusted catalog.';
-  return commandBusy ? 'Artifact actions are disabled while another action is in progress.' : null;
+  if (platformUnavailable) return translate('localWhisper.settings.resetDisabledPlatform');
+  if (catalogUnavailable) return translate('localWhisper.settings.resetDisabledCatalog');
+  return commandBusy ? translate('localWhisper.settings.disabledBusy') : null;
+}
+
+function persistedIssueMessage(path: string, reason: string, translate: ReturnType<typeof useI18n>['t']): string {
+  if (path === 'execution.deviceId' && reason === 'unknown-value') {
+    return translate('localWhisper.settings.savedDeviceUnavailable');
+  }
+  return translate('localWhisper.settings.savedSettingInvalid');
 }
 
 /** Composes the approved Local Whisper readiness dashboard over the protected settings controller. */
@@ -70,6 +82,7 @@ export default function LocalWhisperSettingsPage({
 }: {
   readonly desktopApi: ElectronAPI;
 }): React.JSX.Element {
+  const { t } = useI18n();
   const controller = useLocalWhisperSettings(desktopApi);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const { snapshot, draft, validation } = controller;
@@ -88,8 +101,8 @@ export default function LocalWhisperSettingsPage({
   if (controller.loading && (!snapshot || !draft)) {
     return (
       <div aria-live="polite" className="lw-loading">
-        <Spinner label="Loading Local Whisper settings" />
-        Loading Local Whisper settings…
+        <Spinner label={t('localWhisper.settings.loadingSettings')} />
+        {t('localWhisper.settings.loadingSettings')}
       </div>
     );
   }
@@ -97,29 +110,35 @@ export default function LocalWhisperSettingsPage({
   if (!snapshot || !draft || !validation) {
     return (
       <div className="lw-alert" role="alert">
-        <strong>Local Whisper settings are unavailable.</strong>
-        <span>{controller.actionError ?? 'Close this window and retry after the desktop application is ready.'}</span>
+        <strong>{t('localWhisper.settings.settingsUnavailable')}</strong>
+        <span>
+          {controller.actionError
+            ? translateLocalWhisperActionError(controller.actionError, t)
+            : t('localWhisper.settings.closeRetry')}
+        </span>
       </div>
     );
   }
 
-  const validationMessages = Object.entries(validation.errors).map(([field, message]) => `${field}: ${message}`);
-  const persistedIssues = snapshot.validationIssues.map((issue) => `${issue.path}: ${issue.reason}`);
+  const validationMessages = Object.entries(validation.errors).map(
+    ([field, message]) => `${field}: ${t(message.key, message.params)}`,
+  );
+  const persistedIssues = snapshot.validationIssues.map(({ path, reason }) => persistedIssueMessage(path, reason, t));
   const disabled = lifecycleBusy || platformUnavailable || catalogUnavailable;
-  const saveReason = saveDisabledReason({
+  const saveReason = saveDisabledReason(t, {
     platformUnavailable,
     catalogUnavailable,
     lifecycleBusy,
     valid: validation.candidate !== null,
     dirty: controller.dirty,
   });
-  const artifactReason = artifactDisabledReason(platformUnavailable, catalogUnavailable, commandBusy);
+  const artifactReason = artifactDisabledReason(t, platformUnavailable, catalogUnavailable, commandBusy);
   const resetDisabledReason = disabled
     ? platformUnavailable
-      ? 'Reset is unavailable on a planned or unsupported platform.'
+      ? t('localWhisper.settings.resetDisabledPlatform')
       : catalogUnavailable
-        ? 'Reset requires an active trusted catalog.'
-        : 'Reset is disabled while another action is in progress.'
+        ? t('localWhisper.settings.resetDisabledCatalog')
+        : t('localWhisper.settings.disabledBusy')
     : null;
 
   return (
@@ -127,14 +146,14 @@ export default function LocalWhisperSettingsPage({
       <header className="lw-page-heading">
         <PiWaveform aria-hidden="true" className="lw-product-mark" />
         <div>
-          <h1>Local Whisper</h1>
-          <p>Run Whisper.cpp locally with explicit model, backend, and memory lifecycle controls.</p>
+          <h1>{t('localWhisper.settings.title')}</h1>
+          <p>{t('localWhisper.settings.pageDescription')}</p>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <PiInfo aria-hidden="true" className="lw-heading-info" />
           </TooltipTrigger>
-          <TooltipContent>Local processing keeps audio and transcripts on this device.</TooltipContent>
+          <TooltipContent>{t('localWhisper.settings.privacyTooltip')}</TooltipContent>
         </Tooltip>
       </header>
 
@@ -151,8 +170,8 @@ export default function LocalWhisperSettingsPage({
           role="alert"
           tabIndex={-1}
         >
-          <strong>Local Whisper needs attention</strong>
-          {controller.actionError ? <span>{controller.actionError}</span> : null}
+          <strong>{t('localWhisper.settings.attention')}</strong>
+          {controller.actionError ? <span>{translateLocalWhisperActionError(controller.actionError, t)}</span> : null}
           {persistedIssues.length > 0 ? (
             <ul>
               {persistedIssues.map((issue) => (
@@ -208,7 +227,9 @@ export default function LocalWhisperSettingsPage({
               type="button"
             >
               <PiArrowCounterClockwise aria-hidden="true" />
-              {controller.pendingAction === 'reset' ? 'Resetting…' : 'Reset to defaults'}
+              {controller.pendingAction === 'reset'
+                ? t('localWhisper.settings.resetting')
+                : t('localWhisper.settings.reset')}
             </button>
           </TooltipTrigger>
           {resetDisabledReason ? <TooltipContent>{resetDisabledReason}</TooltipContent> : null}
@@ -223,12 +244,14 @@ export default function LocalWhisperSettingsPage({
                 type="button"
               >
                 <PiFloppyDisk aria-hidden="true" />
-                {controller.pendingAction === 'save' ? 'Saving…' : 'Save settings'}
+                {controller.pendingAction === 'save'
+                  ? t('localWhisper.settings.saving')
+                  : t('localWhisper.settings.save')}
               </button>
             </TooltipTrigger>
             {saveReason ? <TooltipContent>{saveReason}</TooltipContent> : null}
           </Tooltip>
-          <span>{controller.dirty ? 'You have unsaved changes.' : 'No unsaved changes.'}</span>
+          <span>{controller.dirty ? t('localWhisper.settings.unsaved') : t('localWhisper.settings.clean')}</span>
         </div>
       </footer>
 

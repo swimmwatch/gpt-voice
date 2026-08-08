@@ -1,4 +1,7 @@
+import localWhisperSettingsTranslations from './localWhisperSettings/en';
+
 export default {
+  ...localWhisperSettingsTranslations,
   'translate.provider': 'Translation provider',
   'translate.saving': 'Saving...',
   'translate.settingsSaveFailed': 'Failed to save translation settings',

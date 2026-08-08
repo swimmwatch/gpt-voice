@@ -10,6 +10,71 @@ import {
 } from '@shared/localWhisper';
 import type { TranslationKey } from '@main/i18n';
 
+export type LocalWhisperTranslate = (key: TranslationKey, params?: Readonly<Record<string, string>>) => string;
+
+const LOCAL_WHISPER_RUNTIME_STATE_KEYS: Readonly<Record<string, TranslationKey>> = Object.freeze({
+  Missing: 'localWhisper.settings.stateMissing',
+  Installed: 'localWhisper.settings.stateInstalled',
+  Downloading: 'localWhisper.settings.stateDownloading',
+  Verifying: 'localWhisper.settings.stateVerifying',
+  Installing: 'localWhisper.settings.stateInstalling',
+  Checking: 'localWhisper.settings.stateChecking',
+  EstimateOnly: 'localWhisper.settings.stateEstimateOnly',
+  Validated: 'localWhisper.settings.stateValidated',
+  Unchecked: 'localWhisper.settings.stateUnchecked',
+  Stale: 'localWhisper.settings.stateStale',
+  Loading: 'localWhisper.settings.stateLoading',
+  Unloading: 'localWhisper.settings.stateUnloading',
+  Loaded: 'localWhisper.settings.stateLoaded',
+  Failed: 'localWhisper.settings.stateFailed',
+  Queued: 'localWhisper.settings.stateQueued',
+  Deleting: 'localWhisper.settings.stateDeleting',
+  Resumable: 'localWhisper.settings.stateResumable',
+});
+
+const LOCAL_WHISPER_PRESENTATION_MESSAGE_KEYS: Readonly<Record<string, TranslationKey>> = Object.freeze({
+  'Another Local Whisper action is in progress.': 'localWhisper.settings.availabilityBusy',
+  'This platform is planned and not available in this release.': 'localWhisper.settings.availabilityPlanned',
+  'This platform is unsupported in this release.': 'localWhisper.settings.availabilityUnsupported',
+  'Install the selected runtime and model before checking compatibility.':
+    'localWhisper.settings.availabilityCheckInstall',
+  'Run a successful compatibility check before loading.': 'localWhisper.settings.availabilityCheckRequired',
+  'The selected model is not in unloaded state.': 'localWhisper.settings.availabilityNotUnloaded',
+  'No owned model load is available to unload.': 'localWhisper.settings.availabilityNoModelToFree',
+  'The selected Local Whisper provider is unavailable.': 'localWhisper.settings.selectedProviderUnavailable',
+  'Load the selected model before transcription.': 'localWhisper.settings.loadBeforeTranscription',
+  'Local Whisper status is loading.': 'localWhisper.main.loadingStatus',
+  'Local Whisper settings could not be loaded.': 'localWhisper.settings.settingsLoadFailed',
+  'Fix the highlighted settings before saving.': 'localWhisper.settings.fixHighlighted',
+});
+
+/** Converts public enum names to their localized user-facing labels. */
+export function formatLocalWhisperRuntimeState(value: string, translate: LocalWhisperTranslate): string {
+  const key = LOCAL_WHISPER_RUNTIME_STATE_KEYS[value];
+  return key ? translate(key) : value;
+}
+
+/** Localizes renderer-only status text while keeping the protected snapshot contract unchanged. */
+export function translateLocalWhisperPresentationMessage(message: string, translate: LocalWhisperTranslate): string {
+  const key = LOCAL_WHISPER_PRESENTATION_MESSAGE_KEYS[message];
+  if (key) return translate(key);
+  const failure = message.match(/^[A-Z_]+ \(([A-Z_]+)\)$/u);
+  if (failure?.[1]) return translate('localWhisper.settings.failureCode', { code: failure[1] });
+  return message;
+}
+
+/** Localizes controller errors without exposing internal error structure to the page. */
+export function translateLocalWhisperActionError(message: string, translate: LocalWhisperTranslate): string {
+  const failure = message.match(/^([A-Z_]+) \([A-Z_]+\)\. Recovery: (.+)\.$/u);
+  if (failure?.[1] && failure[2]) {
+    return `${translate('localWhisper.settings.failureCode', { code: failure[1] })}. ${translate(
+      'localWhisper.settings.recovery',
+      { action: translate('localWhisper.settings.recoveryAction', { action: failure[2] }) },
+    )}`;
+  }
+  return translateLocalWhisperPresentationMessage(message, translate);
+}
+
 /** Distinguishes a truly unavailable platform from the transient unconfigured coordinator baseline. */
 export function isLocalWhisperPlatformUnavailable(snapshot: LocalWhisperRendererSnapshot): boolean {
   const unavailableTier = snapshot.runtime.supportTier === 'Planned' || snapshot.runtime.supportTier === 'Unsupported';
@@ -222,17 +287,25 @@ function sentenceCaseIdentifier(value: string): string {
   return normalized.length === 0 ? normalized : `${normalized[0]?.toUpperCase()}${normalized.slice(1)}`;
 }
 
-export function formatLocalWhisperFailureCode(code: LocalWhisperFailureCode): string {
+export function formatLocalWhisperFailureCode(
+  code: LocalWhisperFailureCode,
+  translate?: LocalWhisperTranslate,
+): string {
+  if (translate) return translate('localWhisper.settings.failureCode', { code });
   return `${sentenceCaseIdentifier(code)} (${code})`;
 }
 
-export function formatLocalWhisperRecoveryAction(action: string): string {
+export function formatLocalWhisperRecoveryAction(action: string, translate?: LocalWhisperTranslate): string {
+  if (translate) return translate('localWhisper.settings.recoveryAction', { action });
   return sentenceCaseIdentifier(action);
 }
 
-export function formatLocalWhisperBytes(bytes: number | 'notApplicable' | null): string {
-  if (bytes === 'notApplicable') return 'Not applicable';
-  if (bytes === null) return 'Unknown';
+export function formatLocalWhisperBytes(
+  bytes: number | 'notApplicable' | null,
+  translate?: LocalWhisperTranslate,
+): string {
+  if (bytes === 'notApplicable') return translate?.('localWhisper.settings.notApplicable') ?? 'Not applicable';
+  if (bytes === null) return translate?.('localWhisper.settings.unknown') ?? 'Unknown';
   if (bytes === 0) return '0 MiB';
   const gibibyte = 1024 ** 3;
   const mebibyte = 1024 ** 2;

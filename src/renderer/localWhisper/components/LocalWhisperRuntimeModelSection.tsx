@@ -1,5 +1,6 @@
 import { PiCheckCircle, PiCube, PiGear, PiInfo, PiWarningCircle } from 'react-icons/pi';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { useI18n } from '@renderer/hooks/useI18n';
 import {
   LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
   LOCAL_WHISPER_MODEL_FAMILIES,
@@ -23,6 +24,7 @@ import {
   updateLocalWhisperTarget,
   type LocalWhisperDraftField,
   type LocalWhisperSettingsDraft,
+  type LocalWhisperValidationMessage,
 } from '../LocalWhisperSettingsState';
 import { LocalWhisperArtifactOverflowMenu, LocalWhisperArtifactProgressCard } from './LocalWhisperArtifactControls';
 import { LocalWhisperOptionSelect, LocalWhisperPanel } from './LocalWhisperSection';
@@ -31,7 +33,7 @@ interface LocalWhisperRuntimeModelSectionProps {
   readonly actionsDisabledReason: string | null;
   readonly disabled: boolean;
   readonly draft: LocalWhisperSettingsDraft;
-  readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, string>>>;
+  readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>>;
   readonly onArtifactAction: (
     action: LocalWhisperArtifactAction,
     artifact: LocalWhisperRendererArtifact,
@@ -58,8 +60,8 @@ function progressForArtifact(
   return artifact ? getLatestLocalWhisperArtifactProgress(snapshot.progress, artifact.id) : null;
 }
 
-function approximateRange(range: readonly [number, number]): string {
-  return `~${range[0]}–${range[1]} GiB`;
+function approximateRange(range: readonly [number, number], translate: ReturnType<typeof useI18n>['t']): string {
+  return translate('localWhisper.settings.approximateRange', { from: String(range[0]), to: String(range[1]) });
 }
 
 function preferredFamilyRevision(
@@ -93,6 +95,7 @@ function ArtifactStatusColumn({
   readonly pendingAction: string | null;
   readonly progress: LocalWhisperArtifactProgress | null;
 }): React.JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="lw-status-column">
       <span className="lw-field-label">{label}</span>
@@ -108,8 +111,8 @@ function ArtifactStatusColumn({
         <div className="lw-transfer-field lw-empty-status">
           <PiWarningCircle aria-hidden="true" />
           <div>
-            <strong>Not available</strong>
-            <span>No trusted artifact matches this selection.</span>
+            <strong>{t('localWhisper.settings.notAvailable')}</strong>
+            <span>{t('localWhisper.settings.noArtifactSelection')}</span>
           </div>
         </div>
       )}
@@ -129,11 +132,14 @@ export default function LocalWhisperRuntimeModelSection({
   pendingAction,
   updateDraft,
 }: LocalWhisperRuntimeModelSectionProps): React.JSX.Element {
+  const { t } = useI18n();
   const runtimeOptions = getLocalWhisperOptions(snapshot, 'runtime');
   const backendOptions = getLocalWhisperOptions(snapshot, 'backend');
   const deviceOptions = getLocalWhisperOptions(snapshot, 'device').filter(
     (option) => draft.backend && option.compatibility.eligibleBackends.includes(draft.backend),
   );
+  const selectedDeviceUnavailable =
+    draft.deviceId !== null && !deviceOptions.some((option) => option.id === draft.deviceId);
   const modelRevisionOptions = getLocalWhisperOptions(snapshot, 'modelRevision').filter(
     (option) => option.compatibility.modelFamily === draft.modelFamily,
   );
@@ -146,7 +152,7 @@ export default function LocalWhisperRuntimeModelSection({
   const runtimeProgress = progressForArtifact(snapshot, runtimeArtifact);
   const modelProgress = progressForArtifact(snapshot, modelArtifact);
   const selectedModelDownloaded = modelArtifact?.state === 'Installed';
-  const selectedVariant = draft.modelVariant === 'q5_0' ? 'Q5_0' : 'Full';
+  const selectedVariant = draft.modelVariant === 'q5_0' ? 'Q5_0' : t('localWhisper.settings.full');
   const backendValue = draft.executionTarget === 'cpu' ? 'cpu' : (draft.backend ?? '');
   const backendSelectionOptions = [{ id: 'cpu', label: 'CPU', available: true }, ...backendOptions];
 
@@ -167,12 +173,12 @@ export default function LocalWhisperRuntimeModelSection({
         }
         className="lw-engine-section"
         icon={PiGear}
-        title="Engine backend"
+        title={t('localWhisper.settings.engineBackend')}
       >
         <div className="lw-engine-layout">
           <div className="lw-engine-controls">
             <label>
-              <span>Backend</span>
+              <span>{t('localWhisper.settings.backend')}</span>
               <LocalWhisperOptionSelect
                 disabled={disabled}
                 id="local-whisper-backend"
@@ -184,18 +190,18 @@ export default function LocalWhisperRuntimeModelSection({
                   });
                 }}
                 options={backendSelectionOptions}
-                placeholder="Select backend"
+                placeholder={t('localWhisper.settings.selectBackend')}
                 value={backendValue}
               />
             </label>
             <span className="lw-field-note">
               {draft.executionTarget === 'cpu'
-                ? `Production fallback · ${snapshot.host.label}`
-                : `${snapshot.runtime.supportTier} support`}
+                ? t('localWhisper.settings.productionFallback', { host: snapshot.host.label })
+                : t('localWhisper.settings.support', { tier: snapshot.runtime.supportTier })}
             </span>
 
             <label>
-              <span>Runtime revision</span>
+              <span>{t('localWhisper.settings.runtimeRevisionLabel')}</span>
               <span className="lw-input-with-info">
                 <LocalWhisperOptionSelect
                   disabled={disabled}
@@ -204,7 +210,7 @@ export default function LocalWhisperRuntimeModelSection({
                     updateDraft((current) => updateLocalWhisperRuntimeRevision(current, runtimeRevision, snapshot))
                   }
                   options={runtimeOptions}
-                  placeholder="Select runtime revision"
+                  placeholder={t('localWhisper.settings.selectRuntimeRevision')}
                   value={draft.runtimeRevision}
                 />
                 <Tooltip>
@@ -213,34 +219,41 @@ export default function LocalWhisperRuntimeModelSection({
                       <PiInfo aria-hidden="true" />
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>Installed runtime revision</TooltipContent>
+                  <TooltipContent>{t('localWhisper.settings.installedRuntimeRevision')}</TooltipContent>
                 </Tooltip>
               </span>
-              {errors.runtimeRevision ? <span className="lw-field-error">{errors.runtimeRevision}</span> : null}
+              {errors.runtimeRevision ? (
+                <span className="lw-field-error">{t(errors.runtimeRevision.key, errors.runtimeRevision.params)}</span>
+              ) : null}
             </label>
 
             <label>
-              <span>Device</span>
+              <span>{t('localWhisper.settings.device')}</span>
               {draft.executionTarget === 'gpu' ? (
                 <LocalWhisperOptionSelect
                   disabled={disabled || draft.backend === null}
                   id="local-whisper-device"
                   onChange={(deviceId) => updateDraft((current) => ({ ...current, deviceId }))}
                   options={deviceOptions}
-                  placeholder="Select device"
-                  value={draft.deviceId}
+                  placeholder={t('localWhisper.settings.selectDevice')}
+                  value={selectedDeviceUnavailable ? null : draft.deviceId}
                 />
               ) : (
                 <span className="lw-readonly-value">{snapshot.host.label}</span>
               )}
-              {errors.deviceId ? <span className="lw-field-error">{errors.deviceId}</span> : null}
+              {selectedDeviceUnavailable ? (
+                <span className="lw-field-error">{t('localWhisper.settings.savedDeviceUnavailable')}</span>
+              ) : null}
+              {errors.deviceId ? (
+                <span className="lw-field-error">{t(errors.deviceId.key, errors.deviceId.params)}</span>
+              ) : null}
             </label>
           </div>
 
           <ArtifactStatusColumn
             actionsDisabledReason={actionsDisabledReason}
             artifact={runtimeArtifact}
-            label="Install status"
+            label={t('localWhisper.settings.installStatus')}
             onArtifactAction={onArtifactAction}
             pendingAction={pendingAction}
             progress={runtimeProgress}
@@ -263,7 +276,7 @@ export default function LocalWhisperRuntimeModelSection({
         }
         className="lw-model-section"
         icon={PiCube}
-        title="Model"
+        title={t('localWhisper.settings.model')}
       >
         <div className="lw-model-layout">
           <div className="lw-selected-model-control">
@@ -276,7 +289,7 @@ export default function LocalWhisperRuntimeModelSection({
                     updateDraft((current) => updateLocalWhisperModelRevision(current, modelRevision, snapshot))
                   }
                   options={modelRevisionOptions}
-                  placeholder="Select model revision"
+                  placeholder={t('localWhisper.settings.selectModelRevision')}
                   value={draft.modelRevision}
                 />
                 {modelVariantOptions.length > 1 ? (
@@ -289,7 +302,7 @@ export default function LocalWhisperRuntimeModelSection({
                       )
                     }
                     options={modelVariantOptions}
-                    placeholder="Select variant"
+                    placeholder={t('localWhisper.settings.selectVariant')}
                     value={draft.modelVariant}
                   />
                 ) : (
@@ -304,33 +317,45 @@ export default function LocalWhisperRuntimeModelSection({
                     ) : (
                       <PiWarningCircle aria-hidden="true" />
                     )}
-                    <span className="sr-only">{selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}</span>
+                    <span className="sr-only">
+                      {selectedModelDownloaded
+                        ? t('localWhisper.settings.downloaded')
+                        : t('localWhisper.settings.notDownloaded')}
+                    </span>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>{selectedModelDownloaded ? 'Downloaded' : 'Not downloaded'}</TooltipContent>
+                <TooltipContent>
+                  {selectedModelDownloaded
+                    ? t('localWhisper.settings.downloaded')
+                    : t('localWhisper.settings.notDownloaded')}
+                </TooltipContent>
               </Tooltip>
             </span>
-            {errors.modelRevision ? <span className="lw-field-error">{errors.modelRevision}</span> : null}
-            {errors.modelVariant ? <span className="lw-field-error">{errors.modelVariant}</span> : null}
+            {errors.modelRevision ? (
+              <span className="lw-field-error">{t(errors.modelRevision.key, errors.modelRevision.params)}</span>
+            ) : null}
+            {errors.modelVariant ? (
+              <span className="lw-field-error">{t(errors.modelVariant.key, errors.modelVariant.params)}</span>
+            ) : null}
           </div>
 
           <ArtifactStatusColumn
             actionsDisabledReason={actionsDisabledReason}
             artifact={modelArtifact}
-            label="Download status"
+            label={t('localWhisper.settings.downloadStatus')}
             onArtifactAction={onArtifactAction}
             pendingAction={pendingAction}
             progress={modelProgress}
           />
         </div>
 
-        <div aria-label="Available Local Whisper models" className="lw-model-table" role="table">
+        <div aria-label={t('localWhisper.settings.availableModels')} className="lw-model-table" role="table">
           <div className="lw-model-table-header" role="row">
-            <span role="columnheader">Model</span>
+            <span role="columnheader">{t('localWhisper.settings.model')}</span>
             <span role="columnheader">RAM</span>
             <span role="columnheader">VRAM</span>
             <span className="sr-only" role="columnheader">
-              Actions
+              {t('localWhisper.settings.actions')}
             </span>
           </div>
           {LOCAL_WHISPER_MODEL_FAMILIES.map((family) => {
@@ -355,10 +380,10 @@ export default function LocalWhisperRuntimeModelSection({
                   {family === 'large-v3-turbo' ? <span>· Q5_0</span> : null}
                 </button>
                 <span data-label="RAM" role="cell">
-                  {approximateRange(guidance.approximateSystemRamGiB)}
+                  {approximateRange(guidance.approximateSystemRamGiB, t)}
                 </span>
                 <span data-label="VRAM" role="cell">
-                  {approximateRange(guidance.approximateVramGiB)}
+                  {approximateRange(guidance.approximateVramGiB, t)}
                 </span>
                 <span className="lw-row-action" role="cell">
                   {artifact ? (

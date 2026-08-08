@@ -1,6 +1,7 @@
 import { PiSlidersHorizontal } from 'react-icons/pi';
 import { Input } from '@renderer/components/ui/input';
 import { Textarea } from '@renderer/components/ui/textarea';
+import { useI18n } from '@renderer/hooks/useI18n';
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_LANGUAGE_CATALOG,
@@ -12,37 +13,76 @@ import {
   countLocalWhisperPromptCodePoints,
   type LocalWhisperDraftField,
   type LocalWhisperSettingsDraft,
+  type LocalWhisperValidationMessage,
 } from '../LocalWhisperSettingsState';
 import { LocalWhisperDisclosure, LocalWhisperField, LocalWhisperOptionSelect } from './LocalWhisperSection';
 
 interface LocalWhisperInferenceSectionsProps {
   readonly snapshot: LocalWhisperRendererSnapshot;
   readonly draft: LocalWhisperSettingsDraft;
-  readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, string>>>;
+  readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>>;
   readonly disabled: boolean;
   readonly updateDraft: (updater: (draft: LocalWhisperSettingsDraft) => LocalWhisperSettingsDraft) => void;
 }
 
-const STRATEGIES: readonly { readonly id: LocalWhisperDecodingStrategy; readonly label: string }[] = Object.freeze([
-  { id: 'greedy', label: 'Greedy' },
-  { id: 'beamSearch', label: 'Beam search' },
-  { id: 'bestOfSampling', label: 'Best-of sampling' },
-]);
+function strategies(
+  translate: ReturnType<typeof useI18n>['t'],
+): readonly { readonly id: LocalWhisperDecodingStrategy; readonly label: string }[] {
+  return Object.freeze([
+    { id: 'greedy', label: translate('localWhisper.settings.strategyGreedy') },
+    { id: 'beamSearch', label: translate('localWhisper.settings.strategyBeamSearch') },
+    { id: 'bestOfSampling', label: translate('localWhisper.settings.strategyBestOf') },
+  ]);
+}
 
 function normalizedTemperatureForStrategy(strategy: LocalWhisperDecodingStrategy): string {
   return strategy === 'bestOfSampling' ? '0.20' : '0.00';
 }
 
-function inferenceSummary(snapshot: LocalWhisperRendererSnapshot, draft: LocalWhisperSettingsDraft): string {
-  const language =
-    LOCAL_WHISPER_LANGUAGE_CATALOG.find((entry) => entry.id === draft.language)?.fallbackLabel ?? draft.language;
+function languageLabel(
+  id: string,
+  fallbackLabel: string,
+  locale: ReturnType<typeof useI18n>['locale'],
+  translate: ReturnType<typeof useI18n>['t'],
+): string {
+  if (id === 'auto') return translate('localWhisper.settings.auto');
+  try {
+    return new Intl.DisplayNames([locale], { type: 'language' }).of(id) ?? fallbackLabel;
+  } catch {
+    return fallbackLabel;
+  }
+}
+
+function inferenceSummary(
+  snapshot: LocalWhisperRendererSnapshot,
+  draft: LocalWhisperSettingsDraft,
+  locale: ReturnType<typeof useI18n>['locale'],
+  translate: ReturnType<typeof useI18n>['t'],
+): string {
+  const languageEntry = LOCAL_WHISPER_LANGUAGE_CATALOG.find((entry) => entry.id === draft.language);
+  const language = languageEntry
+    ? languageLabel(languageEntry.id, languageEntry.fallbackLabel, locale, translate)
+    : draft.language;
   const prompt =
-    draft.promptMutation === 'replace' ? 'New prompt' : snapshot.hasInitialPrompt ? 'Saved prompt' : 'Prompt: (none)';
-  const strategy = STRATEGIES.find((entry) => entry.id === draft.decodingStrategy)?.label ?? draft.decodingStrategy;
+    draft.promptMutation === 'replace'
+      ? translate('localWhisper.settings.summaryNewPrompt')
+      : snapshot.hasInitialPrompt
+        ? translate('localWhisper.settings.summarySavedPrompt')
+        : translate('localWhisper.settings.summaryNoPrompt');
+  const strategy =
+    strategies(translate).find((entry) => entry.id === draft.decodingStrategy)?.label ?? draft.decodingStrategy;
   const extras = [
-    draft.decodingStrategy === 'beamSearch' ? `Beam: ${draft.beamSize}` : null,
-    draft.decodingStrategy === 'bestOfSampling' ? `Best of: ${draft.bestOf}` : null,
-    draft.executionTarget === 'cpu' ? `CPU threads: ${draft.cpuThreads || 'Auto'}` : null,
+    draft.decodingStrategy === 'beamSearch'
+      ? translate('localWhisper.settings.summaryBeam', { value: draft.beamSize })
+      : null,
+    draft.decodingStrategy === 'bestOfSampling'
+      ? translate('localWhisper.settings.summaryBestOf', { value: draft.bestOf })
+      : null,
+    draft.executionTarget === 'cpu'
+      ? translate('localWhisper.settings.summaryCpuThreads', {
+          value: draft.cpuThreads || translate('localWhisper.settings.auto'),
+        })
+      : null,
   ].filter((value): value is string => value !== null);
   return [language, prompt, `Temp: ${draft.temperature}`, strategy, ...extras].join(' · ');
 }
@@ -55,34 +95,39 @@ export default function LocalWhisperInferenceSections({
   disabled,
   updateDraft,
 }: LocalWhisperInferenceSectionsProps): React.JSX.Element {
+  const { locale, t } = useI18n();
   const promptLength = countLocalWhisperPromptCodePoints(draft.initialPrompt);
 
   return (
     <LocalWhisperDisclosure
       className="lw-advanced-disclosure"
       icon={PiSlidersHorizontal}
-      summary={inferenceSummary(snapshot, draft)}
-      title="Transcription & advanced"
+      summary={inferenceSummary(snapshot, draft, locale, t)}
+      title={t('localWhisper.settings.advanced')}
     >
       <div className="lw-advanced-grid">
-        <LocalWhisperField error={errors.language} htmlFor="local-whisper-language" label="Transcription language">
+        <LocalWhisperField
+          error={errors.language ? t(errors.language.key, errors.language.params) : undefined}
+          htmlFor="local-whisper-language"
+          label={t('localWhisper.settings.transcriptionLanguage')}
+        >
           <LocalWhisperOptionSelect
             disabled={disabled}
             id="local-whisper-language"
             onChange={(language) => updateDraft((current) => ({ ...current, language: language as never }))}
             options={LOCAL_WHISPER_LANGUAGE_CATALOG.map((entry) => ({
               id: entry.id,
-              label: entry.fallbackLabel,
+              label: languageLabel(entry.id, entry.fallbackLabel, locale, t),
             }))}
-            placeholder="Select language"
+            placeholder={t('localWhisper.settings.selectLanguage')}
             value={draft.language}
           />
         </LocalWhisperField>
 
         <LocalWhisperField
-          error={errors.decodingStrategy}
+          error={errors.decodingStrategy ? t(errors.decodingStrategy.key, errors.decodingStrategy.params) : undefined}
           htmlFor="local-whisper-decoding-strategy"
-          label="Decoding strategy"
+          label={t('localWhisper.settings.decodingStrategy')}
         >
           <LocalWhisperOptionSelect
             disabled={disabled}
@@ -94,17 +139,17 @@ export default function LocalWhisperInferenceSections({
                 temperature: normalizedTemperatureForStrategy(decodingStrategy as LocalWhisperDecodingStrategy),
               }))
             }
-            options={STRATEGIES}
-            placeholder="Select strategy"
+            options={strategies(t)}
+            placeholder={t('localWhisper.settings.selectStrategy')}
             value={draft.decodingStrategy}
           />
         </LocalWhisperField>
 
         <LocalWhisperField
-          error={errors.temperature}
-          hint="Range 0.00–1.00, step 0.05."
+          error={errors.temperature ? t(errors.temperature.key, errors.temperature.params) : undefined}
+          hint={t('localWhisper.settings.temperatureHint')}
           htmlFor="local-whisper-temperature"
-          label="Temperature"
+          label={t('localWhisper.settings.temperature')}
         >
           <Input
             aria-describedby="local-whisper-temperature-error"
@@ -117,7 +162,11 @@ export default function LocalWhisperInferenceSections({
         </LocalWhisperField>
 
         {draft.decodingStrategy === 'beamSearch' ? (
-          <LocalWhisperField error={errors.beamSize} htmlFor="local-whisper-beam-size" label="Beam size">
+          <LocalWhisperField
+            error={errors.beamSize ? t(errors.beamSize.key, errors.beamSize.params) : undefined}
+            htmlFor="local-whisper-beam-size"
+            label={t('localWhisper.settings.beamSize')}
+          >
             <Input
               disabled={disabled}
               id="local-whisper-beam-size"
@@ -132,7 +181,11 @@ export default function LocalWhisperInferenceSections({
         ) : null}
 
         {draft.decodingStrategy === 'bestOfSampling' ? (
-          <LocalWhisperField error={errors.bestOf} htmlFor="local-whisper-best-of" label="Best of">
+          <LocalWhisperField
+            error={errors.bestOf ? t(errors.bestOf.key, errors.bestOf.params) : undefined}
+            htmlFor="local-whisper-best-of"
+            label={t('localWhisper.settings.bestOf')}
+          >
             <Input
               disabled={disabled}
               id="local-whisper-best-of"
@@ -148,10 +201,10 @@ export default function LocalWhisperInferenceSections({
 
         {draft.executionTarget === 'cpu' ? (
           <LocalWhisperField
-            error={errors.cpuThreads}
-            hint={`Use auto or an integer from 1 to ${snapshot.host.logicalProcessorCount}.`}
+            error={errors.cpuThreads ? t(errors.cpuThreads.key, errors.cpuThreads.params) : undefined}
+            hint={t('localWhisper.settings.cpuThreadsHint', { count: String(snapshot.host.logicalProcessorCount) })}
             htmlFor="local-whisper-cpu-threads"
-            label="CPU threads"
+            label={t('localWhisper.settings.cpuThreads')}
           >
             <Input
               disabled={disabled}
@@ -166,11 +219,11 @@ export default function LocalWhisperInferenceSections({
       </div>
 
       <fieldset className="lw-prompt-settings" disabled={disabled}>
-        <legend>Saved initial prompt</legend>
+        <legend>{t('localWhisper.settings.savedInitialPrompt')}</legend>
         <p>
           {snapshot.hasInitialPrompt
-            ? 'A saved prompt exists, but its text is never returned to the renderer.'
-            : 'No initial prompt is currently saved.'}
+            ? t('localWhisper.settings.savedPromptExists')
+            : t('localWhisper.settings.noSavedPrompt')}
         </p>
         <div className="lw-prompt-mode">
           <label className="focus-within:ring-2 focus-within:ring-ring">
@@ -182,7 +235,7 @@ export default function LocalWhisperInferenceSections({
               }
               type="radio"
             />
-            Keep saved value
+            {t('localWhisper.settings.keepSaved')}
           </label>
           <label className="focus-within:ring-2 focus-within:ring-ring">
             <input
@@ -191,7 +244,7 @@ export default function LocalWhisperInferenceSections({
               onChange={() => updateDraft((current) => ({ ...current, promptMutation: 'replace' }))}
               type="radio"
             />
-            Replace
+            {t('localWhisper.settings.replace')}
           </label>
           <label className="focus-within:ring-2 focus-within:ring-ring">
             <input
@@ -200,17 +253,17 @@ export default function LocalWhisperInferenceSections({
               onChange={() => updateDraft((current) => ({ ...current, promptMutation: 'clear', initialPrompt: '' }))}
               type="radio"
             />
-            Clear on Save
+            {t('localWhisper.settings.clearOnSave')}
           </label>
         </div>
       </fieldset>
 
       {draft.promptMutation === 'replace' ? (
         <LocalWhisperField
-          error={errors.initialPrompt}
-          hint="NUL and invalid Unicode scalars are rejected."
+          error={errors.initialPrompt ? t(errors.initialPrompt.key, errors.initialPrompt.params) : undefined}
+          hint={t('localWhisper.settings.promptHint')}
           htmlFor="local-whisper-prompt"
-          label="Replacement prompt"
+          label={t('localWhisper.settings.replacementPrompt')}
         >
           <Textarea
             aria-describedby="local-whisper-prompt-counter local-whisper-prompt-error"
@@ -228,7 +281,10 @@ export default function LocalWhisperInferenceSections({
             }
             id="local-whisper-prompt-counter"
           >
-            {promptLength} / {LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS} Unicode code points
+            {t('localWhisper.settings.promptCodePoints', {
+              current: String(promptLength),
+              maximum: String(LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS),
+            })}
           </p>
         </LocalWhisperField>
       ) : null}

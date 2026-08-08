@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { IconType } from 'react-icons';
 import { PiCaretDown, PiCaretRight } from 'react-icons/pi';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
+import { useI18n } from '@renderer/hooks/useI18n';
 import { cn } from '@renderer/lib/cn';
 
 interface LocalWhisperPanelProps {
@@ -145,6 +146,7 @@ export function LocalWhisperOptionSelect({
   describedBy,
   onChange,
 }: LocalWhisperOptionSelectProps): React.JSX.Element {
+  const { t } = useI18n();
   const selectedOptionMissing = value !== null && !options.some((option) => option.id === value);
   return (
     <Select disabled={disabled} onValueChange={onChange} value={value ?? ''}>
@@ -154,13 +156,13 @@ export function LocalWhisperOptionSelect({
       <SelectContent>
         {selectedOptionMissing && value !== null ? (
           <SelectItem disabled value={value}>
-            {value} · Saved selection unavailable
+            {value} · {t('localWhisper.settings.savedSelectionUnavailable')}
           </SelectItem>
         ) : null}
         {options.map((option) => (
           <SelectItem disabled={option.available === false} key={option.id} value={option.id}>
             {option.label}
-            {option.available === false ? ' · Unavailable' : ''}
+            {option.available === false ? ` · ${t('localWhisper.settings.optionUnavailable')}` : ''}
           </SelectItem>
         ))}
       </SelectContent>

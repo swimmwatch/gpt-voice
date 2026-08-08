@@ -19,6 +19,7 @@ import {
   type LocalWhisperRendererOption,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
+import type { TranslationKey } from '@main/i18n';
 
 const DEFAULT_CANDIDATE_COUNT = '5';
 
@@ -56,9 +57,14 @@ export interface LocalWhisperSettingsDraft {
 }
 
 export interface LocalWhisperDraftValidation {
-  readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, string>>>;
+  readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>>;
   readonly candidate: LocalWhisperPublicSettings | null;
   readonly promptMutation: LocalWhisperPromptMutation | null;
+}
+
+export interface LocalWhisperValidationMessage {
+  readonly key: TranslationKey;
+  readonly params?: Readonly<Record<string, string>>;
 }
 
 function formatTemperature(temperatureHundredths: number): string {
@@ -114,11 +120,58 @@ export function getLocalWhisperOption(
 }
 
 function addError(
-  errors: Partial<Record<LocalWhisperDraftField, string>>,
+  errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>,
   field: LocalWhisperDraftField,
   message: string,
 ): void {
-  errors[field] ??= message;
+  errors[field] ??= validationMessage(message);
+}
+
+function validationMessage(message: string): LocalWhisperValidationMessage {
+  if (message.startsWith('Select runtime compatible'))
+    return Object.freeze({ key: 'localWhisper.settings.validationRuntimeCompatible' });
+  if (message.startsWith('Select revision compatible'))
+    return Object.freeze({ key: 'localWhisper.settings.validationModelCompatible' });
+  if (message.startsWith('Select GPU backend compatible'))
+    return Object.freeze({ key: 'localWhisper.settings.validationBackendCompatible' });
+  if (message.startsWith('Select GPU device compatible'))
+    return Object.freeze({ key: 'localWhisper.settings.validationDeviceCompatible' });
+  if (message.startsWith('Enter a replacement') || message.startsWith('Enter replacement')) {
+    return Object.freeze({ key: 'localWhisper.settings.validationPromptEmpty' });
+  }
+  if (message.startsWith('Initial prompt must contain')) {
+    return Object.freeze({
+      key: 'localWhisper.settings.validationPromptTooLong',
+      params: Object.freeze({ count: String(LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS) }),
+    });
+  }
+  if (message.startsWith('Initial prompt contains'))
+    return Object.freeze({ key: 'localWhisper.settings.validationPromptInvalid' });
+  if (message.startsWith('Select runtime revision'))
+    return Object.freeze({ key: 'localWhisper.settings.validationRuntimeRequired' });
+  if (message.startsWith('Select model revision'))
+    return Object.freeze({ key: 'localWhisper.settings.validationModelRequired' });
+  if (message.startsWith('Select supported model family'))
+    return Object.freeze({ key: 'localWhisper.settings.validationModelFamily' });
+  if (message.startsWith('q5_0')) return Object.freeze({ key: 'localWhisper.settings.validationVariant' });
+  if (message.startsWith('Select an application language'))
+    return Object.freeze({ key: 'localWhisper.settings.validationLanguage' });
+  if (message.startsWith('Use a value')) return Object.freeze({ key: 'localWhisper.settings.validationTemperature' });
+  if (message.startsWith('Beam size')) return Object.freeze({ key: 'localWhisper.settings.validationBeam' });
+  if (message.startsWith('Best of must')) return Object.freeze({ key: 'localWhisper.settings.validationBestOf' });
+  if (message.startsWith('Greedy and beam search'))
+    return Object.freeze({ key: 'localWhisper.settings.validationGreedyTemperature' });
+  if (message.startsWith('Best-of sampling requires'))
+    return Object.freeze({ key: 'localWhisper.settings.validationBestOfTemperature' });
+  if (message.startsWith('CPU threads must')) {
+    const count = message.match(/\d+(?=\.$)/u)?.[0] ?? '';
+    return Object.freeze({ key: 'localWhisper.settings.validationCpuThreads', params: Object.freeze({ count }) });
+  }
+  if (message.startsWith('Select an explicit GPU backend'))
+    return Object.freeze({ key: 'localWhisper.settings.validationBackendRequired' });
+  if (message.startsWith('Select an application-issued GPU device'))
+    return Object.freeze({ key: 'localWhisper.settings.validationDeviceRequired' });
+  return Object.freeze({ key: 'localWhisper.settings.validationOption' });
 }
 
 function parseTemperature(value: string): number | null {
@@ -148,7 +201,7 @@ function parseCpuThreads(
 }
 
 function validateOption(
-  errors: Partial<Record<LocalWhisperDraftField, string>>,
+  errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>,
   snapshot: LocalWhisperRendererSnapshot,
   group: LocalWhisperRendererOption['group'],
   id: string | null,
@@ -213,7 +266,7 @@ function modelRevisionOptionsFor(
 function validateRuntimeCompatibility(
   draft: LocalWhisperSettingsDraft,
   option: LocalWhisperRendererOption | null,
-  errors: Partial<Record<LocalWhisperDraftField, string>>,
+  errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>,
 ): void {
   const expectedBackend = draft.executionTarget === 'cpu' ? 'cpu' : draft.backend;
   if (
@@ -227,7 +280,7 @@ function validateRuntimeCompatibility(
 function validateModelCompatibility(
   draft: LocalWhisperSettingsDraft,
   option: LocalWhisperRendererOption | null,
-  errors: Partial<Record<LocalWhisperDraftField, string>>,
+  errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>,
 ): void {
   if (
     option &&
@@ -241,7 +294,7 @@ function validateGpuCompatibility(
   draft: LocalWhisperSettingsDraft,
   backendOption: LocalWhisperRendererOption | null,
   deviceOption: LocalWhisperRendererOption | null,
-  errors: Partial<Record<LocalWhisperDraftField, string>>,
+  errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>,
 ): void {
   if (
     backendOption &&
@@ -256,7 +309,7 @@ function validateGpuCompatibility(
 
 function createPromptMutation(
   draft: LocalWhisperSettingsDraft,
-  errors: Partial<Record<LocalWhisperDraftField, string>>,
+  errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>,
 ): LocalWhisperPromptMutation | null {
   if (draft.promptMutation === 'unchanged') return Object.freeze({ kind: 'unchanged' });
   if (draft.promptMutation === 'clear') return Object.freeze({ kind: 'clear' });
@@ -284,7 +337,7 @@ export function validateLocalWhisperDraft(
   draft: LocalWhisperSettingsDraft,
   snapshot: LocalWhisperRendererSnapshot,
 ): LocalWhisperDraftValidation {
-  const errors: Partial<Record<LocalWhisperDraftField, string>> = {};
+  const errors: Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>> = {};
   const runtimeRevision = toLocalWhisperRevisionId(draft.runtimeRevision);
   if (!runtimeRevision) addError(errors, 'runtimeRevision', 'Select a runtime revision.');
   const runtimeOption = validateOption(errors, snapshot, 'runtime', draft.runtimeRevision, 'runtimeRevision');

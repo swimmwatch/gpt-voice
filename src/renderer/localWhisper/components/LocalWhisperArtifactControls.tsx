@@ -27,6 +27,7 @@ import {
 } from '@renderer/components/ui/dropdown-menu';
 import { ProgressSpinner, Spinner } from '@renderer/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { useI18n } from '@renderer/hooks/useI18n';
 import {
   LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
   LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
@@ -39,16 +40,27 @@ import {
   formatLocalWhisperBytes,
   formatLocalWhisperFailureCode,
   formatLocalWhisperRecoveryAction,
+  formatLocalWhisperRuntimeState,
 } from '../LocalWhisperPresentation';
 
-const ACTION_LABELS: Readonly<Record<LocalWhisperArtifactAction, string>> = Object.freeze({
-  download: 'Download',
-  resume: 'Resume',
-  cancel: 'Cancel',
-  retry: 'Retry',
-  update: 'Update',
-  remove: 'Remove',
-});
+function actionLabel(action: LocalWhisperArtifactAction, translate: ReturnType<typeof useI18n>['t']): string {
+  const key = {
+    download: 'localWhisper.settings.actionDownload',
+    resume: 'localWhisper.settings.actionResume',
+    cancel: 'localWhisper.settings.actionCancel',
+    retry: 'localWhisper.settings.actionRetry',
+    update: 'localWhisper.settings.actionUpdate',
+    remove: 'localWhisper.settings.actionRemove',
+  } as const;
+  return translate(key[action]);
+}
+
+function artifactKindLabel(
+  kind: LocalWhisperRendererArtifact['kind'],
+  translate: ReturnType<typeof useI18n>['t'],
+): string {
+  return translate(kind === 'runtime' ? 'localWhisper.settings.runtime' : 'localWhisper.settings.model');
+}
 
 const CANCELLABLE_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
   ...LOCAL_WHISPER_CANCELLABLE_ARTIFACT_PROGRESS_STATES,
@@ -99,6 +111,7 @@ export function LocalWhisperArtifactProgressCard({
   pendingAction,
   progress,
 }: Omit<ArtifactControlProps, 'onViewReference'>): React.JSX.Element {
+  const { t } = useI18n();
   const actions = getLocalWhisperArtifactActions(artifact, progress).filter((action) => action !== 'remove');
   const transferProgress = progress?.state === 'Downloading' && progress.totalBytes > 0 ? progress : null;
   const percent =
@@ -107,12 +120,15 @@ export function LocalWhisperArtifactProgressCard({
       : Math.min(100, (transferProgress.receivedBytes / transferProgress.totalBytes) * 100);
   const state = progress?.state ?? artifact.state;
   const isIndeterminateOperation = progress !== null && INDETERMINATE_ARTIFACT_PROGRESS_STATES.has(progress.state);
-  const progressLabel = `${artifact.label} ${progress ? ACTION_LABELS[progress.action].toLowerCase() : 'transfer'} progress`;
+  const progressLabel = t('localWhisper.settings.transferProgress', {
+    artifact: artifact.label,
+    action: progress ? actionLabel(progress.action, t).toLocaleLowerCase() : t('localWhisper.settings.transfer'),
+  });
 
   return (
     <div aria-live="polite" className="lw-transfer-field">
       <div className="lw-transfer-heading">
-        <strong>{state}</strong>
+        <strong>{formatLocalWhisperRuntimeState(state, t)}</strong>
         {percent === null ? (
           isIndeterminateOperation ? (
             <Spinner announce={false} label={progressLabel} size="sm" />
@@ -127,27 +143,29 @@ export function LocalWhisperArtifactProgressCard({
           <progress aria-label={progressLabel} className="lw-progress-track" max={100} value={percent} />
           <div className="lw-transfer-meta">
             <span>
-              {formatLocalWhisperBytes(transferProgress.receivedBytes)} /{' '}
-              {formatLocalWhisperBytes(transferProgress.totalBytes)}
+              {formatLocalWhisperBytes(transferProgress.receivedBytes, t)} /{' '}
+              {formatLocalWhisperBytes(transferProgress.totalBytes, t)}
             </span>
             <span>
               {transferProgress.queuedPosition === null
-                ? ACTION_LABELS[transferProgress.action]
-                : `Queue ${transferProgress.queuedPosition}`}
+                ? actionLabel(transferProgress.action, t)
+                : t('localWhisper.settings.queue', { position: String(transferProgress.queuedPosition) })}
             </span>
           </div>
         </>
       ) : (
         <p className="lw-transfer-description">
           {artifact.state === 'Installed'
-            ? `${formatLocalWhisperBytes(artifact.installedSizeBytes)} installed`
-            : `${formatLocalWhisperBytes(artifact.transferSizeBytes)} download`}
+            ? t('localWhisper.settings.installed', { size: formatLocalWhisperBytes(artifact.installedSizeBytes, t) })
+            : t('localWhisper.settings.download', { size: formatLocalWhisperBytes(artifact.transferSizeBytes, t) })}
         </p>
       )}
       {progress?.failure ? (
         <p className="lw-inline-error" role="alert">
-          {formatLocalWhisperFailureCode(progress.failure.code)}. Recovery:{' '}
-          {formatLocalWhisperRecoveryAction(progress.failure.recoveryAction)}.
+          {formatLocalWhisperFailureCode(progress.failure.code, t)}.{' '}
+          {t('localWhisper.settings.recovery', {
+            action: formatLocalWhisperRecoveryAction(progress.failure.recoveryAction, t),
+          })}
         </p>
       ) : null}
       {actions.length > 0 ? (
@@ -162,7 +180,7 @@ export function LocalWhisperArtifactProgressCard({
                   type="button"
                 >
                   {actionIcon(action)}
-                  {pendingAction === action ? 'Working…' : ACTION_LABELS[action]}
+                  {pendingAction === action ? t('localWhisper.settings.working') : actionLabel(action, t)}
                 </button>
               </TooltipTrigger>
               {actionsDisabledReason ? <TooltipContent>{actionsDisabledReason}</TooltipContent> : null}
@@ -183,6 +201,7 @@ export function LocalWhisperArtifactOverflowMenu({
   pendingAction,
   progress,
 }: ArtifactControlProps): React.JSX.Element | null {
+  const { t } = useI18n();
   const [removeOpen, setRemoveOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const actions = getLocalWhisperArtifactActions(artifact, progress);
@@ -196,7 +215,7 @@ export function LocalWhisperArtifactOverflowMenu({
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label={`Manage ${artifact.label}`}
+                aria-label={t('localWhisper.settings.manageArtifact', { artifact: artifact.label })}
                 className="lw-icon-button lw-menu-trigger"
                 disabled={actionsDisabledReason !== null}
                 ref={triggerRef}
@@ -206,7 +225,9 @@ export function LocalWhisperArtifactOverflowMenu({
               </button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent>{actionsDisabledReason ?? `Manage ${artifact.label}`}</TooltipContent>
+          <TooltipContent>
+            {actionsDisabledReason ?? t('localWhisper.settings.manageArtifact', { artifact: artifact.label })}
+          </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end">
           {artifact.references.map((reference) => (
@@ -234,7 +255,7 @@ export function LocalWhisperArtifactOverflowMenu({
               }}
             >
               {actionIcon(action)}
-              {pendingAction === action ? 'Working…' : ACTION_LABELS[action]}
+              {pendingAction === action ? t('localWhisper.settings.working') : actionLabel(action, t)}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -243,13 +264,15 @@ export function LocalWhisperArtifactOverflowMenu({
       <AlertDialog onOpenChange={setRemoveOpen} open={removeOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove {artifact.label}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('localWhisper.settings.removeDialogTitle', { artifact: artifact.label })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the selected {artifact.kind} artifact from managed storage. Other versions are not affected.
+              {t('localWhisper.settings.removeDialogDescription', { kind: artifactKindLabel(artifact.kind, t) })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep artifact</AlertDialogCancel>
+            <AlertDialogCancel>{t('localWhisper.settings.keepArtifact')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -259,7 +282,7 @@ export function LocalWhisperArtifactOverflowMenu({
                 });
               }}
             >
-              Remove
+              {t('localWhisper.settings.actionRemove')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
