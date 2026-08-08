@@ -1,0 +1,830 @@
+schema_version: 1
+spec_slug: local-whisper-native-library-adoption-remediation
+interview_id: spec:local-whisper-native-library-adoption-remediation
+decisions:
+  - id: outcome.specification-only
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User requested a specification and stated that planning will happen later.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [specification-only]
+      text: ''
+    rationale: This invocation may create or revise the authoritative specification only; it may not create a plan or implement changes.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCP-001]
+
+  - id: scope.review-selection
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - invalid-transcript-utf8
+        - sha256-consolidation
+        - common-base64url-hex-codecs
+      text: ''
+    rationale: The immediately preceding review assessment selected these three underlying comments and rejected the remaining library-adoption proposals.
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+
+  - id: architecture.existing-contract-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - transcript-owned-by-inf-002
+        - sha256-owned-by-cry-001
+        - approved-plan-exists
+      text: ''
+    rationale: The approved remediation specification and plan already own the transcript-serialization and SHA-256 findings; base64url/hex consolidation is not in that approved scope.
+    supersedes_revision: null
+    requirement_ids: [ARC-001]
+
+  - id: compatibility.supported-platforms
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [linux-x64, windows-x64, macos-unavailable]
+      text: ''
+    rationale: Local Whisper native runtime support remains Linux x64 and Windows x64; this work does not add macOS support.
+    supersedes_revision: null
+    requirement_ids: [CMP-001]
+
+  - id: interfaces.desktop-contracts
+    revision: 1
+    category: interfaces
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-comments-to-address.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: The selected work changes private native implementation contracts only and introduces no renderer, preload, public IPC, provider, setting, history, or user-facing workflow change.
+    supersedes_revision: null
+    requirement_ids: [SCP-002]
+
+  - id: data.user-migration
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: No persisted user data, settings, cache, history, model, catalog, or artifact schema changes are selected.
+    supersedes_revision: null
+    requirement_ids: [CMP-002]
+
+  - id: security.existing-boundaries
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - runtime/local-whisper/sources/README.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-sensitive-logging
+        - offline-disconnected-build
+        - strict-native-input-validation
+        - no-network-runtime-change
+        - no-generated-build-artifacts
+      text: ''
+    rationale: Audio, transcripts, paths, capability values, and native failure detail remain private; native builds remain disconnected and fail closed.
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002]
+
+  - id: concurrency.shared-codec-safety
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - runtime/local-whisper/common/
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - stateless-reentrant-codecs
+        - no-mutable-global-state
+        - caller-owned-buffers
+        - existing-worker-arbitration-contract
+      text: ''
+    rationale: Shared transformations must be pure or caller-owned and safe for concurrent native consumers; worker terminal arbitration remains owned by the existing remediation contract.
+    supersedes_revision: null
+    requirement_ids: [THR-001]
+
+  - id: operations.no-plan-or-release
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - User stated that the plan will be described later.
+      - AGENTS.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-plan
+        - no-implementation
+        - no-package-or-release-action
+      text: ''
+    rationale: Specification approval will not authorize planning, implementation, packaging, qualification, publication, or release.
+    supersedes_revision: null
+    requirement_ids: [SCP-001, OPS-001]
+
+  - id: scope.contract-ownership
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-comments-to-address.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: scope-architecture-round-01
+      question_id: scope.contract-ownership
+      idempotency_key: scope.contract-ownership:v1
+      last_status: answered
+    question:
+      text: How should the new specification relate to the already approved native-remediation specification?
+      kind: single
+      options:
+        - id: companion-gap-only
+          label: Companion for the gap (Recommended)
+          description: Keep INF-002 and CRY-001 in the approved spec, and let the new spec own only common base64url/hex consolidation while referencing those existing obligations.
+        - id: reopen-existing
+          label: Reopen existing spec
+          description: Return the approved native-remediation spec to Draft and add codec consolidation to it; its approved plan will require a later revision.
+        - id: consolidated-superseding
+          label: New superseding spec
+          description: Create a new contract for all three comments and explicitly supersede the overlapping parts of the approved remediation spec.
+    answer:
+      selected_ids: [consolidated-superseding]
+      text: ''
+    rationale: The new specification will own all three selected library-adoption comments and, once approved, supersede only the overlapping INF-002 and CRY-001 obligations; unrelated requirements in the existing remediation specification remain authoritative.
+    supersedes_revision: null
+    requirement_ids: [ARC-001, OUT-001]
+
+  - id: architecture.dependency-policy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-comments-to-address.md
+      - runtime/local-whisper/sources/README.md
+      - runtime/local-whisper/sources/schema/native-source-lock.schema.json
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: scope-architecture-round-01
+      question_id: architecture.dependency-policy
+      idempotency_key: architecture.dependency-policy:v1
+      last_status: answered
+    question:
+      text: Which dependency policy should the specification require?
+      kind: single
+      options:
+        - id: dependency-free-common
+          label: Dependency-free common codecs (Recommended)
+          description: Consolidate into the existing verified native common library and add no production dependency.
+        - id: adopt-libsodium
+          label: Adopt libsodium
+          description: Add a reviewed libsodium source lock and use it for base64url/hex plus selected cryptographic helpers.
+        - id: adopt-libsodium-simdutf
+          label: Adopt both libraries
+          description: Add reviewed libsodium and simdutf source locks and expand the specification to their relevant codec and UTF conversion paths.
+    answer:
+      selected_ids: [adopt-libsodium-simdutf]
+      text: ''
+    rationale: Both dependencies are authorized for specification scope, subject to the repository's source-lock, license, static-link, disconnected-build, and cross-platform evidence contracts.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, ARC-002]
+
+  - id: failure.invalid-transcript-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: scope-architecture-round-01
+      question_id: failure.invalid-transcript-policy
+      idempotency_key: failure.invalid-transcript-policy:v1
+      last_status: answered
+    question:
+      text: What user-visible text policy should apply when model output contains ill-formed UTF-8?
+      kind: single
+      options:
+        - id: replace-invalid
+          label: Replace invalid sequences (Recommended)
+          description: Preserve all valid text and replace each ill-formed subsequence deterministically with Unicode replacement characters.
+        - id: truncate-at-invalid
+          label: Truncate at first error
+          description: Return only the valid prefix before the first ill-formed sequence.
+        - id: fail-transcription
+          label: Fail transcription
+          description: Preserve strict output semantics by rejecting the entire transcription and returning a typed failure.
+    answer:
+      selected_ids: [replace-invalid]
+      text: ''
+    rationale: Preserve valid transcript content and deterministically replace ill-formed subsequences instead of discarding the transcription.
+    supersedes_revision: null
+    requirement_ids: [TXT-001]
+
+  - id: compatibility.codec-input-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/fs-guard/src/common/protocol.cpp
+      - runtime/local-whisper/launcher/src/common/launch_request.cpp
+      - runtime/local-whisper/common/src/device_proof.cpp
+      - tests/fixtures/local-whisper/protocol/v1/manifest.json
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: scope-architecture-round-01
+      question_id: compatibility.codec-input-policy
+      idempotency_key: compatibility.codec-input-policy:v1
+      last_status: answered
+    question:
+      text: How should consolidation affect existing base64url and hexadecimal acceptance and error behavior?
+      kind: single
+      options:
+        - id: preserve-domain-contracts
+          label: Preserve domain contracts (Recommended)
+          description: Share byte codecs but retain every consumer's current bounds, canonical-form rules, control-character checks, and typed error classification.
+        - id: uniform-stricter-contract
+          label: Standardize stricter rules
+          description: Make all consumers use one stricter acceptance policy even where that rejects inputs accepted today.
+        - id: normalize-broader-input
+          label: Accept and normalize more
+          description: Accept padded base64url or noncanonical hexadecimal forms and normalize them internally.
+    answer:
+      selected_ids: [preserve-domain-contracts]
+      text: ''
+    rationale: Library adoption must be behavior-preserving at every existing native boundary; common byte codecs do not erase consumer-specific bounds, safety checks, or typed errors.
+    supersedes_revision: null
+    requirement_ids: [COD-001, CMP-003]
+
+  - id: scope.codec-completion-gate
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-comments-to-address.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: scope-architecture-round-01
+      question_id: scope.codec-completion-gate
+      idempotency_key: scope.codec-completion-gate:v1
+      last_status: answered
+    question:
+      text: When must the common base64url/hex consolidation be complete?
+      kind: single
+      options:
+        - id: before-native-qualification
+          label: Before native qualification (Recommended)
+          description: Require it before freezing or qualifying any Linux or Windows runtime candidate.
+        - id: after-current-remediation
+          label: Follow-up after remediation
+          description: Keep it mandatory but allow the approved native-remediation work and qualification gate to complete first.
+        - id: optional-maintenance
+          label: Optional maintenance
+          description: Record the desired direction without making it a completion gate.
+    answer:
+      selected_ids: [before-native-qualification]
+      text: ''
+    rationale: No Linux or Windows candidate containing the affected native runtime may be frozen or qualified until the superseding contract is complete on both platforms.
+    supersedes_revision: null
+    requirement_ids: [GAT-001]
+
+  - id: architecture.sha-backend-policy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/common/src/sha256.cpp
+      - runtime/local-whisper/fs-guard/src/platform/windows/windows_backend.cpp
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-review.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: libraries-failure-round-02
+      question_id: architecture.sha-backend-policy
+      idempotency_key: architecture.sha-backend-policy:v1
+      last_status: answered
+    question:
+      text: After libsodium is added, which SHA-256 backend policy should the specification require?
+      kind: single
+      options:
+        - id: common-plus-windows-cng
+          label: Common SHA plus Windows CNG (Recommended)
+          description: Keep one hardened portable common implementation, retain measured Windows CNG, and remove only the launcher and Linux-guard duplicates.
+        - id: libsodium-everywhere
+          label: Libsodium SHA everywhere
+          description: Replace the portable common and Windows CNG paths with libsodium SHA-256 for one third-party implementation despite the measured performance tradeoff.
+        - id: common-hardware-dispatch
+          label: Add hardware dispatch now
+          description: Keep a common implementation but add SHA-NI and ARMv8 runtime dispatch as part of this robustness specification.
+    answer:
+      selected_ids: [libsodium-everywhere]
+      text: ''
+    rationale: All portable and operating-system SHA-256 providers, including Windows CNG, will be replaced by the statically linked libsodium implementation; the user accepted the option's stated performance tradeoff.
+    supersedes_revision: null
+    requirement_ids: [CRY-001]
+
+  - id: security.libsodium-hardening-surface
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/common/include/local_whisper/common/model_authority.hpp
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-review.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: libraries-failure-round-02
+      question_id: security.libsodium-hardening-surface
+      idempotency_key: security.libsodium-hardening-surface:v1
+      last_status: answered
+    question:
+      text: Beyond base64url and hexadecimal codecs, how should the specification use libsodium's comparison and memory APIs?
+      kind: single
+      options:
+        - id: secret-scoped-hardening
+          label: Harden actual secrets only (Recommended)
+          description: Use constant-time comparison and explicit wiping only for fixed-length secret or capability-verifier buffers, not public digests, identities, or nonces.
+        - id: all-digests-and-nonces
+          label: Harden all digests and nonces
+          description: Apply constant-time comparison and wiping to every authority digest, fingerprint, challenge, and nonce regardless of secrecy.
+        - id: codecs-only
+          label: Codecs only
+          description: Use libsodium for base64url/hex and add no comparison or memory-wiping behavior.
+    answer:
+      selected_ids: [all-digests-and-nonces]
+      text: ''
+    rationale: Constant-time comparison and explicit wiping apply to every in-scope authority digest, fingerprint, challenge, and nonce, not only values currently classified as secret.
+    supersedes_revision: null
+    requirement_ids: [SEC-003, SEC-004]
+
+  - id: architecture.simdutf-surface
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/fs-guard/src/platform/windows/windows_backend.cpp
+      - runtime/local-whisper/common/src/bounded_json.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: libraries-failure-round-02
+      question_id: architecture.simdutf-surface
+      idempotency_key: architecture.simdutf-surface:v1
+      last_status: answered
+    question:
+      text: Which native UTF paths should simdutf own?
+      kind: single
+      options:
+        - id: transcript-prompt-windows
+          label: Transcript, prompt, Windows conversion (Recommended)
+          description: Validate/repair transcript output, validate and count prompt scalars, and convert Windows UTF-16 names while leaving strict JSON grammar to nlohmann.
+        - id: transcript-only
+          label: Transcript output only
+          description: Use simdutf only for model-produced transcript validation and replacement; preserve existing prompt and Windows conversion implementations.
+        - id: all-native-text
+          label: All native text boundaries
+          description: Route protocol JSON and every native string path through simdutf in addition to the parser and platform checks.
+    answer:
+      selected_ids: [transcript-prompt-windows]
+      text: ''
+    rationale: simdutf owns model-output validation/repair, initial-prompt validation and scalar counting, and Windows UTF-16/UTF-8 conversion; nlohmann remains the strict JSON grammar authority.
+    supersedes_revision: null
+    requirement_ids: [UTF-001, UTF-002, UTF-003]
+
+  - id: failure.transcript-size-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/common/src/frame_codec.cpp
+      - runtime/local-whisper/whisper-cpp/core/worker_protocol_posix.cpp
+      - runtime/local-whisper/whisper-cpp/platform/windows/worker_protocol_windows.cpp
+      - docs/specs/local-whisper/tasks/07_framed_worker_supervisor.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: libraries-failure-round-02
+      question_id: failure.transcript-size-policy
+      idempotency_key: failure.transcript-size-policy:v1
+      last_status: answered
+    question:
+      text: What should happen if repaired transcript text would exceed the existing maximum control-frame size?
+      kind: single
+      options:
+        - id: truncate-before-commit
+          label: Truncate safely before commit (Recommended)
+          description: Preserve a valid UTF-8 prefix that fits the existing frame bound, record no transcript content in logs, and commit that bounded success.
+        - id: typed-failure-before-commit
+          label: Return typed failure
+          description: Detect the oversize result before terminal success and return the existing safe transcription failure.
+        - id: increase-frame-limit
+          label: Increase the frame limit
+          description: Expand the private protocol and allocation bounds to carry the entire repaired transcript.
+    answer:
+      selected_ids: [truncate-before-commit]
+      text: ''
+    rationale: Repaired output is bounded before terminal success; the longest valid UTF-8 prefix that fits the existing control-frame limit is delivered without logging the removed content.
+    supersedes_revision: null
+    requirement_ids: [TXT-002, CMP-004]
+
+  - id: compatibility.dependency-rollout
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/sources/README.md
+      - runtime/local-whisper/sources/schema/native-source-lock.schema.json
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: libraries-failure-round-02
+      question_id: compatibility.dependency-rollout
+      idempotency_key: compatibility.dependency-rollout:v1
+      last_status: answered
+    question:
+      text: How should existing unqualified runtime identities roll forward after the two dependency locks are added?
+      kind: single
+      options:
+        - id: atomic-runtime-revision
+          label: Atomic runtime revision (Recommended)
+          description: Update source locks, build provenance, manifests, both platform packs, and private peer/runtime identity as one incompatible unshipped revision with no mixed pairing.
+        - id: temporary-dual-runtime
+          label: Temporary dual runtime
+          description: Keep old and new native runtime identities available during a transition and select between them at startup.
+        - id: preserve-runtime-identity
+          label: Preserve current identity
+          description: Change native dependencies without changing the authenticated runtime build identity or compatibility gate.
+    answer:
+      selected_ids: [atomic-runtime-revision]
+      text: ''
+    rationale: Source locks, provenance, manifests, runtime packs, and private compatibility identity change atomically; old and new native peers are never mixed.
+    supersedes_revision: null
+    requirement_ids: [CMP-005, SUP-001]
+
+  - id: failure.library-initialization
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/main.cpp
+      - runtime/local-whisper/fs-guard/src/main.cpp
+      - runtime/local-whisper/launcher/src/main.cpp
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: operations-acceptance-round-03
+      question_id: failure.library-initialization
+      idempotency_key: failure.library-initialization:v1
+      last_status: answered
+    question:
+      text: What should happen if a statically linked library cannot initialize or select a safe runtime backend?
+      kind: single
+      options:
+        - id: fail-closed-no-fallback
+          label: Fail closed without fallback (Recommended)
+          description: Reject startup through existing safe native/provider failure contracts before processing audio, models, paths, or capability material.
+        - id: fallback-legacy-code
+          label: Fall back to legacy code
+          description: Keep the removed hand-written implementations available and use them when library initialization fails.
+        - id: continue-degraded
+          label: Continue degraded
+          description: Start the runtime but disable only operations that reach the unavailable library path.
+    answer:
+      selected_ids: [fail-closed-no-fallback]
+      text: ''
+    rationale: Every native process must initialize its required library surface before accepting work and fail through existing safe contracts if initialization is unavailable; removed legacy code is not retained as fallback.
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, OPS-002]
+
+  - id: security.zeroization-guarantee
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/common/include/local_whisper/common/model_authority.hpp
+      - runtime/local-whisper/common/src/model_authority.cpp
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-review.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: operations-acceptance-round-03
+      question_id: security.zeroization-guarantee
+      idempotency_key: security.zeroization-guarantee:v1
+      last_status: answered
+    question:
+      text: How strong should the selected all-digest/all-nonce wiping contract be?
+      kind: single
+      options:
+        - id: tracked-owner-guarantee
+          label: Tracked-owner guarantee (Recommended)
+          description: Refactor in-scope values into bounded owners, minimize copies, and wipe every tracked mutable copy on success, failure, cancellation, and destruction.
+        - id: best-effort-destructors
+          label: Best-effort destructors
+          description: Add wiping to current owning destructors but allow ordinary strings, arrays, temporaries, and copies to remain untracked.
+        - id: boundary-buffers-only
+          label: Boundary buffers only
+          description: Wipe only decode/encode buffers at protocol boundaries and leave long-lived records unchanged.
+    answer:
+      selected_ids: [tracked-owner-guarantee]
+      text: ''
+    rationale: In-scope digests and nonces require bounded ownership, copy minimization, and deterministic wiping of every tracked mutable representation on all terminal and destruction paths.
+    supersedes_revision: null
+    requirement_ids: [SEC-004, OWN-001]
+
+  - id: quality.sha-performance-gate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-review.md
+      - docs/reviews/2026-08-08-local-whisper-performance-review.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: operations-acceptance-round-03
+      question_id: quality.sha-performance-gate
+      idempotency_key: quality.sha-performance-gate:v1
+      last_status: answered
+    question:
+      text: What performance gate should apply to the selected libsodium-everywhere SHA-256 policy?
+      kind: single
+      options:
+        - id: measure-without-threshold
+          label: Measure and disclose (Recommended)
+          description: Record Linux and Windows throughput/model-load impact as qualification evidence but prioritize robustness without a pass/fail regression threshold.
+        - id: no-regression-threshold
+          label: Require no regression
+          description: Block completion unless libsodium matches or exceeds the current common/CNG paths on representative hosts.
+        - id: no-performance-evidence
+          label: No performance evidence
+          description: Treat performance as entirely outside this work and run no before/after measurement.
+    answer:
+      selected_ids: [measure-without-threshold]
+      text: ''
+    rationale: Qualification evidence must report before/after SHA throughput and representative model-load impact on Linux and Windows, but robustness completion has no numerical performance threshold.
+    supersedes_revision: null
+    requirement_ids: [PERF-001, AC-MAN-003]
+
+  - id: supply.source-materialization
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/sources/README.md
+      - runtime/local-whisper/sources/schema/native-source-lock.schema.json
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-review.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: operations-acceptance-round-03
+      question_id: supply.source-materialization
+      idempotency_key: supply.source-materialization:v1
+      last_status: answered
+    question:
+      text: What source-materialization policy should the dependency locks require?
+      kind: single
+      options:
+        - id: hybrid-supported-sources
+          label: Hybrid supported sources (Recommended)
+          description: Lock the complete libsodium tree needed by its supported Linux/Windows builds and the upstream simdutf amalgamated source/header pair plus licenses and required build metadata.
+        - id: explicit-subsets-both
+          label: Explicit subsets for both
+          description: Lock only individually selected translation units and headers used from each library, with maintainers owning subset completeness.
+        - id: complete-trees-both
+          label: Complete trees for both
+          description: Lock every file in both upstream commits even when the runtime build consumes only a small subset.
+    answer:
+      selected_ids: [hybrid-supported-sources]
+      text: ''
+    rationale: The source-lock system will materialize the complete libsodium source needed by supported upstream Linux/Windows builds and an explicit simdutf amalgamated source/header subset with all required license and build metadata.
+    supersedes_revision: null
+    requirement_ids: [SUP-002, SUP-003]
+
+  - id: scope.non-goals
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-library-adoption-comments-to-address.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-json-grammar-change
+        - no-generic-resource-owner-consolidation
+        - no-wav-parser-replacement
+        - no-filesystem-or-process-abstraction
+        - no-formatting-only-migration
+        - no-renderer-or-public-api-change
+        - no-hardware-sha-dispatch
+      text: ''
+    rationale: The specification is limited to the three selected comments and the user-authorized library/security consequences; rejected candidates and unrelated cleanup remain outside scope.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: concurrency.library-lifecycle
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - runtime/local-whisper/common/
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - initialize-before-work
+        - thread-safe-once-per-process
+        - reentrant-stateless-codecs
+        - immutable-runtime-dispatch
+        - no-legacy-fallback
+      text: ''
+    rationale: The selected fail-closed policy and repository concurrency rules require initialization to complete before concurrent work and forbid mutable ambient runtime state.
+    supersedes_revision: null
+    requirement_ids: [THR-001, THR-002, FAIL-001]
+
+  - id: supply.lock-and-link-contract
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - runtime/local-whisper/sources/README.md
+      - runtime/local-whisper/sources/schema/native-source-lock.schema.json
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - exact-reviewed-commits
+        - permissive-license-evidence
+        - no-recursive-dependencies
+        - static-self-contained-linkage
+        - disconnected-build
+        - no-system-package-fallback
+        - manifest-and-sbom-provenance
+      text: ''
+    rationale: Both libraries must enter through the existing native source-lock and reproducible-pack contracts; planning may select exact upstream commits but may not weaken these gates.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, SUP-001, SUP-002, SUP-003, BLD-001]
+
+  - id: compatibility.rollback
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - whole-revision-rollback
+        - no-mixed-peer-or-pack
+        - no-data-migration
+      text: ''
+    rationale: Atomic rollout implies atomic rollback of source locks, manifests, packs, and compatibility identity; no persisted user data participates.
+    supersedes_revision: null
+    requirement_ids: [CMP-002, CMP-005, OPS-003]
+
+  - id: quality.cross-platform-evidence
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - .github/workflows/pr-checks.yml
+      - package.json
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-gcc-release
+        - linux-clang-asan-ubsan
+        - clang-format-and-clang-tidy
+        - windows-msvc-warnings-as-errors
+        - shared-contract-vectors
+        - source-lock-and-pack-reproducibility
+        - supported-host-smokes
+      text: ''
+    rationale: Cross-platform completion requires equivalent Linux and Windows evidence; unavailable platform execution is a blocker rather than an inferred pass.
+    supersedes_revision: null
+    requirement_ids: [TST-001, TST-002, GAT-001]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-library-adoption-remediation/spec.md
+      - docs/specs/local-whisper-native-library-adoption-remediation/decisions.yaml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-library-adoption-remediation
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: Approve the Local Whisper Native Library Adoption Remediation Specification as the authoritative implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve draft (Recommended)
+          description: Set Status to Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep Status as Draft and reopen the affected decisions for revision.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the current inspectable draft without approving or revising it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the inspectable draft as the authoritative implementation contract and did not authorize planning or implementation.
+    supersedes_revision: null
+    requirement_ids: [APPROVAL-001]
+
+gap_analysis:
+  status: complete
+  unresolved_material_decisions: []
+  perspectives:
+    user: Transcript repair, bounded truncation, safe failures, and unchanged desktop behavior are defined.
+    operator: Static packaging, source locks, initialization failure, atomic rollout/rollback, performance disclosure, and qualification gates are defined.
+    implementer: Library ownership, SHA policy, codec compatibility, UTF surfaces, secure value ownership, and supersession boundaries are defined without task ordering.
+    tester: Cross-platform vectors, malformed/oversized cases, concurrency, initialization failure, source-lock, binary closure, and manual host evidence are objective.
+    security_reviewer: Strict inputs, constant-time comparison, tracked wiping, privacy, disconnected supply chain, static linkage, and fail-closed behavior are bounded.
+    maintainer: Non-goals, exact-lock update policy, no mixed revisions, plan invalidation boundaries, and completion gates are explicit.
