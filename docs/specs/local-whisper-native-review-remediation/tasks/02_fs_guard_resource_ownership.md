@@ -7,7 +7,7 @@ The Linux and Windows filesystem-guard backends release every transient native r
 ## Prerequisites
 
 - The plan is approved and this packet has separate execution authorization.
-- No other packet is in progress. Packet 01 is independent and need not be complete.
+- No other packet is in progress. Packet 01 is independent and need not be complete. Real Windows execution is deferred to Packet 15.
 - Verified GoogleTest/native inputs are available.
 
 ## Owned Requirements
@@ -82,15 +82,7 @@ npm run test:local-whisper:fs-guard:integration
 npm run test:local-whisper:fs-guard:native
 ```
 
-Run on Windows x64:
-
-```text
-npm run test:local-whisper:fs-guard:unit
-npm run test:local-whisper:fs-guard:integration
-npm run test:local-whisper:fs-guard:native
-```
-
-Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` falls back to a Linux `clang-quality-18.1.3` toolchain path and the Windows job provisions no clang-format, so `format:check:local-whisper:*` SHALL NOT be run on Windows. clang-format output is platform-independent, so the Linux run is the complete formatting evidence. MSVC warnings-as-errors and the native suites are the Windows gate.
+Formatting and clang-tidy are Linux-only quality gates. Author the Windows handle-baseline, failure-injection, and lease-boundary cases in this packet; Packet 15 owns their real MSVC execution and any resulting fixes.
 
 ## Failure And Rollback
 
@@ -100,7 +92,7 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Manual Gates
 
-- **MANUAL GATE:** Execute the Windows x64 completion set and retain the handle-baseline result. Without that evidence, leave Packet 02 unchecked and record the blocker.
+- No Windows-host manual gate is performed in this packet. Record the deferred handle-baseline and lease-boundary suites for Packet 15.
 - No destructive test may target a user directory; inspect the resolved temporary root before any integration run.
 
 ## References
@@ -111,6 +103,6 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Completion And Handoff
 
-- Record changed files, leak-injection coverage, lease-boundary results, and Linux/Windows checks in `handoff.md`.
-- Check Packet 02 in `todo.md` only after both platforms pass.
+- Record changed files, Linux leak-injection and lease-boundary results, and the deferred Windows suite inventory in `handoff.md`.
+- Check Packet 02 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows resource evidence.
 - Set the exact next packet to the first unchecked packet permitted by dependencies, normally Packet 03, and stop without starting it or committing/pushing.

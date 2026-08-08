@@ -6,7 +6,7 @@ Launcher and model-launch process loops stop waiting on permanently closed contr
 
 ## Prerequisites
 
-- Packets 01 and 02 are complete so worker shutdown behavior and native RAII owners are stable.
+- Packets 01 and 02 are complete with Linux/shared evidence so worker shutdown behavior and native RAII owners are stable. Their real Windows evidence remains deferred to Packet 15.
 - This packet has separate execution authorization and no other packet is in progress.
 - Packet 03 may be complete or may execute later; do not modify its common command/input ownership.
 
@@ -90,17 +90,7 @@ npm run lint:local-whisper:fs-guard
 npm run test:local-whisper:fs-guard:native
 ```
 
-Run on Windows x64:
-
-```text
-npm run test:local-whisper:launcher:native
-npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
-npm run test:local-whisper:fs-guard:native
-```
-
-The Windows launcher/native suite must include executable handle-policy cases; `--contract-only` alone is not sufficient evidence for CAP-001.
-
-Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` falls back to a Linux `clang-quality-18.1.3` toolchain path and the Windows job provisions no clang-format, so `format:check:local-whisper:*` SHALL NOT be run on Windows. clang-format output is platform-independent, so the Linux run is the complete formatting evidence. MSVC warnings-as-errors and the native suites are the Windows gate.
+Author the Windows executable handle-policy and closed-channel cases in this packet; `--contract-only` is not sufficient evidence for CAP-001. Packet 15 owns real Windows execution and any resulting fixes. Formatting and clang-tidy remain Linux-only quality gates.
 
 ## Failure And Rollback
 
@@ -110,7 +100,7 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Manual Gates
 
-- **MANUAL GATE:** Run the Windows executable handle-policy and closed-channel suites on Windows x64; packet completion cannot rely only on source-contract inspection.
+- No Windows-host manual gate is performed in this packet. Record the deferred executable handle-policy and closed-channel suites for Packet 15.
 - Verify fixture process IDs/jobs before cleanup. No workflow dispatch, push, or termination of non-fixture processes is authorized.
 
 ## References
@@ -121,6 +111,6 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Completion And Handoff
 
-- Record changed process/capability components, hostile-case coverage, baseline resource counts, and platform checks in `handoff.md`.
-- Check Packet 04 in `todo.md` only after both platform gates pass.
+- Record changed process/capability components, Linux hostile-case and resource-count results, and the deferred Windows suite inventory in `handoff.md`.
+- Check Packet 04 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows lifecycle evidence.
 - Set the exact next packet to Packet 05 when Packets 02 and 04 are complete, then stop without starting it or committing/pushing.

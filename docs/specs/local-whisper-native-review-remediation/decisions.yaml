@@ -556,6 +556,41 @@ decisions:
     supersedes_revision: null
     requirement_ids: [CMP-004, TST-002]
 
+  - id: plan.packet-platform-slicing
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: null
+      question_id: plan.packet-platform-slicing
+      idempotency_key: plan.packet-platform-slicing:v2
+      last_status: answered
+    question:
+      text: How should the revised plan schedule real Windows-host testing and the fixes discovered by it?
+      kind: single
+      options:
+        - id: deferred-windows-remediation
+          label: Final Windows packet (Recommended)
+          description: Complete implementation packets with available Linux/shared checks, then use one final Windows x64 packet to run all MSVC, ASan, analysis, binary, and smoke gates and fix every Windows finding before the workstream can complete.
+        - id: packet-local-windows
+          label: Packet-local Windows
+          description: Keep real Windows testing and any resulting fixes inside each behavior or CI packet before it can be completed.
+        - id: deferred-windows-verification-only
+          label: Final verification only
+          description: Defer Windows tests to the end, but send discovered fixes back to their original packets instead of completing them inside the final Windows packet.
+    answer:
+      selected_ids: [deferred-windows-remediation]
+      text: ''
+    rationale: The implementation packets retain Windows code, tests, profiles, and manifests, but all real Windows-host execution and test-discovered remediation is consolidated into final Packet 15. This preserves mandatory Windows evidence while allowing Linux/shared work to proceed first.
+    supersedes_revision: 1
+    requirement_ids: [CMP-004, CMP-006, TST-001, TST-002, TST-007, OPS-004]
+
   - id: plan.worker-packet-granularity
     revision: 1
     category: planning
@@ -639,7 +674,6 @@ decisions:
       - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
       - docs/specs/local-whisper-native-review-remediation/tasks/06_typed_launch_failures.md
       - docs/specs/local-whisper-native-review-remediation/tasks/07_native_hardening_and_binary_verifier.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/08_cross_platform_remediation_gate.md
     prompt_mcp:
       interview_id: plan:local-whisper-native-review-remediation
       batch_id: approval-round-01
@@ -665,6 +699,56 @@ decisions:
     rationale: The user explicitly approved the audited eight-packet plan as the authoritative execution sequence without authorizing implementation.
     supersedes_revision: null
     requirement_ids: [PLAN-APPROVAL-001]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/06_typed_launch_failures.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/07_native_hardening_and_binary_verifier.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/08_sanitizer_and_stl_hardening.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_native_execution_analysis_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_linux_shared_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: null
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      last_status: answered
+    question:
+      text: What should happen to the revised Local Whisper native remediation plan, which moves all real Windows-host testing and resulting fixes into final Packet 15?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan (Recommended)
+          description: Approve the 15-packet plan as the authoritative execution breakdown; no implementation packet is authorized.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise the packet structure or contracts before execution.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current artifacts without approval or execution authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the 15-packet plan with all real Windows-host testing and test-discovered remediation consolidated into final Packet 15. Approval does not authorize implementation.
+    supersedes_revision: 1
+    requirement_ids: [PLAN-APPROVAL-002, OPS-004]
 
   - id: authorization.packet-01-execution
     revision: 1

@@ -6,7 +6,7 @@ The guard rejects an oversized request line without unbounded buffering or drain
 
 ## Prerequisites
 
-- Packet 02 is complete, including its cross-platform RAII and lease-capacity evidence.
+- Packet 02 is complete with its Linux/shared implementation evidence; its deferred Windows evidence remains owned by Packet 15.
 - This packet has separate execution authorization and no other packet is in progress.
 
 ## Owned Requirements
@@ -91,18 +91,7 @@ npm run typecheck
 npm run test:types
 ```
 
-Run on Windows x64:
-
-```text
-npm run test:local-whisper:fs-guard:native
-npm run test:local-whisper:filesystem
-npm run typecheck
-npm run test:types
-```
-
-The native integration suite must use real Linux and Windows backends, not only `FakeBackend`.
-
-Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` falls back to a Linux `clang-quality-18.1.3` toolchain path and the Windows job provisions no clang-format, so `format:check:local-whisper:*` SHALL NOT be run on Windows. clang-format output is platform-independent, so the Linux run is the complete formatting evidence. MSVC warnings-as-errors and the native suites are the Windows gate.
+The Linux native integration suite must use the real Linux backend, not only `FakeBackend`. Author the equivalent Windows backend matrix in this packet; Packet 15 owns its real MSVC execution and any resulting fixes. Formatting and clang-tidy remain Linux-only quality gates.
 
 ## Failure And Rollback
 
@@ -112,7 +101,7 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Manual Gates
 
-- **MANUAL GATE:** Run the Windows native guard and Node/native filesystem completion commands. The packet remains incomplete without the exact `LIST`, typed-command, and overlong-input Windows results.
+- No Windows-host manual gate is performed in this packet. Record the deferred exact-`LIST`, typed-command, and overlong-input Windows suites for Packet 15.
 - Validate every integration-test temporary root before executing removal or quarantine cases.
 
 ## References
@@ -123,6 +112,6 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Completion And Handoff
 
-- Record command type changes, boundary tests, guard/transport recovery, and Linux/Windows results in `handoff.md`.
-- Check Packet 03 in `todo.md` only after both platforms pass.
+- Record command type changes, Linux/shared boundary and recovery results, and the deferred Windows suite inventory in `handoff.md`.
+- Check Packet 03 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows behavior evidence.
 - Set the exact next packet to Packet 04 and stop without implementation of that packet, commits, pushes, or external actions.

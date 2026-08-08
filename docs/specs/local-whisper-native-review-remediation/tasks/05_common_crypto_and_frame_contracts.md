@@ -6,7 +6,7 @@ Every native Local Whisper consumer uses one hardened common SHA-256 implementat
 
 ## Prerequisites
 
-- Packets 02 and 04 are complete so filesystem/launcher resource and capability ownership is stable.
+- Packets 02 and 04 are complete with Linux/shared evidence so filesystem/launcher resource and capability ownership is stable. Real Windows execution remains deferred to Packet 15.
 - This packet has separate execution authorization and no other packet is in progress.
 - Verified common-native test inputs are available on Linux and Windows.
 
@@ -103,17 +103,7 @@ npm run test:local-whisper:launcher:native
 npm run verify:local-whisper:worker-vectors -- --check-clean
 ```
 
-Run on Windows x64:
-
-```text
-npm run test:local-whisper:worker-codec
-npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.39-v1
-npm run test:local-whisper:fs-guard:native
-npm run test:local-whisper:launcher:native
-npm run verify:local-whisper:worker-vectors -- --check-clean
-```
-
-The Windows common native codec/SHA tests must execute, not be replaced by TypeScript-only vectors.
+Author the Windows common-native codec/SHA, retained-CNG digest-agreement, guard, launcher, and worker-core cases in this packet. Packet 15 owns their real MSVC execution; TypeScript-only vectors will not satisfy that final gate.
 
 ## Failure And Rollback
 
@@ -123,7 +113,7 @@ The Windows common native codec/SHA tests must execute, not be replaced by TypeS
 
 ## Manual Gates
 
-- **MANUAL GATE:** Execute the Windows common-native, guard, launcher, and worker-core completion set. Leave Packet 05 unchecked if Windows common SHA/frame code was only compiled or statically inspected.
+- No Windows-host manual gate is performed in this packet. Record the deferred common-native, retained-CNG, guard, launcher, and worker-core suites for Packet 15.
 - Do not update model/runtime catalog digests, generate packages, or remove a measured hash pass.
 
 ## References
@@ -135,6 +125,6 @@ The Windows common native codec/SHA tests must execute, not be replaced by TypeS
 
 ## Completion And Handoff
 
-- Record removed duplicate implementations, common adapters, boundary coverage, and Linux/Windows results in `handoff.md`.
-- Check Packet 05 only after both platforms pass.
+- Record removed duplicate implementations, common adapters, Linux/shared boundary results, and the deferred Windows suite inventory in `handoff.md`.
+- Check Packet 05 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows digest and frame evidence.
 - Set the exact next packet to Packet 06 and stop without beginning it or committing/pushing.

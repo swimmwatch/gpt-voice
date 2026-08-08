@@ -6,7 +6,7 @@ All Local Whisper native CMake projects apply one explicit configuration-aware h
 
 ## Prerequisites
 
-- Packets 01–06 are complete so the verifier inspects final remediated native bytes and all CMake/source composition changes are stable.
+- Packets 01–06 are complete with Linux/shared evidence so CMake/source composition is stable. Real Windows execution and final PE remediation remain deferred to Packet 15.
 - This packet has separate execution authorization and no other packet is in progress.
 - The locked Linux GCC/Clang and Windows MSVC build profiles and verified native sources are available.
 
@@ -99,18 +99,7 @@ npm run format:check
 npm run lint
 ```
 
-Run on Windows x64 after producing optimized MSVC outputs:
-
-```text
-npm run test:local-whisper:fs-guard:native
-npm run test:local-whisper:launcher:native
-npm run test:local-whisper:native-hardening
-npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
-npm run verify:local-whisper:native-hardening -- --platform=windows
-npm run test:local-whisper:native-build-audits
-```
-
-If the final command names differ during implementation, update `package.json`, this packet, `todo.md`/`handoff.md`, and CI together before completion; keep one canonical verifier command.
+Author the PE parser fixtures, MSVC hardening configuration, exact-output manifest, and Windows workflow wiring in this packet. Packet 15 owns the real optimized MSVC build, live PE inspection, and any resulting fixes. If canonical command names change, update `package.json`, the later packets, `todo.md`/`handoff.md`, and CI together.
 
 ## Failure And Rollback
 
@@ -120,7 +109,7 @@ If the final command names differ during implementation, update `package.json`, 
 
 ## Manual Gates
 
-- **MANUAL GATE:** Obtain a real Windows x64 MSVC production build and verifier result. Source, cross-compile, or PE fixture evidence alone cannot complete the packet.
+- No Windows-host manual gate is performed in this packet. Record the deferred optimized MSVC executable manifest and PE verifier command for Packet 15.
 - Building locked native inputs is authorized; signing, packaging, uploading, publishing, or dispatching workflows is not.
 
 ## References
@@ -131,6 +120,6 @@ If the final command names differ during implementation, update `package.json`, 
 
 ## Completion And Handoff
 
-- Record exact optimized binary roles/hashes, mitigation report paths, sanitizer results, and Linux/Windows checks in `handoff.md` without committing generated binaries/reports.
-- Check Packet 07 only after both platform verifier gates pass.
+- Record Linux optimized binary roles/hashes, mitigation report paths, sanitizer results, and the deferred Windows manifest in `handoff.md` without committing generated binaries/reports.
+- Check Packet 07 after its Linux/shared completion set passes; Packet 15 remains mandatory for live PE evidence.
 - Set the exact next packet to Packet 08 and stop without starting it, committing, pushing, packaging, or publishing.

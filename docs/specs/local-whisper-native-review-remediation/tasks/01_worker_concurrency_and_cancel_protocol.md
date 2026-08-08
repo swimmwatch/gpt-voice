@@ -22,7 +22,7 @@ The resident worker handles control failures, inference completion, and both can
 - A Linux and Windows channel wait contract for control input or inference completion.
 - Protocol-v1 `cancelTooLate` generation, validation, fixtures, supervisor mapping, and coordinator state.
 - Deterministic C++, TypeScript, conformance-worker, and mixed-identity tests.
-- Windows native worker-core execution in the native quality workflow if it is not already exercised by the time this packet runs.
+- Windows native worker-core tests and quality-workflow wiring, with real Windows-host execution deferred to Packet 15.
 
 ## Out Of Scope
 
@@ -108,17 +108,7 @@ npm run typecheck
 npm run test:types
 ```
 
-Run on Windows x64 with the locked MSVC profile and verified inputs:
-
-```text
-npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.39-v1
-npm run test:local-whisper:supervisor
-npm run test:local-whisper:coordinator
-npm run typecheck
-npm run test:types
-```
-
-Run the smallest targeted tests while iterating; the commands above are the packet completion set.
+Run the smallest targeted tests while iterating; the Linux/shared commands above are this packet's completion set. Author the applicable Windows native-channel cases and workflow wiring in this packet, but do not require a Windows host run here. Packet 15 owns their real MSVC execution and any resulting fixes.
 
 ## Failure And Rollback
 
@@ -128,8 +118,8 @@ Run the smallest targeted tests while iterating; the commands above are the pack
 
 ## Manual Gates
 
-- **MANUAL GATE:** A Windows x64 MSVC run of the packet completion set is required. If no authorized Windows host or CI run is available, record the packet as blocked and do not check it off.
-- No push or workflow dispatch is authorized by this packet. Use an already authorized CI context or a local Windows host.
+- No Windows-host manual gate is performed in this packet. Record the exact deferred Windows suites and source paths for Packet 15.
+- No push or workflow dispatch is authorized by this packet.
 
 ## References
 
@@ -139,6 +129,6 @@ Run the smallest targeted tests while iterating; the commands above are the pack
 
 ## Completion And Handoff
 
-- Record changed files and exact Linux/Windows check results in `handoff.md`.
-- Check Packet 01 in `todo.md` only after the Windows manual gate passes.
+- Record changed files, exact Linux/shared check results, and the deferred Windows suite inventory in `handoff.md`.
+- Check Packet 01 in `todo.md` after its Linux/shared completion set passes; this does not satisfy the overall Windows evidence gate.
 - Set the exact next packet to Packet 02 and stop. Do not begin Packet 02 or commit/push changes.

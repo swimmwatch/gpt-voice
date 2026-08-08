@@ -6,7 +6,7 @@ Launcher and model-launch failures carry dedicated enum identity from throw site
 
 ## Prerequisites
 
-- Packets 04 and 05 are complete so capability/process cleanup and shared hashing paths no longer move underneath error classification.
+- Packets 04 and 05 are complete with Linux/shared evidence so capability/process cleanup and shared hashing paths no longer move underneath error classification. Real Windows execution remains deferred to Packet 15.
 - This packet has separate execution authorization and no other packet is in progress.
 
 ## Owned Requirements
@@ -79,15 +79,7 @@ npm run test:local-whisper:fs-guard:native
 npm run verify:local-whisper:launcher
 ```
 
-Run on Windows x64:
-
-```text
-npm run test:local-whisper:launcher:native
-npm run test:local-whisper:fs-guard:native
-npm run verify:local-whisper:launcher
-```
-
-Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` falls back to a Linux `clang-quality-18.1.3` toolchain path and the Windows job provisions no clang-format, so `format:check:local-whisper:*` SHALL NOT be run on Windows. clang-format output is platform-independent, so the Linux run is the complete formatting evidence. MSVC warnings-as-errors and the native suites are the Windows gate.
+Author the Windows launcher/model-launch failure cases and exact acknowledgment/exit fixtures in this packet. Packet 15 owns their real MSVC execution and any resulting fixes. Formatting and clang-tidy remain Linux-only quality gates.
 
 ## Failure And Rollback
 
@@ -97,7 +89,7 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Manual Gates
 
-- **MANUAL GATE:** Execute Windows launcher and model-launch failure integration cases and retain the exact acknowledgment/exit comparison. Source review alone is insufficient.
+- No Windows-host manual gate is performed in this packet. Record the deferred Windows acknowledgment/exit suites for Packet 15.
 - Do not publish or interpret these native exit values as a new public renderer/API contract.
 
 ## References
@@ -108,6 +100,6 @@ Formatting and clang-tidy are Linux-only quality gates: `resolveClangFormat` fal
 
 ## Completion And Handoff
 
-- Record the enum inventory, frozen acknowledgment/exit fixtures, and Linux/Windows check results in `handoff.md`.
-- Check Packet 06 only after both platforms pass.
+- Record the enum inventory, frozen acknowledgment/exit fixtures, Linux/shared results, and the deferred Windows suite inventory in `handoff.md`.
+- Check Packet 06 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows classification evidence.
 - Set the exact next packet to Packet 07 when Packets 01–06 are complete, and stop without implementation, commit, or push of the next packet.
