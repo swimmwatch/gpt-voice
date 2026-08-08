@@ -5,7 +5,7 @@ import type { TranslationProviderId } from '@shared/translationProvider';
 
 import type { ProviderAuditFamily } from './contracts';
 
-export type VoiceProviderAuditId = 'chatgpt' | 'openai-api' | 'claude-web';
+export type VoiceProviderAuditId = 'chatgpt' | 'openai-api' | 'claude-web' | 'local-whisper';
 
 export interface ProviderAuditProviderIdByFamily {
   readonly voice: VoiceProviderAuditId;
@@ -18,6 +18,7 @@ export const PROVIDER_AUDIT_PROVIDER_MAPPINGS = {
     chatgpt: true,
     'openai-api': true,
     'claude-web': true,
+    'local-whisper': true,
   },
   prettify: {
     ollama: true,
@@ -43,6 +44,11 @@ export const PROVIDER_AUDIT_OPERATION_IDS = {
     'session-clear',
     'readiness',
     'credential-refresh',
+    'local-runtime-check',
+    'local-artifact-transfer',
+    'local-artifact-remove',
+    'local-model-load',
+    'local-model-unload',
     'transcribe-batch',
     'transcribe-stream',
     'recovery',

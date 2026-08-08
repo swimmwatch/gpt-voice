@@ -67,6 +67,21 @@ describe('providerState', () => {
     });
   });
 
+  it('maps local runtime readiness without authentication or session semantics', () => {
+    assert.deepEqual(getProviderLoginState('localRuntime', true, { ready: false, authExpired: true }), {
+      isLoggedIn: false,
+      isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.LocalRuntimeNotReady,
+      sessionExpired: false,
+    });
+    assert.deepEqual(getProviderLoginState('localRuntime', false, { ready: true }), {
+      isLoggedIn: true,
+      isLoading: false,
+      reason: PROVIDER_CONNECTION_REASONS.LocalRuntimeReady,
+      sessionExpired: false,
+    });
+  });
+
   it('marks open browser-session settings as expired', () => {
     const settings: ProviderSettings = {
       providerId: 'chatgpt',

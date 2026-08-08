@@ -1,0 +1,107 @@
+name: Local Whisper Fixture Packaging
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+jobs:
+  fixture_producer:
+    name: Generate public Local Whisper fixture once
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      bundle_digest: ${{ steps.fixture.outputs.bundle_digest }}
+      catalog_digest: ${{ steps.fixture.outputs.catalog_digest }}
+      key_id: ${{ steps.fixture.outputs.key_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Generate and sign one synthetic public fixture bundle
+        id: fixture
+        run: npm run generate:local-whisper:packaging:fixture -- --output=.cache/local-whisper/public-fixture
+
+      - name: Upload public fixture bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: local-whisper-public-fixture-v1
+          path: .cache/local-whisper/public-fixture
+          if-no-files-found: error
+          retention-days: 7
+
+  linux_consumer:
+    name: Consume exact Local Whisper fixture on Linux
+    needs: fixture_producer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CXX: clang++-18
+      CMAKE_COMMAND: /usr/bin/cmake
+      NINJA_COMMAND: /usr/bin/ninja
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install native helper toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build clang-18
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Download producer fixture without regeneration
+        uses: actions/download-artifact@v8
+        with:
+          name: local-whisper-public-fixture-v1
+          path: .cache/local-whisper/public-fixture
+
+      - name: Build application bundles
+        run: npm run build:prod
+
+      - name: Prepare bundled CloakBrowser
+        run: npm run prepare:cloakbrowser -- --target=linux
+
+      - name: Generate package metadata
+        run: npm run generate:package-metadata -- --release-date=2026-05-18
+
+      - name: Verify declared digest and stage fixture package resources
+        run: npm run prepare:local-whisper:packaging -- --mode=fixture --platform=linux --bundle=.cache/local-whisper/public-fixture --bundle-digest=${{ needs.fixture_producer.outputs.bundle_digest }}
+
+      - name: Inspect Linux base-package policy
+        run: node --import tsx scripts/local-whisper/packaging/verify-package-policy.ts --directory=build/generated/local-whisper --mode=fixture --platform=linux
+
+      - name: Package unpacked Linux app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --linux dir
+
+      - name: Verify packaged runtime
+        run: npm run verify:packaged

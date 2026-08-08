@@ -1,0 +1,13 @@
+diff --git a/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp b/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+index 7bcb146081487dde8a80657a75f94065fafe93fa..3b972fcd346cead62433da1c68ff47ab706ceeef 100644
+--- a/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
++++ b/ggml/src/ggml-vulkan/vulkan-shaders/vulkan-shaders-gen.cpp
+@@ -325,7 +325,7 @@ compile_count_guard acquire_compile_slot() {
+ }
+ 
+ void string_to_spv_func(std::string name, std::string in_path, std::string out_path, std::map<std::string, std::string> defines, bool coopmat, bool dep_file, compile_count_guard slot) {
+-    std::string target_env = (name.find("_cm2") != std::string::npos) ? "--target-env=vulkan1.3" : "--target-env=vulkan1.2";
++    const std::string target_env = "--target-env=vulkan1.3";
+ 
+     #ifdef _WIN32
+         std::vector<std::string> cmd = {GLSLC, "-fshader-stage=compute", target_env, "\"" + in_path + "\"", "-o", "\"" + out_path + "\""};

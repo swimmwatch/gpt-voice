@@ -67,7 +67,7 @@ describe('streaming recording workflow', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const switchStarted = app.indexOf("case 'switch-started'");
     const rendererCancel = app.indexOf('cancelStreamingForProviderChange();', switchStarted);
-    const providerMutation = app.indexOf('setActiveProviderId(event.providerId);', switchStarted);
+    const providerMutation = app.indexOf('setActiveProviderId(event.result.committedProviderId);', switchStarted);
 
     assert.match(streaming, /if \(recordingModeRef\.current === 'streaming'\) cancel\(false\);/u);
     assert.ok(rendererCancel > switchStarted && rendererCancel < providerMutation);

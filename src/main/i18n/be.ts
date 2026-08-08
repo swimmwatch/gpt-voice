@@ -1,6 +1,8 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/be';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('be'),
   'translate.provider': 'Пастаўшчык перакладу',
   'translate.saving': 'Захаванне...',
@@ -655,6 +657,34 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Seed лічбавага адбітка павінен змяшчаць толькі лічбы.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Загрузіць мадэль',
+  'localWhisper.main.freeModel': 'Выгрузіць мадэль',
+  'localWhisper.main.loadingStatus': 'Загрузка стану Local Whisper',
+  'localWhisper.main.loadingModel': 'Загрузка мадэлі',
+  'localWhisper.main.freeingModel': 'Выгрузка мадэлі',
+  'localWhisper.main.modelInUse': 'Мадэль выкарыстоўваецца для транскрыпцыі.',
+  'localWhisper.main.actionInProgress': 'Выконваецца іншая аперацыя Local Whisper.',
+  'localWhisper.main.setupRequired': 'Усталюйце выбранае асяроддзе і мадэль у наладах Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Выбраная мадэль недаступная. Адкрыйце налады Local Whisper.',
+  'localWhisper.main.modelUnavailableCode': 'Выбраная мадэль недаступная ({code}). Адкрыйце налады Local Whisper.',
+  'localWhisper.main.operationFailed': 'Не ўдалося выканаць аперацыю з мадэллю Local Whisper. Паўтарыце спробу.',
+  'localWhisper.main.operationFailedCode':
+    'Не ўдалося выканаць аперацыю з мадэллю Local Whisper ({code}). Паўтарыце спробу.',
+
+  'startup.preparing': 'Падрыхтоўка запуску',
+  'startup.preparingJobs': 'Падрыхтоўваем: {jobs}',
+  'startup.preparingJobsWithMore': 'Падрыхтоўваем: {jobs} і яшчэ {count}',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Галасавы правайдар',
+  'startup.job.translation': 'Пераклад',
+  'startup.job.prettify': 'Паляпшэнне тэксту',
+  'startup.progress': 'Ход падрыхтоўкі',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Не ўдалося падрыхтаваць запуск. Паўтарыце спробу.',
+  'startup.retryFailed': 'Не ўдалося паўтарыць падрыхтоўку запуску. Паўтарыце спробу.',
+  'startup.retry': 'Паўтарыць',
+  'startup.selectProvider': 'Выберыце правайдара, каб пачаць запіс.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Паказаць',
   'tray.quit': 'Выхад',

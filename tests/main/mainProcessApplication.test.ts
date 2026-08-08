@@ -16,9 +16,10 @@ import {
 } from '@main/mainProcessApplication';
 import { ShortcutController } from '@main/shortcuts';
 import { TrayController } from '@main/tray';
-import { WindowManager } from '@main/window';
+import { WindowManager, type BackgroundBrowserStatus } from '@main/window';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { BackgroundBrowserService } from '@main/browser';
+import { FirstLaunchStartupCoordinator } from '@main/firstLaunchStartupCoordinator';
 import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
@@ -26,7 +27,26 @@ import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appCon
 import type { TranslationSettingsRepairNotice } from '@main/translationSettings';
 import type { PrettifyProfileCatalogRepairNotice } from '@main/prettifyProfileCatalogState';
 import { INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE } from '@shared/translationProvider';
+import {
+  FIRST_LAUNCH_STARTUP_FAILURE_CODES,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES,
+  type FirstLaunchStartupJobRunResult,
+} from '@shared/firstLaunchStartup';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
+
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  resolve(value: T): void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolvePromise: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public onCount = 0;
@@ -94,6 +114,10 @@ class RecordingRuntime implements MainProcessOwnedRuntime {
 
   public registerIpc(): void {
     this.events.push('ipc-register');
+  }
+
+  public async shutdownLocalWhisper(): Promise<void> {
+    this.events.push('local-whisper-shutdown');
   }
 
   public async shutdownDiagnostics() {
@@ -179,8 +203,12 @@ class RecordingWindowManager extends WindowManager {
     this.events.push('window-dispose');
   }
 
-  public override publishBackgroundStatus(): void {
+  public override publishBackgroundStatus(_status: BackgroundBrowserStatus, _fallbackProviderId: string | null): void {
     this.events.push('background-status');
+  }
+
+  public override publishFirstLaunchStartupSnapshot(): void {
+    this.events.push('startup-snapshot');
   }
 
   public override setQuitting(): void {
@@ -372,7 +400,13 @@ class RecordingShortcutController extends ShortcutController {
 }
 
 class RecordingBackgroundBrowserService extends BackgroundBrowserService {
-  public constructor(private readonly events: string[]) {
+  public constructor(
+    private readonly events: string[],
+    private readonly initializationStatus: { readonly providerId: string; readonly ready: boolean } = {
+      providerId: 'openai-api',
+      ready: true,
+    },
+  ) {
     super({
       audit: new RecordingVoiceProviderAudit(),
       cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
@@ -397,7 +431,7 @@ class RecordingBackgroundBrowserService extends BackgroundBrowserService {
 
   public override initialize(): Promise<{ readonly providerId: string; readonly ready: boolean }> {
     this.events.push('browser-initialize');
-    return Promise.resolve({ providerId: 'openai-api', ready: true });
+    return Promise.resolve(this.initializationStatus);
   }
 
   public override shutdown(): Promise<void> {
@@ -410,8 +444,9 @@ class RecordingConfigStore extends TestAppConfigStore {
   public constructor(
     private readonly events: string[],
     translateEnabled: boolean,
+    providerId: string | null,
   ) {
-    super('chatgpt');
+    super(providerId);
     this.setTextActionSettings({ translateEnabled });
   }
 
@@ -444,6 +479,7 @@ class MainProcessApplicationHarness {
   public readonly events: string[] = [];
   public readonly runtime = new RecordingRuntime(this.events);
   public readonly runtimeFactory = new RecordingRuntimeFactory(this.events, this.runtime);
+  public startupCoordinator: FirstLaunchStartupCoordinator | null = null;
   public readonly warnings: Array<{
     readonly message: string;
     readonly metadata?: Readonly<Record<string, unknown>>;
@@ -451,7 +487,10 @@ class MainProcessApplicationHarness {
   public createApplication(
     options: {
       readonly benchmark?: boolean;
+      readonly backgroundBrowserStatus?: { readonly providerId: string; readonly ready: boolean };
       readonly removing?: boolean;
+      readonly providerId?: string | null;
+      readonly cloakBrowserPreparation?: Promise<FirstLaunchStartupJobRunResult>;
       readonly translationEnabled?: boolean;
       readonly translationInitializationFailure?: boolean;
     } = {},
@@ -459,14 +498,69 @@ class MainProcessApplicationHarness {
     const windowManager = new RecordingWindowManager(this.events);
     const trayController = new RecordingTrayController(this.events, windowManager);
     const shortcutController = new RecordingShortcutController(this.events, trayController, windowManager);
-    const backgroundBrowserService = new RecordingBackgroundBrowserService(this.events);
+    const backgroundBrowserService = new RecordingBackgroundBrowserService(
+      this.events,
+      options.backgroundBrowserStatus,
+    );
+    const config = new RecordingConfigStore(
+      this.events,
+      options.translationEnabled ?? true,
+      options.providerId === undefined ? 'chatgpt' : options.providerId,
+    );
+    const translationRuntime = {
+      initializeSelectedProvider: async () => {
+        this.events.push('translation-initialize');
+        if (options.translationInitializationFailure) {
+          throw new Error('private translation startup failure');
+        }
+        return INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE;
+      },
+      shutdown: async () => {
+        this.events.push('translation-shutdown');
+        return { failedProviderIds: [], success: true };
+      },
+    };
+    const firstLaunchStartupCoordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        {
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          run: async () => {
+            this.events.push('cloak-prepare');
+            if (options.cloakBrowserPreparation) return options.cloakBrowserPreparation;
+            return { failureCode: null, success: true };
+          },
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+          isRequired: () => config.getSnapshot().provider !== null,
+          run: async () => {
+            const providerId = config.getSnapshot().provider;
+            if (providerId === null) return { failureCode: null, success: true };
+            const status = await backgroundBrowserService.initialize();
+            windowManager.publishBackgroundStatus(status, providerId);
+            return { failureCode: null, success: true };
+          },
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+          run: async () => {
+            await translationRuntime.initializeSelectedProvider();
+            return { failureCode: null, success: true };
+          },
+        },
+      ],
+    });
+    this.startupCoordinator = firstLaunchStartupCoordinator;
     const dependencies: MainProcessApplicationDependencies = {
       app: this.app,
       appProtocolController: new RecordingAppProtocolController(this.events),
       backgroundBrowserService,
-      config: new RecordingConfigStore(this.events, options.translationEnabled ?? true),
+      config,
       configureCloakBrowserRuntime: () => this.events.push('cloak-runtime'),
       desktopRuntimeController: new RecordingDesktopRuntimeController(this.events, windowManager, options),
+      firstLaunchStartupCoordinator,
       localization: new RecordingI18nService(this.events),
       linuxDesktopIntegrationController: new RecordingLinuxDesktopIntegrationController(this.events),
       logger: {
@@ -490,19 +584,7 @@ class MainProcessApplicationHarness {
         dispose: () => this.events.push('prettify-selection-dispose'),
       },
       shortcutController,
-      translationRuntime: {
-        initializeSelectedProvider: async () => {
-          this.events.push('translation-initialize');
-          if (options.translationInitializationFailure) {
-            throw new Error('private translation startup failure');
-          }
-          return INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE;
-        },
-        shutdown: async () => {
-          this.events.push('translation-shutdown');
-          return { failedProviderIds: [], success: true };
-        },
-      },
+      translationRuntime,
       trayController,
       windowManager,
     };
@@ -526,7 +608,20 @@ describe('main process application lifecycle', () => {
     assert.deepEqual(harness.events, ['desktop-before-ready', 'protocol-scheme', 'desktop-lock']);
   });
 
-  it('creates the runtime only on normal ready and prunes before IPC registration', async () => {
+  it('starts exactly once when asynchronous composition finishes after Electron is ready', async () => {
+    const harness = new MainProcessApplicationHarness();
+    harness.app.ready = true;
+    const application = harness.createApplication();
+
+    application.bootstrap();
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    assert.equal(harness.runtimeFactory.createCount, 1);
+    assert.equal(harness.events.filter((event) => event === 'window-create').length, 1);
+  });
+
+  it('creates IPC and the main window before coordinator work while diagnostics prune concurrently', async () => {
     const harness = new MainProcessApplicationHarness();
     harness.createApplication().bootstrap();
 
@@ -534,32 +629,12 @@ describe('main process application lifecycle', () => {
     harness.app.emitReady();
     await flushAsyncWork();
 
-    assert.deepEqual(harness.events, [
-      'desktop-before-ready',
-      'protocol-scheme',
-      'desktop-lock',
-      'logger-initialize',
-      'logger-catch',
-      'cloak-runtime',
-      'native-metadata',
-      'desktop-icons',
-      'desktop-integration',
-      'protocol-register',
-      'desktop-ready',
-      'config-load',
-      'locale-initialize',
-      'settings-notice',
-      'settings-notice',
-      'runtime-create',
-      'diagnostic-prune',
-      'ipc-register',
-      'window-create',
-      'tray-create',
-      'shortcuts-register',
-      'translation-initialize',
-      'browser-initialize',
-      'background-status',
-    ]);
+    assert.equal(harness.events.includes('diagnostic-prune'), true);
+    assert.ok(harness.events.indexOf('ipc-register') < harness.events.indexOf('window-create'));
+    assert.ok(harness.events.indexOf('window-create') < harness.events.indexOf('cloak-prepare'));
+    assert.ok(harness.events.indexOf('cloak-prepare') < harness.events.indexOf('translation-initialize'));
+    assert.ok(harness.events.indexOf('cloak-prepare') < harness.events.indexOf('browser-initialize'));
+    assert.ok(harness.events.indexOf('browser-initialize') < harness.events.indexOf('background-status'));
   });
 
   it('keeps integration removal and benchmark startup from opening unrelated resources', async () => {
@@ -595,11 +670,8 @@ describe('main process application lifecycle', () => {
     assert.equal(harness.events.includes('translation-initialize'), true);
     assert.equal(harness.events.includes('browser-initialize'), true);
     assert.equal(harness.events.includes('background-status'), true);
-    assert.deepEqual(harness.warnings, [
-      {
-        message: 'Translation provider initialization failed during startup',
-      },
-    ]);
+    assert.equal(harness.startupCoordinator?.getSnapshot().state, FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Failed);
+    assert.deepEqual(harness.warnings, []);
   });
 
   it('lets the Translation runtime publish its disabled state during startup', async () => {
@@ -612,6 +684,85 @@ describe('main process application lifecycle', () => {
     assert.equal(harness.events.includes('translation-initialize'), true);
     assert.equal(harness.events.includes('browser-initialize'), true);
     assert.equal(harness.events.includes('background-status'), true);
+  });
+
+  it('skips Voice Provider initialization on a fresh profile while keeping other startup jobs available', async () => {
+    const harness = new MainProcessApplicationHarness();
+    harness.createApplication({ providerId: null }).bootstrap();
+
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    assert.equal(harness.events.includes('translation-initialize'), true);
+    assert.equal(harness.events.includes('browser-initialize'), false);
+    assert.equal(
+      harness.startupCoordinator
+        ?.getSnapshot()
+        .jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider)?.state,
+      'not-required',
+    );
+  });
+
+  it('settles selected but disconnected providers without blocking the startup view', async () => {
+    const cases: ReadonlyArray<{
+      readonly name: string;
+      readonly providerId: string;
+      readonly status: { readonly providerId: string; readonly ready: boolean };
+    }> = [
+      {
+        name: 'signed-out browser provider',
+        providerId: 'chatgpt',
+        status: { providerId: 'chatgpt', ready: false },
+      },
+      {
+        name: 'unconfigured API provider',
+        providerId: 'openai-api',
+        status: { providerId: 'openai-api', ready: false },
+      },
+      {
+        name: 'unloaded Local Whisper model',
+        providerId: 'local-whisper',
+        status: { providerId: 'local-whisper', ready: false },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const harness = new MainProcessApplicationHarness();
+      harness
+        .createApplication({
+          backgroundBrowserStatus: testCase.status,
+          providerId: testCase.providerId,
+        })
+        .bootstrap();
+      harness.app.emitReady();
+      await flushAsyncWork();
+
+      const voiceProviderJob = harness.startupCoordinator
+        ?.getSnapshot()
+        .jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+      assert.equal(voiceProviderJob?.state, 'succeeded', testCase.name);
+      assert.equal(harness.startupCoordinator?.getSnapshot().state, FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Succeeded);
+      assert.equal(harness.events.includes('background-status'), true);
+    }
+  });
+
+  it('disposes startup publication before quit cleanup suppresses late completion events', async () => {
+    const preparation = createDeferred<FirstLaunchStartupJobRunResult>();
+    const harness = new MainProcessApplicationHarness();
+    harness.createApplication({ cloakBrowserPreparation: preparation.promise }).bootstrap();
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    harness.app.emitWillQuit({ preventDefault: () => undefined });
+    await flushAsyncWork();
+    const snapshotCountBeforeCompletion = harness.events.filter((event) => event === 'startup-snapshot').length;
+
+    preparation.resolve({ failureCode: null, success: true });
+    await flushAsyncWork();
+
+    assert.equal(harness.events.filter((event) => event === 'startup-snapshot').length, snapshotCountBeforeCompletion);
+    assert.equal(harness.events.includes('browser-initialize'), false);
+    assert.equal(harness.events.includes('translation-initialize'), false);
   });
 
   it('owns one idempotent shutdown in the required resource order', async () => {
@@ -647,6 +798,7 @@ describe('main process application lifecycle', () => {
       'prettify-shutdown',
       'translation-shutdown',
       'browser-shutdown',
+      'local-whisper-shutdown',
       'diagnostics-archive-shutdown',
       'diagnostic-shutdown',
       'database-close',

@@ -1,6 +1,8 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/fr';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('fr'),
   'translate.provider': 'Fournisseur de traduction',
   'translate.saving': 'Enregistrement...',
@@ -634,6 +636,35 @@ export default {
   'appSettings.validation.backgroundModeInvalid': 'Sélectionnez un mode d’arrière-plan pris en charge.',
   'appSettings.validation.fingerprintSeedRequired': 'La graine d’empreinte est requise.',
   'appSettings.validation.fingerprintSeedDigits': 'La graine d’empreinte ne doit contenir que des chiffres.',
+  'localWhisper.main.loadModel': 'Charger le modèle',
+  'localWhisper.main.freeModel': 'Libérer le modèle',
+  'localWhisper.main.loadingStatus': 'Chargement de l’état de Local Whisper',
+  'localWhisper.main.loadingModel': 'Chargement du modèle',
+  'localWhisper.main.freeingModel': 'Libération du modèle',
+  'localWhisper.main.modelInUse': 'Le modèle est utilisé pour la transcription.',
+  'localWhisper.main.actionInProgress': 'Une autre action Local Whisper est en cours.',
+  'localWhisper.main.setupRequired':
+    'Installez l’environnement et le modèle sélectionnés dans les réglages de Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Le modèle sélectionné est indisponible. Ouvrez les réglages de Local Whisper.',
+  'localWhisper.main.modelUnavailableCode':
+    'Le modèle sélectionné est indisponible ({code}). Ouvrez les réglages de Local Whisper.',
+  'localWhisper.main.operationFailed': 'L’opération du modèle Local Whisper a échoué. Réessayez.',
+  'localWhisper.main.operationFailedCode': 'L’opération du modèle Local Whisper a échoué ({code}). Réessayez.',
+
+  'startup.preparing': 'Préparation du démarrage',
+  'startup.preparingJobs': 'Préparation : {jobs}',
+  'startup.preparingJobsWithMore': 'Préparation : {jobs} et {count} de plus',
+  'startup.job.cloakBrowser': 'Navigateur CloakBrowser',
+  'startup.job.voiceProvider': 'Fournisseur vocal',
+  'startup.job.translation': 'Traduction',
+  'startup.job.prettify': 'Amélioration du texte',
+  'startup.progress': 'Progression du démarrage',
+  'startup.progressValue': '{progress} % terminé',
+  'startup.failed': 'La préparation du démarrage a échoué. Réessayez.',
+  'startup.retryFailed': 'Impossible de relancer la préparation du démarrage. Réessayez.',
+  'startup.retry': 'Réessayer',
+  'startup.selectProvider': 'Sélectionnez un fournisseur pour commencer l’enregistrement.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Afficher',
   'tray.quit': 'Quitter',

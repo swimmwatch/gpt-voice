@@ -1,4 +1,7 @@
+import localWhisperSettingsTranslations from './localWhisperSettings/en';
+
 export default {
+  ...localWhisperSettingsTranslations,
   'translate.provider': 'Translation provider',
   'translate.saving': 'Saving...',
   'translate.settingsSaveFailed': 'Failed to save translation settings',
@@ -740,6 +743,34 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Fingerprint seed must contain digits only.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Load model',
+  'localWhisper.main.freeModel': 'Free model',
+  'localWhisper.main.loadingStatus': 'Loading Local Whisper status',
+  'localWhisper.main.loadingModel': 'Loading model',
+  'localWhisper.main.freeingModel': 'Freeing model',
+  'localWhisper.main.modelInUse': 'The model is in use by transcription.',
+  'localWhisper.main.actionInProgress': 'Another Local Whisper action is in progress.',
+  'localWhisper.main.setupRequired': 'Install the selected runtime and model in Local Whisper settings.',
+  'localWhisper.main.modelUnavailable': 'The selected model is unavailable. Open Local Whisper settings.',
+  'localWhisper.main.modelUnavailableCode': 'The selected model is unavailable ({code}). Open Local Whisper settings.',
+  'localWhisper.main.operationFailed': 'The Local Whisper model operation failed. Try again.',
+  'localWhisper.main.operationFailedCode': 'The Local Whisper model operation failed ({code}). Try again.',
+
+  // Startup preparation
+  'startup.preparing': 'Preparing startup',
+  'startup.preparingJobs': 'Preparing {jobs}',
+  'startup.preparingJobsWithMore': 'Preparing {jobs} and {count} more',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Voice provider',
+  'startup.job.translation': 'Translation',
+  'startup.job.prettify': 'Prettify',
+  'startup.progress': 'Startup progress',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Startup preparation failed. Try again.',
+  'startup.retryFailed': 'Could not retry startup preparation. Try again.',
+  'startup.retry': 'Retry',
+  'startup.selectProvider': 'Select a provider to start recording.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',
   'tray.quit': 'Quit',

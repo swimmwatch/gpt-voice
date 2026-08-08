@@ -1,6 +1,8 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/de';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('de'),
   'translate.provider': 'Übersetzungsanbieter',
   'translate.saving': 'Wird gespeichert...',
@@ -643,6 +645,37 @@ export default {
   'appSettings.validation.backgroundModeInvalid': 'Wähle einen unterstützten Hintergrundmodus aus.',
   'appSettings.validation.fingerprintSeedRequired': 'Ein Fingerabdruck-Seed ist erforderlich.',
   'appSettings.validation.fingerprintSeedDigits': 'Der Fingerabdruck-Seed darf nur Ziffern enthalten.',
+  'localWhisper.main.loadModel': 'Modell laden',
+  'localWhisper.main.freeModel': 'Modell freigeben',
+  'localWhisper.main.loadingStatus': 'Local-Whisper-Status wird geladen',
+  'localWhisper.main.loadingModel': 'Modell wird geladen',
+  'localWhisper.main.freeingModel': 'Modell wird freigegeben',
+  'localWhisper.main.modelInUse': 'Das Modell wird für die Transkription verwendet.',
+  'localWhisper.main.actionInProgress': 'Eine andere Local-Whisper-Aktion wird ausgeführt.',
+  'localWhisper.main.setupRequired':
+    'Installiere die ausgewählte Laufzeit und das Modell in den Local-Whisper-Einstellungen.',
+  'localWhisper.main.modelUnavailable':
+    'Das ausgewählte Modell ist nicht verfügbar. Öffne die Local-Whisper-Einstellungen.',
+  'localWhisper.main.modelUnavailableCode':
+    'Das ausgewählte Modell ist nicht verfügbar ({code}). Öffne die Local-Whisper-Einstellungen.',
+  'localWhisper.main.operationFailed': 'Der Local-Whisper-Modellvorgang ist fehlgeschlagen. Versuche es erneut.',
+  'localWhisper.main.operationFailedCode':
+    'Der Local-Whisper-Modellvorgang ist fehlgeschlagen ({code}). Versuche es erneut.',
+
+  'startup.preparing': 'Start wird vorbereitet',
+  'startup.preparingJobs': 'Wird vorbereitet: {jobs}',
+  'startup.preparingJobsWithMore': 'Wird vorbereitet: {jobs} und {count} weitere',
+  'startup.job.cloakBrowser': 'CloakBrowser-Browser',
+  'startup.job.voiceProvider': 'Sprachanbieter',
+  'startup.job.translation': 'Übersetzung',
+  'startup.job.prettify': 'Textverbesserung',
+  'startup.progress': 'Startfortschritt',
+  'startup.progressValue': '{progress}% abgeschlossen',
+  'startup.failed': 'Die Startvorbereitung ist fehlgeschlagen. Versuche es erneut.',
+  'startup.retryFailed': 'Die Startvorbereitung konnte nicht erneut versucht werden. Versuche es erneut.',
+  'startup.retry': 'Erneut versuchen',
+  'startup.selectProvider': 'Wähle einen Anbieter aus, um die Aufnahme zu starten.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Zeigen',
   'tray.quit': 'Beenden',

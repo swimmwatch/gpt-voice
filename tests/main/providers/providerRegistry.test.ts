@@ -6,7 +6,9 @@ import {
   StreamingVoiceProvider,
   copyStreamingTranscriptionChunk,
   isBatchVoiceProvider,
+  isLocalRuntimeVoiceProvider,
   isStreamingVoiceProvider,
+  LocalWhisperVoiceProvider,
   VoiceProviderAudit,
 } from '@main/providers';
 import { CLAUDE_WEB_PROVIDER_ID, DEFAULT_CLAUDE_WEB_LANGUAGE } from '@shared/claudeWebSettings';
@@ -16,6 +18,7 @@ import {
   isVoiceTranscriptionMode,
 } from '@shared/voiceProvider';
 import { PROVIDER_AUDIT_PROVIDER_MAPPINGS } from '@main/providerAudit/mappings';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 import type { ProviderAuditLifecycle } from '@main/providerAudit';
 import { RecordingVoiceProviderAudit, getTerminalEvents } from './voiceAuditTestUtils';
 import { VoiceProviderRegistryFixture } from './voiceProviderRegistryFixture';
@@ -62,6 +65,14 @@ describe('provider registry', () => {
         hasSettings: true,
         transcriptionMode: 'streaming',
       },
+      {
+        id: LOCAL_WHISPER_PROVIDER_ID,
+        name: 'Local Whisper',
+        authType: 'localRuntime',
+        category: 'local',
+        hasSettings: true,
+        transcriptionMode: 'batch',
+      },
     ]);
     assert.equal(providers.filter((provider) => provider.id === CLAUDE_WEB_PROVIDER_ID).length, 1);
     assert.deepEqual(
@@ -84,19 +95,27 @@ describe('provider registry', () => {
     const chatgpt = registry.createProvider('chatgpt');
     const openaiApi = registry.createProvider('openai-api');
     const claudeWeb = registry.createProvider(CLAUDE_WEB_PROVIDER_ID);
+    const localWhisper = registry.createProvider(LOCAL_WHISPER_PROVIDER_ID);
 
     assert.equal(chatgpt.requiresBrowserSession(), true);
     assert.equal(openaiApi.requiresBrowserSession(), false);
     assert.equal(claudeWeb.requiresBrowserSession(), true);
+    assert.equal(localWhisper.requiresBrowserSession(), false);
     assert.equal(chatgpt instanceof BatchVoiceProvider, true);
     assert.equal(openaiApi instanceof BatchVoiceProvider, true);
     assert.equal(claudeWeb instanceof StreamingVoiceProvider, true);
+    assert.equal(localWhisper instanceof LocalWhisperVoiceProvider, true);
     assert.equal(isBatchVoiceProvider(chatgpt), true);
     assert.equal(isBatchVoiceProvider(openaiApi), true);
     assert.equal(isBatchVoiceProvider(claudeWeb), false);
+    assert.equal(isBatchVoiceProvider(localWhisper), true);
+    assert.equal(isLocalRuntimeVoiceProvider(localWhisper), true);
     assert.equal(isStreamingVoiceProvider(chatgpt), false);
     assert.equal(isStreamingVoiceProvider(openaiApi), false);
     assert.equal(isStreamingVoiceProvider(claudeWeb), true);
+    assert.equal(isStreamingVoiceProvider(localWhisper), false);
+    assert.equal(localWhisper.hasSession(), true);
+    assert.throws(() => localWhisper.clearSession(), /does not support session state/);
     assert.equal(claudeWeb.isReady(), false);
     assert.equal(claudeWeb.getAccessToken(), '');
     assert.equal(claudeWeb.getLoginUrl(), 'https://claude.ai');

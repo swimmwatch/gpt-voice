@@ -3,6 +3,27 @@ import { GOOGLE_TRANSLATION_LANGUAGES } from '@shared/translationLanguages/googl
 import { YANDEX_TRANSLATION_LANGUAGES } from '@shared/translationLanguages/yandex';
 import type { PrettifyModelSource } from '@shared/prettifySettings';
 import type { VoiceTranscriptionMode } from '@shared/voiceProvider';
+import {
+  LOCAL_WHISPER_ACTIVITY_STATES,
+  LOCAL_WHISPER_ARTIFACT_SETUP_STATES,
+  LOCAL_WHISPER_BACKENDS,
+  LOCAL_WHISPER_CAPABILITY_STATES,
+  LOCAL_WHISPER_FAILURE_CODES,
+  LOCAL_WHISPER_MODEL_FAMILIES,
+  LOCAL_WHISPER_RESIDENCY_STATES,
+  LOCAL_WHISPER_SUPPORT_TIERS,
+  LOCAL_WHISPER_TARGETS,
+  toLocalWhisperRevisionId,
+  type LocalWhisperActivityState,
+  type LocalWhisperArtifactSetupState,
+  type LocalWhisperBackend,
+  type LocalWhisperCapabilityState,
+  type LocalWhisperFailureCode,
+  type LocalWhisperModelFamily,
+  type LocalWhisperResidencyState,
+  type LocalWhisperSupportTier,
+  type LocalWhisperTarget,
+} from '@shared/localWhisper';
 
 import type { ProviderAuditCauseCode, ProviderAuditOperation, ProviderAuditProviderId } from './mappings';
 
@@ -80,14 +101,22 @@ export const PROVIDER_AUDIT_TRANSCRIPTION_MODES = [
 
 export const PROVIDER_AUDIT_METADATA_KEYS = [
   'acceptedByteCount',
+  'activityState',
+  'artifactKind',
+  'artifactRevision',
   'attemptCount',
+  'backend',
+  'byteCount',
+  'capabilityState',
   'causeCode',
   'chunkCount',
   'contractVersion',
   'discarded',
   'durationMs',
   'errorClass',
+  'engineId',
   'exceptionType',
+  'failureCode',
   'frameCount',
   'hasFilePath',
   'hasMessage',
@@ -97,15 +126,21 @@ export const PROVIDER_AUDIT_METADATA_KEYS = [
   'httpStatus',
   'inputByteLength',
   'modelConfigured',
+  'modelFamily',
   'modelNameLength',
   'modelSource',
   'pageClosed',
   'postSubmission',
   'providerKnown',
   'recoveryScheduled',
+  'residencyState',
   'resultLength',
   'retryScheduled',
+  'runtimeRevision',
   'sourceLength',
+  'setupState',
+  'supportTier',
+  'target',
   'targetLanguage',
   'transcriptionMode',
   'usesDefaultModel',
@@ -131,14 +166,22 @@ export type ProviderAuditTargetLanguage =
 
 export interface ProviderAuditMetadata {
   readonly acceptedByteCount?: number;
+  readonly activityState?: LocalWhisperActivityState;
+  readonly artifactKind?: 'runtime' | 'model';
+  readonly artifactRevision?: string;
   readonly attemptCount?: number;
+  readonly backend?: LocalWhisperBackend;
+  readonly byteCount?: number;
+  readonly capabilityState?: LocalWhisperCapabilityState;
   readonly causeCode?: ProviderAuditCauseCode;
   readonly chunkCount?: number;
   readonly contractVersion?: ProviderAuditContractVersion;
   readonly discarded?: boolean;
   readonly durationMs?: number;
   readonly errorClass?: ProviderAuditErrorClass;
+  readonly engineId?: 'whisperCpp';
   readonly exceptionType?: ProviderAuditExceptionType;
+  readonly failureCode?: LocalWhisperFailureCode;
   readonly frameCount?: number;
   readonly hasFilePath?: boolean;
   readonly hasMessage?: boolean;
@@ -148,15 +191,21 @@ export interface ProviderAuditMetadata {
   readonly httpStatus?: number;
   readonly inputByteLength?: number;
   readonly modelConfigured?: boolean;
+  readonly modelFamily?: LocalWhisperModelFamily;
   readonly modelNameLength?: number;
   readonly modelSource?: ProviderAuditModelSource;
   readonly pageClosed?: boolean;
   readonly postSubmission?: boolean;
   readonly providerKnown?: boolean;
   readonly recoveryScheduled?: boolean;
+  readonly residencyState?: LocalWhisperResidencyState;
   readonly resultLength?: number;
   readonly retryScheduled?: boolean;
+  readonly runtimeRevision?: string;
   readonly sourceLength?: number;
+  readonly setupState?: LocalWhisperArtifactSetupState;
+  readonly supportTier?: LocalWhisperSupportTier;
+  readonly target?: LocalWhisperTarget;
   readonly targetLanguage?: ProviderAuditTargetLanguage;
   readonly transcriptionMode?: ProviderAuditTranscriptionMode;
   readonly usesDefaultModel?: boolean;
@@ -180,6 +229,7 @@ const PROVIDER_AUDIT_METADATA_KEY_SET = new Set<string>(PROVIDER_AUDIT_METADATA_
 const PROVIDER_AUDIT_NUMERIC_METADATA_KEY_SET = new Set<ProviderAuditMetadataKey>([
   'acceptedByteCount',
   'attemptCount',
+  'byteCount',
   'chunkCount',
   'durationMs',
   'frameCount',
@@ -225,6 +275,16 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 function isFiniteNonnegativeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isSafeLocalWhisperRevision(value: unknown): value is string {
+  return (
+    toLocalWhisperRevisionId(value) !== null &&
+    typeof value === 'string' &&
+    !value.includes('/') &&
+    !value.includes('\\') &&
+    !value.includes('://')
+  );
 }
 
 export function isProviderAuditFamily(value: unknown): value is ProviderAuditFamily {
@@ -293,18 +353,43 @@ function isProviderAuditMetadataValue(
   }
 
   switch (key) {
+    case 'activityState':
+      return isOneOf(LOCAL_WHISPER_ACTIVITY_STATES, candidate);
+    case 'artifactKind':
+      return candidate === 'runtime' || candidate === 'model';
+    case 'artifactRevision':
+    case 'runtimeRevision':
+      return isSafeLocalWhisperRevision(candidate);
+    case 'backend':
+      return isOneOf(LOCAL_WHISPER_BACKENDS, candidate);
+    case 'capabilityState':
+      return isOneOf(LOCAL_WHISPER_CAPABILITY_STATES, candidate);
     case 'causeCode':
       return isCauseCode(candidate);
     case 'contractVersion':
       return isOneOf(PROVIDER_AUDIT_CONTRACT_VERSIONS, candidate);
     case 'errorClass':
       return isProviderAuditErrorClass(candidate);
+    case 'engineId':
+      return candidate === 'whisperCpp';
     case 'exceptionType':
       return isProviderAuditExceptionType(candidate);
+    case 'failureCode':
+      return isOneOf(LOCAL_WHISPER_FAILURE_CODES, candidate);
+    case 'modelFamily':
+      return isOneOf(LOCAL_WHISPER_MODEL_FAMILIES, candidate);
     case 'modelSource':
       return isOneOf(PROVIDER_AUDIT_MODEL_SOURCES, candidate);
     case 'targetLanguage':
       return typeof candidate === 'string' && PROVIDER_AUDIT_TARGET_LANGUAGE_SET.has(candidate);
+    case 'residencyState':
+      return isOneOf(LOCAL_WHISPER_RESIDENCY_STATES, candidate);
+    case 'setupState':
+      return isOneOf(LOCAL_WHISPER_ARTIFACT_SETUP_STATES, candidate);
+    case 'supportTier':
+      return isOneOf(LOCAL_WHISPER_SUPPORT_TIERS, candidate);
+    case 'target':
+      return isOneOf(LOCAL_WHISPER_TARGETS, candidate);
     case 'transcriptionMode':
       return isOneOf(PROVIDER_AUDIT_TRANSCRIPTION_MODES, candidate);
     default:

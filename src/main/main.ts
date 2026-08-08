@@ -26,11 +26,25 @@ import {
 } from 'electron';
 import { resolveAppConfigPaths } from './config';
 import type { CloakBrowserApi } from './cloakbrowser';
-import { getAppUrl } from './appProtocol';
+import { getAppUrl, registerAppProtocolScheme } from './appProtocol';
+import { configureDesktopApplicationBeforeReady } from './desktopRuntimeController';
 import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
+import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
+import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
+import { NvidiaSmiVramAvailability } from './localWhisper/capability/NvidiaSmiVramAvailability';
+import { NvidiaSmiHostInventory } from './localWhisper/capability/NvidiaSmiHostInventory';
+import {
+  ProductionLocalWhisperEnvironmentFactory,
+  createProductionLocalWhisperEnvironment,
+  type LocalWhisperProductionEnvironmentDependencies,
+} from './localWhisper/composition/createProductionLocalWhisperEnvironment';
+import {
+  LocalWhisperDevelopmentActivationLoader,
+  openLocalWhisperActivationFile,
+} from './localWhisper/development/LocalWhisperDevelopmentActivation';
 import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
@@ -44,6 +58,8 @@ const CLOAK_BROWSER_PACKAGE_NAME = 'cloakbrowser';
 const PLAYWRIGHT_PACKAGE_NAME = 'playwright-core';
 const UNKNOWN_RUNTIME_VERSION = 'unknown';
 const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
+const LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS = 2_000;
+const LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES = 4_096;
 // CloakBrowser is ESM while the Electron main bundle is CommonJS.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
 const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
@@ -143,15 +159,116 @@ function runTextAutomationCommand(command: string, args: string[]): Promise<void
   });
 }
 
+function runLocalWhisperNvidiaSmiCommand(executablePath: string, arguments_: readonly string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      executablePath,
+      [...arguments_],
+      {
+        encoding: 'utf8',
+        maxBuffer: LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES,
+        timeout: LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS,
+        windowsHide: true,
+      },
+      (error, stdout) => {
+        if (error) {
+          reject(error instanceof Error ? error : new Error('NVIDIA VRAM query failed'));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
+}
+
 /**
  * Constructs and starts the process-owned application graph.
  */
-function bootstrapMainProcess(): void {
+async function bootstrapMainProcess(): Promise<void> {
+  const activation = await new LocalWhisperDevelopmentActivationLoader({
+    appRevision: app.getVersion(),
+    arguments: process.argv,
+    authenticateCatalog: (document, trustPolicy) => {
+      const loaded = new LocalWhisperCatalogRepository({
+        readDocument: () => document,
+        trustPolicy,
+      }).load();
+      return loaded.success && loaded.catalog.payload.purpose === 'qualification';
+    },
+    isPackaged: app.isPackaged,
+    openFile: openLocalWhisperActivationFile,
+    platform: process.platform,
+    userId: process.getuid?.(),
+  }).load();
+  const developmentUserDataPath = activation.status === 'active' ? app.getPath('userData') : null;
   const appConfigPaths = resolveAppConfigPaths({
-    environment: process.env,
+    environment:
+      developmentUserDataPath !== null
+        ? Object.freeze({ ...process.env, XDG_CONFIG_HOME: path.dirname(developmentUserDataPath) })
+        : process.env,
     homeDirectory: os.homedir,
     platform: process.platform,
   });
+  const localWhisperVramAvailability = new NvidiaSmiVramAvailability({
+    platform: process.platform,
+    environment: process.env,
+    pathExists: fs.existsSync,
+    command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
+  });
+  const localWhisperNvidiaInventory = new NvidiaSmiHostInventory({
+    platform: process.platform,
+    environment: process.env,
+    pathExists: fs.existsSync,
+    command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
+  });
+  const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
+    appRevision: app.getVersion(),
+    architecture: process.arch,
+    availableMemoryBytes: os.freemem,
+    availableVramBytes: (nativeIdentity) => localWhisperVramAvailability.sample(nativeIdentity),
+    configurationRoot: appConfigPaths.appDirectory,
+    environment: process.env,
+    fileSystem: fs,
+    homeDirectory: os.homedir,
+    logicalProcessorCount: os.cpus().length,
+    nextRequestId: randomUUID,
+    now: Date.now,
+    openPath: (managedPath) => shell.openPath(managedPath),
+    pid: process.pid,
+    platform: process.platform,
+    randomBytes,
+    randomNonce: randomUUID,
+    readNvidiaInventory: () => localWhisperNvidiaInventory.read(),
+    readFile,
+    resourcesPath: activation.status === 'active' ? activation.resourcesPath : process.resourcesPath,
+    spawnProcess: spawn,
+    ...(activation.status === 'active'
+      ? {
+          qualificationHooks: {
+            trustedCertificateAuthorities: activation.trustedCertificateAuthorities,
+          },
+        }
+      : {}),
+  };
+  const localWhisper =
+    process.platform === 'darwin'
+      ? createDeferredLocalWhisperEnvironment({
+          platform: process.platform,
+          architecture: process.arch,
+          logicalProcessorCount: os.cpus().length,
+          nextRequestId: randomUUID,
+        })
+      : activation.status === 'active'
+        ? await new ProductionLocalWhisperEnvironmentFactory(localWhisperDependencies, activation.catalogInput).create()
+        : activation.status === 'unavailable'
+          ? createDeferredLocalWhisperEnvironment({
+              platform: process.platform,
+              architecture: process.arch,
+              logicalProcessorCount: os.cpus().length,
+              nextRequestId: randomUUID,
+              unavailableReason: 'CATALOG_UNAVAILABLE',
+            })
+          : await createProductionLocalWhisperEnvironment(localWhisperDependencies);
 
   const application = new MainProcessCompositionRoot({
     assetPaths: {
@@ -270,6 +387,7 @@ function bootstrapMainProcess(): void {
         return moduleValue;
       },
     },
+    localWhisper,
     now: getCurrentDate,
     randomUUID,
     reportStreamingDiagnostic: ignoreStreamingDiagnostic,
@@ -388,6 +506,7 @@ function bootstrapMainProcess(): void {
       appProtocol: {
         protocol,
         readFile,
+        schemePreRegistered: true,
       },
       desktopRuntime: {
         app,
@@ -397,6 +516,7 @@ function bootstrapMainProcess(): void {
         environment: process.env,
         exit: (code) => process.exit(code),
         platform: process.platform,
+        preReadyConfigurationComplete: true,
         schedule: (callback, delayMs) => setTimeout(callback, delayMs),
         session,
         setApplicationMenu: (menu) => Menu.setApplicationMenu(menu),
@@ -437,4 +557,10 @@ function bootstrapMainProcess(): void {
   application.bootstrap();
 }
 
-bootstrapMainProcess();
+configureDesktopApplicationBeforeReady(app);
+registerAppProtocolScheme(protocol);
+void bootstrapMainProcess().catch((error: unknown) => {
+  setImmediate(() => {
+    throw error;
+  });
+});

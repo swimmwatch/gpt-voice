@@ -1,5 +1,6 @@
 import type { BaseVoiceProvider } from './BaseVoiceProvider';
 import { BatchVoiceProvider } from './BatchVoiceProvider';
+import { LocalWhisperVoiceProvider } from './LocalWhisperVoiceProvider';
 import { StreamingVoiceProvider } from './streamingVoiceProvider';
 
 export function isBatchVoiceProvider(provider: BaseVoiceProvider): provider is BatchVoiceProvider {
@@ -22,4 +23,8 @@ export function isStreamingVoiceProvider(provider: BaseVoiceProvider): provider 
     default:
       return false;
   }
+}
+
+export function isLocalRuntimeVoiceProvider(provider: BaseVoiceProvider): provider is LocalWhisperVoiceProvider {
+  return provider.info.authType === 'localRuntime' && provider instanceof LocalWhisperVoiceProvider;
 }

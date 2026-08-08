@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -40,10 +41,44 @@ const measurementReports = {
   win32: ['size-win32-x64.json', 'startup-win32-x64.json'],
 };
 
+async function verifyLocalWhisperReleaseCollection() {
+  const stagingDirectory = path.join(rootDir, 'build', 'generated', 'local-whisper');
+  const statePath = path.join(stagingDirectory, 'shared', 'catalog-state.json');
+  let state;
+  try {
+    state = JSON.parse(await readFile(statePath, 'utf8'));
+  } catch {
+    throw new Error('Local Whisper package state is required before release collection');
+  }
+  if (!['disabled', 'fixture', 'production'].includes(state.mode) || state.platform !== platform) {
+    throw new Error('Local Whisper package state does not match release collection');
+  }
+  const arguments_ = [
+    '--import',
+    'tsx',
+    path.join(rootDir, 'scripts', 'local-whisper', 'packaging', 'verify-release-guard.ts'),
+    `--mode=${state.mode}`,
+    `--platform=${platform}`,
+    `--staging=${stagingDirectory}`,
+  ];
+  const productionBundle = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY;
+  if (productionBundle) arguments_.push(`--bundle=${productionBundle}`);
+  const verification = spawnSync(process.execPath, arguments_, {
+    cwd: rootDir,
+    encoding: 'utf8',
+    shell: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (verification.status !== 0) {
+    throw new Error(verification.stderr || 'Local Whisper release-collection guard failed');
+  }
+}
+
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+await verifyLocalWhisperReleaseCollection();
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 

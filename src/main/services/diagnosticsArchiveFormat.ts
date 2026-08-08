@@ -7,6 +7,7 @@ import { TarArchive, ZipArchive, type Archiver } from 'archiver';
 import {
   DIAGNOSTICS_ARCHIVE_LIMITS,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
+  LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES,
   isDiagnosticsArchiveOuterByteLengthWithinLimit,
   isDiagnosticsArchiveStructureByteLengthWithinLimit,
   type DiagnosticsArchiveFormat,
@@ -147,11 +148,16 @@ export class DiagnosticsArchiveFormatAdapter {
     const expectedNames = [
       DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest,
       DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,
-      ...(members.length === 3 ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions] : []),
+      ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions)
+        ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions]
+        : []),
+      ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot)
+        ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot]
+        : []),
     ];
     if (
       members.length < 2 ||
-      members.length > 3 ||
+      members.length > 4 ||
       !members.every((member, index) => member.name === expectedNames[index]) ||
       new Set(members.map((member) => member.name)).size !== members.length
     ) {
@@ -162,6 +168,12 @@ export class DiagnosticsArchiveFormatAdapter {
     for (const member of members) {
       if (member.payload.byteLength > DIAGNOSTICS_ARCHIVE_LIMITS.MaxMemberBytes) {
         throw new TypeError('Diagnostics archive member is too large');
+      }
+      if (
+        member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot &&
+        member.payload.byteLength > LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES
+      ) {
+        throw new TypeError('Local Whisper diagnostics snapshot is too large');
       }
       if (member.payload.byteLength >= DIAGNOSTICS_ARCHIVE_LIMITS.MinCompressionRatioMemberBytes) {
         let compressedBytes = compressedPayloadSizes.get(member.payload);
@@ -345,15 +357,20 @@ export function inspectDiagnosticsArchiveForVerification(
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
+    DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
   ]);
   if (
     members.size < 2 ||
-    members.size > 3 ||
+    members.size > 4 ||
     !members.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest) ||
     !members.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents) ||
     [...members.keys()].some((name) => !allowedNames.has(name))
   ) {
     throw new Error('Unexpected diagnostics archive members');
+  }
+  const localWhisperSnapshot = members.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);
+  if (localWhisperSnapshot && localWhisperSnapshot.byteLength > LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES) {
+    throw new Error('Local Whisper diagnostics snapshot is too large');
   }
   return members;
 }

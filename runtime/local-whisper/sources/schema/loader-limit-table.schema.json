@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-loader-limit-table-schema-v1.json",
+  "title": "Local Whisper pinned loader limit table v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaId",
+    "tableId",
+    "sourceLockId",
+    "gitTree",
+    "originalManifestSha256",
+    "layoutSources",
+    "derivationToolSha256",
+    "families",
+    "variants",
+    "tensorTypes",
+    "limits",
+    "review",
+    "tableSha256"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaId": { "const": "local-whisper-loader-limit-table-schema-v1" },
+    "tableId": { "const": "whisper-cpp-loader-limits-v1" },
+    "sourceLockId": { "const": "whisper-cpp-v1.9.1-f049fff" },
+    "gitTree": { "$ref": "#/$defs/gitOid" },
+    "originalManifestSha256": { "$ref": "#/$defs/sha256" },
+    "layoutSources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "gitBlob", "sha256", "symbols"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "gitBlob": { "$ref": "#/$defs/gitOid" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "symbols": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "derivationToolSha256": { "$ref": "#/$defs/sha256" },
+    "families": {
+      "const": ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"]
+    },
+    "variants": { "const": ["full", "q5_0"] },
+    "tensorTypes": { "const": ["F32", "F16", "Q5_0"] },
+    "limits": { "$ref": "#/$defs/limits" },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewedAt", "reviewedBy", "provenancePath", "unresolvedExclusions"],
+      "properties": {
+        "status": { "const": "approved" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "reviewedBy": { "type": "string", "minLength": 1 },
+        "provenancePath": { "type": "string", "minLength": 1 },
+        "unresolvedExclusions": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "tableSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "gitOid": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "positive": { "type": "integer", "minimum": 1, "maximum": 17179869184 },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum", "maximum"],
+      "properties": { "minimum": { "$ref": "#/$defs/positive" }, "maximum": { "$ref": "#/$defs/positive" } }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authenticatedModelBytes",
+        "vocabularyCount",
+        "audioContext",
+        "audioState",
+        "audioHeads",
+        "audioLayers",
+        "textContext",
+        "textState",
+        "textHeads",
+        "textLayers",
+        "melDimension",
+        "melFilterElements",
+        "melFilterBytes",
+        "tokenBytes",
+        "aggregateTokenBytes",
+        "tensorRank",
+        "tensorCount",
+        "tensorNameBytes",
+        "tensorDimension",
+        "tensorElementProduct",
+        "tensorPayloadBytes",
+        "aggregateTensorPayloadBytes",
+        "aggregateParsedMetadataBytes",
+        "alignmentPaddingBytes"
+      ],
+      "properties": {
+        "authenticatedModelBytes": { "$ref": "#/$defs/range" },
+        "vocabularyCount": { "$ref": "#/$defs/range" },
+        "audioContext": { "$ref": "#/$defs/range" },
+        "audioState": { "$ref": "#/$defs/range" },
+        "audioHeads": { "$ref": "#/$defs/range" },
+        "audioLayers": { "$ref": "#/$defs/range" },
+        "textContext": { "$ref": "#/$defs/range" },
+        "textState": { "$ref": "#/$defs/range" },
+        "textHeads": { "$ref": "#/$defs/range" },
+        "textLayers": { "$ref": "#/$defs/range" },
+        "melDimension": { "$ref": "#/$defs/range" },
+        "melFilterElements": { "$ref": "#/$defs/positive" },
+        "melFilterBytes": { "$ref": "#/$defs/positive" },
+        "tokenBytes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum", "maximum"],
+          "properties": { "minimum": { "const": 0 }, "maximum": { "$ref": "#/$defs/positive" } }
+        },
+        "aggregateTokenBytes": { "$ref": "#/$defs/positive" },
+        "tensorRank": { "$ref": "#/$defs/range" },
+        "tensorCount": { "$ref": "#/$defs/positive" },
+        "tensorNameBytes": { "$ref": "#/$defs/range" },
+        "tensorDimension": { "$ref": "#/$defs/range" },
+        "tensorElementProduct": { "$ref": "#/$defs/positive" },
+        "tensorPayloadBytes": { "$ref": "#/$defs/positive" },
+        "aggregateTensorPayloadBytes": { "$ref": "#/$defs/positive" },
+        "aggregateParsedMetadataBytes": { "$ref": "#/$defs/positive" },
+        "alignmentPaddingBytes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["minimum", "maximum"],
+          "properties": { "minimum": { "const": 0 }, "maximum": { "$ref": "#/$defs/positive" } }
+        }
+      }
+    }
+  }
+}

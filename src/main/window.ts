@@ -1,8 +1,10 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents } from 'electron';
+import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents, WebFrameMain } from 'electron';
 import { AboutWindowController } from './aboutWindowController';
 import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { AppSettingsSectionId } from '@shared/appSettings';
+import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
@@ -10,6 +12,12 @@ import {
 
 const MAIN_WINDOW_CONTENT_WIDTH = 520;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
+const PROVIDER_SETTINGS_CONTENT_WIDTH = 560;
+const PROVIDER_SETTINGS_CONTENT_HEIGHT = 680;
+const LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH = 912;
+const LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT = 820;
+const PROVIDER_SETTINGS_MIN_WIDTH = 440;
+const PROVIDER_SETTINGS_MIN_HEIGHT = 520;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
 const APP_PROTOCOL = 'app:';
 const APP_HOST = 'gpt-voice';
@@ -70,13 +78,22 @@ export class WindowManager {
     this.quitting = value;
   }
 
-  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string): void {
+  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string | null): void {
     const providerId = status.providerId || fallbackProviderId;
+    if (!providerId) return;
     if (status.ready) {
       this.mainWindow?.webContents.send('bg-browser-ready', providerId);
     } else if (status.error) {
       this.mainWindow?.webContents.send('bg-browser-error', providerId, status.error, Boolean(status.authExpired));
     }
+  }
+
+  /** Delivers only the shared renderer-safe startup snapshot to the live main window. */
+  public publishFirstLaunchStartupSnapshot(snapshot: unknown): void {
+    const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+    const window = this.mainWindow;
+    if (!safeSnapshot || !window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+    window.webContents.send(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, safeSnapshot);
   }
 
   public readonly publishTranslationProviderConnectionState = (state: TranslationProviderConnectionState): void => {
@@ -118,6 +135,32 @@ export class WindowManager {
       return null;
     }
     return settingsWindow;
+  }
+
+  public isTrustedMainFrame(webContents: WebContents, frame: WebFrameMain): boolean {
+    const window = this.mainWindow;
+    return Boolean(
+      window &&
+      !window.isDestroyed() &&
+      !webContents.isDestroyed() &&
+      window.webContents.id === webContents.id &&
+      webContents.mainFrame === frame &&
+      frame.url === this.dependencies.getAppUrl() &&
+      webContents.getURL() === frame.url,
+    );
+  }
+
+  public isTrustedLocalWhisperSettingsFrame(webContents: WebContents, frame: WebFrameMain): boolean {
+    const window = this.providerSettingsWindowController.get(LOCAL_WHISPER_PROVIDER_ID);
+    if (!window || window.isDestroyed() || webContents.isDestroyed()) return false;
+    const expectedUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
+    expectedUrl.searchParams.set('providerId', LOCAL_WHISPER_PROVIDER_ID);
+    return (
+      window.webContents.id === webContents.id &&
+      webContents.mainFrame === frame &&
+      frame.url === expectedUrl.toString() &&
+      webContents.getURL() === frame.url
+    );
   }
 
   public createMainWindow(): void {
@@ -264,11 +307,12 @@ export class WindowManager {
     this.providerSettingsWindowController.show(providerId, () => {
       const providerSettingsUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
       providerSettingsUrl.searchParams.set('providerId', providerId);
+      const isLocalWhisperSettings = providerId === LOCAL_WHISPER_PROVIDER_ID;
       const window = this.dependencies.createBrowserWindow({
-        width: 560,
-        height: 680,
-        minWidth: 440,
-        minHeight: 520,
+        width: isLocalWhisperSettings ? LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH : PROVIDER_SETTINGS_CONTENT_WIDTH,
+        height: isLocalWhisperSettings ? LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT : PROVIDER_SETTINGS_CONTENT_HEIGHT,
+        minWidth: PROVIDER_SETTINGS_MIN_WIDTH,
+        minHeight: PROVIDER_SETTINGS_MIN_HEIGHT,
         useContentSize: true,
         autoHideMenuBar: true,
         backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,

@@ -24,6 +24,12 @@ import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProvi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
 import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  type FirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
+import { createDeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
@@ -167,6 +173,7 @@ class MainProcessCompositionHarness {
     translationAuditRecords: [],
     window: null,
   };
+  public readonly configFile: string;
   public readonly temporaryDirectory: string;
   public readonly databasePath: string;
   public readonly compositionEnvironment: MainProcessCompositionEnvironment;
@@ -179,7 +186,10 @@ class MainProcessCompositionHarness {
       homeDirectory: () => this.temporaryDirectory,
       platform: 'linux',
     });
+    this.configFile = configPaths.configFile;
     this.databasePath = configPaths.databaseFile;
+    const cloakBrowserBinaryPath = path.join(this.temporaryDirectory, 'cloakbrowser');
+    fs.writeFileSync(cloakBrowserBinaryPath, 'test-binary', 'utf8');
     this.compositionEnvironment = {
       assetPaths: {
         isPackaged: false,
@@ -191,6 +201,8 @@ class MainProcessCompositionHarness {
         environment: {},
         fileSystem: fs,
         importModule: async () => ({
+          binaryInfo: () => ({ binaryPath: cloakBrowserBinaryPath, installed: true }),
+          ensureBinary: async () => cloakBrowserBinaryPath,
           launchContext: async () => ({ close: async () => undefined }) as BrowserContext,
           launchPersistentContext: async () => ({ close: async () => undefined }) as BrowserContext,
         }),
@@ -336,6 +348,12 @@ class MainProcessCompositionHarness {
           };
         },
       },
+      localWhisper: createDeferredLocalWhisperEnvironment({
+        platform: 'linux',
+        architecture: 'x64',
+        logicalProcessorCount: 4,
+        nextRequestId: () => '00000000-0000-4000-8000-000000000099',
+      }),
       now: () => new Date('2026-07-27T12:00:00.000Z'),
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
       reportStreamingDiagnostic: () => undefined,
@@ -501,6 +519,12 @@ class MainProcessCompositionHarness {
         prettifyProfileChooser: {
           preloadPath: '/app/prettify-profile-chooser-preload.js',
           screen: {
+            getAllDisplays: () => [
+              {
+                bounds: { height: 800, width: 1000, x: 0, y: 0 },
+                workArea: { height: 800, width: 1000, x: 0, y: 0 },
+              } as never,
+            ],
             getCursorScreenPoint: () => ({ x: 0, y: 0 }),
             getDisplayNearestPoint: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
             getPrimaryDisplay: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
@@ -535,15 +559,22 @@ class MainProcessCompositionHarness {
     };
   }
 
-  public cleanup(): void {
-    fs.rmSync(this.temporaryDirectory, { force: true, recursive: true });
+  public setPersistedProvider(providerId: string): void {
+    fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
+    fs.writeFileSync(this.configFile, JSON.stringify({ provider: providerId }), 'utf8');
+  }
+
+  public async cleanup(): Promise<void> {
+    this.app.emitWillQuit({ preventDefault: () => undefined });
+    await flushAsyncWork();
+    fs.rmSync(this.temporaryDirectory, { force: true, maxRetries: 100, recursive: true, retryDelay: 25 });
   }
 }
 
 const harnesses: MainProcessCompositionHarness[] = [];
 
-afterEach(() => {
-  for (const harness of harnesses) harness.cleanup();
+afterEach(async () => {
+  for (const harness of harnesses) await harness.cleanup();
   harnesses.length = 0;
 });
 
@@ -792,6 +823,21 @@ describe('main process composition root', () => {
 
     assert.equal(harness.state.createCount, 1);
     assert.equal(harness.state.ipcHandlers.size > 0, true);
+    const startupSnapshotQuery = harness.state.ipcHandlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+    assert.ok(startupSnapshotQuery);
+    assert.ok(harness.state.window);
+    const startupSnapshot = startupSnapshotQuery({
+      sender: harness.state.window.webContents,
+      senderFrame: { url: harness.state.window.webContents.getURL() },
+    } as unknown as IpcMainInvokeEvent) as FirstLaunchStartupSnapshot;
+    assert.deepEqual(
+      startupSnapshot.jobs.map((job) => job.id),
+      [
+        FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+        FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+        FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+      ],
+    );
     for (const channel of Object.values(PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS)) {
       if (channel !== PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS.localeChanged) {
         assert.equal(harness.state.ipcHandlers.has(channel), true);
@@ -805,6 +851,36 @@ describe('main process composition root', () => {
     await flushAsyncWork();
     assert.equal(harness.state.ipcHandlers.size, 0);
     assert.equal(harness.state.closeCount, 1);
+  });
+
+  it('keeps disconnected selected providers out of the production startup failure path', async () => {
+    const providerIds = ['chatgpt', 'openai-api', 'local-whisper'];
+
+    for (const providerId of providerIds) {
+      const harness = createHarness();
+      harness.setPersistedProvider(providerId);
+      new MainProcessCompositionRoot(harness.compositionEnvironment)
+        .createApplication(harness.applicationEnvironment)
+        .bootstrap();
+      harness.app.emitReady();
+      const startupSnapshotQuery = harness.state.ipcHandlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+      assert.ok(startupSnapshotQuery);
+      assert.ok(harness.state.window);
+      const event = {
+        sender: harness.state.window.webContents,
+        senderFrame: { url: harness.state.window.webContents.getURL() },
+      } as unknown as IpcMainInvokeEvent;
+      let snapshot = startupSnapshotQuery(event) as FirstLaunchStartupSnapshot;
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const voiceProviderJob = snapshot.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+        if (voiceProviderJob?.state === 'succeeded' || snapshot.state === 'failed') break;
+        await flushAsyncWork();
+        snapshot = startupSnapshotQuery(event) as FirstLaunchStartupSnapshot;
+      }
+      const voiceProviderJob = snapshot.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+
+      assert.equal(voiceProviderJob?.state, 'succeeded', providerId);
+    }
   });
 
   it('keeps the single Translation connection subscription across repeated real CloakBrowser save handlers', async () => {

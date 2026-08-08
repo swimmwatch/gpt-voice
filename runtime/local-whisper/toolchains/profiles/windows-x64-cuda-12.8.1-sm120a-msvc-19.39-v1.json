@@ -1,0 +1,227 @@
+{
+  "$schema": "../schema/native-toolchain-lock.schema.json",
+  "schemaId": "local-whisper-native-toolchain-lock-v1",
+  "profileId": "windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1",
+  "target": {
+    "os": "windows",
+    "architecture": "x64",
+    "abi": "msvc-v143-14.39-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0"
+  },
+  "tools": [
+    {
+      "role": "c-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/cl.exe",
+      "version": "Microsoft (R) C/C++ Optimizing Compiler Version 19.39 (_MSC_VER=1939)",
+      "sha256": null
+    },
+    {
+      "role": "cxx-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/cl.exe",
+      "version": "Microsoft (R) C/C++ Optimizing Compiler Version 19.39 (_MSC_VER=1939)",
+      "sha256": null
+    },
+    {
+      "role": "linker",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/link.exe",
+      "version": "Microsoft (R) Incremental Linker Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "archiver",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/lib.exe",
+      "version": "Microsoft (R) Library Manager Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "pe-inspector",
+      "pathKind": "toolchainRootRelative",
+      "path": "msvc-14.39/bin/Hostx64/x64/dumpbin.exe",
+      "version": "Microsoft (R) COFF/PE Dumper Version 14.39",
+      "sha256": null
+    },
+    {
+      "role": "cuda-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/nvcc.exe",
+      "version": "Cuda compilation tools, release 12.8, V12.8.93",
+      "sha256": null
+    },
+    {
+      "role": "cmake",
+      "pathKind": "toolchainRootRelative",
+      "path": "cmake-3.31.8/bin/cmake.exe",
+      "version": "cmake version 3.31.8",
+      "sha256": null
+    },
+    {
+      "role": "ninja",
+      "pathKind": "toolchainRootRelative",
+      "path": "ninja-1.12.1/ninja.exe",
+      "version": "1.12.1",
+      "sha256": null
+    }
+  ],
+  "runtime": [
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140-1",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140_1.dll",
+      "sha256": null
+    },
+    {
+      "id": "windows-sdk-10.0.26100.0",
+      "pathKind": "toolchainRootRelative",
+      "path": "windows-sdk-10.0.26100.0/Lib/10.0.26100.0/um/x64/kernel32.lib",
+      "sha256": null
+    },
+    {
+      "id": "cuda-runtime-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cudart64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublas64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublasLt64_12.dll",
+      "sha256": null
+    }
+  ],
+  "architectureTargets": ["120a-real"],
+  "environmentAllowlist": ["SystemRoot", "TEMP", "TMP", "WINDIR"],
+  "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
+  "patchLockIds": [],
+  "qualificationFixture": null,
+  "cmakeCache": {
+    "BUILD_SHARED_LIBS": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CUDA_ARCHITECTURES": "120a-real",
+    "CMAKE_CUDA_RUNTIME_LIBRARY": "Shared",
+    "CMAKE_CXX_STANDARD": "20",
+    "CUDAToolkit_ROOT": "toolchainRoot:cuda-12.8.1",
+    "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
+    "GGML_BACKEND_DL": "OFF",
+    "GGML_BLAS": "OFF",
+    "GGML_CANN": "OFF",
+    "GGML_CPU_KLEIDIAI": "OFF",
+    "GGML_CUDA": "ON",
+    "GGML_CUDA_CUB_3DOT2": "OFF",
+    "GGML_CUDA_NCCL": "OFF",
+    "GGML_HIP": "OFF",
+    "GGML_METAL": "OFF",
+    "GGML_MUSA": "OFF",
+    "GGML_NATIVE": "OFF",
+    "GGML_OPENCL": "OFF",
+    "GGML_OPENMP": "OFF",
+    "GGML_RPC": "OFF",
+    "GGML_STATIC": "ON",
+    "GGML_SYCL": "OFF",
+    "GGML_VULKAN": "OFF",
+    "GGML_ZDNN": "OFF",
+    "WHISPER_BUILD_EXAMPLES": "OFF",
+    "WHISPER_BUILD_TESTS": "OFF",
+    "WHISPER_CURL": "OFF"
+  },
+  "expectedBuildGraph": ["ggml-base", "ggml-cpu", "ggml-cuda", "whisper"],
+  "outputs": [
+    { "id": "whisper-static", "pathKind": "outputRelative", "path": "src/whisper.lib", "sha256": null },
+    {
+      "id": "ggml-cuda-static",
+      "pathKind": "outputRelative",
+      "path": "ggml/src/ggml-cuda/ggml-cuda.lib",
+      "sha256": null
+    }
+  ],
+  "dynamicDependencies": [
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-vcruntime140-1",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/vcruntime140_1.dll",
+      "sha256": null
+    },
+    {
+      "id": "cuda-runtime-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cudart64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublas64_12.dll",
+      "sha256": null
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/cublasLt64_12.dll",
+      "sha256": null
+    }
+  ],
+  "licenses": [
+    {
+      "id": "visual-studio-build-tools-14.39",
+      "pathKind": "toolchainRootRelative",
+      "path": "licenses/visual-studio-2022-build-tools.html",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-license",
+      "pathKind": "toolchainRootRelative",
+      "path": "licenses/visual-cpp-v14-runtime.html",
+      "sha256": null
+    },
+    {
+      "id": "cuda-eula-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/LICENSE",
+      "sha256": null
+    }
+  ],
+  "sbomComponents": [
+    "msvc-14.39",
+    "microsoft-vc-runtime-14.51.36247.0-x64",
+    "windows-sdk-10.0.26100.0",
+    "cuda-12.8.1",
+    "cmake-3.31.8",
+    "ninja-1.12.1",
+    "whisper-cpp-v1.9.1"
+  ],
+  "qualificationState": "pending-windows-qualification",
+  "evidenceDigest": null,
+  "minimumDriver": "570.65"
+}

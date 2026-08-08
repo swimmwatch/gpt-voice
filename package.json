@@ -36,12 +36,12 @@
     "monitor:translation-languages": "tsx scripts/translation-language-monitor.ts",
     "smoke:fedora": "node scripts/build-fedora-release.mjs --mode=smoke",
     "collect:release-artifacts": "node scripts/collect-release-artifacts.mjs",
-    "pack": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder --dir",
-    "dist": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && electron-builder",
-    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && npm run generate:package-metadata && electron-builder --linux",
+    "pack": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=current && electron-builder --dir",
+    "dist": "npm run build:prod && npm run prepare:cloakbrowser && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=current && electron-builder",
+    "dist:linux": "npm run build:prod && npm run prepare:cloakbrowser -- --target=linux && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=linux && electron-builder --linux",
     "dist:fedora": "node scripts/build-fedora-release.mjs --mode=release",
-    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && npm run generate:package-metadata && electron-builder --win",
-    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && npm run generate:package-metadata && electron-builder --mac",
+    "dist:win": "npm run build:prod && npm run prepare:cloakbrowser -- --target=win32 && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32 && electron-builder --win",
+    "dist:mac": "npm run build:prod && npm run prepare:cloakbrowser -- --target=darwin && npm run generate:package-metadata && npm run prepare:local-whisper:packaging -- --mode=disabled --platform=darwin && electron-builder --mac",
     "lint": "eslint src/ tests/ scripts/ eslint.config.mjs webpack.config.js",
     "lint:fix": "eslint src/ tests/ scripts/ eslint.config.mjs webpack.config.js --fix",
     "typecheck": "tsc --noEmit",
@@ -55,11 +55,117 @@
     "measure:startup": "node scripts/measure-startup.mjs",
     "verify:size": "node scripts/build-size-cli.mjs verify",
     "verify:diagnostics-dependencies": "node --import tsx scripts/verify-diagnostics-dependency-policy.ts",
+    "build:local-whisper:fs-guard": "node scripts/local-whisper/build-fs-guard.mjs",
+    "build:local-whisper:launcher": "node scripts/local-whisper/build-launcher.mjs",
+    "format:check:local-whisper:fs-guard": "node scripts/local-whisper/native-fs-guard-quality.mjs format",
+    "format:check:local-whisper:launcher": "node scripts/local-whisper/native-launcher-quality.mjs format",
+    "lint:local-whisper:fs-guard": "node scripts/local-whisper/native-fs-guard-quality.mjs lint",
+    "lint:local-whisper:launcher": "node scripts/local-whisper/native-launcher-quality.mjs lint",
+    "test:local-whisper:fs-guard:unit": "node scripts/local-whisper/native-fs-guard-quality.mjs unit",
+    "test:local-whisper:fs-guard:integration": "node scripts/local-whisper/native-fs-guard-quality.mjs integration",
+    "test:local-whisper:fs-guard:native": "node scripts/local-whisper/native-fs-guard-quality.mjs all",
+    "test:local-whisper:launcher:unit": "node scripts/local-whisper/native-launcher-quality.mjs unit",
+    "test:local-whisper:launcher:native": "node scripts/local-whisper/native-launcher-quality.mjs all",
+    "prepare:local-whisper:native-test-sources": "node scripts/local-whisper/provision-native-test-sources.mjs",
+    "generate:local-whisper:worker-vectors": "node --import tsx scripts/local-whisper/generate-worker-protocol-vectors.ts",
+    "format:check:local-whisper:worker-common": "node scripts/local-whisper/native-worker-quality.mjs format",
+    "lint:local-whisper:worker-common": "node scripts/local-whisper/native-worker-quality.mjs lint",
+    "test:local-whisper:worker-codec": "node --import tsx --test tests/shared/localWhisper/workerJson.test.ts tests/shared/localWhisper/canonicalWav.test.ts tests/shared/localWhisper/protocol.test.ts && node scripts/local-whisper/native-worker-quality.mjs codec",
+    "test:local-whisper:worker-proof-vectors": "node --import tsx --test tests/main/localWhisper/supervisor/LocalWhisperDeviceAuthority.test.ts && node scripts/local-whisper/native-worker-quality.mjs proof",
+    "test:local-whisper:worker-authority": "node --import tsx --test tests/main/localWhisper/supervisor/LocalWhisperModelAuthorityRecord.test.ts && node scripts/local-whisper/native-worker-quality.mjs authority",
+    "test:local-whisper:supervisor": "node --import tsx --test \"tests/main/localWhisper/supervisor/*.test.ts\"",
+    "test:local-whisper:artifacts": "node --import tsx --test \"tests/main/localWhisper/artifacts/*.test.ts\"",
+    "test:local-whisper:catalog": "node --import tsx --test \"tests/main/localWhisper/catalog/*.test.ts\"",
+    "test:local-whisper:capability": "node --import tsx --test \"tests/main/localWhisper/capability/*.test.ts\"",
+    "test:local-whisper:rtx50-applicability": "node --import tsx --test tests/main/localWhisper/capability/NvidiaRtx50Applicability.test.ts tests/main/localWhisper/catalog/LocalWhisperCatalogRepository.test.ts tests/main/localWhisper/composition/ProductionLocalWhisperEnvironment.test.ts",
+    "test:local-whisper:coordinator": "node --import tsx --test \"tests/main/localWhisper/coordinator/*.test.ts\"",
+    "test:local-whisper:ipc": "node --import tsx --test tests/shared/localWhisper/ipc.test.ts \"tests/main/localWhisper/ipc/*.test.ts\" tests/main/preloadApi.test.ts \"tests/renderer/localWhisper/*.test.ts\"",
+    "test:local-whisper:ui": "node --import tsx --test tests/renderer/localWhisper/LocalWhisperSettingsState.test.ts tests/renderer/localWhisper/LocalWhisperPresentation.test.ts",
+    "test:local-whisper:ui:contracts": "node --import tsx --test tests/renderer/localWhisper/LocalWhisperUiContracts.test.ts",
+    "test:local-whisper:ui:accessibility": "node --import tsx --test tests/renderer/localWhisper/LocalWhisperAccessibility.test.ts",
+    "test:local-whisper:composition": "node --import tsx --test \"tests/main/localWhisper/composition/*.test.ts\" tests/main/backgroundBrowserLifecycle.test.ts tests/main/mainProcessApplication.test.ts tests/main/mainProcessCompositionRoot.test.ts \"tests/main/providers/localWhisper*.test.ts\" tests/main/providers/providerRegistry.test.ts tests/main/windowManager.test.ts tests/renderer/providerState.test.ts tests/renderer/providerSwitching.test.ts",
+    "test:local-whisper:composition:activation": "node --import tsx --test \"tests/main/localWhisper/composition/*.test.ts\"",
+    "test:local-whisper:development": "node --import tsx --test \"tests/main/localWhisper/development/*.test.ts\" \"tests/scripts/localWhisper/development/*.test.ts\"",
+    "start:local-whisper:development": "npm run build && node --import tsx scripts/local-whisper/development/start-local-whisper-development.ts",
+    "test:local-whisper:windows-application-smoke": "node --import tsx scripts/local-whisper/development/verify-windows-application-smoke.ts",
+    "test:local-whisper:acceptance-ownership": "node scripts/local-whisper/validate-task-plan.mjs",
+    "test:local-whisper:windows-readiness": "npm run test:local-whisper:acceptance-ownership && npm run verify:local-whisper:implementation-readiness && npm run test:local-whisper:development && npm run test:local-whisper:capability && npm run test:local-whisper:packaging",
+    "verify:local-whisper:windows-readiness": "node --import tsx scripts/local-whisper/verify-windows-readiness.ts",
+    "verify:local-whisper:implementation-readiness": "node --import tsx --test \"tests/scripts/localWhisper/implementationReadiness/*.test.ts\" && node --import tsx scripts/local-whisper/implementation-readiness/verify-implementation-readiness.ts",
+    "verify:local-whisper:rtx50-readiness": "npm run test:local-whisper:rtx50-applicability && node --import tsx scripts/local-whisper/verify-rtx50-readiness.ts",
+    "test:local-whisper:qualification": "node --import tsx --test \"tests/scripts/localWhisper/qualification/*.test.ts\" && python3 -m unittest tests/scripts/localWhisper/qualification/test_linux_resource_sampler.py && node --test tests/scripts/localWhisper/nativeBuildParallelism.test.mjs",
+    "materialize:local-whisper:qualification:models": "node --import tsx scripts/local-whisper/qualification/materialize-model-set.ts",
+    "verify:local-whisper:qualification:fleurs": "node --import tsx scripts/local-whisper/qualification/verify-fleurs-materialization.ts",
+    "materialize:local-whisper:windows-smoke-audio": "node scripts/local-whisper/qualification/materialize-fleurs-windows-smoke.mjs",
+    "verify:local-whisper:qualification:public-model": "node --import tsx scripts/local-whisper/qualification/verify-public-model-transport.ts",
+    "produce:local-whisper:qualification:direct-engine:cpu": "node scripts/local-whisper/qualification/produce-direct-engine.mjs --backend=cpu",
+    "produce:local-whisper:qualification:direct-engine:cuda": "node scripts/local-whisper/qualification/produce-direct-engine.mjs --backend=cuda",
+    "verify:local-whisper:qualification:direct-engine": "node --import tsx scripts/local-whisper/qualification/verify-direct-engine.ts",
+    "produce:local-whisper:qualification:runtime-pack:cpu": "node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cpu",
+    "produce:local-whisper:qualification:runtime-pack:cuda": "node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cuda",
+    "produce:local-whisper:windows-runtime-pack:cpu": "node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --platform=win32 --backend=cpu",
+    "produce:local-whisper:windows-runtime-pack:cuda": "node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --platform=win32 --backend=cuda",
+    "verify:local-whisper:qualification:inputs": "node --import tsx scripts/local-whisper/qualification/verify-qualification-inputs.ts",
+    "run:local-whisper:qualification:linux": "node --import tsx scripts/local-whisper/qualification/run-linux-production-qualification.ts",
+    "verify:local-whisper:qualification:linux": "npm run test:local-whisper:composition:activation && npm run test:local-whisper:qualification && npm run verify:local-whisper:qualification:inputs && node --import tsx scripts/local-whisper/qualification/verify-linux-qualification.ts",
+    "verify:local-whisper:downgrade": "node --import tsx scripts/local-whisper/qualification/verify-downgrade.ts",
+    "test:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx --test \"tests/main/localWhisper/filesystem/*.test.ts\"",
+    "verify:local-whisper:filesystem": "npm run build:local-whisper:fs-guard && node --import tsx scripts/local-whisper/verify-filesystem.ts",
+    "verify:local-whisper:launcher": "node scripts/local-whisper/native-launcher-quality.mjs integration",
+    "test:local-whisper:single-engine": "node --import tsx --test tests/main/localWhisper/singleEngineContract.test.ts && node --test tests/runtime/localWhisper/nativeSources/singleEngineSources.test.mjs",
+    "verify:local-whisper:single-engine-cleanup": "node scripts/local-whisper/verify-single-engine-cleanup.mjs",
+    "verify:local-whisper:coordinator": "node --import tsx scripts/local-whisper/verify-coordinator.ts",
+    "verify:local-whisper:ipc": "node --import tsx scripts/local-whisper/verify-ipc.ts",
+    "verify:local-whisper:ui": "npm run test:local-whisper:ui && npm run test:local-whisper:ui:contracts && npm run test:local-whisper:ui:accessibility",
+    "test:local-whisper:migration": "node --import tsx --test tests/main/localWhisper/settings/LocalWhisperSettingsRepository.test.ts tests/main/localWhisper/task18/LocalWhisperMigration.test.ts",
+    "test:local-whisper:audit": "node --import tsx --test tests/main/localWhisper/task18/LocalWhisperAudit.test.ts tests/main/providerAudit/providerAudit.test.ts tests/main/providerAuditPrivacy.test.ts",
+    "test:local-whisper:diagnostics": "node --import tsx --test tests/main/localWhisper/task18/LocalWhisperDiagnostics.test.ts tests/main/diagnosticsArchive.test.ts tests/main/diagnosticsArchiveFormat.test.ts tests/skills/analyzeDiagnosticsArchive.test.ts",
+    "test:local-whisper:privacy": "node --import tsx --test tests/main/localWhisper/task18/LocalWhisperOfflinePrivacy.test.ts tests/main/providerAuditPrivacy.test.ts tests/main/diagnosticTextRedactor.test.ts",
+    "test:local-whisper:offline": "node --import tsx --test tests/main/localWhisper/task18/LocalWhisperOfflinePrivacy.test.ts tests/main/providers/localWhisperTranscriptionDispatch.test.ts",
+    "test:local-whisper:macos-skeleton": "node --import tsx --test tests/main/localWhisper/task18/LocalWhisperMacOSSkeleton.test.ts tests/main/localWhisper/capability/LocalWhisperCapabilityPolicy.test.ts tests/scripts/localWhisper/packaging/PackagePolicy.test.ts",
+    "verify:local-whisper:docs": "node --import tsx --test tests/main/localWhisper/task18/LocalWhisperDocumentation.test.ts",
+    "verify:local-whisper:migration-privacy": "npm run test:local-whisper:migration && npm run test:local-whisper:audit && npm run test:local-whisper:diagnostics && npm run test:local-whisper:privacy && npm run test:local-whisper:offline && npm run test:local-whisper:macos-skeleton && npm run verify:local-whisper:docs",
+    "generate:local-whisper:packaging:fixture": "node --import tsx scripts/local-whisper/packaging/generate-fixture-bundle.ts",
+    "prepare:local-whisper:packaging": "node --import tsx scripts/local-whisper/packaging/prepare-package.ts",
+    "test:local-whisper:packaging": "node --import tsx --test tests/scripts/localWhisper/packaging/CatalogPackagingContract.test.ts tests/scripts/localWhisper/packaging/PackagePolicy.test.ts tests/scripts/localWhisper/packaging/PackagedResourceResolver.test.ts tests/scripts/localWhisper/packaging/ReleaseCollectionGuard.test.ts tests/scripts/localWhisper/packaging/WorkflowPolicy.test.ts",
+    "test:local-whisper:packaging:fixtures": "node --import tsx --test tests/scripts/localWhisper/packaging/FixtureBundlePipeline.test.ts",
+    "verify:local-whisper:packaging:policy": "node --import tsx scripts/local-whisper/packaging/verify-package-policy.ts && node --import tsx scripts/local-whisper/packaging/verify-workflow-policy.ts",
+    "verify:local-whisper:packaging:linux": "node --import tsx scripts/local-whisper/packaging/verify-linux-packaging.ts",
+    "verify:local-whisper:packaging:windows-unpacked": "node scripts/local-whisper/packaging/verify-windows-unpacked.mjs",
+    "verify:local-whisper:packaging:release-guard": "node --import tsx scripts/local-whisper/packaging/verify-release-guard.ts",
+    "verify:local-whisper:packaging": "npm run test:local-whisper:packaging && npm run test:local-whisper:packaging:fixtures && npm run verify:local-whisper:packaging:policy && npm run verify:local-whisper:packaging:linux && npm run verify:local-whisper:packaging:release-guard",
+    "test:local-whisper:native-sources": "node --test \"tests/runtime/localWhisper/nativeSources/*.test.mjs\"",
+    "test:local-whisper:native-build-audits": "node --test \"tests/runtime/localWhisper/nativeSources/nativeBuildAudits.test.mjs\"",
+    "test:local-whisper:hosted-toolchains": "node --test \"tests/runtime/localWhisper/hostedToolchains/*.test.mjs\"",
+    "verify:local-whisper:hosted-toolchains": "npm run test:local-whisper:hosted-toolchains && node scripts/local-whisper/native-build/verify-hosted-toolchains.mjs",
+    "test:local-whisper:native-sanitizer-proof": "node scripts/local-whisper/native-build/test-native-sanitizer-proof.mjs",
+    "verify:local-whisper:native-source": "node scripts/local-whisper/source-import/verify-native-source.mjs",
+    "verify:local-whisper:loader-limits": "node scripts/local-whisper/native-build/verify-whisper-cpp-loader-limits.mjs",
+    "test:local-whisper:whisper-cpp-core": "node scripts/local-whisper/verify-whisper-cpp-core.mjs --suite=core",
+    "test:local-whisper:whisper-cpp-loader": "node scripts/local-whisper/verify-whisper-cpp-core.mjs --suite=loader",
+    "test:local-whisper:whisper-cpp-device-proof": "node scripts/local-whisper/verify-whisper-cpp-core.mjs --suite=device-proof",
+    "test:local-whisper:whisper-cpp-cancellation": "node scripts/local-whisper/verify-whisper-cpp-core.mjs --suite=cancellation",
+    "build:local-whisper:whisper-cpp-cpu": "node scripts/local-whisper/build-whisper-cpp-core.mjs",
+    "build:local-whisper:whisper-cpp-cuda": "node scripts/local-whisper/build-whisper-cpp-cuda.mjs",
+    "verify:local-whisper:whisper-cpp-cuda": "node scripts/local-whisper/verify-whisper-cpp-cuda.mjs",
+    "test:local-whisper:whisper-cpp-cuda-integration": "node scripts/local-whisper/run-whisper-cpp-integration.mjs --backend=cuda",
+    "verify:local-whisper:whisper-cpp-cpu": "node scripts/local-whisper/verify-whisper-cpp-cpu.mjs --mode=verify",
+    "test:local-whisper:whisper-cpp-cpu-integration": "node scripts/local-whisper/run-whisper-cpp-integration.mjs --backend=cpu",
+    "audit:local-whisper:whisper-cpp-pack": "node scripts/local-whisper/verify-whisper-cpp-pack.mjs",
+    "format:check:local-whisper:amd-packs": "prettier --check \"scripts/local-whisper/amd-packs/**/*.mjs\" \"tests/runtime/localWhisper/amdPacks/**/*.mjs\" \"runtime/local-whisper/whisper-cpp/amd/**/*.{json,md}\" \"runtime/local-whisper/toolchains/profiles/*amd*.json\" \"runtime/local-whisper/whisper-cpp/patches/amd-preview/*.json\"",
+    "lint:local-whisper:amd-packs": "eslint scripts/local-whisper/amd-packs tests/runtime/localWhisper/amdPacks",
+    "test:local-whisper:amd-packs": "node --test \"tests/runtime/localWhisper/amdPacks/**/*.test.mjs\"",
+    "verify:local-whisper:amd-packs": "node scripts/local-whisper/amd-packs/verify-amd-packs.mjs",
+    "verify:local-whisper:native-toolchain": "node scripts/local-whisper/native-build/verify-native-toolchain.mjs",
+    "materialize:local-whisper:windows-vc-runtime": "node scripts/local-whisper/native-build/materialize-windows-vc-runtime.mjs",
+    "verify:local-whisper:worker-authority": "node scripts/local-whisper/verify-worker-authority.mjs",
+    "verify:local-whisper:worker-vectors": "node --import tsx scripts/local-whisper/generate-worker-protocol-vectors.ts",
+    "audit:local-whisper:disconnected-build": "node scripts/local-whisper/native-build/audit-disconnected-build.mjs",
     "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
     "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
     "verify:installers": "node scripts/verify-installers.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build,amd-packs}/**/*.mjs\" \"scripts/local-whisper/{whisper-cpp-build-core,whisper-cpp-integration-core,build-whisper-cpp-core,verify-whisper-cpp-core,verify-whisper-cpp-cpu,stage-whisper-cpp-cpu,verify-single-engine-cleanup}.mjs\" \"scripts/local-whisper/{build-whisper-cpp-cuda,verify-whisper-cpp-cuda,verify-whisper-cpp-device,verify-whisper-cpp-cuda-integration,verify-whisper-cpp-pack,stage-whisper-cpp-cuda}.mjs\" \"tests/runtime/localWhisper/{nativeSources,amdPacks}/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\" \"runtime/local-whisper/whisper-cpp/**/*.{json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build,amd-packs}/**/*.mjs\" \"scripts/local-whisper/{whisper-cpp-build-core,whisper-cpp-integration-core,build-whisper-cpp-core,verify-whisper-cpp-core,verify-whisper-cpp-cpu,stage-whisper-cpp-cpu,verify-single-engine-cleanup}.mjs\" \"scripts/local-whisper/{build-whisper-cpp-cuda,verify-whisper-cpp-cuda,verify-whisper-cpp-device,verify-whisper-cpp-cuda-integration,verify-whisper-cpp-pack,stage-whisper-cpp-cuda}.mjs\" \"tests/runtime/localWhisper/{nativeSources,amdPacks}/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\" \"runtime/local-whisper/whisper-cpp/**/*.{json,md}\""
   },
   "keywords": [
     "electron",
@@ -165,6 +271,13 @@
       {
         "from": ".cache/cloakbrowser",
         "to": "cloakbrowser"
+      },
+      {
+        "from": "build/generated/local-whisper/shared",
+        "to": "local-whisper",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "electronFuses": {
@@ -184,6 +297,15 @@
       "uk"
     ],
     "linux": {
+      "extraResources": [
+        {
+          "from": "build/generated/local-whisper/native",
+          "to": "local-whisper/native",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ],
       "target": [
         "AppImage",
         "deb",
@@ -237,6 +359,15 @@
       "license": "build/generated/common/license.txt"
     },
     "win": {
+      "extraResources": [
+        {
+          "from": "build/generated/local-whisper/native",
+          "to": "local-whisper/native",
+          "filter": [
+            "**/*"
+          ]
+        }
+      ],
       "target": [
         "nsis"
       ],
@@ -303,6 +434,7 @@
     "electron-log": "^5.4.4",
     "mmdb-lib": "^3.0.3",
     "playwright-core": "1.62.1",
+    "react-icons": "^5.5.0",
     "socks-proxy-agent": "^10.1.0"
   },
   "devDependencies": {

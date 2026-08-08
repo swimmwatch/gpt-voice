@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file -- the batch fixture and failing audit subclass share one service suite. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
+import type { BaseVoiceProvider, TranscriptionResult, VoiceProviderInfo } from '@main/providers/BaseVoiceProvider';
 import { BatchVoiceProvider } from '@main/providers/BatchVoiceProvider';
 import { TranscriptionService } from '@main/services/transcription';
 import {
@@ -15,6 +15,11 @@ import { RecordingVoiceProviderAudit, getTerminalEvents } from './providers/voic
 import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 import { I18nService } from '@main/i18n';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditTestDependencies';
+import {
+  LocalWhisperVoiceProvider,
+  UnavailableLocalWhisperCoordinatorPort,
+} from '@main/providers/LocalWhisperVoiceProvider';
+import type { TranscriptionServiceDependencies } from '@main/services/transcription';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   public constructor() {
@@ -73,8 +78,9 @@ interface TestServiceOptions {
   audit?: VoiceProviderAudit;
   backgroundReady?: boolean;
   cache?: TextActionResultCache;
-  provider?: TestVoiceProvider | null;
-  providerAfterEnsure?: TestVoiceProvider | null;
+  localWhisperDispatch?: TranscriptionServiceDependencies['localWhisperDispatch'];
+  provider?: BaseVoiceProvider | null;
+  providerAfterEnsure?: BaseVoiceProvider | null;
 }
 
 function createTestService(options: TestServiceOptions = {}) {
@@ -107,6 +113,11 @@ function createTestService(options: TestServiceOptions = {}) {
       warn: () => undefined,
     },
     localization: new I18nService(),
+    localWhisperDispatch: options.localWhisperDispatch ?? {
+      transcribe: async () => {
+        throw new Error('Local Whisper dispatch not expected in remote-provider fixture');
+      },
+    },
     writeClipboardText: (text) => {
       clipboard.push(text);
     },
@@ -233,6 +244,39 @@ describe('transcription service', () => {
     assert.deepEqual(result, { success: true, text: 'transcribed text' });
     assert.equal(testService.ensureCalls(), 1);
     assert.equal(provider.transcribeCalls, 1);
+  });
+
+  it('routes Local Whisper around remote readiness and pre-ensure cache lookup', async () => {
+    const provider = new LocalWhisperVoiceProvider(new UnavailableLocalWhisperCoordinatorPort());
+    let cacheReads = 0;
+    let localDispatchCalls = 0;
+    const cache: TextActionResultCache = {
+      clear: () => undefined,
+      get: () => {
+        cacheReads += 1;
+        return 'must-not-be-read';
+      },
+      set: () => undefined,
+      size: () => 1,
+    };
+    const testService = createTestService({
+      backgroundReady: false,
+      cache,
+      provider,
+      localWhisperDispatch: {
+        transcribe: async () => {
+          localDispatchCalls += 1;
+          return { success: false, error: 'RUNTIME_MISSING' };
+        },
+      },
+    });
+
+    const result = await testService.service(createAudioBuffer(), 'audio/wav');
+
+    assert.deepEqual(result, { success: false, error: 'RUNTIME_MISSING' });
+    assert.equal(testService.ensureCalls(), 1);
+    assert.equal(localDispatchCalls, 1);
+    assert.equal(cacheReads, 0);
   });
 
   it('keeps provider behavior unchanged when the audit lifecycle construction throws', async () => {

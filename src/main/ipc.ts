@@ -2,6 +2,7 @@
 import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import type { BackgroundBrowserService } from './browser';
+import type { FirstLaunchStartupCoordinator } from './firstLaunchStartupCoordinator';
 import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from './providers/voiceProviderRegistry';
 import { type WindowManager } from './window';
@@ -52,6 +53,7 @@ import {
   type StreamingTranscriptionIpcHandler,
 } from './streamingTranscriptionIpcController';
 import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
+import type { VoiceProviderSelectionService } from './localWhisper/ipc/VoiceProviderSelectionService';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
@@ -75,6 +77,7 @@ import {
   type PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
+import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
@@ -105,6 +108,7 @@ export type MainIpcConfigRepository = Pick<
   | 'saveTranslationSettings'
   | 'setHotkeys'
   | 'setLocalePreference'
+  | 'setProvider'
   | 'setTextActionSettings'
   | 'allocatePrettifyCustomProfileId'
 >;
@@ -146,6 +150,7 @@ export interface MainIpcControllerDependencies {
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly firstLaunchStartupCoordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot' | 'retry'>;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
@@ -169,6 +174,7 @@ export interface MainIpcControllerDependencies {
   readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
+  readonly providerSelection: Pick<VoiceProviderSelectionService, 'getCommittedProviderId' | 'select'>;
   readonly voiceSettings: MainIpcVoiceSettingsRepository;
   readonly windowManager: WindowManager;
 }
@@ -212,6 +218,16 @@ function readForbiddenCustomProfileIdsRequest(value: unknown): unknown {
     throw new TypeError('Invalid Prettify profile ID allocation request');
   }
   return descriptor.value;
+}
+
+function assertEmptyIpcArguments(args: readonly unknown[]): void {
+  if (args.length !== 0) throw new TypeError('Unexpected IPC arguments');
+}
+
+function getSafeFirstLaunchStartupSnapshot(coordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot'>) {
+  const snapshot = sanitizeFirstLaunchStartupSnapshot(coordinator.getSnapshot());
+  if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
+  return snapshot;
 }
 
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
@@ -347,6 +363,7 @@ export class MainIpcController {
     this.registered = true;
 
     const dependencies = this.dependencies;
+    this.registerFirstLaunchStartupIpc();
     const historyController = dependencies.historyController;
     const log = dependencies.logger;
     const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
@@ -509,9 +526,11 @@ export class MainIpcController {
 
     this.trustedIpc.handle('check-session', () => {
       try {
+        const configuredProviderId = dependencies.config.getSnapshot().provider;
+        if (configuredProviderId === null) return false;
         const provider =
           dependencies.backgroundBrowserService.getActiveProvider() ??
-          dependencies.voiceProviderRegistry.createProvider(dependencies.config.getSnapshot().provider);
+          dependencies.voiceProviderRegistry.createProvider(configuredProviderId);
         const audit = dependencies.voiceAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
         try {
           const hasSession = provider.hasSession();
@@ -807,18 +826,20 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('get-active-provider', () => {
-      return dependencies.config.getSnapshot().provider;
+      return dependencies.providerSelection.getCommittedProviderId();
     });
 
-    this.trustedIpc.handle('set-active-provider', async (_event, providerId: string) => {
+    this.trustedIpc.handle('set-active-provider', async (_event, providerId: unknown) => {
+      const result = await dependencies.providerSelection.select(providerId);
       try {
-        const status = await dependencies.backgroundBrowserService.switchProvider(providerId);
-        dependencies.config.save();
-        dependencies.windowManager.publishBackgroundStatus(status, dependencies.config.getSnapshot().provider);
-        return { success: !status.error, error: status.error };
-      } catch (error: unknown) {
-        return { success: false, error: getErrorMessage(error) };
+        dependencies.windowManager.publishBackgroundStatus(
+          dependencies.backgroundBrowserService.getStatus(),
+          result.committedProviderId,
+        );
+      } catch {
+        dependencies.logger.warn('Failed to publish provider status after provider selection');
       }
+      return result;
     });
 
     this.trustedIpc.handle('get-hotkey', (): HotkeySettings => {
@@ -1179,6 +1200,20 @@ export class MainIpcController {
     return this.disposalPromise;
   }
 
+  private registerFirstLaunchStartupIpc(): void {
+    const coordinator = this.dependencies.firstLaunchStartupCoordinator;
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return getSafeFirstLaunchStartupSnapshot(coordinator);
+    });
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, async (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      const snapshot = sanitizeFirstLaunchStartupSnapshot(await coordinator.retry());
+      if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
+      return snapshot;
+    });
+  }
+
   private enqueuePrettifySettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {
     const result = this.prettifySettingsMutation.then(operation, operation);
     this.prettifySettingsMutation = result.then(
@@ -1248,7 +1283,7 @@ export class MainIpcController {
 
   private async refreshActiveProvider(providerId: string) {
     const currentProvider = this.dependencies.config.getSnapshot().provider;
-    if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
+    if (currentProvider === null || !shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
     const status = await this.dependencies.backgroundBrowserService.restart();
     this.dependencies.windowManager.publishBackgroundStatus(status, currentProvider);
     return status;

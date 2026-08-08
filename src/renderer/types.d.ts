@@ -61,11 +61,22 @@ import type {
   PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import type { FirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
   VoiceProviderCategory,
 } from '@shared/voiceProvider';
+import type {
+  LocalWhisperMainStatusSnapshot,
+  LocalWhisperMainResidencyCommand,
+  LocalWhisperMainResidencyCommandResult,
+  LocalWhisperIpcAcknowledgement,
+  LocalWhisperProviderSelectionResult,
+  LocalWhisperRendererSnapshot,
+  LocalWhisperSettingsCommand,
+  LocalWhisperSettingsCommandResult,
+} from '@shared/localWhisper';
 
 export type ProviderAuthType = VoiceProviderAuthType;
 export type ProviderCategory = VoiceProviderCategory;
@@ -75,6 +86,7 @@ export interface BackgroundBrowserStatus {
   ready: boolean;
   error?: string;
   authExpired?: boolean;
+  unselected?: boolean;
 }
 
 export type ProviderInfo = RendererSafeVoiceProviderInfo;
@@ -115,6 +127,9 @@ export interface ElectronAPI {
   onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
   onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => () => void;
+  getFirstLaunchStartupSnapshot: () => Promise<FirstLaunchStartupSnapshot>;
+  retryFirstLaunchStartup: () => Promise<FirstLaunchStartupSnapshot>;
+  onFirstLaunchStartupSnapshot: (callback: (snapshot: FirstLaunchStartupSnapshot) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
@@ -154,8 +169,21 @@ export interface ElectronAPI {
     settings: ProviderSettingsSaveInput,
   ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
-  getActiveProvider: () => Promise<string>;
-  setActiveProvider: (providerId: string) => Promise<{ success: boolean; error?: string }>;
+  getActiveProvider: () => Promise<string | null>;
+  setActiveProvider: (providerId: string) => Promise<LocalWhisperProviderSelectionResult>;
+  getLocalWhisperSettingsSnapshot: () => Promise<LocalWhisperRendererSnapshot>;
+  subscribeLocalWhisperSettings: () => Promise<LocalWhisperRendererSnapshot>;
+  unsubscribeLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
+  onLocalWhisperSettingsSnapshot: (callback: (snapshot: LocalWhisperRendererSnapshot) => void) => () => void;
+  runLocalWhisperSettingsCommand: (command: LocalWhisperSettingsCommand) => Promise<LocalWhisperSettingsCommandResult>;
+  getLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
+  subscribeLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
+  unsubscribeLocalWhisperMainStatus: () => Promise<LocalWhisperIpcAcknowledgement>;
+  onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void) => () => void;
+  runLocalWhisperMainResidencyCommand: (
+    command: LocalWhisperMainResidencyCommand,
+  ) => Promise<LocalWhisperMainResidencyCommandResult>;
+  openLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
   checkSession: () => Promise<boolean>;
   transcribeAudio: (
     buffer: ArrayBuffer,

@@ -1,4 +1,4 @@
-export const VOICE_PROVIDER_AUTH_TYPES = ['browserSession', 'apiKey'] as const;
+export const VOICE_PROVIDER_AUTH_TYPES = ['browserSession', 'apiKey', 'localRuntime'] as const;
 export const VOICE_PROVIDER_CATEGORIES = ['web', 'api', 'local'] as const;
 export const VOICE_TRANSCRIPTION_MODES = ['batch', 'streaming'] as const;
 

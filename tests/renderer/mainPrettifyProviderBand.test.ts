@@ -78,7 +78,7 @@ describe('main Prettify provider band contract', () => {
     assert.match(band, /className="command-dock-prettify-controls" data-has-model-action=\{hasModelAction\}/u);
     assert.match(
       band,
-      /className="command-dock-prettify-model-action"[\s\S]*?size="icon"[\s\S]*?<LoaderCircle aria-hidden="true"[\s\S]*?viewState\.ollamaControl\.isLoaded[\s\S]*?<PowerOff aria-hidden="true"[\s\S]*?<HardDriveDownload aria-hidden="true"/u,
+      /className="command-dock-prettify-model-action"[\s\S]*?size="icon"[\s\S]*?<Spinner[\s\S]*?active=\{isModelActionRunning\}[\s\S]*?viewState\.ollamaControl\.isLoaded[\s\S]*?<PowerOff aria-hidden="true"[\s\S]*?<HardDriveDownload aria-hidden="true"/u,
     );
     assert.doesNotMatch(band, /<span>\{isModelActionRunning \? t\('prettify\.loadingModel'\)/u);
     assert.match(

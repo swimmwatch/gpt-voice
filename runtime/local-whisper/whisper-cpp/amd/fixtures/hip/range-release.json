@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-range-release",
+  "stage": "pre-signing",
+  "expectedCode": "DEVICE_NOT_ALLOWLISTED",
+  "mutations": [{ "path": "rocm.release", "value": ">=6.1" }]
+}

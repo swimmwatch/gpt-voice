@@ -51,6 +51,7 @@ if (releaseTag) {
 await run('npm', ['run', 'prepare:cloakbrowser', '--', '--target=linux']);
 await run('npm', ['run', 'smoke:cloakbrowser']);
 await run('npm', ['run', 'build:prod']);
+await run('npm', ['run', 'prepare:local-whisper:packaging', '--', '--mode=disabled', '--platform=linux']);
 
 const metadataArgs = ['run', 'generate:package-metadata'];
 if (releaseDate) {
@@ -59,7 +60,7 @@ if (releaseDate) {
 await run('npm', metadataArgs);
 
 if (mode === 'smoke') {
-  await run('npx', ['electron-builder', '--linux', 'dir']);
+  await run('npx', ['electron-builder', '--linux', 'dir', '--publish', 'never']);
   await run('npm', ['run', 'verify:packaged']);
   await measureLinuxBuild();
 } else {
@@ -78,6 +79,14 @@ if (mode === 'smoke') {
     '--',
     '--report=release-artifacts/size-linux-x64.json',
     '--baseline=build/size-baselines/v1.4.0-linux-x64.json',
+  ]);
+  await run('npm', [
+    'run',
+    'verify:local-whisper:packaging:release-guard',
+    '--',
+    '--mode=disabled',
+    '--platform=linux',
+    '--staging=build/generated/local-whisper',
   ]);
   await run('npm', ['run', 'collect:release-artifacts', '--', '--platform=linux']);
 }

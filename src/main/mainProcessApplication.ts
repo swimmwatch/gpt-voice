@@ -6,6 +6,7 @@ import type { ShortcutController } from './shortcuts';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
 import type { BackgroundBrowserService } from './browser';
+import type { FirstLaunchStartupCoordinator } from './firstLaunchStartupCoordinator';
 import type { TranslationRuntime } from './services/translation';
 import type { PrettifyRuntime } from './services/prettifyProviders';
 import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
@@ -21,10 +22,10 @@ const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplet
 const PRETTIFY_CLEANUP_FAILURE_LOG = 'Failed to unload Ollama prettify model during quit';
 const PRETTIFY_SELECTION_CLEANUP_FAILURE_LOG = 'Selected-text Prettify cleanup failed during quit';
 const PRETTIFY_CHOOSER_CLEANUP_FAILURE_LOG = 'Prettify profile chooser cleanup failed during quit';
-const TRANSLATION_INITIALIZATION_FAILURE_LOG = 'Translation provider initialization failed during startup';
 const TRANSLATION_CLEANUP_INCOMPLETE_LOG = 'Translation provider cleanup incomplete during quit:';
 const TRANSLATION_CLEANUP_FAILURE_LOG = 'Translation provider cleanup failed during quit';
 const BROWSER_CLEANUP_FAILURE_LOG = 'Background browser cleanup incomplete during quit';
+const LOCAL_WHISPER_CLEANUP_FAILURE_LOG = 'Local Whisper cleanup incomplete during quit';
 const DIAGNOSTICS_ARCHIVE_CLEANUP_FAILURE_LOG = 'Diagnostics archive cleanup incomplete during quit';
 const DATABASE_CLEANUP_FAILURE_LOG = 'Application database cleanup incomplete during quit';
 const QUIT_CLEANUP_FAILURE_LOG = 'Quit cleanup failed';
@@ -65,6 +66,7 @@ export interface MainProcessOwnedRuntime {
   disposeIpc(): Promise<void>;
   pruneDiagnostics(): Promise<void>;
   registerIpc(): void;
+  shutdownLocalWhisper(): Promise<void>;
   shutdownDiagnostics(): Promise<DiagnosticCaptureMaintenanceResult>;
   shutdownDiagnosticsArchive(): Promise<void>;
 }
@@ -86,6 +88,7 @@ export interface MainProcessApplicationDependencies {
   >;
   readonly configureCloakBrowserRuntime: () => void;
   readonly desktopRuntimeController: DesktopRuntimeController;
+  readonly firstLaunchStartupCoordinator: Pick<FirstLaunchStartupCoordinator, 'dispose' | 'start' | 'subscribe'>;
   readonly localization: I18nService;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
   readonly logger: MainProcessLogger;
@@ -106,10 +109,12 @@ export interface MainProcessApplicationDependencies {
  */
 export class MainProcessApplication {
   private bootstrapped = false;
+  private readyHandled = false;
   private quitCleanupComplete = false;
   private quitCleanupPromise: Promise<void> | null = null;
   private registered = false;
   private runtime: MainProcessOwnedRuntime | null = null;
+  private startupSnapshotUnsubscribe: (() => void) | null = null;
 
   public constructor(private readonly dependencies: MainProcessApplicationDependencies) {}
 
@@ -132,6 +137,7 @@ export class MainProcessApplication {
     app.on('activate', this.onActivate);
     app.on('will-quit', this.onWillQuit);
     app.on('before-quit', this.onBeforeQuit);
+    if (app.isReady()) this.onReady();
   }
 
   private readonly onSecondInstance = (): void => {
@@ -141,6 +147,8 @@ export class MainProcessApplication {
   };
 
   private readonly onReady = (): void => {
+    if (this.readyHandled) return;
+    this.readyHandled = true;
     const { dependencies } = this;
     dependencies.logger.initialize();
     dependencies.logger.errorHandler.startCatching();
@@ -187,24 +195,28 @@ export class MainProcessApplication {
   };
 
   private async startRuntime(runtime: MainProcessOwnedRuntime): Promise<void> {
-    await runtime.pruneDiagnostics();
-    if (this.quitCleanupPromise) return;
+    const diagnosticsPruning = runtime.pruneDiagnostics();
+    if (this.quitCleanupPromise) {
+      await diagnosticsPruning;
+      return;
+    }
 
     runtime.registerIpc();
     this.dependencies.windowManager.createMainWindow();
 
     if (this.dependencies.desktopRuntimeController.isStartupBenchmark) {
       this.dependencies.desktopRuntimeController.waitForStartupBenchmarkReady();
+      await diagnosticsPruning;
       return;
     }
 
+    this.startupSnapshotUnsubscribe ??= this.dependencies.firstLaunchStartupCoordinator.subscribe((snapshot) => {
+      this.dependencies.windowManager.publishFirstLaunchStartupSnapshot(snapshot);
+    });
+    void this.dependencies.firstLaunchStartupCoordinator.start();
     this.dependencies.trayController.create();
     this.dependencies.shortcutController.register();
-    void this.dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
-      this.dependencies.logger.warn(TRANSLATION_INITIALIZATION_FAILURE_LOG);
-    });
-    const status = await this.dependencies.backgroundBrowserService.initialize();
-    this.dependencies.windowManager.publishBackgroundStatus(status, this.dependencies.config.getSnapshot().provider);
+    await diagnosticsPruning;
   }
 
   private readonly onWindowAllClosed = (): void => {
@@ -233,8 +245,12 @@ export class MainProcessApplication {
       });
   };
 
+  /** Releases process-owned services in dependency order while preserving best-effort cleanup. */
   private async runQuitCleanup(): Promise<void> {
     const runtime = this.runtime;
+    this.startupSnapshotUnsubscribe?.();
+    this.startupSnapshotUnsubscribe = null;
+    this.dependencies.firstLaunchStartupCoordinator.dispose();
     try {
       this.dependencies.shortcutController.dispose();
     } catch {
@@ -280,6 +296,12 @@ export class MainProcessApplication {
       await this.dependencies.backgroundBrowserService.shutdown();
     } catch {
       this.dependencies.logger.warn(BROWSER_CLEANUP_FAILURE_LOG);
+    }
+
+    try {
+      await runtime?.shutdownLocalWhisper();
+    } catch {
+      this.dependencies.logger.warn(LOCAL_WHISPER_CLEANUP_FAILURE_LOG);
     }
 
     if (runtime) {

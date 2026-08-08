@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-native-source-lock-v1.json",
+  "title": "Local Whisper native source lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaId",
+    "lockId",
+    "repository",
+    "commit",
+    "gitTree",
+    "signature",
+    "importer",
+    "materialization",
+    "manifest",
+    "transportObject",
+    "license",
+    "recursiveInputs",
+    "provenance",
+    "contentStore"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaId": { "const": "local-whisper-native-source-lock-v1" },
+    "lockId": { "$ref": "#/$defs/safeId" },
+    "repository": { "type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\\.git$" },
+    "commit": { "$ref": "#/$defs/gitOid" },
+    "gitTree": { "$ref": "#/$defs/gitOid" },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewResult", "signerKeyFingerprint", "evidenceUrl"],
+      "properties": {
+        "reviewResult": { "enum": ["reviewed-signed", "reviewed-unsigned", "reviewed-unverifiable"] },
+        "signerKeyFingerprint": { "type": ["string", "null"], "pattern": "^[A-F0-9]{16,64}$" },
+        "evidenceUrl": { "type": "string", "pattern": "^https://github\\.com/" }
+      }
+    },
+    "importer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaId", "implementationSha256", "imageIdentity", "gitVersion", "nodeVersion"],
+      "properties": {
+        "schemaId": { "const": "local-whisper-native-importer-v1" },
+        "implementationSha256": { "$ref": "#/$defs/sha256" },
+        "imageIdentity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "gitVersion": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "nodeVersion": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "materialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "rootPrefix",
+        "manifestSha256",
+        "pathCount",
+        "expandedRegularBytes",
+        "expandedRegularBytesCeiling",
+        "executableModeCount",
+        "allowedEntryTypes",
+        "excludedTreeProvenance"
+      ],
+      "properties": {
+        "kind": { "enum": ["completeTree", "explicitSubset"] },
+        "rootPrefix": { "const": "" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "pathCount": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "expandedRegularBytes": { "type": "integer", "minimum": 1, "maximum": 17179869184 },
+        "expandedRegularBytesCeiling": { "type": "integer", "minimum": 1, "maximum": 17179869184 },
+        "executableModeCount": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "allowedEntryTypes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["regular", "symlink", "gitlink"] }
+        },
+        "excludedTreeProvenance": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["completeTree", "includedPaths"],
+          "properties": {
+            "completeTree": { "$ref": "#/$defs/gitOid" },
+            "includedPaths": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "$ref": "#/$defs/path" }
+            }
+          }
+        }
+      }
+    },
+    "manifest": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "transportObject": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schemaId", "sizeBytes", "sha256"],
+          "properties": {
+            "schemaId": { "const": "local-whisper-native-transport-v1" },
+            "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 17179869184 },
+            "sha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      ]
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "gitBlob", "sizeBytes", "sha256", "provenance", "sbomComponent"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "gitBlob": { "$ref": "#/$defs/gitOid" },
+        "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "provenance": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "sbomComponent": { "$ref": "#/$defs/safeId" }
+      }
+    },
+    "recursiveInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gitlinks", "lfsPointers"],
+      "properties": {
+        "gitlinks": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "commit", "repository", "status"],
+            "properties": {
+              "path": { "$ref": "#/$defs/path" },
+              "commit": { "$ref": "#/$defs/gitOid" },
+              "repository": { "type": "string", "pattern": "^https://github\\.com/" },
+              "status": { "enum": ["recorded-for-later-lock", "verified-recursive-lock"] }
+            }
+          }
+        },
+        "lfsPointers": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "oid", "sizeBytes"],
+            "properties": {
+              "path": { "$ref": "#/$defs/path" },
+              "oid": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+              "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 17179869184 }
+            }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewStatus", "reviewedAt", "reviewedBy", "sourceEvidence"],
+      "properties": {
+        "reviewStatus": { "const": "approved" },
+        "reviewedAt": { "type": "string", "format": "date-time" },
+        "reviewedBy": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "sourceEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
+    },
+    "contentStore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "identity", "relativeDestination"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "identity": { "$ref": "#/$defs/sha256" },
+        "relativeDestination": { "type": "string", "pattern": "^sha256/[a-f0-9]{64}$" }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+    "gitOid": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "entryType", "mode", "gitObjectId", "sizeBytes", "sha256", "symlinkTarget"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "entryType": { "enum": ["regular", "symlink", "gitlink"] },
+        "mode": { "enum": ["100644", "100755", "120000", "160000"] },
+        "gitObjectId": { "$ref": "#/$defs/gitOid" },
+        "sizeBytes": { "type": ["integer", "null"], "minimum": 0, "maximum": 17179869184 },
+        "sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "symlinkTarget": { "type": ["string", "null"], "maxLength": 4096 }
+      }
+    }
+  }
+}

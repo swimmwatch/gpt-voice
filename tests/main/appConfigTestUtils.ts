@@ -12,7 +12,7 @@ const TEST_HOME_DIRECTORY = '/synthetic-home';
 export class TestAppConfigStore extends AppConfigStore {
   public saveCount = 0;
 
-  public constructor(providerId = 'chatgpt') {
+  public constructor(providerId: string | null = 'chatgpt') {
     super({
       fileSystem: fs,
       generateFingerprintSeed: () => TEST_FINGERPRINT_SEED,

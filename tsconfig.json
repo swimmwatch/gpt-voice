@@ -12,7 +12,8 @@
     "paths": {
       "@main/*": ["./src/main/*"],
       "@renderer/*": ["./src/renderer/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@scripts/*": ["./scripts/*"]
     },
     "outDir": "./dist",
     "rootDir": "./src",

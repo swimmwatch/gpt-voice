@@ -159,7 +159,8 @@ test('emits renderer bundles under a separate nested path from Electron main', a
 
       assert.ok(html.includes(`src="renderer/${entry}.js"`));
       const cssHrefs = [...html.matchAll(/<link[^>]+href="(renderer\/[^"]+\.css)"/gu)].map((match) => match[1] ?? '');
-      assert.equal(cssHrefs.length, 1);
+      assert.ok(cssHrefs.length > 0);
+      assert.equal(new Set(cssHrefs).size, cssHrefs.length);
       for (const cssHref of cssHrefs) {
         const css = await readFile(path.join(outputPath, cssHref), 'utf8');
 

@@ -190,6 +190,21 @@ const REQUIRED_CENTRAL_STATUS_KEYS = [
   'error.notificationUnexpectedProviderResponse',
   'error.notificationUnknown',
 ] as const;
+const REQUIRED_STARTUP_KEYS = [
+  'startup.preparing',
+  'startup.preparingJobs',
+  'startup.preparingJobsWithMore',
+  'startup.job.cloakBrowser',
+  'startup.job.voiceProvider',
+  'startup.job.translation',
+  'startup.job.prettify',
+  'startup.progress',
+  'startup.progressValue',
+  'startup.failed',
+  'startup.retryFailed',
+  'startup.retry',
+  'startup.selectProvider',
+] as const;
 const i18n = new I18nService();
 
 function getPlaceholders(message: string): string[] {
@@ -371,6 +386,18 @@ describe('i18n', () => {
           /(https?:\/\/|\n|\/tmp\/|Traceback|TimeoutError|HTTP\s*\d|\/home\/|[A-Z]:\\)/u,
           `${locale}:${key}`,
         );
+      }
+    }
+  });
+
+  it('localizes startup progress and failure copy without unsafe details', () => {
+    for (const locale of APP_LOCALE_IDS) {
+      const dictionary = TRANSLATIONS_BY_LOCALE[locale] as Readonly<Record<string, string>>;
+      for (const key of REQUIRED_STARTUP_KEYS) {
+        const message = dictionary[key] ?? '';
+        assert.equal(Boolean(message.trim()), true, `${locale}:${key}`);
+        assert.deepEqual(getPlaceholders(message), getPlaceholders(en[key]), `${locale}:${key}`);
+        assert.doesNotMatch(message, /(https?:\/\/|\n|\/tmp\/|\/home\/|[A-Z]:\\)/u, `${locale}:${key}`);
       }
     }
   });

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "platform": "linux",
+  "activationState": "FailClosed",
+  "candidateState": "Pending",
+  "profileState": "Pending",
+  "previousPackageState": "Pending",
+  "fixtureDigest": "de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226",
+  "representativeWindowsExecution": "NotRun",
+  "reasonCodes": [
+    "AUTHENTICATED_PRODUCTION_CATALOG_UNAVAILABLE",
+    "PRODUCTION_RUNTIME_MODEL_ARTIFACTS_UNAVAILABLE",
+    "LICENSE_REDISTRIBUTION_APPROVAL_UNAVAILABLE",
+    "PRODUCTION_ARTIFACT_PIPELINE_INCOMPLETE",
+    "LIVE_WORKER_AUTHORITY_COMPOSITION_INCOMPLETE",
+    "PREVIOUS_LINUX_PACKAGE_UNAVAILABLE"
+  ]
+}

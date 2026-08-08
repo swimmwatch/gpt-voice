@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../sources/schema/native-patch-lock.schema.json",
+  "schemaId": "local-whisper-native-patch-lock-v1",
+  "lockId": "local-whisper-whisper-cpp-core-v1",
+  "sourceLockId": "whisper-cpp-v1.9.1-f049fff",
+  "originalManifestSha256": "aeaed8ce38467815c0b3ee64f05bd7989bba42bb0baccd5dba853247a7f680de",
+  "patches": [
+    {
+      "patchId": "exact-loader-reads-v1",
+      "relativePath": "0001-exact-loader-reads.patch",
+      "sizeBytes": 5527,
+      "sha256": "0581d1a6eb54a4041a41a0db22b1102523eb9bf4f9b880b203e4b2598c03b27b",
+      "allowedTouchedPaths": ["src/whisper.cpp"]
+    }
+  ],
+  "application": {
+    "stripLevel": 1,
+    "command": "git apply --index --whitespace=error-all -p1",
+    "allowFuzz": false,
+    "allowThreeWay": false,
+    "allowOffsets": false
+  },
+  "expectedRejectCount": 0,
+  "finalManifestSha256": "22067a89df003e5b603f34c74cd6c84fc8698efe8a4c55d09523090d390fdc3e",
+  "reviewStatus": "approved"
+}

@@ -4,6 +4,7 @@ import LoadingScreen from '@renderer/components/LoadingScreen';
 import ProviderSettingsForm from '@renderer/components/ProviderSettingsForm';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
 import { useI18n } from '@renderer/hooks/useI18n';
+import LocalWhisperSettingsPage from '@renderer/localWhisper/LocalWhisperSettingsPage';
 import {
   findSettingsProvider,
   getProviderSettingsWindowProviderId,
@@ -11,6 +12,7 @@ import {
 } from '@renderer/providerSettingsWindowState';
 import type { ProviderInfo, ProviderSettings } from '@renderer/types';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 
 /** Loads one provider-bound settings snapshot and never follows the main window's active provider. */
 function ProviderSettingsWindow(): JSX.Element {
@@ -33,6 +35,13 @@ function ProviderSettingsWindow(): JSX.Element {
         const providers = await desktopApi.getProviders();
         const requestedProvider = findSettingsProvider(providers, providerId);
         if (!requestedProvider) throw new Error('Provider settings are not available');
+
+        if (requestedProvider.id === LOCAL_WHISPER_PROVIDER_ID) {
+          if (disposed) return;
+          setProvider(requestedProvider);
+          document.title = t('providerSettings.title', { provider: requestedProvider.name });
+          return;
+        }
 
         const nextSettings = await desktopApi.getProviderSettings(requestedProvider.id);
         if (!isMatchingProviderSettings(nextSettings, requestedProvider.id)) {
@@ -81,10 +90,18 @@ function ProviderSettingsWindow(): JSX.Element {
   return (
     <main
       aria-busy={isLoading}
-      className="h-full min-h-0 overflow-y-auto p-6 [-webkit-app-region:no-drag]"
+      className={
+        provider?.id === LOCAL_WHISPER_PROVIDER_ID
+          ? 'h-full min-h-0 overflow-y-auto bg-background [scrollbar-gutter:stable] [-webkit-app-region:no-drag]'
+          : 'h-full min-h-0 overflow-y-auto p-4 sm:p-6 [-webkit-app-region:no-drag]'
+      }
       data-slot="provider-settings-window"
     >
-      {provider && settings ? (
+      {provider?.id === LOCAL_WHISPER_PROVIDER_ID ? (
+        <div className="mx-auto w-full max-w-[912px] min-w-0">
+          <LocalWhisperSettingsPage desktopApi={desktopApi} />
+        </div>
+      ) : provider && settings ? (
         <ProviderSettingsForm
           onClose={closeWindow}
           onLogin={login}

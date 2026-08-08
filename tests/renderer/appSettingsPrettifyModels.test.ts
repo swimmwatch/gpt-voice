@@ -79,7 +79,11 @@ describe('App Settings prettify models', () => {
     assert.doesNotMatch(prettifySection, /LoaderCircle/u);
     assert.match(
       prettifySection,
-      /<RefreshCw[\s\S]*className=\{isLoadingModels \? 'animate-spin motion-reduce:animate-none' : undefined\}/u,
+      /<Spinner[\s\S]*?active=\{isLoadingModels\}[\s\S]*?fallback=\{<RefreshCw aria-hidden="true" \/>\}/u,
+    );
+    assert.match(
+      prettifySection,
+      /<Spinner[\s\S]*?active=\{isLoadingModel\}[\s\S]*?fallback=\{<MoreHorizontal aria-hidden="true" \/>\}/u,
     );
   });
 

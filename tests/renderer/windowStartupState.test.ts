@@ -28,16 +28,24 @@ describe('window startup state', () => {
     }
   });
 
-  it('keeps the main loader until all three selected provider families settle', () => {
+  it('keeps the main loader until main and renderer startup work settles', () => {
     const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/App.tsx'), 'utf8');
 
-    assert.match(source, /isInitialProviderStartupPending\(\{/u);
+    assert.match(source, /getFirstLaunchStartupPresentation\(firstLaunchStartupState, \{/u);
     assert.match(source, /prettifyPending: isInitialPrettifyProviderLoading/u);
     assert.match(source, /translationConnection: translationConnectionState/u);
     assert.match(source, /translationSettingsPending: !hasLoadedInitialTranslationSettings/u);
-    assert.match(source, /voicePending: isLoading/u);
-    assert.match(source, /useWindowStartupReady\(isI18nReady && !providerStartupPending\)/u);
-    assert.match(source, /if \(!isI18nReady \|\| providerStartupPending\) return <LoadingScreen \/>;/u);
+    assert.match(source, /voicePending: isInitialVoiceProviderLoading/u);
+    assert.doesNotMatch(source, /voicePending: isLoading[,\s]/u);
+    assert.match(source, /onFirstLaunchStartupSnapshot\(acceptSnapshot\)/u);
+    assert.match(source, /getFirstLaunchStartupSnapshot\(\)\s*\.then\(acceptSnapshot\)/u);
+    assert.ok(
+      source.indexOf('onFirstLaunchStartupSnapshot(acceptSnapshot)') <
+        source.indexOf('getFirstLaunchStartupSnapshot()'),
+    );
+    assert.match(source, /useWindowStartupReady\(isI18nReady && !firstLaunchStartupPresentation\.isPending\)/u);
+    assert.match(source, /if \(!isI18nReady \|\| firstLaunchStartupPresentation\.isPending\)/u);
+    assert.match(source, /retryFirstLaunchStartup\(\)/u);
     assert.match(source, /setTranslationConnectionState\(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE\)/u);
   });
 

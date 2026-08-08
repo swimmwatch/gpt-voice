@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/platform-result-v2.schema.json",
+  "title": "Local Whisper platform qualification result v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "specificationRevision",
+    "resultDigest",
+    "candidateInputDigest",
+    "platformGraphDigest",
+    "platform",
+    "representativeWindowsExecution",
+    "measurementSeriesDigests",
+    "evidenceDigests",
+    "rows"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "specificationRevision": { "const": 10 },
+    "resultDigest": { "$ref": "#/$defs/sha256" },
+    "candidateInputDigest": { "$ref": "#/$defs/sha256" },
+    "platformGraphDigest": { "$ref": "#/$defs/sha256" },
+    "platform": { "enum": ["linux", "win32"] },
+    "representativeWindowsExecution": { "enum": ["NotRun", "Pass", "Fail"] },
+    "measurementSeriesDigests": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "evidenceDigests": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/resultRow" }
+    }
+  },
+  "$defs": {
+    "resultRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "family",
+        "variant",
+        "backend",
+        "status",
+        "reasonCode",
+        "candidateInputDigest",
+        "platformGraphDigest",
+        "profileDigest",
+        "evidenceDigest",
+        "measurementSeriesDigest",
+        "measurements",
+        "gates"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "family": { "enum": ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"] },
+        "variant": { "enum": ["full", "q5_0"] },
+        "backend": { "enum": ["cpu", "cuda"] },
+        "status": { "enum": ["Pass", "Fail", "Pending"] },
+        "reasonCode": { "$ref": "#/$defs/identifier" },
+        "candidateInputDigest": { "$ref": "#/$defs/sha256" },
+        "platformGraphDigest": { "$ref": "#/$defs/sha256" },
+        "profileDigest": { "$ref": "#/$defs/sha256" },
+        "evidenceDigest": { "$ref": "#/$defs/sha256" },
+        "measurementSeriesDigest": { "$ref": "#/$defs/sha256" },
+        "measurements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "applicationWerPercentage",
+            "directWerPercentage",
+            "werDeltaPercentagePoints",
+            "peakRamBytes",
+            "peakVramBytes",
+            "medianRtf"
+          ],
+          "properties": {
+            "applicationWerPercentage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "directWerPercentage": { "type": "number", "minimum": 0, "maximum": 100 },
+            "werDeltaPercentagePoints": { "type": "number", "minimum": -100, "maximum": 100 },
+            "peakRamBytes": { "type": "integer", "minimum": 0 },
+            "peakVramBytes": {
+              "oneOf": [{ "type": "integer", "minimum": 0 }, { "const": "notApplicable" }]
+            },
+            "medianRtf": {
+              "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }]
+            }
+          }
+        },
+        "gates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "load",
+            "warmup",
+            "parity",
+            "resources",
+            "cancellation",
+            "crashReload",
+            "unload",
+            "providerSwitch",
+            "suspendResume",
+            "appExit",
+            "offlineRestart",
+            "repetitions",
+            "predecessor"
+          ],
+          "properties": {
+            "load": { "$ref": "#/$defs/gate" },
+            "warmup": { "$ref": "#/$defs/gate" },
+            "parity": { "$ref": "#/$defs/gate" },
+            "resources": { "$ref": "#/$defs/gate" },
+            "cancellation": { "$ref": "#/$defs/gate" },
+            "crashReload": { "$ref": "#/$defs/gate" },
+            "unload": { "$ref": "#/$defs/gate" },
+            "providerSwitch": { "$ref": "#/$defs/gate" },
+            "suspendResume": { "$ref": "#/$defs/gate" },
+            "appExit": { "$ref": "#/$defs/gate" },
+            "offlineRestart": { "$ref": "#/$defs/gate" },
+            "repetitions": { "$ref": "#/$defs/gate" },
+            "predecessor": { "$ref": "#/$defs/gate" }
+          }
+        }
+      }
+    },
+    "gate": { "enum": ["Pass", "Fail", "Pending"] },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

@@ -37,8 +37,8 @@ describe('provider audit class hierarchy', () => {
     assert.equal(translation.family, 'translation');
 
     assert.deepEqual(
-      ['chatgpt', 'openai-api', 'claude-web'].map((providerId) => voice.isKnownProviderId(providerId)),
-      [true, true, true],
+      ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'].map((providerId) => voice.isKnownProviderId(providerId)),
+      [true, true, true, true],
     );
     assert.deepEqual(
       ['ollama', 'vllm', 'claude-cli', 'codex-cli'].map((providerId) => prettify.isKnownProviderId(providerId)),

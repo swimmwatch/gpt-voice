@@ -19,6 +19,7 @@ describe('provider status indicators', () => {
     assert.match(indicator, /tabIndex=\{0\}/u);
     assert.match(indicator, /role=\{role\}/u);
     assert.match(indicator, /aria-label=\{accessibleName\}/u);
+    assert.match(indicator, /<Spinner[\s\S]*?active=\{loading\}[\s\S]*?announce=\{false\}/u);
     assert.match(indicator, /normalizedLabel === normalizedTooltip/u);
     assert.doesNotMatch(indicator, /<button|onClick/u);
   });
@@ -36,7 +37,7 @@ describe('provider status indicators', () => {
       /<Button[\s\S]*?aria-label=\{providerActionLabel\}[\s\S]*?data-icon-only=\{isBrowserSessionProvider\}[\s\S]*?onClick=\{onProviderLogin\}/u,
     );
     assert.match(toolbar, /<LogIn aria-hidden="true" \/>/u);
-    assert.match(toolbar, /\{!isBrowserSessionProvider && <span>/u);
+    assert.match(toolbar, /\{!isBrowserSessionProvider && \(/u);
     assert.doesNotMatch(
       toolbar,
       /<LogIn aria-hidden="true" \/>\}\s*<span>\{isLoggingIn \? t\('login\.loggingIn'\) : providerActionLabel\}<\/span>/u,
@@ -95,7 +96,10 @@ describe('provider status indicators', () => {
       styles,
       /\.provider-status-badge\.command-dock-provider-state \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;[\s\S]*?min-width: 37px;[\s\S]*?min-height: 34px;[\s\S]*?max-width: 37px;[\s\S]*?max-height: 34px;/u,
     );
-    assert.match(styles, /\.command-dock-provider-state svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);
+    assert.match(
+      styles,
+      /\.command-dock-provider-state svg,[\s\S]*?\[data-slot='spinner'\] \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u,
+    );
     assert.match(styles, /\.command-dock-prettify-connection \{[\s\S]*?justify-self: start;/u);
     assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?width: 37px;[\s\S]*?justify-self: start;/u);
     assert.doesNotMatch(

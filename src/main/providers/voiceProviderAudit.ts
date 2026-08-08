@@ -28,19 +28,33 @@ export interface VoiceStreamingAuditCounters {
 
 export interface VoiceAuditMetadataOptions {
   readonly acceptedByteCount?: number;
+  readonly activityState?: VoiceAuditMetadata['activityState'];
+  readonly artifactKind?: VoiceAuditMetadata['artifactKind'];
+  readonly artifactRevision?: string;
   readonly attemptCount?: number;
+  readonly backend?: VoiceAuditMetadata['backend'];
+  readonly byteCount?: number;
+  readonly capabilityState?: VoiceAuditMetadata['capabilityState'];
   readonly causeCode?: VoiceAuditMetadata['causeCode'];
   readonly chunkCount?: number;
   readonly durationMs?: number;
+  readonly engineId?: VoiceAuditMetadata['engineId'];
   readonly exceptionType?: ProviderAuditExceptionType;
+  readonly failureCode?: VoiceAuditMetadata['failureCode'];
   readonly frameCount?: number;
   readonly hasMimeType?: boolean;
   readonly httpStatus?: number;
   readonly inputByteLength?: number;
+  readonly modelFamily?: VoiceAuditMetadata['modelFamily'];
   readonly pageClosed?: boolean;
   readonly recoveryScheduled?: boolean;
+  readonly residencyState?: VoiceAuditMetadata['residencyState'];
   readonly resultLength?: number;
   readonly retryScheduled?: boolean;
+  readonly runtimeRevision?: string;
+  readonly setupState?: VoiceAuditMetadata['setupState'];
+  readonly supportTier?: VoiceAuditMetadata['supportTier'];
+  readonly target?: VoiceAuditMetadata['target'];
   readonly transcriptionMode?: VoiceAuditMetadata['transcriptionMode'];
 }
 
@@ -116,9 +130,16 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
   public createMetadata(options: VoiceAuditMetadataOptions = {}): VoiceAuditMetadata {
     return {
       ...(options.acceptedByteCount === undefined ? {} : { acceptedByteCount: options.acceptedByteCount }),
+      ...(options.activityState === undefined ? {} : { activityState: options.activityState }),
+      ...(options.artifactKind === undefined ? {} : { artifactKind: options.artifactKind }),
+      ...(options.artifactRevision === undefined ? {} : { artifactRevision: options.artifactRevision }),
       ...(options.attemptCount === undefined ? {} : { attemptCount: options.attemptCount }),
+      ...(options.backend === undefined ? {} : { backend: options.backend }),
+      ...(options.byteCount === undefined ? {} : { byteCount: options.byteCount }),
+      ...(options.capabilityState === undefined ? {} : { capabilityState: options.capabilityState }),
       ...(options.chunkCount === undefined ? {} : { chunkCount: options.chunkCount }),
       ...(options.durationMs === undefined ? {} : { durationMs: options.durationMs }),
+      ...(options.engineId === undefined ? {} : { engineId: options.engineId }),
       ...(options.frameCount === undefined ? {} : { frameCount: options.frameCount }),
       ...(options.httpStatus === undefined ? {} : { httpStatus: options.httpStatus }),
       ...(options.inputByteLength === undefined ? {} : { inputByteLength: options.inputByteLength }),
@@ -130,11 +151,18 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
             errorClass: this.getErrorClass(options.causeCode, options.exceptionType),
           }),
       ...(options.exceptionType === undefined ? {} : { exceptionType: options.exceptionType }),
+      ...(options.failureCode === undefined ? {} : { failureCode: options.failureCode }),
+      ...(options.modelFamily === undefined ? {} : { modelFamily: options.modelFamily }),
       ...(options.transcriptionMode === undefined ? {} : { transcriptionMode: options.transcriptionMode }),
       ...(options.hasMimeType === undefined ? {} : { hasMimeType: options.hasMimeType }),
       ...(options.pageClosed === undefined ? {} : { pageClosed: options.pageClosed }),
       ...(options.recoveryScheduled === undefined ? {} : { recoveryScheduled: options.recoveryScheduled }),
+      ...(options.residencyState === undefined ? {} : { residencyState: options.residencyState }),
       ...(options.retryScheduled === undefined ? {} : { retryScheduled: options.retryScheduled }),
+      ...(options.runtimeRevision === undefined ? {} : { runtimeRevision: options.runtimeRevision }),
+      ...(options.setupState === undefined ? {} : { setupState: options.setupState }),
+      ...(options.supportTier === undefined ? {} : { supportTier: options.supportTier }),
+      ...(options.target === undefined ? {} : { target: options.target }),
     };
   }
 

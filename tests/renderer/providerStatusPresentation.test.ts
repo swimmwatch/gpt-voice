@@ -6,6 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { I18nService } from '@main/i18n';
 import { ProviderStatusIndicator, getProviderStatusAccessibleName } from '@renderer/components/ProviderStatusIndicator';
+import { ProgressSpinner } from '@renderer/components/ui/spinner';
 import { getTranslationProviderConnectionPresentation } from '@renderer/components/TranslateSection';
 import { VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS } from '@renderer/components/MainToolbar';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
@@ -81,7 +82,7 @@ describe('provider status presentation', () => {
     assert.match(distinctMarkup, /tabindex="0"/u);
   });
 
-  it('uses a fixed icon-only badge and preserves localized loading feedback', () => {
+  it('uses a fixed icon-only badge and preserves localized indeterminate loading feedback', () => {
     const loadingMarkup = renderToStaticMarkup(
       createElement(
         TooltipProvider,
@@ -97,10 +98,41 @@ describe('provider status presentation', () => {
     );
 
     assert.match(loadingMarkup, /provider-status-badge/u);
+    assert.match(loadingMarkup, /data-progress-state="indeterminate"/u);
     assert.match(loadingMarkup, /lucide-loader-circle/u);
     assert.match(loadingMarkup, /animate-spin/u);
+    assert.doesNotMatch(loadingMarkup, /stroke-dasharray=/u);
     assert.match(loadingMarkup, /aria-label="Checking connection\. Opening provider"/u);
     assert.doesNotMatch(loadingMarkup, />Checking connection</u);
+  });
+
+  it('does not estimate operation completion from elapsed time', () => {
+    const spinner = readProjectFile('src/renderer/components/ui/spinner.tsx');
+
+    assert.match(spinner, /data-progress-state=\{tracksOperation \? 'indeterminate' : undefined\}/u);
+    assert.doesNotMatch(spinner, /requestAnimationFrame|performance\.now|Math\.exp|setTimeout/u);
+  });
+
+  it('renders a determinate circle only from a supplied measured percentage', () => {
+    const markup = renderToStaticMarkup(createElement(ProgressSpinner, { label: 'Model download', progress: 42.4 }));
+
+    assert.match(markup, /data-progress-state="determinate"/u);
+    assert.match(markup, /role="progressbar"/u);
+    assert.match(markup, /aria-valuenow="42"/u);
+    assert.match(markup, /aria-valuetext="Model download: 42%"/u);
+    assert.match(markup, /stroke-dasharray=/u);
+    assert.doesNotMatch(markup, /lucide-loader-circle|animate-spin/u);
+  });
+
+  it('uses measured bytes only while an artifact is downloading', () => {
+    const controls = readProjectFile('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx');
+
+    assert.match(controls, /progress\?\.state === 'Downloading' && progress\.totalBytes > 0/u);
+    assert.match(
+      controls,
+      /<ProgressSpinner announce=\{false\} label=\{progressLabel\} progress=\{percent\} size="sm"/u,
+    );
+    assert.match(controls, /<Spinner announce=\{false\} label=\{progressLabel\} size="sm"/u);
   });
 
   it('keeps Prettify status out of the model summary and surfaces errors through the connection indicator', () => {
@@ -115,7 +147,7 @@ describe('provider status presentation', () => {
     assert.match(providerBand, /dataSlot="prettify-provider-connection"/u);
   });
 
-  it('uses one sanitized browser failure descriptor for Voice status and tooltip state', () => {
+  it('keeps browser failures sanitized while restoring main-authoritative provider state', () => {
     const localization = new I18nService('ru');
     const failure = createBrowserProviderFailurePresentation(new Error(PRIVATE_FAILURE_CANARY));
     const localizedStatus = renderRendererStatus(failure.status, localization.translate);
@@ -134,17 +166,21 @@ describe('provider status presentation', () => {
       app.indexOf('useEffect(() =>', app.indexOf('const handleProviderSelectionEvent')),
     );
     const settledCase = selectionHandler.slice(selectionHandler.indexOf("case 'switch-settled'"));
+    const completedCase = selectionHandler.slice(
+      selectionHandler.indexOf("case 'switch-completed'"),
+      selectionHandler.indexOf("case 'switch-failed'"),
+    );
 
     assert.match(failureHandler, /setIsLoggedIn\(false\)/u);
     assert.match(failureHandler, /setProviderConnectionReason\(failure\.reason\)/u);
     assert.match(failureHandler, /setProviderConnectionFailureStatus\(failure\.status\)/u);
     assert.match(failureHandler, /setStatusAndNotify\(failure\.status\)/u);
     assert.match(selectionHandler, /case 'bootstrap-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
-    assert.match(
-      selectionHandler,
-      /case 'switch-completed'[\s\S]*?if \(!event\.result\.success\)[\s\S]*?applyBrowserProviderFailure\(event\.result\.error\)/u,
-    );
+    assert.match(completedCase, /event\.result\.committedProviderId/u);
+    assert.match(completedCase, /applyProviderLoginState\(committedAuthType/u);
+    assert.doesNotMatch(completedCase, /applyBrowserProviderFailure/u);
     assert.match(selectionHandler, /case 'switch-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
+    assert.match(selectionHandler, /activeProviderAuthTypeRef\.current === 'localRuntime'/u);
     assert.doesNotMatch(settledCase, /setProviderConnectionReason|setProviderConnectionFailureStatus/u);
   });
 

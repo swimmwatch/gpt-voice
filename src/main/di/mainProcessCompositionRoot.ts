@@ -14,6 +14,21 @@ import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } f
 import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
+import { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
+import type { LocalWhisperCoordinatorDependencies } from '../localWhisper/coordinator/LocalWhisperCoordinatorTypes';
+import { LocalWhisperCommandAudit } from '../localWhisper/audit/LocalWhisperCommandAudit';
+import { LocalWhisperDiagnosticsSnapshotProvider } from '../localWhisper/diagnostics/LocalWhisperDiagnosticsSnapshotProvider';
+import {
+  LocalWhisperSnapshotService,
+  type LocalWhisperSnapshotFactsPort,
+} from '../localWhisper/ipc/LocalWhisperSnapshotService';
+import {
+  LocalWhisperIpcController,
+  type LocalWhisperArtifactCommandPort,
+  type LocalWhisperArtifactReferencePort,
+  type LocalWhisperManagedFolderPort,
+} from '../localWhisper/ipc/LocalWhisperIpcController';
+import { ElectronLocalWhisperSenderAuthority } from '../localWhisper/ipc/ElectronLocalWhisperSenderAuthority';
 import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
 import { PROVIDER_AUDIT_SCHEMA_VERSION, type ProviderAuditDependencies } from '../providerAudit';
 import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
@@ -87,6 +102,8 @@ import { PrettifySettingsStorage, type PrettifySettingsStorageDependencies } fro
 import { LoggerFactory, type LoggerFactoryDependencies } from '../logger';
 import { ElectronRuntimeLoader, type ElectronRuntimeLoaderDependencies } from '../electronRuntime';
 import { CloakBrowserRuntimeLoader, type CloakBrowserRuntimeLoaderDependencies } from '../cloakbrowser';
+import { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
+import { FIRST_LAUNCH_STARTUP_JOB_IDS } from '@shared/firstLaunchStartup';
 import {
   OpenAIApiSettingsRepository,
   type OpenAIApiSettingsRepositoryDependencies,
@@ -116,7 +133,7 @@ import {
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
-  'audit' | 'chatGPT' | 'claudeWeb' | 'localization' | 'openAIApi'
+  'audit' | 'chatGPT' | 'claudeWeb' | 'localWhisper' | 'localization' | 'openAIApi'
 > & {
   readonly chatGPT: Omit<
     ChatGPTVoiceProviderDependencies,
@@ -159,6 +176,16 @@ export interface MainProcessVoiceEnvironment {
     | 'readinessDeadline'
   >;
   readonly providers: MainProcessVoiceProviderEnvironment;
+}
+
+export interface MainProcessLocalWhisperEnvironment {
+  readonly coordinator: LocalWhisperCoordinatorDependencies;
+  readonly facts: LocalWhisperSnapshotFactsPort;
+  readonly artifacts: LocalWhisperArtifactCommandPort;
+  readonly managedFolder: LocalWhisperManagedFolderPort;
+  readonly references: LocalWhisperArtifactReferencePort;
+  readonly refreshDevices: (configurationEpoch: number) => Promise<void>;
+  readonly dispose: () => Promise<void>;
 }
 
 export interface MainProcessTranslationEnvironment {
@@ -265,6 +292,7 @@ export type MainProcessCompositionEnvironment = Omit<
   >;
   readonly initialProviderReadiness: InitialProviderReadinessDeadlineDependencies;
   readonly logger: LoggerFactoryDependencies;
+  readonly localWhisper: MainProcessLocalWhisperEnvironment;
   readonly prettify: MainProcessPrettifyEnvironment;
   readonly textAutomation: TextAutomationServiceDependencies;
   readonly translation: MainProcessTranslationEnvironment;
@@ -311,6 +339,7 @@ type ConstructedDesktopDependencyKeys =
   | 'appProtocolController'
   | 'backgroundBrowserService'
   | 'desktopRuntimeController'
+  | 'firstLaunchStartupCoordinator'
   | 'linuxDesktopIntegrationController'
   | 'prettifyProfileChooserWindow'
   | 'runtimeFactory'
@@ -420,6 +449,11 @@ export class MainProcessCompositionRoot {
       ...this.environment.voice.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
+    const localWhisperCoordinator = new LocalWhisperCoordinator(this.environment.localWhisper.coordinator);
+    const localWhisperSnapshots = new LocalWhisperSnapshotService(
+      localWhisperCoordinator,
+      this.environment.localWhisper.facts,
+    );
     const claudeWebNavigationService = new ClaudeWebNavigationService(loggerFactory.getLogger('claude-web-provider'));
     const { chatGPT, claudeWeb, openAIApi, ...otherVoiceProviders } = this.environment.voice.providers;
     const voiceProviderFactory = new VoiceProviderFactory({
@@ -448,6 +482,9 @@ export class MainProcessCompositionRoot {
         writeClipboardText: electronRuntime.writeClipboardText,
       },
       localization,
+      localWhisper: {
+        coordinator: localWhisperCoordinator,
+      },
       openAIApi: {
         ...openAIApi,
         getSettings: openAIApiSettings.getSettingsWithSecret,
@@ -488,6 +525,10 @@ export class MainProcessCompositionRoot {
       }),
       jsonl: new DiagnosticsArchiveJsonlSerializer(),
       logs: new ProviderAuditLogExtractor(loggerFactory.getMainLogFileAccessor()),
+      localWhisperSnapshot: new LocalWhisperDiagnosticsSnapshotProvider({
+        now: this.environment.now,
+        snapshots: localWhisperSnapshots,
+      }),
       manifest: new DiagnosticsManifestBuilder({
         databaseSchemaVersion: APP_DATABASE_SCHEMA_VERSION,
         diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
@@ -589,6 +630,23 @@ export class MainProcessCompositionRoot {
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
+    const localWhisperIpcController = new LocalWhisperIpcController({
+      audit: new LocalWhisperCommandAudit(voiceProviderAudit),
+      transport: this.environment.ipc.ipc,
+      authority: new ElectronLocalWhisperSenderAuthority(windowManager),
+      coordinator: localWhisperCoordinator,
+      artifacts: this.environment.localWhisper.artifacts,
+      managedFolder: this.environment.localWhisper.managedFolder,
+      references: this.environment.localWhisper.references,
+      refreshSettingsFacts: this.environment.localWhisper.refreshDevices,
+      snapshots: localWhisperSnapshots,
+      getActiveProviderId: () => configStore.getSnapshot().provider,
+      openSettings: () =>
+        windowManager.showProviderSettingsWindow(
+          'local-whisper',
+          localization.translate('providerSettings.title', { provider: 'Local Whisper' }),
+        ),
+    });
     const prettifyProfileChooserWindow = new PrettifyProfileChooserWindowController({
       ...desktopEnvironment.prettifyProfileChooser,
       createBrowserWindow: desktopEnvironment.window.createBrowserWindow,
@@ -672,6 +730,34 @@ export class MainProcessCompositionRoot {
       windowManager,
       logger: loggerFactory.getLogger('shortcuts'),
     });
+    const firstLaunchStartupCoordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        {
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          run: cloakBrowserRuntime.prepare,
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+          isRequired: () => configStore.getSnapshot().provider !== null,
+          run: async () => {
+            const providerId = configStore.getSnapshot().provider;
+            if (providerId === null) return { failureCode: null, success: true };
+            const status = await backgroundBrowserService.initialize();
+            windowManager.publishBackgroundStatus(status, providerId);
+            return { failureCode: null, success: true };
+          },
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+          run: async () => {
+            await translationRuntime.initializeSelectedProvider();
+            return { failureCode: null, success: true };
+          },
+        },
+      ],
+    });
     const controllers: ConstructedControllers = {
       appProtocolController: new AppProtocolController({
         ...desktopEnvironment.appProtocol,
@@ -698,7 +784,12 @@ export class MainProcessCompositionRoot {
       diagnosticStorage,
       diagnosticsArchive,
       diagnosticsExport,
+      firstLaunchStartupCoordinator,
       historyRepository,
+      localWhisperCoordinator,
+      localWhisperEnvironmentDispose: this.environment.localWhisper.dispose,
+      localWhisperIpcController,
+      localWhisperSnapshots,
       prettifyProfileChooserWindow,
       prettifyProfilePortability,
       prettifyRuntime,

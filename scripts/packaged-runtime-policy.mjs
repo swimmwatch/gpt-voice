@@ -132,6 +132,7 @@ export const APPROVED_RUNTIME_MODULES = Object.freeze([
   'process-nextick-args',
   'react',
   'react-dom',
+  'react-icons',
   'react-remove-scroll',
   'react-remove-scroll-bar',
   'react-style-singleton',

@@ -1,0 +1,113 @@
+{
+  "schemaId": "local-whisper-loader-limit-provenance-v1",
+  "tableId": "whisper-cpp-loader-limits-v1",
+  "tableSha256": "fa66ffe2e61ff30d649bf45b0c4b37a659a230c1159dffbeb51c329c3687bd7a",
+  "sourceLockId": "whisper-cpp-v1.9.1-f049fff",
+  "originalManifestSha256": "aeaed8ce38467815c0b3ee64f05bd7989bba42bb0baccd5dba853247a7f680de",
+  "derivationInputsSha256": "6405f4ffbdd14ba936d53722087bbd97a79d4c3f87382af695bac6582493e99f",
+  "derivationToolSha256": "ff33e6b999cf079fc1a84d42e82bd910b07cd8415e88b770bd2c9178a9467d59",
+  "layoutSources": [
+    {
+      "path": "src/whisper.cpp",
+      "gitBlob": "5ffc70af00e76fc121b961613259c7c179a4d2d4",
+      "sha256": "a884ff3eb3bbf7558958c4d06a299cd8d97d87a7d5c7aac9138b8ff6a2ef04d7",
+      "symbols": ["read_safe", "whisper_model_load", "whisper_hparams", "whisper_model_loader"]
+    }
+  ],
+  "curatedFamilies": [
+    {
+      "id": "tiny",
+      "nVocab": 51865,
+      "nAudioContext": 1500,
+      "nAudioState": 384,
+      "nAudioHeads": 6,
+      "nAudioLayers": 4,
+      "nTextContext": 448,
+      "nTextState": 384,
+      "nTextHeads": 6,
+      "nTextLayers": 4,
+      "nMels": 80
+    },
+    {
+      "id": "base",
+      "nVocab": 51865,
+      "nAudioContext": 1500,
+      "nAudioState": 512,
+      "nAudioHeads": 8,
+      "nAudioLayers": 6,
+      "nTextContext": 448,
+      "nTextState": 512,
+      "nTextHeads": 8,
+      "nTextLayers": 6,
+      "nMels": 80
+    },
+    {
+      "id": "small",
+      "nVocab": 51865,
+      "nAudioContext": 1500,
+      "nAudioState": 768,
+      "nAudioHeads": 12,
+      "nAudioLayers": 12,
+      "nTextContext": 448,
+      "nTextState": 768,
+      "nTextHeads": 12,
+      "nTextLayers": 12,
+      "nMels": 80
+    },
+    {
+      "id": "medium",
+      "nVocab": 51865,
+      "nAudioContext": 1500,
+      "nAudioState": 1024,
+      "nAudioHeads": 16,
+      "nAudioLayers": 24,
+      "nTextContext": 448,
+      "nTextState": 1024,
+      "nTextHeads": 16,
+      "nTextLayers": 24,
+      "nMels": 80
+    },
+    {
+      "id": "large-v3",
+      "nVocab": 51866,
+      "nAudioContext": 1500,
+      "nAudioState": 1280,
+      "nAudioHeads": 20,
+      "nAudioLayers": 32,
+      "nTextContext": 448,
+      "nTextState": 1280,
+      "nTextHeads": 20,
+      "nTextLayers": 32,
+      "nMels": 128
+    },
+    {
+      "id": "large-v3-turbo",
+      "nVocab": 51866,
+      "nAudioContext": 1500,
+      "nAudioState": 1280,
+      "nAudioHeads": 20,
+      "nAudioLayers": 32,
+      "nTextContext": 448,
+      "nTextState": 1280,
+      "nTextHeads": 20,
+      "nTextLayers": 4,
+      "nMels": 128
+    }
+  ],
+  "variants": ["full", "q5_0"],
+  "tensorTypes": ["F32", "F16", "Q5_0"],
+  "crossFieldInvariants": [
+    "nTextState equals nAudioState for every curated family",
+    "serialized vocabulary count agrees with the validated header semantics",
+    "mel filter element and byte products use checked arithmetic",
+    "tensor dimensions, element products, payload sizes, and aggregate payloads use checked arithmetic",
+    "tensor payload and alignment remain within the authenticated model object",
+    "decoded tensor names are unique and within the reviewed expected tensor map"
+  ],
+  "reviewer": {
+    "reviewedAt": "2026-08-06T00:00:00.000Z",
+    "reviewedBy": "User-approved Task 24 plan revision 23",
+    "disposition": "approved"
+  },
+  "unresolvedExclusions": []
+}

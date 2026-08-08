@@ -12,6 +12,7 @@ import {
   type ProviderAuditRecord,
 } from '@main/providerAudit';
 import type { DiagnosticCaptureRow } from '@main/repositories/diagnosticCaptureRepository';
+import { LocalWhisperDiagnosticsSnapshotProvider } from '@main/localWhisper/diagnostics/LocalWhisperDiagnosticsSnapshotProvider';
 import {
   DiagnosticsArchiveJsonlSerializer,
   DiagnosticsArchiveService,
@@ -30,12 +31,15 @@ import {
   DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_LIMITS,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
+  DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
   isDiagnosticsArchiveManifest,
+  parseCanonicalLocalWhisperDiagnosticsSnapshot,
   serializeCanonicalDiagnosticsJson,
   type DiagnosticArchiveTextActionRow,
   type DiagnosticsArchiveEnvironmentSnapshot,
   type DiagnosticsArchiveManifest,
 } from '@shared/diagnosticsArchive';
+import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
 const ARCHIVE_ID = '00000000-0000-4000-8000-000000000020';
 const AUDIT_OPERATION_ID = '00000000-0000-4000-8000-000000000019';
@@ -161,7 +165,7 @@ function createEnvironment(): DiagnosticsArchiveEnvironmentSnapshot {
         configured: true,
         readinessKnown: true,
         ready: true,
-        registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web'],
+        registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'],
         selectedProviderId: 'chatgpt',
       },
       prettify: {
@@ -229,6 +233,7 @@ class DiagnosticsArchiveHarness {
       logs: new ProviderAuditLogExtractor({
         readRetainedLogs: () => this.retainedLogs,
       }),
+      localWhisperSnapshot: { capture: () => null },
       manifest: new DiagnosticsManifestBuilder({
         databaseSchemaVersion: 2,
         diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
@@ -385,6 +390,34 @@ describe('diagnostics archive service', () => {
       fs.readdirSync(harness.directory).some((name) => name.endsWith('.tmp')),
       false,
     );
+  });
+
+  it('writes one manifest-bound Local Whisper snapshot as additive schema v2', async () => {
+    const harness = new DiagnosticsArchiveHarness({
+      localWhisperSnapshot: new LocalWhisperDiagnosticsSnapshotProvider({
+        now: () => new Date(RECORDED_AT),
+        snapshots: { snapshot: createSnapshotService(new FakeCoordinator()).snapshot },
+      }),
+    });
+
+    assert.deepEqual(await harness.service.createArchive(harness.destinationPath), { status: 'success' });
+    const members = inspectDiagnosticsArchiveForVerification(
+      'tar-gzip',
+      await fs.promises.readFile(harness.destinationPath),
+    );
+    const manifestPayload = members.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest);
+    const snapshotPayload = members.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);
+    assert.ok(manifestPayload);
+    assert.ok(snapshotPayload);
+    const manifest: unknown = JSON.parse(manifestPayload.toString('utf8'));
+    assert.equal(isDiagnosticsArchiveManifest(manifest), true);
+    assert.equal((manifest as DiagnosticsArchiveManifest).schemaVersion, DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION);
+    assert.equal(parseCanonicalLocalWhisperDiagnosticsSnapshot(snapshotPayload) !== null, true);
+    const summary = (manifest as DiagnosticsArchiveManifest).members.find(
+      ({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
+    );
+    assert.equal(summary?.byteLength, snapshotPayload.byteLength);
+    assert.equal(summary?.sha256, hash(snapshotPayload));
   });
 
   it('omits diagnostic rows and the optional member when all capture categories are disabled', async () => {

@@ -1,0 +1,70 @@
+{
+  "$schema": "../schema/native-toolchain-lock.schema.json",
+  "schemaId": "local-whisper-native-toolchain-lock-v1",
+  "profileId": "linux-x64-amd-hip-no-approved-row-v1",
+  "target": { "os": "linux", "architecture": "x64", "abi": "unavailable-no-approved-row" },
+  "tools": [
+    {
+      "role": "approval-gate",
+      "pathKind": "toolchainRootRelative",
+      "path": "unavailable/no-approved-row",
+      "version": "unavailable-no-approved-row",
+      "sha256": null
+    }
+  ],
+  "runtime": [],
+  "architectureTargets": ["unavailable-no-approved-row"],
+  "environmentAllowlist": ["LANG", "LC_ALL", "PATH"],
+  "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
+  "patchLockIds": ["local-whisper-whisper-cpp-amd-preview-v1"],
+  "qualificationFixture": null,
+  "cmakeCache": {
+    "BUILD_SHARED_LIBS": "OFF",
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_STANDARD": "20",
+    "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
+    "GGML_ACCELERATE": "OFF",
+    "GGML_BACKEND_DL": "OFF",
+    "GGML_BLAS": "OFF",
+    "GGML_CANN": "OFF",
+    "GGML_CPU": "ON",
+    "GGML_CPU_KLEIDIAI": "OFF",
+    "GGML_CUDA": "OFF",
+    "GGML_HIP": "ON",
+    "GGML_METAL": "OFF",
+    "GGML_MUSA": "OFF",
+    "GGML_NATIVE": "OFF",
+    "GGML_OPENCL": "OFF",
+    "GGML_OPENMP": "OFF",
+    "GGML_RPC": "OFF",
+    "GGML_STATIC": "OFF",
+    "GGML_SYCL": "OFF",
+    "GGML_VULKAN": "OFF",
+    "GGML_ZDNN": "OFF",
+    "WHISPER_BUILD_EXAMPLES": "OFF",
+    "WHISPER_BUILD_TESTS": "OFF",
+    "WHISPER_CURL": "OFF"
+  },
+  "expectedBuildGraph": ["unavailable-no-approved-row"],
+  "outputs": [
+    {
+      "id": "unavailable-record",
+      "pathKind": "outputRelative",
+      "path": "unavailable-no-approved-row.json",
+      "sha256": null
+    }
+  ],
+  "dynamicDependencies": [],
+  "licenses": [
+    {
+      "id": "whisper-cpp-mit",
+      "pathKind": "outputRelative",
+      "path": "licenses/whisper-cpp.LICENSE",
+      "sha256": null
+    }
+  ],
+  "sbomComponents": ["whisper-cpp-v1.9.1"],
+  "qualificationState": "candidate-unqualified",
+  "evidenceDigest": null,
+  "minimumDriver": null
+}

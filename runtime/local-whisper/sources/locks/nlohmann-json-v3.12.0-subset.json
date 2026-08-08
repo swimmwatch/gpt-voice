@@ -1,0 +1,78 @@
+{
+  "$schema": "../schema/native-source-lock.schema.json",
+  "schemaId": "local-whisper-native-source-lock-v1",
+  "lockId": "nlohmann-json-v3.12.0-subset",
+  "repository": "https://github.com/nlohmann/json.git",
+  "commit": "55f93686c01528224f448c19128836e7df245f72",
+  "gitTree": "1eb780542e829bf1615828ed0d5f407497bbce7b",
+  "signature": {
+    "reviewResult": "reviewed-unverifiable",
+    "signerKeyFingerprint": null,
+    "evidenceUrl": "https://github.com/nlohmann/json/commit/55f93686c01528224f448c19128836e7df245f72"
+  },
+  "importer": {
+    "schemaId": "local-whisper-native-importer-v1",
+    "implementationSha256": "66ba3b34bef0df3624f5b1ff921557071e323391d798c10965e44426d9c554f1",
+    "imageIdentity": "host-manual-gate-sequence-45",
+    "gitVersion": "git version 2.43.0",
+    "nodeVersion": "v24.18.0"
+  },
+  "materialization": {
+    "kind": "explicitSubset",
+    "rootPrefix": "",
+    "manifestSha256": "1bd7718fe4b5a7e2aebe60abc6f5f94c313d8f472542e715766158a738e8ea47",
+    "pathCount": 2,
+    "expandedRegularBytes": 954512,
+    "expandedRegularBytesCeiling": 954512,
+    "executableModeCount": 0,
+    "allowedEntryTypes": ["regular"],
+    "excludedTreeProvenance": {
+      "completeTree": "1eb780542e829bf1615828ed0d5f407497bbce7b",
+      "includedPaths": ["LICENSE.MIT", "single_include/nlohmann/json.hpp"]
+    }
+  },
+  "manifest": [
+    {
+      "path": "LICENSE.MIT",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "a1dacc8dbbd907c4b622ff1f08e279c27465dcbc",
+      "sizeBytes": 1076,
+      "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603",
+      "symlinkTarget": null
+    },
+    {
+      "path": "single_include/nlohmann/json.hpp",
+      "entryType": "regular",
+      "mode": "100644",
+      "gitObjectId": "82d69f7c5d044c9887c96b90c97f5639083ecd14",
+      "sizeBytes": 953436,
+      "sha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63",
+      "symlinkTarget": null
+    }
+  ],
+  "transportObject": null,
+  "license": {
+    "path": "LICENSE.MIT",
+    "gitBlob": "a1dacc8dbbd907c4b622ff1f08e279c27465dcbc",
+    "sizeBytes": 1076,
+    "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603",
+    "provenance": "https://github.com/nlohmann/json.git@55f93686c01528224f448c19128836e7df245f72:LICENSE.MIT",
+    "sbomComponent": "nlohmann-json-v3.12.0"
+  },
+  "recursiveInputs": {
+    "gitlinks": [],
+    "lfsPointers": []
+  },
+  "provenance": {
+    "reviewStatus": "approved",
+    "reviewedAt": "2026-08-02T08:54:03.000Z",
+    "reviewedBy": "Codex agent under explicit user authorization",
+    "sourceEvidence": ["https://github.com/nlohmann/json/commit/55f93686c01528224f448c19128836e7df245f72"]
+  },
+  "contentStore": {
+    "algorithm": "sha256",
+    "identity": "1bd7718fe4b5a7e2aebe60abc6f5f94c313d8f472542e715766158a738e8ea47",
+    "relativeDestination": "sha256/1bd7718fe4b5a7e2aebe60abc6f5f94c313d8f472542e715766158a738e8ea47"
+  }
+}

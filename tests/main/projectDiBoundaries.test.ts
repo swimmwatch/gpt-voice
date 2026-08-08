@@ -11,6 +11,7 @@ const MAIN_COMPOSITION_ROOT_FILES = new Set([
   'src/main/main.ts',
   'src/main/di/mainProcessCompositionRoot.ts',
   'src/main/di/mainProcessRuntimeFactory.ts',
+  'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts',
 ]);
 const IMMUTABLE_MODULE_CONSTRUCTORS = new Set(['Function', 'Map', 'RegExp', 'Set', 'WeakMap', 'WeakSet']);
 const LOCALLY_OWNED_CONSTRUCTORS = new Set(['AbortController']);

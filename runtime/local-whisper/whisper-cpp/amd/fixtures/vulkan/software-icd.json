@@ -1,0 +1,18 @@
+{
+  "fixtureId": "vulkan-software-icd",
+  "expectedCode": "DEVICE_NOT_ALLOWLISTED",
+  "observation": {
+    "pciVendorId": "0x1002",
+    "apiVersion": "1.3",
+    "generatedShaderTarget": "1.3",
+    "physicalDevice": true,
+    "softwareImplementation": true,
+    "storageBuffer16BitAccess": true,
+    "requiredExtensionsAvailable": true,
+    "manifestOwnedLoader": true,
+    "driverCompatible": true,
+    "backendInitialized": true,
+    "allocationSucceeded": true,
+    "dispatchSucceeded": true
+  }
+}

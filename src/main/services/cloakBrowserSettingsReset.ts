@@ -32,14 +32,14 @@ export type CloakBrowserSettingsSaveResult =
 
 export interface CloakBrowserSettingsResetServiceDependencies {
   readonly backgroundBrowser: Pick<BackgroundBrowserService, 'initialize' | 'releaseForSettingsReset'>;
-  readonly getVoiceProviderId: () => string;
+  readonly getVoiceProviderId: () => string | null;
   readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: {
     error(message: string): void;
     info(message: string): void;
     warn(message: string): void;
   };
-  readonly publishBackgroundStatus: (status: BackgroundBrowserStatus, fallbackProviderId: string) => void;
+  readonly publishBackgroundStatus: (status: BackgroundBrowserStatus, fallbackProviderId: string | null) => void;
   readonly readinessDeadline: InitialProviderReadinessDeadlineDependencies;
   readonly settings: Pick<CloakBrowserSettingsRepository, 'getSnapshot' | 'getView' | 'prepare'>;
   readonly translation: Pick<

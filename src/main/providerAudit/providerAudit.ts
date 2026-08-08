@@ -67,7 +67,7 @@ export interface UnknownProviderAuditLifecycleInput<Family extends ProviderAudit
 }
 
 export interface ProviderAuditLifecycle<Family extends ProviderAuditFamily> {
-  started(metadata?: ProviderAuditMetadataForFamily<Family>): void;
+  started(metadata?: ProviderAuditMetadataForFamily<Family>, phase?: ProviderAuditPhase): void;
   phaseEntered(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void;
   phaseCompleted(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void;
   retry(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void;
@@ -120,8 +120,8 @@ class FailOpenProviderAuditLifecycle<Family extends ProviderAuditFamily> impleme
 
   public constructor(private readonly lifecycle: ProviderAuditLifecycle<Family>) {}
 
-  public started(metadata?: ProviderAuditMetadataForFamily<Family>): void {
-    this.runProgress(() => this.lifecycle.started(metadata));
+  public started(metadata?: ProviderAuditMetadataForFamily<Family>, phase?: ProviderAuditPhase): void {
+    this.runProgress(() => this.lifecycle.started(metadata, phase));
   }
 
   public phaseEntered(phase: ProviderAuditPhase, metadata?: ProviderAuditMetadataForFamily<Family>): void {
@@ -219,9 +219,9 @@ class ProviderAuditLifecycleState<Family extends ProviderAuditFamily> implements
     private readonly sink: ProviderAuditSink | null | undefined,
   ) {}
 
-  public started(metadata?: ProviderAuditMetadataForFamily<Family>): void {
+  public started(metadata?: ProviderAuditMetadataForFamily<Family>, phase: ProviderAuditPhase = 'dispatch'): void {
     if (this.startedEventAccepted || this.terminalEventAccepted) return;
-    if (this.emit('started', 'dispatch', 'in-progress', metadata)) {
+    if (this.emit('started', phase, 'in-progress', metadata)) {
       this.startedEventAccepted = true;
     }
   }
@@ -345,20 +345,42 @@ export abstract class BaseProviderAudit<Family extends ProviderAuditFamily> {
     metadata: ProviderAuditMetadataForFamily<Family> = {},
     operationId?: string,
   ): ProviderAuditOperationContext<Family> {
+    const context = this.createOperationContext(providerId, operation, operationId);
+    const { lifecycle } = context;
+    lifecycle.started(metadata);
+    lifecycle.phaseEntered(phase, metadata);
+    return context;
+  }
+
+  /** Starts an operation directly in a closed domain phase without a generic dispatch event. */
+  public startOperationAtPhase(
+    providerId: unknown,
+    operation: ProviderAuditOperation<Family>,
+    phase: ProviderAuditPhase,
+    metadata: ProviderAuditMetadataForFamily<Family> = {},
+    operationId?: string,
+  ): ProviderAuditOperationContext<Family> {
+    const context = this.createOperationContext(providerId, operation, operationId);
+    context.lifecycle.started(metadata, phase);
+    return context;
+  }
+
+  private createOperationContext(
+    providerId: unknown,
+    operation: ProviderAuditOperation<Family>,
+    operationId?: string,
+  ): ProviderAuditOperationContext<Family> {
     const resolvedOperationId = this.resolveOperationId(operationId);
     const lifecycle =
       resolvedOperationId === undefined
         ? NOOP_LIFECYCLE
         : this.createLifecycle(providerId, operation, resolvedOperationId);
-    const context = Object.freeze({
+    return Object.freeze({
       lifecycle,
       now: this.dependencies.elapsedNow,
       ...(resolvedOperationId === undefined ? {} : { operationId: resolvedOperationId }),
       startedAt: this.safeElapsedNow(this.dependencies.elapsedNow),
     });
-    lifecycle.started(metadata);
-    lifecycle.phaseEntered(phase, metadata);
-    return context;
   }
 
   private resolveOperationId(operationId?: string): string | undefined {

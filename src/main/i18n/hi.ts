@@ -1,6 +1,8 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/hi';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('hi'),
   'translate.provider': 'अनुवाद प्रदाता',
   'translate.saving': 'सहेजा जा रहा है...',
@@ -614,6 +616,33 @@ export default {
   'appSettings.validation.backgroundModeInvalid': 'समर्थित बैकग्राउंड मोड चुनें।',
   'appSettings.validation.fingerprintSeedRequired': 'फ़िंगरप्रिंट सीड आवश्यक है।',
   'appSettings.validation.fingerprintSeedDigits': 'फ़िंगरप्रिंट सीड में केवल अंक होने चाहिए।',
+  'localWhisper.main.loadModel': 'मॉडल लोड करें',
+  'localWhisper.main.freeModel': 'मॉडल मुक्त करें',
+  'localWhisper.main.loadingStatus': 'Local Whisper स्थिति लोड हो रही है',
+  'localWhisper.main.loadingModel': 'मॉडल लोड हो रहा है',
+  'localWhisper.main.freeingModel': 'मॉडल मुक्त किया जा रहा है',
+  'localWhisper.main.modelInUse': 'मॉडल का उपयोग ट्रांसक्रिप्शन के लिए हो रहा है।',
+  'localWhisper.main.actionInProgress': 'Local Whisper की एक अन्य क्रिया चल रही है।',
+  'localWhisper.main.setupRequired': 'Local Whisper सेटिंग में चुना गया रनटाइम और मॉडल इंस्टॉल करें।',
+  'localWhisper.main.modelUnavailable': 'चुना गया मॉडल उपलब्ध नहीं है। Local Whisper सेटिंग खोलें।',
+  'localWhisper.main.modelUnavailableCode': 'चुना गया मॉडल उपलब्ध नहीं है ({code})। Local Whisper सेटिंग खोलें।',
+  'localWhisper.main.operationFailed': 'Local Whisper मॉडल क्रिया विफल रही। फिर से प्रयास करें।',
+  'localWhisper.main.operationFailedCode': 'Local Whisper मॉडल क्रिया विफल रही ({code})। फिर से प्रयास करें।',
+
+  'startup.preparing': 'स्टार्टअप तैयार किया जा रहा है',
+  'startup.preparingJobs': 'तैयार किया जा रहा है: {jobs}',
+  'startup.preparingJobsWithMore': 'तैयार किया जा रहा है: {jobs} और {count} अन्य',
+  'startup.job.cloakBrowser': 'CloakBrowser ब्राउज़र',
+  'startup.job.voiceProvider': 'वॉइस प्रदाता',
+  'startup.job.translation': 'अनुवाद',
+  'startup.job.prettify': 'टेक्स्ट सुधार',
+  'startup.progress': 'स्टार्टअप प्रगति',
+  'startup.progressValue': '{progress}% पूर्ण',
+  'startup.failed': 'स्टार्टअप की तैयारी विफल रही। फिर से प्रयास करें।',
+  'startup.retryFailed': 'स्टार्टअप की तैयारी फिर से शुरू नहीं की जा सकी। फिर से प्रयास करें।',
+  'startup.retry': 'फिर से प्रयास करें',
+  'startup.selectProvider': 'रिकॉर्डिंग शुरू करने के लिए एक प्रदाता चुनें।',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'दिखाएँ',
   'tray.quit': 'बाहर निकलें',

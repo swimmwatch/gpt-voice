@@ -21,6 +21,181 @@ env:
   CLOAKBROWSER_AUTO_UPDATE: 'false'
 
 jobs:
+  native-quality-linux:
+    name: Local Whisper Native Quality (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CXX: clang++-18
+      CLANG_FORMAT: clang-format-18
+      CLANG_TIDY: clang-tidy-18
+      CMAKE_COMMAND: /usr/bin/cmake
+      CTEST_COMMAND: /usr/bin/ctest
+      NINJA_COMMAND: /usr/bin/ninja
+      LOCAL_WHISPER_GCC_C_COMPILER: /usr/bin/x86_64-linux-gnu-gcc-13
+      LOCAL_WHISPER_GCC_CXX_COMPILER: /usr/bin/x86_64-linux-gnu-g++-13
+      LOCAL_WHISPER_GCC_LINKER: /usr/bin/x86_64-linux-gnu-ld.bfd
+      LOCAL_WHISPER_CLANG_C_COMPILER: /usr/bin/clang-18
+      LOCAL_WHISPER_CLANG_CXX_COMPILER: /usr/bin/clang++-18
+      LOCAL_WHISPER_CLANG_LINKER: /usr/bin/ld.lld-18
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install native toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build gcc-13 g++-13 clang-18 clang-format-18 clang-tidy-18 lld-18
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Provision verified Local Whisper native test sources
+        run: npm run prepare:local-whisper:native-test-sources
+
+      - name: Verify Local Whisper native source objects
+        run: |
+          npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
+          npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
+          npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
+
+      - name: Verify Local Whisper worker vectors
+        run: npm run verify:local-whisper:worker-vectors -- --check-clean
+
+      - name: Check worker common formatting
+        run: npm run format:check:local-whisper:worker-common
+
+      - name: Check native formatting
+        run: npm run format:check:local-whisper:fs-guard
+
+      - name: Check launcher formatting
+        run: npm run format:check:local-whisper:launcher
+
+      - name: Run clang-tidy
+        run: npm run lint:local-whisper:fs-guard
+
+      - name: Run launcher clang-tidy
+        run: npm run lint:local-whisper:launcher
+
+      - name: Run worker common clang-tidy
+        run: npm run lint:local-whisper:worker-common
+
+      - name: Run worker codec, proof, and authority suites
+        run: |
+          npm run test:local-whisper:worker-codec
+          npm run test:local-whisper:worker-proof-vectors
+          npm run test:local-whisper:worker-authority
+
+      - name: Run sanitized native unit and integration tests
+        run: npm run test:local-whisper:fs-guard:native
+
+      - name: Run sanitized launcher unit and process-tree integration tests
+        run: npm run test:local-whisper:launcher:native
+
+      - name: Run Local Whisper supervisor conformance tests
+        run: npm run test:local-whisper:supervisor
+
+      - name: Verify Linux model-authority handoff
+        run: npm run verify:local-whisper:worker-authority -- --platform=linux
+
+      - name: Verify hardened Whisper.cpp loader limits
+        run: npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
+
+      - name: Run hardened Whisper.cpp core and loader suites
+        run: |
+          npm run test:local-whisper:whisper-cpp-core
+          npm run test:local-whisper:whisper-cpp-loader
+          npm run test:local-whisper:whisper-cpp-device-proof
+          npm run test:local-whisper:whisper-cpp-cancellation
+
+      - name: Build and verify Linux Whisper.cpp CPU pack
+        run: |
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+          npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+          npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cpu-baseline-v1
+
+      - name: Verify AMD Preview contracts without hardware claims
+        run: |
+          npm run format:check:local-whisper:amd-packs
+          npm run lint:local-whisper:amd-packs
+          npm run test:local-whisper:amd-packs
+          npm run verify:local-whisper:amd-packs -- --profile=vulkan-contract-linux
+          npm run verify:local-whisper:amd-packs -- --profile=hip-no-approved-row
+
+      - name: Run Node/native filesystem compatibility tests
+        run: npm run test:local-whisper:filesystem
+
+      - name: Verify Linux filesystem fixture
+        run: npm run verify:local-whisper:filesystem -- --fixture
+
+  native-quality-windows:
+    name: Local Whisper Native Quality (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Checkout locked GoogleTest source
+        uses: actions/checkout@v7
+        with:
+          repository: google/googletest
+          ref: 52eb8108c5bdec04579160ae17225d66034bd723
+          path: .cache/local-whisper/ci-source-repositories/googletest
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Materialize and verify locked GoogleTest source
+        shell: pwsh
+        run: |
+          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/googletest-v1.17.0-52eb810.json --repository-root=.cache/local-whisper/ci-source-repositories/googletest --store-root=.cache/local-whisper/native-sources
+          npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
+
+      - name: Run MSVC native unit and integration tests
+        run: npm run test:local-whisper:fs-guard:native
+
+      - name: Run MSVC launcher unit and Job Object integration tests
+        run: npm run test:local-whisper:launcher:native
+
+      - name: Run Local Whisper supervisor conformance tests
+        run: npm run test:local-whisper:supervisor
+
+      - name: Verify Windows model-authority source contract
+        run: npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+
+      - name: Verify Windows Whisper.cpp CPU source contract
+        run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+
+      - name: Verify Windows Whisper.cpp CUDA source contract
+        run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
+
+      # Task 21 may replace this guard only when representative Windows AMD
+      # execution and required SDK/driver acquisition are separately authorized.
+      - name: Windows AMD Vulkan qualification placeholder
+        if: ${{ false }}
+        run: npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
+
+      - name: Run Windows Node/native filesystem compatibility tests
+        run: npm run test:local-whisper:filesystem
+
   quality:
     name: Quality Gates
     runs-on: ubuntu-latest
@@ -182,6 +357,9 @@ jobs:
 
       - name: Generate package metadata
         run: npm run generate:package-metadata -- --release-date=2026-05-18
+
+      - name: Prepare disabled Local Whisper package resources
+        run: npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32
 
       - name: Package unpacked app
         run: npx electron-builder --win dir

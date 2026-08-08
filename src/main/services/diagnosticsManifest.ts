@@ -7,11 +7,13 @@ import { DIAGNOSTIC_REDACTOR_VERSION } from './diagnosticTextRedactor';
 import {
   DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_ARCHITECTURES,
+  DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
   DIAGNOSTICS_ARCHIVE_PLATFORM_FAMILIES,
   DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_SENSITIVITY_WARNING,
   DIAGNOSTICS_ARCHIVE_VOICE_PROVIDER_IDS,
+  LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION,
   isDiagnosticArchiveTextActionRow,
   isDiagnosticsArchiveEnvironmentSnapshot,
   isDiagnosticsArchiveManifest,
@@ -151,7 +153,7 @@ export interface DiagnosticsManifestBuildInput {
   readonly payloads: ReadonlyMap<DiagnosticsArchivePayloadMemberName, Buffer>;
 }
 
-/** Owns schema-v1 manifest summaries, hashes, and canonical serialization. */
+/** Owns legacy schema-v1 and additive Local Whisper schema-v2 manifest assembly. */
 export class DiagnosticsManifestBuilder {
   public constructor(private readonly dependencies: DiagnosticsManifestBuilderDependencies) {}
 
@@ -159,6 +161,7 @@ export class DiagnosticsManifestBuilder {
     const diagnostics = this.summarizeDiagnostics(input.diagnosticRows);
     const members = this.summarizeMembers(input.payloads);
     const containsDiagnosticText = diagnostics.recordCount > 0;
+    const includesLocalWhisperSnapshot = input.payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);
     const manifest: DiagnosticsArchiveManifest = {
       appVersion: input.environment.appVersion,
       archiveId: input.archiveId,
@@ -178,10 +181,15 @@ export class DiagnosticsManifestBuilder {
         node: input.environment.nodeVersion,
         playwright: input.environment.playwrightVersion,
       },
-      schemaVersion: DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
+      schemaVersion: includesLocalWhisperSnapshot
+        ? DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION
+        : DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION,
       schemaVersions: {
         database: this.dependencies.databaseSchemaVersion,
         diagnosticRow: this.dependencies.diagnosticRowSchemaVersion,
+        ...(includesLocalWhisperSnapshot
+          ? { localWhisperSnapshot: LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION }
+          : {}),
         providerAudit: this.dependencies.providerAuditSchemaVersion,
         redactor: this.dependencies.redactorVersion,
       },
@@ -232,6 +240,9 @@ export class DiagnosticsManifestBuilder {
     const memberNames: DiagnosticsArchivePayloadMemberName[] = [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents];
     if (payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions)) {
       memberNames.push(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions);
+    }
+    if (payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot)) {
+      memberNames.push(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);
     }
     return Object.freeze(
       memberNames.map((name) => {

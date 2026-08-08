@@ -47,6 +47,8 @@ const containerArgs = [
   '/workspace',
   '--volume',
   `${rootDir}:/workspace`,
+  '--volume',
+  '/workspace/node_modules',
   '--env',
   'CI=true',
   '--env',

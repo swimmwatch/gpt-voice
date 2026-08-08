@@ -1,6 +1,9 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
 
+import localWhisperSettingsTranslations from './localWhisperSettings/uk';
+
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('uk'),
   'translate.provider': 'Постачальник перекладу',
   'translate.saving': 'Збереження...',
@@ -655,6 +658,34 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Seed цифрового відбитка має містити лише цифри.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Завантажити модель',
+  'localWhisper.main.freeModel': 'Вивантажити модель',
+  'localWhisper.main.loadingStatus': 'Завантаження стану Local Whisper',
+  'localWhisper.main.loadingModel': 'Завантаження моделі',
+  'localWhisper.main.freeingModel': 'Вивантаження моделі',
+  'localWhisper.main.modelInUse': 'Модель використовується для транскрипції.',
+  'localWhisper.main.actionInProgress': 'Виконується інша операція Local Whisper.',
+  'localWhisper.main.setupRequired': 'Установіть вибране середовище й модель у налаштуваннях Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Вибрана модель недоступна. Відкрийте налаштування Local Whisper.',
+  'localWhisper.main.modelUnavailableCode': 'Вибрана модель недоступна ({code}). Відкрийте налаштування Local Whisper.',
+  'localWhisper.main.operationFailed': 'Не вдалося виконати операцію з моделлю Local Whisper. Спробуйте ще раз.',
+  'localWhisper.main.operationFailedCode':
+    'Не вдалося виконати операцію з моделлю Local Whisper ({code}). Спробуйте ще раз.',
+
+  'startup.preparing': 'Підготовка запуску',
+  'startup.preparingJobs': 'Підготовка: {jobs}',
+  'startup.preparingJobsWithMore': 'Підготовка: {jobs} і ще {count}',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Голосовий провайдер',
+  'startup.job.translation': 'Переклад',
+  'startup.job.prettify': 'Покращення тексту',
+  'startup.progress': 'Перебіг підготовки',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Не вдалося підготувати запуск. Спробуйте ще раз.',
+  'startup.retryFailed': 'Не вдалося повторити підготовку запуску. Спробуйте ще раз.',
+  'startup.retry': 'Повторити',
+  'startup.selectProvider': 'Виберіть провайдера, щоб почати запис.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показати',
   'tray.quit': 'Вихід',

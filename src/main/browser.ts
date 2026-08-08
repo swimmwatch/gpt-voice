@@ -2,6 +2,7 @@
 import type { BrowserContext } from 'playwright-core';
 import type { CloakBrowserSettingsRepository, CloakBrowserSettingsWithSecret } from '@main/cloakBrowserSettings';
 import type { BaseVoiceProvider } from '@main/providers/BaseVoiceProvider';
+import { isLocalRuntimeVoiceProvider } from '@main/providers/voiceProviderGuards';
 import type {
   VoiceAuditLifecycle,
   VoiceAuditMetadata,
@@ -25,6 +26,7 @@ export interface BackgroundBrowserStatus {
   readonly ready: boolean;
   readonly error?: string;
   readonly authExpired?: boolean;
+  readonly unselected?: boolean;
 }
 
 export enum BrowserSessionStartupState {
@@ -149,7 +151,12 @@ export class BackgroundBrowserService {
   public constructor(private readonly dependencies: BackgroundBrowserServiceDependencies) {}
 
   public isReady(): boolean {
-    return this.ready;
+    if (!this.ready || !this.activeProvider) return false;
+    try {
+      return this.activeProvider.isReady();
+    } catch {
+      return false;
+    }
   }
 
   public getActiveProvider(): BaseVoiceProvider | null {
@@ -157,11 +164,13 @@ export class BackgroundBrowserService {
   }
 
   public getStatus(): BackgroundBrowserStatus {
+    const providerId = this.dependencies.config.getSnapshot().provider;
     return {
-      providerId: this.dependencies.config.getSnapshot().provider,
-      ready: this.ready,
+      providerId: providerId ?? undefined,
+      ready: this.isReady(),
       error: this.error || undefined,
       authExpired: this.authExpired || undefined,
+      ...(providerId === null ? { unselected: true } : {}),
     };
   }
 
@@ -183,7 +192,7 @@ export class BackgroundBrowserService {
 
   public ensure(options: BackgroundBrowserLaunchOptions = {}): Promise<void> {
     return this.operationQueue.run(async () => {
-      if (this.ready && this.activeProvider?.isReady()) return;
+      if (this.isReady()) return;
       await this.initializeNow(options);
     });
   }
@@ -196,11 +205,28 @@ export class BackgroundBrowserService {
     });
   }
 
+  /** Releases any active provider and preserves the explicit no-provider configuration. */
+  public clearProvider(): Promise<BackgroundBrowserStatus> {
+    this.activeInitialization?.deadline.cancel();
+    return this.operationQueue.run(async () => {
+      await this.shutdownNow();
+      this.dependencies.config.setProvider(null);
+      return this.getStatus();
+    });
+  }
+
   public switchProvider(providerId: string): Promise<BackgroundBrowserStatus> {
     this.activeInitialization?.deadline.cancel();
     return this.operationQueue.run(async () => {
       if (!this.dependencies.providerRegistry.isKnownProviderId(providerId)) {
         this.dependencies.providerRegistry.createProvider(providerId);
+      }
+      if (this.activeProvider && isLocalRuntimeVoiceProvider(this.activeProvider)) {
+        const switchResult = await this.activeProvider.prepareProviderSwitch(providerId);
+        if (!switchResult.success) {
+          this.error = switchResult.error.code;
+          return this.getStatus();
+        }
       }
       await this.shutdownNow();
       this.dependencies.config.setProvider(providerId);
@@ -239,9 +265,12 @@ export class BackgroundBrowserService {
     this.error = '';
     this.authExpired = false;
 
+    const providerId = this.dependencies.config.getSnapshot().provider;
+    if (providerId === null) return this.getStatus();
+
     let provider: BaseVoiceProvider;
     try {
-      provider = this.dependencies.providerRegistry.createProvider(this.dependencies.config.getSnapshot().provider);
+      provider = this.dependencies.providerRegistry.createProvider(providerId);
     } catch (error: unknown) {
       this.error = this.presentError(error);
       return this.getStatus();
@@ -291,6 +320,30 @@ export class BackgroundBrowserService {
     if (!provider) return this.getStatus();
     const audit = this.dependencies.audit;
     const settingsAudit = audit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
+    if (isLocalRuntimeVoiceProvider(provider)) {
+      try {
+        const ready = provider.isReady();
+        settingsAudit.lifecycle.phaseCompleted('configuration');
+        settingsAudit.lifecycle.terminal('configuration', 'success');
+        const readinessAudit = audit.startOperation(provider.info.id, 'readiness', 'readiness');
+        if (!ready) {
+          readinessAudit.lifecycle.terminal(
+            'readiness',
+            'failure',
+            audit.createMetadata({ causeCode: 'not-configured' }),
+          );
+          await this.cleanupInitialization(state, true);
+          return this.getStatus();
+        }
+        readinessAudit.lifecycle.phaseCompleted('readiness');
+        readinessAudit.lifecycle.terminal('readiness', 'success');
+        if (this.isInitializationActive(state)) this.ready = true;
+        return this.getStatus();
+      } catch (error: unknown) {
+        audit.terminalException(settingsAudit, 'configuration', error);
+        return this.failInitialization(state, error);
+      }
+    }
     let hasSession: boolean;
     try {
       hasSession = provider.hasSession();

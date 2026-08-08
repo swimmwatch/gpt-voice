@@ -13,6 +13,7 @@ import { getRendererStatusDetail, renderRendererStatus, type RendererStatus } fr
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 interface RecordingControlsProps {
+  recordingDisabled: boolean;
   onCancel: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -80,6 +81,7 @@ function RecordingControls({
   onResume,
   onStart,
   onStop,
+  recordingDisabled,
   recordHotkey,
   state,
   status,
@@ -91,7 +93,7 @@ function RecordingControls({
   const statusDetail = getRendererStatusDetail(status, state);
 
   const handlePrimaryAction = (): void => {
-    if (viewState.primary.action === RecordingWorkspacePrimaryAction.Record) {
+    if (viewState.primary.action === RecordingWorkspacePrimaryAction.Record && !recordingDisabled) {
       void onStart();
     } else if (viewState.primary.action === RecordingWorkspacePrimaryAction.Stop) {
       onStop();
@@ -117,7 +119,7 @@ function RecordingControls({
       <div className="command-dock-record-command-band">
         <Button
           className="command-dock-record-button"
-          disabled={viewState.primary.disabled}
+          disabled={recordingDisabled || viewState.primary.disabled}
           onClick={handlePrimaryAction}
           size="lg"
           variant={isPrimaryStop ? 'destructive' : 'primary'}

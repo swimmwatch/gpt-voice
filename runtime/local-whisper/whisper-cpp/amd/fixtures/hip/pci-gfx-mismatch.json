@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-pci-gfx-mismatch",
+  "stage": "pre-signing",
+  "expectedCode": "DEVICE_NOT_ALLOWLISTED",
+  "mutations": [{ "path": "device.gfx", "value": "gfx1101" }]
+}

@@ -1,6 +1,7 @@
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 import type { ComponentProps } from 'react';
 import { cn } from '@renderer/lib/cn';
+import { FLOATING_LIST_ITEM_CLASS, FLOATING_LIST_SURFACE_CLASS } from './floating-list-styles';
 
 function DropdownMenuContent({
   className,
@@ -10,10 +11,7 @@ function DropdownMenuContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
-        className={cn(
-          'z-50 min-w-36 overflow-hidden rounded-md border border-border bg-surface p-1 text-foreground shadow-lg [-webkit-app-region:no-drag]',
-          className,
-        )}
+        className={cn('min-w-36 overflow-hidden p-1', FLOATING_LIST_SURFACE_CLASS, className)}
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         {...props}
@@ -28,10 +26,7 @@ function DropdownMenuItem({
 }: ComponentProps<typeof DropdownMenuPrimitive.Item>): React.JSX.Element {
   return (
     <DropdownMenuPrimitive.Item
-      className={cn(
-        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-surface-muted data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
-        className,
-      )}
+      className={cn(FLOATING_LIST_ITEM_CLASS, className)}
       data-slot="dropdown-menu-item"
       {...props}
     />

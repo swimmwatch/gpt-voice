@@ -1,0 +1,494 @@
+{
+  "$schema": "../schema/native-toolchain-evidence.schema.json",
+  "schemaId": "local-whisper-native-toolchain-evidence-v1",
+  "profileId": "linux-x64-cuda-12.8.1-sm120a-v1",
+  "profileInputDigest": "d1c9169ac7352dc5b9ff12d56610de4266012aefdb7adc2c2c3c4ef6a5816de6",
+  "inputs": {
+    "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
+    "patchLockIds": [],
+    "qualificationFixture": {
+      "fixtureId": "local-whisper-link-smoke-v1",
+      "manifestSha256": "264d52ff5fd9e79115a9977b5cf58411e312fc9b5b68796da3687f256e0c8d66"
+    }
+  },
+  "toolIdentities": [
+    {
+      "id": "c-compiler",
+      "path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26",
+      "versionOutputSha256": "d8a946d6e9c8ff7904cb1ae60ef43f8503eda0652083e050b6240495926417da"
+    },
+    {
+      "id": "cxx-compiler",
+      "path": "/usr/bin/x86_64-linux-gnu-g++-13",
+      "sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+      "versionOutputSha256": "188991334604ade051797e83296ae7ab8b0752a8a6d86ce976aa0c54c34ae03d"
+    },
+    {
+      "id": "linker",
+      "path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+      "sha256": "e9ceb054c12207970f2726dfc07e9a66b411602748628baf27399f02a9bbb31b",
+      "versionOutputSha256": "c923d5ec0bc7ad256f7d0980f78d090193671bc73a703dc350a42d9430db2c4e"
+    },
+    {
+      "id": "archiver",
+      "path": "/usr/bin/x86_64-linux-gnu-ar",
+      "sha256": "6452af2eea333b8c65e1adb92964fc8f97863ab003fa13f9d12bff5345cd7dbe",
+      "versionOutputSha256": "95026555f48c0212da162c6eeffbd839fdf7dd6eb98fd25a31ca56a070638a3d"
+    },
+    {
+      "id": "ranlib",
+      "path": "/usr/bin/x86_64-linux-gnu-ranlib",
+      "sha256": "60254978b8ee2c1b21b41d16a18a621dbbcc72e43eb2fa9f916818256c77e9ee",
+      "versionOutputSha256": "68a82d4737e812078e65e79041a1bbbf07a8993518b4bf7b8bd6665f1af30d44"
+    },
+    {
+      "id": "cuda-compiler",
+      "path": "cuda-12.8.1/bin/nvcc",
+      "sha256": "59e4e55f9a38b78c590df1e28a69dad91052958f18a03868ca4a547c043fbba7",
+      "versionOutputSha256": "be1e471f8fee911e15ffa5b9a7c7ce2042bc63c2551c39967ebcc108e7c1d008"
+    },
+    {
+      "id": "cmake",
+      "path": "cmake-3.31.8/bin/cmake",
+      "sha256": "8df68e8be95c6e8f7c329b24f38fd209dc6f57f2f22433d0f81bd43a31a8744d",
+      "versionOutputSha256": "3a89cbec6499862ef96a90e57d785ead4bcbb52d067dd18ffe26becf6b7fca29"
+    },
+    {
+      "id": "ninja",
+      "path": "ninja-1.12.1/ninja",
+      "sha256": "cf10a35d13a384fed866bcd4989c7761e8556209d195cc6d2a7c0f11cc73804c",
+      "versionOutputSha256": "b0e2efb26a08a9531ecc38f99575a8ac67e27d5da45e96f80ad8a1b2cec5a724"
+    },
+    {
+      "id": "elf-inspector",
+      "path": "/usr/bin/x86_64-linux-gnu-readelf",
+      "sha256": "64c58e15274bbbb5153f31078e455e9e77ee5f51489e709bba5bb788ce9df2b0",
+      "versionOutputSha256": "6c9ea96da96fdccf071fbe30e2d79a9e2e4ecb50d44dbd06b10b467d61468ebb"
+    },
+    {
+      "id": "network-harness",
+      "path": "/usr/bin/unshare",
+      "sha256": "51bcc77ba5db162c80028f861f0a2770d728c1de80773816d863f28d7a817adb",
+      "versionOutputSha256": "6b575db369f49f7896cde4988c96dfa0554a9ff20e8c1064490a433d9db6cee2"
+    },
+    {
+      "id": "network-probe-runtime",
+      "path": "/usr/bin/python3.12",
+      "sha256": "1643dacd9feaedc58f3cc581e4d22577dfe25c09b10282936186ccf0f2e61118",
+      "versionOutputSha256": "d083976b6846dd2f34e37889386613f8aad839a27807f610a513e90b20f3ff52"
+    }
+  ],
+  "runtimeIdentities": [
+    {
+      "id": "cuda-runtime-12.8.1",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcudart.so.12",
+      "sha256": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920"
+    },
+    {
+      "id": "cublas-12.8.1",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcublas.so.12",
+      "sha256": "031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21"
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcublasLt.so.12",
+      "sha256": "10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c"
+    },
+    {
+      "id": "libstdcxx-gcc-13",
+      "path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+    },
+    {
+      "id": "libgcc-s-gcc-13",
+      "path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+    },
+    {
+      "id": "glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+    },
+    {
+      "id": "libm-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+      "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+    },
+    {
+      "id": "ld-linux-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+    },
+    {
+      "id": "libdl-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+      "sha256": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80"
+    },
+    {
+      "id": "libpthread-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+      "sha256": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a"
+    },
+    {
+      "id": "librt-glibc-2.39",
+      "path": "/usr/lib/x86_64-linux-gnu/librt.so.1",
+      "sha256": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5"
+    },
+    {
+      "id": "nvidia-libcuda-595.84",
+      "path": "/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+      "sha256": "c147185c80a0270d635db626537fc9223b2ad1764f86cb12fd116d26e08b175d"
+    }
+  ],
+  "licenseIdentities": [
+    {
+      "id": "cmake-bsd-3.31.8",
+      "path": "licenses/cmake-bsd-3.31.8.LICENSE",
+      "sha256": "0676e30827684487aa0ea8f72f01e9460a6320fa34a2888df0ad1dd3e8a06eb8"
+    },
+    {
+      "id": "ninja-apache-2.0-1.12.1",
+      "path": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
+      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698"
+    },
+    {
+      "id": "cuda-eula-12.8.1",
+      "path": "licenses/cuda-eula-12.8.1.LICENSE",
+      "sha256": "e2c71babfd18a8e69542dd7e9ca018f9caa438094001a58e6bc4d8c999bf0d07"
+    },
+    {
+      "id": "whisper-cpp-mit",
+      "path": "licenses/whisper-cpp-mit.LICENSE",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+    }
+  ],
+  "configuredCacheSha256": "dbac1a7a9b6c910da393658ff8f7f2be741e1d79476c9309978ad10dbb955bea",
+  "effectiveCacheSha256": "2cb54cfe619e3edfec48f2f3cc8b0f474d039e62a9965e5567215f987ee43c07",
+  "generatedBuildGraphSha256": "88a7ab2a73b8841dd890672d3fafa06cc0ed6938040c6959f335bb4609e01813",
+  "generatedTargets": ["ggml-base", "ggml-cpu", "ggml-cuda", "whisper", "local-whisper-build-smoke"],
+  "executions": [
+    {
+      "target": "local-whisper-build-smoke",
+      "purpose": "build-smoke",
+      "exitStatus": 0,
+      "signal": null,
+      "stdoutSha256": "8a42372156c9ac33fe728e16c5dc364c7077d789fac94657fe4e0dc6ef486116",
+      "stderrSha256": "5d8f4227610b484d79f1e33e88dc131e9871638c6f87dc1babedfd8c4bdea10b",
+      "requiredMarkers": ["LOCAL_WHISPER_BUILD_SMOKE_OK"],
+      "observedMarkers": ["LOCAL_WHISPER_BUILD_SMOKE_OK"],
+      "networkNamespace": "user-network-isolated"
+    }
+  ],
+  "stagedFiles": [
+    {
+      "id": "build-smoke",
+      "relativePath": "bin/local-whisper-build-smoke",
+      "sha256": "c2e5725ad4ffb55c32a69235179a945d007237811ff4e635c6648ba9c0bc96f2",
+      "mode": "100755"
+    },
+    {
+      "id": "cuda-runtime-12.8.1",
+      "relativePath": "lib/libcudart.so.12",
+      "sha256": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920",
+      "mode": "100755"
+    },
+    {
+      "id": "cublas-12.8.1",
+      "relativePath": "lib/libcublas.so.12",
+      "sha256": "031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21",
+      "mode": "100755"
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "relativePath": "lib/libcublasLt.so.12",
+      "sha256": "10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c",
+      "mode": "100755"
+    },
+    {
+      "id": "cmake-bsd-3.31.8",
+      "relativePath": "licenses/cmake-bsd-3.31.8.LICENSE",
+      "sha256": "0676e30827684487aa0ea8f72f01e9460a6320fa34a2888df0ad1dd3e8a06eb8",
+      "mode": "100644"
+    },
+    {
+      "id": "ninja-apache-2.0-1.12.1",
+      "relativePath": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
+      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698",
+      "mode": "100644"
+    },
+    {
+      "id": "cuda-eula-12.8.1",
+      "relativePath": "licenses/cuda-eula-12.8.1.LICENSE",
+      "sha256": "e2c71babfd18a8e69542dd7e9ca018f9caa438094001a58e6bc4d8c999bf0d07",
+      "mode": "100644"
+    },
+    {
+      "id": "whisper-cpp-mit",
+      "relativePath": "licenses/whisper-cpp-mit.LICENSE",
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
+      "mode": "100644"
+    }
+  ],
+  "dependencyClosure": {
+    "inspector": {
+      "path": "/usr/bin/x86_64-linux-gnu-readelf",
+      "sha256": "64c58e15274bbbb5153f31078e455e9e77ee5f51489e709bba5bb788ce9df2b0"
+    },
+    "records": [
+      {
+        "fileId": "build-smoke",
+        "relativePath": "bin/local-whisper-build-smoke",
+        "sha256": "c2e5725ad4ffb55c32a69235179a945d007237811ff4e635c6648ba9c0bc96f2",
+        "needed": [
+          {
+            "soname": "libcudart.so.12",
+            "resolutionKind": "staged",
+            "resolvedId": "cuda-runtime-12.8.1",
+            "sha256": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920"
+          },
+          {
+            "soname": "libcublas.so.12",
+            "resolutionKind": "staged",
+            "resolvedId": "cublas-12.8.1",
+            "sha256": "031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21"
+          },
+          {
+            "soname": "libcuda.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "nvidia-libcuda-595.84",
+            "sha256": "c147185c80a0270d635db626537fc9223b2ad1764f86cb12fd116d26e08b175d"
+          },
+          {
+            "soname": "libstdc++.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libstdcxx-gcc-13",
+            "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          },
+          {
+            "soname": "libgcc_s.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libgcc-s-gcc-13",
+            "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          }
+        ]
+      },
+      {
+        "fileId": "cuda-runtime-12.8.1",
+        "relativePath": "lib/libcudart.so.12",
+        "sha256": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920",
+        "needed": [
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          },
+          {
+            "soname": "ld-linux-x86-64.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "ld-linux-glibc-2.39",
+            "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+          },
+          {
+            "soname": "libdl.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libdl-glibc-2.39",
+            "sha256": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80"
+          },
+          {
+            "soname": "libpthread.so.0",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libpthread-glibc-2.39",
+            "sha256": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a"
+          },
+          {
+            "soname": "librt.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "librt-glibc-2.39",
+            "sha256": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5"
+          }
+        ]
+      },
+      {
+        "fileId": "cublas-12.8.1",
+        "relativePath": "lib/libcublas.so.12",
+        "sha256": "031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21",
+        "needed": [
+          {
+            "soname": "libcublasLt.so.12",
+            "resolutionKind": "staged",
+            "resolvedId": "cublas-lt-12.8.1",
+            "sha256": "10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c"
+          },
+          {
+            "soname": "librt.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "librt-glibc-2.39",
+            "sha256": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5"
+          },
+          {
+            "soname": "libpthread.so.0",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libpthread-glibc-2.39",
+            "sha256": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a"
+          },
+          {
+            "soname": "libdl.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libdl-glibc-2.39",
+            "sha256": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          },
+          {
+            "soname": "libgcc_s.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libgcc-s-gcc-13",
+            "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          },
+          {
+            "soname": "ld-linux-x86-64.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "ld-linux-glibc-2.39",
+            "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+          }
+        ]
+      },
+      {
+        "fileId": "cublas-lt-12.8.1",
+        "relativePath": "lib/libcublasLt.so.12",
+        "sha256": "10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c",
+        "needed": [
+          {
+            "soname": "librt.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "librt-glibc-2.39",
+            "sha256": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5"
+          },
+          {
+            "soname": "libpthread.so.0",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libpthread-glibc-2.39",
+            "sha256": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a"
+          },
+          {
+            "soname": "libdl.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libdl-glibc-2.39",
+            "sha256": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80"
+          },
+          {
+            "soname": "libm.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libm-glibc-2.39",
+            "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+          },
+          {
+            "soname": "libgcc_s.so.1",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "libgcc-s-gcc-13",
+            "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+          },
+          {
+            "soname": "libc.so.6",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "glibc-2.39",
+            "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+          },
+          {
+            "soname": "ld-linux-x86-64.so.2",
+            "resolutionKind": "reviewed-system",
+            "resolvedId": "ld-linux-glibc-2.39",
+            "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+          }
+        ]
+      }
+    ]
+  },
+  "relocation": {
+    "rootIdentity": "4c844a31e46c2411010f5f70c948607555d27ede67159dcd4ad686dff78c79f2",
+    "manifestSha256": "a4db884880771314447239de44bc9c4f2f016ecff116ae9320b8304ec35057a4",
+    "maliciousCwdIdentity": "9a4288909af278fc25d5603bcc02c697385cfe2acc04b7d9d086fefed6292c56",
+    "environmentAllowlist": ["LANG", "LC_ALL", "PATH"],
+    "inheritedEnvironmentKeys": [],
+    "forbiddenVariablesAbsent": ["LD_LIBRARY_PATH", "LD_PRELOAD", "GGML_BACKEND_PATH"],
+    "execution": {
+      "target": "local-whisper-build-smoke",
+      "purpose": "relocated-clean",
+      "exitStatus": 0,
+      "signal": null,
+      "stdoutSha256": "8a42372156c9ac33fe728e16c5dc364c7077d789fac94657fe4e0dc6ef486116",
+      "stderrSha256": "5d8f4227610b484d79f1e33e88dc131e9871638c6f87dc1babedfd8c4bdea10b",
+      "requiredMarkers": ["LOCAL_WHISPER_BUILD_SMOKE_OK"],
+      "observedMarkers": ["LOCAL_WHISPER_BUILD_SMOKE_OK"],
+      "networkNamespace": "user-network-isolated"
+    }
+  },
+  "networkDenial": {
+    "harness": {
+      "path": "/usr/bin/unshare",
+      "sha256": "51bcc77ba5db162c80028f861f0a2770d728c1de80773816d863f28d7a817adb"
+    },
+    "phases": [
+      {
+        "phase": "preflight",
+        "commandSha256": "ee91aff2a5e290cd0049261c7f60a2e970a954c61d7a2543ded90c54416be499",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "configure",
+        "commandSha256": "69b9c81b2f1e3a7a26134fa790ea846465094e010155759d81582bf00086aaa4",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "build",
+        "commandSha256": "baec4bd7fbce276e13bb4e019ee875ec287cdb6a979b3c721eda800bacb9b068",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "fixture-execution",
+        "commandSha256": "d866fcb91cd5a0b67cdb51b52aad7fee6320a55b0038ee1232bf2a95f5531e09",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      },
+      {
+        "phase": "relocated-clean-start",
+        "commandSha256": "30f5cd97a95e11f193cc277d4c2e7941ba1a5382a1b76aca14bc0385f1e0edc1",
+        "exitStatus": 0,
+        "networkNamespace": "user-network-isolated"
+      }
+    ]
+  },
+  "sanitizedEnvironment": {
+    "allowlistedKeys": ["LANG", "LC_ALL", "PATH"],
+    "inheritedKeys": [],
+    "environmentSha256": "5ec42c6829a2fb66efa4e54276f4f497f3c2baa0351b05f17926153aefce6555",
+    "cwdPolicy": "owned-malicious-unrelated"
+  }
+}

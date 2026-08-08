@@ -1,6 +1,9 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
 
+import localWhisperSettingsTranslations from './localWhisperSettings/zh';
+
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('zh'),
   'translate.provider': '翻译提供商',
   'translate.saving': '正在保存...',
@@ -548,6 +551,33 @@ export default {
   'appSettings.validation.backgroundModeInvalid': '请选择受支持的后台模式。',
   'appSettings.validation.fingerprintSeedRequired': '必须填写指纹种子。',
   'appSettings.validation.fingerprintSeedDigits': '指纹种子只能包含数字。',
+  'localWhisper.main.loadModel': '加载模型',
+  'localWhisper.main.freeModel': '释放模型',
+  'localWhisper.main.loadingStatus': '正在加载 Local Whisper 状态',
+  'localWhisper.main.loadingModel': '正在加载模型',
+  'localWhisper.main.freeingModel': '正在释放模型',
+  'localWhisper.main.modelInUse': '模型正在用于转录。',
+  'localWhisper.main.actionInProgress': '另一项 Local Whisper 操作正在进行。',
+  'localWhisper.main.setupRequired': '请在 Local Whisper 设置中安装所选运行时和模型。',
+  'localWhisper.main.modelUnavailable': '所选模型不可用。请打开 Local Whisper 设置。',
+  'localWhisper.main.modelUnavailableCode': '所选模型不可用（{code}）。请打开 Local Whisper 设置。',
+  'localWhisper.main.operationFailed': 'Local Whisper 模型操作失败。请重试。',
+  'localWhisper.main.operationFailedCode': 'Local Whisper 模型操作失败（{code}）。请重试。',
+
+  'startup.preparing': '正在准备启动',
+  'startup.preparingJobs': '正在准备：{jobs}',
+  'startup.preparingJobsWithMore': '正在准备：{jobs}，以及另外 {count} 项',
+  'startup.job.cloakBrowser': 'CloakBrowser 浏览器',
+  'startup.job.voiceProvider': '语音提供商',
+  'startup.job.translation': '翻译',
+  'startup.job.prettify': '文本润色',
+  'startup.progress': '启动进度',
+  'startup.progressValue': '已完成 {progress}%',
+  'startup.failed': '启动准备失败。请重试。',
+  'startup.retryFailed': '无法重新尝试启动准备。请重试。',
+  'startup.retry': '重试',
+  'startup.selectProvider': '请选择一个提供商以开始录音。',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': '显示',
   'tray.quit': '退出',
