@@ -21,6 +21,8 @@
 namespace {
 
 constexpr std::string_view kDescendantArgument = "--local-whisper-descendant-fixture-v1";
+constexpr std::string_view kStatePath = "launcher-fixture-state";
+constexpr std::string_view kTemporaryStatePath = "launcher-fixture-state-writing";
 
 bool is_worker_argument(std::string_view value) {
   return value == "--load" || value == "--probe" || value == "--registry";
@@ -75,11 +77,14 @@ std::uint64_t current_pid() { return static_cast<std::uint64_t>(getpid()); }
 #endif
 
 void write_state(std::uint64_t descendant_pid) {
-  std::ofstream output("launcher-fixture-state", std::ios::binary | std::ios::trunc);
-  output << current_pid() << '\n' << descendant_pid << '\n';
-  output.flush();
-  if (!output)
-    throw std::runtime_error("fixture state write failed");
+  {
+    std::ofstream output(std::string(kTemporaryStatePath), std::ios::binary | std::ios::trunc);
+    output << current_pid() << '\n' << descendant_pid << '\n';
+    output.flush();
+    if (!output)
+      throw std::runtime_error("fixture state write failed");
+  }
+  std::filesystem::rename(std::string(kTemporaryStatePath), std::string(kStatePath));
 }
 
 int run_worker() {
