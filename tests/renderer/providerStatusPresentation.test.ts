@@ -146,7 +146,7 @@ describe('provider status presentation', () => {
     assert.equal(stalePresentation.labelKey, 'provider.connectionChecking');
   });
 
-  it('locks every main-window provider selector and shows only the switching provider loader', () => {
+  it('locks every main-window provider selector during provider and active-work operations', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
     const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
@@ -154,7 +154,12 @@ describe('provider status presentation', () => {
 
     assert.match(
       app,
-      /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\| isPrettifyProviderSwitching \|\| isTranslationProviderSwitching;/u,
+      /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isPrettifyProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*isPrettifyModelActionRunning \|\|\s*activeTextAction !== null;/u,
+    );
+    assert.match(app, /const \[activeTextAction, setActiveTextAction\] = useState<TextActionStatusAction \| null>\(null\);/u);
+    assert.match(
+      app,
+      /onTranslationStatus\(\(nextStatus\) => \{[\s\S]*?if \(nextStatus\.phase === 'working'\) return nextStatus\.action;[\s\S]*?current === nextStatus\.action \? null : current/u,
     );
     assert.match(app, /case 'switch-started':[\s\S]*setIsVoiceProviderSwitching\(true\)/u);
     assert.match(app, /case 'switch-settled':[\s\S]*setIsVoiceProviderSwitching\(false\)/u);

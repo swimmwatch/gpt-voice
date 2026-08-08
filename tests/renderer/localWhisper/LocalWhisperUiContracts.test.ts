@@ -135,7 +135,7 @@ describe('Local Whisper UI contracts', () => {
 
   it('confirms interruption and waits for every targeted operation to become terminal before closing', () => {
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
-    const controller = source('src/renderer/localWhisper/useLocalWhisperSettings.ts');
+    const lifecycle = source('src/renderer/localWhisper/LocalWhisperSettingsLifecycle.ts');
     const controls = source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx');
     const providerWindow = source('src/renderer/ProviderSettingsWindow.tsx');
     assert.match(page, /action !== 'cancel'/u);
@@ -148,11 +148,11 @@ describe('Local Whisper UI contracts', () => {
     assert.doesNotMatch(page, /AlertDialogAction/u);
     assert.match(page, /artifactDisabledReason\(t, platformUnavailable, catalogUnavailable, lifecycleBusy\)/u);
     assert.match(controls, /action === 'cancel' \? cancelDisabledReason : actionsDisabledReason/u);
-    assert.match(controller, /MAX_CLOSE_CANCELLATION_OPERATIONS = 2/u);
-    assert.match(controller, /for \(const operationId of uniqueOperationIds\)/u);
-    assert.match(controller, /service\.cancelArtifact\(operationId\)/u);
-    assert.match(controller, /areArtifactOperationsTerminal/u);
-    assert.match(controller, /waitForArtifactOperations/u);
+    assert.match(lifecycle, /MAX_CLOSE_CANCELLATION_OPERATIONS = 2/u);
+    assert.match(lifecycle, /for \(const operationId of uniqueOperationIds\)/u);
+    assert.match(lifecycle, /service\.cancelArtifact\(operationId\)/u);
+    assert.match(lifecycle, /areArtifactOperationsTerminal/u);
+    assert.match(lifecycle, /waitForArtifactOperations/u);
     assert.match(providerWindow, /onProviderSettingsCloseRequested/u);
     assert.match(providerWindow, /closeRequestRevision=\{closeRequestRevision\}/u);
   });

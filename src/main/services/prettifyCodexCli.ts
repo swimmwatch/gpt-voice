@@ -11,7 +11,6 @@ import {
 } from '@shared/prettifySettings';
 
 export const CODEX_CLI_EXECUTABLE_NAME = 'codex';
-export const CODEX_CLI_AUDITED_VERSION = '0.144.3';
 export const CODEX_CLI_STDERR_LIMIT_BYTES = 16 * 1024;
 export const CODEX_CLI_STDOUT_LIMIT_BYTES = 256 * 1024;
 export const CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES = 512 * 1024;
@@ -207,9 +206,6 @@ interface CodexCliRunOptions {
 }
 
 interface SemanticVersion {
-  major: number;
-  minor: number;
-  patch: number;
   value: string;
 }
 
@@ -237,13 +233,7 @@ function parseSemanticVersion(output: Uint8Array): SemanticVersion | null {
   if (!match) return null;
   const [major, minor, patch] = match.slice(1).map(Number);
   if (![major, minor, patch].every(Number.isSafeInteger)) return null;
-  return { major, minor, patch, value: `${major}.${minor}.${patch}` };
-}
-
-function compareSemanticVersions(left: SemanticVersion, right: SemanticVersion): number {
-  if (left.major !== right.major) return left.major - right.major;
-  if (left.minor !== right.minor) return left.minor - right.minor;
-  return left.patch - right.patch;
+  return { value: `${major}.${minor}.${patch}` };
 }
 
 function hasRequiredFlags(output: Uint8Array, flags: readonly string[]): boolean {
@@ -465,8 +455,7 @@ export class CodexCliPrettifyAdapter {
     if (!versionResult.success) return { error: mapRunnerFailure(versionResult), success: false };
 
     const version = parseSemanticVersion(versionResult.stdout);
-    const auditedVersion = parseSemanticVersion(Uint8Array.from(Buffer.from(CODEX_CLI_AUDITED_VERSION)));
-    if (!version || !auditedVersion || compareSemanticVersions(version, auditedVersion) !== 0) {
+    if (!version) {
       return { error: CodexCliPrettifyErrorCode.Unsupported, success: false };
     }
 

@@ -873,6 +873,35 @@ describe('main streaming transcription service', () => {
     );
   });
 
+  it('rejects an empty recording before contacting the streaming provider', async () => {
+    const harness = createHarness();
+    const owner = createStreamingTranscriptionOwnerToken();
+    const emptyPcm = new Uint8Array();
+    await harness.service.start({ owner });
+
+    const result = await harness.service.finish({
+      owner,
+      operationId: harness.operationId,
+      sequence: 0,
+      finalChunk: emptyPcm,
+      recordingWav: createPcm16Wav(emptyPcm),
+    });
+
+    assert.deepEqual(result, {
+      success: false,
+      error: createStreamingError(StreamingTranscriptionErrorCode.InvalidAudio),
+      retryEligible: false,
+    });
+    assert.equal(harness.provider.finishCalls.length, 0);
+    assert.equal(harness.provider.cancelCalls.length, 1);
+    const terminal = getTerminalEvents(harness.audit.operations[0]);
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.metadata?.causeCode, StreamingTranscriptionErrorCode.InvalidAudio);
+    assert.equal(terminal[0]?.metadata?.acceptedByteCount, 0);
+    assert.equal(terminal[0]?.metadata?.chunkCount, 0);
+    assert.equal(terminal[0]?.metadata?.frameCount, 0);
+  });
+
   it('keeps audit volume independent of chunk count and records exact aggregate counters', async () => {
     const minimal = createHarness();
     const minimalOwner = createStreamingTranscriptionOwnerToken();

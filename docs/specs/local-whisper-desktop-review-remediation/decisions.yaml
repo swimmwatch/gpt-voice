@@ -826,3 +826,34 @@ decisions:
     rationale: The atomic commit preserves the reviewed packet boundary before another packet modifies the repository.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/02_renderer_command_lifecycle.md
+      - The user authorized packet 02 through the persistent implementation interview on 2026-08-08.
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: authorization-round-03
+      question_id: authorization.execution-packet-02
+      idempotency_key: authorization.execution-packet-02:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize an incremental-implementation invocation to execute only packet 02 Renderer Command Lifecycle?
+      kind: single
+      options:
+        - id: authorize-packet-02
+          label: Authorize packet 02
+          description: Execute only the verified renderer lifecycle packet, then update its checklist and handoff without committing or starting packet 03.
+        - id: hold-for-review
+          label: Hold for review
+          description: Keep packet 02 unexecuted until a later authorization.
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: ''
+    rationale: The user separately authorized only packet 02; packet 03 remains outside this invocation.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-002]

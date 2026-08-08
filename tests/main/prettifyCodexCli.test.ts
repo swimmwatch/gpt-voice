@@ -426,11 +426,10 @@ describe('CodexCliPrettifyAdapter', () => {
     assert.equal(runner.calls.length, 7);
   });
 
-  it('requires the supported version, exact help capabilities, and successful login exit status', async () => {
+  it('requires a valid version, exact help capabilities, and successful login exit status', async () => {
     const controller = new AbortController();
     for (const [results, expected] of [
-      [[success('0.144.2')], CodexCliPrettifyErrorCode.Unsupported],
-      [[success('0.144.4')], CodexCliPrettifyErrorCode.Unsupported],
+      [[success('not a semantic version')], CodexCliPrettifyErrorCode.Unsupported],
       [[success('0.144.3'), success('--ephemeral')], CodexCliPrettifyErrorCode.Unsupported],
       [[success('0.144.3'), success(EXEC_HELP), success('')], CodexCliPrettifyErrorCode.Unsupported],
       [
@@ -454,6 +453,21 @@ describe('CodexCliPrettifyAdapter', () => {
         success: false,
       });
     }
+  });
+
+  it('accepts a new Codex CLI version when every required capability remains available', async () => {
+    const adapter = new FakeRunner([
+      success('codex-cli 0.147.0'),
+      success(EXEC_HELP),
+      success(MODEL_HELP),
+      success(FEATURE_LIST),
+      success('ignored auth status'),
+    ]).createAdapter();
+
+    assert.deepEqual(await adapter.checkAvailability({ settings: getSettings(), signal: new AbortController().signal }), {
+      capabilityVersion: '0.147.0',
+      success: true,
+    });
   });
 
   it('maps every runner failure safely and does not interpret auth output', async () => {

@@ -279,7 +279,8 @@ export class WindowManager {
       throw error;
     }
     this.settingsWindow = window;
-    this.registerInteractionLockedWindow(window, lease);
+    const webContentsId = window.webContents.id;
+    this.registerInteractionLockedWindow(webContentsId);
     window.setMenuBarVisibility(false);
     this.applyNavigationGuards(window);
     const settingsUrl = new URL(this.dependencies.getAppUrl('settings.html'));
@@ -294,7 +295,7 @@ export class WindowManager {
     window.on('closed', () => {
       if (this.settingsWindow === window) this.settingsWindow = null;
       this.settingsCloseConfirmed = false;
-      this.releaseInteractionLockedWindow(window, lease);
+      this.releaseInteractionLockedWindow(webContentsId, lease);
     });
     return Object.freeze({ success: true });
   }
@@ -357,6 +358,7 @@ export class WindowManager {
     const lease = acquisition.lease;
     if (!lease) return this.createBlockedSettingsWindowResult(acquisition.result);
     const isLocalWhisperSettings = providerId === LOCAL_WHISPER_PROVIDER_ID;
+    let webContentsId: number | null = null;
     try {
       const shown = this.providerSettingsWindowController.show(
         providerId,
@@ -393,14 +395,17 @@ export class WindowManager {
                 },
               }
             : {}),
-          onClosed: (window: BrowserWindow) => this.releaseInteractionLockedWindow(window, lease),
+          onClosed: () => {
+            if (webContentsId !== null) this.releaseInteractionLockedWindow(webContentsId, lease);
+          },
         },
       );
       if (!shown.created) {
         lease.release();
         return Object.freeze({ success: true });
       }
-      this.registerInteractionLockedWindow(shown.window, lease);
+      webContentsId = shown.window.webContents.id;
+      this.registerInteractionLockedWindow(webContentsId);
       return Object.freeze({ success: true });
     } catch (error: unknown) {
       lease.release();
@@ -455,14 +460,13 @@ export class WindowManager {
     });
   }
 
-  private registerInteractionLockedWindow(window: BrowserWindow, lease: MainInteractionLockLease): void {
-    this.interactionLockedWindowIds.add(window.webContents.id);
+  private registerInteractionLockedWindow(webContentsId: number): void {
+    this.interactionLockedWindowIds.add(webContentsId);
     this.applyMainInteractionLock(true);
-    window.once('closed', () => this.releaseInteractionLockedWindow(window, lease));
   }
 
-  private releaseInteractionLockedWindow(window: BrowserWindow, lease: MainInteractionLockLease): void {
-    this.interactionLockedWindowIds.delete(window.webContents.id);
+  private releaseInteractionLockedWindow(webContentsId: number, lease: MainInteractionLockLease): void {
+    this.interactionLockedWindowIds.delete(webContentsId);
     lease.release();
   }
 

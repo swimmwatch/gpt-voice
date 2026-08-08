@@ -28,9 +28,10 @@ class RecordingBrowserWindow {
   public minimized = false;
   public restoreCount = 0;
   public showCount = 0;
+  public throwOnDestroyedWebContentsAccess = false;
   public visible = true;
   public readonly sent: Array<readonly unknown[]> = [];
-  public readonly webContents: WebContents;
+  private readonly webContentsValue: WebContents;
   private readonly listeners = new Map<string, WindowListener[]>();
   private readonly webContentsListeners = new Map<string, WindowListener[]>();
   private url = '';
@@ -41,7 +42,7 @@ class RecordingBrowserWindow {
   ) {
     const mainFrame = {} as WebFrameMain;
     Object.defineProperty(mainFrame, 'url', { get: () => this.url });
-    this.webContents = {
+    this.webContentsValue = {
       get mainFrame() {
         return mainFrame;
       },
@@ -61,6 +62,13 @@ class RecordingBrowserWindow {
       },
       setWindowOpenHandler: () => undefined,
     } as unknown as WebContents;
+  }
+
+  public get webContents(): WebContents {
+    if (this.destroyed && this.throwOnDestroyedWebContentsAccess) {
+      throw new TypeError('Object has been destroyed');
+    }
+    return this.webContentsValue;
   }
 
   public close(): void {
@@ -285,7 +293,10 @@ describe('WindowManager', () => {
     assert.equal(localWhisperWindow.destroyed, false);
     assert.deepEqual(localWhisperWindow.sent, [[PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested]]);
 
-    assert.equal(harness.manager.closeProviderSettingsWindow(localWhisperWindow.webContents), true);
+    localWhisperWindow.throwOnDestroyedWebContentsAccess = true;
+    assert.doesNotThrow(() => {
+      assert.equal(harness.manager.closeProviderSettingsWindow(localWhisperWindow.webContents), true);
+    });
     assert.equal(localWhisperWindow.destroyed, true);
 
     assert.deepEqual(harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI'), { success: true });

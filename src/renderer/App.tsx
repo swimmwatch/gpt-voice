@@ -59,8 +59,9 @@ import {
   type TranslationProviderConnectionState,
   type TranslationSettings,
 } from '@shared/translationProvider';
-import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import { isRecordingLifecycleBusy, type RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { FirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
+import type { TextActionStatusAction } from '@shared/textActionStatus';
 import {
   createTranslationProviderCandidate,
   createTranslationSettingsCandidate,
@@ -119,16 +120,22 @@ const App: React.FC = () => {
   const isTranslationProviderSwitching =
     translationSettingsSelection.pendingRequestId !== null &&
     translationSettingsSelection.settings.providerId !== translationSettingsSelection.confirmedSettings.providerId;
-  const isProviderChangesLocked =
-    isVoiceProviderSwitching || isPrettifyProviderSwitching || isTranslationProviderSwitching;
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
+  const [activeTextAction, setActiveTextAction] = useState<TextActionStatusAction | null>(null);
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
   const [prettifyConnectionError, setPrettifyConnectionError] = useState('');
   const [prettifyHttpConnection, setPrettifyHttpConnection] = useState<MainPrettifyHttpConnectionState | null>(null);
   const [prettifyCliConnection, setPrettifyCliConnection] = useState<MainPrettifyCliConnectionState | null>(null);
   const [hasLoadedInitialPrettifySettings, setHasLoadedInitialPrettifySettings] = useState(false);
   const [isInitialPrettifyProviderLoading, setIsInitialPrettifyProviderLoading] = useState(true);
+  const isProviderChangesLocked =
+    isVoiceProviderSwitching ||
+    isPrettifyProviderSwitching ||
+    isTranslationProviderSwitching ||
+    isRecordingLifecycleBusy(recordingState) ||
+    isPrettifyModelActionRunning ||
+    activeTextAction !== null;
   const [prettifyCliConnectionCoordinator] = useState(() =>
     createMainPrettifyCliConnectionCoordinator({
       check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
@@ -554,7 +561,14 @@ const App: React.FC = () => {
         if (!disposed) void recordingActionsRef.current.resendLastTranscription();
       }),
       desktopApi.onTranslationStatus((nextStatus) => {
-        if (!disposed) setStatus(textActionStatusToRendererStatus(nextStatus));
+        if (disposed) return;
+        if (nextStatus) {
+          setActiveTextAction((current) => {
+            if (nextStatus.phase === 'working') return nextStatus.action;
+            return current === nextStatus.action ? null : current;
+          });
+        }
+        setStatus(textActionStatusToRendererStatus(nextStatus));
       }),
       desktopApi.onTranslationProviderConnectionChanged((connectionState) => {
         if (disposed) return;
