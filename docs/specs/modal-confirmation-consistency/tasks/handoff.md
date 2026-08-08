@@ -2,32 +2,31 @@
 
 ## Current State
 
-- Packet 01 is complete, verified, and uncommitted.
-- Exact next packet requires separate execution authorization: `02_cross_app_confirmation_migration.md`.
+- Packet 01 was committed locally as `86bed75` (`feat(ui): standardize Local Whisper confirmations`).
+- Packet 02 is complete, verified, and uncommitted.
+- Exact next packet requires separate execution authorization: `03_data_entry_modal_normalization.md`.
 
-## Completed Packet 01
+## Completed Packet 02
 
-- Added the renderer-only `ConfirmationDialog` with pending locking, outline-first dismissal, primary/destructive action tones, safe rejection handling, and success-only close.
-- Consolidated `AlertDialog` and `Dialog` surfaces through `modal-styles.ts`.
-- Migrated Local Whisper artifact removal and interruption flows, including localized kind-plus-friendly-artifact removal titles and failure focus containment.
-- Added focused confirmation, Local Whisper UI-contract, accessibility, and localization coverage.
+- Migrated History clearing, Provider authentication clearing, diagnostic capture clear/disable confirmation, settings-discard, and non-default Prettify profile deletion to `ConfirmationDialog`.
+- Retained feature-owned typed IPC, localized safe failure feedback, and trigger-focus restoration while generic confirmation state locks pending commands and closes only after `true`.
+- Kept the default-profile replacement dialog out of scope for Packet 03.
+- Added deterministic contract coverage for every migrated flow, action tone/order, pending propagation, failure retention, and focus restoration.
 
 ## Changed Files
 
-- `src/renderer/components/ui/{modal-styles.ts,confirmation-dialog.tsx,alert-dialog.tsx,dialog.tsx}`
-- `src/renderer/localWhisper/{LocalWhisperSettingsPage.tsx,components/LocalWhisperArtifactControls.tsx}`
-- `src/main/i18n/localWhisperSettings/{be,de,en,es,fr,hi,ja,pt-BR,ru,uk,zh}.ts`
-- `tests/renderer/confirmationDialog.test.ts`
-- `tests/renderer/localWhisper/{LocalWhisperUiContracts.test.ts,LocalWhisperAccessibility.test.ts}`
+- `src/renderer/{HistoryWindow.tsx,AppSettingsWindow.tsx}`
+- `src/renderer/components/{ProviderSettingsForm.tsx,settings/PrettifyProfilesSettingsSection.tsx}`
+- `tests/renderer/{confirmationMigrations.test.ts,auditLogSettings.test.ts,prettifyProfilesSettingsSection.test.ts,providerSettingsFormContracts.test.ts}`
 - `tasks/{todo.md,handoff.md}`
 
 ## Verification
 
-- Passed: `npm run test:local-whisper:ui`, `npm run test:local-whisper:ui:contracts`, `npm run test:local-whisper:ui:accessibility`, and `node --import tsx --test tests/renderer/confirmationDialog.test.ts`.
+- Passed: `node --import tsx --test` for shared confirmation, confirmation migrations, history, provider settings, audit-log, Prettify-profile, and settings-close suites.
 - Passed: `npm run typecheck`, direct ESLint for changed files, changed-file Prettier check, `npm run build`, and `git diff --check`.
 - Blocked outside this packet: repository-wide `npm run format:check` reports the untouched `tests/main/localWhisper/capability/NvidiaRtx50Applicability.test.ts`.
 
 ## Manual Gates And Worktree
 
-- Pending user-performed Linux and Windows dark-theme checks: removal/interruption layout, visible keyboard focus, keyboard operation, and destructive-action clarity.
+- Pending user-performed Linux and Windows dark-theme checks: keyboard-only navigation, focus restoration, failure feedback, destructive-action clarity, and duplicate-action prevention.
 - Preserve unrelated existing changes in `src/renderer/AboutWindow.tsx`, `tests/renderer/mainWindowIconography.test.ts`, `docs/reviews/`, and `docs/specs/local-whisper-native-review-remediation/`.

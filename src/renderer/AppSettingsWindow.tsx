@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useEffectEvent, useReducer, useRef, useState, type KeyboardEvent } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import HotkeyModal from '@renderer/components/HotkeyModal';
@@ -13,17 +13,7 @@ import ShortcutsSection from '@renderer/components/settings/ShortcutsSection';
 import SystemSection from '@renderer/components/settings/SystemSection';
 import type { TranslationFunction } from '@renderer/components/settings/types';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
-import { Button } from '@renderer/components/ui/button';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Separator } from '@renderer/components/ui/separator';
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs';
@@ -167,47 +157,42 @@ function isAppSettingsSaveDisabled(
 
 interface DiagnosticCaptureConfirmationDialogProps {
   readonly confirmation: DiagnosticCaptureConfirmation | null;
-  readonly isPending: boolean;
-  readonly onConfirm: () => void;
+  readonly onConfirm: () => Promise<boolean>;
   readonly onOpenChange: (open: boolean) => void;
+  readonly onPendingChange: (pending: boolean) => void;
   readonly t: TranslationFunction;
 }
 
 function DiagnosticCaptureConfirmationDialog({
   confirmation,
-  isPending,
   onConfirm,
   onOpenChange,
+  onPendingChange,
   t,
 }: DiagnosticCaptureConfirmationDialogProps): React.ReactNode {
   return (
-    <AlertDialog open={confirmation !== null} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {confirmation?.kind === 'disable'
-              ? t('auditLog.disableConfirm.title')
-              : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.title`)}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {confirmation?.kind === 'disable'
-              ? t(`auditLog.disableConfirm.${getDisableConfirmationScope(confirmation.categories)}`)
-              : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.description`)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel asChild>
-            <Button disabled={isPending} variant="outline">
-              {t('auditLog.cancel')}
-            </Button>
-          </AlertDialogCancel>
-          <Button aria-busy={isPending || undefined} disabled={isPending} onClick={onConfirm} variant="destructive">
-            {isPending && <Spinner label={t('auditLog.processing')} size="sm" />}
-            {confirmation?.kind === 'disable' ? t('auditLog.disableConfirm.action') : t('auditLog.clearConfirm.action')}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmationDialog
+      cancelLabel={t('auditLog.cancel')}
+      confirmLabel={
+        confirmation?.kind === 'disable' ? t('auditLog.disableConfirm.action') : t('auditLog.clearConfirm.action')
+      }
+      description={
+        confirmation?.kind === 'disable'
+          ? t(`auditLog.disableConfirm.${getDisableConfirmationScope(confirmation.categories)}`)
+          : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.description`)
+      }
+      onConfirm={onConfirm}
+      onOpenChange={onOpenChange}
+      onPendingChange={onPendingChange}
+      open={confirmation !== null}
+      pendingLabel={t('auditLog.processing')}
+      title={
+        confirmation?.kind === 'disable'
+          ? t('auditLog.disableConfirm.title')
+          : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.title`)
+      }
+      tone="destructive"
+    />
   );
 }
 
@@ -238,6 +223,7 @@ const AppSettingsWindow: React.FC = () => {
   const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] = useState(false);
   const closeRequestFocusRef = useRef<HTMLElement | null>(null);
   const diagnosticConfirmationFocusRef = useRef<HTMLElement | null>(null);
+  const diagnosticConfirmationSucceededRef = useRef(false);
   const diagnosticsExportPendingRef = useRef(false);
   const settingsWindowMountedRef = useRef(true);
   const {
@@ -604,6 +590,7 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const closeDiagnosticConfirmation = (): void => {
+    diagnosticConfirmationSucceededRef.current = false;
     setDiagnosticConfirmation(null);
     restoreDiagnosticConfirmationFocus();
   };
@@ -657,7 +644,7 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const cancelDiagnosticConfirmation = (): void => {
-    if (isDiagnosticActionPending || !diagnosticConfirmation) return;
+    if (!diagnosticConfirmation) return;
     if (diagnosticConfirmation.kind === 'disable' && initialDiagnosticCaptureSettings) {
       const cancelledCategories = diagnosticConfirmation.categories;
       setDiagnosticCaptureSettings((current) => {
@@ -672,16 +659,16 @@ const AppSettingsWindow: React.FC = () => {
     closeDiagnosticConfirmation();
   };
 
-  const confirmDiagnosticAction = async (): Promise<void> => {
-    if (isDiagnosticActionPending || !diagnosticConfirmation) return;
+  const confirmDiagnosticAction = async (): Promise<boolean> => {
+    if (!diagnosticConfirmation) return false;
     const confirmation = diagnosticConfirmation;
-    setIsDiagnosticActionPending(true);
     setError('');
     try {
       if (confirmation.kind === 'disable') {
         const result = await saveSettings(confirmation.categories);
-        if (result?.diagnosticCaptureSettingsSaved) closeDiagnosticConfirmation();
-        return;
+        if (!result?.diagnosticCaptureSettingsSaved) return false;
+        diagnosticConfirmationSucceededRef.current = true;
+        return true;
       }
 
       const result = await desktopApi.clearDiagnosticCapture({
@@ -689,20 +676,24 @@ const AppSettingsWindow: React.FC = () => {
         target: confirmation.target,
       });
       if (result.success) {
-        closeDiagnosticConfirmation();
-      } else {
-        setError(t(getDiagnosticCaptureErrorTranslationKey(result.errorCode)));
+        diagnosticConfirmationSucceededRef.current = true;
+        return true;
       }
+      setError(t(getDiagnosticCaptureErrorTranslationKey(result.errorCode)));
     } catch {
       log.error('Diagnostic capture destructive action IPC error');
       setError(t('auditLog.error.storage-failed'));
-    } finally {
-      setIsDiagnosticActionPending(false);
     }
+    return false;
   };
 
   const handleDiagnosticConfirmationOpenChange = (open: boolean): void => {
-    if (!open) cancelDiagnosticConfirmation();
+    if (open) return;
+    if (diagnosticConfirmationSucceededRef.current) {
+      closeDiagnosticConfirmation();
+      return;
+    }
+    cancelDiagnosticConfirmation();
   };
 
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
@@ -780,19 +771,10 @@ const AppSettingsWindow: React.FC = () => {
     isDiscardConfirmationOpen,
     isSaving,
   ]);
-  const discardChanges = useCallback((): void => {
-    setIsDiscardConfirmationOpen(false);
+  const discardChanges = useCallback((): boolean => {
     forceCloseWindow();
+    return true;
   }, [forceCloseWindow]);
-  const handleDiscardConfirmationKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        handleDiscardConfirmationOpenChange(false);
-      }
-    },
-    [handleDiscardConfirmationOpenChange],
-  );
 
   useEffect(() => desktopApi.onAppSettingsCloseRequested(requestCloseWindow), [desktopApi, requestCloseWindow]);
   useEffect(() => desktopApi.onAppSettingsSectionRequested(setActiveSection), [desktopApi]);
@@ -996,30 +978,22 @@ const AppSettingsWindow: React.FC = () => {
         )}
       </main>
 
-      <AlertDialog open={isDiscardConfirmationOpen} onOpenChange={handleDiscardConfirmationOpenChange}>
-        <AlertDialogContent onKeyDown={handleDiscardConfirmationKeyDown}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('common.discardChangesConfirm')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('appSettings.discardChangesDescription')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel asChild>
-              <Button variant="outline">{t('common.keepEditing')}</Button>
-            </AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button onClick={discardChanges} variant="destructive">
-                {t('common.discardChanges')}
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        cancelLabel={t('common.keepEditing')}
+        confirmLabel={t('common.discardChanges')}
+        description={t('appSettings.discardChangesDescription')}
+        onConfirm={discardChanges}
+        onOpenChange={handleDiscardConfirmationOpenChange}
+        open={isDiscardConfirmationOpen}
+        title={t('common.discardChangesConfirm')}
+        tone="destructive"
+      />
 
       <DiagnosticCaptureConfirmationDialog
         confirmation={diagnosticConfirmation}
-        isPending={isDiagnosticActionPending}
-        onConfirm={() => void confirmDiagnosticAction()}
+        onConfirm={confirmDiagnosticAction}
         onOpenChange={handleDiagnosticConfirmationOpenChange}
+        onPendingChange={setIsDiagnosticActionPending}
         t={t}
       />
     </>

@@ -43,4 +43,15 @@ describe('provider settings form contracts', () => {
     assert.equal((source.match(/\bonClose\(\);/gu) || []).length, 2);
     assert.doesNotMatch(source, /common\.close/u);
   });
+
+  it('keeps provider-auth clearing in the shared destructive confirmation until the IPC result succeeds', () => {
+    const source = readFileSync(FORM_SOURCE_PATH, 'utf8');
+
+    assert.match(source, /<ConfirmationDialog/u);
+    assert.match(source, /onConfirm=\{clearAuth\}/u);
+    assert.match(source, /const clearAuth = async \(\): Promise<boolean>/u);
+    assert.match(source, /if \(result\.success && result\.settings\)[\s\S]*?return true;/u);
+    assert.match(source, /return false;\n\s*\};\n\s*const login/u);
+    assert.doesNotMatch(source, /AlertDialog(?:Action|Cancel|Content|Footer|Header|Title)/u);
+  });
 });

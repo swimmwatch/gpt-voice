@@ -16,16 +16,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useRef, useState, type Dispatch, type DragEvent, type JSX, type KeyboardEvent } from 'react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
 import {
@@ -576,6 +567,13 @@ export function PrettifyProfilesSettingsSection({
     closeDelete();
   };
 
+  const confirmNonDefaultDelete = (): boolean => {
+    if (!deleteCandidate || deleteCandidate.kind !== 'custom' || deleteCandidate.isDefault) return false;
+    dispatch({ profileId: deleteCandidate.id as PrettifyCustomProfileId, type: 'delete' });
+    setAnnouncement(t('prettify.profiles.announcement.deleted'));
+    return true;
+  };
+
   const openExport = (): void => {
     setExportSelectedIds(new Set());
     setExportError('');
@@ -932,31 +930,19 @@ export function PrettifyProfilesSettingsSection({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmationDialog
+        actionIcon={<Trash2 aria-hidden="true" />}
+        cancelLabel={t('prettify.profiles.cancel')}
+        confirmLabel={t('prettify.profiles.deleteAction')}
+        description={t('prettify.profiles.deleteDescription')}
+        onConfirm={confirmNonDefaultDelete}
         onOpenChange={(open) => {
           if (!open && deleteCandidate && !deleteCandidate.isDefault) closeDelete();
         }}
         open={Boolean(deleteCandidate && !deleteCandidate.isDefault)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('prettify.profiles.deleteTitle', { name: deleteCandidate?.name ?? '' })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>{t('prettify.profiles.deleteDescription')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel asChild>
-              <Button variant="outline">{t('prettify.profiles.cancel')}</Button>
-            </AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button onClick={confirmDelete} variant="destructive">
-                {t('prettify.profiles.deleteAction')}
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={t('prettify.profiles.deleteTitle', { name: deleteCandidate?.name ?? '' })}
+        tone="destructive"
+      />
 
       <Dialog
         onOpenChange={(open) => {
