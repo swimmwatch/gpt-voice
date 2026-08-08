@@ -265,21 +265,48 @@ TEST(RealBackendIntegrationTest, EnforcesLockConflictAndRelease) {
 
 TEST(RealBackendIntegrationTest, ReclaimsTransientResourcesAfterSuccessAndTypedFailure) {
   const std::size_t baseline = process_resource_count();
+#if defined(_WIN32)
+  constexpr std::size_t kRootLeaseHandles = 2;
+  constexpr std::size_t kStagingLeaseHandles = 2;
+  constexpr std::size_t kFileLeaseHandles = 2;
+#endif
   {
     TemporaryManagedRoot root_path;
     auto backend = make_backend();
     for (std::size_t index = 0; index < 4; ++index) {
       const auto root = backend->initialize({platform_name(), root_path.path().string()});
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(), baseline + kRootLeaseHandles);
+#endif
       const std::string artifact = artifact_name_with_marker(index);
       const auto staging = backend->create_staging({root[0], "model", artifact, kNonce});
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(), baseline + kRootLeaseHandles + kStagingLeaseHandles);
+#endif
       EXPECT_THROW(static_cast<void>(backend->create_staging({root[0], "model", artifact, kNonce})),
                    GuardError);
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(), baseline + kRootLeaseHandles + kStagingLeaseHandles);
+#endif
       const auto file = backend->create_file({staging[0], "file-model", "384"});
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(),
+                baseline + kRootLeaseHandles + kStagingLeaseHandles + kFileLeaseHandles);
+#endif
       EXPECT_TRUE(backend->write_file({file[0], "resource-check"}).empty());
       EXPECT_TRUE(backend->seal_file({file[0]}).size() == 1U);
       EXPECT_TRUE(backend->release({file[0]}).empty());
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(), baseline + kRootLeaseHandles + kStagingLeaseHandles);
+#endif
       EXPECT_TRUE(backend->release({staging[0]}).empty());
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(), baseline + kRootLeaseHandles);
+#endif
       EXPECT_TRUE(backend->release({root[0]}).empty());
+#if defined(_WIN32)
+      EXPECT_EQ(process_resource_count(), baseline);
+#endif
     }
   }
   EXPECT_EQ(process_resource_count(), baseline);
