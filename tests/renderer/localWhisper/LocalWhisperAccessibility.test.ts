@@ -126,7 +126,7 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.match(page, /t\('localWhisper\.settings\.disabledBusy'\)/u);
   });
 
-  it('announces progress and failures and restores focus after rejected destructive actions', () => {
+  it('announces progress and failures while keeping failed confirmations contained', () => {
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
     const storage = [
       source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx'),
@@ -137,6 +137,11 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     assert.match(storage, /aria-live="polite"/u);
     assert.match(storage, /<progress/u);
     assert.match(storage, /triggerRef\.current\?\.focus\(\)/u);
+    assert.match(
+      page,
+      /if \(controller\.actionError && interruption\.request === null\) errorSummaryRef\.current\?\.focus\(\);/u,
+    );
+    assert.match(storage, /if \(!open\) requestAnimationFrame\(\(\) => triggerRef\.current\?\.focus\(\)\);/u);
     assert.match(indicator, /<ProviderStatusIndicator/u);
     assert.match(indicator, /role="status"/u);
     assert.match(indicator, /tooltip=\{tooltip\}/u);

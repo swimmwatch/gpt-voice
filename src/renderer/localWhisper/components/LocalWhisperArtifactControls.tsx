@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   PiArrowClockwise,
   PiDotsThreeVertical,
@@ -8,16 +8,7 @@ import {
   PiTrash,
   PiX,
 } from 'react-icons/pi';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -196,6 +187,11 @@ export function LocalWhisperArtifactOverflowMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const actions = getLocalWhisperArtifactActions(artifact, progress);
   const secondaryActions = actions.filter((action) => action === 'remove' || action === 'update');
+  const handleRemoveOpenChange = useCallback((open: boolean): void => {
+    setRemoveOpen(open);
+    if (!open) requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+
   if (secondaryActions.length === 0 && artifact.references.length === 0) return null;
 
   return (
@@ -251,32 +247,19 @@ export function LocalWhisperArtifactOverflowMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AlertDialog onOpenChange={setRemoveOpen} open={removeOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('localWhisper.settings.removeDialogTitle', { artifact: artifact.label })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('localWhisper.settings.removeDialogDescription', { kind: artifactKindLabel(artifact.kind, t) })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('localWhisper.settings.keepArtifact')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void onAction('remove', artifact).then((success) => {
-                  setRemoveOpen(false);
-                  if (!success) requestAnimationFrame(() => triggerRef.current?.focus());
-                });
-              }}
-            >
-              {t('localWhisper.settings.actionRemove')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        cancelLabel={t('localWhisper.settings.keepArtifact')}
+        confirmLabel={t('localWhisper.settings.actionRemove')}
+        description={t('localWhisper.settings.removeDialogDescription', { kind: artifactKindLabel(artifact.kind, t) })}
+        onConfirm={() => onAction('remove', artifact)}
+        onOpenChange={handleRemoveOpenChange}
+        open={removeOpen}
+        title={t('localWhisper.settings.removeDialogTitle', {
+          artifact: artifact.label,
+          kind: artifactKindLabel(artifact.kind, t),
+        })}
+        tone="destructive"
+      />
     </>
   );
 }

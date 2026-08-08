@@ -1,0 +1,206 @@
+schema_version: 1
+spec_slug: modal-confirmation-consistency
+interview_id: spec:modal-confirmation-consistency
+created_at: '2026-08-08'
+updated_at: '2026-08-08'
+decisions:
+  - id: outcome.modal-consistency
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User request on 2026-08-08: improve modal confirmation use and display across the app.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [cross-app-modal-consistency]
+      text: 'Use consistent modal components and appropriate actions throughout the renderer, not only in Local Whisper.'
+    rationale: 'The supplied Local Whisper screenshot demonstrates the current raw-action presentation defect.'
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCOPE-001]
+  - id: scope.modal-types
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected All modal types during the modal-consistency planning discussion on 2026-08-08.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [all-renderer-modal-types]
+      text: 'Standardize confirmation and data-entry modal presentation and action hierarchy.'
+    rationale: 'Data-entry dialogs retain their existing workflow-specific content and sizing.'
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001, UI-002]
+  - id: ui.action-hierarchy
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Outline + red action for destructive confirmations on 2026-08-08.'
+      - 'User selected Outline + primary submit for normal dialogs on 2026-08-08.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [outline-cancel, destructive-confirm, primary-normal-submit]
+      text: 'Place an outline Cancel, Keep, Continue, or Close action first; use destructive red for destructive actions and primary for normal submission.'
+    rationale: 'Use the existing Button variants without creating colors or visual primitives.'
+    supersedes_revision: null
+    requirement_ids: [UI-003, UI-004]
+  - id: flow.pending-confirmation
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Lock until resolved for pending confirmed actions on 2026-08-08.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [lock-until-resolved]
+      text: 'Pending modal actions disable dismissal and repeated submission, show progress, close only after success, and remain open after failure.'
+    rationale: 'Prevents interruption and duplicate destructive work.'
+    supersedes_revision: null
+    requirement_ids: [FLOW-003, FAIL-001]
+  - id: ui.dismissal-affordance
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Footer action only during modal-consistency planning on 2026-08-08.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [footer-dismissal-only]
+      text: 'Modal workflows use their footer Cancel or Close button as the sole visible dismissal affordance.'
+    rationale: 'Remove the redundant Hotkey header close button.'
+    supersedes_revision: null
+    requirement_ids: [UI-005]
+  - id: local-whisper.removal-title
+    revision: 1
+    category: localization
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Friendly model name during modal-consistency planning on 2026-08-08.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [catalog-display-label]
+      text: 'Identify the model or runtime by its trusted catalog display label in the localized removal title.'
+    rationale: 'Never expose raw artifact IDs in confirmation copy.'
+    supersedes_revision: null
+    requirement_ids: [I18N-001, UI-006]
+  - id: current.renderer-modal-baseline
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/renderer/components/ui/alert-dialog.tsx'
+      - 'src/renderer/components/ui/dialog.tsx'
+      - 'src/renderer/components/ui/button.tsx'
+      - 'src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'AlertDialog and Dialog duplicate surface/layout rules. Local Whisper artifact removal uses unstyled raw Radix actions; other call sites have inconsistent pending and close handling.'
+    rationale: 'The existing shared Button exposes outline, primary, and destructive variants needed by this work.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, UI-001]
+  - id: interfaces-and-operations
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - 'The requested behavior is renderer-only and uses existing shared UI primitives.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'No Electron IPC, preload API, persistence schema, provider contract, network request, package target, or release workflow changes.'
+    rationale: 'The internal renderer component contract is the only interface addition.'
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-001, COMP-001, OPS-001]
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'User reply on 2026-08-08: approve.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: 'Approved the Cross-app Modal Confirmation Consistency specification draft.'
+    rationale: 'Explicit approval authorizes planning but not implementation, commits, or publication.'
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+  - id: implementation.packet-boundaries
+    revision: 1
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'Shared modal primitives and the screenshot-reported Local Whisper removal defect can be verified independently before cross-app migrations.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [foundation-local-whisper, confirmation-migrations, data-entry-normalization]
+      text: 'Use three sequential packets: shared foundation plus Local Whisper, remaining confirmation migrations, then data-entry dialog normalization.'
+    rationale: 'This is a reversible implementation sequencing choice; it does not change the approved product contract.'
+    supersedes_revision: null
+    requirement_ids: [UI-001, UI-002, SCOPE-001]
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'User reply on 2026-08-08: approve.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: 'Approved the Cross-app Modal Confirmation Consistency execution plan.'
+    rationale: 'Superseded by the accessibility-consistent failure-focus clarification and its required reapproval.'
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+  - id: a11y.failed-confirmation-focus
+    revision: 1
+    category: accessibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Lock until resolved during modal-consistency planning on 2026-08-08; the selected behavior keeps a failed confirmation open.'
+      - 'Radix AlertDialog focus containment requires focus to remain inside an open modal.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [retain-in-dialog-focus]
+      text: 'A failed confirmation remains open and keeps focus on safe in-dialog error or confirmation content; only cancellation or success restores focus to the initiator.'
+    rationale: 'Resolves the previous conflict between failure retention and trigger focus restoration without changing the approved user outcome.'
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, FLOW-004, A11Y-001]
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The plan was revised on 2026-08-08 to resolve focus containment for failed confirmations.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: 'Approved the revised Cross-app Modal Confirmation Consistency execution plan.'
+    rationale: 'Explicit revised-plan approval permits a separately authorized packet invocation only.'
+    supersedes_revision: 1
+    requirement_ids: [OUT-001]

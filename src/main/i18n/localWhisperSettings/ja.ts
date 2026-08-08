@@ -186,7 +186,7 @@ export default {
   'localWhisper.settings.cancellationFailed':
     '実行中の操作を中断できませんでした。Local Whisper の設定は開いたままになります。',
   'localWhisper.settings.manageArtifact': '{artifact} を管理',
-  'localWhisper.settings.removeDialogTitle': '{artifact} を削除しますか?',
+  'localWhisper.settings.removeDialogTitle': '{kind}「{artifact}」を削除しますか?',
   'localWhisper.settings.removeDialogDescription':
     'これにより、選択した {kind} アーティファクトが管理対象ストレージから削除されます。他のバージョンは影響を受けません。',
   'localWhisper.settings.keepArtifact': 'アーティファクトを維持',

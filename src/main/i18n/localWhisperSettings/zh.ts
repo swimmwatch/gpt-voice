@@ -174,7 +174,7 @@ export default {
   'localWhisper.settings.interrupting': '正在中断…',
   'localWhisper.settings.cancellationFailed': '无法中断活动操作。Local Whisper 设置将保持打开状态。',
   'localWhisper.settings.manageArtifact': '管理 {artifact}',
-  'localWhisper.settings.removeDialogTitle': '删除 {artifact}？',
+  'localWhisper.settings.removeDialogTitle': '删除{kind}“{artifact}”？',
   'localWhisper.settings.removeDialogDescription': '这将从托管存储中删除选定的 {kind} 工件。其他版本不受影响。',
   'localWhisper.settings.keepArtifact': '保留工件',
   'localWhisper.settings.used': '使用的 {size}',

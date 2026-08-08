@@ -184,7 +184,7 @@ export default {
   'localWhisper.settings.interrupting': 'रोका जा रहा है…',
   'localWhisper.settings.cancellationFailed': 'सक्रिय प्रक्रिया को रोका नहीं जा सका। Local Whisper सेटिंग खुली रहेगी।',
   'localWhisper.settings.manageArtifact': '{artifact} प्रबंधित करें',
-  'localWhisper.settings.removeDialogTitle': '{artifact} हटाएं?',
+  'localWhisper.settings.removeDialogTitle': '{kind} “{artifact}” हटाएं?',
   'localWhisper.settings.removeDialogDescription':
     'यह प्रबंधित भंडारण से चयनित {kind} आर्टिफैक्ट को हटा देता है। अन्य संस्करण प्रभावित नहीं हैं.',
   'localWhisper.settings.keepArtifact': 'कलाकृतियाँ रखें',

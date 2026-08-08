@@ -139,12 +139,13 @@ describe('Local Whisper UI contracts', () => {
     const controls = source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx');
     const providerWindow = source('src/renderer/ProviderSettingsWindow.tsx');
     assert.match(page, /action !== 'cancel'/u);
-    assert.match(page, /<AlertDialog/u);
+    assert.match(page, /<ConfirmationDialog/u);
     assert.match(page, /continueInstallation/u);
     assert.match(page, /interruptAndClose/u);
     assert.match(page, /controller\.cancelArtifactOperations\(request\.operationIds\)/u);
     assert.match(page, /if \(request\.kind === 'window'\)[\s\S]*closeProviderSettings\(\)/u);
-    assert.match(page, /disabled=\{interruption\.pending\}/u);
+    assert.match(page, /onPendingChange=\{interruption\.onPendingChange\}/u);
+    assert.doesNotMatch(page, /AlertDialogAction/u);
     assert.match(page, /artifactDisabledReason\(t, platformUnavailable, catalogUnavailable, lifecycleBusy\)/u);
     assert.match(controls, /action === 'cancel' \? cancelDisabledReason : actionsDisabledReason/u);
     assert.match(controller, /MAX_CLOSE_CANCELLATION_OPERATIONS = 2/u);
@@ -154,6 +155,28 @@ describe('Local Whisper UI contracts', () => {
     assert.match(controller, /waitForArtifactOperations/u);
     assert.match(providerWindow, /onProviderSettingsCloseRequested/u);
     assert.match(providerWindow, /closeRequestRevision=\{closeRequestRevision\}/u);
+  });
+
+  it('uses the shared confirmation for Local Whisper destructive actions with trusted localized artifact labels', () => {
+    const controls = source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx');
+    const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
+    const locales = ['be', 'de', 'en', 'es', 'fr', 'hi', 'ja', 'pt-BR', 'ru', 'uk', 'zh'];
+
+    assert.match(controls, /<ConfirmationDialog/u);
+    assert.match(controls, /onConfirm=\{\(\) => onAction\('remove', artifact\)\}/u);
+    assert.match(controls, /artifact: artifact\.label,[\s\S]*kind: artifactKindLabel\(artifact\.kind, t\)/u);
+    assert.match(controls, /tone="destructive"/u);
+    assert.doesNotMatch(controls, /AlertDialog(?:Action|Cancel|Content|Footer|Header|Title)/u);
+    assert.match(page, /if \(controller\.actionError && interruption\.request === null\)/u);
+    assert.match(page, /<ConfirmationDialog[\s\S]*tone="destructive"/u);
+    assert.doesNotMatch(page, /AlertDialog(?:Action|Cancel|Content|Footer|Header|Title)/u);
+
+    for (const locale of locales) {
+      const localeSource = source(`src/main/i18n/localWhisperSettings/${locale}.ts`);
+      const title = localeSource.match(/'localWhisper\.settings\.removeDialogTitle': '([^']+)'/u)?.[1] ?? '';
+      assert.match(title, /\{kind\}/u, locale);
+      assert.match(title, /\{artifact\}/u, locale);
+    }
   });
 
   it('pairs measured and unmeasured progress indicators with their own status groups', () => {

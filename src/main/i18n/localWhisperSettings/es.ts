@@ -187,7 +187,7 @@ export default {
   'localWhisper.settings.cancellationFailed':
     'No se pudo interrumpir la operación activa. Los ajustes de Local Whisper permanecerán abiertos.',
   'localWhisper.settings.manageArtifact': 'Administrar {artifact}',
-  'localWhisper.settings.removeDialogTitle': '¿Eliminar {artifact}?',
+  'localWhisper.settings.removeDialogTitle': '¿Eliminar {kind} «{artifact}»?',
   'localWhisper.settings.removeDialogDescription':
     'Esto elimina el artefacto {kind} seleccionado del almacenamiento administrado. Otras versiones no se ven afectadas.',
   'localWhisper.settings.keepArtifact': 'Mantener artefacto',

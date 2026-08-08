@@ -1,6 +1,14 @@
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import type { ComponentProps } from 'react';
 import { cn } from '@renderer/lib/cn';
+import {
+  MODAL_CONTENT_CLASS_NAME,
+  MODAL_DESCRIPTION_CLASS_NAME,
+  MODAL_FOOTER_CLASS_NAME,
+  MODAL_HEADER_CLASS_NAME,
+  MODAL_OVERLAY_CLASS_NAME,
+  MODAL_TITLE_CLASS_NAME,
+} from '@renderer/components/ui/modal-styles';
 
 function AlertDialogOverlay({
   className,
@@ -8,7 +16,7 @@ function AlertDialogOverlay({
 }: ComponentProps<typeof AlertDialogPrimitive.Overlay>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Overlay
-      className={cn('fixed inset-0 z-50 bg-[var(--overlay)] [-webkit-app-region:no-drag]', className)}
+      className={cn(MODAL_OVERLAY_CLASS_NAME, className)}
       data-slot="alert-dialog-overlay"
       {...props}
     />
@@ -23,10 +31,7 @@ function AlertDialogContent({
     <AlertDialogPrimitive.Portal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
-        className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-border bg-surface p-5 text-foreground shadow-xl outline-none [-webkit-app-region:no-drag]',
-          className,
-        )}
+        className={cn(MODAL_CONTENT_CLASS_NAME, 'max-w-md', className)}
         data-slot="alert-dialog-content"
         {...props}
       />
@@ -35,13 +40,11 @@ function AlertDialogContent({
 }
 
 function AlertDialogHeader({ className, ...props }: ComponentProps<'div'>): React.JSX.Element {
-  return <div className={cn('grid gap-1', className)} data-slot="alert-dialog-header" {...props} />;
+  return <div className={cn(MODAL_HEADER_CLASS_NAME, className)} data-slot="alert-dialog-header" {...props} />;
 }
 
 function AlertDialogFooter({ className, ...props }: ComponentProps<'div'>): React.JSX.Element {
-  return (
-    <div className={cn('flex flex-wrap justify-end gap-2', className)} data-slot="alert-dialog-footer" {...props} />
-  );
+  return <div className={cn(MODAL_FOOTER_CLASS_NAME, className)} data-slot="alert-dialog-footer" {...props} />;
 }
 
 function AlertDialogTitle({
@@ -50,7 +53,7 @@ function AlertDialogTitle({
 }: ComponentProps<typeof AlertDialogPrimitive.Title>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Title
-      className={cn('text-base font-semibold text-foreground', className)}
+      className={cn(MODAL_TITLE_CLASS_NAME, className)}
       data-slot="alert-dialog-title"
       {...props}
     />
@@ -63,7 +66,7 @@ function AlertDialogDescription({
 }: ComponentProps<typeof AlertDialogPrimitive.Description>): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Description
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn(MODAL_DESCRIPTION_CLASS_NAME, className)}
       data-slot="alert-dialog-description"
       {...props}
     />

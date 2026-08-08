@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PiArrowCounterClockwise, PiFloppyDisk, PiInfo, PiWaveform } from 'react-icons/pi';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
-import { Button } from '@renderer/components/ui/button';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { useI18n } from '@renderer/hooks/useI18n';
@@ -104,8 +94,9 @@ function persistedIssueMessage(path: string, reason: string, translate: ReturnTy
 
 interface LocalWhisperInterruptionState {
   readonly attempted: boolean;
-  readonly confirm: () => Promise<void>;
+  readonly confirm: () => Promise<boolean>;
   readonly onOpenChange: (open: boolean) => void;
+  readonly onPendingChange: (pending: boolean) => void;
   readonly pending: boolean;
   readonly request: InterruptionRequest | null;
   readonly requestArtifactAction: (
@@ -114,6 +105,7 @@ interface LocalWhisperInterruptionState {
   ) => Promise<boolean>;
 }
 
+/** Coordinates confirmation and bounded cancellation for artifact and guarded-close interruptions. */
 function useLocalWhisperInterruption(
   closeRequestRevision: number,
   controller: LocalWhisperSettingsController,
@@ -154,25 +146,24 @@ function useLocalWhisperInterruption(
     [controller],
   );
 
-  const confirm = useCallback(async (): Promise<void> => {
-    if (!request || pending) return;
+  const confirm = useCallback(async (): Promise<boolean> => {
+    if (!request || pending) return false;
     setAttempted(true);
-    setPending(true);
     controller.clearActionError();
     const accepted = await controller.cancelArtifactOperations(request.operationIds);
-    setPending(false);
-    if (!accepted) return;
+    if (!accepted) return false;
     if (request.kind === 'window') {
       setHandledCloseRequestRevision(closeRequestRevision);
       closeProviderSettings();
-      return;
+      return true;
     }
     setArtifactRequest(null);
+    return true;
   }, [closeProviderSettings, closeRequestRevision, controller, pending, request]);
 
   const onOpenChange = useCallback(
     (open: boolean): void => {
-      if (open || pending || !request) return;
+      if (open || !request) return;
       setAttempted(false);
       if (request.kind === 'window') {
         setHandledCloseRequestRevision(closeRequestRevision);
@@ -180,7 +171,7 @@ function useLocalWhisperInterruption(
         setArtifactRequest(null);
       }
     },
-    [closeRequestRevision, pending, request],
+    [closeRequestRevision, request],
   );
 
   useEffect(() => {
@@ -189,7 +180,15 @@ function useLocalWhisperInterruption(
     }
   }, [activeOperationIds.length, closeProviderSettings, controller.snapshot, pending, windowCloseRequested]);
 
-  return { attempted, confirm, onOpenChange, pending, request, requestArtifactAction };
+  return {
+    attempted,
+    confirm,
+    onOpenChange,
+    onPendingChange: setPending,
+    pending,
+    request,
+    requestArtifactAction,
+  };
 }
 
 function LocalWhisperInterruptionDialog({
@@ -216,39 +215,26 @@ function LocalWhisperInterruptionDialog({
       : t('localWhisper.settings.interruptOperation');
 
   return (
-    <AlertDialog open={interruption.request !== null} onOpenChange={interruption.onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        {interruption.attempted && actionError ? (
-          <p className="lw-inline-error" role="alert">
-            {translateLocalWhisperActionError(actionError, t)}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel asChild>
-            <Button disabled={interruption.pending} variant="outline">
-              {t('localWhisper.settings.continueInstallation')}
-            </Button>
-          </AlertDialogCancel>
-          <AlertDialogAction asChild>
-            <Button
-              aria-busy={interruption.pending}
-              disabled={interruption.pending}
-              onClick={(event) => {
-                event.preventDefault();
-                void interruption.confirm();
-              }}
-              variant="destructive"
-            >
-              {actionLabel}
-            </Button>
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmationDialog
+      cancelLabel={t('localWhisper.settings.continueInstallation')}
+      confirmLabel={
+        windowClose ? t('localWhisper.settings.interruptAndClose') : t('localWhisper.settings.interruptOperation')
+      }
+      description={description}
+      onConfirm={interruption.confirm}
+      onOpenChange={interruption.onOpenChange}
+      onPendingChange={interruption.onPendingChange}
+      open={interruption.request !== null}
+      pendingLabel={actionLabel}
+      title={title}
+      tone="destructive"
+    >
+      {interruption.attempted && actionError ? (
+        <p className="lw-inline-error" role="alert">
+          {translateLocalWhisperActionError(actionError, t)}
+        </p>
+      ) : null}
+    </ConfirmationDialog>
   );
 }
 
@@ -274,8 +260,8 @@ export default function LocalWhisperSettingsPage({
   const lifecycleBusy = commandBusy || (snapshot?.progress.some(isLocalWhisperArtifactProgressActive) ?? false);
 
   useEffect(() => {
-    if (controller.actionError) errorSummaryRef.current?.focus();
-  }, [controller.actionError]);
+    if (controller.actionError && interruption.request === null) errorSummaryRef.current?.focus();
+  }, [controller.actionError, interruption.request]);
 
   if (controller.loading && (!snapshot || !draft)) {
     return (

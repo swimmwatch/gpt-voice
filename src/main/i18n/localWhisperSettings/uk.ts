@@ -184,7 +184,7 @@ export default {
   'localWhisper.settings.cancellationFailed':
     'Не вдалося перервати активну операцію. Вікно налаштувань Local Whisper залишиться відкритим.',
   'localWhisper.settings.manageArtifact': 'Керувати {artifact}',
-  'localWhisper.settings.removeDialogTitle': 'Видалити {artifact}?',
+  'localWhisper.settings.removeDialogTitle': 'Видалити {kind} «{artifact}»?',
   'localWhisper.settings.removeDialogDescription':
     'Це видаляє вибраний артефакт {kind} із керованого сховища. Інші версії не впливають.',
   'localWhisper.settings.keepArtifact': 'Зберігати артефакт',
