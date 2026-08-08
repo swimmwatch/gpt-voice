@@ -183,8 +183,12 @@ describe('provider status presentation', () => {
     assert.match(toolbar, /isVoiceProviderSwitching \? \([\s\S]*?: isLocalWhisperProvider \?/u);
     assert.match(prettify, /disabled=\{isProviderChangesLocked\}/u);
     assert.match(prettify, /getMainPrettifyProviderViewState\([\s\S]*?isProviderChangeSaving,/u);
-    assert.match(translation, /disabled=\{isSaving \|\| isProviderChangesLocked\}/u);
+    assert.equal((translation.match(/disabled=\{isSaving \|\| isProviderChangesLocked\}/gu) ?? []).length, 2);
     assert.match(translation, /loading=\{connectionPresentation\.loading\}/u);
+    assert.match(
+      app,
+      /onTargetLanguageChange=\{\(targetLanguage\) => \{\s*if \(isProviderChangesLocked\) return;/u,
+    );
   });
 
   it('uses an icon-only disconnected-provider action for every authentication type', () => {

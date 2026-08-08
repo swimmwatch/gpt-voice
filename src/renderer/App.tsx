@@ -1032,6 +1032,7 @@ const App: React.FC = () => {
           void saveTranslationSettings(candidate);
         }}
         onTargetLanguageChange={(targetLanguage) => {
+          if (isProviderChangesLocked) return;
           const candidate = createTranslationSettingsCandidate(
             translationSettingsSelection.confirmedSettings,
             targetLanguage,

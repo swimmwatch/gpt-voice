@@ -148,7 +148,7 @@ const TranslateSection = ({
 
       <div className="command-dock-language-field">
         <span className="command-dock-field-label">{t('translate.targetLanguage')}</span>
-        <Select disabled={isSaving} onValueChange={onTargetLanguageChange} value={targetLanguage}>
+        <Select disabled={isSaving || isProviderChangesLocked} onValueChange={onTargetLanguageChange} value={targetLanguage}>
           <SelectTrigger
             aria-label={t('translate.targetLanguage')}
             className="command-dock-provider-trigger command-dock-translation-trigger"
