@@ -1,9 +1,11 @@
 import { VoiceProviderSelectionService } from '@main/localWhisper/ipc/VoiceProviderSelectionService';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 const LEGACY_PROVIDER_IDS = ['chatgpt', 'openai-api', 'claude-web'] as const;
 
 /** Current-code model of the immediately preceding provider registry; it is not real-binary evidence. */
 export class LegacyVoiceProviderCompatibilityFixture {
+  private readonly mainInteractionLock = new MainInteractionLock();
   private provider: string | null = 'local-whisper';
   private readinessRevision = 0;
   public saveCount = 0;
@@ -47,6 +49,7 @@ export class LegacyVoiceProviderCompatibilityFixture {
         },
       },
       getReadinessRevision: () => this.readinessRevision,
+      mainInteractionLock: this.mainInteractionLock,
     });
   }
 

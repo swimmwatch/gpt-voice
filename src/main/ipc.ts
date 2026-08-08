@@ -78,6 +78,7 @@ import {
 } from '@shared/prettifyProfileCatalogIpc';
 import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
 import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
 import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
@@ -156,6 +157,7 @@ export interface MainIpcControllerDependencies {
   readonly ipc: MainIpcTransport;
   readonly localization: MainIpcLocalization;
   readonly logger: MainIpcLogger;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly notification: {
     show(title: string, body: string, options?: SystemNotificationOptions): void;
   };
@@ -387,10 +389,16 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
+      if (dependencies.mainInteractionLock.locked) {
+        return { error: dependencies.localization.translate('settings.blockedWhileOpen'), success: false };
+      }
       return dependencies.transcriptionService.transcribe(buffer, mimeType);
     });
 
     this.trustedIpc.handle('translate-text', async (_event, text: string, targetLang: string) => {
+      if (dependencies.mainInteractionLock.locked) {
+        return { error: dependencies.localization.translate('settings.blockedWhileOpen'), success: false };
+      }
       return dependencies.translationRuntime.translateText(text, targetLang);
     });
 
@@ -443,6 +451,9 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('provider-login', async (event, providerId: unknown) => {
+      if (this.isMainInteractionActionBlocked(event)) {
+        return { error: dependencies.localization.translate('settings.blockedWhileOpen'), success: false };
+      }
       let provider;
       try {
         if (typeof providerId !== 'string') {
@@ -562,6 +573,8 @@ export class MainIpcController {
       return dependencies.backgroundBrowserService.getStatus();
     });
 
+    this.registerMainInteractionLockIpc();
+
     this.trustedIpc.handle('get-providers', () => {
       return dependencies.voiceProviderRegistry.getAvailableProviders();
     });
@@ -580,11 +593,18 @@ export class MainIpcController {
       if (!provider?.hasSettings) {
         return { success: false, error: 'Provider settings are not available' };
       }
-      dependencies.windowManager.showProviderSettingsWindow(
+      const result = dependencies.windowManager.showProviderSettingsWindow(
         provider.id,
         dependencies.localization.translate('providerSettings.title', { provider: provider.name }),
       );
-      return { success: true };
+      if (result.success) return result;
+      return {
+        success: false,
+        error:
+          result.reason === 'recording-active'
+            ? dependencies.localization.translate('settings.blockedWhileRecording')
+            : dependencies.localization.translate('settings.blockedWhileOpen'),
+      };
     });
 
     this.trustedIpc.handle('close-provider-settings', (event) => {
@@ -600,8 +620,15 @@ export class MainIpcController {
       if (section !== undefined && !isAppSettingsSectionId(section)) {
         return { success: false, error: 'Unsupported settings section' };
       }
-      dependencies.windowManager.showSettingsWindow(section);
-      return { success: true };
+      const result = dependencies.windowManager.showSettingsWindow(section);
+      if (result.success) return result;
+      return {
+        success: false,
+        error:
+          result.reason === 'recording-active'
+            ? dependencies.localization.translate('settings.blockedWhileRecording')
+            : dependencies.localization.translate('settings.blockedWhileOpen'),
+      };
     });
 
     this.trustedIpc.handle('open-transcription-history', () => {
@@ -965,7 +992,14 @@ export class MainIpcController {
       return dependencies.config.getTextActionSettings();
     });
 
-    this.trustedIpc.handle('set-text-action-settings', (_event, settings: unknown) => {
+    this.trustedIpc.handle('set-text-action-settings', (event, settings: unknown) => {
+      if (this.isMainInteractionActionBlocked(event)) {
+        return {
+          success: false,
+          settings: dependencies.config.getTextActionSettings(),
+          error: dependencies.localization.translate('settings.blockedWhileOpen'),
+        };
+      }
       try {
         assertValidTextActionSettingsInput(settings);
         const normalized = normalizeTextActionSettings(settings);
@@ -993,29 +1027,7 @@ export class MainIpcController {
       }
     });
 
-    this.trustedIpc.handle('set-translate-settings', (_event, candidate: unknown) => {
-      try {
-        const settings = dependencies.config.saveTranslationSettings(candidate);
-        log.info('Translation settings saved', { providerId: settings.providerId });
-        void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
-          log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
-        });
-        return { success: true, settings };
-      } catch (error: unknown) {
-        const validationFailure = error instanceof TranslationSettingsValidationError;
-        log.warn('Translation settings update rejected', {
-          errorName: error instanceof Error ? error.name : 'unknown',
-          validationFailure,
-        });
-        return {
-          success: false,
-          settings: dependencies.config.getTranslationSettings(),
-          error: dependencies.localization.translate(
-            validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
-          ),
-        };
-      }
-    });
+    this.registerTranslationSettingsSaveIpc();
 
     this.trustedIpc.handle('get-prettify-settings', () => {
       return dependencies.prettifySettings.getView();
@@ -1031,8 +1043,15 @@ export class MainIpcController {
       },
     );
 
-    this.trustedIpc.handle('set-prettify-settings', (_event, settings: unknown = {}) =>
+    this.trustedIpc.handle('set-prettify-settings', (event, settings: unknown = {}) =>
       this.enqueuePrettifySettingsMutation(async () => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            settings: dependencies.prettifySettings.getView(),
+            error: dependencies.localization.translate('settings.blockedWhileOpen'),
+          };
+        }
         try {
           assertValidPrettifyProviderSettingsInput(settings);
           const previous = dependencies.prettifySettings.getView();
@@ -1107,10 +1126,17 @@ export class MainIpcController {
     this.trustedIpc.handle(
       'load-prettify-model',
       async (
-        _event,
+        event,
         providerId: KnownPrettifyProviderId,
         draftSettings: unknown = {},
       ): Promise<PrettifyModelLoadResult> => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            providerId,
+            error: dependencies.localization.translate('settings.blockedWhileOpen'),
+          };
+        }
         if (!isKnownPrettifyProviderId(providerId)) {
           const rejected = await dependencies.prettifyRuntime.loadModel(providerId, {});
           return { ...rejected, error: 'Unsupported prettify provider' };
@@ -1128,10 +1154,17 @@ export class MainIpcController {
     this.trustedIpc.handle(
       'unload-prettify-model',
       async (
-        _event,
+        event,
         providerId: KnownPrettifyProviderId,
         draftSettings: unknown = {},
       ): Promise<PrettifyModelUnloadResult> => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            providerId,
+            error: dependencies.localization.translate('settings.blockedWhileOpen'),
+          };
+        }
         if (!isKnownPrettifyProviderId(providerId)) {
           const rejected = await dependencies.prettifyRuntime.unloadModel(providerId, {});
           return { ...rejected, error: 'Unsupported prettify provider' };
@@ -1200,6 +1233,13 @@ export class MainIpcController {
     return this.disposalPromise;
   }
 
+  private isMainInteractionActionBlocked(event: Pick<IpcMainInvokeEvent, 'sender'>): boolean {
+    return (
+      this.dependencies.mainInteractionLock.locked &&
+      !this.dependencies.windowManager.isMainInteractionLockOwner(event.sender)
+    );
+  }
+
   private registerFirstLaunchStartupIpc(): void {
     const coordinator = this.dependencies.firstLaunchStartupCoordinator;
     this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
@@ -1211,6 +1251,47 @@ export class MainIpcController {
       const snapshot = sanitizeFirstLaunchStartupSnapshot(await coordinator.retry());
       if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
       return snapshot;
+    });
+  }
+
+  private registerMainInteractionLockIpc(): void {
+    this.trustedIpc.handle(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.mainInteractionLock.locked;
+    });
+  }
+
+  private registerTranslationSettingsSaveIpc(): void {
+    const { config, localization, logger, translationRuntime } = this.dependencies;
+    this.trustedIpc.handle('set-translate-settings', (event, candidate: unknown) => {
+      if (this.isMainInteractionActionBlocked(event)) {
+        return {
+          success: false,
+          settings: config.getTranslationSettings(),
+          error: localization.translate('settings.blockedWhileOpen'),
+        };
+      }
+      try {
+        const settings = config.saveTranslationSettings(candidate);
+        logger.info('Translation settings saved', { providerId: settings.providerId });
+        void translationRuntime.initializeSelectedProvider().catch(() => {
+          logger.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+        });
+        return { success: true, settings };
+      } catch (error: unknown) {
+        const validationFailure = error instanceof TranslationSettingsValidationError;
+        logger.warn('Translation settings update rejected', {
+          errorName: error instanceof Error ? error.name : 'unknown',
+          validationFailure,
+        });
+        return {
+          success: false,
+          settings: config.getTranslationSettings(),
+          error: localization.translate(
+            validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
+          ),
+        };
+      }
     });
   }
 

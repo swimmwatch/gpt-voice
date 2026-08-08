@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents, WebFrameMain } from 'electron';
 import { AboutWindowController } from '@main/aboutWindowController';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import { WindowManager } from '@main/window';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
@@ -20,6 +21,7 @@ type WindowListener = (...args: unknown[]) => void;
 class RecordingBrowserWindow {
   public closeCount = 0;
   public destroyed = false;
+  public enabled = true;
   public focusCount = 0;
   public hideCount = 0;
   public loadUrls: string[] = [];
@@ -118,6 +120,10 @@ class RecordingBrowserWindow {
 
   public setIcon(): void {}
 
+  public setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+  }
+
   public setMenuBarVisibility(): void {}
 
   public show(): void {
@@ -140,6 +146,7 @@ class RecordingBrowserWindow {
 
 class WindowManagerHarness {
   public readonly created: RecordingBrowserWindow[] = [];
+  public readonly mainInteractionLock = new MainInteractionLock();
   public readonly manager = new WindowManager({
     createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
     createBrowserWindow: (options) => {
@@ -155,6 +162,7 @@ class WindowManagerHarness {
     getAppIconPath: () => '/assets/icon.png',
     getAppUrl: (pathname = 'index.html') => `app://gpt-voice/${pathname}`,
     logger: { debug: () => undefined, warn: () => undefined },
+    mainInteractionLock: this.mainInteractionLock,
     openExternal: async () => undefined,
     platform: 'linux',
     preloadPath: '/dist/preload.js',
@@ -189,6 +197,7 @@ describe('WindowManager', () => {
   it('publishes only the closed Translation connection state to the main window', () => {
     const harness = new WindowManagerHarness();
     harness.manager.createMainWindow();
+    harness.created[0]?.sent.splice(0);
     const state = {
       detail: 'navigation-failed',
       providerId: 'google',
@@ -220,6 +229,7 @@ describe('WindowManager', () => {
 
     harness.manager.publishFirstLaunchStartupSnapshot(snapshot);
     harness.manager.createMainWindow();
+    harness.created[0]?.sent.splice(0);
     harness.manager.publishFirstLaunchStartupSnapshot({ ...snapshot, privateInstallerPath: '/private/cache/chrome' });
     harness.manager.publishFirstLaunchStartupSnapshot(snapshot);
     assert.deepEqual(harness.created[0]?.sent, [[FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, snapshot]]);
@@ -263,22 +273,26 @@ describe('WindowManager', () => {
 
   it('guards only Local Whisper native close requests until renderer confirmation', () => {
     const harness = new WindowManagerHarness();
-    harness.manager.showProviderSettingsWindow('local-whisper', 'Local Whisper');
-    harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');
+    assert.deepEqual(harness.manager.showProviderSettingsWindow('local-whisper', 'Local Whisper'), { success: true });
+    assert.deepEqual(harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI'), {
+      reason: 'locked',
+      success: false,
+    });
     const localWhisperWindow = harness.created[0];
-    const openAiWindow = harness.created[1];
-    assert.ok(localWhisperWindow && openAiWindow);
+    assert.ok(localWhisperWindow);
 
     localWhisperWindow.triggerClose();
     assert.equal(localWhisperWindow.destroyed, false);
     assert.deepEqual(localWhisperWindow.sent, [[PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested]]);
 
-    openAiWindow.triggerClose();
-    assert.equal(openAiWindow.destroyed, true);
-    assert.deepEqual(openAiWindow.sent, []);
-
     assert.equal(harness.manager.closeProviderSettingsWindow(localWhisperWindow.webContents), true);
     assert.equal(localWhisperWindow.destroyed, true);
+
+    assert.deepEqual(harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI'), { success: true });
+    const openAiWindow = harness.created[1];
+    assert.ok(openAiWindow);
+    openAiWindow.triggerClose();
+    assert.equal(openAiWindow.destroyed, true);
   });
 
   it('bypasses the Local Whisper close guard during application disposal', () => {
@@ -293,16 +307,74 @@ describe('WindowManager', () => {
     assert.deepEqual(localWhisperWindow.sent, []);
   });
 
+  it('disables non-owner windows for the settings lease and restores them after close', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    harness.manager.showHistoryWindow();
+    harness.manager.showAboutWindow();
+
+    const mainWindow = harness.created[0];
+    const historyWindow = harness.created[1];
+    const aboutWindow = harness.created[2];
+    assert.ok(mainWindow);
+    assert.ok(historyWindow);
+    assert.ok(aboutWindow);
+
+    assert.deepEqual(harness.manager.showSettingsWindow(), { success: true });
+    const settingsWindow = harness.created[3];
+    assert.ok(settingsWindow);
+    assert.equal(mainWindow.enabled, false);
+    assert.equal(historyWindow.enabled, false);
+    assert.equal(aboutWindow.enabled, false);
+    assert.equal(settingsWindow.enabled, true);
+
+    harness.manager.closeSettingsWindow();
+    assert.equal(mainWindow.enabled, true);
+    assert.equal(historyWindow.enabled, true);
+    assert.equal(aboutWindow.enabled, true);
+  });
+
+  it('refuses settings windows while recording is active', () => {
+    const harness = new WindowManagerHarness();
+    harness.mainInteractionLock.setRecordingLifecycleState('recording');
+
+    assert.deepEqual(harness.manager.showSettingsWindow(), {
+      reason: 'recording-active',
+      success: false,
+    });
+    assert.deepEqual(harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI'), {
+      reason: 'recording-active',
+      success: false,
+    });
+    assert.equal(harness.created.length, 0);
+  });
+
   it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', async () => {
     const harness = new WindowManagerHarness();
     harness.manager.createMainWindow();
     harness.manager.showSettingsWindow('shortcuts');
+    const mainWindow = harness.created[0];
+    const settingsWindow = harness.created[1];
+    assert.ok(mainWindow);
+    assert.ok(settingsWindow);
+    assert.equal(mainWindow.enabled, false);
+    assert.equal(settingsWindow.enabled, true);
+    assert.equal(
+      harness.manager.getTrustedSettingsWindow(settingsWindow.webContents, settingsWindow.loadUrls[0] ?? ''),
+      settingsWindow as unknown as BrowserWindow,
+    );
+
+    harness.manager.showHistoryWindow();
+    harness.manager.showAboutWindow();
+    harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');
+    assert.equal(harness.created.length, 2);
+
+    harness.manager.closeSettingsWindow();
+    assert.equal(mainWindow.enabled, true);
     harness.manager.showHistoryWindow();
     harness.manager.showAboutWindow();
     harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');
 
-    const mainWindow = harness.created[0];
-    const settingsWindow = harness.created[1];
     const providerWindow = harness.created[4];
     assert.equal(harness.created.length, 5);
     assert.match(providerWindow?.loadUrls[0] ?? '', /providerId=openai-api/u);
@@ -313,10 +385,6 @@ describe('WindowManager', () => {
       true,
     );
     assert.equal(harness.manager.isTrustedAppWindow(providerWindow?.webContents, 'https://attacker.example/'), false);
-    assert.equal(
-      harness.manager.getTrustedSettingsWindow(settingsWindow?.webContents, settingsWindow?.loadUrls[0] ?? ''),
-      settingsWindow as unknown as BrowserWindow,
-    );
     assert.equal(
       harness.manager.getTrustedSettingsWindow(mainWindow?.webContents, mainWindow?.loadUrls[0] ?? ''),
       null,
@@ -333,13 +401,13 @@ describe('WindowManager', () => {
     );
 
     harness.manager.broadcastLocaleChanged('en');
-    for (const window of harness.created) {
+    for (const window of harness.created.filter((candidate) => !candidate.destroyed)) {
       assert.deepEqual(window.sent[window.sent.length - 1], ['locale-changed', 'en']);
     }
     assert.deepEqual(chooserWindow.sent, []);
-    assert.equal(mainWindow?.sent.length, 1);
+    assert.deepEqual(mainWindow.sent[mainWindow.sent.length - 1], ['locale-changed', 'en']);
 
-    harness.manager.closeSettingsWindow();
+    providerWindow?.triggerClose();
     harness.manager.showSettingsWindow('audit-log');
     const replacementSettingsWindow = harness.created[5];
     assert.equal(

@@ -17,6 +17,7 @@ import {
   createFirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS } from '@shared/mainInteractionLock';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
@@ -185,6 +186,26 @@ describe('preload API factory', () => {
     renderer.emit(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested);
 
     assert.equal(requests, 1);
+  });
+
+  it('decodes main-interaction lock state and cleans up its direct event listener', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, true);
+    const api = createElectronApi(renderer);
+    const events: boolean[] = [];
+    const unsubscribe = api.onMainInteractionLockChanged((locked) => events.push(locked));
+
+    assert.equal(await api.getMainInteractionLocked(), true);
+    renderer.emit(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, true);
+    renderer.emit(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, 'forged');
+    unsubscribe();
+    renderer.emit(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, false);
+
+    assert.deepEqual(events, [true]);
+    assert.deepEqual(renderer.invocations.slice(-1), [{ args: [], channel: MAIN_INTERACTION_LOCK_IPC_CHANNELS.query }]);
+
+    renderer.respond(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, 'forged');
+    assert.equal(await api.getMainInteractionLocked(), false);
   });
 
   it('sanitizes Translation connection queries and ignores malformed events', async () => {

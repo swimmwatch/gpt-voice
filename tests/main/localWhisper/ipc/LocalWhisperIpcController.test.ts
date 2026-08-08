@@ -8,6 +8,7 @@ import {
   createLocalWhisperRendererSafeFailure,
   type LocalWhisperSettingsCommand,
 } from '@shared/localWhisper';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 import {
   CATALOG_REVISION,
@@ -36,6 +37,7 @@ function createHarness(
   const transport = new FakeTransport();
   const authority = new FakeAuthority();
   const coordinator = new FakeCoordinator();
+  const mainInteractionLock = new MainInteractionLock();
   const privileged = new FakePrivilegedPorts();
   const snapshots = createSnapshotService(coordinator, facts);
   let openSettingsCalls = 0;
@@ -47,6 +49,7 @@ function createHarness(
     authority,
     coordinator,
     artifacts: privileged.artifacts,
+    mainInteractionLock,
     managedFolder: privileged.folder,
     references: privileged.references,
     snapshots,
@@ -64,6 +67,7 @@ function createHarness(
     transport,
     authority,
     coordinator,
+    mainInteractionLock,
     privileged,
     snapshots,
     controller,
@@ -314,6 +318,20 @@ describe('LocalWhisperIpcController', () => {
     finishLoad();
     await first;
     assert.equal(harness.coordinator.unloadCalls, 0);
+  });
+
+  it('rejects main residency commands while a settings window owns the interaction lock', async () => {
+    const harness = createHarness();
+    const acquisition = harness.mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+
+    const result = await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, fakeEvent('main'), {
+      kind: 'load',
+      expectedSnapshotRevision: harness.snapshots.mainStatus.snapshotRevision,
+    });
+
+    assert.equal((result as { readonly failure: { readonly code: string } }).failure.code, 'OPERATION_CONFLICT');
+    assert.equal(harness.coordinator.loadCalls, 0);
   });
 
   it('atomically replays ordered snapshots and revokes invalidated subscribers', async () => {

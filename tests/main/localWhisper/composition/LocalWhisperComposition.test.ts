@@ -6,6 +6,7 @@ import { VoiceProviderSelectionService } from '@main/localWhisper/ipc/VoiceProvi
 import type { LocalWhisperCoordinator } from '@main/localWhisper/coordinator/LocalWhisperCoordinator';
 import type { LocalWhisperIpcController } from '@main/localWhisper/ipc/LocalWhisperIpcController';
 import type { LocalWhisperSnapshotService } from '@main/localWhisper/ipc/LocalWhisperSnapshotService';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 class SelectionConfig {
   public saveCalls = 0;
@@ -49,6 +50,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 7,
+      mainInteractionLock: new MainInteractionLock(),
     });
 
     const result = await service.select('local-whisper');
@@ -78,6 +80,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 8,
+      mainInteractionLock: new MainInteractionLock(),
     });
 
     const runtimeFailure = await service.select('local-whisper');
@@ -115,6 +118,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 9,
+      mainInteractionLock: new MainInteractionLock(),
     });
 
     const result = await service.select('chatgpt');
@@ -147,6 +151,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 9,
+      mainInteractionLock: new MainInteractionLock(),
     });
 
     const first = service.select('local-whisper');
@@ -178,6 +183,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 10,
+      mainInteractionLock: new MainInteractionLock(),
     });
 
     const result = await service.select('local-whisper');
@@ -186,6 +192,32 @@ describe('VoiceProviderSelectionService', () => {
     assert.equal(config.provider, 'local-whisper');
     assert.equal(config.saveCalls, 1);
     assert.deepEqual(switched, ['local-whisper']);
+  });
+
+  it('rejects direct provider switching while a settings lease is active', async () => {
+    const config = new SelectionConfig();
+    const mainInteractionLock = new MainInteractionLock();
+    let switchCalls = 0;
+    const service = new VoiceProviderSelectionService({
+      config,
+      registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
+      runtime: {
+        clearProvider: async () => ({}),
+        switchProvider: async () => {
+          switchCalls += 1;
+          return {};
+        },
+      },
+      getReadinessRevision: () => 11,
+      mainInteractionLock,
+    });
+    const acquisition = mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+
+    const result = await service.select('local-whisper');
+    assert.equal(result.success, false);
+    assert.equal(result.committedProviderId, 'chatgpt');
+    assert.equal(switchCalls, 0);
   });
 });
 

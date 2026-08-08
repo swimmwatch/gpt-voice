@@ -128,6 +128,8 @@ export default {
   'providerSettings.clearConfirmDescription':
     'Vous devrez vous reconnecter ou saisir une clé à nouveau pour utiliser ce fournisseur.',
   'appSettings.open': "Paramètres de l'application",
+  'settings.blockedWhileOpen': 'Fermez les paramètres pour reprendre GPT-Voice.',
+  'settings.blockedWhileRecording': "Arrêtez l'enregistrement avant d'ouvrir les paramètres.",
   'appSettings.title': 'Paramètres',
   'appSettings.system': 'Système',
   'appSettings.language': "Langue de l'application",

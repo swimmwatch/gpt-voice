@@ -54,4 +54,16 @@ describe('window startup state', () => {
 
     assert.match(source, /document\.body\.dataset\.windowStartup = startupState/u);
   });
+
+  it('subscribes to the main interaction lock before querying and makes the app root inert', () => {
+    const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/App.tsx'), 'utf8');
+    const subscription = source.indexOf('onMainInteractionLockChanged');
+    const query = source.indexOf('getMainInteractionLocked');
+    const mainRoot = source.slice(source.indexOf('<main'), source.indexOf('<MainToolbar'));
+
+    assert.ok(subscription >= 0);
+    assert.ok(query > subscription);
+    assert.match(mainRoot, /aria-disabled=\{isMainInteractionLocked\}/u);
+    assert.match(mainRoot, /inert=\{isMainInteractionLocked\}/u);
+  });
 });

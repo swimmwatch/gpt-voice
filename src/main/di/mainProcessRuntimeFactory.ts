@@ -40,6 +40,7 @@ import type { PrettifyProfileChooserWindowController } from '../prettifyProfileC
 import type { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
 import type { LocalWhisperIpcController } from '../localWhisper/ipc/LocalWhisperIpcController';
 import type { LocalWhisperSnapshotService } from '../localWhisper/ipc/LocalWhisperSnapshotService';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import { VoiceProviderSelectionService } from '../localWhisper/ipc/VoiceProviderSelectionService';
 
 type StreamingRuntimeDependencies = Omit<
@@ -57,6 +58,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'diagnosticsExport'
   | 'firstLaunchStartupCoordinator'
   | 'historyController'
+  | 'mainInteractionLock'
   | 'prettifyProfileChooserIpc'
   | 'prettifyProfileChooserWindow'
   | 'prettifyProfilePortability'
@@ -108,6 +110,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly localWhisperEnvironmentDispose: () => Promise<void>;
   readonly localWhisperIpcController: LocalWhisperIpcController;
   readonly localWhisperSnapshots: LocalWhisperSnapshotService;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly shortcutController: ShortcutController;
@@ -177,6 +180,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       runtime: this.controllers.backgroundBrowserService,
       registry: this.controllers.voiceProviderRegistry,
       getReadinessRevision: () => this.controllers.localWhisperSnapshots.snapshot.snapshotRevision,
+      mainInteractionLock: this.controllers.mainInteractionLock,
     });
     const ipcController = new MainIpcController({
       ...this.dependencies.ipc,
@@ -190,6 +194,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       diagnosticsExport: this.controllers.diagnosticsExport,
       firstLaunchStartupCoordinator: this.controllers.firstLaunchStartupCoordinator,
       historyController,
+      mainInteractionLock: this.controllers.mainInteractionLock,
       prettifyProfileChooserIpc,
       prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,
       prettifyProfilePortability: this.controllers.prettifyProfilePortability,

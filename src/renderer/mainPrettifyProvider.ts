@@ -149,13 +149,21 @@ export function getMainPrettifyProviderViewState(
   ollamaModels: readonly PrettifyModelOption[],
   cliConnection: MainPrettifyCliConnectionState | null = null,
   httpConnection: MainPrettifyHttpConnectionState | null = null,
+  isProviderChangeSaving = false,
 ): MainPrettifyProviderViewState {
   const ollamaControl = getOllamaModelControl(settings, ollamaModels);
   const isCliProvider = settings.providerId === 'claude-cli' || settings.providerId === 'codex-cli';
+  const connection = isProviderChangeSaving
+    ? {
+        labelKey: 'mainDock.prettifyChecking' as const,
+        loading: true,
+        tone: 'neutral' as const,
+        tooltipKey: 'provider.connectionCheckingTooltip' as const,
+      }
+    : (getMainPrettifyCliConnectionViewState(settings.providerId, cliConnection) ??
+      getMainPrettifyHttpConnectionViewState(settings.providerId, httpConnection));
   return {
-    connection:
-      getMainPrettifyCliConnectionViewState(settings.providerId, cliConnection) ??
-      getMainPrettifyHttpConnectionViewState(settings.providerId, httpConnection),
+    connection,
     model: getActiveModel(settings),
     modelFallbackKey: isCliProvider ? 'prettify.providerDefault' : 'prettify.noModels',
     ollamaControl,

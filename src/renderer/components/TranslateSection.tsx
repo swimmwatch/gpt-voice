@@ -18,6 +18,8 @@ import {
 interface Props {
   connectionState: TranslationProviderConnectionState | null;
   error: string;
+  isProviderChangesLocked: boolean;
+  isProviderChangeSaving: boolean;
   isSaving: boolean;
   onProviderChange: (providerId: TranslationProviderId) => void;
   onTargetLanguageChange: (targetLanguage: string) => void;
@@ -52,6 +54,7 @@ const TRANSLATION_CONNECTION_TONES: Record<TranslationProviderConnectionStatus, 
 
 export interface TranslationProviderConnectionPresentation {
   readonly labelKey: TranslationKey;
+  readonly loading: boolean;
   readonly tone: ProviderStatusTone;
   readonly tooltipKey: TranslationKey;
 }
@@ -59,7 +62,16 @@ export interface TranslationProviderConnectionPresentation {
 export function getTranslationProviderConnectionPresentation(
   connectionState: TranslationProviderConnectionState | null,
   settings: TranslationSettings,
+  isProviderChangeSaving = false,
 ): TranslationProviderConnectionPresentation {
+  if (isProviderChangeSaving) {
+    return {
+      labelKey: TRANSLATION_CONNECTION_LABEL_KEYS[TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking],
+      loading: true,
+      tone: TRANSLATION_CONNECTION_TONES[TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking],
+      tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider],
+    };
+  }
   const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
   const connectionMatchesSelection =
     connectionState?.providerId === null ||
@@ -74,6 +86,7 @@ export function getTranslationProviderConnectionPresentation(
       : TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider;
   return {
     labelKey: TRANSLATION_CONNECTION_LABEL_KEYS[status],
+    loading: status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking,
     tone: TRANSLATION_CONNECTION_TONES[status],
     tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[detail],
   };
@@ -83,6 +96,8 @@ export function getTranslationProviderConnectionPresentation(
 const TranslateSection = ({
   connectionState,
   error,
+  isProviderChangesLocked,
+  isProviderChangeSaving,
   isSaving,
   onProviderChange,
   onTargetLanguageChange,
@@ -94,7 +109,11 @@ const TranslateSection = ({
     [locale, settings.providerId],
   );
   const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
-  const connectionPresentation = getTranslationProviderConnectionPresentation(connectionState, settings);
+  const connectionPresentation = getTranslationProviderConnectionPresentation(
+    connectionState,
+    settings,
+    isProviderChangeSaving,
+  );
 
   return (
     <section className="command-dock-language-band" data-slot="translate-section">
@@ -103,7 +122,7 @@ const TranslateSection = ({
       <div className="command-dock-language-field command-dock-language-target-field">
         <span className="command-dock-field-label">{t('translate.provider')}</span>
         <Select
-          disabled={isSaving}
+          disabled={isSaving || isProviderChangesLocked}
           onValueChange={(providerId) => {
             if (TRANSLATION_PROVIDER_OPTIONS.some((option) => option.value === providerId)) {
               onProviderChange(providerId as TranslationProviderId);
@@ -154,7 +173,7 @@ const TranslateSection = ({
         className="command-dock-provider-state command-dock-translation-connection"
         dataSlot="translation-provider-connection"
         label={t(connectionPresentation.labelKey)}
-        loading={connectionState?.status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking}
+        loading={connectionPresentation.loading}
         tone={connectionPresentation.tone}
         tooltip={t(connectionPresentation.tooltipKey)}
       />

@@ -138,6 +138,25 @@ describe('main Prettify provider view state', () => {
       }).connection?.labelKey,
       'mainDock.prettifyChecking',
     );
+
+    assert.deepEqual(
+      getMainPrettifyProviderViewState(
+        settings,
+        [],
+        null,
+        {
+          providerId: 'vllm',
+          status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected,
+        },
+        true,
+      ).connection,
+      {
+        labelKey: 'mainDock.prettifyChecking',
+        loading: true,
+        tone: 'neutral',
+        tooltipKey: 'provider.connectionCheckingTooltip',
+      },
+    );
   });
 
   it('requires an explicit HTTP model before reporting execution readiness', () => {

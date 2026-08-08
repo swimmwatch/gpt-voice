@@ -86,10 +86,12 @@ const App: React.FC = () => {
   const [isFirstLaunchRetryPending, setIsFirstLaunchRetryPending] = useState(false);
   const [didFirstLaunchRetryFail, setDidFirstLaunchRetryFail] = useState(false);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
+  const [isMainInteractionLocked, setIsMainInteractionLocked] = useState(false);
   const [status, setStatus] = useState<RendererStatus | null>(null);
   const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isVoiceProviderSwitching, setIsVoiceProviderSwitching] = useState(false);
   const [providerConnectionReason, setProviderConnectionReason] = useState<ProviderConnectionReason>(
     PROVIDER_CONNECTION_REASONS.SessionMissing,
   );
@@ -113,6 +115,12 @@ const App: React.FC = () => {
     },
   );
   const prettifySettings = prettifyProviderSelection.settings;
+  const isPrettifyProviderSwitching = prettifyProviderSelection.pendingRequestId !== null;
+  const isTranslationProviderSwitching =
+    translationSettingsSelection.pendingRequestId !== null &&
+    translationSettingsSelection.settings.providerId !== translationSettingsSelection.confirmedSettings.providerId;
+  const isProviderChangesLocked =
+    isVoiceProviderSwitching || isPrettifyProviderSwitching || isTranslationProviderSwitching;
   const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
   const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
   const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
@@ -159,6 +167,25 @@ const App: React.FC = () => {
     void desktopApi
       .getFirstLaunchStartupSnapshot()
       .then(acceptSnapshot)
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+
+  useEffect(() => {
+    let disposed = false;
+    const unsubscribe = desktopApi.onMainInteractionLockChanged((locked) => {
+      if (!disposed) setIsMainInteractionLocked(locked);
+    });
+
+    void desktopApi
+      .getMainInteractionLocked()
+      .then((locked) => {
+        if (!disposed) setIsMainInteractionLocked(locked);
+      })
       .catch(() => undefined);
 
     return () => {
@@ -414,6 +441,7 @@ const App: React.FC = () => {
       case 'switch-started':
         recordingActionsRef.current.cancelStreamingForProviderChange();
         setIsLoggingIn(false);
+        setIsVoiceProviderSwitching(true);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
         setProviderConnectionFailureStatus(null);
         return;
@@ -477,6 +505,7 @@ const App: React.FC = () => {
         return;
       }
       case 'switch-settled':
+        setIsVoiceProviderSwitching(false);
         return;
     }
   });
@@ -740,6 +769,7 @@ const App: React.FC = () => {
   };
 
   const handleProviderChange = (providerId: string): void => {
+    if (isProviderChangesLocked) return;
     const authType = providers.find((provider) => provider.id === providerId)?.authType ?? 'browserSession';
     void providerSelectionCoordinatorRef.current?.switchProvider(providerId, authType);
   };
@@ -747,7 +777,11 @@ const App: React.FC = () => {
   const ollamaModelControl = getOllamaModelControl(prettifySettings, ollamaModelOptions);
 
   const handlePrettifyProviderChange = async (providerId: PrettifyProviderId): Promise<void> => {
-    if (providerId === prettifySettings.providerId || prettifyProviderSelection.pendingRequestId !== null) {
+    if (
+      isProviderChangesLocked ||
+      providerId === prettifySettings.providerId ||
+      prettifyProviderSelection.pendingRequestId !== null
+    ) {
       return;
     }
 
@@ -841,9 +875,20 @@ const App: React.FC = () => {
 
   const openAppSettingsWindow = useCallback(
     (section?: 'prettify'): void => {
-      void desktopApi.openAppSettings(section).catch(() => {
-        setStatus(translatedStatus('error.notificationUnknown'));
-      });
+      void desktopApi
+        .openAppSettings(section)
+        .then((result) => {
+          if (!result.success) {
+            setStatus(
+              result.error
+                ? notificationErrorStatus(presentNotificationError(result.error, { context: 'generic' }))
+                : translatedStatus('error.notificationUnknown'),
+            );
+          }
+        })
+        .catch(() => {
+          setStatus(translatedStatus('error.notificationUnknown'));
+        });
     },
     [desktopApi],
   );
@@ -908,7 +953,12 @@ const App: React.FC = () => {
   }
 
   return (
-    <main className="command-dock" data-slot="main-window">
+    <main
+      aria-disabled={isMainInteractionLocked}
+      className="command-dock"
+      data-slot="main-window"
+      inert={isMainInteractionLocked}
+    >
       <MainToolbar
         activeProviderAuthType={activeProviderAuthType}
         activeProviderId={activeProviderId}
@@ -916,6 +966,8 @@ const App: React.FC = () => {
         activeProviderName={activeProviderName}
         isLoggedIn={isLoggedIn}
         isLoggingIn={isLoggingIn}
+        isProviderChangesLocked={isProviderChangesLocked}
+        isVoiceProviderSwitching={isVoiceProviderSwitching}
         localWhisperStatus={localWhisperMain.snapshot}
         localWhisperPendingAction={localWhisperMain.pendingAction}
         localWhisperResidencyFailure={localWhisperMain.failure}
@@ -941,7 +993,8 @@ const App: React.FC = () => {
         error={prettifyProviderSelection.error || prettifyModelActionError}
         httpConnection={prettifyHttpConnection}
         isModelActionRunning={isPrettifyModelActionRunning}
-        isProviderChangeSaving={prettifyProviderSelection.pendingRequestId !== null}
+        isProviderChangesLocked={isProviderChangesLocked}
+        isProviderChangeSaving={isPrettifyProviderSwitching}
         ollamaModels={ollamaModelOptions}
         onModelAction={() => void handleOllamaModelAction()}
         onOpenSettings={() => openAppSettingsWindow('prettify')}
@@ -951,8 +1004,11 @@ const App: React.FC = () => {
       <TranslateSection
         connectionState={translationConnectionState}
         error={translationSettingsSelection.error}
+        isProviderChangesLocked={isProviderChangesLocked}
+        isProviderChangeSaving={isTranslationProviderSwitching}
         isSaving={translationSettingsSelection.pendingRequestId !== null}
         onProviderChange={(providerId) => {
+          if (isProviderChangesLocked) return;
           const candidate = createTranslationProviderCandidate(
             translationSettingsSelection.confirmedSettings,
             providerId,

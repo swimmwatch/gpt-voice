@@ -34,6 +34,8 @@ interface MainToolbarProps {
   activeProviderName: string;
   isLoggedIn: boolean;
   isLoggingIn: boolean;
+  isProviderChangesLocked: boolean;
+  isVoiceProviderSwitching: boolean;
   localWhisperStatus: LocalWhisperMainStatusSnapshot | null;
   localWhisperPendingAction: LocalWhisperMainResidencyAction | null;
   localWhisperResidencyFailure: LocalWhisperMainResidencyFailure | null;
@@ -70,6 +72,8 @@ function MainToolbar({
   activeProviderName,
   isLoggedIn,
   isLoggingIn,
+  isProviderChangesLocked,
+  isVoiceProviderSwitching,
   localWhisperStatus,
   localWhisperPendingAction,
   localWhisperResidencyFailure,
@@ -86,7 +90,6 @@ function MainToolbar({
   providers,
 }: MainToolbarProps): React.JSX.Element {
   const { t } = useI18n();
-  const isBrowserSessionProvider = activeProviderAuthType === 'browserSession';
   const isLocalWhisperProvider = activeProviderId === LOCAL_WHISPER_PROVIDER_ID;
   const providerActionLabel = t(activeProviderAuthType === 'apiKey' ? 'provider.configure' : 'provider.connect');
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
@@ -158,7 +161,11 @@ function MainToolbar({
         <Mic aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
         <div className="command-dock-provider-field">
           <span className="command-dock-field-label">{t('mainDock.providerLabel')}</span>
-          <Select onValueChange={onProviderChange} value={activeProviderId ?? undefined}>
+          <Select
+            disabled={isProviderChangesLocked}
+            onValueChange={onProviderChange}
+            value={activeProviderId ?? undefined}
+          >
             <SelectTrigger aria-label={t('provider.label')} className="command-dock-provider-trigger">
               <SelectValue placeholder={t(activeProviderId === null ? 'startup.selectProvider' : 'provider.label')} />
             </SelectTrigger>
@@ -186,7 +193,16 @@ function MainToolbar({
           data-slot="provider-controls"
         >
           {activeProviderId !== null &&
-            (isLocalWhisperProvider ? (
+            (isVoiceProviderSwitching ? (
+              <ProviderStatusIndicator
+                className="command-dock-provider-state"
+                dataSlot="voice-provider-connection"
+                label={t('provider.connectionChecking')}
+                loading
+                tone="neutral"
+                tooltip={t('provider.connectionCheckingTooltip')}
+              />
+            ) : isLocalWhisperProvider ? (
               <>
                 <LocalWhisperMainStatusIndicator
                   connectedLabel={t('provider.connected')}
@@ -215,16 +231,13 @@ function MainToolbar({
                   <Button
                     aria-label={providerActionLabel}
                     className="command-dock-provider-action"
-                    data-icon-only={isBrowserSessionProvider}
+                    data-icon-only
                     disabled={isLoggingIn}
                     onClick={onProviderLogin}
-                    size={isBrowserSessionProvider ? 'icon' : 'default'}
+                    size="icon"
                     variant="outline"
                   >
                     {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
-                    {!isBrowserSessionProvider && (
-                      <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>
-                    )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>{providerStatusTooltip}</TooltipContent>

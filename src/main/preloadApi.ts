@@ -79,6 +79,7 @@ import {
   sanitizeFirstLaunchStartupSnapshot,
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, isMainInteractionLockState } from '@shared/mainInteractionLock';
 import {
   LOCAL_WHISPER_IPC_CHANNELS,
   isLocalWhisperMainStatusSnapshot,
@@ -184,6 +185,15 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getRecordingStatus: (): Promise<boolean> => {
       return ipcRenderer.invoke('get-recording-status');
+    },
+    getMainInteractionLocked: async (): Promise<boolean> => {
+      const value = await ipcRenderer.invoke<unknown>(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query);
+      return isMainInteractionLockState(value) ? value : false;
+    },
+    onMainInteractionLockChanged: (callback: (locked: boolean) => void): (() => void) => {
+      return onMainEvent<[unknown]>(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, (value) => {
+        if (isMainInteractionLockState(value)) callback(value);
+      });
     },
     providerLogin: (providerId: string): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
       return ipcRenderer.invoke('provider-login', providerId);

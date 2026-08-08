@@ -122,6 +122,8 @@ export default {
   'providerSettings.clearConfirmDescription':
     'इस प्रदाता का उपयोग करने के लिए आपको फिर से साइन इन करना होगा या एक कुंजी दर्ज करनी होगी।',
   'appSettings.open': 'ऐप सेटिंग्स',
+  'settings.blockedWhileOpen': 'GPT-Voice का उपयोग जारी रखने के लिए सेटिंग्स बंद करें।',
+  'settings.blockedWhileRecording': 'सेटिंग्स खोलने से पहले रिकॉर्डिंग रोकें।',
   'appSettings.title': 'सेटिंग्स',
   'appSettings.system': 'सिस्टम',
   'appSettings.language': 'एप्लिकेशन भाषा',

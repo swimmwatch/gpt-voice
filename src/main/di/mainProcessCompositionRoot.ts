@@ -94,6 +94,7 @@ import { CliProcessRunner, type CliProcessRunnerDependencies } from '../services
 import { TextAutomationService, type TextAutomationServiceDependencies } from '../services/textAutomation';
 import { AppConfigStore, type AppConfigStoreDependencies } from '../config';
 import { I18nService } from '../i18n';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import {
   CloakBrowserSettingsRepository,
   type CloakBrowserSettingsRepositoryDependencies,
@@ -257,6 +258,7 @@ type RootOwnedRuntimeDependencyKeys =
   | 'diagnosticLogger'
   | 'historyLogger'
   | 'ipc'
+  | 'mainInteractionLock'
   | 'localization'
   | 'transcriptionLogger'
   | 'writeClipboardText';
@@ -286,6 +288,7 @@ export type MainProcessCompositionEnvironment = Omit<
     | 'config'
     | 'localization'
     | 'logger'
+    | 'mainInteractionLock'
     | 'notification'
     | 'prettifySettings'
     | 'voiceSettings'
@@ -320,16 +323,21 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'config'
     | 'localization'
     | 'logger'
+    | 'mainInteractionLock'
     | 'notification'
     | 'prettifyRuntime'
   >;
-  readonly tray: Omit<TrayControllerDependencies, 'getAssetPath' | 'localization' | 'windowManager'>;
+  readonly tray: Omit<
+    TrayControllerDependencies,
+    'getAssetPath' | 'localization' | 'mainInteractionLock' | 'windowManager'
+  >;
   readonly window: Omit<
     WindowManagerDependencies,
     | 'createAboutWindowController'
     | 'getAppIcon'
     | 'getAppIconPath'
     | 'logger'
+    | 'mainInteractionLock'
     | 'openExternal'
     | 'providerSettingsWindowController'
   >;
@@ -621,12 +629,14 @@ export class MainProcessCompositionRoot {
       registry: prettifyProviderRegistry,
       settings: prettifySettingsStorage,
     });
+    const mainInteractionLock = new MainInteractionLock();
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
       getAppIcon: () => desktopEnvironment.tray.createNativeImage(assetPaths.getAppIconPath()),
       getAppIconPath: assetPaths.getAppIconPath,
       logger: loggerFactory.getLogger('window'),
+      mainInteractionLock,
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
     });
@@ -636,6 +646,7 @@ export class MainProcessCompositionRoot {
       authority: new ElectronLocalWhisperSenderAuthority(windowManager),
       coordinator: localWhisperCoordinator,
       artifacts: this.environment.localWhisper.artifacts,
+      mainInteractionLock,
       managedFolder: this.environment.localWhisper.managedFolder,
       references: this.environment.localWhisper.references,
       refreshSettingsFacts: this.environment.localWhisper.refreshDevices,
@@ -713,6 +724,7 @@ export class MainProcessCompositionRoot {
       ...desktopEnvironment.tray,
       getAssetPath: assetPaths.getAssetPath,
       localization,
+      mainInteractionLock,
       windowManager,
     });
     const shortcutController = new ShortcutController({
@@ -729,6 +741,7 @@ export class MainProcessCompositionRoot {
       trayController,
       windowManager,
       logger: loggerFactory.getLogger('shortcuts'),
+      mainInteractionLock,
     });
     const firstLaunchStartupCoordinator = new FirstLaunchStartupCoordinator({
       jobRunners: [
@@ -790,6 +803,7 @@ export class MainProcessCompositionRoot {
       localWhisperEnvironmentDispose: this.environment.localWhisper.dispose,
       localWhisperIpcController,
       localWhisperSnapshots,
+      mainInteractionLock,
       prettifyProfileChooserWindow,
       prettifyProfilePortability,
       prettifyRuntime,

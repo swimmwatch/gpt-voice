@@ -3,6 +3,7 @@ import {
   type LocalWhisperFailureCode,
   type LocalWhisperProviderSelectionResult,
 } from '@shared/localWhisper';
+import type { MainInteractionLock } from '@shared/mainInteractionLock';
 
 export interface VoiceProviderSelectionConfigPort {
   getSnapshot(): { readonly provider: string | null };
@@ -24,6 +25,7 @@ export interface VoiceProviderSelectionServiceDependencies {
   readonly runtime: VoiceProviderSelectionRuntimePort;
   readonly registry: VoiceProviderSelectionRegistryPort;
   readonly getReadinessRevision: () => number;
+  readonly mainInteractionLock: Pick<MainInteractionLock, 'locked'>;
 }
 
 /** Serializes provider switching and restores runtime/config before reporting any failure. */
@@ -41,6 +43,9 @@ export class VoiceProviderSelectionService {
 
   public async select(providerId: unknown): Promise<LocalWhisperProviderSelectionResult> {
     const previousProviderId = this.committedProviderId;
+    if (this.dependencies.mainInteractionLock.locked) {
+      return this.failure(previousProviderId, 'OPERATION_CONFLICT');
+    }
     if (!this.dependencies.registry.isKnownProviderId(providerId)) {
       return this.failure(previousProviderId, 'INVALID_SETTINGS');
     }

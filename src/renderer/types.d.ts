@@ -134,6 +134,8 @@ export interface ElectronAPI {
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
+  getMainInteractionLocked: () => Promise<boolean>;
+  onMainInteractionLockChanged: (callback: (locked: boolean) => void) => () => void;
   providerLogin: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;

@@ -18,6 +18,7 @@ import {
   type LocalWhisperSettingsCommand,
   type LocalWhisperSettingsCommandResult,
 } from '@shared/localWhisper';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 import type {
   LocalWhisperArtifactRemovalRequest,
@@ -91,6 +92,7 @@ export interface LocalWhisperIpcControllerDependencies {
   readonly coordinator: LocalWhisperIpcCoordinatorPort;
   readonly artifacts: LocalWhisperArtifactCommandPort;
   readonly managedFolder: LocalWhisperManagedFolderPort;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly references: LocalWhisperArtifactReferencePort;
   readonly snapshots: LocalWhisperSnapshotService;
   readonly getActiveProviderId: () => string | null;
@@ -227,6 +229,9 @@ export class LocalWhisperIpcController {
         return this.mainResidencyFailure(commandKind, 'INVALID_SETTINGS');
       }
       commandKind = value.kind;
+      if (this.dependencies.mainInteractionLock.locked) {
+        return this.mainResidencyFailure(commandKind, 'OPERATION_CONFLICT');
+      }
       if (this.dependencies.getActiveProviderId() !== LOCAL_WHISPER_PROVIDER_ID) {
         return this.mainResidencyFailure(commandKind, 'OPERATION_CONFLICT');
       }

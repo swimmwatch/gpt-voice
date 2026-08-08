@@ -20,6 +20,7 @@ import { WindowManager, type BackgroundBrowserStatus } from '@main/window';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { BackgroundBrowserService } from '@main/browser';
 import { FirstLaunchStartupCoordinator } from '@main/firstLaunchStartupCoordinator';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import { RecordingVoiceProviderAudit } from './providers/voiceAuditTestUtils';
 import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
@@ -28,7 +29,6 @@ import type { TranslationSettingsRepairNotice } from '@main/translationSettings'
 import type { PrettifyProfileCatalogRepairNotice } from '@main/prettifyProfileCatalogState';
 import { INITIAL_TRANSLATION_PROVIDER_CONNECTION_STATE } from '@shared/translationProvider';
 import {
-  FIRST_LAUNCH_STARTUP_FAILURE_CODES,
   FIRST_LAUNCH_STARTUP_JOB_IDS,
   FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES,
   type FirstLaunchStartupJobRunResult,
@@ -188,6 +188,7 @@ class RecordingWindowManager extends WindowManager {
       getAppIconPath: () => '/app/icon.png',
       getAppUrl: () => 'app://gpt-voice/index.html',
       logger: { debug: () => undefined, warn: () => undefined },
+      mainInteractionLock: new MainInteractionLock(),
       openExternal: async () => undefined,
       platform: 'linux',
       preloadPath: '/app/preload.js',
@@ -341,6 +342,7 @@ class RecordingTrayController extends TrayController {
       },
       getAssetPath: () => '/app/icon.png',
       localization: new I18nService(),
+      mainInteractionLock: new MainInteractionLock(),
       platform: 'linux',
       windowManager,
     });
@@ -370,6 +372,7 @@ class RecordingShortcutController extends ShortcutController {
       },
       logger: { info: () => undefined, warn: () => undefined },
       localization: new I18nService(),
+      mainInteractionLock: new MainInteractionLock(),
       notification: { show: () => undefined },
       platform: 'linux',
       prettifyRuntime: { isProviderConnected: () => true },

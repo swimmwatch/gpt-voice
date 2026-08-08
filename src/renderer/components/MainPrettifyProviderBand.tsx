@@ -33,6 +33,7 @@ interface MainPrettifyProviderBandProps {
   error: string;
   httpConnection: MainPrettifyHttpConnectionState | null;
   isModelActionRunning: boolean;
+  isProviderChangesLocked: boolean;
   isProviderChangeSaving: boolean;
   ollamaModels: readonly PrettifyModelOption[];
   onModelAction: () => void;
@@ -53,6 +54,7 @@ function MainPrettifyProviderBand({
   error,
   httpConnection,
   isModelActionRunning,
+  isProviderChangesLocked,
   isProviderChangeSaving,
   ollamaModels,
   onModelAction,
@@ -61,18 +63,25 @@ function MainPrettifyProviderBand({
   settings,
 }: MainPrettifyProviderBandProps): React.JSX.Element {
   const { t } = useI18n();
-  const viewState = getMainPrettifyProviderViewState(settings, ollamaModels, cliConnection, httpConnection);
+  const viewState = getMainPrettifyProviderViewState(
+    settings,
+    ollamaModels,
+    cliConnection,
+    httpConnection,
+    isProviderChangeSaving,
+  );
   const hasModelAction = Boolean(viewState.ollamaControl);
   const model = viewState.model || t(viewState.modelFallbackKey);
   const providerSettingsLabel = t('mainDock.openPrettifySettings');
   const modelActionTitle = t(viewState.ollamaControl?.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle');
-  const providerConnectionTooltip =
-    error ||
-    connectionError ||
-    (viewState.connection
-      ? t(viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey)
-      : '');
-  const providerConnectionHasError = Boolean(error);
+  const providerConnectionTooltip = isProviderChangeSaving
+    ? t('provider.connectionCheckingTooltip')
+    : error ||
+      connectionError ||
+      (viewState.connection
+        ? t(viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey)
+        : '');
+  const providerConnectionHasError = !isProviderChangeSaving && Boolean(error);
 
   return (
     <section className="command-dock-prettify-band" data-slot="prettify-provider-band">
@@ -82,7 +91,7 @@ function MainPrettifyProviderBand({
         <div className="command-dock-prettify-provider-field">
           <span className="command-dock-field-label">{t('mainDock.prettifyProviderLabel')}</span>
           <Select
-            disabled={isProviderChangeSaving}
+            disabled={isProviderChangesLocked}
             onValueChange={(providerId) => {
               if (isPrettifyProviderId(providerId)) onProviderChange(providerId);
             }}

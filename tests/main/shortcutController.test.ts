@@ -5,6 +5,7 @@ import type { BrowserWindow } from 'electron';
 import { ShortcutController, type ShortcutSettingsSnapshot } from '@main/shortcuts';
 import type { SelectedTextPrettifyResult, SelectedTextPrettifyRunObserver } from '@main/services/selectedTextPrettify';
 import type { SelectedTextAction } from '@main/services/selectedTextActionState';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import { TestAppConfigStore } from './appConfigTestUtils';
 
 const DEFAULT_SETTINGS: ShortcutSettingsSnapshot = {
@@ -68,6 +69,7 @@ class ShortcutControllerHarness {
   public readonly controller: ShortcutController;
   public generationObserver: SelectedTextPrettifyRunObserver | null = null;
   public readonly globalShortcuts = new RecordingGlobalShortcuts();
+  public readonly mainInteractionLock = new MainInteractionLock();
   public quickCalls = 0;
   public quickResult: Promise<SelectedTextPrettifyResult> = Promise.resolve(SUCCESSFUL_PRETTIFY_RESULT);
   public readonly connectionChecks: unknown[] = [];
@@ -86,6 +88,7 @@ class ShortcutControllerHarness {
       localization: {
         translate: (key) => key,
       },
+      mainInteractionLock: this.mainInteractionLock,
       notification: {
         show: (title, body) => this.notifications.push([title, body]),
       },
@@ -384,6 +387,20 @@ describe('ShortcutController', () => {
     const unregisterCount = harness.globalShortcuts.unregisterAllCount;
     harness.controller.register();
     assert.equal(harness.globalShortcuts.unregisterAllCount, unregisterCount);
+  });
+
+  it('keeps hotkey capture suspended after the settings lock is released', () => {
+    const harness = new ShortcutControllerHarness();
+    harness.controller.register();
+    harness.controller.setSuspended(true);
+    const acquisition = harness.mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+
+    acquisition.lease.release();
+    assert.equal(harness.globalShortcuts.callbacks.size, 0);
+
+    harness.controller.setSuspended(false);
+    assert.equal(harness.globalShortcuts.callbacks.has('F9'), true);
   });
 
   it('keeps mutable lifecycle state isolated between controller instances', () => {

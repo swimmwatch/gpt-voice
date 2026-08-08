@@ -127,6 +127,8 @@ export default {
   'providerSettings.clearConfirmDescription':
     'Deberá iniciar sesión o introducir una clave de nuevo para usar este proveedor.',
   'appSettings.open': 'Configuración de la aplicación',
+  'settings.blockedWhileOpen': 'Cierra Configuración para seguir usando GPT-Voice.',
+  'settings.blockedWhileRecording': 'Detén la grabación antes de abrir Configuración.',
   'appSettings.title': 'Configuración',
   'appSettings.system': 'Sistema',
   'appSettings.language': 'Idioma de la aplicación',

@@ -20,6 +20,12 @@ export interface ProviderSettingsWindowLike {
 export interface ProviderSettingsWindowOptions<TWindow extends ProviderSettingsWindowLike> {
   readonly guardedClose?: boolean;
   readonly onCloseRequested?: (window: TWindow) => void;
+  readonly onClosed?: (window: TWindow) => void;
+}
+
+export interface ProviderSettingsWindowShowResult<TWindow extends ProviderSettingsWindowLike> {
+  readonly created: boolean;
+  readonly window: TWindow;
 }
 
 /** Keeps at most one settings window per provider without coupling the lifecycle to Electron in tests. */
@@ -56,13 +62,13 @@ export class ProviderSettingsWindowController<TWindow extends ProviderSettingsWi
     providerId: string,
     createWindow: () => TWindow,
     options: ProviderSettingsWindowOptions<TWindow> = {},
-  ): void {
+  ): ProviderSettingsWindowShowResult<TWindow> {
     const existing = this.windows.get(providerId);
     if (existing) {
       if (existing.isMinimized()) existing.restore();
       existing.show();
       existing.focus();
-      return;
+      return Object.freeze({ created: false, window: existing });
     }
 
     const created = createWindow();
@@ -79,6 +85,9 @@ export class ProviderSettingsWindowController<TWindow extends ProviderSettingsWi
         this.windows.delete(providerId);
         this.confirmedCloseProviderIds.delete(providerId);
       }
+      options.onClosed?.(created);
     });
+
+    return Object.freeze({ created: true, window: created });
   }
 }

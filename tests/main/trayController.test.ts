@@ -5,6 +5,7 @@ import type { BrowserWindow, Menu, MenuItemConstructorOptions, NativeImage, Tray
 import { TrayController } from '@main/tray';
 import type { WindowManager } from '@main/window';
 import type { TranslationKey } from '@main/i18n';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 class PrefixLocalization {
   public translate(key: TranslationKey): string {
@@ -89,6 +90,7 @@ class RecordingWindowManager {
 class TrayControllerHarness {
   public readonly menus: MenuItemConstructorOptions[][] = [];
   public quitCount = 0;
+  public readonly mainInteractionLock = new MainInteractionLock();
   public readonly trays: RecordingTray[] = [];
   public readonly windowManager = new RecordingWindowManager();
   public readonly controller = new TrayController({
@@ -114,6 +116,7 @@ class TrayControllerHarness {
     },
     getAssetPath: (filename) => `/assets/${filename}`,
     localization: new PrefixLocalization(),
+    mainInteractionLock: this.mainInteractionLock,
     platform: 'linux',
     windowManager: this.windowManager as unknown as WindowManager,
   });
@@ -139,6 +142,30 @@ describe('TrayController', () => {
     (quitItem?.click as (() => void) | undefined)?.();
     assert.equal(harness.windowManager.quitting, true);
     assert.equal(harness.quitCount, 1);
+  });
+
+  it('disables non-quit tray actions while settings holds the interaction lock', () => {
+    const harness = new TrayControllerHarness();
+    harness.controller.create();
+    const acquisition = harness.mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+
+    const lockedMenu = harness.menus[harness.menus.length - 1];
+    assert.deepEqual(
+      lockedMenu?.slice(0, 4).map((item) => item.enabled),
+      [false, false, false, false],
+    );
+    const quitItem = lockedMenu?.[lockedMenu.length - 1];
+    assert.equal(quitItem?.enabled, true);
+    (quitItem?.click as (() => void) | undefined)?.();
+    assert.equal(harness.quitCount, 1);
+
+    acquisition.lease.release();
+    const releasedMenu = harness.menus[harness.menus.length - 1];
+    assert.deepEqual(
+      releasedMenu?.slice(0, 4).map((item) => item.enabled),
+      [true, true, true, true],
+    );
   });
 
   it('updates icons and disposes independently and idempotently', () => {

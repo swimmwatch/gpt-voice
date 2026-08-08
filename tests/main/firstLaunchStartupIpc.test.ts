@@ -16,11 +16,13 @@ import {
   createFirstLaunchStartupSnapshot,
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
 
 type IpcHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 
 interface MainIpcControllerTestHook {
   registerFirstLaunchStartupIpc(): void;
+  registerMainInteractionLockIpc(): void;
 }
 
 class RecordingTransport implements MainIpcTransport {
@@ -154,6 +156,7 @@ function createHarness(
 ) {
   const transport = new RecordingTransport();
   const coordinator = options.coordinator ?? new StartupCoordinatorDouble(options.snapshot ?? createPendingSnapshot());
+  const mainInteractionLock = new MainInteractionLock();
   const registrar = new TrustedIpcRegistrar(
     transport,
     { error: () => undefined, info: () => undefined, warn: () => undefined },
@@ -163,13 +166,33 @@ function createHarness(
   );
   const controller = new MainIpcController({
     firstLaunchStartupCoordinator: coordinator,
+    mainInteractionLock,
     trustedIpc: registrar,
   } as unknown as MainIpcControllerDependencies);
   (controller as unknown as MainIpcControllerTestHook).registerFirstLaunchStartupIpc();
-  return { coordinator, transport };
+  (controller as unknown as MainIpcControllerTestHook).registerMainInteractionLockIpc();
+  return { coordinator, mainInteractionLock, transport };
 }
 
 describe('first-launch startup IPC', () => {
+  it('exposes main-interaction lock state only through a trusted zero-argument query', () => {
+    const { mainInteractionLock, transport } = createHarness();
+    const handler = transport.handlers.get(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query);
+    assert.ok(handler);
+
+    assert.equal(handler(createEvent()), false);
+    const acquisition = mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+    assert.equal(handler(createEvent()), true);
+    assert.throws(() => handler(createEvent(), 'forged'), /Unexpected IPC arguments/u);
+
+    const untrusted = createHarness({ trusted: false }).transport.handlers.get(
+      MAIN_INTERACTION_LOCK_IPC_CHANNELS.query,
+    );
+    assert.ok(untrusted);
+    assert.throws(() => untrusted(createEvent()));
+  });
+
   it('returns the current safe snapshot through the trusted zero-argument query', () => {
     const { transport } = createHarness();
     const handler = transport.handlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);

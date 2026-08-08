@@ -121,6 +121,7 @@ class TestDesktopWindow {
   public on(): void {}
   public once(): void {}
   public restore(): void {}
+  public setEnabled(): void {}
   public setIcon(): void {}
   public setMenuBarVisibility(): void {}
   public show(): void {}

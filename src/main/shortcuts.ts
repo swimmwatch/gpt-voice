@@ -18,6 +18,7 @@ import {
 import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
 import type { TextActionStatus, TextActionStatusAction } from '@shared/textActionStatus';
 import type { I18nService } from './i18n';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import type { SelectedTextActionGate } from './services/selectedTextActionState';
 import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
 import type { PrettifyRuntime } from './services/prettifyProviders';
@@ -64,6 +65,7 @@ export interface ShortcutControllerDependencies {
     warn(...args: unknown[]): void;
   };
   readonly localization: Pick<I18nService, 'translate'>;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly notification: {
     show(title: string, body: string): void;
   };
@@ -79,16 +81,24 @@ export interface ShortcutControllerDependencies {
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
 }
 
+type ShortcutSuspensionReason = 'hotkey-capture' | 'settings-window';
+
 /** Owns global hotkeys and the recording lifecycle state that gates them. */
 export class ShortcutController {
   private conflictingHotkeyTargets = new Set<HotkeyTarget>();
   private disposed = false;
+  private readonly mainInteractionLockUnsubscribe: () => void;
   private recordingLifecycleState: RecordingLifecycleState = 'idle';
   private registeredRetryTranscriptionHotkey: string | null = null;
   private retryTranscriptionAvailable = false;
   private shortcutsSuspended = false;
+  private readonly suspensionReasons = new Set<ShortcutSuspensionReason>();
 
-  public constructor(private readonly dependencies: ShortcutControllerDependencies) {}
+  public constructor(private readonly dependencies: ShortcutControllerDependencies) {
+    this.mainInteractionLockUnsubscribe = dependencies.mainInteractionLock.subscribe((locked) => {
+      this.setSuspension('settings-window', locked);
+    });
+  }
 
   public getRecordingState(): {
     readonly isPaused: boolean;
@@ -104,6 +114,7 @@ export class ShortcutController {
 
   public setRecordingLifecycleState(state: RecordingLifecycleState): void {
     this.recordingLifecycleState = state;
+    this.dependencies.mainInteractionLock.setRecordingLifecycleState(state);
     this.updateTrayIconForRecordingLifecycle();
     this.syncRetryTranscriptionShortcut();
   }
@@ -118,16 +129,27 @@ export class ShortcutController {
   }
 
   public setSuspended(suspended: boolean): void {
-    if (this.shortcutsSuspended === suspended || this.disposed) return;
-    this.shortcutsSuspended = suspended;
+    this.setSuspension('hotkey-capture', suspended);
+  }
+
+  private setSuspension(reason: ShortcutSuspensionReason, suspended: boolean): void {
+    if (this.disposed) return;
+    const wasSuspended = this.shortcutsSuspended;
     if (suspended) {
+      this.suspensionReasons.add(reason);
+    } else {
+      this.suspensionReasons.delete(reason);
+    }
+    this.shortcutsSuspended = this.suspensionReasons.size > 0;
+    if (wasSuspended === this.shortcutsSuspended) return;
+    if (this.shortcutsSuspended) {
       this.dependencies.globalShortcut.unregisterAll();
       this.registeredRetryTranscriptionHotkey = null;
-      this.dependencies.logger.info('Global shortcuts suspended for hotkey capture');
+      this.dependencies.logger.info('Global shortcuts suspended');
       return;
     }
 
-    this.dependencies.logger.info('Global shortcuts resumed after hotkey capture');
+    this.dependencies.logger.info('Global shortcuts resumed');
     this.register();
   }
 
@@ -253,6 +275,7 @@ export class ShortcutController {
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.mainInteractionLockUnsubscribe();
     this.dependencies.globalShortcut.unregisterAll();
     this.registeredRetryTranscriptionHotkey = null;
     this.conflictingHotkeyTargets.clear();

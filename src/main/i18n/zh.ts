@@ -120,6 +120,8 @@ export default {
   'providerSettings.clearKeyConfirmTitle': '清除已保存 API 密钥？',
   'providerSettings.clearConfirmDescription': '您需要重新登录或输入密钥才能使用此提供商。',
   'appSettings.open': '应用设置',
+  'settings.blockedWhileOpen': '请关闭设置后继续使用 GPT-Voice。',
+  'settings.blockedWhileRecording': '请先停止录音，再打开设置。',
   'appSettings.title': '设置',
   'appSettings.system': '系统',
   'appSettings.language': '应用程序语言',

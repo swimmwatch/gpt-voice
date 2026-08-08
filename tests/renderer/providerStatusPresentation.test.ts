@@ -113,6 +113,74 @@ describe('provider status presentation', () => {
     assert.doesNotMatch(spinner, /requestAnimationFrame|performance\.now|Math\.exp|setTimeout/u);
   });
 
+  it('forces a checking presentation while the Translation provider is changing', () => {
+    const settings = DEFAULT_TRANSLATION_SETTINGS;
+    const presentation = getTranslationProviderConnectionPresentation(
+      {
+        detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+        providerId: settings.providerId,
+        status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+        targetLanguage: settings.targetLanguageByProvider[settings.providerId],
+      },
+      settings,
+      true,
+    );
+
+    assert.deepEqual(presentation, {
+      labelKey: 'provider.connectionChecking',
+      loading: true,
+      tone: 'neutral',
+      tooltipKey: 'provider.connectionCheckingTooltip',
+    });
+
+    const stalePresentation = getTranslationProviderConnectionPresentation(
+      {
+        detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+        providerId: settings.providerId,
+        status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+        targetLanguage: 'stale-target-language',
+      },
+      settings,
+    );
+    assert.equal(stalePresentation.loading, true);
+    assert.equal(stalePresentation.labelKey, 'provider.connectionChecking');
+  });
+
+  it('locks every main-window provider selector and shows only the switching provider loader', () => {
+    const app = readProjectFile('src/renderer/App.tsx');
+    const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
+    const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
+    const translation = readProjectFile('src/renderer/components/TranslateSection.tsx');
+
+    assert.match(
+      app,
+      /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\| isPrettifyProviderSwitching \|\| isTranslationProviderSwitching;/u,
+    );
+    assert.match(app, /case 'switch-started':[\s\S]*setIsVoiceProviderSwitching\(true\)/u);
+    assert.match(app, /case 'switch-settled':[\s\S]*setIsVoiceProviderSwitching\(false\)/u);
+    assert.match(app, /isProviderChangesLocked=\{isProviderChangesLocked\}/u);
+    assert.match(app, /isVoiceProviderSwitching=\{isVoiceProviderSwitching\}/u);
+    assert.match(app, /if \(isProviderChangesLocked\) return;/u);
+
+    assert.match(toolbar, /<Select\s+disabled=\{isProviderChangesLocked\}/u);
+    assert.match(
+      toolbar,
+      /isVoiceProviderSwitching \? \([\s\S]*?<ProviderStatusIndicator[\s\S]*?loading[\s\S]*?tone="neutral"/u,
+    );
+    assert.match(toolbar, /isVoiceProviderSwitching \? \([\s\S]*?: isLocalWhisperProvider \?/u);
+    assert.match(prettify, /disabled=\{isProviderChangesLocked\}/u);
+    assert.match(prettify, /getMainPrettifyProviderViewState\([\s\S]*?isProviderChangeSaving,/u);
+    assert.match(translation, /disabled=\{isSaving \|\| isProviderChangesLocked\}/u);
+    assert.match(translation, /loading=\{connectionPresentation\.loading\}/u);
+  });
+
+  it('uses an icon-only disconnected-provider action for every authentication type', () => {
+    const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
+
+    assert.match(toolbar, /className="command-dock-provider-action"[\s\S]*?data-icon-only[\s\S]*?size="icon"/u);
+    assert.doesNotMatch(toolbar, /isBrowserSessionProvider|<span>\{isLoggingIn \? t\('login\.loggingIn'\)/u);
+  });
+
   it('renders a determinate circle only from a supplied measured percentage', () => {
     const markup = renderToStaticMarkup(createElement(ProgressSpinner, { label: 'Model download', progress: 42.4 }));
 
@@ -142,7 +210,7 @@ describe('provider status presentation', () => {
     assert.doesNotMatch(providerBand, /command-dock-prettify-state/u);
     assert.match(
       providerBand,
-      /const providerConnectionTooltip =\s*error \|\|\s*connectionError \|\|\s*\(viewState\.connection/u,
+      /const providerConnectionTooltip = isProviderChangeSaving\s*\? t\('provider\.connectionCheckingTooltip'\)\s*:\s*error/u,
     );
     assert.match(providerBand, /dataSlot="prettify-provider-connection"/u);
   });
