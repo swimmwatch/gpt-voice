@@ -60,6 +60,26 @@ test('loader-limit derivation tool identity is invariant across checkout line en
   );
 });
 
+test('native patch locks retain exact LF bytes in CRLF checkouts', () => {
+  const patchRelativePath = 'runtime/local-whisper/whisper-cpp/patches/core/0001-exact-loader-reads.patch';
+  assert.equal(git(workspaceRoot, ['check-attr', 'eol', '--', patchRelativePath]), `${patchRelativePath}: eol: lf\n`);
+
+  const fixtureRoot = mkdtempSync(resolve(tmpdir(), 'local-whisper-patch-eol-'));
+  const authorRoot = resolve(fixtureRoot, 'author');
+  const checkoutRoot = resolve(fixtureRoot, 'checkout');
+  mkdirSync(authorRoot);
+  createRepository(authorRoot);
+  const patchBytes = readFileSync(resolve(workspaceRoot, patchRelativePath));
+  mkdirSync(resolve(authorRoot, 'patches'));
+  writeFileSync(resolve(authorRoot, '.gitattributes'), 'patches/** text eol=lf\n');
+  writeFileSync(resolve(authorRoot, 'patches', 'identity.patch'), patchBytes);
+  git(authorRoot, ['add', '--', '.gitattributes', 'patches/identity.patch']);
+  git(authorRoot, ['commit', '--quiet', '-m', 'add exact patch fixture']);
+  git(authorRoot, ['-c', 'core.autocrlf=true', 'clone', '--quiet', authorRoot, checkoutRoot]);
+
+  assert.deepEqual(readFileSync(resolve(checkoutRoot, 'patches', 'identity.patch')), patchBytes);
+});
+
 function git(repository, arguments_) {
   const result = spawnSync('git', arguments_, {
     cwd: repository,

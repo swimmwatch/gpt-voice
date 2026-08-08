@@ -1,0 +1,2 @@
+# Native patch locks authenticate their exact reviewed bytes on every platform.
+runtime/local-whisper/whisper-cpp/patches/** text eol=lf
