@@ -5,10 +5,10 @@ export function resolveNativeBuildToolPaths({ environment, platform, workspaceRo
   const toolchainRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains');
   if (platform === 'win32') {
     return Object.freeze({
-      cmake: resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'cmake.exe'),
-      ctest: resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest.exe'),
-      compiler: resolve(toolchainRoot, 'msvc-14.39', 'bin', 'Hostx64', 'x64', 'cl.exe'),
-      ninja: resolve(toolchainRoot, 'ninja-1.12.1', 'ninja.exe'),
+      cmake: environment.CMAKE_COMMAND || 'cmake.exe',
+      ctest: environment.CTEST_COMMAND || 'ctest.exe',
+      compiler: environment.CXX || 'cl.exe',
+      ninja: environment.NINJA_COMMAND || 'ninja.exe',
     });
   }
   return Object.freeze({

@@ -195,6 +195,28 @@ jobs:
           npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 
+      - name: Initialize MSVC developer environment
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (!(Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio locator is unavailable' }
+          $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ([string]::IsNullOrWhiteSpace($installationPath)) { throw 'Visual Studio C++ build tools are unavailable' }
+          $vcvars = Join-Path $installationPath 'VC\Auxiliary\Build\vcvars64.bat'
+          if (!(Test-Path -LiteralPath $vcvars)) { throw 'Visual Studio x64 developer environment is unavailable' }
+          $captured = & cmd.exe /d /s /c "call `"$vcvars`" -no_logo -arch=x64 -host_arch=x64 && set"
+          if ($LASTEXITCODE -ne 0) { throw 'Visual Studio developer environment initialization failed' }
+          $required = @('INCLUDE', 'LIB', 'LIBPATH', 'PATH', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR')
+          $values = @{}
+          foreach ($line in $captured) {
+            $separator = $line.IndexOf('=')
+            if ($separator -gt 0) { $values[$line.Substring(0, $separator)] = $line.Substring($separator + 1) }
+          }
+          foreach ($name in $required) {
+            if ([string]::IsNullOrWhiteSpace($values[$name])) { throw "Visual Studio developer environment omitted $name" }
+            Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($values[$name])" -Encoding utf8
+          }
+
       - name: Run MSVC native unit and integration tests
         run: npm run test:local-whisper:fs-guard:native
 

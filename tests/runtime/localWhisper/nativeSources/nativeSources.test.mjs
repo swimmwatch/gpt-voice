@@ -10,6 +10,7 @@ import test from 'node:test';
 import Ajv2020 from 'ajv/dist/2020.js';
 
 import { validateDerivationInputs } from '../../../../scripts/local-whisper/native-build/loader-limit-core.mjs';
+import { resolveNativeBuildToolPaths } from '../../../../scripts/local-whisper/native-build/native-build-tool-paths.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from '../../../../scripts/local-whisper/native-build/windows-msvc-build-environment.mjs';
 import { parseDumpbinDependencies } from '../../../../scripts/local-whisper/native-build/windows-pe-dependency-core.mjs';
 import {
@@ -399,6 +400,59 @@ test('Windows CUDA environment derives the exact Visual Studio instance from the
   assert.equal(environment.VSINSTALLDIR, `${vsInstallRoot}${sep}`);
   assert.equal(environment.VSCMD_ARG_HOST_ARCH, 'x64');
   assert.equal(environment.VSCMD_ARG_TGT_ARCH, 'x64');
+});
+
+test('Windows native checks use a prepared developer environment without a cached toolchain', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-developer-environment-'));
+  const includeDirectory = resolve(root, 'include');
+  const libraryDirectory = resolve(root, 'lib');
+  const libraryPathDirectory = resolve(root, 'libpath');
+  const systemRoot = resolve(root, 'Windows');
+  for (const directory of [includeDirectory, libraryDirectory, libraryPathDirectory, systemRoot]) {
+    mkdirSync(directory, { recursive: true });
+  }
+
+  const environment = resolveWindowsMsvcBuildEnvironment({
+    environment: {
+      INCLUDE: includeDirectory,
+      LIB: libraryDirectory,
+      LIBPATH: libraryPathDirectory,
+      PATH: resolve(root, 'bin'),
+      SystemRoot: systemRoot,
+      TEMP: resolve(root, 'temp'),
+      TMP: resolve(root, 'temp'),
+      WINDIR: systemRoot,
+    },
+    includeCuda: false,
+    toolchainRoot: resolve(root, 'unavailable-toolchain'),
+    tools: { cmake: 'cmake.exe', compiler: 'cl.exe', ninja: 'ninja.exe' },
+  });
+
+  assert.equal(environment.INCLUDE, includeDirectory);
+  assert.equal(environment.LIB, libraryDirectory);
+  assert.equal(environment.LIBPATH, libraryPathDirectory);
+  assert.equal(environment.PATH, resolve(root, 'bin'));
+});
+
+test('Windows native tool paths honor explicit developer-environment commands', () => {
+  assert.deepEqual(
+    resolveNativeBuildToolPaths({
+      environment: {
+        CMAKE_COMMAND: 'C:\\tools\\cmake.exe',
+        CTEST_COMMAND: 'C:\\tools\\ctest.exe',
+        CXX: 'C:\\tools\\cl.exe',
+        NINJA_COMMAND: 'C:\\tools\\ninja.exe',
+      },
+      platform: 'win32',
+      workspaceRoot: '/workspace',
+    }),
+    {
+      cmake: 'C:\\tools\\cmake.exe',
+      ctest: 'C:\\tools\\ctest.exe',
+      compiler: 'C:\\tools\\cl.exe',
+      ninja: 'C:\\tools\\ninja.exe',
+    },
+  );
 });
 
 test('Windows PE dependency parser is case-preserving, closed, and rejects duplicate imports', () => {

@@ -17,8 +17,35 @@ function requiredEnvironmentValue(environment, key) {
   return value;
 }
 
-/** Builds the minimal MSVC and Windows SDK environment required by pinned native tools. */
+function requiredDirectoryList(environment, key) {
+  const directories = requiredEnvironmentValue(environment, key)
+    .split(';')
+    .filter((directory) => directory.length > 0);
+  if (directories.length === 0) throw new Error(`Windows native toolchain environment has no ${key} directories`);
+  for (const directory of directories) requireDirectory(directory, `${key} directory`);
+  return directories.join(';');
+}
+
+function preparedDeveloperEnvironment(environment) {
+  if (!['INCLUDE', 'LIB', 'LIBPATH', 'PATH'].every((key) => environment[key])) return null;
+  return {
+    INCLUDE: requiredDirectoryList(environment, 'INCLUDE'),
+    LIB: requiredDirectoryList(environment, 'LIB'),
+    LIBPATH: requiredDirectoryList(environment, 'LIBPATH'),
+    PATH: requiredEnvironmentValue(environment, 'PATH'),
+    PROCESSOR_ARCHITECTURE: 'AMD64',
+    SystemRoot: requiredEnvironmentValue(environment, 'SystemRoot'),
+    TEMP: requiredEnvironmentValue(environment, 'TEMP'),
+    TMP: requiredEnvironmentValue(environment, 'TMP'),
+    WINDIR: requiredEnvironmentValue(environment, 'WINDIR'),
+  };
+}
+
+/** Builds the MSVC environment from a prepared developer prompt or pinned local toolchain. */
 export function resolveWindowsMsvcBuildEnvironment({ environment, includeCuda, toolchainRoot, tools }) {
+  const prepared = includeCuda ? null : preparedDeveloperEnvironment(environment);
+  if (prepared) return Object.freeze(prepared);
+
   const msvcRoot = resolve(toolchainRoot, 'msvc-14.39');
   const sdkRoot = resolve(toolchainRoot, 'windows-sdk-10.0.26100.0');
   const compilerDirectory = dirname(tools.compiler);
