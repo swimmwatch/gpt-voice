@@ -159,6 +159,14 @@ void complete_managed_artifact_lifecycle(Backend& backend, const std::filesystem
 }
 
 #if defined(_WIN32)
+void warm_windows_handle_runtime() {
+  TemporaryManagedRoot root_path;
+  auto backend = make_backend();
+  complete_managed_artifact_lifecycle(*backend, root_path.path());
+}
+#endif
+
+#if defined(_WIN32)
 struct MountPointReparseData final {
   DWORD tag;
   WORD data_length;
@@ -264,6 +272,9 @@ TEST(RealBackendIntegrationTest, EnforcesLockConflictAndRelease) {
 }
 
 TEST(RealBackendIntegrationTest, ReclaimsTransientResourcesAfterSuccessAndTypedFailure) {
+#if defined(_WIN32)
+  warm_windows_handle_runtime();
+#endif
   const std::size_t baseline = process_resource_count();
 #if defined(_WIN32)
   constexpr std::size_t kRootLeaseHandles = 2;
@@ -313,6 +324,9 @@ TEST(RealBackendIntegrationTest, ReclaimsTransientResourcesAfterSuccessAndTypedF
 }
 
 TEST(RealBackendIntegrationTest, ReclaimsResourcesAfterEveryInjectedAcquisitionFailure) {
+#if defined(_WIN32)
+  warm_windows_handle_runtime();
+#endif
   const std::size_t baseline = process_resource_count();
   bool completed = false;
   for (std::size_t ordinal = 1; ordinal < 512 && !completed; ++ordinal) {
