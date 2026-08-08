@@ -636,19 +636,39 @@
 
 .lw-transfer-heading {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
   font-size: 13px;
 }
 
-.lw-transfer-heading strong {
+.lw-transfer-phase,
+.lw-transfer-percentage {
+  display: inline-flex;
+  align-items: center;
+}
+
+.lw-transfer-phase {
+  min-width: 0;
+  gap: 8px;
+}
+
+.lw-transfer-phase strong {
   font-weight: 600;
 }
 
+.lw-transfer-percentage {
+  flex: none;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
 .lw-progress-track {
+  display: block;
   width: 100%;
   height: 7px;
+  margin-top: 8px;
   overflow: hidden;
   border: 0;
   border-radius: 999px;

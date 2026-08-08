@@ -133,6 +133,42 @@ describe('Local Whisper UI contracts', () => {
     assert.doesNotMatch(status, /progress\.length\s*>\s*0/u);
   });
 
+  it('confirms interruption and waits for every targeted operation to become terminal before closing', () => {
+    const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
+    const controller = source('src/renderer/localWhisper/useLocalWhisperSettings.ts');
+    const controls = source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx');
+    const providerWindow = source('src/renderer/ProviderSettingsWindow.tsx');
+    assert.match(page, /action !== 'cancel'/u);
+    assert.match(page, /<AlertDialog/u);
+    assert.match(page, /continueInstallation/u);
+    assert.match(page, /interruptAndClose/u);
+    assert.match(page, /controller\.cancelArtifactOperations\(request\.operationIds\)/u);
+    assert.match(page, /if \(request\.kind === 'window'\)[\s\S]*closeProviderSettings\(\)/u);
+    assert.match(page, /disabled=\{interruption\.pending\}/u);
+    assert.match(page, /artifactDisabledReason\(t, platformUnavailable, catalogUnavailable, lifecycleBusy\)/u);
+    assert.match(controls, /action === 'cancel' \? cancelDisabledReason : actionsDisabledReason/u);
+    assert.match(controller, /MAX_CLOSE_CANCELLATION_OPERATIONS = 2/u);
+    assert.match(controller, /for \(const operationId of uniqueOperationIds\)/u);
+    assert.match(controller, /service\.cancelArtifact\(operationId\)/u);
+    assert.match(controller, /areArtifactOperationsTerminal/u);
+    assert.match(controller, /waitForArtifactOperations/u);
+    assert.match(providerWindow, /onProviderSettingsCloseRequested/u);
+    assert.match(providerWindow, /closeRequestRevision=\{closeRequestRevision\}/u);
+  });
+
+  it('pairs measured and unmeasured progress indicators with their own status groups', () => {
+    const controls = source('src/renderer/localWhisper/components/LocalWhisperArtifactControls.tsx');
+    const runtimeModel = source('src/renderer/localWhisper/components/LocalWhisperRuntimeModelSection.tsx');
+    const styles = source('src/renderer/localWhisper/LocalWhisperSettingsPage.css');
+    assert.match(controls, /className="lw-transfer-phase"[\s\S]*<Spinner/u);
+    assert.match(controls, /className="lw-transfer-percentage"[\s\S]*<ProgressSpinner/u);
+    assert.match(controls, /value=\{presentation\.percent\}/u);
+    assert.match(controls, /formatLocalWhisperBytes\(transferProgress\.receivedBytes/u);
+    assert.match(runtimeModel, /<ArtifactStatusColumn[\s\S]*artifact=\{runtimeArtifact\}/u);
+    assert.match(runtimeModel, /<ArtifactStatusColumn[\s\S]*artifact=\{modelArtifact\}/u);
+    assert.match(styles, /\.lw-transfer-phase,[\s\S]*\.lw-transfer-percentage[\s\S]*align-items: center;/u);
+  });
+
   it('keeps Storage focused on the managed folder without duplicating artifact controls', () => {
     const storage = source('src/renderer/localWhisper/components/LocalWhisperStorageSection.tsx');
     assert.match(storage, /formatLocalWhisperBytes\(aggregateBytes, t\)/u);

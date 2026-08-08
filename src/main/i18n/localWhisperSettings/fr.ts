@@ -103,6 +103,7 @@ export default {
   'localWhisper.settings.stateQueued': "En file d\\\\\\\\\\\\\\'attente",
   'localWhisper.settings.stateDeleting': 'Suppression de',
   'localWhisper.settings.stateResumable': 'Suspendu',
+  'localWhisper.settings.stateCancelled': 'Annulé',
   'localWhisper.settings.notAvailable': 'Non disponible',
   'localWhisper.settings.noArtifactSelection': 'Aucun artefact fiable ne correspond à cette sélection.',
   'localWhisper.settings.engineBackend': 'Moteur back-end',
@@ -164,6 +165,31 @@ export default {
   'localWhisper.settings.queue': "File d\\\\\\\\\\\\\\'attente {position}",
   'localWhisper.settings.installed': '{size} installé',
   'localWhisper.settings.download': '{size} télécharger',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} attend la fin d’une autre opération.',
+  'localWhisper.settings.progressDownloadingDescription': 'Téléchargement de {artifact}.',
+  'localWhisper.settings.progressVerifyingDescription':
+    'Vérification de l’intégrité et de l’authenticité de {artifact}.',
+  'localWhisper.settings.progressInstallingDescription': 'Installation de {artifact} dans le stockage géré.',
+  'localWhisper.settings.progressDeletingDescription': 'Suppression de {artifact} du stockage géré.',
+  'localWhisper.settings.progressResumableDescription':
+    'Le téléchargement de {artifact} peut reprendre à partir de la progression enregistrée.',
+  'localWhisper.settings.progressCancelledDescription': 'L’opération de {artifact} a été annulée.',
+  'localWhisper.settings.progressFailedDescription':
+    'L’opération de {artifact} a échoué. Réessayez lorsque vous êtes prêt.',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} est installé et prêt.',
+  'localWhisper.settings.progressMissingDescription': '{artifact} n’est pas installé.',
+  'localWhisper.settings.cancelInterruptionTitle': 'Interrompre {artifact} ?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'Le téléchargement ou l’installation en cours sera arrêté. Les téléchargements compatibles pourront reprendre plus tard.',
+  'localWhisper.settings.closeInterruptionTitle': 'Interrompre les opérations actives et fermer ?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Les téléchargements et installations actifs doivent être arrêtés avant de fermer les paramètres de Local Whisper.',
+  'localWhisper.settings.continueInstallation': 'Continuer l’installation',
+  'localWhisper.settings.interruptOperation': 'Interrompre',
+  'localWhisper.settings.interruptAndClose': 'Interrompre et fermer',
+  'localWhisper.settings.interrupting': 'Interruption…',
+  'localWhisper.settings.cancellationFailed':
+    'L’opération active n’a pas pu être interrompue. Les paramètres de Local Whisper resteront ouverts.',
   'localWhisper.settings.manageArtifact': 'Gérer {artifact}',
   'localWhisper.settings.removeDialogTitle': 'Supprimer {artifact} ?',
   'localWhisper.settings.removeDialogDescription':

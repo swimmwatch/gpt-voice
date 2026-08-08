@@ -97,6 +97,7 @@ export default {
   'localWhisper.settings.stateQueued': 'В очереди',
   'localWhisper.settings.stateDeleting': 'Удаление',
   'localWhisper.settings.stateResumable': 'Приостановлено',
+  'localWhisper.settings.stateCancelled': 'Отменено',
   'localWhisper.settings.notAvailable': 'Недоступно',
   'localWhisper.settings.noArtifactSelection': 'Для этого выбора нет подходящего доверенного артефакта.',
   'localWhisper.settings.engineBackend': 'Бэкенд движка',
@@ -158,6 +159,29 @@ export default {
   'localWhisper.settings.queue': 'Очередь {position}',
   'localWhisper.settings.installed': 'Установлено: {size}',
   'localWhisper.settings.download': 'Загрузка: {size}',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} ожидает завершения другой операции.',
+  'localWhisper.settings.progressDownloadingDescription': 'Загрузка {artifact}.',
+  'localWhisper.settings.progressVerifyingDescription': 'Проверка целостности и подлинности {artifact}.',
+  'localWhisper.settings.progressInstallingDescription': 'Установка {artifact} в управляемое хранилище.',
+  'localWhisper.settings.progressDeletingDescription': 'Удаление {artifact} из управляемого хранилища.',
+  'localWhisper.settings.progressResumableDescription': 'Загрузку {artifact} можно продолжить с сохраненного места.',
+  'localWhisper.settings.progressCancelledDescription': 'Операция с {artifact} отменена.',
+  'localWhisper.settings.progressFailedDescription':
+    'Не удалось выполнить операцию с {artifact}. Повторите попытку, когда будете готовы.',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} установлен и готов к работе.',
+  'localWhisper.settings.progressMissingDescription': '{artifact} не установлен.',
+  'localWhisper.settings.cancelInterruptionTitle': 'Прервать операцию с {artifact}?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'Текущая загрузка или установка будет остановлена. Поддерживаемые загрузки можно продолжить позже.',
+  'localWhisper.settings.closeInterruptionTitle': 'Прервать активные операции и закрыть окно?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Перед закрытием настроек Local Whisper необходимо остановить активные загрузки и установки.',
+  'localWhisper.settings.continueInstallation': 'Продолжить установку',
+  'localWhisper.settings.interruptOperation': 'Прервать',
+  'localWhisper.settings.interruptAndClose': 'Прервать и закрыть',
+  'localWhisper.settings.interrupting': 'Прерывание…',
+  'localWhisper.settings.cancellationFailed':
+    'Не удалось прервать активную операцию. Окно настроек Local Whisper останется открытым.',
   'localWhisper.settings.manageArtifact': 'Управление: {artifact}',
   'localWhisper.settings.removeDialogTitle': 'Удалить {artifact}?',
   'localWhisper.settings.removeDialogDescription':

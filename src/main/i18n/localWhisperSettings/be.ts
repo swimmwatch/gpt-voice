@@ -98,6 +98,7 @@ export default {
   'localWhisper.settings.stateQueued': 'У чарзе',
   'localWhisper.settings.stateDeleting': 'Выдаленне',
   'localWhisper.settings.stateResumable': 'Прыпынена',
+  'localWhisper.settings.stateCancelled': 'Адменена',
   'localWhisper.settings.notAvailable': 'Недаступна',
   'localWhisper.settings.noArtifactSelection': 'Ні адзін давераны артэфакт не адпавядае гэтаму выбар.',
   'localWhisper.settings.engineBackend': 'Бэкэнд рухавіка',
@@ -159,6 +160,29 @@ export default {
   'localWhisper.settings.queue': 'Чарга {position}',
   'localWhisper.settings.installed': '{size} усталяваны',
   'localWhisper.settings.download': '{size} спампаваць',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} чакае завяршэння іншай аперацыі.',
+  'localWhisper.settings.progressDownloadingDescription': 'Спампоўванне {artifact}.',
+  'localWhisper.settings.progressVerifyingDescription': 'Праверка цэласнасці і сапраўднасці {artifact}.',
+  'localWhisper.settings.progressInstallingDescription': 'Усталяванне {artifact} у кіраванае сховішча.',
+  'localWhisper.settings.progressDeletingDescription': 'Выдаленне {artifact} з кіраванага сховішча.',
+  'localWhisper.settings.progressResumableDescription': 'Спампоўванне {artifact} можна працягнуць з захаванага месца.',
+  'localWhisper.settings.progressCancelledDescription': 'Аперацыя з {artifact} адменена.',
+  'localWhisper.settings.progressFailedDescription':
+    'Не ўдалося выканаць аперацыю з {artifact}. Паўтарыце спробу, калі будзеце гатовыя.',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} усталяваны і гатовы да працы.',
+  'localWhisper.settings.progressMissingDescription': '{artifact} не ўсталяваны.',
+  'localWhisper.settings.cancelInterruptionTitle': 'Перапыніць аперацыю з {artifact}?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'Бягучае спампоўванне або ўсталяванне будзе спынена. Падтрыманыя спампоўванні можна працягнуць пазней.',
+  'localWhisper.settings.closeInterruptionTitle': 'Перапыніць актыўныя аперацыі і закрыць акно?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Перад закрыццём налад Local Whisper трэба спыніць актыўныя спампоўванні і ўсталяванні.',
+  'localWhisper.settings.continueInstallation': 'Працягнуць усталяванне',
+  'localWhisper.settings.interruptOperation': 'Перапыніць',
+  'localWhisper.settings.interruptAndClose': 'Перапыніць і закрыць',
+  'localWhisper.settings.interrupting': 'Перапыненне…',
+  'localWhisper.settings.cancellationFailed':
+    'Не ўдалося перапыніць актыўную аперацыю. Акно налад Local Whisper застанецца адкрытым.',
   'localWhisper.settings.manageArtifact': 'Кіраваць {artifact}',
   'localWhisper.settings.removeDialogTitle': 'Выдаліць {artifact}?',
   'localWhisper.settings.removeDialogDescription':

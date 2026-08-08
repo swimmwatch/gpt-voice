@@ -31,6 +31,7 @@ import { LocalWhisperOptionSelect, LocalWhisperPanel } from './LocalWhisperSecti
 
 interface LocalWhisperRuntimeModelSectionProps {
   readonly actionsDisabledReason: string | null;
+  readonly cancelDisabledReason: string | null;
   readonly disabled: boolean;
   readonly draft: LocalWhisperSettingsDraft;
   readonly errors: Readonly<Partial<Record<LocalWhisperDraftField, LocalWhisperValidationMessage>>>;
@@ -83,6 +84,7 @@ function preferredFamilyRevision(
 function ArtifactStatusColumn({
   actionsDisabledReason,
   artifact,
+  cancelDisabledReason,
   label,
   onArtifactAction,
   pendingAction,
@@ -90,6 +92,7 @@ function ArtifactStatusColumn({
 }: {
   readonly actionsDisabledReason: string | null;
   readonly artifact: LocalWhisperRendererArtifact | null;
+  readonly cancelDisabledReason: string | null;
   readonly label: string;
   readonly onArtifactAction: LocalWhisperRuntimeModelSectionProps['onArtifactAction'];
   readonly pendingAction: string | null;
@@ -103,6 +106,7 @@ function ArtifactStatusColumn({
         <LocalWhisperArtifactProgressCard
           actionsDisabledReason={actionsDisabledReason}
           artifact={artifact}
+          cancelDisabledReason={cancelDisabledReason}
           onAction={onArtifactAction}
           pendingAction={pendingAction}
           progress={progress}
@@ -123,6 +127,7 @@ function ArtifactStatusColumn({
 /** Renders the approved compact engine and model configuration panels. */
 export default function LocalWhisperRuntimeModelSection({
   actionsDisabledReason,
+  cancelDisabledReason,
   snapshot,
   draft,
   errors,
@@ -253,6 +258,7 @@ export default function LocalWhisperRuntimeModelSection({
           <ArtifactStatusColumn
             actionsDisabledReason={actionsDisabledReason}
             artifact={runtimeArtifact}
+            cancelDisabledReason={cancelDisabledReason}
             label={t('localWhisper.settings.installStatus')}
             onArtifactAction={onArtifactAction}
             pendingAction={pendingAction}
@@ -342,6 +348,7 @@ export default function LocalWhisperRuntimeModelSection({
           <ArtifactStatusColumn
             actionsDisabledReason={actionsDisabledReason}
             artifact={modelArtifact}
+            cancelDisabledReason={cancelDisabledReason}
             label={t('localWhisper.settings.downloadStatus')}
             onArtifactAction={onArtifactAction}
             pendingAction={pendingAction}

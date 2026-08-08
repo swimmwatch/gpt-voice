@@ -6,6 +6,7 @@ import {
   type LocalWhisperMainStatusSnapshot,
   type LocalWhisperMainResidencyAction,
   type LocalWhisperModelFamily,
+  type LocalWhisperRendererArtifact,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
 import type { TranslationKey } from '@main/i18n';
@@ -30,7 +31,70 @@ const LOCAL_WHISPER_RUNTIME_STATE_KEYS: Readonly<Record<string, TranslationKey>>
   Queued: 'localWhisper.settings.stateQueued',
   Deleting: 'localWhisper.settings.stateDeleting',
   Resumable: 'localWhisper.settings.stateResumable',
+  Cancelled: 'localWhisper.settings.stateCancelled',
 });
+
+const LOCAL_WHISPER_ARTIFACT_PROGRESS_DESCRIPTION_KEYS: Readonly<
+  Record<LocalWhisperArtifactProgress['state'], TranslationKey>
+> = Object.freeze({
+  Queued: 'localWhisper.settings.progressQueuedDescription',
+  Downloading: 'localWhisper.settings.progressDownloadingDescription',
+  Resumable: 'localWhisper.settings.progressResumableDescription',
+  Verifying: 'localWhisper.settings.progressVerifyingDescription',
+  Installing: 'localWhisper.settings.progressInstallingDescription',
+  Installed: 'localWhisper.settings.progressCompletedDescription',
+  Deleting: 'localWhisper.settings.progressDeletingDescription',
+  Missing: 'localWhisper.settings.progressMissingDescription',
+  Cancelled: 'localWhisper.settings.progressCancelledDescription',
+  Failed: 'localWhisper.settings.progressFailedDescription',
+});
+
+const INDETERMINATE_ARTIFACT_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
+  'Queued',
+  'Verifying',
+  'Installing',
+  'Deleting',
+]);
+
+export interface LocalWhisperArtifactProgressPresentation {
+  readonly description: string;
+  readonly indeterminate: boolean;
+  readonly label: string;
+  readonly percent: number | null;
+}
+
+/** Builds truthful transfer presentation without inventing progress for unmeasured phases. */
+export function getLocalWhisperArtifactProgressPresentation(
+  artifact: LocalWhisperRendererArtifact,
+  progress: LocalWhisperArtifactProgress | null,
+  translate: LocalWhisperTranslate,
+): LocalWhisperArtifactProgressPresentation {
+  const state = progress?.state ?? artifact.state;
+  const measuredDownload = progress?.state === 'Downloading' && progress.totalBytes > 0;
+  const percent = measuredDownload
+    ? Math.min(100, Math.max(0, (progress.receivedBytes / progress.totalBytes) * 100))
+    : null;
+  const descriptionKey = progress ? LOCAL_WHISPER_ARTIFACT_PROGRESS_DESCRIPTION_KEYS[progress.state] : null;
+  const description = descriptionKey
+    ? translate(descriptionKey, { artifact: artifact.label })
+    : artifact.state === 'Installed'
+      ? translate('localWhisper.settings.installed', {
+          size: formatLocalWhisperBytes(artifact.installedSizeBytes, translate),
+        })
+      : translate('localWhisper.settings.download', {
+          size: formatLocalWhisperBytes(artifact.transferSizeBytes, translate),
+        });
+
+  return Object.freeze({
+    description,
+    indeterminate:
+      progress !== null &&
+      (INDETERMINATE_ARTIFACT_PROGRESS_STATES.has(progress.state) ||
+        (progress.state === 'Downloading' && progress.totalBytes <= 0)),
+    label: formatLocalWhisperRuntimeState(state, translate),
+    percent,
+  });
+}
 
 const LOCAL_WHISPER_PRESENTATION_MESSAGE_KEYS: Readonly<Record<string, TranslationKey>> = Object.freeze({
   'Another Local Whisper action is in progress.': 'localWhisper.settings.availabilityBusy',
@@ -46,6 +110,7 @@ const LOCAL_WHISPER_PRESENTATION_MESSAGE_KEYS: Readonly<Record<string, Translati
   'Local Whisper status is loading.': 'localWhisper.main.loadingStatus',
   'Local Whisper settings could not be loaded.': 'localWhisper.settings.settingsLoadFailed',
   'Fix the highlighted settings before saving.': 'localWhisper.settings.fixHighlighted',
+  'Local Whisper artifact cancellation could not be completed.': 'localWhisper.settings.cancellationFailed',
 });
 
 /** Converts public enum names to their localized user-facing labels. */

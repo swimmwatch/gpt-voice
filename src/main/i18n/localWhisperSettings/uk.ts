@@ -97,6 +97,7 @@ export default {
   'localWhisper.settings.stateQueued': 'Поставлено в чергу',
   'localWhisper.settings.stateDeleting': 'Видалення',
   'localWhisper.settings.stateResumable': 'Призупинено',
+  'localWhisper.settings.stateCancelled': 'Скасовано',
   'localWhisper.settings.notAvailable': 'Недоступно',
   'localWhisper.settings.noArtifactSelection': 'Жоден надійний артефакт не відповідає цьому вибір.',
   'localWhisper.settings.engineBackend': 'Сервер двигуна',
@@ -158,6 +159,30 @@ export default {
   'localWhisper.settings.queue': 'Черга {position}',
   'localWhisper.settings.installed': '{size} встановлено',
   'localWhisper.settings.download': '{size} завантажити',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} очікує завершення іншої операції.',
+  'localWhisper.settings.progressDownloadingDescription': 'Завантаження {artifact}.',
+  'localWhisper.settings.progressVerifyingDescription': 'Перевірка цілісності та автентичності {artifact}.',
+  'localWhisper.settings.progressInstallingDescription': 'Установлення {artifact} у кероване сховище.',
+  'localWhisper.settings.progressDeletingDescription': 'Видалення {artifact} із керованого сховища.',
+  'localWhisper.settings.progressResumableDescription':
+    'Завантаження {artifact} можна продовжити зі збереженого місця.',
+  'localWhisper.settings.progressCancelledDescription': 'Операцію з {artifact} скасовано.',
+  'localWhisper.settings.progressFailedDescription':
+    'Не вдалося виконати операцію з {artifact}. Повторіть спробу, коли будете готові.',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} установлено й готово до роботи.',
+  'localWhisper.settings.progressMissingDescription': '{artifact} не встановлено.',
+  'localWhisper.settings.cancelInterruptionTitle': 'Перервати операцію з {artifact}?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'Поточне завантаження або встановлення буде зупинено. Підтримувані завантаження можна продовжити пізніше.',
+  'localWhisper.settings.closeInterruptionTitle': 'Перервати активні операції та закрити вікно?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Перед закриттям налаштувань Local Whisper потрібно зупинити активні завантаження та встановлення.',
+  'localWhisper.settings.continueInstallation': 'Продовжити встановлення',
+  'localWhisper.settings.interruptOperation': 'Перервати',
+  'localWhisper.settings.interruptAndClose': 'Перервати й закрити',
+  'localWhisper.settings.interrupting': 'Переривання…',
+  'localWhisper.settings.cancellationFailed':
+    'Не вдалося перервати активну операцію. Вікно налаштувань Local Whisper залишиться відкритим.',
   'localWhisper.settings.manageArtifact': 'Керувати {artifact}',
   'localWhisper.settings.removeDialogTitle': 'Видалити {artifact}?',
   'localWhisper.settings.removeDialogDescription':

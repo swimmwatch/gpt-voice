@@ -1,6 +1,9 @@
 export const VOICE_PROVIDER_AUTH_TYPES = ['browserSession', 'apiKey', 'localRuntime'] as const;
 export const VOICE_PROVIDER_CATEGORIES = ['web', 'api', 'local'] as const;
 export const VOICE_TRANSCRIPTION_MODES = ['batch', 'streaming'] as const;
+export const PROVIDER_SETTINGS_IPC_CHANNELS = Object.freeze({
+  closeRequested: 'provider-settings-close-requested',
+});
 
 export type VoiceProviderAuthType = (typeof VOICE_PROVIDER_AUTH_TYPES)[number];
 export type VoiceProviderCategory = (typeof VOICE_PROVIDER_CATEGORIES)[number];

@@ -7,6 +7,7 @@ import {
   createLocalWhisperRendererSafeFailure,
   toLocalWhisperRevisionId,
   type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperArtifactProgress,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
@@ -18,6 +19,7 @@ import {
   getLocalWhisperResourceSafetyPresentation,
   getLocalWhisperUnloadAvailability,
   formatLocalWhisperBytes,
+  getLocalWhisperArtifactProgressPresentation,
   getLatestLocalWhisperArtifactProgress,
   isLocalWhisperArtifactProgressActive,
   isLocalWhisperPlatformUnavailable,
@@ -39,6 +41,67 @@ function mainStatus(runtime: LocalWhisperMainStatusSnapshot['runtime']): LocalWh
 }
 
 describe('Local Whisper action and main status presentation', () => {
+  it('uses measured download bytes only for bounded determinate progress', () => {
+    const snapshot = settingsSnapshot();
+    const artifact = snapshot.artifacts[0];
+    assert.ok(artifact);
+    const translate = (key: string, params?: Readonly<Record<string, string>>): string =>
+      `${key}${params?.artifact ? `:${params.artifact}` : ''}`;
+    const progress: LocalWhisperArtifactProgress = {
+      action: 'download',
+      artifactId: artifact.id,
+      failure: null,
+      operationId: 'operation-id-0001',
+      queuedPosition: null,
+      receivedBytes: 25,
+      state: 'Downloading',
+      totalBytes: 100,
+    };
+
+    assert.equal(getLocalWhisperArtifactProgressPresentation(artifact, progress, translate).percent, 25);
+    assert.equal(
+      getLocalWhisperArtifactProgressPresentation(artifact, { ...progress, receivedBytes: 0 }, translate).percent,
+      0,
+    );
+    assert.equal(
+      getLocalWhisperArtifactProgressPresentation(artifact, { ...progress, receivedBytes: 125 }, translate).percent,
+      100,
+    );
+    assert.deepEqual(getLocalWhisperArtifactProgressPresentation(artifact, { ...progress, totalBytes: 0 }, translate), {
+      description: `localWhisper.settings.progressDownloadingDescription:${artifact.label}`,
+      indeterminate: true,
+      label: 'localWhisper.settings.stateDownloading',
+      percent: null,
+    });
+  });
+
+  it('keeps unmeasured artifact phases indeterminate with explicit localized descriptions', () => {
+    const snapshot = settingsSnapshot();
+    const artifact = snapshot.artifacts[0];
+    assert.ok(artifact);
+    const baseline = snapshot.progress[0];
+    assert.ok(baseline);
+    const translate = (key: string, params?: Readonly<Record<string, string>>): string =>
+      `${key}${params?.artifact ? `:${params.artifact}` : ''}`;
+    const expected = {
+      Queued: 'localWhisper.settings.progressQueuedDescription',
+      Verifying: 'localWhisper.settings.progressVerifyingDescription',
+      Installing: 'localWhisper.settings.progressInstallingDescription',
+      Deleting: 'localWhisper.settings.progressDeletingDescription',
+    } as const;
+
+    for (const [state, descriptionKey] of Object.entries(expected)) {
+      const presentation = getLocalWhisperArtifactProgressPresentation(
+        artifact,
+        { ...baseline, state: state as LocalWhisperArtifactProgress['state'] },
+        translate,
+      );
+      assert.equal(presentation.indeterminate, true);
+      assert.equal(presentation.percent, null);
+      assert.equal(presentation.description, `${descriptionKey}:${artifact.label}`);
+    }
+  });
+
   it('formats zero-byte transfer progress accurately and distinguishes active progress from terminal history', () => {
     assert.equal(formatLocalWhisperBytes(0), '0 MiB');
     const baseline = settingsSnapshot().progress[0];

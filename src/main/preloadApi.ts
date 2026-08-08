@@ -98,6 +98,7 @@ import {
   type LocalWhisperSettingsCommand,
   type LocalWhisperSettingsCommandResult,
 } from '@shared/localWhisper';
+import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -198,6 +199,9 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     closeProviderSettings: (): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('close-provider-settings');
+    },
+    onProviderSettingsCloseRequested: (callback: () => void): (() => void) => {
+      return onMainEvent(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested, callback);
     },
     onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void): (() => void) => {
       return onMainEvent<[ProviderSettings]>('provider-settings-changed', callback);

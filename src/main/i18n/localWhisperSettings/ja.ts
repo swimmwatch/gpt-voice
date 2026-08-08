@@ -100,6 +100,7 @@ export default {
   'localWhisper.settings.stateQueued': 'キューに登録',
   'localWhisper.settings.stateDeleting': '削除中',
   'localWhisper.settings.stateResumable': '一時停止中',
+  'localWhisper.settings.stateCancelled': 'キャンセル済み',
   'localWhisper.settings.notAvailable': '利用不可',
   'localWhisper.settings.noArtifactSelection': 'この選択に一致する信頼できるアーティファクトはありません。',
   'localWhisper.settings.engineBackend': 'エンジン バックエンド',
@@ -161,6 +162,29 @@ export default {
   'localWhisper.settings.queue': 'キュー {position}',
   'localWhisper.settings.installed': '{size} がインストールされました',
   'localWhisper.settings.download': '{size} のダウンロード',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} は別の操作の完了を待っています。',
+  'localWhisper.settings.progressDownloadingDescription': '{artifact} をダウンロードしています。',
+  'localWhisper.settings.progressVerifyingDescription': '{artifact} の整合性と信頼性を確認しています。',
+  'localWhisper.settings.progressInstallingDescription': '{artifact} を管理対象ストレージにインストールしています。',
+  'localWhisper.settings.progressDeletingDescription': '{artifact} を管理対象ストレージから削除しています。',
+  'localWhisper.settings.progressResumableDescription': '{artifact} のダウンロードは保存済みの進捗から再開できます。',
+  'localWhisper.settings.progressCancelledDescription': '{artifact} の操作はキャンセルされました。',
+  'localWhisper.settings.progressFailedDescription':
+    '{artifact} の操作に失敗しました。準備ができたら再試行してください。',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} はインストール済みで使用できます。',
+  'localWhisper.settings.progressMissingDescription': '{artifact} はインストールされていません。',
+  'localWhisper.settings.cancelInterruptionTitle': '{artifact} を中断しますか？',
+  'localWhisper.settings.cancelInterruptionDescription':
+    '現在のダウンロードまたはインストールを停止します。対応するダウンロードは後で再開できます。',
+  'localWhisper.settings.closeInterruptionTitle': '実行中の操作を中断して閉じますか？',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Local Whisper の設定を閉じる前に、実行中のダウンロードとインストールを停止する必要があります。',
+  'localWhisper.settings.continueInstallation': 'インストールを続行',
+  'localWhisper.settings.interruptOperation': '中断',
+  'localWhisper.settings.interruptAndClose': '中断して閉じる',
+  'localWhisper.settings.interrupting': '中断しています…',
+  'localWhisper.settings.cancellationFailed':
+    '実行中の操作を中断できませんでした。Local Whisper の設定は開いたままになります。',
   'localWhisper.settings.manageArtifact': '{artifact} を管理',
   'localWhisper.settings.removeDialogTitle': '{artifact} を削除しますか?',
   'localWhisper.settings.removeDialogDescription':

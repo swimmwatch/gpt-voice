@@ -1,9 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PiArrowCounterClockwise, PiFloppyDisk, PiInfo, PiWaveform } from 'react-icons/pi';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@renderer/components/ui/alert-dialog';
+import { Button } from '@renderer/components/ui/button';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { ElectronAPI } from '@renderer/types';
+import type { LocalWhisperArtifactAction, LocalWhisperRendererArtifact } from '@shared/localWhisper';
 import LocalWhisperInferenceSections from './components/LocalWhisperInferenceSections';
 import LocalWhisperRuntimeModelSection from './components/LocalWhisperRuntimeModelSection';
 import LocalWhisperStatusSection from './components/LocalWhisperStatusSection';
@@ -11,10 +23,24 @@ import LocalWhisperStorageSection from './components/LocalWhisperStorageSection'
 import {
   isLocalWhisperArtifactProgressActive,
   isLocalWhisperPlatformUnavailable,
+  getLatestLocalWhisperArtifactProgress,
   translateLocalWhisperActionError,
 } from './LocalWhisperPresentation';
-import useLocalWhisperSettings from './useLocalWhisperSettings';
+import useLocalWhisperSettings, { type LocalWhisperSettingsController } from './useLocalWhisperSettings';
 import './LocalWhisperSettingsPage.css';
+
+type ArtifactInterruptionRequest = Readonly<{
+  artifactLabel: string;
+  kind: 'artifact';
+  operationIds: readonly string[];
+}>;
+
+type WindowInterruptionRequest = Readonly<{
+  kind: 'window';
+  operationIds: readonly string[];
+}>;
+
+type InterruptionRequest = ArtifactInterruptionRequest | WindowInterruptionRequest;
 
 function CatalogChannelNotice({
   catalogUnavailable,
@@ -76,14 +102,167 @@ function persistedIssueMessage(path: string, reason: string, translate: ReturnTy
   return translate('localWhisper.settings.savedSettingInvalid');
 }
 
+interface LocalWhisperInterruptionState {
+  readonly attempted: boolean;
+  readonly confirm: () => Promise<void>;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly pending: boolean;
+  readonly request: InterruptionRequest | null;
+  readonly requestArtifactAction: (
+    action: LocalWhisperArtifactAction,
+    artifact: LocalWhisperRendererArtifact,
+  ) => Promise<boolean>;
+}
+
+function useLocalWhisperInterruption(
+  closeRequestRevision: number,
+  controller: LocalWhisperSettingsController,
+  desktopApi: ElectronAPI,
+): LocalWhisperInterruptionState {
+  const [handledCloseRequestRevision, setHandledCloseRequestRevision] = useState(0);
+  const [artifactRequest, setArtifactRequest] = useState<ArtifactInterruptionRequest | null>(null);
+  const [attempted, setAttempted] = useState(false);
+  const [pending, setPending] = useState(false);
+  const activeOperationIds =
+    controller.snapshot?.progress.filter(isLocalWhisperArtifactProgressActive).map(({ operationId }) => operationId) ??
+    [];
+  const windowCloseRequested = closeRequestRevision > handledCloseRequestRevision;
+  const windowRequest: WindowInterruptionRequest | null =
+    windowCloseRequested && activeOperationIds.length > 0 ? { kind: 'window', operationIds: activeOperationIds } : null;
+  const request = windowRequest ?? artifactRequest;
+
+  const closeProviderSettings = useCallback((): void => {
+    void desktopApi.closeProviderSettings();
+  }, [desktopApi]);
+
+  const requestArtifactAction = useCallback(
+    (action: LocalWhisperArtifactAction, artifact: LocalWhisperRendererArtifact): Promise<boolean> => {
+      if (action !== 'cancel') return controller.performArtifactAction(action, artifact);
+      const progress = controller.snapshot
+        ? getLatestLocalWhisperArtifactProgress(controller.snapshot.progress, artifact.id)
+        : null;
+      if (!progress || !isLocalWhisperArtifactProgressActive(progress)) return Promise.resolve(false);
+      controller.clearActionError();
+      setAttempted(false);
+      setArtifactRequest({
+        artifactLabel: artifact.label,
+        kind: 'artifact',
+        operationIds: [progress.operationId],
+      });
+      return Promise.resolve(true);
+    },
+    [controller],
+  );
+
+  const confirm = useCallback(async (): Promise<void> => {
+    if (!request || pending) return;
+    setAttempted(true);
+    setPending(true);
+    controller.clearActionError();
+    const accepted = await controller.cancelArtifactOperations(request.operationIds);
+    setPending(false);
+    if (!accepted) return;
+    if (request.kind === 'window') {
+      setHandledCloseRequestRevision(closeRequestRevision);
+      closeProviderSettings();
+      return;
+    }
+    setArtifactRequest(null);
+  }, [closeProviderSettings, closeRequestRevision, controller, pending, request]);
+
+  const onOpenChange = useCallback(
+    (open: boolean): void => {
+      if (open || pending || !request) return;
+      setAttempted(false);
+      if (request.kind === 'window') {
+        setHandledCloseRequestRevision(closeRequestRevision);
+      } else {
+        setArtifactRequest(null);
+      }
+    },
+    [closeRequestRevision, pending, request],
+  );
+
+  useEffect(() => {
+    if (windowCloseRequested && controller.snapshot && activeOperationIds.length === 0 && !pending) {
+      closeProviderSettings();
+    }
+  }, [activeOperationIds.length, closeProviderSettings, controller.snapshot, pending, windowCloseRequested]);
+
+  return { attempted, confirm, onOpenChange, pending, request, requestArtifactAction };
+}
+
+function LocalWhisperInterruptionDialog({
+  actionError,
+  interruption,
+}: {
+  readonly actionError: string | null;
+  readonly interruption: LocalWhisperInterruptionState;
+}): React.JSX.Element {
+  const { t } = useI18n();
+  const windowClose = interruption.request?.kind === 'window';
+  const title = windowClose
+    ? t('localWhisper.settings.closeInterruptionTitle')
+    : t('localWhisper.settings.cancelInterruptionTitle', {
+        artifact: interruption.request?.artifactLabel ?? '',
+      });
+  const description = windowClose
+    ? t('localWhisper.settings.closeInterruptionDescription')
+    : t('localWhisper.settings.cancelInterruptionDescription');
+  const actionLabel = interruption.pending
+    ? t('localWhisper.settings.interrupting')
+    : windowClose
+      ? t('localWhisper.settings.interruptAndClose')
+      : t('localWhisper.settings.interruptOperation');
+
+  return (
+    <AlertDialog open={interruption.request !== null} onOpenChange={interruption.onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        {interruption.attempted && actionError ? (
+          <p className="lw-inline-error" role="alert">
+            {translateLocalWhisperActionError(actionError, t)}
+          </p>
+        ) : null}
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button disabled={interruption.pending} variant="outline">
+              {t('localWhisper.settings.continueInstallation')}
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              aria-busy={interruption.pending}
+              disabled={interruption.pending}
+              onClick={(event) => {
+                event.preventDefault();
+                void interruption.confirm();
+              }}
+              variant="destructive"
+            >
+              {actionLabel}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 /** Composes the approved Local Whisper readiness dashboard over the protected settings controller. */
 export default function LocalWhisperSettingsPage({
+  closeRequestRevision,
   desktopApi,
 }: {
+  readonly closeRequestRevision: number;
   readonly desktopApi: ElectronAPI;
 }): React.JSX.Element {
   const { t } = useI18n();
   const controller = useLocalWhisperSettings(desktopApi);
+  const interruption = useLocalWhisperInterruption(closeRequestRevision, controller, desktopApi);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const { snapshot, draft, validation } = controller;
   const platformUnavailable = snapshot ? isLocalWhisperPlatformUnavailable(snapshot) : false;
@@ -132,7 +311,8 @@ export default function LocalWhisperSettingsPage({
     valid: validation.candidate !== null,
     dirty: controller.dirty,
   });
-  const artifactReason = artifactDisabledReason(t, platformUnavailable, catalogUnavailable, commandBusy);
+  const artifactReason = artifactDisabledReason(t, platformUnavailable, catalogUnavailable, lifecycleBusy);
+  const cancelDisabledReason = commandBusy || interruption.pending ? t('localWhisper.settings.disabledBusy') : null;
   const resetDisabledReason = disabled
     ? platformUnavailable
       ? t('localWhisper.settings.resetDisabledPlatform')
@@ -192,10 +372,11 @@ export default function LocalWhisperSettingsPage({
 
       <LocalWhisperRuntimeModelSection
         actionsDisabledReason={artifactReason}
+        cancelDisabledReason={cancelDisabledReason}
         disabled={disabled}
         draft={draft}
         errors={validation.errors}
-        onArtifactAction={controller.performArtifactAction}
+        onArtifactAction={interruption.requestArtifactAction}
         onViewReference={controller.viewArtifactReference}
         pendingAction={controller.pendingAction}
         snapshot={snapshot}
@@ -260,6 +441,8 @@ export default function LocalWhisperSettingsPage({
           {validationMessages.join(' ')}
         </span>
       ) : null}
+
+      <LocalWhisperInterruptionDialog actionError={controller.actionError} interruption={interruption} />
     </div>
   );
 }

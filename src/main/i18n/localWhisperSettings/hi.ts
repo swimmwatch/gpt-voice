@@ -97,6 +97,7 @@ export default {
   'localWhisper.settings.stateQueued': 'कतारबद्ध',
   'localWhisper.settings.stateDeleting': 'हटाया जा रहा है',
   'localWhisper.settings.stateResumable': 'रुका हुआ',
+  'localWhisper.settings.stateCancelled': 'रद्द किया गया',
   'localWhisper.settings.notAvailable': 'उपलब्ध नहीं है',
   'localWhisper.settings.noArtifactSelection': 'कोई भी विश्वसनीय कलाकृति इस चयन से मेल नहीं खाती।',
   'localWhisper.settings.engineBackend': 'इंजन बैकएंड',
@@ -158,6 +159,30 @@ export default {
   'localWhisper.settings.queue': 'कतार {position}',
   'localWhisper.settings.installed': '{size} स्थापित',
   'localWhisper.settings.download': '{size} डाउनलोड करें',
+  'localWhisper.settings.progressQueuedDescription':
+    '{artifact} किसी अन्य प्रक्रिया के पूरा होने की प्रतीक्षा कर रहा है।',
+  'localWhisper.settings.progressDownloadingDescription': '{artifact} डाउनलोड हो रहा है।',
+  'localWhisper.settings.progressVerifyingDescription': '{artifact} की अखंडता और प्रामाणिकता की जाँच हो रही है।',
+  'localWhisper.settings.progressInstallingDescription': '{artifact} को प्रबंधित स्टोरेज में इंस्टॉल किया जा रहा है।',
+  'localWhisper.settings.progressDeletingDescription': '{artifact} को प्रबंधित स्टोरेज से हटाया जा रहा है।',
+  'localWhisper.settings.progressResumableDescription':
+    '{artifact} का डाउनलोड सहेजी गई प्रगति से फिर शुरू किया जा सकता है।',
+  'localWhisper.settings.progressCancelledDescription': '{artifact} की प्रक्रिया रद्द कर दी गई।',
+  'localWhisper.settings.progressFailedDescription':
+    '{artifact} की प्रक्रिया विफल रही। तैयार होने पर फिर से प्रयास करें।',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} इंस्टॉल है और उपयोग के लिए तैयार है।',
+  'localWhisper.settings.progressMissingDescription': '{artifact} इंस्टॉल नहीं है।',
+  'localWhisper.settings.cancelInterruptionTitle': '{artifact} को रोकें?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'मौजूदा डाउनलोड या इंस्टॉलेशन रुक जाएगा। समर्थित डाउनलोड बाद में फिर शुरू किए जा सकते हैं।',
+  'localWhisper.settings.closeInterruptionTitle': 'सक्रिय प्रक्रियाएँ रोककर बंद करें?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Local Whisper सेटिंग बंद करने से पहले सक्रिय डाउनलोड और इंस्टॉलेशन रोकने होंगे।',
+  'localWhisper.settings.continueInstallation': 'इंस्टॉलेशन जारी रखें',
+  'localWhisper.settings.interruptOperation': 'रोकें',
+  'localWhisper.settings.interruptAndClose': 'रोकें और बंद करें',
+  'localWhisper.settings.interrupting': 'रोका जा रहा है…',
+  'localWhisper.settings.cancellationFailed': 'सक्रिय प्रक्रिया को रोका नहीं जा सका। Local Whisper सेटिंग खुली रहेगी।',
   'localWhisper.settings.manageArtifact': '{artifact} प्रबंधित करें',
   'localWhisper.settings.removeDialogTitle': '{artifact} हटाएं?',
   'localWhisper.settings.removeDialogDescription':

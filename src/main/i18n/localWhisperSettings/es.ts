@@ -100,6 +100,7 @@ export default {
   'localWhisper.settings.stateQueued': 'En cola',
   'localWhisper.settings.stateDeleting': 'Eliminando',
   'localWhisper.settings.stateResumable': 'En pausa',
+  'localWhisper.settings.stateCancelled': 'Cancelado',
   'localWhisper.settings.notAvailable': 'No disponible',
   'localWhisper.settings.noArtifactSelection': 'Ningún artefacto confiable coincide con esta selección.',
   'localWhisper.settings.engineBackend': 'Parte trasera del motor',
@@ -161,6 +162,30 @@ export default {
   'localWhisper.settings.queue': 'Cola {position}',
   'localWhisper.settings.installed': '{size} instalado',
   'localWhisper.settings.download': 'descarga de {size}',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} está esperando a que termine otra operación.',
+  'localWhisper.settings.progressDownloadingDescription': 'Descargando {artifact}.',
+  'localWhisper.settings.progressVerifyingDescription': 'Verificando la integridad y autenticidad de {artifact}.',
+  'localWhisper.settings.progressInstallingDescription': 'Instalando {artifact} en el almacenamiento administrado.',
+  'localWhisper.settings.progressDeletingDescription': 'Eliminando {artifact} del almacenamiento administrado.',
+  'localWhisper.settings.progressResumableDescription':
+    'La descarga de {artifact} puede continuar desde el progreso guardado.',
+  'localWhisper.settings.progressCancelledDescription': 'La operación de {artifact} se canceló.',
+  'localWhisper.settings.progressFailedDescription':
+    'La operación de {artifact} falló. Vuelve a intentarlo cuando quieras.',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} está instalado y listo.',
+  'localWhisper.settings.progressMissingDescription': '{artifact} no está instalado.',
+  'localWhisper.settings.cancelInterruptionTitle': '¿Interrumpir {artifact}?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'La descarga o instalación actual se detendrá. Las descargas compatibles se pueden reanudar más tarde.',
+  'localWhisper.settings.closeInterruptionTitle': '¿Interrumpir las operaciones activas y cerrar?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Las descargas e instalaciones activas deben detenerse antes de cerrar los ajustes de Local Whisper.',
+  'localWhisper.settings.continueInstallation': 'Continuar la instalación',
+  'localWhisper.settings.interruptOperation': 'Interrumpir',
+  'localWhisper.settings.interruptAndClose': 'Interrumpir y cerrar',
+  'localWhisper.settings.interrupting': 'Interrumpiendo…',
+  'localWhisper.settings.cancellationFailed':
+    'No se pudo interrumpir la operación activa. Los ajustes de Local Whisper permanecerán abiertos.',
   'localWhisper.settings.manageArtifact': 'Administrar {artifact}',
   'localWhisper.settings.removeDialogTitle': '¿Eliminar {artifact}?',
   'localWhisper.settings.removeDialogDescription':

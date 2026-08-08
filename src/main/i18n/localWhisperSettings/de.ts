@@ -101,6 +101,7 @@ export default {
   'localWhisper.settings.stateQueued': 'In der Warteschlange',
   'localWhisper.settings.stateDeleting': 'Löschen',
   'localWhisper.settings.stateResumable': 'Angehalten',
+  'localWhisper.settings.stateCancelled': 'Abgebrochen',
   'localWhisper.settings.notAvailable': 'Nicht verfügbar',
   'localWhisper.settings.noArtifactSelection': 'Kein vertrauenswürdiges Artefakt entspricht dieser Auswahl.',
   'localWhisper.settings.engineBackend': 'Engine-Backend',
@@ -162,6 +163,30 @@ export default {
   'localWhisper.settings.queue': 'Warteschlange {position}',
   'localWhisper.settings.installed': '{size} installiert',
   'localWhisper.settings.download': '{size} herunterladen',
+  'localWhisper.settings.progressQueuedDescription': '{artifact} wartet auf den Abschluss eines anderen Vorgangs.',
+  'localWhisper.settings.progressDownloadingDescription': '{artifact} wird heruntergeladen.',
+  'localWhisper.settings.progressVerifyingDescription': 'Integrität und Authentizität von {artifact} werden überprüft.',
+  'localWhisper.settings.progressInstallingDescription': '{artifact} wird im verwalteten Speicher installiert.',
+  'localWhisper.settings.progressDeletingDescription': '{artifact} wird aus dem verwalteten Speicher entfernt.',
+  'localWhisper.settings.progressResumableDescription':
+    'Der Download von {artifact} kann ab dem gespeicherten Fortschritt fortgesetzt werden.',
+  'localWhisper.settings.progressCancelledDescription': 'Der Vorgang für {artifact} wurde abgebrochen.',
+  'localWhisper.settings.progressFailedDescription':
+    'Der Vorgang für {artifact} ist fehlgeschlagen. Versuchen Sie es erneut, wenn Sie bereit sind.',
+  'localWhisper.settings.progressCompletedDescription': '{artifact} ist installiert und einsatzbereit.',
+  'localWhisper.settings.progressMissingDescription': '{artifact} ist nicht installiert.',
+  'localWhisper.settings.cancelInterruptionTitle': '{artifact} unterbrechen?',
+  'localWhisper.settings.cancelInterruptionDescription':
+    'Der aktuelle Download oder die Installation wird beendet. Unterstützte Downloads können später fortgesetzt werden.',
+  'localWhisper.settings.closeInterruptionTitle': 'Aktive Vorgänge unterbrechen und schließen?',
+  'localWhisper.settings.closeInterruptionDescription':
+    'Aktive Downloads und Installationen müssen beendet werden, bevor die Local-Whisper-Einstellungen geschlossen werden können.',
+  'localWhisper.settings.continueInstallation': 'Installation fortsetzen',
+  'localWhisper.settings.interruptOperation': 'Unterbrechen',
+  'localWhisper.settings.interruptAndClose': 'Unterbrechen und schließen',
+  'localWhisper.settings.interrupting': 'Wird unterbrochen…',
+  'localWhisper.settings.cancellationFailed':
+    'Der aktive Vorgang konnte nicht unterbrochen werden. Die Local-Whisper-Einstellungen bleiben geöffnet.',
   'localWhisper.settings.manageArtifact': '{artifact} verwalten',
   'localWhisper.settings.removeDialogTitle': '{artifact} entfernen?',
   'localWhisper.settings.removeDialogDescription':

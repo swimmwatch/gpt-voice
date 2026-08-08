@@ -139,6 +139,7 @@ export interface ElectronAPI {
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
   openProviderSettings: (providerId: string) => Promise<{ success: boolean; error?: string }>;
   closeProviderSettings: () => Promise<{ success: boolean }>;
+  onProviderSettingsCloseRequested: (callback: () => void) => () => void;
   onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void) => () => void;
   closeAppSettings: () => Promise<{ success: boolean }>;
   onAppSettingsCloseRequested: (callback: () => void) => () => void;

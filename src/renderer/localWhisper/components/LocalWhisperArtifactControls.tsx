@@ -40,7 +40,7 @@ import {
   formatLocalWhisperBytes,
   formatLocalWhisperFailureCode,
   formatLocalWhisperRecoveryAction,
-  formatLocalWhisperRuntimeState,
+  getLocalWhisperArtifactProgressPresentation,
 } from '../LocalWhisperPresentation';
 
 function actionLabel(action: LocalWhisperArtifactAction, translate: ReturnType<typeof useI18n>['t']): string {
@@ -70,13 +70,6 @@ const RECOVERABLE_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['sta
   ...LOCAL_WHISPER_RECOVERABLE_ARTIFACT_PROGRESS_STATES,
 ]);
 
-const INDETERMINATE_ARTIFACT_PROGRESS_STATES: ReadonlySet<LocalWhisperArtifactProgress['state']> = new Set([
-  'Queued',
-  'Verifying',
-  'Installing',
-  'Deleting',
-]);
-
 export function getLocalWhisperArtifactActions(
   artifact: LocalWhisperRendererArtifact,
   progress: LocalWhisperArtifactProgress | null,
@@ -90,6 +83,7 @@ export function getLocalWhisperArtifactActions(
 interface ArtifactControlProps {
   readonly actionsDisabledReason: string | null;
   readonly artifact: LocalWhisperRendererArtifact;
+  readonly cancelDisabledReason?: string | null;
   readonly onAction: (action: LocalWhisperArtifactAction, artifact: LocalWhisperRendererArtifact) => Promise<boolean>;
   readonly onViewReference: (reference: LocalWhisperArtifactReference) => Promise<boolean>;
   readonly pendingAction: string | null;
@@ -107,6 +101,7 @@ function actionIcon(action: LocalWhisperArtifactAction): React.JSX.Element {
 export function LocalWhisperArtifactProgressCard({
   actionsDisabledReason,
   artifact,
+  cancelDisabledReason = null,
   onAction,
   pendingAction,
   progress,
@@ -114,33 +109,32 @@ export function LocalWhisperArtifactProgressCard({
   const { t } = useI18n();
   const actions = getLocalWhisperArtifactActions(artifact, progress).filter((action) => action !== 'remove');
   const transferProgress = progress?.state === 'Downloading' && progress.totalBytes > 0 ? progress : null;
-  const percent =
-    transferProgress === null
-      ? null
-      : Math.min(100, (transferProgress.receivedBytes / transferProgress.totalBytes) * 100);
-  const state = progress?.state ?? artifact.state;
-  const isIndeterminateOperation = progress !== null && INDETERMINATE_ARTIFACT_PROGRESS_STATES.has(progress.state);
+  const presentation = getLocalWhisperArtifactProgressPresentation(artifact, progress, t);
   const progressLabel = t('localWhisper.settings.transferProgress', {
     artifact: artifact.label,
     action: progress ? actionLabel(progress.action, t).toLocaleLowerCase() : t('localWhisper.settings.transfer'),
   });
 
   return (
-    <div aria-live="polite" className="lw-transfer-field">
+    <div className="lw-transfer-field">
       <div className="lw-transfer-heading">
-        <strong>{formatLocalWhisperRuntimeState(state, t)}</strong>
-        {percent === null ? (
-          isIndeterminateOperation ? (
-            <Spinner announce={false} label={progressLabel} size="sm" />
-          ) : null
-        ) : (
-          <ProgressSpinner announce={false} label={progressLabel} progress={percent} size="sm" />
+        <div className="lw-transfer-phase">
+          {presentation.indeterminate ? <Spinner announce={false} label={progressLabel} size="sm" /> : null}
+          <strong>{presentation.label}</strong>
+        </div>
+        {presentation.percent === null ? null : (
+          <div className="lw-transfer-percentage">
+            <ProgressSpinner announce={false} label={progressLabel} progress={presentation.percent} size="sm" />
+            <span>{Math.round(presentation.percent)}%</span>
+          </div>
         )}
-        {percent === null ? null : <span>{Math.round(percent)}%</span>}
       </div>
-      {transferProgress !== null && percent !== null ? (
+      <p aria-live="polite" className="lw-transfer-description" role="status">
+        {presentation.description}
+      </p>
+      {transferProgress !== null && presentation.percent !== null ? (
         <>
-          <progress aria-label={progressLabel} className="lw-progress-track" max={100} value={percent} />
+          <progress aria-label={progressLabel} className="lw-progress-track" max={100} value={presentation.percent} />
           <div className="lw-transfer-meta">
             <span>
               {formatLocalWhisperBytes(transferProgress.receivedBytes, t)} /{' '}
@@ -153,13 +147,7 @@ export function LocalWhisperArtifactProgressCard({
             </span>
           </div>
         </>
-      ) : (
-        <p className="lw-transfer-description">
-          {artifact.state === 'Installed'
-            ? t('localWhisper.settings.installed', { size: formatLocalWhisperBytes(artifact.installedSizeBytes, t) })
-            : t('localWhisper.settings.download', { size: formatLocalWhisperBytes(artifact.transferSizeBytes, t) })}
-        </p>
-      )}
+      ) : null}
       {progress?.failure ? (
         <p className="lw-inline-error" role="alert">
           {formatLocalWhisperFailureCode(progress.failure.code, t)}.{' '}
@@ -175,7 +163,7 @@ export function LocalWhisperArtifactProgressCard({
               <TooltipTrigger asChild>
                 <button
                   className="lw-compact-button"
-                  disabled={actionsDisabledReason !== null}
+                  disabled={(action === 'cancel' ? cancelDisabledReason : actionsDisabledReason) !== null}
                   onClick={() => void onAction(action, artifact)}
                   type="button"
                 >
@@ -183,7 +171,9 @@ export function LocalWhisperArtifactProgressCard({
                   {pendingAction === action ? t('localWhisper.settings.working') : actionLabel(action, t)}
                 </button>
               </TooltipTrigger>
-              {actionsDisabledReason ? <TooltipContent>{actionsDisabledReason}</TooltipContent> : null}
+              {(action === 'cancel' ? cancelDisabledReason : actionsDisabledReason) ? (
+                <TooltipContent>{action === 'cancel' ? cancelDisabledReason : actionsDisabledReason}</TooltipContent>
+              ) : null}
             </Tooltip>
           ))}
         </div>

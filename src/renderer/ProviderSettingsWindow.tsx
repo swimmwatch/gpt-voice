@@ -22,6 +22,12 @@ function ProviderSettingsWindow(): JSX.Element {
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [requestedProviderId] = useState(() => getProviderSettingsWindowProviderId(window.location.search));
+  const [closeRequestRevision, setCloseRequestRevision] = useState(0);
+
+  const closeWindow = useCallback((): void => {
+    void desktopApi.closeProviderSettings();
+  }, [desktopApi]);
 
   useWindowStartupReady(isI18nReady && !isLoading);
 
@@ -31,9 +37,8 @@ function ProviderSettingsWindow(): JSX.Element {
     let disposed = false;
     const loadProviderSettings = async (): Promise<void> => {
       try {
-        const providerId = getProviderSettingsWindowProviderId(window.location.search);
         const providers = await desktopApi.getProviders();
-        const requestedProvider = findSettingsProvider(providers, providerId);
+        const requestedProvider = findSettingsProvider(providers, requestedProviderId);
         if (!requestedProvider) throw new Error('Provider settings are not available');
 
         if (requestedProvider.id === LOCAL_WHISPER_PROVIDER_ID) {
@@ -65,11 +70,30 @@ function ProviderSettingsWindow(): JSX.Element {
     return () => {
       disposed = true;
     };
-  }, [desktopApi, isI18nReady, t]);
+  }, [desktopApi, isI18nReady, requestedProviderId, t]);
 
-  const closeWindow = useCallback((): void => {
-    void desktopApi.closeProviderSettings();
-  }, [desktopApi]);
+  useEffect(
+    () =>
+      desktopApi.onProviderSettingsCloseRequested(() => {
+        if (requestedProviderId === LOCAL_WHISPER_PROVIDER_ID) {
+          setCloseRequestRevision((current) => current + 1);
+          return;
+        }
+        closeWindow();
+      }),
+    [closeWindow, desktopApi, requestedProviderId],
+  );
+
+  useEffect(() => {
+    if (
+      closeRequestRevision > 0 &&
+      !isLoading &&
+      requestedProviderId === LOCAL_WHISPER_PROVIDER_ID &&
+      provider?.id !== LOCAL_WHISPER_PROVIDER_ID
+    ) {
+      closeWindow();
+    }
+  }, [closeRequestRevision, closeWindow, isLoading, provider?.id, requestedProviderId]);
 
   const login = useCallback(async (): Promise<ProviderSettings> => {
     if (!provider) throw new Error(t('providerSettings.loadFailed'));
@@ -99,7 +123,7 @@ function ProviderSettingsWindow(): JSX.Element {
     >
       {provider?.id === LOCAL_WHISPER_PROVIDER_ID ? (
         <div className="mx-auto w-full max-w-[912px] min-w-0">
-          <LocalWhisperSettingsPage desktopApi={desktopApi} />
+          <LocalWhisperSettingsPage desktopApi={desktopApi} closeRequestRevision={closeRequestRevision} />
         </div>
       ) : provider && settings ? (
         <ProviderSettingsForm
