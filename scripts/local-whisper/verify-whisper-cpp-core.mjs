@@ -20,7 +20,11 @@ try {
       throw new Error('Windows native quality requires the exact Task 24 CPU profile');
     }
     requireVerifiedInputs(profileId);
-    const configured = configureBuild(profileId, { engine: false, tests: true });
+    const configured = configureBuild(profileId, {
+      engine: false,
+      preparedWindowsQuality: true,
+      tests: true,
+    });
     const targets = [
       'local_whisper_whisper_cpp_core_tests',
       'local_whisper_whisper_cpp_loader_tests',

@@ -216,6 +216,15 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($values[$name])) { throw "Visual Studio developer environment omitted $name" }
             Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($values[$name])" -Encoding utf8
           }
+          $tools = @{
+            CMAKE_COMMAND = (Get-Command cmake.exe -ErrorAction Stop).Source
+            CTEST_COMMAND = (Get-Command ctest.exe -ErrorAction Stop).Source
+            CXX = (Get-Command cl.exe -ErrorAction Stop).Source
+            NINJA_COMMAND = (Get-Command ninja.exe -ErrorAction Stop).Source
+          }
+          foreach ($name in $tools.Keys) {
+            Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($tools[$name])" -Encoding utf8
+          }
 
       - name: Run MSVC native unit and integration tests
         run: npm run test:local-whisper:fs-guard:native

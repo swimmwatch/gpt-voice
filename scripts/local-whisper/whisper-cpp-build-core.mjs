@@ -319,6 +319,23 @@ function profileTools(profile) {
   };
 }
 
+/** Resolves the explicit, already-initialized MSVC tools used by hosted Windows quality CI. */
+export function resolvePreparedWindowsQualityTools(environment = process.env) {
+  const values = {
+    ctest: environment.CTEST_COMMAND,
+    cCompiler: environment.CXX,
+    cmake: environment.CMAKE_COMMAND,
+    cxxCompiler: environment.CXX,
+    ninja: environment.NINJA_COMMAND,
+  };
+  for (const [role, path] of Object.entries(values)) {
+    if (typeof path !== 'string' || !isAbsolute(path) || !existsSync(path)) {
+      throw new Error(`Windows prepared native tool is unavailable: ${role}`);
+    }
+  }
+  return Object.freeze({ ...values, cudaCompiler: null, cudaHostCompiler: null, inputs: null, linker: null });
+}
+
 function networkDeniedEnvironment(profile, tools) {
   const values = {
     ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
@@ -360,11 +377,12 @@ function runBuildCommand(configured, command, arguments_, label, environment = c
 
 export function configureBuild(
   profileId,
-  { directEngine = false, engine, networkDenied = false, rootTag = '', tests },
+  { directEngine = false, engine, networkDenied = false, preparedWindowsQuality = false, rootTag = '', tests },
 ) {
   const profileTemplate = requireProfile(profileId);
+  const usePreparedWindowsQuality = profileTemplate.target.os === 'windows' && preparedWindowsQuality;
   const profile =
-    profileTemplate.target.os === 'windows' && !networkDenied
+    profileTemplate.target.os === 'windows' && !networkDenied && !usePreparedWindowsQuality
       ? captureToolchainInputLock(profileTemplate, toolchainRoot)
       : profileTemplate;
   if (isAmdPreviewProfile(profileId)) {
@@ -375,8 +393,11 @@ export function configureBuild(
     throw new Error(`Local configure requires a ${hostOs} profile`);
   }
   if (profile.target.os === 'windows' && networkDenied) assertClosedHostedWindowsProfile(profile);
-  verifyToolchainContract(profile, { allowCandidate: profile.target.os === 'windows', contractOnly: false });
-  const tools = profileTools(profile);
+  verifyToolchainContract(profile, {
+    allowCandidate: profile.target.os === 'windows',
+    contractOnly: usePreparedWindowsQuality,
+  });
+  const tools = usePreparedWindowsQuality ? resolvePreparedWindowsQualityTools() : profileTools(profile);
   if (rootTag !== '' && !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(rootTag)) {
     throw new Error('Native build root tag is invalid');
   }
@@ -400,7 +421,6 @@ export function configureBuild(
     `-DCMAKE_MAKE_PROGRAM=${tools.ninja}`,
     `-DCMAKE_C_COMPILER=${tools.cCompiler}`,
     `-DCMAKE_CXX_COMPILER=${tools.cxxCompiler}`,
-    `-DCMAKE_LINKER=${tools.linker}`,
     `-DLOCAL_WHISPER_GENERATED_INCLUDE_DIR=${generatedIncludeRoot}`,
     `-DLOCAL_WHISPER_NLOHMANN_SOURCE=${nlohmannSource}`,
     `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
@@ -413,6 +433,7 @@ export function configureBuild(
     `-DLOCAL_WHISPER_SOURCE_ROOT=${engine || directEngine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId, profile)}`,
   ];
+  if (tools.linker !== null) arguments_.push(`-DCMAKE_LINKER=${tools.linker}`);
   if (tools.cudaCompiler !== null) {
     arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
     if (profile.target.os === 'windows') {
@@ -477,7 +498,9 @@ export function buildTargets(configured, targets) {
 }
 
 export function runTests(configured, label) {
-  const ctest = resolve(configured.tools.cmake, '..', process.platform === 'win32' ? 'ctest.exe' : 'ctest');
+  const ctest =
+    configured.tools.ctest ??
+    resolve(configured.tools.cmake, '..', process.platform === 'win32' ? 'ctest.exe' : 'ctest');
   const environment = {
     ...configured.environment,
     ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',

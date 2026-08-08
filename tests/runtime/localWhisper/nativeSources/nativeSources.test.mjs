@@ -20,6 +20,7 @@ import {
   qualifyToolchainProfile,
   verifyToolchainContract,
 } from '../../../../scripts/local-whisper/native-build/native-toolchain-core.mjs';
+import { resolvePreparedWindowsQualityTools } from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
 import {
   approveSourceCandidate,
   buildIndexManifest,
@@ -483,6 +484,37 @@ test('Windows native tool paths honor explicit developer-environment commands', 
       ninja: 'C:\\tools\\ninja.exe',
     },
   );
+});
+
+test('Windows Whisper.cpp quality uses only explicit prepared developer tools', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-quality-tools-'));
+  const paths = Object.fromEntries(
+    ['cmake.exe', 'ctest.exe', 'cl.exe', 'ninja.exe'].map((name) => {
+      const path = resolve(root, name);
+      writeFileSync(path, 'fixture\n');
+      return [name, path];
+    }),
+  );
+  assert.deepEqual(
+    resolvePreparedWindowsQualityTools({
+      CMAKE_COMMAND: paths['cmake.exe'],
+      CTEST_COMMAND: paths['ctest.exe'],
+      CXX: paths['cl.exe'],
+      NINJA_COMMAND: paths['ninja.exe'],
+    }),
+    {
+      cmake: paths['cmake.exe'],
+      ctest: paths['ctest.exe'],
+      cCompiler: paths['cl.exe'],
+      cxxCompiler: paths['cl.exe'],
+      ninja: paths['ninja.exe'],
+      cudaCompiler: null,
+      cudaHostCompiler: null,
+      inputs: null,
+      linker: null,
+    },
+  );
+  assert.throws(() => resolvePreparedWindowsQualityTools({}));
 });
 
 test('Windows PE dependency parser is case-preserving, closed, and rejects duplicate imports', () => {
