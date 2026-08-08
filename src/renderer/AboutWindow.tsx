@@ -1,11 +1,11 @@
 import { ExternalLink, Scale } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import aboutWindowLogo from '../../assets/icons/256x256.png';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { Button, buttonVariants } from '@renderer/components/ui/button';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
 import { getAboutWindowInfoState } from '@renderer/aboutWindowViewState';
-import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 import type { AppInfo } from '@shared/appInfo';
 
 /** Renders the application metadata window and handles its asynchronous startup state. */
@@ -21,6 +21,15 @@ function AboutWindow(): JSX.Element {
   const closeWindow = useCallback((): void => {
     void desktopApi.closeAbout();
   }, [desktopApi]);
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLElement>): void => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      closeWindow();
+    },
+    [closeWindow],
+  );
 
   useEffect(() => {
     if (!isReady) {
@@ -47,20 +56,6 @@ function AboutWindow(): JSX.Element {
   }, [desktopApi, isReady]);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeWindow();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [closeWindow]);
-
-  useEffect(() => {
     if (appInfo || loadFailed) {
       closeButtonRef.current?.focus();
     }
@@ -71,8 +66,14 @@ function AboutWindow(): JSX.Element {
       aria-busy={infoState === 'loading'}
       className="flex h-full min-h-0 w-full flex-col items-center justify-center gap-4 p-5 text-center [-webkit-app-region:no-drag]"
       data-slot="about-window"
+      onKeyDown={handleKeyDown}
     >
-      <img alt="" className="size-20 shrink-0" src={APP_ICON_ASSET_PATH} />
+      <img
+        alt=""
+        className="pointer-events-none size-20 shrink-0 select-none"
+        draggable={false}
+        src={aboutWindowLogo}
+      />
       <div className="grid gap-1">
         <h1 className="text-2xl font-semibold text-foreground">{appInfo?.name || t('mainDock.subtitle')}</h1>
         {infoState !== 'failed' && (

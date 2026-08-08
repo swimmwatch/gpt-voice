@@ -85,11 +85,15 @@ describe('main window iconography', () => {
     assert.match(providerSettingsWindow, /closeProviderSettings\(\)/u);
   });
 
-  it('loads the About logo from the app asset protocol instead of a renderer import', () => {
+  it('bundles a non-interactive About logo with the renderer', () => {
     const aboutWindow = readRendererSource('AboutWindow.tsx');
 
-    assert.match(aboutWindow, /APP_ICON_ASSET_PATH/u);
-    assert.doesNotMatch(aboutWindow, /\.\.\/\.\.\/assets\/icon\.png/u);
+    assert.match(aboutWindow, /aboutWindowLogo from '\.\.\/\.\.\/assets\/icons\/256x256\.png'/u);
+    assert.match(aboutWindow, /src=\{aboutWindowLogo\}/u);
+    assert.match(aboutWindow, /draggable=\{false\}/u);
+    assert.match(aboutWindow, /pointer-events-none/u);
+    assert.match(aboutWindow, /select-none/u);
+    assert.doesNotMatch(aboutWindow, /window\.addEventListener\('keydown'/u);
   });
 
   it('renders guarded external links for the project and license', () => {
