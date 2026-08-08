@@ -57,6 +57,7 @@ import {
   getLocalWhisperRuntimeIdentityKey,
   type LocalWhisperAuthenticatedCatalog,
   type LocalWhisperCatalogPurpose,
+  type LocalWhisperCatalogRuntimeEntry,
   type LocalWhisperCatalogTrustPolicy,
 } from '../catalog/LocalWhisperCatalogTypes';
 import {
@@ -218,7 +219,7 @@ function actions(item: {
 function selectedRuntimeEntry(
   catalog: LocalWhisperAuthenticatedCatalog,
   settings: LocalWhisperSettings,
-  applicability: NvidiaCudaRuntimeApplicability,
+  applicability: Pick<NvidiaCudaRuntimeApplicability, 'supports'>,
   cuda: NvidiaCudaRuntimeApplicabilitySnapshot,
 ) {
   return catalog.payload.runtimes.find((entry) => {
@@ -236,16 +237,34 @@ function selectedRuntimeEntry(
   });
 }
 
-function rendererArtifacts(
+function hasRuntimeArtifactAccess(
+  entry: LocalWhisperCatalogRuntimeEntry,
+  selectedRuntime: LocalWhisperCatalogRuntimeEntry | undefined,
+  host: Pick<LocalWhisperSettingsValidationContext, 'architecture' | 'platform'>,
+): boolean {
+  return (
+    entry === selectedRuntime ||
+    (entry.identity.platform === host.platform &&
+      entry.identity.architecture === host.architecture &&
+      entry.identity.target === 'cpu' &&
+      entry.identity.backend === 'cpu')
+  );
+}
+
+/** Projects the selected runtime plus the current host CPU fallback for draft configuration. */
+export function rendererArtifacts(
   catalog: LocalWhisperAuthenticatedCatalog,
   inventory: LocalWhisperInventorySnapshot,
   settings: LocalWhisperSettings,
-  applicability: NvidiaCudaRuntimeApplicability,
-  cuda: NvidiaCudaRuntimeApplicabilitySnapshot,
+  runtime: {
+    readonly applicability: Pick<NvidiaCudaRuntimeApplicability, 'supports'>;
+    readonly cuda: NvidiaCudaRuntimeApplicabilitySnapshot;
+    readonly host: Pick<LocalWhisperSettingsValidationContext, 'architecture' | 'platform'>;
+  },
 ): readonly LocalWhisperRendererArtifact[] {
-  const selectedRuntime = selectedRuntimeEntry(catalog, settings, applicability, cuda);
+  const selectedRuntime = selectedRuntimeEntry(catalog, settings, runtime.applicability, runtime.cuda);
   const runtimes = catalog.payload.runtimes.flatMap((entry, index) => {
-    if (entry !== selectedRuntime) return [];
+    if (!hasRuntimeArtifactAccess(entry, selectedRuntime, runtime.host)) return [];
     const item = inventory.runtimes[index];
     if (!item) return [];
     const descriptor = createManagedRuntimeDescriptor(catalog, entry);
@@ -673,7 +692,11 @@ function factsSnapshot(
         }),
       })
     : null;
-  const artifacts = rendererArtifacts(catalog, inventory, settingsSnapshot.settings, applicability, cuda);
+  const artifacts = rendererArtifacts(catalog, inventory, settingsSnapshot.settings, {
+    applicability,
+    cuda,
+    host: context,
+  });
   const installed = [...inventory.runtimes, ...inventory.models].filter(({ state }) => state === 'Installed');
   return Object.freeze({
     catalogRevision: catalog.payload.catalogRevision,
@@ -1233,7 +1256,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
           cudaApplicability,
           cuda,
         );
-        if (runtime) return runtime === selectedRuntime;
+        if (runtime) return hasRuntimeArtifactAccess(runtime, selectedRuntime, context);
         const model = loaded.catalog.payload.models.find(
           (entry) => createManagedModelDescriptor(loaded.catalog, entry).artifactId === artifactId,
         );

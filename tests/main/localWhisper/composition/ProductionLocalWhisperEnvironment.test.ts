@@ -5,12 +5,19 @@ import {
   ProductionLocalWhisperEnvironmentFactory,
   createLocalWhisperRendererOptions,
   createProductionLocalWhisperEnvironment,
+  rendererArtifacts,
   restoreLocalWhisperStartupDeviceTopology,
   type LocalWhisperProductionEnvironmentDependencies,
 } from '@main/localWhisper/composition/createProductionLocalWhisperEnvironment';
 import type { LocalWhisperAuthenticatedCatalog } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
+import type {
+  NvidiaCudaRuntimeApplicability,
+  NvidiaCudaRuntimeApplicabilitySnapshot,
+} from '@main/localWhisper/capability/NvidiaCudaRuntimeApplicability';
+import type { LocalWhisperInventorySnapshot } from '@main/localWhisper/inventory/LocalWhisperInventoryRepository';
 import {
   toLocalWhisperOpaqueDeviceId,
+  toLocalWhisperRevisionId,
   type LocalWhisperSettings,
   type LocalWhisperSettingsValidationContext,
 } from '@shared/localWhisper';
@@ -177,6 +184,122 @@ describe('production Local Whisper environment activation', () => {
       eligibleOptions.find((option) => option.group === 'runtime' && option.id === cudaRuntime.identity.packRevision)
         ?.available,
       true,
+    );
+  });
+
+  it('projects the current host CPU runtime while a saved CUDA configuration remains selected', () => {
+    const payload = createQualificationCatalogPayload();
+    const cpuRuntime = payload.runtimes.find(({ identity }) => identity.target === 'cpu');
+    const cudaRuntime = payload.runtimes.find(
+      ({ identity }) => identity.target === 'gpu' && identity.backend === 'cuda',
+    );
+    const model = payload.models[0];
+    assert.ok(cpuRuntime);
+    assert.ok(cudaRuntime);
+    assert.ok(model);
+    const foreignRuntimeRevision = toLocalWhisperRevisionId('foreign-cpu-runtime-v1');
+    assert.ok(foreignRuntimeRevision);
+    const foreignCpuRuntime = Object.freeze({
+      ...cpuRuntime,
+      identity: Object.freeze({
+        ...cpuRuntime.identity,
+        packRevision: foreignRuntimeRevision,
+        platform: 'win32' as const,
+      }),
+    });
+    const catalog: LocalWhisperAuthenticatedCatalog = Object.freeze({
+      signingKeyId: cpuRuntime.identity.signingKeyId,
+      payload: Object.freeze({
+        ...payload,
+        runtimes: Object.freeze([...payload.runtimes, foreignCpuRuntime]),
+      }),
+      isModelDenylisted: () => false,
+      isRuntimeDenylisted: () => false,
+    });
+    const inventory: LocalWhisperInventorySnapshot = Object.freeze({
+      revision: 1,
+      catalogRevision: payload.catalogRevision,
+      residency: 'Unloaded',
+      runtimes: Object.freeze(
+        catalog.payload.runtimes.map((entry) =>
+          Object.freeze({
+            architecture: entry.identity.architecture,
+            backend: entry.identity.backend,
+            buildRevision: entry.identity.buildRevision,
+            engine: entry.identity.engine,
+            installedSizeBytes: 0,
+            kind: 'runtime' as const,
+            licenseIds: entry.licenseIds,
+            noticeIds: entry.identity.noticeIds,
+            packRevision: entry.identity.packRevision,
+            platform: entry.identity.platform,
+            prerequisites: entry.identity.prerequisites,
+            provenanceId: entry.identity.provenanceId,
+            qualificationStatus: entry.qualificationStatus,
+            residency: 'Unloaded' as const,
+            stagingRecovery: null,
+            state: 'Missing' as const,
+            target: entry.identity.target,
+            transferSizeBytes: entry.identity.archiveSizeBytes,
+            updateAvailable: false,
+            upstreamRevision: entry.identity.upstreamRevision,
+          }),
+        ),
+      ),
+      models: Object.freeze([]),
+      qualifiedMemoryPeak: null,
+      recoveryItems: Object.freeze([]),
+      selectedMemoryEstimate: null,
+    });
+    const deviceId = toLocalWhisperOpaqueDeviceId(`device-v1-${'a'.repeat(64)}`)!;
+    const cuda: NvidiaCudaRuntimeApplicabilitySnapshot = Object.freeze({
+      devices: Object.freeze([
+        Object.freeze({
+          id: deviceId,
+          label: 'NVIDIA GPU 1',
+          vendor: 'nvidia' as const,
+          available: true,
+          eligibleBackends: Object.freeze(['cuda'] as const),
+        }),
+      ]),
+      runtimeIdentityKeys: Object.freeze([getLocalWhisperRuntimeIdentityKey(cudaRuntime.identity)]),
+      unavailableReason: null,
+    });
+    const applicability = {
+      supports: (snapshot, entry, candidateDeviceId) =>
+        candidateDeviceId === deviceId &&
+        snapshot.runtimeIdentityKeys.includes(getLocalWhisperRuntimeIdentityKey(entry.identity)),
+    } satisfies Pick<NvidiaCudaRuntimeApplicability, 'supports'>;
+    const settings: LocalWhisperSettings = Object.freeze({
+      decoding: Object.freeze({ strategy: 'greedy', temperatureHundredths: 0 }),
+      engine: 'whisperCpp',
+      execution: Object.freeze({ target: 'gpu', backend: 'cuda', deviceId }),
+      initialPrompt: '',
+      language: 'auto',
+      model: Object.freeze({
+        family: model.identity.logicalModel,
+        revision: model.identity.artifactRevision,
+        variant: model.identity.variant,
+      }),
+      runtimeRevision: cudaRuntime.identity.packRevision,
+      schemaVersion: 1,
+    });
+
+    const artifacts = rendererArtifacts(catalog, inventory, settings, {
+      applicability,
+      cuda,
+      host: { architecture: 'x64', platform: 'linux' },
+    });
+
+    const runtimeArtifacts = artifacts.filter((artifact) => artifact.kind === 'runtime');
+    assert.deepEqual(
+      runtimeArtifacts.map((artifact) => artifact.revision),
+      [cpuRuntime.identity.packRevision, cudaRuntime.identity.packRevision],
+    );
+    assert.deepEqual(runtimeArtifacts[0]?.actions, ['download']);
+    assert.equal(
+      runtimeArtifacts.some((artifact) => artifact.revision === foreignRuntimeRevision),
+      false,
     );
   });
 
