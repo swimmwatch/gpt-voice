@@ -135,17 +135,17 @@ public:
       failure_injector_->before_resource_acquisition();
   }
 
-  HANDLE open_volume(const std::wstring& volume_path) {
+  UniqueHandle open_volume(const std::wstring& volume_path) {
     before_resource_acquisition();
-    return CreateFileW(volume_path.c_str(), kTraverseAccess,
-                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                       OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-                       nullptr);
+    return UniqueHandle(
+        CreateFileW(volume_path.c_str(), kTraverseAccess,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
   }
 
-  HANDLE open_process(DWORD pid) {
+  UniqueHandle open_process(DWORD pid) {
     before_resource_acquisition();
-    return OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    return UniqueHandle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
   }
 
   void require_lease_capacity() const {
@@ -276,10 +276,11 @@ public:
   PSID current_user_sid(std::vector<unsigned char>& storage) {
     HANDLE raw_token = nullptr;
     before_resource_acquisition();
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw_token)) {
+    const bool opened = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw_token) != FALSE;
+    UniqueHandle token(raw_token);
+    if (!opened) {
       throw GuardError("IO_FAILED");
     }
-    UniqueHandle token(raw_token);
     DWORD length = 0;
     GetTokenInformation(token.get(), TokenUser, nullptr, 0, &length);
     storage.resize(length);
@@ -350,8 +351,8 @@ public:
       throw GuardError("UNSAFE_ENTRY");
   }
 
-  HANDLE relative_open(HANDLE parent, const std::wstring& name, ACCESS_MASK access,
-                       ULONG disposition, ULONG options, bool& created) {
+  UniqueHandle relative_open(HANDLE parent, const std::wstring& name, ACCESS_MASK access,
+                             ULONG disposition, ULONG options, bool& created) {
     if (name.empty() || name == L"." || name == L".." ||
         name.find_first_of(L"\\/:\0") != std::wstring::npos || name.back() == L'.' ||
         name.back() == L' ') {
@@ -373,23 +374,25 @@ public:
     if (status == kStatusNameCollision)
       throw GuardError("CONFLICT");
     if (status == kStatusNameNotFound || status == kStatusPathNotFound) {
-      return INVALID_HANDLE_VALUE;
+      return {};
     }
     if (status < 0 || !owned_handle.valid()) {
       throw GuardError("IO_FAILED");
     }
     created = status_block.Information == FILE_CREATED;
-    return owned_handle.release();
+    return owned_handle;
   }
 
-  HANDLE duplicate_handle(HANDLE handle) {
+  UniqueHandle duplicate_handle(HANDLE handle) {
     HANDLE duplicate = INVALID_HANDLE_VALUE;
     before_resource_acquisition();
-    if (!DuplicateHandle(GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate, 0, FALSE,
-                         DUPLICATE_SAME_ACCESS)) {
+    const bool duplicated = DuplicateHandle(GetCurrentProcess(), handle, GetCurrentProcess(),
+                                            &duplicate, 0, FALSE, DUPLICATE_SAME_ACCESS) != FALSE;
+    UniqueHandle owned_duplicate(duplicate);
+    if (!duplicated) {
       throw GuardError("IO_FAILED");
     }
-    return duplicate;
+    return owned_duplicate;
   }
 
   std::wstring native_path(HANDLE handle) {
@@ -468,7 +471,7 @@ public:
     return root;
   }
 
-  HANDLE open_namespace(const Lease& root, const std::wstring& name) {
+  UniqueHandle open_namespace(const Lease& root, const std::wstring& name) {
     const auto expected = root.namespace_identities.find(name);
     if (expected == root.namespace_identities.end())
       throw GuardError("INVALID_INPUT");
@@ -482,7 +485,7 @@ public:
       throw GuardError("IDENTITY_CHANGED");
     }
     verify_private_acl(handle.get());
-    return handle.release();
+    return handle;
   }
 
   std::vector<std::wstring> absolute_components(const std::wstring& path,
@@ -516,7 +519,7 @@ public:
   Lease initialize_root(const std::string& utf8_path) {
     std::wstring volume_path;
     const auto components = absolute_components(utf8_to_wide(utf8_path), volume_path);
-    UniqueHandle current(open_volume(volume_path));
+    UniqueHandle current = open_volume(volume_path);
     if (!current.valid())
       throw GuardError("IO_FAILED");
     UniqueHandle root_parent;
@@ -526,17 +529,17 @@ public:
       if (managed && managed_volume == 0)
         managed_volume = stable_identity(current.get()).volume;
       if (index + 1 == components.size())
-        root_parent.reset(duplicate_handle(current.get()));
+        root_parent = duplicate_handle(current.get());
       const ACCESS_MASK access =
           index + 3 >= components.size() ? kDirectoryAccess : kTraverseAccess;
       bool created = false;
-      UniqueHandle next(relative_open(current.get(), components[index], access, FILE_OPEN,
-                                      kDirectoryOptions, created));
+      UniqueHandle next = relative_open(current.get(), components[index], access, FILE_OPEN,
+                                        kDirectoryOptions, created);
       if (!next.valid()) {
         if (!managed)
           throw GuardError("IO_FAILED");
-        next.reset(relative_open(current.get(), components[index], kDirectoryAccess, FILE_CREATE,
-                                 kDirectoryOptions, created));
+        next = relative_open(current.get(), components[index], kDirectoryAccess, FILE_CREATE,
+                             kDirectoryOptions, created);
         if (!next.valid())
           throw GuardError("IO_FAILED");
         apply_private_acl(next.get());
@@ -552,11 +555,11 @@ public:
     std::map<std::wstring, StableIdentity> namespace_identities;
     for (const wchar_t* name : {L"runtimes", L"models", L"staging", L"quarantine", L"locks"}) {
       bool created = false;
-      UniqueHandle child(relative_open(current.get(), name, kDirectoryAccess, FILE_OPEN,
-                                       kDirectoryOptions, created));
+      UniqueHandle child = relative_open(current.get(), name, kDirectoryAccess, FILE_OPEN,
+                                         kDirectoryOptions, created);
       if (!child.valid()) {
-        child.reset(relative_open(current.get(), name, kDirectoryAccess, FILE_CREATE,
-                                  kDirectoryOptions, created));
+        child = relative_open(current.get(), name, kDirectoryAccess, FILE_CREATE, kDirectoryOptions,
+                              created);
         if (!child.valid())
           throw GuardError("IO_FAILED");
         apply_private_acl(child.get());
@@ -588,22 +591,24 @@ public:
     DWORD object_size = 0;
     DWORD transferred = 0;
     before_resource_acquisition();
-    if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0 ||
+    const NTSTATUS open_status =
+        BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
+    UniqueBcryptAlgorithm owned_algorithm(algorithm);
+    if (open_status < 0 ||
         BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&object_size),
                           sizeof(object_size), &transferred, 0) < 0) {
-      if (algorithm != nullptr)
-        BCryptCloseAlgorithmProvider(algorithm, 0);
       throw GuardError("IO_FAILED");
     }
-    UniqueBcryptAlgorithm owned_algorithm(algorithm);
     std::vector<unsigned char> object(object_size);
     std::array<unsigned char, 32> digest{};
     BCRYPT_HASH_HANDLE hash = nullptr;
     before_resource_acquisition();
-    if (BCryptCreateHash(algorithm, &hash, object.data(), object_size, nullptr, 0, 0) < 0) {
+    const NTSTATUS create_status =
+        BCryptCreateHash(algorithm, &hash, object.data(), object_size, nullptr, 0, 0);
+    UniqueBcryptHash owned_hash(hash);
+    if (create_status < 0) {
       throw GuardError("IO_FAILED");
     }
-    UniqueBcryptHash owned_hash(hash);
     std::array<unsigned char, 64 * 1024> buffer{};
     while (true) {
       DWORD count = 0;
@@ -918,6 +923,8 @@ public:
   }
 
   ResponseFields open_artifact(const OpenArtifactCommand& command) {
+    if (!is_artifact_name(command.artifact_name))
+      throw GuardError("INVALID_INPUT");
     Lease& root = require_root(command.root_token);
     UniqueHandle parent(
         open_namespace(root, utf8_to_wide(std::string(command.namespace_name.text()))));

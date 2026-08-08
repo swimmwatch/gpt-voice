@@ -773,6 +773,8 @@ public:
   }
 
   ResponseFields open_artifact(const OpenArtifactCommand& command) {
+    if (!is_artifact_name(command.artifact_name))
+      throw GuardError("INVALID_INPUT");
     Lease& root = require_root(command.root_token);
     UniqueFd parent(open_namespace(root, std::string(command.namespace_name.text())));
     UniqueFd fd(open_managed_directory(parent.get(), command.artifact_name, root.root_device));
