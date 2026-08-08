@@ -53,7 +53,7 @@ try {
     engine: true,
     tests: false,
   });
-  runFormattingAndTidy(clang, engine);
+  await runFormattingAndTidy(clang, engine);
   process.stdout.write(`Local Whisper Whisper.cpp ${suite} suite verified\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Whisper.cpp core verification failed'}\n`);

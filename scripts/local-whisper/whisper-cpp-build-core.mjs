@@ -18,6 +18,7 @@ import process from 'node:process';
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
 import { assertClosedHostedWindowsProfile } from './native-build/hosted-toolchain-core.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
+import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { verifyLoaderLimitAuthority } from './native-build/loader-limit-core.mjs';
 import { resolveNetworkDeniedCommand } from './native-build/network-denied-build-core.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
@@ -485,7 +486,15 @@ export function runTests(configured, label) {
   runBuildCommand(
     configured,
     ctest,
-    ['--test-dir', configured.buildRoot, '--output-on-failure', '-L', label],
+    [
+      '--test-dir',
+      configured.buildRoot,
+      '--output-on-failure',
+      '--parallel',
+      String(resolveNativeBuildJobs({ backend: configured.profile.profileId.includes('cuda') ? 'cuda' : 'cpu' })),
+      '-L',
+      label,
+    ],
     `${label} tests`,
     environment,
   );
@@ -523,10 +532,15 @@ function nativeSourceDigest() {
   );
 }
 
-export function runFormattingAndTidy(configured, engineConfigured) {
+export async function runFormattingAndTidy(configured, engineConfigured) {
   const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
   const files = projectNativeFiles();
-  run(resolveClangFormat(workspaceRoot, clangRoot), ['--dry-run', '--Werror', ...files], {
+  await runNativeFileToolInParallel({
+    arguments_: ['--dry-run', '--Werror'],
+    command: resolveClangFormat(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files,
     label: 'Whisper.cpp project clang-format',
   });
   const qualityFiles = files.filter(
@@ -537,14 +551,29 @@ export function runFormattingAndTidy(configured, engineConfigured) {
   );
   const engineFiles = files.filter((path) => path.includes('/adapter/') || path.endsWith('/core/main.cpp'));
   const qualificationFiles = files.filter((path) => path.includes('/qualification/'));
-  run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', configured.buildRoot, ...qualityFiles], {
+  await runNativeFileToolInParallel({
+    arguments_: ['-p', configured.buildRoot],
+    command: resolveClangTidy(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files: qualityFiles,
     label: 'Whisper.cpp project core clang-tidy',
   });
-  run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', engineConfigured.buildRoot, ...engineFiles], {
+  await runNativeFileToolInParallel({
+    arguments_: ['-p', engineConfigured.buildRoot],
+    command: resolveClangTidy(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files: engineFiles,
     label: 'Whisper.cpp project engine clang-tidy',
   });
   if (qualificationFiles.length > 0) {
-    run(resolveClangTidy(workspaceRoot, clangRoot), ['-p', engineConfigured.buildRoot, ...qualificationFiles], {
+    await runNativeFileToolInParallel({
+      arguments_: ['-p', engineConfigured.buildRoot],
+      command: resolveClangTidy(workspaceRoot, clangRoot),
+      cwd: workspaceRoot,
+      env: process.env,
+      files: qualificationFiles,
       label: 'Whisper.cpp project qualification clang-tidy',
     });
   }

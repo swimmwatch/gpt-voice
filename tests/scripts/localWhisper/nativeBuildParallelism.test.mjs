@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { partitionNativeFileWork } from '../../../scripts/local-whisper/native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from '../../../scripts/local-whisper/native-build/native-build-parallelism.mjs';
 
 const GIBIBYTE = 1024 ** 3;
@@ -34,5 +35,15 @@ describe('native build parallelism', () => {
         /LOCAL_WHISPER_BUILD_JOBS/u,
       );
     }
+  });
+
+  it('partitions independent native file tools without exceeding the selected job count', () => {
+    assert.deepEqual(partitionNativeFileWork(['a.cpp', 'b.cpp', 'c.cpp', 'd.cpp', 'e.cpp'], 2), [
+      ['a.cpp', 'b.cpp'],
+      ['c.cpp', 'd.cpp'],
+      ['e.cpp'],
+    ]);
+    assert.deepEqual(partitionNativeFileWork([], 4), []);
+    assert.throws(() => partitionNativeFileWork(['a.cpp'], 0), /job count/u);
   });
 });

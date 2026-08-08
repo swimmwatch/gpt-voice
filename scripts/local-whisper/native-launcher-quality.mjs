@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import process from 'node:process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
@@ -103,25 +104,37 @@ function runExecutableIntegration() {
 }
 
 if (action === 'format') {
-  run(resolveClangFormat(workspaceRoot, clangRoot), ['--dry-run', '--Werror', ...nativeFiles(sourceDirectory)]);
+  await runNativeFileToolInParallel({
+    arguments_: ['--dry-run', '--Werror'],
+    command: resolveClangFormat(workspaceRoot, clangRoot),
+    cwd: sourceDirectory,
+    env: buildEnvironment,
+    files: nativeFiles(sourceDirectory),
+    label: 'launcher clang-format',
+  });
 } else if (action === 'lint') {
   if (process.platform !== 'linux') {
     process.stderr.write('clang-tidy is enforced by the Linux native-quality job\n');
     process.exit(2);
   }
   configureAndBuild();
-  run(resolveClangTidy(workspaceRoot, clangRoot), [
-    '-p',
-    buildDirectory,
-    ...nativeImplementationFiles(sourceDirectory),
-  ]);
+  await runNativeFileToolInParallel({
+    arguments_: ['-p', buildDirectory],
+    command: resolveClangTidy(workspaceRoot, clangRoot),
+    cwd: sourceDirectory,
+    env: buildEnvironment,
+    files: nativeImplementationFiles(sourceDirectory),
+    label: 'launcher clang-tidy',
+  });
 } else {
   configureAndBuild();
   if (action === 'unit' || action === 'all') {
-    run(ctest, ['--preset', `${platformName}-unit`]);
+    run(ctest, ['--preset', `${platformName}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
   }
   if (action === 'integration' || action === 'all') {
-    if (process.platform === 'linux') run(ctest, ['--preset', 'linux-integration']);
+    if (process.platform === 'linux') {
+      run(ctest, ['--preset', 'linux-integration', '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
+    }
     runExecutableIntegration();
   }
 }

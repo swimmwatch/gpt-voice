@@ -362,24 +362,24 @@ public:
     unicode.Length = static_cast<USHORT>(name.size() * sizeof(wchar_t));
     unicode.MaximumLength = unicode.Length;
     OBJECT_ATTRIBUTES attributes{};
-    InitializeObjectAttributes(&attributes, &unicode, OBJ_CASE_INSENSITIVE, parent, nullptr);
+    InitializeObjectAttributes(&attributes, &unicode, 0, parent, nullptr);
     IO_STATUS_BLOCK status_block{};
     HANDLE handle = INVALID_HANDLE_VALUE;
     before_resource_acquisition();
     const NTSTATUS status = nt_create_file()(
         &handle, access, &attributes, &status_block, nullptr, FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, disposition, options, nullptr, 0);
+    UniqueHandle owned_handle(handle);
     if (status == kStatusNameCollision)
       throw GuardError("CONFLICT");
     if (status == kStatusNameNotFound || status == kStatusPathNotFound) {
       return INVALID_HANDLE_VALUE;
     }
-    if (status < 0 || handle == INVALID_HANDLE_VALUE) {
-      UniqueHandle owned_handle(handle);
+    if (status < 0 || !owned_handle.valid()) {
       throw GuardError("IO_FAILED");
     }
     created = status_block.Information == FILE_CREATED;
-    return handle;
+    return owned_handle.release();
   }
 
   HANDLE duplicate_handle(HANDLE handle) {
@@ -682,11 +682,14 @@ public:
         throw GuardError("UNSAFE_ENTRY");
       }
       const auto known_mode = directory.file_modes.find(wide_name);
-      if (!require_exact_expectations && known_mode == directory.file_modes.end())
+      if (known_mode == directory.file_modes.end())
         throw GuardError("UNSAFE_ENTRY");
-      const unsigned int mode = require_exact_expectations ? expected->second : known_mode->second;
-      if (require_exact_expectations)
+      if (require_exact_expectations) {
+        if (expected->second != known_mode->second)
+          throw GuardError("UNSAFE_ENTRY");
         remaining.erase(expected);
+      }
+      const unsigned int mode = known_mode->second;
       result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
                        sha256_file(file.get()));
     }
@@ -918,9 +921,28 @@ public:
     Lease& root = require_root(command.root_token);
     UniqueHandle parent(
         open_namespace(root, utf8_to_wide(std::string(command.namespace_name.text()))));
+    const std::wstring artifact_name = utf8_to_wide(command.artifact_name);
+    bool case_alias = false;
+    bool exact_name = false;
+    for (const std::wstring& candidate : directory_names(parent.get())) {
+      if (candidate == artifact_name) {
+        exact_name = true;
+        break;
+      }
+      if (CompareStringOrdinal(candidate.data(), static_cast<int>(candidate.size()),
+                               artifact_name.data(), static_cast<int>(artifact_name.size()),
+                               TRUE) == CSTR_EQUAL) {
+        case_alias = true;
+      }
+    }
+    if (!exact_name) {
+      if (case_alias)
+        throw GuardError("UNSAFE_ENTRY");
+      return {"MISSING"};
+    }
     bool created = false;
-    UniqueHandle directory(relative_open(parent.get(), utf8_to_wide(command.artifact_name),
-                                         kDirectoryAccess, FILE_OPEN, kDirectoryOptions, created));
+    UniqueHandle directory(relative_open(parent.get(), artifact_name, kDirectoryAccess, FILE_OPEN,
+                                         kDirectoryOptions, created));
     if (!directory.valid()) {
       return {"MISSING"};
     }

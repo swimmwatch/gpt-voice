@@ -4,6 +4,7 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 
 const allowedActions = new Set(['all', 'authority', 'codec', 'format', 'lint', 'proof']);
@@ -125,6 +126,7 @@ function buildAndTest(profile) {
   assertDisconnectedGraph(buildDirectory);
   run(cmake, ['--build', buildDirectory, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
   const arguments_ = ['--test-dir', buildDirectory, '--output-on-failure'];
+  arguments_.push('--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' })));
   const regex = testRegex();
   if (regex) arguments_.push('-R', regex);
   run(ctest, arguments_, {
@@ -138,16 +140,26 @@ function buildAndTest(profile) {
 
 requireInputs();
 if (action === 'format') {
-  run(resolveClangFormat(workspaceRoot, clangRoot), ['--dry-run', '--Werror', ...nativeFiles(sourceDirectory)]);
+  await runNativeFileToolInParallel({
+    arguments_: ['--dry-run', '--Werror'],
+    command: resolveClangFormat(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files: nativeFiles(sourceDirectory),
+    label: 'worker common clang-format',
+  });
 } else if (action === 'lint') {
   const profile = profiles[1];
   buildAndTest(profile);
   const buildDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'worker-common', profile.id);
-  run(resolveClangTidy(workspaceRoot, clangRoot), [
-    '-p',
-    buildDirectory,
-    ...nativeFiles(resolve(sourceDirectory, 'src')).filter((path) => path.endsWith('.cpp')),
-  ]);
+  await runNativeFileToolInParallel({
+    arguments_: ['-p', buildDirectory],
+    command: resolveClangTidy(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files: nativeFiles(resolve(sourceDirectory, 'src')).filter((path) => path.endsWith('.cpp')),
+    label: 'worker common clang-tidy',
+  });
 } else {
   for (const profile of profiles) buildAndTest(profile);
   run(process.env.PYTHON || 'python3', [
