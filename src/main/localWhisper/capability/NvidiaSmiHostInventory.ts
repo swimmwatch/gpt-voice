@@ -3,6 +3,8 @@ import { win32 as windowsPath } from 'node:path';
 import type { LocalWhisperFailureCode } from '@shared/localWhisper';
 
 const NVIDIA_PCI_IDENTITY_PATTERN = /^(?:[\da-f]{4}|[\da-f]{8}):[\da-f]{2}:[\da-f]{2}\.[0-7]$/iu;
+const NVIDIA_ZERO_PCI_DOMAIN_PREFIX = '00000000:';
+const CUDA_PCI_DOMAIN_PREFIX = '0000:';
 const NVIDIA_SMI_MAXIMUM_OUTPUT_CHARACTERS = 4_096;
 const NVIDIA_SMI_MAXIMUM_DEVICE_COUNT = 16;
 const MEBIBYTE_BYTES = 1024 ** 2;
@@ -70,11 +72,20 @@ function parseComputeCapability(value: string): NvidiaComputeCapability | null {
   return Object.freeze({ major, minor });
 }
 
+function normalizeNvidiaPciIdentity(value: string): string | null {
+  if (!NVIDIA_PCI_IDENTITY_PATTERN.test(value)) return null;
+  const normalized = value.toLowerCase();
+  return normalized.startsWith(NVIDIA_ZERO_PCI_DOMAIN_PREFIX)
+    ? `${CUDA_PCI_DOMAIN_PREFIX}${normalized.slice(NVIDIA_ZERO_PCI_DOMAIN_PREFIX.length)}`
+    : normalized;
+}
+
 function parseDevice(line: string): NvidiaHostInventoryDevice | null {
   const fields = line.split(',').map((field) => field.trim());
   if (fields.length !== 4) return null;
   const [nativeIdentity, capability, driver, totalMebibytes] = fields;
-  if (!nativeIdentity || !NVIDIA_PCI_IDENTITY_PATTERN.test(nativeIdentity)) return null;
+  const normalizedIdentity = nativeIdentity ? normalizeNvidiaPciIdentity(nativeIdentity) : null;
+  if (!normalizedIdentity) return null;
   const computeCapability = parseComputeCapability(capability ?? '');
   const driverVersion = parseDriverVersion(driver ?? '');
   const mebibytes = parseNonNegativeInteger(totalMebibytes ?? '');
@@ -89,7 +100,7 @@ function parseDevice(line: string): NvidiaHostInventoryDevice | null {
     return null;
   }
   return Object.freeze({
-    nativeIdentity: nativeIdentity.toLowerCase(),
+    nativeIdentity: normalizedIdentity,
     computeCapability,
     driverVersion,
     totalVramBytes,

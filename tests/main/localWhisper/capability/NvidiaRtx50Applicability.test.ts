@@ -79,7 +79,7 @@ describe('NVIDIA RTX 50 pre-install inventory', () => {
       command: {
         run: async (executablePath, arguments_) => {
           calls.push({ executablePath, arguments_ });
-          return '0000:01:00.0, 12.0, 570.26, 8192\n';
+        return '00000000:01:00.0, 12.0, 570.26, 8192\n';
         },
       },
     });
@@ -94,6 +94,7 @@ describe('NVIDIA RTX 50 pre-install inventory', () => {
     ]);
     assert.equal(result.available, true);
     assert.equal(result.available && result.devices.length, 1);
+    assert.equal(result.available && result.devices[0]?.nativeIdentity, '0000:01:00.0');
   });
 
   it('fails closed for malformed, duplicate, reordered, and oversized NVIDIA output', async () => {
