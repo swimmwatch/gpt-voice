@@ -96,7 +96,13 @@ export function ConfirmationDialog({
               {cancelLabel}
             </Button>
           </AlertDialogCancel>
-          <Button aria-busy={pending || undefined} disabled={pending} onClick={() => void confirm()} variant={tone}>
+          <Button
+            aria-busy={pending || undefined}
+            className={pending ? 'disabled:cursor-wait disabled:opacity-100' : undefined}
+            disabled={pending}
+            onClick={() => void confirm()}
+            variant={tone}
+          >
             {pending ? <Spinner announce={false} label={actionLabel} size="sm" /> : actionIcon}
             {actionLabel}
           </Button>

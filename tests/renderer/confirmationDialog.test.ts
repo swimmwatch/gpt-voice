@@ -32,7 +32,8 @@ describe('ConfirmationDialog', () => {
     assert.match(confirmation, /if \(!nextOpen && pendingRef\.current\) return;/u);
     assert.match(confirmation, /if \(pendingRef\.current\) return;/u);
     assert.match(confirmation, /<AlertDialogCancel asChild>[\s\S]*?<Button disabled=\{pending\} variant="outline">/u);
-    assert.match(confirmation, /<Button aria-busy=\{pending \|\| undefined\}[\s\S]*?variant=\{tone\}/u);
+    assert.match(confirmation, /<Button\s+aria-busy=\{pending \|\| undefined\}[\s\S]*?variant=\{tone\}/u);
+    assert.match(confirmation, /disabled:cursor-wait disabled:opacity-100/u);
     assert.doesNotMatch(confirmation, /AlertDialogAction/u);
     for (const modalSource of [alertDialog, dialog]) {
       assert.match(modalSource, /MODAL_CONTENT_CLASS_NAME/u);
