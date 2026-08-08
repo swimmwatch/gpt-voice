@@ -389,6 +389,7 @@ export class SelectedTextPrettifyService {
     if (outcome.type === 'cancel' || outcome.type === 'close') return this.createCancelledResult();
     if (outcome.type === 'manageProfiles') {
       this.clearRunSensitiveState(run);
+      this.finishRun(run);
       this.dependencies.openProfileManagement();
       return this.createCancelledResult();
     }

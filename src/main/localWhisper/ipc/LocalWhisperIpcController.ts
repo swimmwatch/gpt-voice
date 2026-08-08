@@ -229,7 +229,7 @@ export class LocalWhisperIpcController {
         return this.mainResidencyFailure(commandKind, 'INVALID_SETTINGS');
       }
       commandKind = value.kind;
-      if (this.dependencies.mainInteractionLock.locked) {
+      if (this.dependencies.mainInteractionLock.locked || this.dependencies.mainInteractionLock.operationActive) {
         return this.mainResidencyFailure(commandKind, 'OPERATION_CONFLICT');
       }
       if (this.dependencies.getActiveProviderId() !== LOCAL_WHISPER_PROVIDER_ID) {
@@ -522,9 +522,19 @@ export class LocalWhisperIpcController {
 
   private addSubscriber(subscribers: Map<string, Subscriber>, capability: LocalWhisperIpcSenderCapability): void {
     this.removeSubscriber(subscribers, capability.key);
-    const removeInvalidationListener = capability.onInvalidated(() =>
-      this.removeSubscriber(subscribers, capability.key),
-    );
+    let invalidated = false;
+    const removeInvalidationListener = capability.onInvalidated(() => {
+      invalidated = true;
+      this.removeSubscriber(subscribers, capability.key);
+    });
+    if (invalidated || !capability.isCurrent()) {
+      try {
+        removeInvalidationListener();
+      } catch {
+        // Stale sender cleanup cannot restore a subscription.
+      }
+      return;
+    }
     subscribers.set(capability.key, { capability, removeInvalidationListener });
   }
 

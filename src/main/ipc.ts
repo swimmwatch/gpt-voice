@@ -5,7 +5,7 @@ import type { BackgroundBrowserService } from './browser';
 import type { FirstLaunchStartupCoordinator } from './firstLaunchStartupCoordinator';
 import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from './providers/voiceProviderRegistry';
-import { type WindowManager } from './window';
+import { type SettingsWindowOpenResult, type WindowManager } from './window';
 import type { DesktopRuntimeController } from './desktopRuntimeController';
 import type { ShortcutController } from './shortcuts';
 import type { TranscriptionService } from './services/transcription';
@@ -452,7 +452,7 @@ export class MainIpcController {
 
     this.trustedIpc.handle('provider-login', async (event, providerId: unknown) => {
       if (this.isMainInteractionActionBlocked(event)) {
-        return { error: dependencies.localization.translate('settings.blockedWhileOpen'), success: false };
+        return { error: this.getMainInteractionActionBlockedError(), success: false };
       }
       let provider;
       try {
@@ -600,10 +600,7 @@ export class MainIpcController {
       if (result.success) return result;
       return {
         success: false,
-        error:
-          result.reason === 'recording-active'
-            ? dependencies.localization.translate('settings.blockedWhileRecording')
-            : dependencies.localization.translate('settings.blockedWhileOpen'),
+        error: this.getSettingsWindowBlockedError(result),
       };
     });
 
@@ -624,10 +621,7 @@ export class MainIpcController {
       if (result.success) return result;
       return {
         success: false,
-        error:
-          result.reason === 'recording-active'
-            ? dependencies.localization.translate('settings.blockedWhileRecording')
-            : dependencies.localization.translate('settings.blockedWhileOpen'),
+        error: this.getSettingsWindowBlockedError(result),
       };
     });
 
@@ -997,7 +991,7 @@ export class MainIpcController {
         return {
           success: false,
           settings: dependencies.config.getTextActionSettings(),
-          error: dependencies.localization.translate('settings.blockedWhileOpen'),
+          error: this.getMainInteractionActionBlockedError(),
         };
       }
       try {
@@ -1049,7 +1043,7 @@ export class MainIpcController {
           return {
             success: false,
             settings: dependencies.prettifySettings.getView(),
-            error: dependencies.localization.translate('settings.blockedWhileOpen'),
+            error: this.getMainInteractionActionBlockedError(),
           };
         }
         try {
@@ -1134,7 +1128,7 @@ export class MainIpcController {
           return {
             success: false,
             providerId,
-            error: dependencies.localization.translate('settings.blockedWhileOpen'),
+            error: this.getMainInteractionActionBlockedError(),
           };
         }
         if (!isKnownPrettifyProviderId(providerId)) {
@@ -1162,7 +1156,7 @@ export class MainIpcController {
           return {
             success: false,
             providerId,
-            error: dependencies.localization.translate('settings.blockedWhileOpen'),
+            error: this.getMainInteractionActionBlockedError(),
           };
         }
         if (!isKnownPrettifyProviderId(providerId)) {
@@ -1234,10 +1228,27 @@ export class MainIpcController {
   }
 
   private isMainInteractionActionBlocked(event: Pick<IpcMainInvokeEvent, 'sender'>): boolean {
+    if (this.dependencies.mainInteractionLock.operationActive) return true;
     return (
       this.dependencies.mainInteractionLock.locked &&
       !this.dependencies.windowManager.isMainInteractionLockOwner(event.sender)
     );
+  }
+
+  private getSettingsWindowBlockedError(result: SettingsWindowOpenResult): string {
+    if (result.reason === 'recording-active') {
+      return this.dependencies.localization.translate('settings.blockedWhileRecording');
+    }
+    if (result.reason === 'operation-active') {
+      return this.dependencies.localization.translate('settings.blockedWhileOperationActive');
+    }
+    return this.dependencies.localization.translate('settings.blockedWhileOpen');
+  }
+
+  private getMainInteractionActionBlockedError(): string {
+    return this.dependencies.mainInteractionLock.operationActive
+      ? this.dependencies.localization.translate('settings.blockedWhileOperationActive')
+      : this.dependencies.localization.translate('settings.blockedWhileOpen');
   }
 
   private registerFirstLaunchStartupIpc(): void {
@@ -1268,7 +1279,7 @@ export class MainIpcController {
         return {
           success: false,
           settings: config.getTranslationSettings(),
-          error: localization.translate('settings.blockedWhileOpen'),
+          error: this.getMainInteractionActionBlockedError(),
         };
       }
       try {

@@ -5,9 +5,19 @@ export const MAIN_INTERACTION_LOCK_IPC_CHANNELS = Object.freeze({
   query: 'get-main-interaction-lock',
 });
 
-export const MAIN_INTERACTION_LOCK_ACQUIRE_RESULTS = ['acquired', 'locked', 'recording-active'] as const;
+export const MAIN_INTERACTION_LOCK_ACQUIRE_RESULTS = [
+  'acquired',
+  'locked',
+  'recording-active',
+  'operation-active',
+] as const;
 
 export type MainInteractionLockAcquireResult = (typeof MAIN_INTERACTION_LOCK_ACQUIRE_RESULTS)[number];
+
+export interface MainInteractionLockDependencies {
+  /** Reports work that must finish before configuration can change. */
+  readonly isOperationActive?: () => boolean;
+}
 
 export interface MainInteractionLockLease {
   release(): void;
@@ -25,14 +35,22 @@ export class MainInteractionLock {
   private nextLeaseId = 1;
   private recordingLifecycleState: RecordingLifecycleState = 'idle';
 
+  public constructor(private readonly dependencies: MainInteractionLockDependencies = {}) {}
+
   public get locked(): boolean {
     return this.leases.size > 0;
+  }
+
+  /** True only for in-flight work; unlike `locked`, this never disables a settings owner window. */
+  public get operationActive(): boolean {
+    return this.dependencies.isOperationActive?.() === true;
   }
 
   public acquire(): MainInteractionLockAcquisition {
     if (isRecordingLifecycleBusy(this.recordingLifecycleState)) {
       return Object.freeze({ lease: null, result: 'recording-active' });
     }
+    if (this.operationActive) return Object.freeze({ lease: null, result: 'operation-active' });
     if (this.locked) return Object.freeze({ lease: null, result: 'locked' });
 
     const leaseId = this.nextLeaseId++;

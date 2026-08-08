@@ -32,6 +32,28 @@ class SelectionConfig {
 }
 
 describe('VoiceProviderSelectionService', () => {
+  it('rejects a provider change while another provider operation is active', async () => {
+    const config = new SelectionConfig();
+    const service = new VoiceProviderSelectionService({
+      config,
+      registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
+      runtime: {
+        clearProvider: async () => ({}),
+        switchProvider: async () => ({}),
+      },
+      getReadinessRevision: () => 6,
+      mainInteractionLock: new MainInteractionLock({ isOperationActive: () => true }),
+    });
+
+    const result = await service.select('local-whisper');
+
+    assert.equal(result.success, false);
+    assert.equal(result.committedProviderId, 'chatgpt');
+    assert.equal(result.readinessRevision, 6);
+    assert.equal(result.error?.code, 'OPERATION_CONFLICT');
+    assert.equal(config.saveCalls, 0);
+  });
+
   it('commits only after runtime and persistence succeed', async () => {
     const config = new SelectionConfig();
     const switched: string[] = [];

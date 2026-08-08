@@ -176,7 +176,7 @@ export class ShortcutController {
 
     const recordRegistered = this.registerConfiguredShortcut('record', recordHotkey, () => {
       const window = this.dependencies.windowManager.getMainWindow();
-      if (canStartRecording(this.recordingLifecycleState)) {
+      if (canStartRecording(this.recordingLifecycleState) && !this.dependencies.selectedTextActionGate.getActive()) {
         this.dependencies.logger.info(`${recordHotkey} pressed, starting recording`);
         this.setRecordingLifecycleState('starting');
         window?.webContents.send('toggle-recording', true);

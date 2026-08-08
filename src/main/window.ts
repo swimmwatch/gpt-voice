@@ -48,7 +48,7 @@ export interface WindowManagerDependencies {
 }
 
 export interface SettingsWindowOpenResult {
-  readonly reason?: 'locked' | 'recording-active';
+  readonly reason?: 'locked' | 'operation-active' | 'recording-active';
   readonly success: boolean;
 }
 
@@ -308,7 +308,7 @@ export class WindowManager {
   }
 
   public showHistoryWindow(): void {
-    if (this.mainInteractionLock.locked) return;
+    if (this.mainInteractionLock.locked || this.mainInteractionLock.operationActive) return;
     const existing = this.historyWindow;
     if (existing && !existing.isDestroyed()) {
       this.showAndFocus(existing);
@@ -337,7 +337,7 @@ export class WindowManager {
   }
 
   public showAboutWindow(): void {
-    if (this.mainInteractionLock.locked) return;
+    if (this.mainInteractionLock.locked || this.mainInteractionLock.operationActive) return;
     this.aboutWindowController.show();
   }
 
@@ -455,7 +455,7 @@ export class WindowManager {
 
   private createBlockedSettingsWindowResult(reason: string): SettingsWindowOpenResult {
     return Object.freeze({
-      reason: reason === 'recording-active' ? 'recording-active' : 'locked',
+      reason: reason === 'recording-active' || reason === 'operation-active' ? reason : 'locked',
       success: false,
     });
   }

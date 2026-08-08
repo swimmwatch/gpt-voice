@@ -124,6 +124,7 @@ export default {
   'appSettings.open': 'ऐप सेटिंग्स',
   'settings.blockedWhileOpen': 'GPT-Voice का उपयोग जारी रखने के लिए सेटिंग्स बंद करें।',
   'settings.blockedWhileRecording': 'सेटिंग्स खोलने से पहले रिकॉर्डिंग रोकें।',
+  'settings.blockedWhileOperationActive': 'सेटिंग्स खोलने से पहले वर्तमान कार्रवाई पूरी होने की प्रतीक्षा करें।',
   'appSettings.title': 'सेटिंग्स',
   'appSettings.system': 'सिस्टम',
   'appSettings.language': 'एप्लिकेशन भाषा',

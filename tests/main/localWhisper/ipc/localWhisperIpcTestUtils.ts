@@ -243,6 +243,7 @@ export class FakeTransport implements LocalWhisperIpcTransport {
 
 export class FakeCapability implements LocalWhisperIpcSenderCapability {
   public current = true;
+  public invalidateDuringRegistration = false;
   public sendAttempts = 0;
   public throwOnSend = false;
   public readonly sent: { readonly channel: string; readonly value: unknown }[] = [];
@@ -254,6 +255,10 @@ export class FakeCapability implements LocalWhisperIpcSenderCapability {
     return this.current;
   }
 
+  public get invalidationListenerCount(): number {
+    return this.invalidationListeners.size;
+  }
+
   public send(channel: string, value: unknown): void {
     this.sendAttempts += 1;
     if (this.throwOnSend) throw new Error('synthetic IPC send failure');
@@ -261,13 +266,20 @@ export class FakeCapability implements LocalWhisperIpcSenderCapability {
   }
 
   public onInvalidated(listener: () => void): () => void {
+    if (!this.current) {
+      listener();
+      return () => undefined;
+    }
     this.invalidationListeners.add(listener);
+    if (this.invalidateDuringRegistration) this.invalidate();
     return () => this.invalidationListeners.delete(listener);
   }
 
   public invalidate(): void {
+    if (!this.current) return;
     this.current = false;
     for (const listener of [...this.invalidationListeners]) listener();
+    this.invalidationListeners.clear();
   }
 }
 

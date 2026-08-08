@@ -122,6 +122,7 @@ export default {
   'appSettings.open': '应用设置',
   'settings.blockedWhileOpen': '请关闭设置后继续使用 GPT-Voice。',
   'settings.blockedWhileRecording': '请先停止录音，再打开设置。',
+  'settings.blockedWhileOperationActive': '请等待当前操作完成后再打开设置。',
   'appSettings.title': '设置',
   'appSettings.system': '系统',
   'appSettings.language': '应用程序语言',

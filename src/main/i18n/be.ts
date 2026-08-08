@@ -136,6 +136,7 @@ export default {
   'appSettings.open': 'Налады праграмы',
   'settings.blockedWhileOpen': 'Закрыйце налады, каб працягнуць працу з GPT-Voice.',
   'settings.blockedWhileRecording': 'Спыніце запіс перад адкрыццём налад.',
+  'settings.blockedWhileOperationActive': 'Дачакайцеся завяршэння бягучай аперацыі перад адкрыццём налад.',
   'appSettings.title': 'Налады',
   'appSettings.system': 'Сістэма',
   'appSettings.language': 'Мова праграмы',

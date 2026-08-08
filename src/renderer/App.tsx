@@ -137,6 +137,12 @@ const App: React.FC = () => {
     isRecordingLifecycleBusy(recordingState) ||
     isPrettifyModelActionRunning ||
     activeTextAction !== null;
+  const isNewRecordingLocked =
+    isVoiceProviderSwitching ||
+    isPrettifyProviderSwitching ||
+    isTranslationProviderSwitching ||
+    isPrettifyModelActionRunning ||
+    activeTextAction !== null;
   const [prettifyCliConnectionCoordinator] = useState(() =>
     createMainPrettifyCliConnectionCoordinator({
       check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
@@ -724,6 +730,7 @@ const App: React.FC = () => {
   }, [activeProviderId, applyProviderSettingsSnapshot, desktopApi]);
 
   const openProviderSettings = async (providerId: string): Promise<void> => {
+    if (isProviderChangesLocked) return;
     try {
       const result = await desktopApi.openProviderSettings(providerId);
       if (!result.success) {
@@ -741,7 +748,7 @@ const App: React.FC = () => {
   const handleLogin = async (): Promise<void> => {
     const providerId = activeProviderId;
     const providerName = activeProviderName;
-    if (!providerId || !activeProviderAuthType) return;
+    if (isProviderChangesLocked || !providerId || !activeProviderAuthType) return;
     if (activeProviderAuthType === 'apiKey') {
       await openProviderSettings(providerId);
       return;
@@ -832,7 +839,7 @@ const App: React.FC = () => {
   };
 
   const handleOllamaModelAction = async (): Promise<void> => {
-    if (!prettifySettings || !ollamaModelControl || isPrettifyModelActionRunning) {
+    if (isProviderChangesLocked || !prettifySettings || !ollamaModelControl || isPrettifyModelActionRunning) {
       return;
     }
 
@@ -891,6 +898,7 @@ const App: React.FC = () => {
 
   const openAppSettingsWindow = useCallback(
     (section?: 'prettify'): void => {
+      if (isProviderChangesLocked) return;
       void desktopApi
         .openAppSettings(section)
         .then((result) => {
@@ -906,20 +914,22 @@ const App: React.FC = () => {
           setStatus(translatedStatus('error.notificationUnknown'));
         });
     },
-    [desktopApi],
+    [desktopApi, isProviderChangesLocked],
   );
 
   const openHistoryWindow = useCallback((): void => {
+    if (isProviderChangesLocked) return;
     void desktopApi.openTranscriptionHistory().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, [desktopApi]);
+  }, [desktopApi, isProviderChangesLocked]);
 
   const openAboutWindow = useCallback((): void => {
+    if (isProviderChangesLocked) return;
     void desktopApi.openAbout().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, [desktopApi]);
+  }, [desktopApi, isProviderChangesLocked]);
 
   const saveTranslationSettings = async (candidate: TranslationSettings): Promise<void> => {
     if (translationSettingsSavePendingRef.current) return;
@@ -998,7 +1008,9 @@ const App: React.FC = () => {
         onOpenProviderSettings={() => {
           if (activeProviderId) void openProviderSettings(activeProviderId);
         }}
-        onLocalWhisperResidencyAction={(action) => void localWhisperMain.runResidencyAction(action)}
+        onLocalWhisperResidencyAction={(action) => {
+          if (!isProviderChangesLocked) void localWhisperMain.runResidencyAction(action);
+        }}
         onProviderChange={(providerId) => void handleProviderChange(providerId)}
         onProviderLogin={() => void handleLogin()}
         providers={providers}
@@ -1047,7 +1059,7 @@ const App: React.FC = () => {
         onResume={resumeRecording}
         onStart={startRecording}
         onStop={stopRecording}
-        recordingDisabled={activeProviderId === null}
+        recordingDisabled={activeProviderId === null || isNewRecordingLocked}
         recordHotkey={recordHotkey}
         state={recordingState}
         status={status}

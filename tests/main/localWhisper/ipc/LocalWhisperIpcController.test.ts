@@ -123,6 +123,7 @@ describe('LocalWhisperIpcController', () => {
     const coordinator = new FakeCoordinator();
     const privileged = new FakePrivilegedPorts();
     const snapshots = createSnapshotService(coordinator, snapshotFacts());
+    const mainInteractionLock = new MainInteractionLock();
     let finishRefresh = (): void => {
       throw new Error('Refresh completion was not initialized');
     };
@@ -135,6 +136,7 @@ describe('LocalWhisperIpcController', () => {
       authority,
       coordinator,
       artifacts: privileged.artifacts,
+      mainInteractionLock,
       managedFolder: privileged.folder,
       references: privileged.references,
       snapshots,
@@ -353,8 +355,20 @@ describe('LocalWhisperIpcController', () => {
     assert.ok(update.snapshotRevision > replay.snapshotRevision);
 
     harness.authority.settings.invalidate();
+    assert.equal(harness.authority.settings.invalidationListenerCount, 0);
     harness.coordinator.emit(coordinatorSnapshot({ snapshotRevision: 3 }));
     assert.equal(harness.authority.settings.sent.length, 1);
+  });
+
+  it('does not retain a subscriber invalidated synchronously during registration', async () => {
+    const harness = createHarness();
+    harness.authority.settings.invalidateDuringRegistration = true;
+
+    await harness.transport.invoke(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe, fakeEvent('settings'));
+    assert.equal(harness.authority.settings.invalidationListenerCount, 0);
+
+    harness.coordinator.emit(coordinatorSnapshot({ snapshotRevision: 2 }));
+    assert.equal(harness.authority.settings.sendAttempts, 0);
   });
 
   it('isolates subscriber send failures from coordinator state publication', async () => {
@@ -364,6 +378,7 @@ describe('LocalWhisperIpcController', () => {
 
     assert.doesNotThrow(() => harness.coordinator.emit(coordinatorSnapshot({ snapshotRevision: 2 })));
     assert.equal(harness.authority.settings.sendAttempts, 1);
+    assert.equal(harness.authority.settings.invalidationListenerCount, 0);
     harness.coordinator.emit(coordinatorSnapshot({ snapshotRevision: 3 }));
     assert.equal(harness.authority.settings.sendAttempts, 1);
   });

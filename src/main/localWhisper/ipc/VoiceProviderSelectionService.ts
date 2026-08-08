@@ -25,7 +25,7 @@ export interface VoiceProviderSelectionServiceDependencies {
   readonly runtime: VoiceProviderSelectionRuntimePort;
   readonly registry: VoiceProviderSelectionRegistryPort;
   readonly getReadinessRevision: () => number;
-  readonly mainInteractionLock: Pick<MainInteractionLock, 'locked'>;
+  readonly mainInteractionLock: Pick<MainInteractionLock, 'locked' | 'operationActive'>;
 }
 
 /** Serializes provider switching and restores runtime/config before reporting any failure. */
@@ -43,7 +43,7 @@ export class VoiceProviderSelectionService {
 
   public async select(providerId: unknown): Promise<LocalWhisperProviderSelectionResult> {
     const previousProviderId = this.committedProviderId;
-    if (this.dependencies.mainInteractionLock.locked) {
+    if (this.dependencies.mainInteractionLock.locked || this.dependencies.mainInteractionLock.operationActive) {
       return this.failure(previousProviderId, 'OPERATION_CONFLICT');
     }
     if (!this.dependencies.registry.isKnownProviderId(providerId)) {

@@ -138,6 +138,7 @@ export default {
   'appSettings.open': 'Налаштування застосунку',
   'settings.blockedWhileOpen': 'Закрийте налаштування, щоб продовжити роботу з GPT-Voice.',
   'settings.blockedWhileRecording': 'Зупиніть запис перед відкриттям налаштувань.',
+  'settings.blockedWhileOperationActive': 'Дочекайтеся завершення поточної операції перед відкриттям налаштувань.',
   'appSettings.title': 'Налаштування',
   'appSettings.system': 'Система',
   'appSettings.language': 'Мова застосунку',

@@ -123,6 +123,7 @@ export default {
   'appSettings.open': 'アプリ設定',
   'settings.blockedWhileOpen': 'GPT-Voice の使用を再開するには、設定を閉じてください。',
   'settings.blockedWhileRecording': '設定を開く前に録音を停止してください。',
+  'settings.blockedWhileOperationActive': '設定を開く前に、現在の操作が完了するまでお待ちください。',
   'appSettings.title': '設定',
   'appSettings.system': 'システム',
   'appSettings.language': 'アプリケーションの言語',

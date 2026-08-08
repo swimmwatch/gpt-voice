@@ -34,34 +34,34 @@ class RecordingBrowserWindow {
   private readonly webContentsValue: WebContents;
   private readonly listeners = new Map<string, WindowListener[]>();
   private readonly webContentsListeners = new Map<string, WindowListener[]>();
-  private url = '';
+  private frameUrl = '';
+  private mainFrameValue: WebFrameMain;
+  private webContentsUrl = '';
 
   public constructor(
     public readonly id: number,
     public readonly options: BrowserWindowConstructorOptions,
   ) {
-    const mainFrame = {} as WebFrameMain;
-    Object.defineProperty(mainFrame, 'url', { get: () => this.url });
-    this.webContentsValue = {
-      get mainFrame() {
-        return mainFrame;
-      },
-      getURL: () => this.url,
+    this.mainFrameValue = this.createMainFrame();
+    const webContents = {
+      getURL: () => this.webContentsUrl,
       id,
       isDestroyed: () => this.destroyed,
       on: (event: string, listener: WindowListener) => {
         this.addListener(this.webContentsListeners, event, listener);
-        return this.webContents;
+        return webContents;
       },
       once: (event: string, listener: WindowListener) => {
         this.addListener(this.webContentsListeners, event, listener);
-        return this.webContents;
+        return webContents;
       },
       send: (...args: unknown[]) => {
         this.sent.push(args);
       },
       setWindowOpenHandler: () => undefined,
-    } as unknown as WebContents;
+    };
+    Object.defineProperty(webContents, 'mainFrame', { get: () => this.mainFrameValue });
+    this.webContentsValue = webContents as unknown as WebContents;
   }
 
   public get webContents(): WebContents {
@@ -106,9 +106,23 @@ class RecordingBrowserWindow {
   }
 
   public loadURL(url: string): Promise<void> {
-    this.url = url;
+    this.frameUrl = url;
+    this.webContentsUrl = url;
     this.loadUrls.push(url);
     return Promise.resolve();
+  }
+
+  public replaceMainFrame(url: string): void {
+    this.frameUrl = url;
+    this.mainFrameValue = this.createMainFrame();
+  }
+
+  public setFrameUrl(url: string): void {
+    this.frameUrl = url;
+  }
+
+  public setWebContentsUrl(url: string): void {
+    this.webContentsUrl = url;
   }
 
   public on(event: string, listener: WindowListener): this {
@@ -147,6 +161,12 @@ class RecordingBrowserWindow {
     listeners.set(event, [...(listeners.get(event) ?? []), listener]);
   }
 
+  private createMainFrame(): WebFrameMain {
+    const frame = {} as WebFrameMain;
+    Object.defineProperty(frame, 'url', { get: () => this.frameUrl });
+    return frame;
+  }
+
   private emit(event: string, ...args: unknown[]): void {
     for (const listener of this.listeners.get(event) ?? []) listener(...args);
   }
@@ -154,7 +174,8 @@ class RecordingBrowserWindow {
 
 class WindowManagerHarness {
   public readonly created: RecordingBrowserWindow[] = [];
-  public readonly mainInteractionLock = new MainInteractionLock();
+  public operationActive = false;
+  public readonly mainInteractionLock = new MainInteractionLock({ isOperationActive: () => this.operationActive });
   public readonly manager = new WindowManager({
     createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
     createBrowserWindow: (options) => {
@@ -256,6 +277,9 @@ describe('WindowManager', () => {
     const mainWindow = harness.created[0];
     const settingsWindow = harness.created[1];
     assert.ok(mainWindow && settingsWindow);
+    const [mainUrl] = mainWindow.loadUrls;
+    const [settingsUrl] = settingsWindow.loadUrls;
+    if (!mainUrl || !settingsUrl) throw new Error('Expected canonical window URLs');
     assert.equal(settingsWindow.options.width, 912);
     assert.equal(settingsWindow.options.height, 820);
 
@@ -275,6 +299,72 @@ describe('WindowManager', () => {
     );
     assert.equal(
       harness.manager.isTrustedLocalWhisperSettingsFrame(mainWindow.webContents, mainWindow.webContents.mainFrame),
+      false,
+    );
+
+    mainWindow.setFrameUrl(`${mainUrl}#route`);
+    assert.equal(harness.manager.isTrustedMainFrame(mainWindow.webContents, mainWindow.webContents.mainFrame), false);
+    mainWindow.loadURL(mainUrl);
+    mainWindow.setWebContentsUrl(`${mainUrl}?unexpected=true`);
+    assert.equal(harness.manager.isTrustedMainFrame(mainWindow.webContents, mainWindow.webContents.mainFrame), false);
+    mainWindow.setWebContentsUrl(mainUrl);
+    const originalMainFrame = mainWindow.webContents.mainFrame;
+    mainWindow.replaceMainFrame(mainUrl);
+    assert.equal(harness.manager.isTrustedMainFrame(mainWindow.webContents, originalMainFrame), false);
+    assert.equal(harness.manager.isTrustedMainFrame(mainWindow.webContents, mainWindow.webContents.mainFrame), true);
+
+    settingsWindow.setFrameUrl(`${settingsUrl}#route`);
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(
+        settingsWindow.webContents,
+        settingsWindow.webContents.mainFrame,
+      ),
+      false,
+    );
+    settingsWindow.setFrameUrl(`${settingsUrl}&unexpected=true`);
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(
+        settingsWindow.webContents,
+        settingsWindow.webContents.mainFrame,
+      ),
+      false,
+    );
+    settingsWindow.setFrameUrl('app://gpt-voice/settings.html?providerId=local-whisper');
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(
+        settingsWindow.webContents,
+        settingsWindow.webContents.mainFrame,
+      ),
+      false,
+    );
+    settingsWindow.loadURL(settingsUrl);
+    settingsWindow.setWebContentsUrl(`${settingsUrl}#stale`);
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(
+        settingsWindow.webContents,
+        settingsWindow.webContents.mainFrame,
+      ),
+      false,
+    );
+    settingsWindow.setWebContentsUrl(settingsUrl);
+    const originalSettingsFrame = settingsWindow.webContents.mainFrame;
+    settingsWindow.replaceMainFrame(settingsUrl);
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(settingsWindow.webContents, originalSettingsFrame),
+      false,
+    );
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(settingsWindow.webContents, {
+        url: settingsUrl,
+      } as WebFrameMain),
+      false,
+    );
+    settingsWindow.destroyed = true;
+    assert.equal(
+      harness.manager.isTrustedLocalWhisperSettingsFrame(
+        settingsWindow.webContents,
+        settingsWindow.webContents.mainFrame,
+      ),
       false,
     );
   });
@@ -358,6 +448,33 @@ describe('WindowManager', () => {
       success: false,
     });
     assert.equal(harness.created.length, 0);
+  });
+
+  it('refuses settings windows while provider work is active without creating a settings lease', () => {
+    const harness = new WindowManagerHarness();
+    harness.operationActive = true;
+
+    assert.deepEqual(harness.manager.showSettingsWindow(), {
+      reason: 'operation-active',
+      success: false,
+    });
+    assert.deepEqual(harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI'), {
+      reason: 'operation-active',
+      success: false,
+    });
+    assert.equal(harness.mainInteractionLock.locked, false);
+    assert.equal(harness.created.length, 0);
+  });
+
+  it('does not open auxiliary windows while provider work is active', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    harness.operationActive = true;
+
+    harness.manager.showHistoryWindow();
+    harness.manager.showAboutWindow();
+
+    assert.equal(harness.created.length, 1);
   });
 
   it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', async () => {

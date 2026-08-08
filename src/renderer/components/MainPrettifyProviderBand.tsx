@@ -130,7 +130,7 @@ function MainPrettifyProviderBand({
                   aria-busy={isModelActionRunning || undefined}
                   aria-label={modelActionTitle}
                   className="command-dock-prettify-model-action"
-                  disabled={isModelActionRunning}
+                  disabled={isModelActionRunning || isProviderChangesLocked}
                   onClick={onModelAction}
                   size="icon"
                   title={modelActionTitle}
@@ -170,6 +170,7 @@ function MainPrettifyProviderBand({
               <Button
                 aria-label={providerSettingsLabel}
                 className="command-dock-prettify-settings-shortcut command-dock-settings-shortcut"
+                disabled={isProviderChangesLocked}
                 onClick={onOpenSettings}
                 size="icon"
                 title={providerSettingsLabel}

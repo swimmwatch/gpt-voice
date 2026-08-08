@@ -39,5 +39,9 @@ describe('main interaction lock action gate', () => {
     ] as const) {
       assert.match(handlerSource(source, channel, nextChannel), /isMainInteractionActionBlocked\(event\)/u);
     }
+
+    const translationHandler = handlerSource(source, 'translate-text', 'get-transcription-history');
+    assert.match(translationHandler, /dependencies\.mainInteractionLock\.locked/u);
+    assert.doesNotMatch(translationHandler, /operationActive/u);
   });
 });

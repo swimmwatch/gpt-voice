@@ -4,6 +4,7 @@
 
 - [01 Artifact Transport Ownership](01_artifact_transport_ownership.md)
 - [02 Renderer Command Lifecycle](02_renderer_command_lifecycle.md)
+- [03 Exact-URL Capability Lifecycle](03_exact_url_capability_lifecycle.md)
 
 ## Changed Files
 
@@ -25,6 +26,12 @@
 - `src/renderer/localWhisper/useLocalWhisperSettings.ts`
 - `tests/renderer/localWhisper/LocalWhisperSettingsLifecycle.test.ts`
 - `tests/renderer/localWhisper/LocalWhisperUiContracts.test.ts`
+- `src/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.ts`
+- `src/main/localWhisper/ipc/LocalWhisperIpcController.ts`
+- `tests/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.test.ts`
+- `tests/main/localWhisper/ipc/LocalWhisperIpcController.test.ts`
+- `tests/main/localWhisper/ipc/localWhisperIpcTestUtils.ts`
+- `tests/main/windowManager.test.ts`
 
 ## Checks
 
@@ -39,13 +46,19 @@
 - `npm run typecheck` passes.
 - `npx eslint src/renderer/localWhisper/useLocalWhisperSettings.ts src/renderer/localWhisper/LocalWhisperSettingsLifecycle.ts tests/renderer/localWhisper/LocalWhisperSettingsLifecycle.test.ts tests/renderer/localWhisper/LocalWhisperUiContracts.test.ts` passes.
 - `npx prettier --check src/renderer/localWhisper/useLocalWhisperSettings.ts src/renderer/localWhisper/LocalWhisperSettingsLifecycle.ts tests/renderer/localWhisper/LocalWhisperSettingsLifecycle.test.ts tests/renderer/localWhisper/LocalWhisperUiContracts.test.ts` passes.
-- `npm run test:types` remains blocked by unrelated pre-existing dirty-worktree failures in `tests/main/localWhisper/ipc/LocalWhisperIpcController.test.ts` (missing `mainInteractionLock`) and `tests/renderer/recordingControls.test.ts` (missing provider-lock props). Packets 01 and 02 introduced no remaining type-test failure.
+- Packets 01 and 02 introduced no remaining type-test failure; the shared-worktree fixture and renderer-prop failures that previously blocked `npm run test:types` are resolved.
 - Linux loopback evidence is automated. Windows runtime and desktop-manual evidence remain mandatory in packet 04.
+- `node --import tsx --test tests/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.test.ts tests/main/localWhisper/ipc/LocalWhisperIpcController.test.ts tests/main/windowManager.test.ts` passes (31 tests), including same-document hash/history, nested-frame, renderer-loss, destruction, stale-send, synchronous-invalidation, and exact URL/frame ownership coverage.
+- `npm run test:local-whisper:ipc` passes (88 tests).
+- `npm run test:local-whisper:composition` passes (129 tests).
+- `npm run typecheck` passes.
+- `npm run test:types` passes.
+- Scoped `npx eslint` and `npx prettier --check` for the Packet 03 authority, controller, fakes, and window tests pass.
 
 ## Exact Next Step
 
-- Obtain separate execution authorization for [03 Exact-URL Capability Lifecycle](03_exact_url_capability_lifecycle.md), then execute only that packet in a fresh `incremental-implementation` invocation.
+- Review the uncommitted Packet 03 changes. Then obtain separate execution authorization for [04 Cross-Platform Remediation Gate](04_cross_platform_remediation_gate.md) before executing only that packet in a fresh `incremental-implementation` invocation.
 
 ## Blockers
 
-- Packets 01 and 02 are committed. The repository-wide type-test command remains blocked only by the unrelated dirty-worktree failures listed above.
+- No Packet 03 blocker remains. Linux and Windows desktop navigation-invalidation smoke remains mandatory in packet 04.

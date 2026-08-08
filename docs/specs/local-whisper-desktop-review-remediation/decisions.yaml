@@ -857,3 +857,29 @@ decisions:
     rationale: The user separately authorized only packet 02; packet 03 remains outside this invocation.
     supersedes_revision: null
     requirement_ids: [EXEC-AUTH-002]
+
+  - id: authorization.execution-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/03_exact_url_capability_lifecycle.md
+      - The user explicitly requested implementation of the Packet 03 plan on 2026-08-08.
+    prompt_mcp: null
+    question:
+      text: Do you authorize an incremental-implementation invocation to execute only Packet 03 Exact-URL Capability Lifecycle?
+      kind: single
+      options:
+        - id: authorize-packet-03
+          label: Authorize packet 03
+          description: Implement and verify only Packet 03, then update its checklist and handoff without committing or starting Packet 04.
+        - id: hold-for-review
+          label: Hold for review
+          description: Leave Packet 03 unexecuted until a later authorization.
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: The user's implementation request explicitly authorizes only Packet 03; Packet 04 remains out of scope.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-003]

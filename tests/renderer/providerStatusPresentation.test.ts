@@ -176,19 +176,20 @@ describe('provider status presentation', () => {
     assert.match(app, /if \(isProviderChangesLocked\) return;/u);
 
     assert.match(toolbar, /<Select\s+disabled=\{isProviderChangesLocked\}/u);
+    assert.equal((toolbar.match(/disabled=\{isProviderChangesLocked\}/gu) ?? []).length >= 4, true);
     assert.match(
       toolbar,
       /isVoiceProviderSwitching \? \([\s\S]*?<ProviderStatusIndicator[\s\S]*?loading[\s\S]*?tone="neutral"/u,
     );
     assert.match(toolbar, /isVoiceProviderSwitching \? \([\s\S]*?: isLocalWhisperProvider \?/u);
     assert.match(prettify, /disabled=\{isProviderChangesLocked\}/u);
+    assert.match(prettify, /disabled=\{isModelActionRunning \|\| isProviderChangesLocked\}/u);
     assert.match(prettify, /getMainPrettifyProviderViewState\([\s\S]*?isProviderChangeSaving,/u);
     assert.equal((translation.match(/disabled=\{isSaving \|\| isProviderChangesLocked\}/gu) ?? []).length, 2);
     assert.match(translation, /loading=\{connectionPresentation\.loading\}/u);
-    assert.match(
-      app,
-      /onTargetLanguageChange=\{\(targetLanguage\) => \{\s*if \(isProviderChangesLocked\) return;/u,
-    );
+    assert.match(app, /onTargetLanguageChange=\{\(targetLanguage\) => \{\s*if \(isProviderChangesLocked\) return;/u);
+    assert.match(app, /const isNewRecordingLocked =[\s\S]*activeTextAction !== null;/u);
+    assert.match(app, /recordingDisabled=\{activeProviderId === null \|\| isNewRecordingLocked\}/u);
   });
 
   it('uses an icon-only disconnected-provider action for every authentication type', () => {

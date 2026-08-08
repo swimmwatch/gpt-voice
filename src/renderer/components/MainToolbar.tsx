@@ -114,6 +114,7 @@ function MainToolbar({
               <Button
                 aria-label={t('navigation.openAbout')}
                 className="command-dock-icon-button"
+                disabled={isProviderChangesLocked}
                 onClick={onOpenAbout}
                 size="icon"
                 title={t('navigation.openAbout')}
@@ -129,6 +130,7 @@ function MainToolbar({
               <Button
                 aria-label={t('navigation.openHistory')}
                 className="command-dock-icon-button"
+                disabled={isProviderChangesLocked}
                 onClick={onOpenHistory}
                 size="icon"
                 title={t('navigation.openHistory')}
@@ -144,6 +146,7 @@ function MainToolbar({
               <Button
                 aria-label={t('navigation.openAppSettings')}
                 className="command-dock-icon-button command-dock-settings-shortcut"
+                disabled={isProviderChangesLocked}
                 onClick={onOpenAppSettings}
                 size="icon"
                 title={t('navigation.openAppSettings')}
@@ -210,6 +213,7 @@ function MainToolbar({
                   snapshot={localWhisperStatus}
                 />
                 <LocalWhisperMainResidencyControl
+                  disabled={isProviderChangesLocked}
                   failure={localWhisperResidencyFailure}
                   failureSequence={localWhisperResidencyFailureSequence}
                   onAction={onLocalWhisperResidencyAction}
@@ -232,7 +236,7 @@ function MainToolbar({
                     aria-label={providerActionLabel}
                     className="command-dock-provider-action"
                     data-icon-only
-                    disabled={isLoggingIn}
+                    disabled={isLoggingIn || isProviderChangesLocked}
                     onClick={onProviderLogin}
                     size="icon"
                     variant="outline"
@@ -250,6 +254,7 @@ function MainToolbar({
                 <Button
                   aria-label={providerSettingsLabel}
                   className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
+                  disabled={isProviderChangesLocked}
                   onClick={onOpenProviderSettings}
                   size="icon"
                   title={providerSettingsLabel}

@@ -152,7 +152,8 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     const spinner = source('src/renderer/components/ui/spinner.tsx');
     const styles = source('src/renderer/styles/globals.css');
     assert.match(control, /aria-label=\{label\}/u);
-    assert.match(control, /aria-disabled=\{!presentation\.enabled\}/u);
+    assert.match(control, /aria-disabled=\{!enabled\}/u);
+    assert.match(control, /disabled=\{!enabled\}/u);
     assert.match(control, /aria-describedby=/u);
     assert.match(control, /<TooltipContent>\{reason\}<\/TooltipContent>/u);
     assert.match(control, /role="alert"/u);

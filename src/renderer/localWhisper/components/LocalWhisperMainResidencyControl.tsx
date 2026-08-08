@@ -10,6 +10,7 @@ import { getLocalWhisperMainResidencyControl } from '../LocalWhisperPresentation
 import type { LocalWhisperMainResidencyFailure } from '../LocalWhisperRendererService';
 
 interface LocalWhisperMainResidencyControlProps {
+  readonly disabled?: boolean;
   readonly failure: LocalWhisperMainResidencyFailure | null;
   readonly failureSequence: number;
   readonly onAction: (action: LocalWhisperMainResidencyAction) => void;
@@ -19,6 +20,7 @@ interface LocalWhisperMainResidencyControlProps {
 
 /** Renders the main-window-only Local Whisper residency command without owning lifecycle state. */
 export default function LocalWhisperMainResidencyControl({
+  disabled = false,
   failure,
   failureSequence,
   onAction,
@@ -27,6 +29,7 @@ export default function LocalWhisperMainResidencyControl({
 }: LocalWhisperMainResidencyControlProps): React.JSX.Element {
   const { t } = useI18n();
   const presentation = getLocalWhisperMainResidencyControl(snapshot, pendingAction);
+  const enabled = presentation.enabled && !disabled;
   const label = t(presentation.labelKey);
   const reason = presentation.reasonKey
     ? t(presentation.reasonKey, presentation.reasonCode === null ? undefined : { code: presentation.reasonCode })
@@ -45,15 +48,16 @@ export default function LocalWhisperMainResidencyControl({
         <TooltipTrigger asChild>
           <Button
             aria-busy={presentation.pending || undefined}
-            aria-describedby={!presentation.enabled ? disabledReasonId : undefined}
-            aria-disabled={!presentation.enabled}
+            aria-describedby={!enabled ? disabledReasonId : undefined}
+            aria-disabled={!enabled}
             aria-label={label}
             className="command-dock-local-whisper-residency"
             data-action={presentation.action}
-            data-enabled={presentation.enabled}
+            data-enabled={enabled}
             data-pending={presentation.pending}
+            disabled={!enabled}
             onClick={() => {
-              if (presentation.enabled) onAction(presentation.action);
+              if (enabled) onAction(presentation.action);
             }}
             size="icon"
             variant="outline"
@@ -73,7 +77,7 @@ export default function LocalWhisperMainResidencyControl({
         </TooltipTrigger>
         <TooltipContent>{reason}</TooltipContent>
       </Tooltip>
-      {!presentation.enabled && (
+      {!enabled && (
         <span className="sr-only" id={disabledReasonId}>
           {reason}
         </span>

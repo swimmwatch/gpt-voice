@@ -31,4 +31,19 @@ describe('MainInteractionLock', () => {
     assert.equal(acquisition.lease, null);
     assert.equal(lock.locked, false);
   });
+
+  it('keeps active provider work separate from the settings-window lease', () => {
+    let operationActive = true;
+    const lock = new MainInteractionLock({ isOperationActive: () => operationActive });
+
+    const blocked = lock.acquire();
+
+    assert.equal(lock.locked, false);
+    assert.equal(lock.operationActive, true);
+    assert.equal(blocked.result, 'operation-active');
+    assert.equal(blocked.lease, null);
+
+    operationActive = false;
+    assert.equal(lock.acquire().result, 'acquired');
+  });
 });

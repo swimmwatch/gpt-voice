@@ -130,6 +130,7 @@ export default {
   'appSettings.open': "Paramètres de l'application",
   'settings.blockedWhileOpen': 'Fermez les paramètres pour reprendre GPT-Voice.',
   'settings.blockedWhileRecording': "Arrêtez l'enregistrement avant d'ouvrir les paramètres.",
+  'settings.blockedWhileOperationActive': 'Attendez la fin de l’opération en cours avant d’ouvrir les paramètres.',
   'appSettings.title': 'Paramètres',
   'appSettings.system': 'Système',
   'appSettings.language': "Langue de l'application",

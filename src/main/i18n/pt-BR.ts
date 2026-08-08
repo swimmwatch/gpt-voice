@@ -128,6 +128,7 @@ export default {
   'appSettings.open': 'Configurações do aplicativo',
   'settings.blockedWhileOpen': 'Feche as configurações para voltar a usar o GPT-Voice.',
   'settings.blockedWhileRecording': 'Pare a gravação antes de abrir as configurações.',
+  'settings.blockedWhileOperationActive': 'Aguarde a operação atual terminar antes de abrir as configurações.',
   'appSettings.title': 'Configurações',
   'appSettings.system': 'Sistema',
   'appSettings.language': 'Idioma do aplicativo',

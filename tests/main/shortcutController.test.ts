@@ -164,6 +164,17 @@ describe('ShortcutController', () => {
     assert.equal(harness.globalShortcuts.callbacks.has('F8'), false);
   });
 
+  it('does not start recording while a selected-text provider operation is active', () => {
+    const harness = new ShortcutControllerHarness();
+    harness.actionGateActive = 'translate';
+    harness.controller.register();
+
+    harness.globalShortcuts.callbacks.get('F9')?.();
+
+    assert.equal(harness.controller.getRecordingState().lifecycleState, 'idle');
+    assert.deepEqual(harness.sent, []);
+  });
+
   it('registers F12 chooser and Ctrl+F12 quick apply together', () => {
     const harness = new ShortcutControllerHarness();
 

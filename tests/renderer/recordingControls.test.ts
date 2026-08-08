@@ -30,6 +30,8 @@ describe('unselected provider controls', () => {
         activeProviderName: '',
         isLoggedIn: false,
         isLoggingIn: false,
+        isProviderChangesLocked: false,
+        isVoiceProviderSwitching: false,
         localWhisperPendingAction: null,
         localWhisperResidencyFailure: null,
         localWhisperResidencyFailureSequence: 0,
