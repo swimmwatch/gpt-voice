@@ -6,6 +6,7 @@ import { AboutWindowController } from '@main/aboutWindowController';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { WindowManager } from '@main/window';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
+import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import {
   FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
   FIRST_LAUNCH_STARTUP_JOB_IDS,
@@ -258,6 +259,38 @@ describe('WindowManager', () => {
       harness.manager.isTrustedLocalWhisperSettingsFrame(mainWindow.webContents, mainWindow.webContents.mainFrame),
       false,
     );
+  });
+
+  it('guards only Local Whisper native close requests until renderer confirmation', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.showProviderSettingsWindow('local-whisper', 'Local Whisper');
+    harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');
+    const localWhisperWindow = harness.created[0];
+    const openAiWindow = harness.created[1];
+    assert.ok(localWhisperWindow && openAiWindow);
+
+    localWhisperWindow.triggerClose();
+    assert.equal(localWhisperWindow.destroyed, false);
+    assert.deepEqual(localWhisperWindow.sent, [[PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested]]);
+
+    openAiWindow.triggerClose();
+    assert.equal(openAiWindow.destroyed, true);
+    assert.deepEqual(openAiWindow.sent, []);
+
+    assert.equal(harness.manager.closeProviderSettingsWindow(localWhisperWindow.webContents), true);
+    assert.equal(localWhisperWindow.destroyed, true);
+  });
+
+  it('bypasses the Local Whisper close guard during application disposal', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.showProviderSettingsWindow('local-whisper', 'Local Whisper');
+    const localWhisperWindow = harness.created[0];
+    assert.ok(localWhisperWindow);
+
+    harness.manager.dispose();
+
+    assert.equal(localWhisperWindow.destroyed, true);
+    assert.deepEqual(localWhisperWindow.sent, []);
   });
 
   it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', async () => {

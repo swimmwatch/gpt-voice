@@ -17,6 +17,7 @@ import {
   createFirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
+import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -169,6 +170,21 @@ describe('preload API factory', () => {
 
     assert.deepEqual(firstEvents, [true]);
     assert.deepEqual(secondEvents, [false]);
+  });
+
+  it('owns the payload-free provider settings close-request subscription', () => {
+    const renderer = new RecordingIpcRenderer();
+    const api = createElectronApi(renderer);
+    let requests = 0;
+    const unsubscribe = api.onProviderSettingsCloseRequested(() => {
+      requests += 1;
+    });
+
+    renderer.emit(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested);
+    unsubscribe();
+    renderer.emit(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested);
+
+    assert.equal(requests, 1);
   });
 
   it('sanitizes Translation connection queries and ignores malformed events', async () => {

@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ProviderSettingsWindowController,
+  type ProviderSettingsWindowCloseEvent,
   type ProviderSettingsWindowLike,
 } from '@main/providerSettingsWindowController';
 
@@ -12,6 +13,7 @@ class TestProviderSettingsWindow implements ProviderSettingsWindowLike {
   restoreCalls = 0;
   showCalls = 0;
   readonly webContents: { id: number };
+  private closeListener: ((event: ProviderSettingsWindowCloseEvent) => void) | null = null;
   private closedListener: (() => void) | null = null;
 
   constructor(id: number) {
@@ -20,6 +22,9 @@ class TestProviderSettingsWindow implements ProviderSettingsWindowLike {
 
   close(): void {
     this.closeCalls += 1;
+    let prevented = false;
+    this.closeListener?.({ preventDefault: () => (prevented = true) });
+    if (prevented) return;
     this.closedListener?.();
   }
 
@@ -31,8 +36,14 @@ class TestProviderSettingsWindow implements ProviderSettingsWindowLike {
     return this.minimized;
   }
 
-  on(_event: 'closed', listener: () => void): void {
-    this.closedListener = listener;
+  on(event: 'close', listener: (event: ProviderSettingsWindowCloseEvent) => void): void;
+  on(event: 'closed', listener: () => void): void;
+  on(event: 'close' | 'closed', listener: ((event: ProviderSettingsWindowCloseEvent) => void) | (() => void)): void {
+    if (event === 'close') {
+      this.closeListener = listener;
+    } else {
+      this.closedListener = listener as () => void;
+    }
   }
 
   restore(): void {
@@ -73,5 +84,42 @@ describe('provider settings window controller', () => {
     assert.equal(controller.closeForWebContents(claude.webContents), true);
     assert.equal(claude.closeCalls, 1);
     assert.deepEqual(controller.getWindows(), [openai]);
+  });
+
+  it('intercepts a guarded native close until the matching renderer confirms it', () => {
+    const controller = new ProviderSettingsWindowController<TestProviderSettingsWindow>();
+    const localWhisper = new TestProviderSettingsWindow(1);
+    let closeRequests = 0;
+    controller.show('local-whisper', () => localWhisper, {
+      guardedClose: true,
+      onCloseRequested: () => {
+        closeRequests += 1;
+      },
+    });
+
+    localWhisper.close();
+    assert.equal(closeRequests, 1);
+    assert.deepEqual(controller.getWindows(), [localWhisper]);
+
+    assert.equal(controller.closeForWebContents(localWhisper.webContents), true);
+    assert.equal(localWhisper.closeCalls, 2);
+    assert.deepEqual(controller.getWindows(), []);
+  });
+
+  it('bypasses guarded close requests during disposal', () => {
+    const controller = new ProviderSettingsWindowController<TestProviderSettingsWindow>();
+    const localWhisper = new TestProviderSettingsWindow(1);
+    let closeRequests = 0;
+    controller.show('local-whisper', () => localWhisper, {
+      guardedClose: true,
+      onCloseRequested: () => {
+        closeRequests += 1;
+      },
+    });
+
+    controller.dispose();
+    assert.equal(closeRequests, 0);
+    assert.equal(localWhisper.closeCalls, 1);
+    assert.deepEqual(controller.getWindows(), []);
   });
 });
