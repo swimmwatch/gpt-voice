@@ -1,6 +1,7 @@
 #pragma once
 
 #include "local_whisper/fs_guard/backend.hpp"
+#include "platform/resource_failure_injector.hpp"
 
 #include <memory>
 
@@ -9,6 +10,7 @@ namespace local_whisper::fs_guard {
 class LinuxBackend final : public Backend {
 public:
   LinuxBackend();
+  explicit LinuxBackend(ResourceFailureInjector& failure_injector);
   ~LinuxBackend() override;
 
   LinuxBackend(const LinuxBackend&) = delete;

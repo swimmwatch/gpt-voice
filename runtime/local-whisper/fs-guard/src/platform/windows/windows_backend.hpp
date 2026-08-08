@@ -1,6 +1,7 @@
 #pragma once
 
 #include "local_whisper/fs_guard/backend.hpp"
+#include "platform/resource_failure_injector.hpp"
 
 #include <memory>
 
@@ -9,6 +10,7 @@ namespace local_whisper::fs_guard {
 class WindowsBackend final : public Backend {
 public:
   WindowsBackend();
+  explicit WindowsBackend(ResourceFailureInjector& failure_injector);
   ~WindowsBackend() override;
 
   WindowsBackend(const WindowsBackend&) = delete;

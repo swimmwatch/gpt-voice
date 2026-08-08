@@ -1368,3 +1368,52 @@ decisions:
     rationale: The user explicitly approved the inspectable amended draft as the authoritative implementation contract and retained the separate later /plan gate.
     supersedes_revision: 1
     requirement_ids: [APPROVAL-002]
+
+  - id: authorization.packet-02-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - User reply: "approve" after the exact Packet 02 execution request.
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - Prompt MCP batch authorization request returned invalid_request, so no persisted Prompt MCP answer was available.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: approve
+    rationale: The user explicitly authorized implementation of Packet 02 only. This authorization excludes Packet 03 and later packets, commits, releases, publishing, and real Windows-host execution.
+    supersedes_revision: null
+    requirement_ids: [FSG-001, FSG-005, FSG-006, EXEC-AUTH-001]
+
+  - id: authorization.packet-02-commit
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: authorization-packet-02-commit-round-01
+      question_id: authorization.packet-02-commit
+      idempotency_key: authorization.packet-02-commit:v1
+      last_status: answered
+    question:
+      text: May I create one isolated local commit containing only the completed Packet 02 filesystem-guard resource-ownership changes and its checklist, handoff, and decision-ledger updates? This is required before Packet 03 can begin; it will exclude all unrelated review files and will not push or publish anything.
+      kind: single
+      options:
+        - id: authorize-isolated-commit
+          label: Authorize isolated commit (Recommended)
+          description: Create the local Packet 02 commit only, then proceed to Packet 03 in this invocation.
+        - id: do-not-commit
+          label: Do not commit
+          description: Leave Packet 02 uncommitted and stop before Packet 03.
+    answer:
+      selected_ids: [authorize-isolated-commit]
+      text: ''
+    rationale: The user authorized one isolated local Packet 02 commit, excluding unrelated worktree files, pushes, and publication.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-001]

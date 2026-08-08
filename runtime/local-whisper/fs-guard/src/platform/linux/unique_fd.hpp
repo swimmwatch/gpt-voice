@@ -2,6 +2,8 @@
 
 #include <unistd.h>
 
+#include <dirent.h>
+
 #include <utility>
 
 namespace local_whisper::fs_guard {
@@ -40,6 +42,36 @@ public:
 
 private:
   int fd_ = -1;
+};
+
+class UniqueDir final {
+public:
+  UniqueDir() noexcept = default;
+  UniqueDir(DIR* directory) noexcept // NOLINT(google-explicit-constructor)
+      : directory_(directory) {}
+  ~UniqueDir() noexcept { reset(); }
+
+  UniqueDir(const UniqueDir&) = delete;
+  UniqueDir& operator=(const UniqueDir&) = delete;
+
+  UniqueDir(UniqueDir&& other) noexcept : directory_(other.release()) {}
+  UniqueDir& operator=(UniqueDir&& other) noexcept {
+    if (this != &other)
+      reset(other.release());
+    return *this;
+  }
+
+  [[nodiscard]] DIR* get() const noexcept { return directory_; }
+  [[nodiscard]] bool valid() const noexcept { return directory_ != nullptr; }
+  [[nodiscard]] DIR* release() noexcept { return std::exchange(directory_, nullptr); }
+  void reset(DIR* directory = nullptr) noexcept {
+    if (directory_ != nullptr)
+      ::closedir(directory_);
+    directory_ = directory;
+  }
+
+private:
+  DIR* directory_ = nullptr;
 };
 
 } // namespace local_whisper::fs_guard

@@ -2,12 +2,16 @@
 
 #include "local_whisper/fs_guard/command.hpp"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
 namespace local_whisper::fs_guard {
 
 using ResponseFields = std::vector<std::string>;
+
+// Every platform retains the same bounded number of native-resource leases.
+inline constexpr std::size_t kMaxLiveLeases = 64;
 
 class Backend {
 public:

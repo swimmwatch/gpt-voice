@@ -35,6 +35,9 @@ namespace local_whisper::fs_guard {
 
 class LinuxBackend::Impl final {
 public:
+  explicit Impl(ResourceFailureInjector* failure_injector) noexcept
+      : failure_injector_(failure_injector) {}
+
   static constexpr mode_t kPrivateDirectoryMode = 0700;
   static constexpr mode_t kPrivateFileModeMask = 0077;
   static constexpr unsigned int kResolveManaged =
@@ -64,6 +67,36 @@ public:
   std::map<std::string, Lease> leases;
   std::uint64_t next_lease = 1;
 
+  void before_resource_acquisition() const {
+    if (failure_injector_ != nullptr)
+      failure_injector_->before_resource_acquisition();
+  }
+
+  int open_file(const char* path, int flags) {
+    before_resource_acquisition();
+    return open(path, flags);
+  }
+
+  int open_at(int directory_fd, const std::string& name, int flags, mode_t mode) {
+    before_resource_acquisition();
+    return openat(directory_fd, name.c_str(), flags, mode);
+  }
+
+  int duplicate_fd(int fd) {
+    before_resource_acquisition();
+    return dup(fd);
+  }
+
+  UniqueDir open_directory(UniqueFd&& fd) {
+    before_resource_acquisition();
+    return UniqueDir(fdopendir(fd.release()));
+  }
+
+  void require_lease_capacity() const {
+    if (leases.size() >= kMaxLiveLeases)
+      throw GuardError("IO_FAILED");
+  }
+
   void close_lease(Lease& lease) {
     if (lease.unlink_on_release && lease.parent_fd >= 0 && lease.fd >= 0) {
       struct stat held {};
@@ -80,6 +113,7 @@ public:
 
   int openat2_relative(int directory_fd, const std::string& name, int flags, mode_t mode,
                        unsigned int resolve) {
+    before_resource_acquisition();
     struct open_how how {};
     how.flags = static_cast<std::uint64_t>(flags);
     how.mode = static_cast<std::uint64_t>(mode);
@@ -126,6 +160,7 @@ public:
   }
 
   std::string add_lease(Lease lease) {
+    require_lease_capacity();
     const std::string token = "lease-" + std::to_string(next_lease++);
     leases.emplace(token, std::move(lease));
     return token;
@@ -150,20 +185,15 @@ public:
   }
 
   int open_managed_directory(int parent_fd, const std::string& name, dev_t root_device) {
-    const int fd = openat2_relative(
-        parent_fd, name, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged);
-    if (fd < 0)
+    UniqueFd fd(openat2_relative(parent_fd, name, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW,
+                                 0, kResolveManaged));
+    if (!fd.valid())
       return -1;
-    try {
-      const struct stat value = checked_stat(fd, root_device, true, false);
-      if (value.st_uid != geteuid() || (value.st_mode & 0777) != 0700) {
-        throw GuardError("UNSAFE_ENTRY");
-      }
-    } catch (...) {
-      close(fd);
-      throw;
+    const struct stat value = checked_stat(fd.get(), root_device, true, false);
+    if (value.st_uid != geteuid() || (value.st_mode & 0777) != 0700) {
+      throw GuardError("UNSAFE_ENTRY");
     }
-    return fd;
+    return fd.release();
   }
 
   int open_namespace(const Lease& root, const std::string& name) {
@@ -171,34 +201,32 @@ public:
         name != "locks") {
       throw GuardError("INVALID_INPUT");
     }
-    const int fd = open_managed_directory(root.fd, name, root.root_device);
+    UniqueFd fd(open_managed_directory(root.fd.get(), name, root.root_device));
     if (fd < 0)
       throw GuardError("IO_FAILED");
     struct stat value {};
     const auto expected = root.namespace_identities.find(name);
-    if (expected == root.namespace_identities.end() || fstat(fd, &value) != 0 ||
+    if (expected == root.namespace_identities.end() || fstat(fd.get(), &value) != 0 ||
         value.st_dev != expected->second.first || value.st_ino != expected->second.second) {
-      close(fd);
       throw GuardError("IDENTITY_CHANGED");
     }
-    return fd;
+    return fd.release();
   }
 
   void ensure_private_directory(int parent_fd, const std::string& name, dev_t expected_device) {
     if (mkdirat(parent_fd, name.c_str(), kPrivateDirectoryMode) != 0 && errno != EEXIST) {
       throw GuardError("IO_FAILED");
     }
-    const int fd = openat2_relative(
-        parent_fd, name, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged);
-    if (fd < 0)
+    UniqueFd fd(openat2_relative(parent_fd, name, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW,
+                                 0, kResolveManaged));
+    if (!fd.valid())
       throw GuardError("UNSAFE_ENTRY");
     struct stat value {};
-    if (fstat(fd, &value) != 0 || value.st_dev != expected_device || !S_ISDIR(value.st_mode) ||
-        value.st_uid != geteuid() || (value.st_mode & 0777) != kPrivateDirectoryMode) {
-      close(fd);
+    if (fstat(fd.get(), &value) != 0 || value.st_dev != expected_device ||
+        !S_ISDIR(value.st_mode) || value.st_uid != geteuid() ||
+        (value.st_mode & 0777) != kPrivateDirectoryMode) {
       throw GuardError("UNSAFE_ENTRY");
     }
-    close(fd);
   }
 
   std::vector<std::string> absolute_components(const std::string& value) {
@@ -220,88 +248,74 @@ public:
 
   Lease initialize_root(const std::string& path) {
     const auto components = absolute_components(path);
-    int current = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-    if (current < 0)
+    UniqueFd current(open_file("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC));
+    if (!current.valid())
       throw GuardError("IO_FAILED");
-    int root_parent = -1;
+    UniqueFd root_parent;
     dev_t managed_device = 0;
-    try {
-      for (std::size_t index = 0; index < components.size(); ++index) {
-        struct stat parent {};
-        if (fstat(current, &parent) != 0)
-          throw GuardError("IO_FAILED");
-        const bool managed_component = index + 2 >= components.size();
-        if (index + 1 == components.size()) {
-          root_parent = dup(current);
-          if (root_parent < 0)
-            throw GuardError("IO_FAILED");
-        }
-        if (managed_component && managed_device == 0)
-          managed_device = parent.st_dev;
-        const unsigned int resolve = managed_component ? kResolveManaged : kResolveExternal;
-        int next = openat2_relative(current, components[index],
-                                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW, 0, resolve);
-        bool created = false;
-        if (next < 0 && errno == ENOENT) {
-          if (mkdirat(current, components[index].c_str(), kPrivateDirectoryMode) != 0) {
-            throw GuardError("IO_FAILED");
-          }
-          created = true;
-          next = openat2_relative(current, components[index],
-                                  O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW, 0, resolve);
-        }
-        if (next < 0)
-          throw GuardError("UNSAFE_ENTRY");
-        struct stat value {};
-        if (fstat(next, &value) != 0 || !S_ISDIR(value.st_mode) ||
-            (managed_component && value.st_dev != managed_device)) {
-          close(next);
-          throw GuardError("UNSAFE_ENTRY");
-        }
-        if (managed_component && (value.st_uid != geteuid() || (value.st_mode & 0777) != 0700)) {
-          close(next);
-          throw GuardError("UNSAFE_ENTRY");
-        }
-        if (created && fchmod(next, kPrivateDirectoryMode) != 0) {
-          close(next);
-          throw GuardError("IO_FAILED");
-        }
-        close(current);
-        current = next;
-      }
-      struct stat root_stat {};
-      if (fstat(current, &root_stat) != 0)
+    for (std::size_t index = 0; index < components.size(); ++index) {
+      struct stat parent {};
+      if (fstat(current.get(), &parent) != 0)
         throw GuardError("IO_FAILED");
-      managed_device = root_stat.st_dev;
-      std::map<std::string, std::pair<dev_t, ino_t>> namespace_identities;
-      for (const char* name : {"runtimes", "models", "staging", "quarantine", "locks"}) {
-        ensure_private_directory(current, name, managed_device);
-        const int namespace_fd = open_managed_directory(current, name, managed_device);
-        if (namespace_fd < 0)
+      const bool managed_component = index + 2 >= components.size();
+      if (index + 1 == components.size()) {
+        root_parent.reset(duplicate_fd(current.get()));
+        if (!root_parent.valid())
           throw GuardError("IO_FAILED");
-        struct stat namespace_stat {};
-        if (fstat(namespace_fd, &namespace_stat) != 0) {
-          close(namespace_fd);
+      }
+      if (managed_component && managed_device == 0)
+        managed_device = parent.st_dev;
+      const unsigned int resolve = managed_component ? kResolveManaged : kResolveExternal;
+      UniqueFd next(openat2_relative(current.get(), components[index],
+                                     O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW, 0, resolve));
+      bool created = false;
+      if (!next.valid() && errno == ENOENT) {
+        if (mkdirat(current.get(), components[index].c_str(), kPrivateDirectoryMode) != 0) {
           throw GuardError("IO_FAILED");
         }
-        namespace_identities.emplace(name, std::pair{namespace_stat.st_dev, namespace_stat.st_ino});
-        close(namespace_fd);
+        created = true;
+        next.reset(openat2_relative(current.get(), components[index],
+                                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW, 0, resolve));
       }
-      if (root_parent < 0)
+      if (!next.valid())
+        throw GuardError("UNSAFE_ENTRY");
+      struct stat value {};
+      if (fstat(next.get(), &value) != 0 || !S_ISDIR(value.st_mode) ||
+          (managed_component && value.st_dev != managed_device)) {
+        throw GuardError("UNSAFE_ENTRY");
+      }
+      if (managed_component && (value.st_uid != geteuid() || (value.st_mode & 0777) != 0700)) {
+        throw GuardError("UNSAFE_ENTRY");
+      }
+      if (created && fchmod(next.get(), kPrivateDirectoryMode) != 0) {
         throw GuardError("IO_FAILED");
-      return Lease{current,
-                   root_parent,
-                   LeaseKind::kRoot,
-                   components.back(),
-                   managed_device,
-                   false,
-                   std::move(namespace_identities)};
-    } catch (...) {
-      close(current);
-      if (root_parent >= 0)
-        close(root_parent);
-      throw;
+      }
+      current = std::move(next);
     }
+    struct stat root_stat {};
+    if (fstat(current.get(), &root_stat) != 0)
+      throw GuardError("IO_FAILED");
+    managed_device = root_stat.st_dev;
+    std::map<std::string, std::pair<dev_t, ino_t>> namespace_identities;
+    for (const char* name : {"runtimes", "models", "staging", "quarantine", "locks"}) {
+      ensure_private_directory(current.get(), name, managed_device);
+      UniqueFd namespace_fd(open_managed_directory(current.get(), name, managed_device));
+      if (!namespace_fd.valid())
+        throw GuardError("IO_FAILED");
+      struct stat namespace_stat {};
+      if (fstat(namespace_fd.get(), &namespace_stat) != 0)
+        throw GuardError("IO_FAILED");
+      namespace_identities.emplace(name, std::pair{namespace_stat.st_dev, namespace_stat.st_ino});
+    }
+    if (!root_parent.valid())
+      throw GuardError("IO_FAILED");
+    return Lease{std::move(current),
+                 std::move(root_parent),
+                 LeaseKind::kRoot,
+                 components.back(),
+                 managed_device,
+                 false,
+                 std::move(namespace_identities)};
   }
 
   class Sha256 {
@@ -425,14 +439,13 @@ public:
 
   std::optional<std::string> process_start_identity(pid_t pid) {
     const std::string path = "/proc/" + std::to_string(pid) + "/stat";
-    const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
-    if (fd < 0) {
+    UniqueFd fd(open_file(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW));
+    if (!fd.valid()) {
       return errno == ENOENT || errno == ESRCH ? std::optional<std::string>(std::string{})
                                                : std::nullopt;
     }
     std::array<char, 4096> buffer{};
-    const ssize_t count = read(fd, buffer.data(), buffer.size() - 1);
-    close(fd);
+    const ssize_t count = read(fd.get(), buffer.data(), buffer.size() - 1);
     if (count <= 0)
       return std::nullopt;
     const std::string contents(buffer.data(), static_cast<std::size_t>(count));
@@ -484,89 +497,82 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     const std::string name = "lock-" + arguments[1];
-    int locks_fd = open_namespace(root, "locks");
+    UniqueFd locks_fd(open_namespace(root, "locks"));
+    UniqueFd rollback_parent(duplicate_fd(locks_fd.get()));
+    if (!rollback_parent.valid())
+      throw GuardError("IO_FAILED");
     for (int attempt = 0; attempt < 2; ++attempt) {
-      int fd = openat(locks_fd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
-                      0600);
-      if (fd >= 0) {
-        if (fchmod(fd, 0600) != 0) {
-          close(fd);
-          unlinkat(locks_fd, name.c_str(), 0);
-          close(locks_fd);
-          throw GuardError("IO_FAILED");
+      UniqueFd created(open_at(locks_fd.get(), name,
+                               O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600));
+      if (created.valid()) {
+        try {
+          if (fchmod(created.get(), 0600) != 0)
+            throw GuardError("IO_FAILED");
+          checked_stat(created.get(), root.root_device, false, true);
+          const std::string metadata = arguments[2] + "\n" + arguments[3] + "\n" + arguments[4] +
+                                       "\n" + arguments[5] + "\n" + arguments[6] + "\n";
+          write_all(created.get(), metadata);
+          if (fsync(created.get()) != 0)
+            throw GuardError("IO_FAILED");
+          return add_lease(Lease{std::move(created),
+                                 std::move(locks_fd),
+                                 LeaseKind::kLock,
+                                 name,
+                                 root.root_device,
+                                 true,
+                                 {}});
+        } catch (...) {
+          unlinkat(rollback_parent.get(), name.c_str(), 0);
+          throw;
         }
-        checked_stat(fd, root.root_device, false, true);
-        const std::string metadata = arguments[2] + "\n" + arguments[3] + "\n" + arguments[4] +
-                                     "\n" + arguments[5] + "\n" + arguments[6] + "\n";
-        write_all(fd, metadata);
-        if (fsync(fd) != 0)
-          throw GuardError("IO_FAILED");
-        return add_lease(Lease{fd, locks_fd, LeaseKind::kLock, name, root.root_device, true, {}});
       }
-      if (errno != EEXIST) {
-        close(locks_fd);
+      if (errno != EEXIST)
         throw GuardError("IO_FAILED");
-      }
-      fd = openat2_relative(locks_fd, name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged);
-      if (fd < 0) {
-        close(locks_fd);
+      UniqueFd existing(openat2_relative(locks_fd.get(), name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0,
+                                         kResolveManaged));
+      if (!existing.valid())
         throw GuardError("UNSAFE_ENTRY");
-      }
-      const struct stat held = checked_stat(fd, root.root_device, false, true);
-      const auto metadata = read_lock_metadata(fd);
+      const struct stat held = checked_stat(existing.get(), root.root_device, false, true);
+      const auto metadata = read_lock_metadata(existing.get());
       char* owner_end = nullptr;
       const long owner_pid = std::strtol(metadata[1].c_str(), &owner_end, 10);
       if (owner_end == metadata[1].c_str() || *owner_end != '\0' || owner_pid <= 0 ||
           !is_safe_token(metadata[0], 16, 128) || !is_safe_token(metadata[2], 1, 128) ||
           !is_safe_token(metadata[3], 1, 32) || !is_safe_token(metadata[4], 1, 128)) {
-        close(fd);
-        close(locks_fd);
         throw GuardError("UNSAFE_ENTRY");
       }
       const auto owner_identity = process_start_identity(static_cast<pid_t>(owner_pid));
-      if (!owner_identity.has_value()) {
-        close(fd);
-        close(locks_fd);
+      if (!owner_identity.has_value())
         throw GuardError("UNSAFE_ENTRY");
-      }
-      if (*owner_identity == metadata[2]) {
-        close(fd);
-        close(locks_fd);
+      if (*owner_identity == metadata[2])
         throw GuardError("CONFLICT");
-      }
       struct stat named {};
-      if (fstatat(locks_fd, name.c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0 ||
+      if (fstatat(locks_fd.get(), name.c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0 ||
           named.st_dev != held.st_dev || named.st_ino != held.st_ino ||
-          unlinkat(locks_fd, name.c_str(), 0) != 0) {
-        close(fd);
-        close(locks_fd);
+          unlinkat(locks_fd.get(), name.c_str(), 0) != 0) {
         throw GuardError("UNSAFE_ENTRY");
       }
-      close(fd);
     }
-    close(locks_fd);
     throw GuardError("CONFLICT");
   }
 
   std::vector<std::string> list_directory(Lease& lease) {
     if (lease.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
-    const int duplicate = dup(lease.fd);
-    if (duplicate < 0)
+    UniqueFd duplicate(duplicate_fd(lease.fd.get()));
+    if (!duplicate.valid())
       throw GuardError("IO_FAILED");
-    DIR* directory = fdopendir(duplicate);
-    if (directory == nullptr) {
-      close(duplicate);
+    UniqueDir directory(open_directory(std::move(duplicate)));
+    if (!directory.valid()) {
       throw GuardError("IO_FAILED");
     }
-    rewinddir(directory);
+    rewinddir(directory.get());
     std::vector<std::string> result;
     while (true) {
       errno = 0;
-      dirent* entry = readdir(directory);
+      dirent* entry = readdir(directory.get());
       if (entry == nullptr) {
         if (errno != 0) {
-          closedir(directory);
           throw GuardError("IO_FAILED");
         }
         break;
@@ -575,44 +581,36 @@ public:
       if (name == "." || name == "..")
         continue;
       if (!is_file_name(name)) {
-        closedir(directory);
         throw GuardError("UNSAFE_ENTRY");
       }
-      const int fd =
-          openat2_relative(lease.fd, name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged);
-      if (fd < 0) {
-        closedir(directory);
+      UniqueFd fd(openat2_relative(lease.fd.get(), name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0,
+                                   kResolveManaged));
+      if (!fd.valid()) {
         throw GuardError("UNSAFE_ENTRY");
       }
-      checked_stat(fd, lease.root_device, false, true);
-      result.push_back(name + "~" + identity_string(fd, lease.fd) + "~" + hash_file(fd));
-      close(fd);
+      checked_stat(fd.get(), lease.root_device, false, true);
+      result.push_back(name + "~" + identity_string(fd.get(), lease.fd.get()) + "~" +
+                       hash_file(fd.get()));
     }
-    closedir(directory);
     return result;
   }
 
   std::vector<std::string> list_namespace(Lease& root, const std::string& name) {
-    const int namespace_fd = open_namespace(root, name);
-    const int duplicate = dup(namespace_fd);
-    if (duplicate < 0) {
-      close(namespace_fd);
+    UniqueFd namespace_fd(open_namespace(root, name));
+    UniqueFd duplicate(duplicate_fd(namespace_fd.get()));
+    if (!duplicate.valid()) {
       throw GuardError("IO_FAILED");
     }
-    DIR* directory = fdopendir(duplicate);
-    if (directory == nullptr) {
-      close(duplicate);
-      close(namespace_fd);
+    UniqueDir directory(open_directory(std::move(duplicate)));
+    if (!directory.valid()) {
       throw GuardError("IO_FAILED");
     }
     std::vector<std::string> result;
     while (true) {
       errno = 0;
-      dirent* entry = readdir(directory);
+      dirent* entry = readdir(directory.get());
       if (entry == nullptr) {
         if (errno != 0) {
-          closedir(directory);
-          close(namespace_fd);
           throw GuardError("IO_FAILED");
         }
         break;
@@ -622,7 +620,7 @@ public:
         continue;
       int fd = -1;
       try {
-        fd = open_managed_directory(namespace_fd, entry_name, root.root_device);
+        fd = open_managed_directory(namespace_fd.get(), entry_name, root.root_device);
       } catch (const GuardError&) {
         result.push_back("unmanaged-entry");
         continue;
@@ -631,11 +629,9 @@ public:
         result.push_back("unmanaged-entry");
         continue;
       }
-      close(fd);
+      UniqueFd managed_directory(fd);
       result.push_back(entry_name);
     }
-    closedir(directory);
-    close(namespace_fd);
     return result;
   }
 
@@ -656,6 +652,7 @@ public:
   ResponseFields initialize(const std::vector<std::string>& arguments) {
     if (arguments.size() != 2 || arguments[0] != "linux")
       throw GuardError("UNSUPPORTED");
+    require_lease_capacity();
     Lease root = initialize_root(arguments[1]);
     const std::string identity = identity_string(root.fd, root.parent_fd);
     const std::string token = add_lease(std::move(root));
@@ -664,6 +661,7 @@ public:
 
   ResponseFields lock(const std::vector<std::string>& arguments) {
     Lease& root = require_root(arguments[0]);
+    require_lease_capacity();
     const std::string token = acquire_lock(root, arguments);
     Lease& lock = require_lease(token);
     return {token, identity_string(lock.fd, lock.parent_fd)};
@@ -675,23 +673,39 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     Lease& root = require_root(arguments[0]);
+    require_lease_capacity();
     const std::string name = "stage-" + arguments[2] + "-" + arguments[3];
-    const int parent = open_namespace(root, "staging");
-    if (mkdirat(parent, name.c_str(), 0700) != 0) {
-      close(parent);
+    UniqueFd parent(open_namespace(root, "staging"));
+    if (mkdirat(parent.get(), name.c_str(), 0700) != 0) {
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     }
-    const int fd = open_managed_directory(parent, name, root.root_device);
-    if (fd < 0 || fchmod(fd, 0700) != 0) {
-      if (fd >= 0)
-        close(fd);
-      unlinkat(parent, name.c_str(), AT_REMOVEDIR);
-      close(parent);
+    bool remove_directory = true;
+    UniqueFd fd(open_managed_directory(parent.get(), name, root.root_device));
+    if (!fd.valid() || fchmod(fd.get(), 0700) != 0) {
+      unlinkat(parent.get(), name.c_str(), AT_REMOVEDIR);
       throw GuardError("IO_FAILED");
     }
-    const std::string token =
-        add_lease(Lease{fd, parent, LeaseKind::kDirectory, name, root.root_device, false, {}});
-    return {token, identity_string(fd, parent)};
+    UniqueFd rollback_parent(duplicate_fd(parent.get()));
+    if (!rollback_parent.valid()) {
+      unlinkat(parent.get(), name.c_str(), AT_REMOVEDIR);
+      throw GuardError("IO_FAILED");
+    }
+    try {
+      const std::string identity = identity_string(fd.get(), parent.get());
+      const std::string token = add_lease(Lease{std::move(fd),
+                                                std::move(parent),
+                                                LeaseKind::kDirectory,
+                                                name,
+                                                root.root_device,
+                                                false,
+                                                {}});
+      remove_directory = false;
+      return {token, identity};
+    } catch (...) {
+      if (remove_directory)
+        unlinkat(rollback_parent.get(), name.c_str(), AT_REMOVEDIR);
+      throw;
+    }
   }
 
   ResponseFields create_file(const std::vector<std::string>& arguments) {
@@ -700,31 +714,45 @@ public:
     Lease& directory = require_lease(arguments[0]);
     if (directory.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
+    require_lease_capacity();
     char* end = nullptr;
     const long mode_value = std::strtol(arguments[2].c_str(), &end, 10);
     if (end == arguments[2].c_str() || *end != '\0' || mode_value < 0 || mode_value > 0777 ||
         (mode_value & kPrivateFileModeMask) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    const int fd =
-        openat(directory.fd, arguments[1].c_str(),
-               O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, static_cast<mode_t>(mode_value));
-    if (fd < 0)
+    UniqueFd fd(open_at(directory.fd.get(), arguments[1],
+                        O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                        static_cast<mode_t>(mode_value)));
+    if (!fd.valid())
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
-    if (fchmod(fd, static_cast<mode_t>(mode_value)) != 0) {
-      close(fd);
-      unlinkat(directory.fd, arguments[1].c_str(), 0);
+    bool remove_file = true;
+    if (fchmod(fd.get(), static_cast<mode_t>(mode_value)) != 0) {
+      unlinkat(directory.fd.get(), arguments[1].c_str(), 0);
       throw GuardError("IO_FAILED");
     }
-    checked_stat(fd, directory.root_device, false, true);
-    const int parent = dup(directory.fd);
-    if (parent < 0) {
-      close(fd);
+    checked_stat(fd.get(), directory.root_device, false, true);
+    UniqueFd parent(duplicate_fd(directory.fd.get()));
+    if (!parent.valid()) {
+      unlinkat(directory.fd.get(), arguments[1].c_str(), 0);
       throw GuardError("IO_FAILED");
     }
-    const std::string token = add_lease(
-        Lease{fd, parent, LeaseKind::kFile, arguments[1], directory.root_device, false, {}});
-    return {token, identity_string(fd, parent)};
+    try {
+      const std::string identity = identity_string(fd.get(), parent.get());
+      const std::string token = add_lease(Lease{std::move(fd),
+                                                std::move(parent),
+                                                LeaseKind::kFile,
+                                                arguments[1],
+                                                directory.root_device,
+                                                false,
+                                                {}});
+      remove_file = false;
+      return {token, identity};
+    } catch (...) {
+      if (remove_file)
+        unlinkat(directory.fd.get(), arguments[1].c_str(), 0);
+      throw;
+    }
   }
 
   ResponseFields write_file(const std::vector<std::string>& arguments) {
@@ -773,19 +801,24 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     Lease& root = require_root(arguments[0]);
-    const int parent = open_namespace(root, arguments[1]);
-    const int fd = open_managed_directory(parent, arguments[2], root.root_device);
-    if (fd < 0 && errno == ENOENT) {
-      close(parent);
+    UniqueFd parent(open_namespace(root, arguments[1]));
+    UniqueFd fd(open_managed_directory(parent.get(), arguments[2], root.root_device));
+    if (!fd.valid() && errno == ENOENT) {
       return {"MISSING"};
     }
-    if (fd < 0) {
-      close(parent);
+    if (!fd.valid()) {
       throw GuardError("UNSAFE_ENTRY");
     }
-    const std::string token = add_lease(
-        Lease{fd, parent, LeaseKind::kDirectory, arguments[2], root.root_device, false, {}});
-    return {token, identity_string(fd, parent)};
+    require_lease_capacity();
+    const std::string identity = identity_string(fd.get(), parent.get());
+    const std::string token = add_lease(Lease{std::move(fd),
+                                              std::move(parent),
+                                              LeaseKind::kDirectory,
+                                              arguments[2],
+                                              root.root_device,
+                                              false,
+                                              {}});
+    return {token, identity};
   }
 
   ResponseFields promote(const std::vector<std::string>& arguments) {
@@ -807,14 +840,12 @@ public:
         held.st_dev != named.st_dev || held.st_ino != named.st_ino) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    const int final_parent = open_namespace(root, arguments[2]);
-    if (syscall(SYS_renameat2, staging.parent_fd.get(), staging.name.c_str(), final_parent,
+    UniqueFd final_parent(open_namespace(root, arguments[2]));
+    if (syscall(SYS_renameat2, staging.parent_fd.get(), staging.name.c_str(), final_parent.get(),
                 arguments[3].c_str(), RENAME_NOREPLACE) != 0) {
-      close(final_parent);
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     }
-    const std::string result = identity_string(staging.fd, final_parent);
-    close(final_parent);
+    const std::string result = identity_string(staging.fd.get(), final_parent.get());
     return {result};
   }
 
@@ -829,37 +860,34 @@ public:
         artifact.root_device != root.root_device) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    const int source_parent = open_namespace(root, arguments[2]);
+    require_lease_capacity();
+    UniqueFd source_parent(open_namespace(root, arguments[2]));
     struct stat named {};
     struct stat held {};
     if (fstat(artifact.fd, &held) != 0 ||
-        fstatat(source_parent, arguments[3].c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0 ||
+        fstatat(source_parent.get(), arguments[3].c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0 ||
         held.st_dev != named.st_dev || held.st_ino != named.st_ino) {
-      close(source_parent);
       throw GuardError("IDENTITY_CHANGED");
     }
-    const int quarantine_parent = open_namespace(root, "quarantine");
+    UniqueFd quarantine_parent(open_namespace(root, "quarantine"));
     const std::string quarantine_name = "quarantine-" + arguments[3] + "-" + arguments[4];
-    if (syscall(SYS_renameat2, source_parent, arguments[3].c_str(), quarantine_parent,
+    if (syscall(SYS_renameat2, source_parent.get(), arguments[3].c_str(), quarantine_parent.get(),
                 quarantine_name.c_str(), RENAME_NOREPLACE) != 0) {
-      close(source_parent);
-      close(quarantine_parent);
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     }
-    close(source_parent);
-    const int duplicate = dup(artifact.fd);
-    if (duplicate < 0) {
-      close(quarantine_parent);
+    UniqueFd duplicate(duplicate_fd(artifact.fd.get()));
+    if (!duplicate.valid()) {
       throw GuardError("IO_FAILED");
     }
-    const std::string token = add_lease(Lease{duplicate,
-                                              quarantine_parent,
+    const std::string identity = identity_string(duplicate.get(), quarantine_parent.get());
+    const std::string token = add_lease(Lease{std::move(duplicate),
+                                              std::move(quarantine_parent),
                                               LeaseKind::kDirectory,
                                               quarantine_name,
                                               root.root_device,
                                               false,
                                               {}});
-    return {token, identity_string(duplicate, quarantine_parent)};
+    return {token, identity};
   }
 
   ResponseFields delete_file(const std::vector<std::string>& arguments) {
@@ -869,13 +897,12 @@ public:
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("quarantine-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    const int fd = openat2_relative(directory.fd, arguments[1], O_RDONLY | O_CLOEXEC | O_NOFOLLOW,
-                                    0, kResolveManaged);
-    if (fd < 0)
+    UniqueFd fd(openat2_relative(directory.fd.get(), arguments[1],
+                                 O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged));
+    if (!fd.valid())
       throw GuardError("IDENTITY_CHANGED");
-    checked_stat(fd, directory.root_device, false, true);
-    const std::string current = identity_string(fd, directory.fd);
-    close(fd);
+    checked_stat(fd.get(), directory.root_device, false, true);
+    const std::string current = identity_string(fd.get(), directory.fd.get());
     if (current != arguments[2])
       throw GuardError("IDENTITY_CHANGED");
     if (unlinkat(directory.fd, arguments[1].c_str(), 0) != 0)
@@ -890,13 +917,12 @@ public:
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    const int fd = openat2_relative(directory.fd, arguments[1], O_RDONLY | O_CLOEXEC | O_NOFOLLOW,
-                                    0, kResolveManaged);
-    if (fd < 0)
+    UniqueFd fd(openat2_relative(directory.fd.get(), arguments[1],
+                                 O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged));
+    if (!fd.valid())
       throw GuardError("IDENTITY_CHANGED");
-    checked_stat(fd, directory.root_device, false, true);
-    const std::string current = identity_string(fd, directory.fd);
-    close(fd);
+    checked_stat(fd.get(), directory.root_device, false, true);
+    const std::string current = identity_string(fd.get(), directory.fd.get());
     if (current != arguments[2])
       throw GuardError("IDENTITY_CHANGED");
     if (unlinkat(directory.fd, arguments[1].c_str(), 0) != 0)
@@ -985,9 +1011,14 @@ public:
     leases.erase(found);
     return {};
   }
+
+private:
+  ResourceFailureInjector* failure_injector_;
 };
 
-LinuxBackend::LinuxBackend() : impl_(std::make_unique<Impl>()) {}
+LinuxBackend::LinuxBackend() : impl_(std::make_unique<Impl>(nullptr)) {}
+LinuxBackend::LinuxBackend(ResourceFailureInjector& failure_injector)
+    : impl_(std::make_unique<Impl>(&failure_injector)) {}
 LinuxBackend::~LinuxBackend() = default;
 LinuxBackend::LinuxBackend(LinuxBackend&&) noexcept = default;
 LinuxBackend& LinuxBackend::operator=(LinuxBackend&&) noexcept = default;

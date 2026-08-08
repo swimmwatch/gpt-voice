@@ -39,6 +39,14 @@ std::unique_ptr<Backend> make_backend() {
 #endif
 }
 
+std::unique_ptr<Backend> make_backend(ResourceFailureInjector& failure_injector) {
+#if defined(_WIN32)
+  return std::make_unique<WindowsBackend>(failure_injector);
+#else
+  return std::make_unique<LinuxBackend>(failure_injector);
+#endif
+}
+
 std::string platform_name() {
 #if defined(_WIN32)
   return "win32";
@@ -53,6 +61,29 @@ std::string process_id() {
 #else
   return std::to_string(getpid());
 #endif
+}
+
+std::size_t process_resource_count() {
+#if defined(_WIN32)
+  DWORD count = 0;
+  if (GetProcessHandleCount(GetCurrentProcess(), &count) == FALSE) {
+    throw std::runtime_error("process handle count unavailable");
+  }
+  return count;
+#else
+  std::size_t count = 0;
+  for (const auto& entry : std::filesystem::directory_iterator("/proc/self/fd")) {
+    static_cast<void>(entry);
+    ++count;
+  }
+  return count;
+#endif
+}
+
+std::string artifact_name_with_marker(const std::size_t marker) {
+  std::string result = kArtifactName;
+  result.at(std::string("model-").size() + marker) = 'b';
+  return result;
 }
 
 class TemporaryManagedRoot final {
@@ -81,6 +112,51 @@ private:
   std::filesystem::path cleanup_path_;
   std::filesystem::path path_;
 };
+
+class FailAtResourceAcquisition final : public ResourceFailureInjector {
+public:
+  explicit FailAtResourceAcquisition(const std::size_t failure_ordinal) noexcept
+      : failure_ordinal_(failure_ordinal) {}
+
+  void before_resource_acquisition() override {
+    ++acquisition_count_;
+    if (acquisition_count_ == failure_ordinal_)
+      throw GuardError("IO_FAILED");
+  }
+
+  [[nodiscard]] std::size_t acquisition_count() const noexcept { return acquisition_count_; }
+
+private:
+  std::size_t failure_ordinal_;
+  std::size_t acquisition_count_ = 0;
+};
+
+void complete_managed_artifact_lifecycle(Backend& backend, const std::filesystem::path& root_path) {
+  const auto root = backend.initialize({platform_name(), root_path.string()});
+  const auto identity = backend.process_identity({process_id()});
+  const LockCommand lock_command{root[0],     kArtifactName, kNonce,       process_id(),
+                                 identity[0], "download",    kArtifactName};
+  const auto lock = backend.lock(lock_command);
+  EXPECT_TRUE(backend.release({lock[0]}).empty());
+
+  const auto staging = backend.create_staging({root[0], "model", kArtifactName, kNonce});
+  const auto file = backend.create_file({staging[0], "file-model", "384"});
+  EXPECT_TRUE(backend.write_file({file[0], base64url_encode("failure-injection")}).empty());
+  const auto sealed = backend.seal_file({file[0]});
+  EXPECT_TRUE(backend.release({file[0]}).empty());
+  EXPECT_FALSE(backend.list({staging[0], {"file-model|384"}}).empty());
+
+  EXPECT_TRUE(backend.promote({root[0], staging[0], "models", kArtifactName}).size() == 1U);
+  EXPECT_TRUE(backend.release({staging[0]}).empty());
+  const auto opened = backend.open_artifact({root[0], "models", kArtifactName});
+  const auto quarantined =
+      backend.quarantine({root[0], opened[0], "models", kArtifactName, kNonce});
+  EXPECT_TRUE(backend.release({opened[0]}).empty());
+  EXPECT_TRUE(backend.delete_file({quarantined[0], "file-model", sealed[0]}).empty());
+  EXPECT_TRUE(backend.remove_quarantine({root[0], quarantined[0]}).empty());
+  EXPECT_TRUE(backend.release({quarantined[0]}).empty());
+  EXPECT_TRUE(backend.release({root[0]}).empty());
+}
 
 #if defined(_WIN32)
 struct MountPointReparseData final {
@@ -184,6 +260,82 @@ TEST(RealBackendIntegrationTest, EnforcesLockConflictAndRelease) {
   const auto second = backend->lock(lock_command);
   ASSERT_EQ(second.size(), 2U);
   EXPECT_TRUE(backend->release({second[0]}).empty());
+  EXPECT_TRUE(backend->release({root[0]}).empty());
+}
+
+TEST(RealBackendIntegrationTest, ReclaimsTransientResourcesAfterSuccessAndTypedFailure) {
+  const std::size_t baseline = process_resource_count();
+  {
+    TemporaryManagedRoot root_path;
+    auto backend = make_backend();
+    for (std::size_t index = 0; index < 4; ++index) {
+      const auto root = backend->initialize({platform_name(), root_path.path().string()});
+      const std::string artifact = artifact_name_with_marker(index);
+      const auto staging = backend->create_staging({root[0], "model", artifact, kNonce});
+      EXPECT_THROW(static_cast<void>(backend->create_staging({root[0], "model", artifact, kNonce})),
+                   GuardError);
+      const auto file = backend->create_file({staging[0], "file-model", "384"});
+      EXPECT_TRUE(backend->write_file({file[0], base64url_encode("resource-check")}).empty());
+      EXPECT_TRUE(backend->seal_file({file[0]}).size() == 1U);
+      EXPECT_TRUE(backend->release({file[0]}).empty());
+      EXPECT_TRUE(backend->release({staging[0]}).empty());
+      EXPECT_TRUE(backend->release({root[0]}).empty());
+    }
+  }
+  EXPECT_EQ(process_resource_count(), baseline);
+}
+
+TEST(RealBackendIntegrationTest, ReclaimsResourcesAfterEveryInjectedAcquisitionFailure) {
+  const std::size_t baseline = process_resource_count();
+  bool completed = false;
+  for (std::size_t ordinal = 1; ordinal < 512 && !completed; ++ordinal) {
+    FailAtResourceAcquisition failure_injector(ordinal);
+    {
+      TemporaryManagedRoot root_path;
+      auto backend = make_backend(failure_injector);
+      try {
+        complete_managed_artifact_lifecycle(*backend, root_path.path());
+        EXPECT_EQ(ordinal, failure_injector.acquisition_count() + 1);
+        completed = true;
+      } catch (const GuardError& error) {
+        EXPECT_EQ(error.code(), "IO_FAILED");
+      }
+    }
+    EXPECT_EQ(process_resource_count(), baseline);
+  }
+  EXPECT_TRUE(completed);
+}
+
+TEST(RealBackendIntegrationTest, EnforcesAndReusesTheSharedLiveLeaseBudget) {
+  TemporaryManagedRoot root_path;
+  auto backend = make_backend();
+  const auto root = backend->initialize({platform_name(), root_path.path().string()});
+  std::vector<std::string> staging_tokens;
+  staging_tokens.reserve(kMaxLiveLeases - 1);
+
+  for (std::size_t index = 0; index < kMaxLiveLeases - 1; ++index) {
+    const auto staging =
+        backend->create_staging({root[0], "model", artifact_name_with_marker(index), kNonce});
+    staging_tokens.push_back(staging[0]);
+  }
+
+  try {
+    static_cast<void>(backend->create_staging(
+        {root[0], "model", artifact_name_with_marker(kMaxLiveLeases - 1), kNonce}));
+    FAIL() << "the 65th live lease must be rejected";
+  } catch (const GuardError& error) {
+    EXPECT_EQ(error.code(), "IO_FAILED");
+  }
+
+  EXPECT_TRUE(backend->release({staging_tokens.front()}).empty());
+  const auto replacement = backend->create_staging(
+      {root[0], "model", artifact_name_with_marker(kMaxLiveLeases - 1), kNonce});
+  EXPECT_EQ(replacement[0], "lease-65");
+
+  EXPECT_TRUE(backend->release({replacement[0]}).empty());
+  for (const std::string& token : staging_tokens) {
+    EXPECT_TRUE(backend->release({token}).empty());
+  }
   EXPECT_TRUE(backend->release({root[0]}).empty());
 }
 

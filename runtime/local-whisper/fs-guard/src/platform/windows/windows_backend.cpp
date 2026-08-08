@@ -39,6 +39,9 @@ namespace local_whisper::fs_guard {
 
 class WindowsBackend::Impl final {
 public:
+  explicit Impl(ResourceFailureInjector* failure_injector) noexcept
+      : failure_injector_(failure_injector) {}
+
   static constexpr ULONG kDirectoryOptions = FILE_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT |
                                              FILE_SYNCHRONOUS_IO_NONALERT |
                                              FILE_OPEN_FOR_BACKUP_INTENT;
@@ -66,6 +69,34 @@ public:
                                                 ULONG, ULONG, PVOID, ULONG);
   using NtSetInformationFileFunction = NTSTATUS(NTAPI*)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG,
                                                         FILE_INFORMATION_CLASS);
+
+  class UniqueBcryptAlgorithm final {
+  public:
+    explicit UniqueBcryptAlgorithm(BCRYPT_ALG_HANDLE value) noexcept : value_(value) {}
+    ~UniqueBcryptAlgorithm() noexcept {
+      if (value_ != nullptr)
+        BCryptCloseAlgorithmProvider(value_, 0);
+    }
+    UniqueBcryptAlgorithm(const UniqueBcryptAlgorithm&) = delete;
+    UniqueBcryptAlgorithm& operator=(const UniqueBcryptAlgorithm&) = delete;
+
+  private:
+    BCRYPT_ALG_HANDLE value_;
+  };
+
+  class UniqueBcryptHash final {
+  public:
+    explicit UniqueBcryptHash(BCRYPT_HASH_HANDLE value) noexcept : value_(value) {}
+    ~UniqueBcryptHash() noexcept {
+      if (value_ != nullptr)
+        BCryptDestroyHash(value_);
+    }
+    UniqueBcryptHash(const UniqueBcryptHash&) = delete;
+    UniqueBcryptHash& operator=(const UniqueBcryptHash&) = delete;
+
+  private:
+    BCRYPT_HASH_HANDLE value_;
+  };
 
   ~Impl() noexcept {
     for (auto& [token, lease] : leases) {
@@ -97,6 +128,29 @@ public:
 
   std::map<std::string, Lease> leases;
   std::uint64_t next_lease = 1;
+
+  void before_resource_acquisition() const {
+    if (failure_injector_ != nullptr)
+      failure_injector_->before_resource_acquisition();
+  }
+
+  HANDLE open_volume(const std::wstring& volume_path) {
+    before_resource_acquisition();
+    return CreateFileW(volume_path.c_str(), kTraverseAccess,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                       OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                       nullptr);
+  }
+
+  HANDLE open_process(DWORD pid) {
+    before_resource_acquisition();
+    return OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  }
+
+  void require_lease_capacity() const {
+    if (leases.size() >= kMaxLiveLeases)
+      throw GuardError("IO_FAILED");
+  }
 
   NtCreateFileFunction nt_create_file() {
     const HMODULE module = GetModuleHandleW(L"ntdll.dll");
@@ -219,18 +273,18 @@ public:
   }
 
   PSID current_user_sid(std::vector<unsigned char>& storage) {
-    HANDLE token = nullptr;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+    HANDLE raw_token = nullptr;
+    before_resource_acquisition();
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw_token)) {
       throw GuardError("IO_FAILED");
     }
+    UniqueHandle token(raw_token);
     DWORD length = 0;
-    GetTokenInformation(token, TokenUser, nullptr, 0, &length);
+    GetTokenInformation(token.get(), TokenUser, nullptr, 0, &length);
     storage.resize(length);
-    if (!GetTokenInformation(token, TokenUser, storage.data(), length, &length)) {
-      CloseHandle(token);
+    if (!GetTokenInformation(token.get(), TokenUser, storage.data(), length, &length)) {
       throw GuardError("IO_FAILED");
     }
-    CloseHandle(token);
     return reinterpret_cast<TOKEN_USER*>(storage.data())->User.Sid;
   }
 
@@ -258,12 +312,24 @@ public:
     PSID owner = nullptr;
     PACL acl = nullptr;
     PSECURITY_DESCRIPTOR descriptor = nullptr;
+    before_resource_acquisition();
     const DWORD result = GetSecurityInfo(handle, SE_FILE_OBJECT,
                                          OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
                                          &owner, nullptr, &acl, nullptr, &descriptor);
+    class UniqueSecurityDescriptor final {
+    public:
+      explicit UniqueSecurityDescriptor(PSECURITY_DESCRIPTOR value) noexcept : value_(value) {}
+      ~UniqueSecurityDescriptor() noexcept {
+        if (value_ != nullptr)
+          LocalFree(value_);
+      }
+      UniqueSecurityDescriptor(const UniqueSecurityDescriptor&) = delete;
+      UniqueSecurityDescriptor& operator=(const UniqueSecurityDescriptor&) = delete;
+
+    private:
+      PSECURITY_DESCRIPTOR value_;
+    } owned_descriptor(descriptor);
     if (result != ERROR_SUCCESS || owner == nullptr || acl == nullptr || acl->AceCount != 1) {
-      if (descriptor != nullptr)
-        LocalFree(descriptor);
       throw GuardError("UNSAFE_ENTRY");
     }
     std::vector<unsigned char> sid_storage;
@@ -279,7 +345,6 @@ public:
         (control & SE_DACL_PROTECTED) != 0 && ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
         EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&ace->SidStart)), current) != FALSE &&
         (ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS;
-    LocalFree(descriptor);
     if (!valid)
       throw GuardError("UNSAFE_ENTRY");
   }
@@ -299,6 +364,7 @@ public:
     InitializeObjectAttributes(&attributes, &unicode, OBJ_CASE_INSENSITIVE, parent, nullptr);
     IO_STATUS_BLOCK status_block{};
     HANDLE handle = INVALID_HANDLE_VALUE;
+    before_resource_acquisition();
     const NTSTATUS status = nt_create_file()(
         &handle, access, &attributes, &status_block, nullptr, FILE_ATTRIBUTE_NORMAL,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, disposition, options, nullptr, 0);
@@ -307,14 +373,17 @@ public:
     if (status == kStatusNameNotFound || status == kStatusPathNotFound) {
       return INVALID_HANDLE_VALUE;
     }
-    if (status < 0 || handle == INVALID_HANDLE_VALUE)
+    if (status < 0 || handle == INVALID_HANDLE_VALUE) {
+      UniqueHandle owned_handle(handle);
       throw GuardError("IO_FAILED");
+    }
     created = status_block.Information == FILE_CREATED;
     return handle;
   }
 
   HANDLE duplicate_handle(HANDLE handle) {
     HANDLE duplicate = INVALID_HANDLE_VALUE;
+    before_resource_acquisition();
     if (!DuplicateHandle(GetCurrentProcess(), handle, GetCurrentProcess(), &duplicate, 0, FALSE,
                          DUPLICATE_SAME_ACCESS)) {
       throw GuardError("IO_FAILED");
@@ -366,6 +435,7 @@ public:
   }
 
   std::string add_lease(Lease lease) {
+    require_lease_capacity();
     const std::string token = "lease-" + std::to_string(next_lease++);
     leases.emplace(token, std::move(lease));
     return token;
@@ -402,17 +472,16 @@ public:
     if (expected == root.namespace_identities.end())
       throw GuardError("INVALID_INPUT");
     bool created = false;
-    HANDLE handle =
-        relative_open(root.handle, name, kDirectoryAccess, FILE_OPEN, kDirectoryOptions, created);
-    if (handle == INVALID_HANDLE_VALUE)
+    UniqueHandle handle(
+        relative_open(root.handle, name, kDirectoryAccess, FILE_OPEN, kDirectoryOptions, created));
+    if (!handle.valid())
       throw GuardError("IDENTITY_CHANGED");
-    const StableIdentity identity = stable_identity(handle);
+    const StableIdentity identity = stable_identity(handle.get());
     if (!same_identity(identity, expected->second) || identity.volume != root.root_volume) {
-      CloseHandle(handle);
       throw GuardError("IDENTITY_CHANGED");
     }
-    verify_private_acl(handle);
-    return handle;
+    verify_private_acl(handle.get());
+    return handle.release();
   }
 
   std::vector<std::wstring> absolute_components(const std::wstring& path,
@@ -446,81 +515,67 @@ public:
   Lease initialize_root(const std::string& utf8_path) {
     std::wstring volume_path;
     const auto components = absolute_components(utf8_to_wide(utf8_path), volume_path);
-    HANDLE current =
-        CreateFileW(volume_path.c_str(), kTraverseAccess,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-    if (current == INVALID_HANDLE_VALUE)
+    UniqueHandle current(open_volume(volume_path));
+    if (!current.valid())
       throw GuardError("IO_FAILED");
-    HANDLE root_parent = INVALID_HANDLE_VALUE;
+    UniqueHandle root_parent;
     std::uint64_t managed_volume = 0;
-    try {
-      for (std::size_t index = 0; index < components.size(); ++index) {
-        const bool managed = index + 2 >= components.size();
-        if (managed && managed_volume == 0)
-          managed_volume = stable_identity(current).volume;
-        if (index + 1 == components.size())
-          root_parent = duplicate_handle(current);
-        const ACCESS_MASK access =
-            index + 3 >= components.size() ? kDirectoryAccess : kTraverseAccess;
-        bool created = false;
-        HANDLE next = relative_open(current, components[index], access, FILE_OPEN,
-                                    kDirectoryOptions, created);
-        if (next == INVALID_HANDLE_VALUE) {
-          if (!managed)
-            throw GuardError("IO_FAILED");
-          next = relative_open(current, components[index], kDirectoryAccess, FILE_CREATE,
-                               kDirectoryOptions, created);
-          if (next == INVALID_HANDLE_VALUE)
-            throw GuardError("IO_FAILED");
-          apply_private_acl(next);
-        }
-        const StableIdentity identity = stable_identity(next);
-        if (managed && identity.volume != managed_volume) {
-          CloseHandle(next);
-          throw GuardError("UNSAFE_ENTRY");
-        }
-        if (managed)
-          verify_private_acl(next);
-        CloseHandle(current);
-        current = next;
+    for (std::size_t index = 0; index < components.size(); ++index) {
+      const bool managed = index + 2 >= components.size();
+      if (managed && managed_volume == 0)
+        managed_volume = stable_identity(current.get()).volume;
+      if (index + 1 == components.size())
+        root_parent.reset(duplicate_handle(current.get()));
+      const ACCESS_MASK access =
+          index + 3 >= components.size() ? kDirectoryAccess : kTraverseAccess;
+      bool created = false;
+      UniqueHandle next(relative_open(current.get(), components[index], access, FILE_OPEN,
+                                      kDirectoryOptions, created));
+      if (!next.valid()) {
+        if (!managed)
+          throw GuardError("IO_FAILED");
+        next.reset(relative_open(current.get(), components[index], kDirectoryAccess, FILE_CREATE,
+                                 kDirectoryOptions, created));
+        if (!next.valid())
+          throw GuardError("IO_FAILED");
+        apply_private_acl(next.get());
       }
-      managed_volume = stable_identity(current).volume;
-      std::map<std::wstring, StableIdentity> namespace_identities;
-      for (const wchar_t* name : {L"runtimes", L"models", L"staging", L"quarantine", L"locks"}) {
-        bool created = false;
-        HANDLE child =
-            relative_open(current, name, kDirectoryAccess, FILE_OPEN, kDirectoryOptions, created);
-        if (child == INVALID_HANDLE_VALUE) {
-          child = relative_open(current, name, kDirectoryAccess, FILE_CREATE, kDirectoryOptions,
-                                created);
-          if (child == INVALID_HANDLE_VALUE)
-            throw GuardError("IO_FAILED");
-          apply_private_acl(child);
-        }
-        verify_private_acl(child);
-        const StableIdentity identity = stable_identity(child);
-        if (identity.volume != managed_volume) {
-          CloseHandle(child);
-          throw GuardError("UNSAFE_ENTRY");
-        }
-        namespace_identities.emplace(name, identity);
-        CloseHandle(child);
-      }
-      return Lease{current,
-                   root_parent,
-                   LeaseKind::kRoot,
-                   components.back(),
-                   managed_volume,
-                   0700,
-                   false,
-                   std::move(namespace_identities)};
-    } catch (...) {
-      CloseHandle(current);
-      if (root_parent != INVALID_HANDLE_VALUE)
-        CloseHandle(root_parent);
-      throw;
+      const StableIdentity identity = stable_identity(next.get());
+      if (managed && identity.volume != managed_volume)
+        throw GuardError("UNSAFE_ENTRY");
+      if (managed)
+        verify_private_acl(next.get());
+      current = std::move(next);
     }
+    managed_volume = stable_identity(current.get()).volume;
+    std::map<std::wstring, StableIdentity> namespace_identities;
+    for (const wchar_t* name : {L"runtimes", L"models", L"staging", L"quarantine", L"locks"}) {
+      bool created = false;
+      UniqueHandle child(relative_open(current.get(), name, kDirectoryAccess, FILE_OPEN,
+                                       kDirectoryOptions, created));
+      if (!child.valid()) {
+        child.reset(relative_open(current.get(), name, kDirectoryAccess, FILE_CREATE,
+                                  kDirectoryOptions, created));
+        if (!child.valid())
+          throw GuardError("IO_FAILED");
+        apply_private_acl(child.get());
+      }
+      verify_private_acl(child.get());
+      const StableIdentity identity = stable_identity(child.get());
+      if (identity.volume != managed_volume)
+        throw GuardError("UNSAFE_ENTRY");
+      namespace_identities.emplace(name, identity);
+    }
+    if (!root_parent.valid())
+      throw GuardError("IO_FAILED");
+    return Lease{std::move(current),
+                 std::move(root_parent),
+                 LeaseKind::kRoot,
+                 components.back(),
+                 managed_volume,
+                 0700,
+                 false,
+                 std::move(namespace_identities)};
   }
 
   std::string sha256_file(HANDLE handle) {
@@ -529,9 +584,9 @@ public:
       throw GuardError("IO_FAILED");
     }
     BCRYPT_ALG_HANDLE algorithm = nullptr;
-    BCRYPT_HASH_HANDLE hash = nullptr;
     DWORD object_size = 0;
     DWORD transferred = 0;
+    before_resource_acquisition();
     if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0 ||
         BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&object_size),
                           sizeof(object_size), &transferred, 0) < 0) {
@@ -539,32 +594,29 @@ public:
         BCryptCloseAlgorithmProvider(algorithm, 0);
       throw GuardError("IO_FAILED");
     }
+    UniqueBcryptAlgorithm owned_algorithm(algorithm);
     std::vector<unsigned char> object(object_size);
     std::array<unsigned char, 32> digest{};
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    before_resource_acquisition();
     if (BCryptCreateHash(algorithm, &hash, object.data(), object_size, nullptr, 0, 0) < 0) {
-      BCryptCloseAlgorithmProvider(algorithm, 0);
       throw GuardError("IO_FAILED");
     }
+    UniqueBcryptHash owned_hash(hash);
     std::array<unsigned char, 64 * 1024> buffer{};
     while (true) {
       DWORD count = 0;
       if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr)) {
-        BCryptDestroyHash(hash);
-        BCryptCloseAlgorithmProvider(algorithm, 0);
         throw GuardError("IO_FAILED");
       }
       if (count == 0)
         break;
       if (BCryptHashData(hash, buffer.data(), count, 0) < 0) {
-        BCryptDestroyHash(hash);
-        BCryptCloseAlgorithmProvider(algorithm, 0);
         throw GuardError("IO_FAILED");
       }
     }
     const NTSTATUS finish =
         BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0);
-    BCryptDestroyHash(hash);
-    BCryptCloseAlgorithmProvider(algorithm, 0);
     if (finish < 0)
       throw GuardError("IO_FAILED");
     std::ostringstream output;
@@ -617,36 +669,33 @@ public:
         throw GuardError("UNSAFE_ENTRY");
       }
       bool created = false;
-      HANDLE file = relative_open(directory.handle, wide_name, kFileInspectionAccess, FILE_OPEN,
-                                  kFileOptions, created);
-      if (file == INVALID_HANDLE_VALUE)
+      UniqueHandle file(relative_open(directory.handle, wide_name, kFileInspectionAccess, FILE_OPEN,
+                                      kFileOptions, created));
+      if (!file.valid())
         throw GuardError("IDENTITY_CHANGED");
-      verify_private_acl(file);
-      const StableIdentity identity = stable_identity(file);
+      verify_private_acl(file.get());
+      const StableIdentity identity = stable_identity(file.get());
       if (identity.directory || identity.volume != directory.root_volume) {
-        CloseHandle(file);
         throw GuardError("UNSAFE_ENTRY");
       }
-      result.push_back(name + "~" + identity_string(file, directory.handle, expected->second) +
-                       "~" + sha256_file(file));
-      CloseHandle(file);
+      result.push_back(name + "~" +
+                       identity_string(file.get(), directory.handle, expected->second) + "~" +
+                       sha256_file(file.get()));
     }
     return result;
   }
 
   std::optional<std::string> process_start_identity(DWORD pid) {
-    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (process == nullptr) {
+    UniqueHandle process(open_process(pid));
+    if (!process.valid()) {
       if (GetLastError() == ERROR_INVALID_PARAMETER)
         return std::string{};
       return std::nullopt;
     }
     FILETIME creation{}, exit{}, kernel{}, user{};
-    if (!GetProcessTimes(process, &creation, &exit, &kernel, &user)) {
-      CloseHandle(process);
+    if (!GetProcessTimes(process.get(), &creation, &exit, &kernel, &user)) {
       return std::nullopt;
     }
-    CloseHandle(process);
     return std::to_string(creation.dwHighDateTime) + "-" + std::to_string(creation.dwLowDateTime);
   }
 
@@ -687,36 +736,41 @@ public:
     if (end == arguments[3].c_str() || *end != '\0' || pid == 0) {
       throw GuardError("INVALID_INPUT");
     }
-    HANDLE parent = open_namespace(root, L"locks");
+    UniqueHandle parent(open_namespace(root, L"locks"));
     const std::wstring name = utf8_to_wide("lock-" + arguments[1]);
     for (int attempt = 0; attempt < 2; ++attempt) {
       bool created = false;
       try {
-        HANDLE file = relative_open(parent, name, kFileAccess, FILE_CREATE, kFileOptions, created);
-        if (file == INVALID_HANDLE_VALUE)
+        UniqueHandle file(
+            relative_open(parent.get(), name, kFileAccess, FILE_CREATE, kFileOptions, created));
+        if (!file.valid())
           throw GuardError("IO_FAILED");
-        apply_private_acl(file);
+        apply_private_acl(file.get());
         const std::string metadata = arguments[2] + "\n" + arguments[3] + "\n" + arguments[4] +
                                      "\n" + arguments[5] + "\n" + arguments[6] + "\n";
-        write_all(file, metadata);
-        if (!FlushFileBuffers(file))
+        write_all(file.get(), metadata);
+        if (!FlushFileBuffers(file.get()))
           throw GuardError("IO_FAILED");
-        return add_lease(
-            Lease{file, parent, LeaseKind::kLock, name, root.root_volume, 0600, true, {}});
+        return add_lease(Lease{std::move(file),
+                               std::move(parent),
+                               LeaseKind::kLock,
+                               name,
+                               root.root_volume,
+                               0600,
+                               true,
+                               {}});
       } catch (const GuardError& error) {
         if (error.code() != "CONFLICT") {
-          CloseHandle(parent);
           throw;
         }
       }
-      HANDLE existing = relative_open(parent, name, kFileAccess, FILE_OPEN, kFileOptions, created);
-      if (existing == INVALID_HANDLE_VALUE)
+      UniqueHandle existing(
+          relative_open(parent.get(), name, kFileAccess, FILE_OPEN, kFileOptions, created));
+      if (!existing.valid())
         continue;
-      verify_private_acl(existing);
-      const auto fields = split(read_small_file(existing), '\n');
+      verify_private_acl(existing.get());
+      const auto fields = split(read_small_file(existing.get()), '\n');
       if (fields.size() < 6 || fields[5] != "") {
-        CloseHandle(existing);
-        CloseHandle(parent);
         throw GuardError("UNSAFE_ENTRY");
       }
       char* owner_end = nullptr;
@@ -724,25 +778,17 @@ public:
       if (owner_end == fields[1].c_str() || *owner_end != '\0' || owner_pid == 0 ||
           !is_safe_token(fields[0], 16, 128) || !is_safe_token(fields[2], 1, 128) ||
           !is_safe_token(fields[3], 1, 32) || !is_safe_token(fields[4], 1, 128)) {
-        CloseHandle(existing);
-        CloseHandle(parent);
         throw GuardError("UNSAFE_ENTRY");
       }
       const auto process_identity = process_start_identity(static_cast<DWORD>(owner_pid));
       if (!process_identity.has_value()) {
-        CloseHandle(existing);
-        CloseHandle(parent);
         throw GuardError("UNSAFE_ENTRY");
       }
       if (*process_identity == fields[2]) {
-        CloseHandle(existing);
-        CloseHandle(parent);
         throw GuardError("CONFLICT");
       }
-      set_disposition(existing);
-      CloseHandle(existing);
+      set_disposition(existing.get());
     }
-    CloseHandle(parent);
     throw GuardError("CONFLICT");
   }
 
@@ -763,6 +809,7 @@ public:
   ResponseFields initialize(const std::vector<std::string>& arguments) {
     if (arguments.size() != 2 || arguments[0] != "win32")
       throw GuardError("UNSUPPORTED");
+    require_lease_capacity();
     Lease root = initialize_root(arguments[1]);
     const std::string identity = identity_string(root.handle, root.parent, root.mode);
     const std::string token = add_lease(std::move(root));
@@ -771,6 +818,7 @@ public:
 
   ResponseFields lock(const std::vector<std::string>& arguments) {
     Lease& root = require_root(arguments[0]);
+    require_lease_capacity();
     const std::string token = acquire_lock(root, arguments);
     Lease& lock = require_lease(token);
     return {token, identity_string(lock.handle, lock.parent, lock.mode)};
@@ -782,46 +830,57 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     Lease& root = require_root(arguments[0]);
-    HANDLE parent = open_namespace(root, L"staging");
+    require_lease_capacity();
+    UniqueHandle parent(open_namespace(root, L"staging"));
     const std::wstring name = utf8_to_wide("stage-" + arguments[2] + "-" + arguments[3]);
     bool created = false;
-    HANDLE directory =
-        relative_open(parent, name, kDirectoryAccess, FILE_CREATE, kDirectoryOptions, created);
-    if (directory == INVALID_HANDLE_VALUE) {
-      CloseHandle(parent);
+    UniqueHandle directory(relative_open(parent.get(), name, kDirectoryAccess, FILE_CREATE,
+                                         kDirectoryOptions, created));
+    if (!directory.valid()) {
       throw GuardError("IO_FAILED");
     }
-    apply_private_acl(directory);
-    const std::string token = add_lease(
-        Lease{directory, parent, LeaseKind::kDirectory, name, root.root_volume, 0700, false, {}});
-    return {token, identity_string(directory, parent, 0700)};
+    apply_private_acl(directory.get());
+    const std::string identity = identity_string(directory.get(), parent.get(), 0700);
+    const std::string token = add_lease(Lease{std::move(directory),
+                                              std::move(parent),
+                                              LeaseKind::kDirectory,
+                                              name,
+                                              root.root_volume,
+                                              0700,
+                                              false,
+                                              {}});
+    return {token, identity};
   }
 
   ResponseFields create_file(const std::vector<std::string>& arguments) {
     if (arguments.size() != 3 || !is_file_name(arguments[1]))
       throw GuardError("INVALID_INPUT");
     Lease& directory = require_lease(arguments[0]);
+    require_lease_capacity();
     char* end = nullptr;
     const unsigned long mode = std::strtoul(arguments[2].c_str(), &end, 10);
     if (end == arguments[2].c_str() || *end != '\0' || mode > 0777) {
       throw GuardError("INVALID_INPUT");
     }
     bool created = false;
-    HANDLE file = relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
-                                FILE_CREATE, kFileOptions, created);
-    if (file == INVALID_HANDLE_VALUE)
+    const std::wstring name = utf8_to_wide(arguments[1]);
+    UniqueHandle file(
+        relative_open(directory.handle, name, kFileAccess, FILE_CREATE, kFileOptions, created));
+    if (!file.valid())
       throw GuardError("IO_FAILED");
-    apply_private_acl(file);
-    HANDLE parent = duplicate_handle(directory.handle);
-    const std::string token = add_lease(Lease{file,
-                                              parent,
+    apply_private_acl(file.get());
+    UniqueHandle parent(duplicate_handle(directory.handle));
+    const std::string identity =
+        identity_string(file.get(), parent.get(), static_cast<unsigned int>(mode));
+    const std::string token = add_lease(Lease{std::move(file),
+                                              std::move(parent),
                                               LeaseKind::kFile,
-                                              utf8_to_wide(arguments[1]),
+                                              name,
                                               directory.root_volume,
                                               static_cast<unsigned int>(mode),
                                               false,
                                               {}});
-    return {token, identity_string(file, parent, static_cast<unsigned int>(mode))};
+    return {token, identity};
   }
 
   ResponseFields write_file(const std::vector<std::string>& arguments) {
@@ -865,28 +924,22 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     Lease& root = require_root(arguments[0]);
-    HANDLE parent = open_namespace(root, utf8_to_wide(arguments[1]));
+    UniqueHandle parent(open_namespace(root, utf8_to_wide(arguments[1])));
     std::vector<std::string> result;
-    for (const std::wstring& name : directory_names(parent)) {
-      HANDLE directory = INVALID_HANDLE_VALUE;
+    for (const std::wstring& name : directory_names(parent.get())) {
       try {
         bool created = false;
-        directory =
-            relative_open(parent, name, kDirectoryAccess, FILE_OPEN, kDirectoryOptions, created);
-        if (directory == INVALID_HANDLE_VALUE ||
-            stable_identity(directory).volume != root.root_volume) {
+        UniqueHandle directory(relative_open(parent.get(), name, kDirectoryAccess, FILE_OPEN,
+                                             kDirectoryOptions, created));
+        if (!directory.valid() || stable_identity(directory.get()).volume != root.root_volume) {
           throw GuardError("UNSAFE_ENTRY");
         }
-        verify_private_acl(directory);
-        CloseHandle(directory);
+        verify_private_acl(directory.get());
         result.push_back(wide_to_utf8(name));
       } catch (const GuardError&) {
-        if (directory != INVALID_HANDLE_VALUE)
-          CloseHandle(directory);
         result.push_back("unmanaged-entry");
       }
     }
-    CloseHandle(parent);
     return result;
   }
 
@@ -896,24 +949,25 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     Lease& root = require_root(arguments[0]);
-    HANDLE parent = open_namespace(root, utf8_to_wide(arguments[1]));
+    UniqueHandle parent(open_namespace(root, utf8_to_wide(arguments[1])));
     bool created = false;
-    HANDLE directory = relative_open(parent, utf8_to_wide(arguments[2]), kDirectoryAccess,
-                                     FILE_OPEN, kDirectoryOptions, created);
-    if (directory == INVALID_HANDLE_VALUE) {
-      CloseHandle(parent);
+    UniqueHandle directory(relative_open(parent.get(), utf8_to_wide(arguments[2]), kDirectoryAccess,
+                                         FILE_OPEN, kDirectoryOptions, created));
+    if (!directory.valid()) {
       return {"MISSING"};
     }
-    verify_private_acl(directory);
-    const std::string token = add_lease(Lease{directory,
-                                              parent,
+    verify_private_acl(directory.get());
+    require_lease_capacity();
+    const std::string identity = identity_string(directory.get(), parent.get(), 0700);
+    const std::string token = add_lease(Lease{std::move(directory),
+                                              std::move(parent),
                                               LeaseKind::kDirectory,
                                               utf8_to_wide(arguments[2]),
                                               root.root_volume,
                                               0700,
                                               false,
                                               {}});
-    return {token, identity_string(directory, parent, 0700)};
+    return {token, identity};
   }
 
   ResponseFields promote(const std::vector<std::string>& arguments) {
@@ -927,10 +981,9 @@ public:
         wide_to_utf8(staging.name).rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    HANDLE destination = open_namespace(root, utf8_to_wide(arguments[2]));
-    rename_handle(staging.handle, destination, utf8_to_wide(arguments[3]));
-    const std::string result = identity_string(staging.handle, destination, 0700);
-    CloseHandle(destination);
+    UniqueHandle destination(open_namespace(root, utf8_to_wide(arguments[2])));
+    rename_handle(staging.handle, destination.get(), utf8_to_wide(arguments[3]));
+    const std::string result = identity_string(staging.handle, destination.get(), 0700);
     return {result};
   }
 
@@ -945,13 +998,21 @@ public:
         wide_to_utf8(artifact.name) != arguments[3]) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    HANDLE destination = open_namespace(root, L"quarantine");
+    require_lease_capacity();
+    UniqueHandle destination(open_namespace(root, L"quarantine"));
     const std::wstring name = utf8_to_wide("quarantine-" + arguments[3] + "-" + arguments[4]);
-    rename_handle(artifact.handle, destination, name);
-    HANDLE duplicate = duplicate_handle(artifact.handle);
-    const std::string token = add_lease(Lease{
-        duplicate, destination, LeaseKind::kDirectory, name, root.root_volume, 0700, false, {}});
-    return {token, identity_string(duplicate, destination, 0700)};
+    rename_handle(artifact.handle, destination.get(), name);
+    UniqueHandle duplicate(duplicate_handle(artifact.handle));
+    const std::string identity = identity_string(duplicate.get(), destination.get(), 0700);
+    const std::string token = add_lease(Lease{std::move(duplicate),
+                                              std::move(destination),
+                                              LeaseKind::kDirectory,
+                                              name,
+                                              root.root_volume,
+                                              0700,
+                                              false,
+                                              {}});
+    return {token, identity};
   }
 
   ResponseFields delete_file(const std::vector<std::string>& arguments) {
@@ -963,21 +1024,20 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     bool created = false;
-    HANDLE file = relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
-                                FILE_OPEN, kFileOptions, created);
-    if (file == INVALID_HANDLE_VALUE)
+    UniqueHandle file(relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
+                                    FILE_OPEN, kFileOptions, created));
+    if (!file.valid())
       throw GuardError("IDENTITY_CHANGED");
     const auto expected = split(arguments[2], '|');
     const unsigned int mode =
         expected.size() == 7
             ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
             : 0;
-    if (expected.size() != 7 || identity_string(file, directory.handle, mode) != arguments[2]) {
-      CloseHandle(file);
+    if (expected.size() != 7 ||
+        identity_string(file.get(), directory.handle, mode) != arguments[2]) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    set_disposition(file);
-    CloseHandle(file);
+    set_disposition(file.get());
     return {};
   }
 
@@ -990,21 +1050,20 @@ public:
       throw GuardError("INVALID_INPUT");
     }
     bool created = false;
-    HANDLE file = relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
-                                FILE_OPEN, kFileOptions, created);
-    if (file == INVALID_HANDLE_VALUE)
+    UniqueHandle file(relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
+                                    FILE_OPEN, kFileOptions, created));
+    if (!file.valid())
       throw GuardError("IDENTITY_CHANGED");
     const auto expected = split(arguments[2], '|');
     const unsigned int mode =
         expected.size() == 7
             ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
             : 0;
-    if (expected.size() != 7 || identity_string(file, directory.handle, mode) != arguments[2]) {
-      CloseHandle(file);
+    if (expected.size() != 7 ||
+        identity_string(file.get(), directory.handle, mode) != arguments[2]) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    set_disposition(file);
-    CloseHandle(file);
+    set_disposition(file.get());
     return {};
   }
 
@@ -1054,16 +1113,13 @@ public:
         throw GuardError("IDENTITY_CHANGED");
     }
     bool created = false;
-    HANDLE named = relative_open(
+    UniqueHandle named(relative_open(
         lease.parent, lease.name, lease.kind == LeaseKind::kFile ? kFileAccess : kDirectoryAccess,
-        FILE_OPEN, lease.kind == LeaseKind::kFile ? kFileOptions : kDirectoryOptions, created);
-    if (named == INVALID_HANDLE_VALUE ||
-        !same_identity(stable_identity(named), stable_identity(lease.handle))) {
-      if (named != INVALID_HANDLE_VALUE)
-        CloseHandle(named);
+        FILE_OPEN, lease.kind == LeaseKind::kFile ? kFileOptions : kDirectoryOptions, created));
+    if (!named.valid() ||
+        !same_identity(stable_identity(named.get()), stable_identity(lease.handle))) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    CloseHandle(named);
     return {};
   }
 
@@ -1077,9 +1133,14 @@ public:
     leases.erase(found);
     return {};
   }
+
+private:
+  ResourceFailureInjector* failure_injector_;
 };
 
-WindowsBackend::WindowsBackend() : impl_(std::make_unique<Impl>()) {}
+WindowsBackend::WindowsBackend() : impl_(std::make_unique<Impl>(nullptr)) {}
+WindowsBackend::WindowsBackend(ResourceFailureInjector& failure_injector)
+    : impl_(std::make_unique<Impl>(&failure_injector)) {}
 WindowsBackend::~WindowsBackend() = default;
 WindowsBackend::WindowsBackend(WindowsBackend&&) noexcept = default;
 WindowsBackend& WindowsBackend::operator=(WindowsBackend&&) noexcept = default;
