@@ -31,13 +31,11 @@ describe('provider status indicators', () => {
     assert.match(toolbar, /dataSlot="voice-provider-connection"/u);
     assert.match(toolbar, /tooltip=\{providerStatusTooltip\}/u);
     assert.match(toolbar, /providerConnectionFailureTooltip \|\|/u);
-    assert.match(toolbar, /const isBrowserSessionProvider = activeProviderAuthType === 'browserSession';/u);
     assert.match(
       toolbar,
-      /<Button[\s\S]*?aria-label=\{providerActionLabel\}[\s\S]*?data-icon-only=\{isBrowserSessionProvider\}[\s\S]*?onClick=\{onProviderLogin\}/u,
+      /<Button[\s\S]*?aria-label=\{providerActionLabel\}[\s\S]*?data-icon-only[\s\S]*?onClick=\{\(\) => \{[\s\S]*?if \(isLoggingIn \|\| isProviderChangesLocked\) return;[\s\S]*?onProviderLogin\(\);/u,
     );
     assert.match(toolbar, /<LogIn aria-hidden="true" \/>/u);
-    assert.match(toolbar, /\{!isBrowserSessionProvider && \(/u);
     assert.doesNotMatch(
       toolbar,
       /<LogIn aria-hidden="true" \/>\}\s*<span>\{isLoggingIn \? t\('login\.loggingIn'\) : providerActionLabel\}<\/span>/u,

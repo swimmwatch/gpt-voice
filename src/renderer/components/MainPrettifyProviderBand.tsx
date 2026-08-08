@@ -93,6 +93,7 @@ function MainPrettifyProviderBand({
           <Select
             disabled={isProviderChangesLocked}
             onValueChange={(providerId) => {
+              if (isProviderChangesLocked) return;
               if (isPrettifyProviderId(providerId)) onProviderChange(providerId);
             }}
             value={viewState.providerId}
@@ -131,7 +132,10 @@ function MainPrettifyProviderBand({
                   aria-label={modelActionTitle}
                   className="command-dock-prettify-model-action"
                   disabled={isModelActionRunning || isProviderChangesLocked}
-                  onClick={onModelAction}
+                  onClick={() => {
+                    if (isModelActionRunning || isProviderChangesLocked) return;
+                    onModelAction();
+                  }}
                   size="icon"
                   title={modelActionTitle}
                   variant="outline"
@@ -171,7 +175,10 @@ function MainPrettifyProviderBand({
                 aria-label={providerSettingsLabel}
                 className="command-dock-prettify-settings-shortcut command-dock-settings-shortcut"
                 disabled={isProviderChangesLocked}
-                onClick={onOpenSettings}
+                onClick={() => {
+                  if (isProviderChangesLocked) return;
+                  onOpenSettings();
+                }}
                 size="icon"
                 title={providerSettingsLabel}
                 variant="outline"

@@ -308,7 +308,7 @@ export class WindowManager {
   }
 
   public showHistoryWindow(): void {
-    if (this.mainInteractionLock.locked || this.mainInteractionLock.operationActive) return;
+    if (this.mainInteractionLock.locked) return;
     const existing = this.historyWindow;
     if (existing && !existing.isDestroyed()) {
       this.showAndFocus(existing);
@@ -337,7 +337,7 @@ export class WindowManager {
   }
 
   public showAboutWindow(): void {
-    if (this.mainInteractionLock.locked || this.mainInteractionLock.operationActive) return;
+    if (this.mainInteractionLock.locked) return;
     this.aboutWindowController.show();
   }
 

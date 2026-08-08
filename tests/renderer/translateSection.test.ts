@@ -19,7 +19,8 @@ describe('main translation Select controls', () => {
     assert.match(section, /aria-label=\{t\('translate\.provider'\)\}/u);
     assert.match(section, /aria-label=\{t\('translate\.targetLanguage'\)\}/u);
     assert.match(section, /<SelectValue \/>/u);
-    assert.match(section, /disabled=\{isSaving\}/u);
+    assert.equal((section.match(/disabled=\{isSaving \|\| isProviderChangesLocked\}/gu) ?? []).length, 2);
+    assert.equal((section.match(/if \(isSaving \|\| isProviderChangesLocked\) return;/gu) ?? []).length, 2);
     assert.match(section, /role="alert"/u);
     assert.match(section, /<ProviderStatusIndicator/u);
     assert.match(section, /dataSlot="translation-provider-connection"/u);

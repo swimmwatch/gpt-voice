@@ -114,7 +114,6 @@ function MainToolbar({
               <Button
                 aria-label={t('navigation.openAbout')}
                 className="command-dock-icon-button"
-                disabled={isProviderChangesLocked}
                 onClick={onOpenAbout}
                 size="icon"
                 title={t('navigation.openAbout')}
@@ -130,7 +129,6 @@ function MainToolbar({
               <Button
                 aria-label={t('navigation.openHistory')}
                 className="command-dock-icon-button"
-                disabled={isProviderChangesLocked}
                 onClick={onOpenHistory}
                 size="icon"
                 title={t('navigation.openHistory')}
@@ -147,7 +145,10 @@ function MainToolbar({
                 aria-label={t('navigation.openAppSettings')}
                 className="command-dock-icon-button command-dock-settings-shortcut"
                 disabled={isProviderChangesLocked}
-                onClick={onOpenAppSettings}
+                onClick={() => {
+                  if (isProviderChangesLocked) return;
+                  onOpenAppSettings();
+                }}
                 size="icon"
                 title={t('navigation.openAppSettings')}
                 variant="outline"
@@ -166,7 +167,10 @@ function MainToolbar({
           <span className="command-dock-field-label">{t('mainDock.providerLabel')}</span>
           <Select
             disabled={isProviderChangesLocked}
-            onValueChange={onProviderChange}
+            onValueChange={(providerId) => {
+              if (isProviderChangesLocked) return;
+              onProviderChange(providerId);
+            }}
             value={activeProviderId ?? undefined}
           >
             <SelectTrigger aria-label={t('provider.label')} className="command-dock-provider-trigger">
@@ -237,7 +241,10 @@ function MainToolbar({
                     className="command-dock-provider-action"
                     data-icon-only
                     disabled={isLoggingIn || isProviderChangesLocked}
-                    onClick={onProviderLogin}
+                    onClick={() => {
+                      if (isLoggingIn || isProviderChangesLocked) return;
+                      onProviderLogin();
+                    }}
                     size="icon"
                     variant="outline"
                   >
@@ -255,7 +262,10 @@ function MainToolbar({
                   aria-label={providerSettingsLabel}
                   className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
                   disabled={isProviderChangesLocked}
-                  onClick={onOpenProviderSettings}
+                  onClick={() => {
+                    if (isProviderChangesLocked) return;
+                    onOpenProviderSettings();
+                  }}
                   size="icon"
                   title={providerSettingsLabel}
                   variant="outline"

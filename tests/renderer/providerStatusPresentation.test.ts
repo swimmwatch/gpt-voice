@@ -151,11 +151,19 @@ describe('provider status presentation', () => {
     assert.equal(stalePresentation.labelKey, 'provider.connectionChecking');
   });
 
-  it('locks every main-window provider selector during provider and active-work operations', () => {
+  it('keeps reference navigation available while locking every main-window configuration control during active work', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
     const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
     const translation = readProjectFile('src/renderer/components/TranslateSection.tsx');
+    const aboutAction = toolbar.slice(
+      toolbar.indexOf("aria-label={t('navigation.openAbout')"),
+      toolbar.indexOf("aria-label={t('navigation.openHistory')"),
+    );
+    const historyAction = toolbar.slice(
+      toolbar.indexOf("aria-label={t('navigation.openHistory')"),
+      toolbar.indexOf("aria-label={t('navigation.openAppSettings')"),
+    );
 
     assert.match(
       app,
@@ -173,10 +181,27 @@ describe('provider status presentation', () => {
     assert.match(app, /case 'switch-settled':[\s\S]*setIsVoiceProviderSwitching\(false\)/u);
     assert.match(app, /isProviderChangesLocked=\{isProviderChangesLocked\}/u);
     assert.match(app, /isVoiceProviderSwitching=\{isVoiceProviderSwitching\}/u);
+    assert.match(
+      app,
+      /const openProviderSettings[\s\S]*?if \(isProviderChangesLocked \|\| isRecordingLifecycleBusy\(recordingStateRef\.current\)\) return;/u,
+    );
+    assert.match(
+      app,
+      /const handleLogin[\s\S]*?isProviderChangesLocked \|\|[\s\S]*?isRecordingLifecycleBusy\(recordingStateRef\.current\)/u,
+    );
     assert.match(app, /if \(isProviderChangesLocked\) return;/u);
 
     assert.match(toolbar, /<Select\s+disabled=\{isProviderChangesLocked\}/u);
     assert.equal((toolbar.match(/disabled=\{isProviderChangesLocked\}/gu) ?? []).length >= 4, true);
+    assert.doesNotMatch(aboutAction, /disabled=/u);
+    assert.doesNotMatch(historyAction, /disabled=/u);
+    assert.match(toolbar, /onClick=\{\(\) => \{\s*if \(isProviderChangesLocked\) return;\s*onOpenAppSettings\(\);/u);
+    assert.match(
+      toolbar,
+      /onValueChange=\{\(providerId\) => \{\s*if \(isProviderChangesLocked\) return;\s*onProviderChange\(providerId\);/u,
+    );
+    assert.match(toolbar, /if \(isLoggingIn \|\| isProviderChangesLocked\) return;\s*onProviderLogin\(\);/u);
+    assert.match(toolbar, /if \(isProviderChangesLocked\) return;\s*onOpenProviderSettings\(\);/u);
     assert.match(
       toolbar,
       /isVoiceProviderSwitching \? \([\s\S]*?<ProviderStatusIndicator[\s\S]*?loading[\s\S]*?tone="neutral"/u,
@@ -184,8 +209,12 @@ describe('provider status presentation', () => {
     assert.match(toolbar, /isVoiceProviderSwitching \? \([\s\S]*?: isLocalWhisperProvider \?/u);
     assert.match(prettify, /disabled=\{isProviderChangesLocked\}/u);
     assert.match(prettify, /disabled=\{isModelActionRunning \|\| isProviderChangesLocked\}/u);
+    assert.match(prettify, /if \(isProviderChangesLocked\) return;\s*if \(isPrettifyProviderId\(providerId\)\)/u);
+    assert.match(prettify, /if \(isModelActionRunning \|\| isProviderChangesLocked\) return;\s*onModelAction\(\);/u);
+    assert.match(prettify, /if \(isProviderChangesLocked\) return;\s*onOpenSettings\(\);/u);
     assert.match(prettify, /getMainPrettifyProviderViewState\([\s\S]*?isProviderChangeSaving,/u);
     assert.equal((translation.match(/disabled=\{isSaving \|\| isProviderChangesLocked\}/gu) ?? []).length, 2);
+    assert.equal((translation.match(/if \(isSaving \|\| isProviderChangesLocked\) return;/gu) ?? []).length, 2);
     assert.match(translation, /loading=\{connectionPresentation\.loading\}/u);
     assert.match(app, /onTargetLanguageChange=\{\(targetLanguage\) => \{\s*if \(isProviderChangesLocked\) return;/u);
     assert.match(app, /const isNewRecordingLocked =[\s\S]*activeTextAction !== null;/u);

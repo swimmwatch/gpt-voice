@@ -124,6 +124,7 @@ const TranslateSection = ({
         <Select
           disabled={isSaving || isProviderChangesLocked}
           onValueChange={(providerId) => {
+            if (isSaving || isProviderChangesLocked) return;
             if (TRANSLATION_PROVIDER_OPTIONS.some((option) => option.value === providerId)) {
               onProviderChange(providerId as TranslationProviderId);
             }
@@ -148,7 +149,14 @@ const TranslateSection = ({
 
       <div className="command-dock-language-field">
         <span className="command-dock-field-label">{t('translate.targetLanguage')}</span>
-        <Select disabled={isSaving || isProviderChangesLocked} onValueChange={onTargetLanguageChange} value={targetLanguage}>
+        <Select
+          disabled={isSaving || isProviderChangesLocked}
+          onValueChange={(nextTargetLanguage) => {
+            if (isSaving || isProviderChangesLocked) return;
+            onTargetLanguageChange(nextTargetLanguage);
+          }}
+          value={targetLanguage}
+        >
           <SelectTrigger
             aria-label={t('translate.targetLanguage')}
             className="command-dock-provider-trigger command-dock-translation-trigger"

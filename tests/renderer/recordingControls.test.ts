@@ -73,4 +73,47 @@ describe('unselected provider controls', () => {
 
     assert.match(markup, /command-dock-record-button[^>]*disabled=""/u);
   });
+
+  it('renders the Voice Provider settings control as a native disabled button while work is active', () => {
+    const markup = renderWithDesktopApi(
+      createElement(MainToolbar, {
+        activeProviderAuthType: 'browserSession',
+        activeProviderHasSettings: true,
+        activeProviderId: 'chatgpt',
+        activeProviderName: 'ChatGPT Web',
+        isLoggedIn: true,
+        isLoggingIn: false,
+        isProviderChangesLocked: true,
+        isVoiceProviderSwitching: false,
+        localWhisperPendingAction: null,
+        localWhisperResidencyFailure: null,
+        localWhisperResidencyFailureSequence: 0,
+        localWhisperStatus: null,
+        onLocalWhisperResidencyAction: () => undefined,
+        onOpenAbout: () => undefined,
+        onOpenAppSettings: () => undefined,
+        onOpenHistory: () => undefined,
+        onOpenProviderSettings: () => undefined,
+        onProviderChange: () => undefined,
+        onProviderLogin: () => undefined,
+        providerConnectionFailureTooltip: '',
+        providerConnectionReason: PROVIDER_CONNECTION_REASONS.BrowserReady,
+        providers: [
+          {
+            authType: 'browserSession',
+            category: 'web',
+            hasSettings: true,
+            id: 'chatgpt',
+            name: 'ChatGPT Web',
+            transcriptionMode: 'batch',
+          },
+        ],
+      }),
+    );
+
+    assert.match(
+      markup,
+      /command-dock-provider-settings-shortcut[^>]*disabled=""|disabled=""[^>]*command-dock-provider-settings-shortcut/u,
+    );
+  });
 });

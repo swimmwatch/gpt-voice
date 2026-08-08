@@ -730,7 +730,7 @@ const App: React.FC = () => {
   }, [activeProviderId, applyProviderSettingsSnapshot, desktopApi]);
 
   const openProviderSettings = async (providerId: string): Promise<void> => {
-    if (isProviderChangesLocked) return;
+    if (isProviderChangesLocked || isRecordingLifecycleBusy(recordingStateRef.current)) return;
     try {
       const result = await desktopApi.openProviderSettings(providerId);
       if (!result.success) {
@@ -748,7 +748,14 @@ const App: React.FC = () => {
   const handleLogin = async (): Promise<void> => {
     const providerId = activeProviderId;
     const providerName = activeProviderName;
-    if (isProviderChangesLocked || !providerId || !activeProviderAuthType) return;
+    if (
+      isProviderChangesLocked ||
+      isRecordingLifecycleBusy(recordingStateRef.current) ||
+      !providerId ||
+      !activeProviderAuthType
+    ) {
+      return;
+    }
     if (activeProviderAuthType === 'apiKey') {
       await openProviderSettings(providerId);
       return;
@@ -918,18 +925,16 @@ const App: React.FC = () => {
   );
 
   const openHistoryWindow = useCallback((): void => {
-    if (isProviderChangesLocked) return;
     void desktopApi.openTranscriptionHistory().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, [desktopApi, isProviderChangesLocked]);
+  }, [desktopApi]);
 
   const openAboutWindow = useCallback((): void => {
-    if (isProviderChangesLocked) return;
     void desktopApi.openAbout().catch(() => {
       setStatus(translatedStatus('error.notificationUnknown'));
     });
-  }, [desktopApi, isProviderChangesLocked]);
+  }, [desktopApi]);
 
   const saveTranslationSettings = async (candidate: TranslationSettings): Promise<void> => {
     if (translationSettingsSavePendingRef.current) return;

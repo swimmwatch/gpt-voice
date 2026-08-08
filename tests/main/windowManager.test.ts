@@ -466,7 +466,7 @@ describe('WindowManager', () => {
     assert.equal(harness.created.length, 0);
   });
 
-  it('does not open auxiliary windows while provider work is active', () => {
+  it('opens reference windows while provider work is active', () => {
     const harness = new WindowManagerHarness();
     harness.manager.createMainWindow();
     harness.operationActive = true;
@@ -474,7 +474,7 @@ describe('WindowManager', () => {
     harness.manager.showHistoryWindow();
     harness.manager.showAboutWindow();
 
-    assert.equal(harness.created.length, 1);
+    assert.equal(harness.created.length, 3);
   });
 
   it('owns auxiliary windows, trusted-sender checks, and locale broadcasts', async () => {

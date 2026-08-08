@@ -74,7 +74,10 @@ describe('main Prettify provider band contract', () => {
 
     assert.match(app, /openAppSettingsWindow\('prettify'\)/u);
     assert.match(band, /viewState\.ollamaControl &&/u);
-    assert.match(band, /onClick=\{onModelAction\}/u);
+    assert.match(
+      band,
+      /onClick=\{\(\) => \{\s*if \(isModelActionRunning \|\| isProviderChangesLocked\) return;\s*onModelAction\(\);/u,
+    );
     assert.match(band, /className="command-dock-prettify-controls" data-has-model-action=\{hasModelAction\}/u);
     assert.match(
       band,
