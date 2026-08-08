@@ -217,10 +217,9 @@ jobs:
       - name: Verify Windows Whisper.cpp CUDA source contract
         run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
 
-      # Task 21 may replace this guard only when representative Windows AMD
-      # execution and required SDK/driver acquisition are separately authorized.
-      - name: Windows AMD Vulkan qualification placeholder
-        if: ${{ false }}
+      # This executes static, hardware-free contract checks only. Physical AMD
+      # qualification remains out of scope and must not acquire a driver or SDK.
+      - name: Run Windows AMD Vulkan static contract
         run: npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
 
       - name: Run Windows Node/native filesystem compatibility tests

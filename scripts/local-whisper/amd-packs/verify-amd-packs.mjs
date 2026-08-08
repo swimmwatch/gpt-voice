@@ -48,15 +48,13 @@ try {
     verifyCleanStartRoot(resolve(arguments_.get('clean-start-root')));
   } else {
     const profile = arguments_.get('profile');
-    if (profile === 'vulkan-contract-linux') {
+    if (profile === 'vulkan-contract-linux' || profile === 'vulkan-windows-x64') {
       const relocatedRoot = verifyVulkanContract();
       verifyRelocatedCleanStart(relocatedRoot);
-      process.stdout.write('vulkan-contract-linux\tPreview · Untested\tcontract-only\n');
+      process.stdout.write(`${profile}\tPreview · Untested\tcontract-only\n`);
     } else if (profile === 'hip-no-approved-row') {
       verifyHipNoApprovedRow();
       process.stdout.write('hip-no-approved-row\tPreview · Untested\tunavailable-no-approved-row\n');
-    } else if (profile === 'vulkan-windows-x64') {
-      throw new Error('Windows AMD Vulkan execution is reserved for Task 21');
     } else if (profile === 'amd-physical-qualification') {
       throw new Error('Physical AMD qualification is outside the current release');
     } else {

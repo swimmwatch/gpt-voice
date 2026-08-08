@@ -41,11 +41,9 @@
 - Required remote evidence includes **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and every packet-added native job.
 - Automated Windows MSVC build/test/analysis/ASan and PE evidence is packet-local from Packet 04 onward. Packet 15 retains only the final supported-host manual Windows package, manual-only remediation, and final cross-platform regression/closure.
 - Linux/shared checks are not Windows evidence, and a skipped Windows job is never evidence.
+- Candidate commit `06c6442c23074ed582449c4ee81263d449e99a5c` was pushed non-force to PR 58 and launched [Pull Request Checks 31277185750](https://github.com/swimmwatch/gpt-voice/actions/runs/31277185750) plus [Local Whisper Fixture Packaging 31277185741](https://github.com/swimmwatch/gpt-voice/actions/runs/31277185741). It is not passing evidence: Actionlint rejected the permanent-false Windows AMD placeholder; Linux source provisioning rejected the stale importer implementation digest before compiling; Windows materialized GoogleTest but then rejected the same stale digest, so its MSVC/native steps were skipped. This run provides no Linux or Windows native evidence.
+- Authorized CI remediation updates all three reviewed source locks to the current canonical importer identity, turns the Windows AMD entry into an executed static contract check without hardware, driver, or SDK access, and asserts the workflow never contains a permanent-false Windows step. Local checks passed: native-source lock tests and provisioning, AMD formatting/tests plus the Windows AMD contract profile, and the native-CI workflow test.
 
 ## Exact Next Packet
 
-- Packet 04 — Process and capability lifecycle. Candidate commit and exact-SHA remote CI are pending; do not check this packet or start Packet 05 until the candidate and a subsequent completion-record commit are each pushed and pass every required Linux and Windows job.
-
-## Blockers
-
-- None.
+- Packet 04 — Process and capability lifecycle. Commit and push the authorized CI remediation as the next candidate, bind all remote evidence to that exact SHA, and leave Packet 04 unchecked until the candidate and a subsequent completion-record SHA both satisfy every required Linux and executed Windows job.

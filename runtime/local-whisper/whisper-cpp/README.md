@@ -101,9 +101,10 @@ npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-1
 npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
 ```
 
-The AMD verifier also defines `vulkan-windows-x64` and
-`amd-physical-qualification`, but both intentionally fail before execution and
-require separately authorized future physical-hardware work.
+The Windows `vulkan-windows-x64` profile runs the same deterministic,
+hardware-free contract verification in Windows CI. It does not access a GPU,
+driver, or SDK. The `amd-physical-qualification` profile intentionally fails
+before execution and requires separately authorized physical-hardware work.
 
 For humans and LLM agents: preserve the path-free authority boundary, the
 locked loader-limit table and patch identity, exact selected-device/no-fallback

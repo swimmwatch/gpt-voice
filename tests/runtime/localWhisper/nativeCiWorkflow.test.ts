@@ -29,6 +29,9 @@ test('Local Whisper keeps Linux and Windows native CI checks on their owning run
   assert.match(windowsJob, /repository: google\/googletest/u);
   assert.match(windowsJob, /Run MSVC native unit and integration tests/u);
   assert.match(windowsJob, /Run MSVC launcher unit and Job Object integration tests/u);
+  assert.match(windowsJob, /Run Windows AMD Vulkan static contract/u);
+  assert.match(windowsJob, /--profile=vulkan-windows-x64/u);
   assert.match(windowsJob, /--platform=windows --contract-only/u);
+  assert.doesNotMatch(windowsJob, /if:\s*\$\{\{\s*false\s*\}\}/u);
   assert.doesNotMatch(windowsJob, /--platform=linux/u);
 });

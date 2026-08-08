@@ -1644,3 +1644,34 @@ decisions:
     rationale: The user authorized exactly Packet 04, including its required two-phase non-force pushes and exact-SHA Linux/Windows CI gates; Packet 05, releases, and supported-host manual Windows testing remain excluded.
     supersedes_revision: null
     requirement_ids: [LNX-001, CAP-001, CMP-004, ARC-002, ARC-003, SEC-001, SEC-002, TST-001, TST-002, EXEC-AUTH-001]
+
+  - id: authorization.packet-04-ci-remediation
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - https://github.com/swimmwatch/gpt-voice/actions/runs/31277185750
+      - .github/workflows/pr-checks.yml
+    prompt_mcp:
+      interview_id: implementation:local-whisper-native-review-remediation
+      batch_id: authorization-round-02
+      question_id: authorization.packet-04-ci-remediation
+      idempotency_key: authorization.packet-04-ci-remediation:v1
+      last_status: answered
+    question:
+      text: May I expand Packet 04 to repair the candidate SHA's pre-existing CI blockers: Actionlint rejects the permanently false Windows AMD placeholder at .github/workflows/pr-checks.yml:223, and the Linux native job fails while provisioning its locked test sources before any Packet 04 code runs? The repair would be limited to CI/workflow or locked-source provisioning and their regressions, then would repeat both exact-SHA Linux and Windows gates. It excludes Packet 05, releases, and manual Windows testing.
+      kind: single
+      options:
+        - id: authorize-packet-04-ci-remediation
+          label: Authorize CI remediation (Recommended)
+          description: Repair the two blocking CI paths and rerun the required candidate and completion-record gates.
+        - id: keep-packet-04-native-only
+          label: Keep native-only scope
+          description: Leave Packet 04 unchecked and stop with the existing CI blockers recorded.
+    answer:
+      selected_ids: [authorize-packet-04-ci-remediation]
+      text: User authorized continuation without separate commit-fix approval and made that commit authorization policy applicable to subsequent approved tasks.
+    rationale: The user authorized the focused CI repair needed to complete Packet 04 and standing scoped commits for approved packet work; releases, publishing outside the packet's required non-force PR pushes, and unrelated work remain excluded.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, TST-001, TST-002, OPS-004, EXEC-AUTH-001]
