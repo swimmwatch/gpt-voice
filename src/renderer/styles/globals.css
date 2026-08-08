@@ -243,7 +243,8 @@
   gap: 7px;
 }
 
-.command-dock .command-dock-icon-button {
+.command-dock .command-dock-icon-button,
+.command-dock .command-dock-settings-shortcut {
   width: 37px;
   height: 34px;
   padding: 0;
@@ -253,12 +254,13 @@
   color: var(--dock-icon);
 }
 
-.command-dock .command-dock-icon-button:hover {
+.command-dock .command-dock-icon-button:not(:disabled):hover {
   background: var(--dock-surface);
   color: var(--dock-foreground);
 }
 
-.command-dock .command-dock-icon-button svg {
+.command-dock .command-dock-icon-button svg,
+.command-dock .command-dock-settings-shortcut svg {
   width: 22px;
   height: 22px;
 }
@@ -491,29 +493,12 @@
 }
 
 .command-dock-provider-settings-shortcut {
-  display: inline-flex;
-  width: 37px;
-  height: 34px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 1px solid var(--dock-control-border);
-  border-radius: 3.5px;
-  background: var(--dock-surface);
-  color: var(--dock-icon);
-  cursor: pointer;
   grid-column: 2;
   grid-row: 1;
 }
 
 .command-dock-provider-controls[data-local-whisper='true'] .command-dock-provider-settings-shortcut {
   grid-column: 3;
-}
-
-.command-dock-provider-settings-shortcut svg {
-  width: 22px;
-  height: 22px;
 }
 
 .command-dock-prettify-band {
@@ -659,26 +644,22 @@
 }
 
 .command-dock .command-dock-prettify-settings-shortcut {
-  width: 37px;
-  height: 34px;
-  padding: 0;
-  border-color: var(--dock-control-border);
-  border-radius: 3.5px;
-  background: var(--dock-surface);
-  color: var(--dock-icon);
   grid-column: 2;
   grid-row: 1;
   justify-self: end;
 }
 
-.command-dock .command-dock-settings-shortcut:hover {
-  background: var(--surface-raised);
-  color: var(--dock-foreground);
+.command-dock .command-dock-settings-shortcut:not(:disabled) {
+  cursor: pointer;
 }
 
-.command-dock-prettify-settings-shortcut svg {
-  width: 22px;
-  height: 22px;
+.command-dock .command-dock-settings-shortcut:disabled {
+  cursor: not-allowed;
+}
+
+.command-dock .command-dock-settings-shortcut:not(:disabled):hover {
+  background: var(--surface-raised);
+  color: var(--dock-foreground);
 }
 
 .command-dock-recording {

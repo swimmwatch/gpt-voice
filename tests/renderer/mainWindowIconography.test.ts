@@ -53,8 +53,14 @@ describe('main window iconography', () => {
       styles,
       /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 37px;/u,
     );
-    assert.match(styles, /\.command-dock-provider-settings-shortcut \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;/u);
-    assert.match(styles, /\.command-dock-provider-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-icon-button,\n\.command-dock \.command-dock-settings-shortcut \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-icon-button svg,\n\.command-dock \.command-dock-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u,
+    );
   });
 
   it('uses one hover treatment for every main-window settings gear', () => {
@@ -66,7 +72,7 @@ describe('main window iconography', () => {
     assert.match(prettifyBand, /command-dock-prettify-settings-shortcut command-dock-settings-shortcut/u);
     assert.match(
       styles,
-      /\.command-dock \.command-dock-settings-shortcut:hover \{[^}]*background: var\(--surface-raised\);[^}]*color: var\(--dock-foreground\);/u,
+      /\.command-dock \.command-dock-settings-shortcut:not\(:disabled\):hover \{[^}]*background: var\(--surface-raised\);[^}]*color: var\(--dock-foreground\);/u,
     );
   });
 

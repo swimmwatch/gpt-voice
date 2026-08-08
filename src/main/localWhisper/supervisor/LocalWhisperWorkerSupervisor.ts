@@ -464,6 +464,7 @@ export class LocalWhisperWorkerSupervisor {
       return this.failure('OPERATION_CONFLICT', 'cancellation');
     }
     const requestId = this.reserveRequestId();
+    let cancellationTooLate = false;
     const result = await this.request({
       allowAlongsideTranscription: true,
       expectedType: 'cancelled',
@@ -476,9 +477,15 @@ export class LocalWhisperWorkerSupervisor {
       stage: 'cancellation',
       successState: 'warmed',
       timeoutMs: LOCAL_WHISPER_TERMINATE_TIMEOUT_MS,
-      transform: () => EMPTY_VALUE,
-      validate: (message) => message.type === 'cancelled' && message.targetRequestId === transcription.requestId,
+      transform: (message) => {
+        cancellationTooLate = message.type === 'cancelTooLate';
+        return EMPTY_VALUE;
+      },
+      validate: (message) =>
+        (message.type === 'cancelled' || message.type === 'cancelTooLate') &&
+        message.targetRequestId === transcription.requestId,
     });
+    if (result.success && cancellationTooLate) return this.failure('OPERATION_CONFLICT', 'cancellation');
     if (result.success) {
       this.resolvePendingAsCancelled(transcription.requestId);
     }
@@ -616,7 +623,10 @@ export class LocalWhisperWorkerSupervisor {
       void this.failTerminal(message.code, pending.stage);
       return;
     }
-    if (message.type !== pending.expectedType || (pending.validate && !pending.validate(message))) {
+    const matchesExpectedType =
+      message.type === pending.expectedType ||
+      (pending.expectedType === 'cancelled' && message.type === 'cancelTooLate');
+    if (!matchesExpectedType || (pending.validate && !pending.validate(message))) {
       void this.failTerminal('WORKER_PROTOCOL_VIOLATION', 'protocol');
       return;
     }

@@ -138,6 +138,7 @@ class FakeResidentWorker implements LocalWhisperResidentWorkerLease {
   public shutdownCount = 0;
   public cancelCount = 0;
   public revalidateResult = true;
+  public cancelResult: LocalWhisperCoordinatorWorkerResult = { success: true, value: undefined };
   public unloadResult: LocalWhisperCoordinatorWorkerResult = { success: true, value: undefined };
   public terminateResult = true;
   public shutdownResult = true;
@@ -153,7 +154,7 @@ class FakeResidentWorker implements LocalWhisperResidentWorkerLease {
 
   public cancel(): Promise<LocalWhisperCoordinatorWorkerResult> {
     this.cancelCount += 1;
-    return Promise.resolve({ success: true, value: undefined });
+    return Promise.resolve(this.cancelResult);
   }
 
   public revalidate(): Promise<boolean> {
@@ -657,6 +658,40 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(coordinator.snapshot.runtime.activity, 'Idle');
     assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
     assert.equal(coordinator.snapshot.runtime.blockingCode, null);
+  });
+
+  it('keeps a committed transcript and warmed worker when cancellation loses the race', async () => {
+    const { coordinator, workers } = harness();
+    await coordinator.loadNow();
+    workers.resident.cancelResult = { success: false, code: 'OPERATION_CONFLICT' };
+    const pending = deferred<LocalWhisperCoordinatorWorkerResult<string>>();
+    workers.resident.deferredTranscription = pending;
+    const transcription = coordinator.transcribe({
+      dispatch: coordinator.captureDispatchSnapshot(),
+      buffer: Uint8Array.from([1, 2]).buffer,
+      mimeType: 'audio/wav',
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    const cancellation = coordinator.cancel();
+    pending.resolve({ success: true, value: 'committed transcript' });
+
+    const [cancelled, result] = await Promise.all([cancellation, transcription]);
+    assert.equal(cancelled.success, false);
+    if (!cancelled.success) assert.equal(cancelled.error.code, 'OPERATION_CONFLICT');
+    assert.equal(result.success, true);
+    if (result.success) assert.equal(result.value, 'committed transcript');
+    assert.equal(workers.resident.terminateCount, 0);
+    assert.equal(coordinator.snapshot.runtime.residency, 'Loaded');
+    assert.equal(coordinator.snapshot.runtime.operationalStatus, 'Ready');
+
+    workers.resident.deferredTranscription = null;
+    workers.resident.transcriptionResult = { success: true, value: 'reuse transcript' };
+    const reuse = await coordinator.transcribe({
+      dispatch: coordinator.captureDispatchSnapshot(),
+      buffer: Uint8Array.from([1, 2]).buffer,
+      mimeType: 'audio/wav',
+    });
+    assert.equal(reuse.success, true);
   });
 
   it('keeps a healthy resident worker ready after an empty transcription', async () => {

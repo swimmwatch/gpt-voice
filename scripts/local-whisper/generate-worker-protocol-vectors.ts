@@ -294,6 +294,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
     ['transcript', { type: 'transcript', protocolVersion: 1, requestId: 'tx-1', text: 'synthetic result' }],
     ['cancel', { type: 'cancel', protocolVersion: 1, requestId: 'cancel-1', targetRequestId: 'tx-1' }],
     ['cancelled', { type: 'cancelled', protocolVersion: 1, requestId: 'cancel-1', targetRequestId: 'tx-1' }],
+    ['cancel-too-late', { type: 'cancelTooLate', protocolVersion: 1, requestId: 'cancel-1', targetRequestId: 'tx-1' }],
     ['unload', { type: 'unload', protocolVersion: 1, requestId: 'free-1' }],
     ['unloaded', { type: 'unloaded', protocolVersion: 1, requestId: 'free-1' }],
     ['shutdown', { type: 'shutdown', protocolVersion: 1, requestId: 'stop-1' }],

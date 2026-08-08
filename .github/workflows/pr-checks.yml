@@ -155,6 +155,24 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Checkout locked nlohmann/json source
+        uses: actions/checkout@v7
+        with:
+          repository: nlohmann/json
+          ref: 55f93686c01528224f448c19128836e7df245f72
+          path: .cache/local-whisper/ci-source-repositories/nlohmann-json
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout locked Whisper.cpp source
+        uses: actions/checkout@v7
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: f049fff95a089aa9969deb009cdd4892b3e74916
+          path: .cache/local-whisper/ci-source-repositories/whisper-cpp
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -169,11 +187,23 @@ jobs:
           node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/googletest-v1.17.0-52eb810.json --repository-root=.cache/local-whisper/ci-source-repositories/googletest --store-root=.cache/local-whisper/native-sources
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
 
+      - name: Materialize and verify locked Whisper.cpp worker-core sources
+        shell: pwsh
+        run: |
+          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/nlohmann-json-v3.12.0-subset.json --repository-root=.cache/local-whisper/ci-source-repositories/nlohmann-json --store-root=.cache/local-whisper/native-sources
+          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/whisper-cpp-v1.9.1-f049fff.json --repository-root=.cache/local-whisper/ci-source-repositories/whisper-cpp --store-root=.cache/local-whisper/native-sources
+          npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
+          npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
+
       - name: Run MSVC native unit and integration tests
         run: npm run test:local-whisper:fs-guard:native
 
       - name: Run MSVC launcher unit and Job Object integration tests
         run: npm run test:local-whisper:launcher:native
+
+      # Packet 15 owns the real Windows-host evidence and any MSVC fixes for this suite.
+      - name: Run MSVC Whisper.cpp worker-core suite
+        run: npm run test:local-whisper:whisper-cpp-core
 
       - name: Run Local Whisper supervisor conformance tests
         run: npm run test:local-whisper:supervisor

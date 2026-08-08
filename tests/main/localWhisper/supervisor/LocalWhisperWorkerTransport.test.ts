@@ -52,6 +52,27 @@ test('transport parses server frames and serializes client writes', async () => 
   transport.dispose();
 });
 
+test('transport accepts the private cancel-too-late server frame', () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const messages: LocalWhisperWorkerServerMessage[] = [];
+  const transport = new LocalWhisperWorkerTransport(
+    { input, output },
+    { onMessage: (message) => messages.push(message), onTerminal: () => assert.fail('unexpected terminal event') },
+  );
+  const message = {
+    type: 'cancelTooLate' as const,
+    protocolVersion: 1 as const,
+    requestId: 'cancel-1',
+    targetRequestId: 'tx-1',
+  };
+
+  output.write(encodeLocalWhisperControlFrame(message));
+
+  assert.deepEqual(messages, [message]);
+  transport.dispose();
+});
+
 test('transport terminates once on worker audio or malformed stdout', () => {
   const input = new PassThrough();
   const output = new PassThrough();

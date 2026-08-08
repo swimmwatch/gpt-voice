@@ -351,6 +351,11 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
       }
       this.activity = 'Idle';
       if (operation.abortController.signal.aborted) {
+        if (result.success) {
+          this.failure = null;
+          this.publish();
+          return this.successResult('transcribe', result.value);
+        }
         if (!result.success && result.code === 'CANCELLED' && (await worker.revalidate().catch(() => false))) {
           this.failure = null;
           this.publish();
@@ -382,6 +387,9 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     if (operation.kind === 'transcribe' && this.residentWorker) {
       const cancelled = await this.residentWorker.cancel();
       if (!cancelled.success) {
+        if (cancelled.code === 'OPERATION_CONFLICT') {
+          return this.failureResult('cancel', cancelled.code);
+        }
         await this.terminateResident();
         this.residency = 'Unloaded';
         this.activity = 'Idle';

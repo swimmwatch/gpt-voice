@@ -753,7 +753,7 @@ decisions:
   - id: authorization.packet-01-execution
     revision: 1
     category: authorization
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
@@ -780,6 +780,23 @@ decisions:
       text: ''
     rationale: The user approved planning artifacts but explicitly left Packet 01 execution unauthorized for this planning turn.
     supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-001]
+
+  - id: authorization.packet-01-execution
+    revision: 2
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - User request: "PLEASE IMPLEMENT THIS PLAN" for Packet 01 — Worker Concurrency And Cancel Protocol.
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user explicitly authorized implementation of Packet 01 only. This authorization does not cover commits, additional packets, releases, publishing, or real Windows-host execution.
+    supersedes_revision: 1
     requirement_ids: [EXEC-AUTH-001]
 
   - id: outcome.ci-hardening-specification

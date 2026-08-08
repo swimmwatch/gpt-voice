@@ -16,12 +16,20 @@ struct WorkerAudioChunk final {
   std::vector<std::uint8_t> bytes;
 };
 
+enum class WorkerChannelWaitResult : std::uint8_t {
+  control_ready,
+  control_closed,
+  inference_completed,
+};
+
 class WorkerChannel {
 public:
   virtual ~WorkerChannel() = default;
 
   [[nodiscard]] virtual nlohmann::json read_control() = 0;
   [[nodiscard]] virtual WorkerAudioChunk read_audio() = 0;
+  [[nodiscard]] virtual WorkerChannelWaitResult wait_for_control_or_inference() = 0;
+  virtual void notify_inference_complete() noexcept = 0;
   virtual void send_control(const nlohmann::json& value) = 0;
 };
 
@@ -35,6 +43,8 @@ public:
 
   [[nodiscard]] nlohmann::json read_control() override;
   [[nodiscard]] WorkerAudioChunk read_audio() override;
+  [[nodiscard]] WorkerChannelWaitResult wait_for_control_or_inference() override;
+  void notify_inference_complete() noexcept override;
   void send_control(const nlohmann::json& value) override;
 
 private:

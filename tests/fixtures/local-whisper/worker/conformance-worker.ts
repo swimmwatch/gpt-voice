@@ -18,6 +18,7 @@ import {
 import { LocalWhisperFrameCodec } from '@main/localWhisper/supervisor/LocalWhisperFrameCodec';
 
 type FixtureMode =
+  | 'cancel-too-late'
   | 'crash'
   | 'descendant'
   | 'flood'
@@ -103,6 +104,8 @@ class ConformanceWorker {
   private activeAudioBytes = 0;
   private activeAudioLength = 0;
   private activeRequestId: string | null = null;
+  private cancelRaceComplete = false;
+  private completedTranscriptionRequestId: string | null = null;
   private activeSequence = 0;
   private descendant: ChildProcess | null = null;
   private probedDeviceBinding: LocalWhisperWorkerDeviceBinding | null = null;
@@ -229,15 +232,7 @@ class ConformanceWorker {
       return;
     }
     if (message.type === 'cancel') {
-      if (message.targetRequestId !== this.activeRequestId) return this.exit(11);
-      this.activeRequestId = null;
-      this.respond({
-        type: 'cancelled',
-        protocolVersion: 1,
-        requestId: message.requestId,
-        targetRequestId: message.targetRequestId,
-      });
-      return;
+      return this.onCancel(message);
     }
     if (message.type === 'unload') {
       if (this.state !== 'loaded' && this.state !== 'warmed') return this.exit(11);
@@ -251,6 +246,34 @@ class ConformanceWorker {
       this.respond({ type: 'shutdownAck', protocolVersion: 1, requestId: message.requestId });
       process.stdout.write('', () => this.exit(0));
     }
+  }
+
+  private onCancel(message: Extract<LocalWhisperWorkerClientMessage, { readonly type: 'cancel' }>): void {
+    if (this.mode === 'cancel-too-late' && message.targetRequestId === this.completedTranscriptionRequestId) {
+      this.completedTranscriptionRequestId = null;
+      this.cancelRaceComplete = true;
+      this.respond({
+        type: 'transcript',
+        protocolVersion: 1,
+        requestId: message.targetRequestId,
+        text: 'synthetic conformance transcript',
+      });
+      this.respond({
+        type: 'cancelTooLate',
+        protocolVersion: 1,
+        requestId: message.requestId,
+        targetRequestId: message.targetRequestId,
+      });
+      return;
+    }
+    if (message.targetRequestId !== this.activeRequestId) return this.exit(11);
+    this.activeRequestId = null;
+    this.respond({
+      type: 'cancelled',
+      protocolVersion: 1,
+      requestId: message.requestId,
+      targetRequestId: message.targetRequestId,
+    });
   }
 
   private onHello(): void {
@@ -322,6 +345,10 @@ class ConformanceWorker {
     }
     const requestId = this.activeRequestId;
     this.activeRequestId = null;
+    if (this.mode === 'cancel-too-late' && !this.cancelRaceComplete) {
+      this.completedTranscriptionRequestId = requestId;
+      return;
+    }
     this.respond({
       type: 'transcript',
       protocolVersion: 1,
@@ -358,6 +385,7 @@ class ConformanceWorker {
 
 function fixtureMode(value: string | undefined): FixtureMode {
   const modes: readonly FixtureMode[] = [
+    'cancel-too-late',
     'crash',
     'descendant',
     'flood',

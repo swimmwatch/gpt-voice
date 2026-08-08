@@ -29,7 +29,16 @@ import {
 } from '@shared/localWhisper';
 
 type WorkerMode =
-  'crash' | 'flood' | 'hang' | 'happy' | 'malformed' | 'out-of-order' | 'oversized' | 'stream-close' | 'unknown-kind';
+  | 'cancel-too-late'
+  | 'crash'
+  | 'flood'
+  | 'hang'
+  | 'happy'
+  | 'malformed'
+  | 'out-of-order'
+  | 'oversized'
+  | 'stream-close'
+  | 'unknown-kind';
 
 const WORKER_PATH = resolve('tests/fixtures/local-whisper/worker/conformance-worker.ts');
 const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
@@ -337,6 +346,45 @@ test('standalone conformance worker completes a fresh full-load lifecycle withou
   assert.equal((await value.supervisor.unload(1)).success, true);
   assert.equal(value.releasedRuntime.value, 1);
   assert.equal(value.releasedModel.value, 1);
+});
+
+test('standalone conformance worker preserves transcript-first cancellation and warmed reuse', async () => {
+  const value = harness('cancel-too-late');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  assert.equal(
+    (
+      await value.supervisor.load({
+        ...bindingAuthority(),
+        configurationEpoch: 1,
+        modelLease: value.modelLease,
+        residency: residency(),
+        revalidate: async () => undefined,
+      })
+    ).success,
+    true,
+  );
+  assert.equal((await value.supervisor.warmup(1)).success, true);
+  const transcription = value.supervisor.transcribe({
+    audio: canonicalWav(),
+    configurationEpoch: 1,
+    settingsEpoch: 1,
+    options: { language: null, initialPrompt: '', temperatureHundredths: 0, strategy: 'greedy', candidateCount: null },
+  });
+  await Promise.resolve();
+  const cancellation = await value.supervisor.cancel();
+  const transcript = await transcription;
+  assert.equal(cancellation.success, false);
+  if (!cancellation.success) assert.equal(cancellation.error.code, 'OPERATION_CONFLICT');
+  assert.equal(transcript.success, true);
+  assert.equal(value.supervisor.state, 'warmed');
+  const reuse = await value.supervisor.transcribe({
+    audio: canonicalWav(),
+    configurationEpoch: 1,
+    settingsEpoch: 1,
+    options: { language: null, initialPrompt: '', temperatureHundredths: 0, strategy: 'greedy', candidateCount: null },
+  });
+  assert.equal(reuse.success, true);
+  assert.equal((await value.supervisor.unload(1)).success, true);
 });
 
 test('standalone probe worker exits without becoming a full-load worker', async () => {

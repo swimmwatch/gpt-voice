@@ -36,6 +36,7 @@ import {
 type WorkerMode =
   | 'bindingMismatch'
   | 'cancel'
+  | 'cancelTooLate'
   | 'cleanupFailure'
   | 'handshakeMismatch'
   | 'hangHandshake'
@@ -49,7 +50,8 @@ type WorkerMode =
   | 'nativeObjectOrder'
   | 'outOfOrder'
   | 'prematureProbeExit'
-  | 'probeExit';
+  | 'probeExit'
+  | 'runtimeBuildMismatch';
 
 const GPU_DEVICE_BINDING = Object.freeze({ kind: 'gpuIndex', index: 0 }) satisfies LocalWhisperWorkerDeviceBinding;
 const AUTHORITY_ID = 'AAECAwQFBgcICQoLDA0ODw';
@@ -212,7 +214,9 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   public readonly output = new PassThrough();
   public readonly stderr = new PassThrough();
   private readonly codec = new LocalWhisperFrameCodec();
+  private cancelRaceComplete = false;
   private exited = false;
+  private pendingTranscriptRequestId: string | null = null;
   public forceTerminationCount = 0;
   public readonly waitTimeouts: number[] = [];
 
@@ -246,7 +250,9 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   private onInput(chunk: Buffer): void {
     for (const frame of this.codec.push(chunk)) {
       if (frame.kind === 'audio') {
-        if (frame.chunk.final && this.mode === 'happy') {
+        if (frame.chunk.final && this.mode === 'cancelTooLate' && !this.cancelRaceComplete) {
+          this.pendingTranscriptRequestId = frame.chunk.requestId;
+        } else if (frame.chunk.final && this.mode === 'happy') {
           this.respond({
             type: 'transcript',
             protocolVersion: 1,
@@ -263,47 +269,10 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   private onMessage(message: LocalWhisperWorkerClientMessage): void {
     switch (message.type) {
       case 'hello':
-        if (this.mode === 'hangHandshake') break;
-        this.respond({
-          type: 'helloAck',
-          protocolVersion: 1,
-          engine: 'whisperCpp',
-          runtimeRevision: revision(this.mode === 'handshakeMismatch' ? 'wrong-v1' : 'runtime-v1'),
-          runtimeBuildDigest: 'a'.repeat(64),
-          backend: 'cuda',
-          capabilities: ['cuda-sm-86'],
-          maxControlFrameBytes: LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
-          maxAudioChunkBytes: LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
-        });
+        this.handleHello();
         break;
       case 'probe':
-        if (this.mode === 'hangProbe') break;
-        if (this.mode === 'prematureProbeExit') {
-          this.exited = true;
-          this.output.end();
-          break;
-        }
-        if (this.mode === 'outOfOrder') {
-          this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
-          break;
-        }
-        if (!('registryFingerprint' in message)) throw new Error('Expected GPU probe fixture');
-        this.respond({
-          type: 'probed',
-          protocolVersion: 1,
-          requestId: message.requestId,
-          activatedOrdinal: this.mode === 'bindingMismatch' ? 1 : message.deviceBinding.index,
-          actualNativeIdentity: '0000:01:00.0',
-          authorityId: message.authorityId,
-          deviceBinding: this.mode === 'bindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
-          primaryExecutionNativeIdentity: '0000:01:00.0',
-          probeProof: 'c'.repeat(64),
-          registryFingerprint: message.registryFingerprint,
-        });
-        if (this.mode === 'probeExit') {
-          this.exited = true;
-          this.output.end();
-        }
+        this.handleProbe(message);
         break;
       case 'load': {
         if (this.mode === 'hangLoad') break;
@@ -335,12 +304,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
         this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
         break;
       case 'cancel':
-        this.respond({
-          type: 'cancelled',
-          protocolVersion: 1,
-          requestId: message.requestId,
-          targetRequestId: message.targetRequestId,
-        });
+        this.handleCancellation(message);
         break;
       case 'unload':
         if (this.mode === 'hangUnload') break;
@@ -353,6 +317,80 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
       case 'transcribe':
         break;
     }
+  }
+
+  private handleHello(): void {
+    if (this.mode === 'hangHandshake') return;
+    this.respond({
+      type: 'helloAck',
+      protocolVersion: 1,
+      engine: 'whisperCpp',
+      runtimeRevision: revision(this.mode === 'handshakeMismatch' ? 'wrong-v1' : 'runtime-v1'),
+      runtimeBuildDigest: this.mode === 'runtimeBuildMismatch' ? 'b'.repeat(64) : 'a'.repeat(64),
+      backend: 'cuda',
+      capabilities: ['cuda-sm-86'],
+      maxControlFrameBytes: LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
+      maxAudioChunkBytes: LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
+    });
+  }
+
+  private handleProbe(message: Extract<LocalWhisperWorkerClientMessage, { readonly type: 'probe' }>): void {
+    if (this.mode === 'hangProbe') return;
+    if (this.mode === 'prematureProbeExit') {
+      this.exited = true;
+      this.output.end();
+      return;
+    }
+    if (this.mode === 'outOfOrder') {
+      this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
+      return;
+    }
+    if (!('registryFingerprint' in message)) throw new Error('Expected GPU probe fixture');
+    this.respond({
+      type: 'probed',
+      protocolVersion: 1,
+      requestId: message.requestId,
+      activatedOrdinal: this.mode === 'bindingMismatch' ? 1 : message.deviceBinding.index,
+      actualNativeIdentity: '0000:01:00.0',
+      authorityId: message.authorityId,
+      deviceBinding: this.mode === 'bindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
+      primaryExecutionNativeIdentity: '0000:01:00.0',
+      probeProof: 'c'.repeat(64),
+      registryFingerprint: message.registryFingerprint,
+    });
+    if (this.mode === 'probeExit') {
+      this.exited = true;
+      this.output.end();
+    }
+  }
+
+  private handleCancellation(message: Extract<LocalWhisperWorkerClientMessage, { readonly type: 'cancel' }>): void {
+    if (this.mode !== 'cancelTooLate') {
+      this.respond({
+        type: 'cancelled',
+        protocolVersion: 1,
+        requestId: message.requestId,
+        targetRequestId: message.targetRequestId,
+      });
+      return;
+    }
+    if (this.pendingTranscriptRequestId !== message.targetRequestId) {
+      throw new Error('Expected deferred transcript for cancellation race');
+    }
+    this.pendingTranscriptRequestId = null;
+    this.cancelRaceComplete = true;
+    this.respond({
+      type: 'transcript',
+      protocolVersion: 1,
+      requestId: message.targetRequestId,
+      text: 'fixture transcript',
+    });
+    this.respond({
+      type: 'cancelTooLate',
+      protocolVersion: 1,
+      requestId: message.requestId,
+      targetRequestId: message.targetRequestId,
+    });
   }
 
   private respond(message: Parameters<typeof encodeLocalWhisperControlFrame>[0]): void {
@@ -686,12 +724,14 @@ test('supervisor cleans up changed or disappeared binding authority and rejects 
   }
 });
 
-test('supervisor rejects handshake mismatch and out-of-order stage result then proves cleanup', async () => {
-  const mismatch = harness('handshakeMismatch');
-  const mismatchResult = await mismatch.supervisor.startAndHandshake(mismatch.authority);
-  assert.equal(mismatchResult.success, false);
-  if (!mismatchResult.success) assert.equal(mismatchResult.error.code, 'WORKER_PROTOCOL_MISMATCH');
-  assert.equal(mismatch.releasedRuntime.value, 1);
+test('supervisor rejects mixed protocol-v1 runtime identities and out-of-order stage results', async () => {
+  for (const mode of ['handshakeMismatch', 'runtimeBuildMismatch'] as const) {
+    const mismatch = harness(mode);
+    const mismatchResult = await mismatch.supervisor.startAndHandshake(mismatch.authority);
+    assert.equal(mismatchResult.success, false, mode);
+    if (!mismatchResult.success) assert.equal(mismatchResult.error.code, 'WORKER_PROTOCOL_MISMATCH', mode);
+    assert.equal(mismatch.releasedRuntime.value, 1, mode);
+  }
 
   const outOfOrder = harness('outOfOrder');
   assert.equal((await outOfOrder.supervisor.startAndHandshake(outOfOrder.authority)).success, true);
@@ -826,6 +866,45 @@ test('confirmed cancellation discards partial output and may retain warmed worke
   assert.equal(result.success, false);
   if (!result.success) assert.equal(result.error.code, 'CANCELLED');
   assert.equal(value.supervisor.state, 'warmed');
+  assert.equal((await value.supervisor.forceCleanup()).success, true);
+});
+
+test('transcript-first cancellation preserves the transcript and keeps the warmed worker resident', async () => {
+  const value = await readyHarness('cancelTooLate');
+  const transcription = value.supervisor.transcribe({
+    audio: canonicalWav(100),
+    configurationEpoch: 7,
+    settingsEpoch: 4,
+    options: {
+      language: null,
+      initialPrompt: '',
+      temperatureHundredths: 0,
+      strategy: 'greedy',
+      candidateCount: null,
+    },
+  });
+  await Promise.resolve();
+  const cancellation = await value.supervisor.cancel();
+  const transcript = await transcription;
+
+  assert.equal(cancellation.success, false);
+  if (!cancellation.success) assert.equal(cancellation.error.code, 'OPERATION_CONFLICT');
+  assert.deepEqual(transcript, { success: true, state: 'warmed', value: 'fixture transcript' });
+  assert.equal(value.supervisor.state, 'warmed');
+
+  const reuse = await value.supervisor.transcribe({
+    audio: canonicalWav(100),
+    configurationEpoch: 7,
+    settingsEpoch: 4,
+    options: {
+      language: null,
+      initialPrompt: '',
+      temperatureHundredths: 0,
+      strategy: 'greedy',
+      candidateCount: null,
+    },
+  });
+  assert.deepEqual(reuse, { success: true, state: 'warmed', value: 'fixture transcript' });
   assert.equal((await value.supervisor.forceCleanup()).success, true);
 });
 

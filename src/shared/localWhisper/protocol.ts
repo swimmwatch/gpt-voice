@@ -160,6 +160,7 @@ export type LocalWhisperWorkerServerMessage =
   | LocalWhisperWorkerRequest<'unloaded'>
   | (LocalWhisperWorkerRequest<'transcript'> & { readonly text: string })
   | (LocalWhisperWorkerRequest<'cancelled'> & { readonly targetRequestId: string })
+  | (LocalWhisperWorkerRequest<'cancelTooLate'> & { readonly targetRequestId: string })
   | LocalWhisperWorkerRequest<'shutdownAck'>
   | {
       readonly type: 'failure';
@@ -534,6 +535,7 @@ export function isLocalWhisperWorkerServerMessage(value: unknown): value is Loca
     case 'transcript':
       return hasExactKeys(value, TRANSCRIPT_KEYS) && isRequestId(value.requestId) && typeof value.text === 'string';
     case 'cancelled':
+    case 'cancelTooLate':
       return (
         hasExactKeys(value, CANCELLED_KEYS) &&
         isRequestId(value.requestId) &&

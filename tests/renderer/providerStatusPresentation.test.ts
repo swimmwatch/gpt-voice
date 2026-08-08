@@ -156,6 +156,7 @@ describe('provider status presentation', () => {
     const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
     const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
     const translation = readProjectFile('src/renderer/components/TranslateSection.tsx');
+    const styles = readProjectFile('src/renderer/styles/globals.css');
     const aboutAction = toolbar.slice(
       toolbar.indexOf("aria-label={t('navigation.openAbout')"),
       toolbar.indexOf("aria-label={t('navigation.openHistory')"),
@@ -202,6 +203,12 @@ describe('provider status presentation', () => {
     );
     assert.match(toolbar, /if \(isLoggingIn \|\| isProviderChangesLocked\) return;\s*onProviderLogin\(\);/u);
     assert.match(toolbar, /if \(isProviderChangesLocked\) return;\s*onOpenProviderSettings\(\);/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-settings-shortcut:not\(:disabled\) \{[\s\S]*?cursor: pointer;/u,
+    );
+    assert.match(styles, /\.command-dock \.command-dock-settings-shortcut:disabled \{[\s\S]*?cursor: not-allowed;/u);
+    assert.match(styles, /\.command-dock \.command-dock-settings-shortcut:not\(:disabled\):hover \{/u);
     assert.match(
       toolbar,
       /isVoiceProviderSwitching \? \([\s\S]*?<ProviderStatusIndicator[\s\S]*?loading[\s\S]*?tone="neutral"/u,

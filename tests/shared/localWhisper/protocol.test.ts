@@ -149,6 +149,25 @@ test('client and server validators reject path, cross-domain, and stale authorit
     }),
     false,
   );
+  assert.equal(
+    isLocalWhisperWorkerServerMessage({
+      type: 'cancelTooLate',
+      protocolVersion: 1,
+      requestId: 'cancel-1',
+      targetRequestId: 'tx-1',
+    }),
+    true,
+  );
+  assert.equal(
+    isLocalWhisperWorkerServerMessage({
+      type: 'cancelTooLate',
+      protocolVersion: 1,
+      requestId: 'cancel-1',
+      targetRequestId: 'tx-1',
+      unexpected: true,
+    }),
+    false,
+  );
 });
 
 test('control decoding rejects duplicate keys, numeric spelling, invalid UTF-8, and trailing bytes', () => {

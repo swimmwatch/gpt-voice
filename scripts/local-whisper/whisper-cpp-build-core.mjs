@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   chmodSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
@@ -502,6 +504,25 @@ export function projectNativeFiles() {
   return result;
 }
 
+function nativeSourceFiles(root) {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(root, entry.name);
+    if (entry.isDirectory()) return nativeSourceFiles(path);
+    return /\.(?:cpp|hpp)$/u.test(entry.name) ? [path] : [];
+  });
+}
+
+function nativeSourceDigest() {
+  const roots = [whisperCppRoot, resolve(workspaceRoot, 'runtime', 'local-whisper', 'common')];
+  const paths = [resolve(whisperCppRoot, 'CMakeLists.txt'), ...roots.flatMap((root) => nativeSourceFiles(root))].sort();
+  return canonicalDigest(
+    paths.map((path) => ({
+      path: relative(workspaceRoot, path).replaceAll('\\', '/'),
+      sha256: createHash('sha256').update(readFileSync(path)).digest('hex'),
+    })),
+  );
+}
+
 export function runFormattingAndTidy(configured, engineConfigured) {
   const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
   const files = projectNativeFiles();
@@ -538,6 +559,7 @@ export function buildIdentity(profileId = 'linux-x64-cpu-baseline-v1', execution
     sourceLockId: patchLock.sourceLockId,
     patchedManifestSha256: patchLock.finalManifestSha256,
     patchLockId: patchLock.lockId,
+    projectSourceDigest: nativeSourceDigest(),
     tableSha256: table.tableSha256,
     profileId: profile.profileId,
     profileEvidenceDigest: profile.target.os === 'windows' ? canonicalDigest(profile) : profile.evidenceDigest,

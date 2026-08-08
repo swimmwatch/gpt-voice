@@ -9,11 +9,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <poll.h>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <sys/eventfd.h>
 #include <unistd.h>
 
 namespace local_whisper::whisper_cpp {
@@ -78,6 +80,43 @@ std::vector<std::uint8_t> read_frame(int descriptor) {
   return frame;
 }
 
+class CompletionEvent final {
+public:
+  CompletionEvent() : descriptor_(eventfd(0, EFD_CLOEXEC)) {
+    if (descriptor_ < 0)
+      throw CoreError(FailureCode::transcription_failed, "worker completion event unavailable");
+  }
+
+  ~CompletionEvent() noexcept {
+    if (descriptor_ >= 0) {
+      while (close(descriptor_) < 0 && errno == EINTR) {
+      }
+    }
+  }
+
+  CompletionEvent(const CompletionEvent&) = delete;
+  CompletionEvent& operator=(const CompletionEvent&) = delete;
+
+  [[nodiscard]] int descriptor() const noexcept { return descriptor_; }
+
+  void signal() noexcept {
+    const std::uint64_t value = 1U;
+    while (write(descriptor_, &value, sizeof(value)) < 0 && errno == EINTR) {
+    }
+  }
+
+  void consume() {
+    std::uint64_t value = 0U;
+    while (read(descriptor_, &value, sizeof(value)) < 0) {
+      if (errno != EINTR)
+        throw CoreError(FailureCode::transcription_failed, "worker completion event read failed");
+    }
+  }
+
+private:
+  int descriptor_;
+};
+
 } // namespace
 
 class NativeWorkerChannel::Impl final {
@@ -124,20 +163,51 @@ public:
             std::vector<std::uint8_t>(audio.begin(), audio.end())};
   }
 
+  [[nodiscard]] WorkerChannelWaitResult wait_for_control_or_inference() {
+    std::array<pollfd, 2> descriptors{
+        {{STDIN_FILENO, POLLIN, 0}, {completion_event_.descriptor(), POLLIN, 0}}};
+    int result = 0;
+    do {
+      result = poll(descriptors.data(), descriptors.size(), -1);
+    } while (result < 0 && errno == EINTR);
+    if (result < 0)
+      throw CoreError(FailureCode::transcription_failed, "worker wait failed");
+    if ((descriptors[1].revents & POLLIN) != 0) {
+      completion_event_.consume();
+      return WorkerChannelWaitResult::inference_completed;
+    }
+    if ((descriptors[0].revents & POLLIN) != 0)
+      return WorkerChannelWaitResult::control_ready;
+    if ((descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0)
+      return WorkerChannelWaitResult::control_closed;
+    throw CoreError(FailureCode::transcription_failed, "worker wait returned no event");
+  }
+
+  void notify_inference_complete() noexcept { completion_event_.signal(); }
+
   void send_control(const nlohmann::json& value) {
-    const auto serialized = value.dump();
+    const auto serialized = value.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
     const auto body = std::span<const std::uint8_t>(
         reinterpret_cast<const std::uint8_t*>(serialized.data()), serialized.size());
     const auto frame =
         local_whisper::common::encode_frame(local_whisper::common::FrameKind::control, body);
     write_exact(STDOUT_FILENO, frame);
   }
+
+private:
+  CompletionEvent completion_event_;
 };
 
 NativeWorkerChannel::NativeWorkerChannel() : impl_(std::make_unique<Impl>()) {}
 NativeWorkerChannel::~NativeWorkerChannel() noexcept = default;
 nlohmann::json NativeWorkerChannel::read_control() { return impl_->read_control(); }
 WorkerAudioChunk NativeWorkerChannel::read_audio() { return impl_->read_audio(); }
+WorkerChannelWaitResult NativeWorkerChannel::wait_for_control_or_inference() {
+  return impl_->wait_for_control_or_inference();
+}
+void NativeWorkerChannel::notify_inference_complete() noexcept {
+  impl_->notify_inference_complete();
+}
 void NativeWorkerChannel::send_control(const nlohmann::json& value) { impl_->send_control(value); }
 
 } // namespace local_whisper::whisper_cpp

@@ -258,6 +258,12 @@
       "sha256": "5aac4339c49e612a68a5f158e8aa9138368d60d36ffa910cc6ba0b70e6266783"
     },
     {
+      "name": "cancel-too-late",
+      "message": { "type": "cancelTooLate", "protocolVersion": 1, "requestId": "cancel-1", "targetRequestId": "tx-1" },
+      "binaryFile": "control/cancel-too-late.bin",
+      "sha256": "5fdc238b013eeb1b6318cce1a693304f456d3a6d0519858d3993a299b1fb0568"
+    },
+    {
       "name": "unload",
       "message": { "type": "unload", "protocolVersion": 1, "requestId": "free-1" },
       "binaryFile": "control/unload.bin",

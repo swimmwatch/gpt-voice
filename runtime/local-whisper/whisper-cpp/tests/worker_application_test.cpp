@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -63,12 +64,40 @@ public:
     return value;
   }
 
-  void send_control(const nlohmann::json& value) override { sent.push_back(value); }
+  [[nodiscard]] WorkerChannelWaitResult wait_for_control_or_inference() override {
+    if (waits.empty())
+      throw std::runtime_error("missing test wait result");
+    const auto result = waits.front();
+    waits.pop_front();
+    if (result == WorkerChannelWaitResult::control_ready && wait_for_inference_before_control) {
+      while (!inference_completion_notified.load(std::memory_order_acquire))
+        std::this_thread::yield();
+    }
+    if (signal_on_wait != nullptr)
+      signal_on_wait->store(true, std::memory_order_release);
+    return result;
+  }
+
+  void notify_inference_complete() noexcept override {
+    inference_completion_notified.store(true, std::memory_order_release);
+    ++inference_completion_signals;
+  }
+
+  void send_control(const nlohmann::json& value) override {
+    sent.push_back(value);
+    serialized.push_back(value.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+  }
 
   std::deque<nlohmann::json> controls;
   std::deque<WorkerAudioChunk> audio;
+  std::deque<WorkerChannelWaitResult> waits;
   std::vector<nlohmann::json> sent;
+  std::vector<std::string> serialized;
   std::size_t audio_reads = 0U;
+  std::atomic_bool inference_completion_notified = false;
+  std::atomic_bool* signal_on_wait = nullptr;
+  std::size_t inference_completion_signals = 0U;
+  bool wait_for_inference_before_control = false;
 };
 
 class FakeEngine final : public SpeechEngine {
@@ -104,11 +133,20 @@ public:
     EXPECT_FALSE(samples.empty());
     EXPECT_EQ(options.language, "en");
     ++transcribe_calls;
+    if (fail_transcription) {
+      while (delay_failure && !release_delayed_failure.load(std::memory_order_acquire))
+        std::this_thread::yield();
+      throw CoreError(FailureCode::transcription_failed, "fake inference failed");
+    }
     while (block_until_cancel && !cancellation.requested())
       std::this_thread::yield();
     if (cancellation.requested())
       throw CoreError(FailureCode::cancelled, "fake inference cancelled");
-    return "test transcript";
+    if (transcripts.empty())
+      return "test transcript";
+    auto transcript = std::move(transcripts.front());
+    transcripts.pop_front();
+    return transcript;
   }
 
   void unload() noexcept override {
@@ -125,6 +163,10 @@ public:
   std::size_t transcribe_calls = 0U;
   std::size_t unload_calls = 0U;
   bool block_until_cancel = false;
+  bool delay_failure = false;
+  bool fail_transcription = false;
+  std::atomic_bool release_delayed_failure = false;
+  std::deque<std::string> transcripts;
 
 private:
   bool loaded_ = false;
@@ -196,10 +238,10 @@ nlohmann::json load_message() {
   };
 }
 
-nlohmann::json transcribe_message(std::size_t audio_bytes) {
+nlohmann::json transcribe_message(std::size_t audio_bytes, std::string request_id = "tx-test") {
   return {{"type", "transcribe"},
           {"protocolVersion", 1},
-          {"requestId", "tx-test"},
+          {"requestId", std::move(request_id)},
           {"settingsEpoch", 1U},
           {"audioByteLength", audio_bytes},
           {"options",
@@ -239,6 +281,7 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine
       {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
+  fixture.channel.waits = {WorkerChannelWaitResult::inference_completed};
 
   EXPECT_EQ(fixture.run(), 0);
   EXPECT_EQ(fixture.engine.load_calls, 1U);
@@ -298,6 +341,7 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
       {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
+  fixture.channel.waits = {WorkerChannelWaitResult::control_ready};
 
   EXPECT_EQ(fixture.run(), 0);
   ASSERT_EQ(fixture.channel.sent.size(), 5U);
@@ -307,6 +351,121 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
   EXPECT_EQ(fixture.channel.sent[2].at("targetRequestId"), "tx-test");
   EXPECT_EQ(fixture.channel.sent[3].at("type"), "unloaded");
   EXPECT_EQ(fixture.channel.sent[4].at("type"), "shutdownAck");
+}
+
+TEST(WorkerApplication, TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate) {
+  Fixture fixture;
+  const auto wav = wav_fixture();
+  fixture.channel.wait_for_inference_before_control = true;
+  fixture.channel.controls = {
+      hello(),
+      load_message(),
+      transcribe_message(wav.size(), "tx-first"),
+      {{"type", "cancel"},
+       {"protocolVersion", 1},
+       {"requestId", "cancel-first"},
+       {"targetRequestId", "tx-first"}},
+      transcribe_message(wav.size(), "tx-second"),
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+  };
+  fixture.channel.audio = {{"tx-first", 0U, true, wav}, {"tx-second", 0U, true, wav}};
+  fixture.channel.waits = {WorkerChannelWaitResult::control_ready,
+                           WorkerChannelWaitResult::inference_completed};
+
+  EXPECT_EQ(fixture.run(), 0);
+  ASSERT_EQ(fixture.channel.sent.size(), 6U);
+  EXPECT_EQ(fixture.channel.sent[2].at("type"), "transcript");
+  EXPECT_EQ(fixture.channel.sent[2].at("requestId"), "tx-first");
+  EXPECT_EQ(fixture.channel.sent[3].at("type"), "cancelTooLate");
+  EXPECT_EQ(fixture.channel.sent[3].size(), 4U);
+  EXPECT_EQ(fixture.channel.sent[3].at("requestId"), "cancel-first");
+  EXPECT_EQ(fixture.channel.sent[3].at("targetRequestId"), "tx-first");
+  EXPECT_EQ(fixture.channel.sent[4].at("type"), "transcript");
+  EXPECT_EQ(fixture.channel.sent[4].at("requestId"), "tx-second");
+  EXPECT_EQ(fixture.engine.transcribe_calls, 2U);
+  EXPECT_EQ(fixture.channel.inference_completion_signals, 2U);
+}
+
+TEST(WorkerApplication, InvalidCancellationStopsAndJoinsBlockedInference) {
+  Fixture fixture;
+  fixture.engine.block_until_cancel = true;
+  const auto wav = wav_fixture();
+  fixture.channel.controls = {
+      hello(),
+      load_message(),
+      transcribe_message(wav.size()),
+      {{"type", "cancel"}, {"protocolVersion", 1}, {"requestId", "cancel-test"}},
+  };
+  fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
+  fixture.channel.waits = {WorkerChannelWaitResult::control_ready};
+
+  EXPECT_EQ(fixture.run(), 10);
+  EXPECT_EQ(fixture.engine.transcribe_calls, 1U);
+  EXPECT_TRUE(fixture.cancellation.requested());
+  ASSERT_EQ(fixture.channel.sent.size(), 3U);
+  EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
+  EXPECT_EQ(fixture.channel.sent.back().at("code"), "INVALID_SETTINGS");
+}
+
+TEST(WorkerApplication, ControlClosureStopsAndJoinsBlockedInference) {
+  Fixture fixture;
+  fixture.engine.block_until_cancel = true;
+  const auto wav = wav_fixture();
+  fixture.channel.controls = {hello(), load_message(), transcribe_message(wav.size())};
+  fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
+  fixture.channel.waits = {WorkerChannelWaitResult::control_closed};
+
+  EXPECT_EQ(fixture.run(), 10);
+  EXPECT_EQ(fixture.engine.transcribe_calls, 1U);
+  EXPECT_EQ(fixture.engine.unload_calls, 1U);
+  ASSERT_EQ(fixture.channel.sent.size(), 3U);
+  EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
+  EXPECT_EQ(fixture.channel.sent.back().at("code"), "TRANSCRIPTION_FAILED");
+  EXPECT_FALSE(fixture.cancellation.requested());
+}
+
+TEST(WorkerApplication,
+     ImmediateAndDelayedInferenceFailuresEmitTypedFailureWithoutAnotherControlFrame) {
+  for (const bool delayed : {false, true}) {
+    Fixture fixture;
+    fixture.engine.delay_failure = delayed;
+    fixture.engine.fail_transcription = true;
+    fixture.channel.signal_on_wait = delayed ? &fixture.engine.release_delayed_failure : nullptr;
+    const auto wav = wav_fixture();
+    fixture.channel.controls = {hello(), load_message(), transcribe_message(wav.size())};
+    fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
+    fixture.channel.waits = {WorkerChannelWaitResult::inference_completed};
+
+    EXPECT_EQ(fixture.run(), 10) << (delayed ? "delayed" : "immediate");
+    ASSERT_EQ(fixture.channel.sent.size(), 3U) << (delayed ? "delayed" : "immediate");
+    EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
+    EXPECT_EQ(fixture.channel.sent.back().at("code"), "TRANSCRIPTION_FAILED");
+  }
+}
+
+TEST(WorkerApplication, ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWarmed) {
+  Fixture fixture;
+  const auto wav = wav_fixture();
+  fixture.engine.transcripts = {std::string{"split "} + std::string{"\xe2\x82"},
+                                "second transcript"};
+  fixture.channel.controls = {
+      hello(),
+      load_message(),
+      transcribe_message(wav.size(), "tx-split"),
+      transcribe_message(wav.size(), "tx-second"),
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+  };
+  fixture.channel.audio = {{"tx-split", 0U, true, wav}, {"tx-second", 0U, true, wav}};
+  fixture.channel.waits = {WorkerChannelWaitResult::inference_completed,
+                           WorkerChannelWaitResult::inference_completed};
+
+  EXPECT_EQ(fixture.run(), 0);
+  ASSERT_EQ(fixture.channel.sent.size(), 5U);
+  EXPECT_EQ(fixture.channel.sent[2].at("type"), "transcript");
+  EXPECT_NE(fixture.channel.serialized[2].find("\xef\xbf\xbd"), std::string::npos);
+  EXPECT_EQ(fixture.channel.sent[3].at("type"), "transcript");
+  EXPECT_EQ(fixture.channel.sent[3].at("text"), "second transcript");
+  EXPECT_EQ(fixture.engine.transcribe_calls, 2U);
 }
 
 } // namespace

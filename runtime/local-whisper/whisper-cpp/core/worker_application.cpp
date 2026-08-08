@@ -105,6 +105,34 @@ std::string base64url(std::span<const std::uint8_t> bytes) {
   return result;
 }
 
+class InferenceStopGuard final {
+public:
+  InferenceStopGuard(std::jthread& thread, CancellationController& cancellation) noexcept
+      : thread_(thread), cancellation_(cancellation) {}
+
+  ~InferenceStopGuard() noexcept {
+    if (!armed_)
+      return;
+    cancellation_.request();
+    thread_.request_stop();
+  }
+
+  InferenceStopGuard(const InferenceStopGuard&) = delete;
+  InferenceStopGuard& operator=(const InferenceStopGuard&) = delete;
+
+  void disarm() noexcept { armed_ = false; }
+
+private:
+  std::jthread& thread_;
+  CancellationController& cancellation_;
+  bool armed_ = true;
+};
+
+struct InferenceOutcome final {
+  std::exception_ptr error;
+  std::optional<std::string> transcript;
+};
+
 std::string protocol_failure(FailureCode code) {
   switch (code) {
   case FailureCode::runtime_prerequisite_missing:
@@ -492,57 +520,92 @@ int WorkerApplication::run_checked() {
       const auto audio = PcmAudio::from_canonical_wav(wav);
       cancellation_.reset();
       InferenceTerminalArbiter terminal;
-      std::exception_ptr inference_error;
+      InferenceOutcome inference_outcome;
       const auto transcription_request_id = *current_request_id_;
-      std::thread inference([&, transcription_request_id] {
+      std::jthread inference([&, transcription_request_id] {
         try {
           const auto text = engine_.transcribe(audio.samples(), options, cancellation_);
           cancellation_.checkpoint();
-          if (terminal.try_succeed()) {
-            channel_.send_control({{"type", "transcript"},
-                                   {"protocolVersion", 1},
-                                   {"requestId", transcription_request_id},
-                                   {"text", text}});
-          }
+          inference_outcome.transcript = text;
+          static_cast<void>(terminal.try_succeed());
         } catch (...) {
-          inference_error = std::current_exception();
+          inference_outcome.error = std::current_exception();
         }
+        channel_.notify_inference_complete();
       });
-
-      auto next = channel_.read_control();
-      const bool is_cancel = next.value("type", "") == "cancel";
-      bool cancellation_won = false;
-      if (is_cancel) {
-        require_exact_keys(next, {"type", "protocolVersion", "requestId", "targetRequestId"});
-        require_protocol(next, "cancel");
-        if (require_string(next, "targetRequestId", 128U) != transcription_request_id) {
-          cancellation_.request();
-          static_cast<void>(terminal.cancel());
-          inference.join();
-          throw CoreError(FailureCode::invalid_settings, "cancellation target mismatch");
+      InferenceStopGuard inference_stop(inference, cancellation_);
+      const auto wait_result = channel_.wait_for_control_or_inference();
+      if (wait_result == WorkerChannelWaitResult::control_closed) {
+        cancellation_.request();
+        inference.request_stop();
+        inference.join();
+        inference_stop.disarm();
+        cancellation_.reset();
+        throw CoreError(FailureCode::transcription_failed, "worker control channel closed");
+      }
+      if (wait_result == WorkerChannelWaitResult::inference_completed) {
+        inference.join();
+        inference_stop.disarm();
+        cancellation_.reset();
+        if (inference_outcome.error != nullptr)
+          std::rethrow_exception(inference_outcome.error);
+        if (terminal.state() != InferenceTerminal::succeeded ||
+            !inference_outcome.transcript.has_value()) {
+          throw CoreError(FailureCode::transcription_failed,
+                          "inference completed without transcript");
         }
-        cancellation_won = terminal.cancel();
-        if (cancellation_won)
-          cancellation_.request();
+        channel_.send_control({{"type", "transcript"},
+                               {"protocolVersion", 1},
+                               {"requestId", transcription_request_id},
+                               {"text", *inference_outcome.transcript}});
+        continue;
+      }
+
+      auto cancel = channel_.read_control();
+      require_exact_keys(cancel, {"type", "protocolVersion", "requestId", "targetRequestId"});
+      require_protocol(cancel, "cancel");
+      const auto cancel_request_id = request_id(cancel);
+      if (require_string(cancel, "targetRequestId", 128U) != transcription_request_id) {
+        cancellation_.request();
+        inference.request_stop();
+        static_cast<void>(terminal.cancel());
+        inference.join();
+        inference_stop.disarm();
+        cancellation_.reset();
+        throw CoreError(FailureCode::invalid_settings, "cancellation target mismatch");
+      }
+      const bool cancellation_won = terminal.cancel();
+      if (cancellation_won) {
+        cancellation_.request();
+        inference.request_stop();
       }
       inference.join();
-
+      inference_stop.disarm();
+      cancellation_.reset();
       if (cancellation_won) {
-        current_request_id_ = request_id(next);
-        cancellation_.reset();
+        current_request_id_ = cancel_request_id;
         channel_.send_control({{"type", "cancelled"},
                                {"protocolVersion", 1},
                                {"requestId", *current_request_id_},
                                {"targetRequestId", transcription_request_id}});
         continue;
       }
-      cancellation_.reset();
-      if (inference_error != nullptr)
-        std::rethrow_exception(inference_error);
-      if (is_cancel)
-        throw CoreError(FailureCode::invalid_settings,
-                        "cancellation arrived after committed transcript");
-      prefetched_control = std::move(next);
+      if (inference_outcome.error != nullptr)
+        std::rethrow_exception(inference_outcome.error);
+      if (terminal.state() != InferenceTerminal::succeeded ||
+          !inference_outcome.transcript.has_value()) {
+        throw CoreError(FailureCode::transcription_failed,
+                        "inference completed without terminal outcome");
+      }
+      channel_.send_control({{"type", "transcript"},
+                             {"protocolVersion", 1},
+                             {"requestId", transcription_request_id},
+                             {"text", *inference_outcome.transcript}});
+      current_request_id_ = cancel_request_id;
+      channel_.send_control({{"type", "cancelTooLate"},
+                             {"protocolVersion", 1},
+                             {"requestId", *current_request_id_},
+                             {"targetRequestId", transcription_request_id}});
       continue;
     }
     if (type == "unload") {

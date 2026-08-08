@@ -63,6 +63,36 @@ std::vector<std::uint8_t> read_frame() {
   return frame;
 }
 
+class CompletionEvent final {
+public:
+  CompletionEvent() : handle_(CreateEventW(nullptr, FALSE, FALSE, nullptr)) {
+    if (handle_ == nullptr)
+      throw CoreError(FailureCode::transcription_failed, "Windows completion event unavailable");
+  }
+
+  ~CompletionEvent() noexcept {
+    if (handle_ != nullptr)
+      static_cast<void>(CloseHandle(handle_));
+  }
+
+  CompletionEvent(const CompletionEvent&) = delete;
+  CompletionEvent& operator=(const CompletionEvent&) = delete;
+
+  [[nodiscard]] HANDLE handle() const noexcept { return handle_; }
+  void signal() noexcept { static_cast<void>(SetEvent(handle_)); }
+
+private:
+  HANDLE handle_;
+};
+
+bool control_closed(HANDLE input) {
+  DWORD available = 0U;
+  if (PeekNamedPipe(input, nullptr, 0U, nullptr, &available, nullptr))
+    return false;
+  const DWORD error = GetLastError();
+  return error == ERROR_BROKEN_PIPE || error == ERROR_HANDLE_EOF;
+}
+
 } // namespace
 
 class NativeWorkerChannel::Impl final {
@@ -108,19 +138,47 @@ public:
             std::vector<std::uint8_t>(audio.begin(), audio.end())};
   }
 
+  [[nodiscard]] WorkerChannelWaitResult wait_for_control_or_inference() {
+    if (WaitForSingleObject(completion_event_.handle(), 0U) == WAIT_OBJECT_0)
+      return WorkerChannelWaitResult::inference_completed;
+    const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
+    if (input == nullptr || input == INVALID_HANDLE_VALUE)
+      throw CoreError(FailureCode::transcription_failed, "Windows control input unavailable");
+    const std::array<HANDLE, 2> handles{input, completion_event_.handle()};
+    const DWORD result =
+        WaitForMultipleObjects(static_cast<DWORD>(handles.size()), handles.data(), FALSE, INFINITE);
+    if (result == WAIT_OBJECT_0)
+      return control_closed(input) ? WorkerChannelWaitResult::control_closed
+                                   : WorkerChannelWaitResult::control_ready;
+    if (result == WAIT_OBJECT_0 + 1U)
+      return WorkerChannelWaitResult::inference_completed;
+    throw CoreError(FailureCode::transcription_failed, "Windows worker wait failed");
+  }
+
+  void notify_inference_complete() noexcept { completion_event_.signal(); }
+
   void send_control(const nlohmann::json& value) {
-    const auto serialized = value.dump();
+    const auto serialized = value.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
     const auto body = std::span<const std::uint8_t>(
         reinterpret_cast<const std::uint8_t*>(serialized.data()), serialized.size());
     write_exact(
         local_whisper::common::encode_frame(local_whisper::common::FrameKind::control, body));
   }
+
+private:
+  CompletionEvent completion_event_;
 };
 
 NativeWorkerChannel::NativeWorkerChannel() : impl_(std::make_unique<Impl>()) {}
 NativeWorkerChannel::~NativeWorkerChannel() noexcept = default;
 nlohmann::json NativeWorkerChannel::read_control() { return impl_->read_control(); }
 WorkerAudioChunk NativeWorkerChannel::read_audio() { return impl_->read_audio(); }
+WorkerChannelWaitResult NativeWorkerChannel::wait_for_control_or_inference() {
+  return impl_->wait_for_control_or_inference();
+}
+void NativeWorkerChannel::notify_inference_complete() noexcept {
+  impl_->notify_inference_complete();
+}
 void NativeWorkerChannel::send_control(const nlohmann::json& value) { impl_->send_control(value); }
 
 } // namespace local_whisper::whisper_cpp
