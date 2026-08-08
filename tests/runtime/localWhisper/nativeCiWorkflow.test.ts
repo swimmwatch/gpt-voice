@@ -29,6 +29,7 @@ test('Local Whisper keeps Linux and Windows native CI checks on their owning run
   assert.match(windowsJob, /repository: google\/googletest/u);
   assert.match(windowsJob, /Initialize MSVC developer environment/u);
   assert.match(windowsJob, /vcvarsall\.bat/u);
+  assert.match(windowsJob, /\$env:PATH = \$values\['PATH'\]/u);
   assert.match(windowsJob, /Get-Command cmake\.exe/u);
   assert.match(windowsJob, /Get-Command ctest\.exe/u);
   assert.match(windowsJob, /Get-Command cl\.exe/u);

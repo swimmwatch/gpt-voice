@@ -216,6 +216,7 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($values[$name])) { throw "Visual Studio developer environment omitted $name" }
             Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($values[$name])" -Encoding utf8
           }
+          $env:PATH = $values['PATH']
           $tools = @{
             CMAKE_COMMAND = (Get-Command cmake.exe -ErrorAction Stop).Source
             CTEST_COMMAND = (Get-Command ctest.exe -ErrorAction Stop).Source
