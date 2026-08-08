@@ -216,12 +216,21 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   private readonly codec = new LocalWhisperFrameCodec();
   private cancelRaceComplete = false;
   private exited = false;
+  private readonly lateCancellationReady: Promise<void>;
+  private resolveLateCancellationReady: (() => void) | null = null;
   private pendingTranscriptRequestId: string | null = null;
   public forceTerminationCount = 0;
   public readonly waitTimeouts: number[] = [];
 
   public constructor(private readonly mode: WorkerMode) {
+    this.lateCancellationReady = new Promise<void>((resolve) => {
+      this.resolveLateCancellationReady = resolve;
+    });
     this.input.on('data', (chunk: Buffer) => this.onInput(chunk));
+  }
+
+  public async waitForLateCancellationReady(): Promise<void> {
+    await this.lateCancellationReady;
   }
 
   public crash(): void {
@@ -252,7 +261,9 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
       if (frame.kind === 'audio') {
         if (frame.chunk.final && this.mode === 'cancelTooLate' && !this.cancelRaceComplete) {
           this.pendingTranscriptRequestId = frame.chunk.requestId;
-        } else if (frame.chunk.final && this.mode === 'happy') {
+          this.resolveLateCancellationReady?.();
+          this.resolveLateCancellationReady = null;
+        } else if (frame.chunk.final && (this.mode === 'happy' || this.mode === 'cancelTooLate')) {
           this.respond({
             type: 'transcript',
             protocolVersion: 1,
@@ -411,6 +422,12 @@ class ScriptedProcessOwner implements LocalWhisperWorkerProcessOwner {
   public async recoverOwnedOrphan(): Promise<boolean> {
     this.process = null;
     return true;
+  }
+
+  public async waitForLateCancellationReady(): Promise<void> {
+    const process = this.process;
+    if (!process) throw new Error('Conformance worker was not launched');
+    await process.waitForLateCancellationReady();
   }
 }
 
@@ -883,7 +900,7 @@ test('transcript-first cancellation preserves the transcript and keeps the warme
       candidateCount: null,
     },
   });
-  await Promise.resolve();
+  await value.processOwner.waitForLateCancellationReady();
   const cancellation = await value.supervisor.cancel();
   const transcript = await transcription;
 
