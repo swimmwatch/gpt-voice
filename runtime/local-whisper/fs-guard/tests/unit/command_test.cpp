@@ -6,6 +6,7 @@
 
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace local_whisper::fs_guard {
@@ -18,7 +19,7 @@ TEST(CommandParserTest, ParsesEverySupportedCommand) {
       {"PROCESS_IDENTITY", {"1"}},
       {"INIT", {"linux", "/tmp/example"}},
       {"LOCK",
-       {"root", kArtifactName, "1234567890abcdef", "1", "identity", "download", kArtifactName}},
+       {"root", kArtifactName, "1234567890abcdef", "1", "identity", "staging", kArtifactName}},
       {"CREATE_STAGING", {"root", "model", kArtifactName, "1234567890abcdef"}},
       {"CREATE_FILE", {"directory", "file-model", "384"}},
       {"WRITE_FILE", {"file", "aGVsbG8"}},
@@ -51,6 +52,31 @@ TEST(CommandParserTest, RejectsUnknownCommandsAndInvalidValues) {
   EXPECT_THROW(static_cast<void>(parse_command("CREATE_FILE", {"directory", "../file", "511"})),
                GuardError);
   EXPECT_THROW(static_cast<void>(parse_command("LIST_NAMESPACE", {"root", "staging"})), GuardError);
+  EXPECT_THROW(static_cast<void>(parse_command("PROCESS_IDENTITY", {"4294967296"})), GuardError);
+  EXPECT_THROW(
+      static_cast<void>(parse_command("LOCK", {"root", kArtifactName, "1234567890abcdef", "1",
+                                               "identity", "download", kArtifactName})),
+      GuardError);
+  EXPECT_THROW(
+      static_cast<void>(parse_command("LIST", {"directory", "file-model|384", "file-model|384"})),
+      GuardError);
+  EXPECT_THROW(static_cast<void>(parse_command("LIST", {"directory", "file-model|invalid"})),
+               GuardError);
+}
+
+TEST(CommandParserTest, ConvertsWireValuesToClosedDomainsBeforeDispatch) {
+  const Command create = parse_command("CREATE_FILE", {"directory", "file-model", "384"});
+  const auto& create_command = std::get<CreateFileCommand>(create);
+  EXPECT_EQ(create_command.mode.value(), 384U);
+
+  const Command write = parse_command("WRITE_FILE", {"file", "aGVsbG8"});
+  EXPECT_EQ(std::get<WriteFileCommand>(write).bytes, "hello");
+
+  const Command list = parse_command("LIST", {"directory", "file-model|384"});
+  const auto& list_command = std::get<ListCommand>(list);
+  ASSERT_EQ(list_command.expected_entries.size(), 1U);
+  EXPECT_EQ(list_command.expected_entries[0].name, "file-model");
+  EXPECT_EQ(list_command.expected_entries[0].mode.value(), 384U);
 }
 
 TEST(CommandParserTest, AcceptsOnlyCanonicalLinuxRuntimeLaunchFileNames) {

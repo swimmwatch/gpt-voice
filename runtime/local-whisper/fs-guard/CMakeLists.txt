@@ -28,6 +28,7 @@ function(fs_guard_apply_quality target)
 endfunction()
 
 add_library(fs_guard_core STATIC
+  src/common/bounded_line_reader.cpp
   src/common/command.cpp
   src/common/error.cpp
   src/common/guard_application.cpp

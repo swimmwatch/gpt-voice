@@ -124,6 +124,7 @@ public:
     unsigned int mode = 0;
     bool delete_on_release = false;
     std::map<std::wstring, StableIdentity> namespace_identities;
+    std::map<std::wstring, unsigned int> file_modes;
   };
 
   std::map<std::string, Lease> leases;
@@ -661,11 +662,13 @@ public:
   list_directory(Lease& directory, const std::map<std::string, unsigned int>& expected_modes) {
     if (directory.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
+    const bool require_exact_expectations = !expected_modes.empty();
+    std::map<std::string, unsigned int> remaining(expected_modes);
     std::vector<std::string> result;
     for (const std::wstring& wide_name : directory_names(directory.handle)) {
       const std::string name = wide_to_utf8(wide_name);
-      const auto expected = expected_modes.find(name);
-      if (!is_file_name(name) || expected == expected_modes.end()) {
+      const auto expected = remaining.find(name);
+      if (!is_file_name(name) || (require_exact_expectations && expected == remaining.end())) {
         throw GuardError("UNSAFE_ENTRY");
       }
       bool created = false;
@@ -678,10 +681,17 @@ public:
       if (identity.directory || identity.volume != directory.root_volume) {
         throw GuardError("UNSAFE_ENTRY");
       }
-      result.push_back(name + "~" +
-                       identity_string(file.get(), directory.handle, expected->second) + "~" +
+      const auto known_mode = directory.file_modes.find(wide_name);
+      if (!require_exact_expectations && known_mode == directory.file_modes.end())
+        throw GuardError("UNSAFE_ENTRY");
+      const unsigned int mode = require_exact_expectations ? expected->second : known_mode->second;
+      if (require_exact_expectations)
+        remaining.erase(expected);
+      result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
                        sha256_file(file.get()));
     }
+    if (require_exact_expectations && !remaining.empty())
+      throw GuardError("UNSAFE_ENTRY");
     return result;
   }
 
@@ -725,19 +735,9 @@ public:
     return std::string(buffer.data(), count);
   }
 
-  std::string acquire_lock(Lease& root, const std::vector<std::string>& arguments) {
-    if (arguments.size() != 7 || !is_artifact_name(arguments[1]) ||
-        !is_safe_token(arguments[2], 16, 128) || !is_safe_token(arguments[4], 1, 128) ||
-        !is_safe_token(arguments[5], 1, 32) || !is_safe_token(arguments[6], 1, 128)) {
-      throw GuardError("INVALID_INPUT");
-    }
-    char* end = nullptr;
-    const unsigned long pid = std::strtoul(arguments[3].c_str(), &end, 10);
-    if (end == arguments[3].c_str() || *end != '\0' || pid == 0) {
-      throw GuardError("INVALID_INPUT");
-    }
+  std::string acquire_lock(Lease& root, const LockCommand& command) {
     UniqueHandle parent(open_namespace(root, L"locks"));
-    const std::wstring name = utf8_to_wide("lock-" + arguments[1]);
+    const std::wstring name = utf8_to_wide("lock-" + command.artifact_name);
     for (int attempt = 0; attempt < 2; ++attempt) {
       bool created = false;
       try {
@@ -746,8 +746,10 @@ public:
         if (!file.valid())
           throw GuardError("IO_FAILED");
         apply_private_acl(file.get());
-        const std::string metadata = arguments[2] + "\n" + arguments[3] + "\n" + arguments[4] +
-                                     "\n" + arguments[5] + "\n" + arguments[6] + "\n";
+        const std::string metadata = command.instance_nonce + "\n" + command.process_id.text() +
+                                     "\n" + command.process_identity + "\n" +
+                                     std::string(command.operation.text()) + "\n" +
+                                     command.artifact_id + "\n";
         write_all(file.get(), metadata);
         if (!FlushFileBuffers(file.get()))
           throw GuardError("IO_FAILED");
@@ -792,47 +794,36 @@ public:
     throw GuardError("CONFLICT");
   }
 
-  ResponseFields process_identity(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 1)
-      throw GuardError("INVALID_INPUT");
-    char* end = nullptr;
-    const unsigned long pid = std::strtoul(arguments[0].c_str(), &end, 10);
-    if (end == arguments[0].c_str() || *end != '\0' || pid == 0) {
-      throw GuardError("INVALID_INPUT");
-    }
-    const auto identity = process_start_identity(static_cast<DWORD>(pid));
+  ResponseFields process_identity(const ProcessIdentityCommand& command) {
+    const auto identity = process_start_identity(static_cast<DWORD>(command.process_id.value()));
     if (!identity.has_value() || identity->empty())
       throw GuardError("UNSAFE_ENTRY");
     return {*identity};
   }
 
-  ResponseFields initialize(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2 || arguments[0] != "win32")
+  ResponseFields initialize(const InitCommand& command) {
+    if (command.platform.value() != Platform::Value::kWindows)
       throw GuardError("UNSUPPORTED");
     require_lease_capacity();
-    Lease root = initialize_root(arguments[1]);
+    Lease root = initialize_root(command.root_path);
     const std::string identity = identity_string(root.handle, root.parent, root.mode);
     const std::string token = add_lease(std::move(root));
     return {token, identity};
   }
 
-  ResponseFields lock(const std::vector<std::string>& arguments) {
-    Lease& root = require_root(arguments[0]);
+  ResponseFields lock(const LockCommand& command) {
+    Lease& root = require_root(command.root_token);
     require_lease_capacity();
-    const std::string token = acquire_lock(root, arguments);
+    const std::string token = acquire_lock(root, command);
     Lease& lock = require_lease(token);
     return {token, identity_string(lock.handle, lock.parent, lock.mode)};
   }
 
-  ResponseFields create_staging(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 4 || (arguments[1] != "model" && arguments[1] != "runtime") ||
-        !is_artifact_name(arguments[2]) || !is_safe_token(arguments[3], 16, 128)) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
+  ResponseFields create_staging(const CreateStagingCommand& command) {
+    Lease& root = require_root(command.root_token);
     require_lease_capacity();
     UniqueHandle parent(open_namespace(root, L"staging"));
-    const std::wstring name = utf8_to_wide("stage-" + arguments[2] + "-" + arguments[3]);
+    const std::wstring name = utf8_to_wide("stage-" + command.artifact_name + "-" + command.nonce);
     bool created = false;
     UniqueHandle directory(relative_open(parent.get(), name, kDirectoryAccess, FILE_CREATE,
                                          kDirectoryOptions, created));
@@ -852,79 +843,59 @@ public:
     return {token, identity};
   }
 
-  ResponseFields create_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || !is_file_name(arguments[1]))
-      throw GuardError("INVALID_INPUT");
-    Lease& directory = require_lease(arguments[0]);
+  ResponseFields create_file(const CreateFileCommand& command) {
+    Lease& directory = require_lease(command.directory_token);
     require_lease_capacity();
-    char* end = nullptr;
-    const unsigned long mode = std::strtoul(arguments[2].c_str(), &end, 10);
-    if (end == arguments[2].c_str() || *end != '\0' || mode > 0777) {
-      throw GuardError("INVALID_INPUT");
-    }
+    const unsigned int mode = command.mode.value();
     bool created = false;
-    const std::wstring name = utf8_to_wide(arguments[1]);
+    const std::wstring name = utf8_to_wide(command.file_name);
     UniqueHandle file(
         relative_open(directory.handle, name, kFileAccess, FILE_CREATE, kFileOptions, created));
     if (!file.valid())
       throw GuardError("IO_FAILED");
     apply_private_acl(file.get());
     UniqueHandle parent(duplicate_handle(directory.handle));
-    const std::string identity =
-        identity_string(file.get(), parent.get(), static_cast<unsigned int>(mode));
+    const std::string identity = identity_string(file.get(), parent.get(), mode);
     const std::string token = add_lease(Lease{std::move(file),
                                               std::move(parent),
                                               LeaseKind::kFile,
                                               name,
                                               directory.root_volume,
-                                              static_cast<unsigned int>(mode),
+                                              mode,
                                               false,
                                               {}});
+    directory.file_modes.emplace(name, mode);
     return {token, identity};
   }
 
-  ResponseFields write_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& file = require_lease(arguments[0]);
+  ResponseFields write_file(const WriteFileCommand& command) {
+    Lease& file = require_lease(command.file_token);
     if (file.kind != LeaseKind::kFile)
       throw GuardError("INVALID_INPUT");
-    write_all(file.handle, base64url_decode(arguments[1]));
+    write_all(file.handle, command.bytes);
     return {};
   }
 
-  ResponseFields seal_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 1)
-      throw GuardError("INVALID_INPUT");
-    Lease& file = require_lease(arguments[0]);
+  ResponseFields seal_file(const SealFileCommand& command) {
+    Lease& file = require_lease(command.file_token);
     if (file.kind != LeaseKind::kFile || !FlushFileBuffers(file.handle)) {
       throw GuardError("IO_FAILED");
     }
     return {identity_string(file.handle, file.parent, file.mode)};
   }
 
-  ResponseFields list(const std::vector<std::string>& arguments) {
+  ResponseFields list(const ListCommand& command) {
     std::map<std::string, unsigned int> expected_modes;
-    for (std::size_t index = 1; index < arguments.size(); ++index) {
-      const auto expected = split(arguments[index], '|');
-      if (expected.size() != 2 || !is_file_name(expected[0]))
-        throw GuardError("INVALID_INPUT");
-      char* end = nullptr;
-      const unsigned long mode = std::strtoul(expected[1].c_str(), &end, 10);
-      if (end == expected[1].c_str() || *end != '\0' || mode > 0777 ||
-          !expected_modes.emplace(expected[0], static_cast<unsigned int>(mode)).second) {
-        throw GuardError("INVALID_INPUT");
-      }
+    for (const ExpectedEntry& expected : command.expected_entries) {
+      expected_modes.emplace(expected.name, expected.mode.value());
     }
-    return list_directory(require_lease(arguments[0]), expected_modes);
+    return list_directory(require_lease(command.directory_token), expected_modes);
   }
 
-  ResponseFields list_namespace_command(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2 || (arguments[1] != "models" && arguments[1] != "runtimes")) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    UniqueHandle parent(open_namespace(root, utf8_to_wide(arguments[1])));
+  ResponseFields list_namespace_command(const ListNamespaceCommand& command) {
+    Lease& root = require_root(command.root_token);
+    UniqueHandle parent(
+        open_namespace(root, utf8_to_wide(std::string(command.namespace_name.text()))));
     std::vector<std::string> result;
     for (const std::wstring& name : directory_names(parent.get())) {
       try {
@@ -943,16 +914,13 @@ public:
     return result;
   }
 
-  ResponseFields open_artifact(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || (arguments[1] != "models" && arguments[1] != "runtimes") ||
-        !is_artifact_name(arguments[2])) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    UniqueHandle parent(open_namespace(root, utf8_to_wide(arguments[1])));
+  ResponseFields open_artifact(const OpenArtifactCommand& command) {
+    Lease& root = require_root(command.root_token);
+    UniqueHandle parent(
+        open_namespace(root, utf8_to_wide(std::string(command.namespace_name.text()))));
     bool created = false;
-    UniqueHandle directory(relative_open(parent.get(), utf8_to_wide(arguments[2]), kDirectoryAccess,
-                                         FILE_OPEN, kDirectoryOptions, created));
+    UniqueHandle directory(relative_open(parent.get(), utf8_to_wide(command.artifact_name),
+                                         kDirectoryAccess, FILE_OPEN, kDirectoryOptions, created));
     if (!directory.valid()) {
       return {"MISSING"};
     }
@@ -962,7 +930,7 @@ public:
     const std::string token = add_lease(Lease{std::move(directory),
                                               std::move(parent),
                                               LeaseKind::kDirectory,
-                                              utf8_to_wide(arguments[2]),
+                                              utf8_to_wide(command.artifact_name),
                                               root.root_volume,
                                               0700,
                                               false,
@@ -970,37 +938,31 @@ public:
     return {token, identity};
   }
 
-  ResponseFields promote(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 4 || (arguments[2] != "models" && arguments[2] != "runtimes") ||
-        !is_artifact_name(arguments[3])) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    Lease& staging = require_lease(arguments[1]);
+  ResponseFields promote(const PromoteCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& staging = require_lease(command.staging_token);
     if (staging.kind != LeaseKind::kDirectory || staging.root_volume != root.root_volume ||
         wide_to_utf8(staging.name).rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    UniqueHandle destination(open_namespace(root, utf8_to_wide(arguments[2])));
-    rename_handle(staging.handle, destination.get(), utf8_to_wide(arguments[3]));
+    UniqueHandle destination(
+        open_namespace(root, utf8_to_wide(std::string(command.namespace_name.text()))));
+    rename_handle(staging.handle, destination.get(), utf8_to_wide(command.artifact_name));
     const std::string result = identity_string(staging.handle, destination.get(), 0700);
     return {result};
   }
 
-  ResponseFields quarantine(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 5 || (arguments[2] != "models" && arguments[2] != "runtimes") ||
-        !is_artifact_name(arguments[3]) || !is_safe_token(arguments[4], 16, 128)) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    Lease& artifact = require_lease(arguments[1]);
+  ResponseFields quarantine(const QuarantineCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& artifact = require_lease(command.artifact_token);
     if (artifact.kind != LeaseKind::kDirectory || artifact.root_volume != root.root_volume ||
-        wide_to_utf8(artifact.name) != arguments[3]) {
+        wide_to_utf8(artifact.name) != command.artifact_name) {
       throw GuardError("IDENTITY_CHANGED");
     }
     require_lease_capacity();
     UniqueHandle destination(open_namespace(root, L"quarantine"));
-    const std::wstring name = utf8_to_wide("quarantine-" + arguments[3] + "-" + arguments[4]);
+    const std::wstring name =
+        utf8_to_wide("quarantine-" + command.artifact_name + "-" + command.nonce);
     rename_handle(artifact.handle, destination.get(), name);
     UniqueHandle duplicate(duplicate_handle(artifact.handle));
     const std::string identity = identity_string(duplicate.get(), destination.get(), 0700);
@@ -1015,63 +977,59 @@ public:
     return {token, identity};
   }
 
-  ResponseFields delete_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || !is_file_name(arguments[1]))
-      throw GuardError("INVALID_INPUT");
-    Lease& directory = require_lease(arguments[0]);
+  ResponseFields delete_file(const DeleteFileCommand& command) {
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory ||
         wide_to_utf8(directory.name).rfind("quarantine-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
     bool created = false;
-    UniqueHandle file(relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
+    UniqueHandle file(relative_open(directory.handle, utf8_to_wide(command.file_name), kFileAccess,
                                     FILE_OPEN, kFileOptions, created));
     if (!file.valid())
       throw GuardError("IDENTITY_CHANGED");
-    const auto expected = split(arguments[2], '|');
+    const auto expected = split(command.identity, '|');
     const unsigned int mode =
         expected.size() == 7
             ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
             : 0;
     if (expected.size() != 7 ||
-        identity_string(file.get(), directory.handle, mode) != arguments[2]) {
+        identity_string(file.get(), directory.handle, mode) != command.identity) {
       throw GuardError("IDENTITY_CHANGED");
     }
     set_disposition(file.get());
+    directory.file_modes.erase(utf8_to_wide(command.file_name));
     return {};
   }
 
-  ResponseFields delete_staging_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || !is_file_name(arguments[1]))
-      throw GuardError("INVALID_INPUT");
-    Lease& directory = require_lease(arguments[0]);
+  ResponseFields delete_staging_file(const DeleteStagingFileCommand& command) {
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory ||
         wide_to_utf8(directory.name).rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
     bool created = false;
-    UniqueHandle file(relative_open(directory.handle, utf8_to_wide(arguments[1]), kFileAccess,
+    UniqueHandle file(relative_open(directory.handle, utf8_to_wide(command.file_name), kFileAccess,
                                     FILE_OPEN, kFileOptions, created));
     if (!file.valid())
       throw GuardError("IDENTITY_CHANGED");
-    const auto expected = split(arguments[2], '|');
+    const auto expected = split(command.identity, '|');
     const unsigned int mode =
         expected.size() == 7
             ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
             : 0;
     if (expected.size() != 7 ||
-        identity_string(file.get(), directory.handle, mode) != arguments[2]) {
+        identity_string(file.get(), directory.handle, mode) != command.identity) {
       throw GuardError("IDENTITY_CHANGED");
     }
     set_disposition(file.get());
+    directory.file_modes.erase(utf8_to_wide(command.file_name));
     return {};
   }
 
-  ResponseFields remove_quarantine(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& root = require_root(arguments[0]);
-    Lease& directory = require_lease(arguments[1]);
+  ResponseFields remove_quarantine(const RemoveQuarantineCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory || directory.root_volume != root.root_volume ||
         wide_to_utf8(directory.name).rfind("quarantine-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
@@ -1082,11 +1040,9 @@ public:
     return {};
   }
 
-  ResponseFields remove_staging(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& root = require_root(arguments[0]);
-    Lease& directory = require_lease(arguments[1]);
+  ResponseFields remove_staging(const RemoveStagingCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory || directory.root_volume != root.root_volume ||
         wide_to_utf8(directory.name).rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
@@ -1097,11 +1053,9 @@ public:
     return {};
   }
 
-  ResponseFields revalidate(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& lease = require_lease(arguments[0]);
-    const auto expected = split(arguments[1], '|');
+  ResponseFields revalidate(const RevalidateCommand& command) {
+    Lease& lease = require_lease(command.token);
+    const auto expected = split(command.identity, '|');
     const auto current = split(identity_string(lease.handle, lease.parent, lease.mode), '|');
     if (expected.size() != 7 || current.size() != 7)
       throw GuardError("INVALID_INPUT");
@@ -1123,10 +1077,8 @@ public:
     return {};
   }
 
-  ResponseFields release(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 1)
-      throw GuardError("INVALID_INPUT");
-    const auto found = leases.find(arguments[0]);
+  ResponseFields release(const ReleaseCommand& command) {
+    const auto found = leases.find(command.token);
     if (found == leases.end())
       return {};
     close_lease(found->second);
@@ -1146,83 +1098,71 @@ WindowsBackend::WindowsBackend(WindowsBackend&&) noexcept = default;
 WindowsBackend& WindowsBackend::operator=(WindowsBackend&&) noexcept = default;
 
 ResponseFields WindowsBackend::process_identity(const ProcessIdentityCommand& command) {
-  return impl_->process_identity({command.process_id});
+  return impl_->process_identity(command);
 }
 
 ResponseFields WindowsBackend::initialize(const InitCommand& command) {
-  return impl_->initialize({command.platform, command.root_path});
+  return impl_->initialize(command);
 }
 
-ResponseFields WindowsBackend::lock(const LockCommand& command) {
-  return impl_->lock({command.root_token, command.artifact_name, command.instance_nonce,
-                      command.process_id, command.process_identity, command.operation,
-                      command.artifact_id});
-}
+ResponseFields WindowsBackend::lock(const LockCommand& command) { return impl_->lock(command); }
 
 ResponseFields WindowsBackend::create_staging(const CreateStagingCommand& command) {
-  return impl_->create_staging(
-      {command.root_token, command.artifact_kind, command.artifact_name, command.nonce});
+  return impl_->create_staging(command);
 }
 
 ResponseFields WindowsBackend::create_file(const CreateFileCommand& command) {
-  return impl_->create_file({command.directory_token, command.file_name, command.mode});
+  return impl_->create_file(command);
 }
 
 ResponseFields WindowsBackend::write_file(const WriteFileCommand& command) {
-  return impl_->write_file({command.file_token, command.encoded_bytes});
+  return impl_->write_file(command);
 }
 
 ResponseFields WindowsBackend::seal_file(const SealFileCommand& command) {
-  return impl_->seal_file({command.file_token});
+  return impl_->seal_file(command);
 }
 
-ResponseFields WindowsBackend::list(const ListCommand& command) {
-  std::vector<std::string> arguments{command.directory_token};
-  arguments.insert(arguments.end(), command.expected_entries.begin(),
-                   command.expected_entries.end());
-  return impl_->list(arguments);
-}
+ResponseFields WindowsBackend::list(const ListCommand& command) { return impl_->list(command); }
 
 ResponseFields WindowsBackend::list_namespace(const ListNamespaceCommand& command) {
-  return impl_->list_namespace_command({command.root_token, command.namespace_name});
+  return impl_->list_namespace_command(command);
 }
 
 ResponseFields WindowsBackend::open_artifact(const OpenArtifactCommand& command) {
-  return impl_->open_artifact({command.root_token, command.namespace_name, command.artifact_name});
+  return impl_->open_artifact(command);
 }
 
 ResponseFields WindowsBackend::promote(const PromoteCommand& command) {
-  return impl_->promote(
-      {command.root_token, command.staging_token, command.namespace_name, command.artifact_name});
+  return impl_->promote(command);
 }
 
 ResponseFields WindowsBackend::quarantine(const QuarantineCommand& command) {
-  return impl_->quarantine({command.root_token, command.artifact_token, command.namespace_name,
-                            command.artifact_name, command.nonce});
+  return impl_->quarantine(command);
 }
 
 ResponseFields WindowsBackend::delete_file(const DeleteFileCommand& command) {
-  return impl_->delete_file({command.directory_token, command.file_name, command.identity});
+  return impl_->delete_file(command);
 }
 
 ResponseFields WindowsBackend::delete_staging_file(const DeleteStagingFileCommand& command) {
-  return impl_->delete_staging_file({command.directory_token, command.file_name, command.identity});
+  return impl_->delete_staging_file(command);
 }
 
 ResponseFields WindowsBackend::remove_quarantine(const RemoveQuarantineCommand& command) {
-  return impl_->remove_quarantine({command.root_token, command.directory_token});
+  return impl_->remove_quarantine(command);
 }
 
 ResponseFields WindowsBackend::remove_staging(const RemoveStagingCommand& command) {
-  return impl_->remove_staging({command.root_token, command.directory_token});
+  return impl_->remove_staging(command);
 }
 
 ResponseFields WindowsBackend::revalidate(const RevalidateCommand& command) {
-  return impl_->revalidate({command.token, command.identity});
+  return impl_->revalidate(command);
 }
 
 ResponseFields WindowsBackend::release(const ReleaseCommand& command) {
-  return impl_->release({command.token});
+  return impl_->release(command);
 }
 
 } // namespace local_whisper::fs_guard

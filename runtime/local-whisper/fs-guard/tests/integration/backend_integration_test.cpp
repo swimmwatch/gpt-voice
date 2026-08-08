@@ -135,13 +135,13 @@ void complete_managed_artifact_lifecycle(Backend& backend, const std::filesystem
   const auto root = backend.initialize({platform_name(), root_path.string()});
   const auto identity = backend.process_identity({process_id()});
   const LockCommand lock_command{root[0],     kArtifactName, kNonce,       process_id(),
-                                 identity[0], "download",    kArtifactName};
+                                 identity[0], "staging",     kArtifactName};
   const auto lock = backend.lock(lock_command);
   EXPECT_TRUE(backend.release({lock[0]}).empty());
 
   const auto staging = backend.create_staging({root[0], "model", kArtifactName, kNonce});
   const auto file = backend.create_file({staging[0], "file-model", "384"});
-  EXPECT_TRUE(backend.write_file({file[0], base64url_encode("failure-injection")}).empty());
+  EXPECT_TRUE(backend.write_file({file[0], "failure-injection"}).empty());
   const auto sealed = backend.seal_file({file[0]});
   EXPECT_TRUE(backend.release({file[0]}).empty());
   EXPECT_FALSE(backend.list({staging[0], {"file-model|384"}}).empty());
@@ -219,7 +219,7 @@ TEST(RealBackendIntegrationTest, CompletesTheManagedArtifactLifecycle) {
   ASSERT_EQ(staging.size(), 2U);
   const auto file = backend->create_file({staging[0], "file-model", "384"});
   ASSERT_EQ(file.size(), 2U);
-  EXPECT_TRUE(backend->write_file({file[0], base64url_encode("hello")}).empty());
+  EXPECT_TRUE(backend->write_file({file[0], "hello"}).empty());
   const auto sealed = backend->seal_file({file[0]});
   ASSERT_EQ(sealed.size(), 1U);
   EXPECT_TRUE(backend->release({file[0]}).empty());
@@ -252,7 +252,7 @@ TEST(RealBackendIntegrationTest, EnforcesLockConflictAndRelease) {
   ASSERT_EQ(identity.size(), 1U);
 
   const LockCommand lock_command{root[0],     kArtifactName, kNonce,       process_id(),
-                                 identity[0], "download",    kArtifactName};
+                                 identity[0], "staging",     kArtifactName};
   const auto first = backend->lock(lock_command);
   ASSERT_EQ(first.size(), 2U);
   EXPECT_THROW(static_cast<void>(backend->lock(lock_command)), GuardError);
@@ -275,7 +275,7 @@ TEST(RealBackendIntegrationTest, ReclaimsTransientResourcesAfterSuccessAndTypedF
       EXPECT_THROW(static_cast<void>(backend->create_staging({root[0], "model", artifact, kNonce})),
                    GuardError);
       const auto file = backend->create_file({staging[0], "file-model", "384"});
-      EXPECT_TRUE(backend->write_file({file[0], base64url_encode("resource-check")}).empty());
+      EXPECT_TRUE(backend->write_file({file[0], "resource-check"}).empty());
       EXPECT_TRUE(backend->seal_file({file[0]}).size() == 1U);
       EXPECT_TRUE(backend->release({file[0]}).empty());
       EXPECT_TRUE(backend->release({staging[0]}).empty());
@@ -339,6 +339,32 @@ TEST(RealBackendIntegrationTest, EnforcesAndReusesTheSharedLiveLeaseBudget) {
   EXPECT_TRUE(backend->release({root[0]}).empty());
 }
 
+TEST(RealBackendIntegrationTest, RequiresAnExactTypedListExpectation) {
+  TemporaryManagedRoot root_path;
+  auto backend = make_backend();
+  const auto root = backend->initialize({platform_name(), root_path.path().string()});
+  const auto staging = backend->create_staging({root[0], "model", kArtifactName, kNonce});
+  const auto file = backend->create_file({staging[0], "file-model", "384"});
+  EXPECT_TRUE(backend->write_file({file[0], "exact-list"}).empty());
+  EXPECT_TRUE(backend->seal_file({file[0]}).size() == 1U);
+  EXPECT_TRUE(backend->release({file[0]}).empty());
+
+  const std::vector<ExpectedEntry> exact = {{"file-model", FileMode{384U}}};
+  EXPECT_NO_THROW(static_cast<void>(backend->list({staging[0], exact})));
+  EXPECT_THROW(
+      static_cast<void>(backend->list({staging[0], {{"managed-manifest-v1", FileMode{384U}}}})),
+      GuardError);
+  EXPECT_THROW(
+      static_cast<void>(backend->list(
+          {staging[0], {{"file-model", FileMode{384U}}, {"managed-manifest-v1", FileMode{384U}}}})),
+      GuardError);
+  EXPECT_THROW(static_cast<void>(backend->list({staging[0], {{"file-model", FileMode{0U}}}})),
+               GuardError);
+
+  EXPECT_TRUE(backend->release({staging[0]}).empty());
+  EXPECT_TRUE(backend->release({root[0]}).empty());
+}
+
 TEST(RealBackendIntegrationTest, GuardApplicationUsesTheRealBackendThroughStreams) {
   TemporaryManagedRoot root_path;
   auto backend = make_backend();
@@ -360,7 +386,7 @@ TEST(RealBackendIntegrationTest, RejectsHardLinksCaseAliasesAndJunctions) {
 
   const auto staging = backend->create_staging({root[0], "model", kArtifactName, kNonce});
   const auto file = backend->create_file({staging[0], "file-model", "384"});
-  EXPECT_TRUE(backend->write_file({file[0], base64url_encode("hello")}).empty());
+  EXPECT_TRUE(backend->write_file({file[0], "hello"}).empty());
   EXPECT_TRUE(backend->seal_file({file[0]}).size() == 1U);
   EXPECT_TRUE(backend->release({file[0]}).empty());
   const auto staged_path =

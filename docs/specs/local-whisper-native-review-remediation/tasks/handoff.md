@@ -4,6 +4,7 @@
 
 - Packet 01 is contained in user-authored commit `0b4d7825`; that commit also contains unrelated renderer/test edits, which remain outside this workstream.
 - Packet 02 completed under `authorization.packet-02-execution` revision 1. The Linux and Windows backends now use RAII for transient descriptors, directory streams, handles, process tokens, security descriptors, and BCrypt hash resources. Instance-scoped constructor injection deterministically fails each resource-acquisition ordinal without production globals. A shared `kMaxLiveLeases` constant caps all retained lease kinds at 64 with `IO_FAILED` before lease-producing mutation.
+- Packet 03 completed under `authorization.packet-03-execution` revision 1. A bounded 262,144-byte reader fail-stops on the first over-limit byte without draining; the TypeScript transport bounds raw stdout before newline, rejects pending work once on guard death, and starts a fresh guard for the next request. Common parsing now owns closed platform/artifact/namespace/operation domains, checked process IDs and modes, decoded write bytes, and typed `LIST` entries. Linux and Windows backend `Impl` methods consume typed commands directly; supplied `LIST` expectations require exact name/mode equality, while the existing no-expectation discovery path remains available for partial-staging cleanup.
 - `WorkerApplication` now owns inference through `std::jthread` and a cancellation-before-join RAII guard. The control owner waits on a platform-neutral control/closed/completion contract, emits all terminal frames, preserves committed transcripts, and returns to warmed state after `cancelTooLate`.
 - POSIX uses an owned `eventfd` with `poll`; Windows uses an owned event handle with `WaitForMultipleObjects`. Both serializers use `nlohmann::json::error_handler_t::replace`.
 - Private protocol-v1 fixtures and runtime identity digest inputs now cover `cancelTooLate`; TypeScript supervisor/coordinator preserve a transcript when cancellation loses and return nonterminal `OPERATION_CONFLICT` for the cancel request.
@@ -15,6 +16,7 @@
 - Worker-vector generator and regenerated `tests/fixtures/local-whisper/protocol/v1/` fixture set, including `control/cancel-too-late.bin`.
 - Native runtime identity inputs in `scripts/local-whisper/whisper-cpp-build-core.mjs` and Windows MSVC worker-core CI wiring in `.github/workflows/pr-checks.yml`.
 - Filesystem-guard ownership, capacity, and cross-platform baseline tests in `runtime/local-whisper/fs-guard/`, including Linux `/proc/self/fd` and Windows `GetProcessHandleCount` coverage.
+- Filesystem-guard bounded reader, typed command/domain values, exact expected-list checks, and real-backend matrix in `runtime/local-whisper/fs-guard/`; native guard transport buffering/restart coverage in `src/main/localWhisper/filesystem/` and `tests/main/localWhisper/filesystem/`.
 
 ## Checks
 
@@ -25,6 +27,7 @@
 - Passed: `npm run test:local-whisper:coordinator`
 - Passed: `npm run format:check:local-whisper:worker-common`, `npm run lint:local-whisper:worker-common`, `npm run format:check`, `npm run lint`, `npm run typecheck`, and `npm run test:types`
 - Passed: `npm run format:check:local-whisper:fs-guard`, `npm run lint:local-whisper:fs-guard`, `npm run test:local-whisper:fs-guard:unit`, `npm run test:local-whisper:fs-guard:integration`, and `npm run test:local-whisper:fs-guard:native` (Linux Clang ASan/UBSan)
+- Passed: `npm run test:local-whisper:filesystem`, `npm run typecheck`, and `npm run test:types`
 
 ## Deferred Windows Evidence
 

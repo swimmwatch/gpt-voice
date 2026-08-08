@@ -1,10 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { createInterface, type Interface as ReadlineInterface } from 'node:readline';
 
 import { ManagedFilesystemAdapterError } from './ManagedFilesystemPlatformAdapter';
 
 const GUARD_PROTOCOL_VERSION = '1';
-const MAX_RESPONSE_LINE_BYTES = 256 * 1024;
+const MAX_GUARD_LINE_BYTES = 256 * 1024;
 
 export interface ManagedFilesystemGuardTransport {
   request(command: string, arguments_: readonly string[]): Promise<readonly string[]>;
@@ -38,8 +37,8 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
   private child: ChildProcessWithoutNullStreams | null = null;
   private disposed = false;
   private nextRequestId = 1;
+  private outputBytes = Buffer.alloc(0);
   private readonly pending = new Map<number, PendingRequest>();
-  private output: ReadlineInterface | null = null;
 
   public constructor(private readonly dependencies: NativeManagedFilesystemGuardTransportDependencies) {}
 
@@ -50,7 +49,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     const requestId = this.nextRequestId;
     this.nextRequestId += 1;
     const line = [String(requestId), GUARD_PROTOCOL_VERSION, command, ...arguments_.map(encodeField)].join('\t');
-    if (Buffer.byteLength(line, 'utf8') > MAX_RESPONSE_LINE_BYTES) {
+    if (Buffer.byteLength(line, 'utf8') > MAX_GUARD_LINE_BYTES) {
       throw new ManagedFilesystemAdapterError('INVALID_INPUT');
     }
     return await new Promise<readonly string[]>((resolve, reject) => {
@@ -68,8 +67,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     this.disposed = true;
     const child = this.child;
     this.child = null;
-    this.output?.close();
-    this.output = null;
+    this.outputBytes = Buffer.alloc(0);
     this.rejectAll();
     if (!child) return;
     await new Promise<void>((resolve) => {
@@ -91,23 +89,39 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     });
     this.child = child;
     child.stderr.resume();
-    this.output = createInterface({ input: child.stdout, crlfDelay: Number.POSITIVE_INFINITY });
-    this.output.on('line', (line) => this.handleLine(line));
-    child.once('error', () => this.failProcess());
-    child.once('exit', () => this.failProcess());
+    child.stdout.on('data', (chunk: Buffer) => this.handleOutput(child, chunk));
+    child.once('error', () => this.failProcess(child));
+    child.once('exit', () => this.failProcess(child));
     return child;
   }
 
-  private handleLine(line: string): void {
-    if (Buffer.byteLength(line, 'utf8') > MAX_RESPONSE_LINE_BYTES) {
-      this.failProcess();
-      return;
+  private handleOutput(child: ChildProcessWithoutNullStreams, chunk: Buffer): void {
+    if (this.child !== child) return;
+    let offset = 0;
+    while (offset < chunk.length) {
+      const newline = chunk.indexOf(0x0a, offset);
+      const payloadEnd = newline === -1 ? chunk.length : newline;
+      if (this.outputBytes.length + payloadEnd - offset > MAX_GUARD_LINE_BYTES) {
+        this.failProcess(child);
+        return;
+      }
+      if (payloadEnd > offset) {
+        this.outputBytes = Buffer.concat([this.outputBytes, chunk.subarray(offset, payloadEnd)]);
+      }
+      if (newline === -1) return;
+      this.handleLine(child, this.outputBytes.toString('utf8'));
+      if (this.child !== child) return;
+      this.outputBytes = Buffer.alloc(0);
+      offset = newline + 1;
     }
+  }
+
+  private handleLine(child: ChildProcessWithoutNullStreams, line: string): void {
     const fields = line.split('\t');
     const requestId = Number(fields[0]);
     const pending = this.pending.get(requestId);
     if (!pending || fields[1] !== GUARD_PROTOCOL_VERSION || (fields[2] !== 'OK' && fields[2] !== 'ERR')) {
-      this.failProcess();
+      this.failProcess(child);
       return;
     }
     this.pending.delete(requestId);
@@ -137,10 +151,11 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     );
   }
 
-  private failProcess(): void {
+  private failProcess(child: ChildProcessWithoutNullStreams): void {
+    if (this.child !== child) return;
     this.child = null;
-    this.output?.close();
-    this.output = null;
+    this.outputBytes = Buffer.alloc(0);
+    if (child.exitCode === null && !child.killed) child.kill();
     this.rejectAll();
   }
 

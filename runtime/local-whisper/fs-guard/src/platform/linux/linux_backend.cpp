@@ -485,18 +485,8 @@ public:
     }
   }
 
-  std::string acquire_lock(Lease& root, const std::vector<std::string>& arguments) {
-    if (arguments.size() != 7 || !is_artifact_name(arguments[1]) ||
-        !is_safe_token(arguments[2], 16, 128) || !is_safe_token(arguments[4], 1, 128) ||
-        !is_safe_token(arguments[5], 1, 32) || !is_safe_token(arguments[6], 1, 128)) {
-      throw GuardError("INVALID_INPUT");
-    }
-    char* end = nullptr;
-    const long pid_value = std::strtol(arguments[3].c_str(), &end, 10);
-    if (end == arguments[3].c_str() || *end != '\0' || pid_value <= 0) {
-      throw GuardError("INVALID_INPUT");
-    }
-    const std::string name = "lock-" + arguments[1];
+  std::string acquire_lock(Lease& root, const LockCommand& command) {
+    const std::string name = "lock-" + command.artifact_name;
     UniqueFd locks_fd(open_namespace(root, "locks"));
     UniqueFd rollback_parent(duplicate_fd(locks_fd.get()));
     if (!rollback_parent.valid())
@@ -509,8 +499,10 @@ public:
           if (fchmod(created.get(), 0600) != 0)
             throw GuardError("IO_FAILED");
           checked_stat(created.get(), root.root_device, false, true);
-          const std::string metadata = arguments[2] + "\n" + arguments[3] + "\n" + arguments[4] +
-                                       "\n" + arguments[5] + "\n" + arguments[6] + "\n";
+          const std::string metadata = command.instance_nonce + "\n" + command.process_id.text() +
+                                       "\n" + command.process_identity + "\n" +
+                                       std::string(command.operation.text()) + "\n" +
+                                       command.artifact_id + "\n";
           write_all(created.get(), metadata);
           if (fsync(created.get()) != 0)
             throw GuardError("IO_FAILED");
@@ -556,9 +548,11 @@ public:
     throw GuardError("CONFLICT");
   }
 
-  std::vector<std::string> list_directory(Lease& lease) {
+  std::vector<std::string>
+  list_directory(Lease& lease, const std::map<std::string, unsigned int>& expected_modes) {
     if (lease.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
+    const bool require_exact_expectations = !expected_modes.empty();
     UniqueFd duplicate(duplicate_fd(lease.fd.get()));
     if (!duplicate.valid())
       throw GuardError("IO_FAILED");
@@ -567,6 +561,7 @@ public:
       throw GuardError("IO_FAILED");
     }
     rewinddir(directory.get());
+    std::map<std::string, unsigned int> remaining(expected_modes);
     std::vector<std::string> result;
     while (true) {
       errno = 0;
@@ -580,7 +575,8 @@ public:
       const std::string name = entry->d_name;
       if (name == "." || name == "..")
         continue;
-      if (!is_file_name(name)) {
+      const auto expected = remaining.find(name);
+      if (!is_file_name(name) || (require_exact_expectations && expected == remaining.end())) {
         throw GuardError("UNSAFE_ENTRY");
       }
       UniqueFd fd(openat2_relative(lease.fd.get(), name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0,
@@ -588,10 +584,17 @@ public:
       if (!fd.valid()) {
         throw GuardError("UNSAFE_ENTRY");
       }
-      checked_stat(fd.get(), lease.root_device, false, true);
+      const struct stat metadata = checked_stat(fd.get(), lease.root_device, false, true);
+      if (require_exact_expectations) {
+        if (static_cast<unsigned int>(metadata.st_mode & 0777U) != expected->second)
+          throw GuardError("UNSAFE_ENTRY");
+        remaining.erase(expected);
+      }
       result.push_back(name + "~" + identity_string(fd.get(), lease.fd.get()) + "~" +
                        hash_file(fd.get()));
     }
+    if (require_exact_expectations && !remaining.empty())
+      throw GuardError("UNSAFE_ENTRY");
     return result;
   }
 
@@ -635,46 +638,35 @@ public:
     return result;
   }
 
-  ResponseFields process_identity(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 1)
-      throw GuardError("INVALID_INPUT");
-    char* end = nullptr;
-    const long pid = std::strtol(arguments[0].c_str(), &end, 10);
-    if (end == arguments[0].c_str() || *end != '\0' || pid <= 0) {
-      throw GuardError("INVALID_INPUT");
-    }
-    const auto identity = process_start_identity(static_cast<pid_t>(pid));
+  ResponseFields process_identity(const ProcessIdentityCommand& command) {
+    const auto identity = process_start_identity(static_cast<pid_t>(command.process_id.value()));
     if (!identity.has_value() || identity->empty())
       throw GuardError("UNSAFE_ENTRY");
     return {*identity};
   }
 
-  ResponseFields initialize(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2 || arguments[0] != "linux")
+  ResponseFields initialize(const InitCommand& command) {
+    if (command.platform.value() != Platform::Value::kLinux)
       throw GuardError("UNSUPPORTED");
     require_lease_capacity();
-    Lease root = initialize_root(arguments[1]);
+    Lease root = initialize_root(command.root_path);
     const std::string identity = identity_string(root.fd, root.parent_fd);
     const std::string token = add_lease(std::move(root));
     return {token, identity};
   }
 
-  ResponseFields lock(const std::vector<std::string>& arguments) {
-    Lease& root = require_root(arguments[0]);
+  ResponseFields lock(const LockCommand& command) {
+    Lease& root = require_root(command.root_token);
     require_lease_capacity();
-    const std::string token = acquire_lock(root, arguments);
+    const std::string token = acquire_lock(root, command);
     Lease& lock = require_lease(token);
     return {token, identity_string(lock.fd, lock.parent_fd)};
   }
 
-  ResponseFields create_staging(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 4 || (arguments[1] != "model" && arguments[1] != "runtime") ||
-        !is_artifact_name(arguments[2]) || !is_safe_token(arguments[3], 16, 128)) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
+  ResponseFields create_staging(const CreateStagingCommand& command) {
+    Lease& root = require_root(command.root_token);
     require_lease_capacity();
-    const std::string name = "stage-" + arguments[2] + "-" + arguments[3];
+    const std::string name = "stage-" + command.artifact_name + "-" + command.nonce;
     UniqueFd parent(open_namespace(root, "staging"));
     if (mkdirat(parent.get(), name.c_str(), 0700) != 0) {
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
@@ -708,33 +700,29 @@ public:
     }
   }
 
-  ResponseFields create_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || !is_file_name(arguments[1]))
-      throw GuardError("INVALID_INPUT");
-    Lease& directory = require_lease(arguments[0]);
+  ResponseFields create_file(const CreateFileCommand& command) {
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
     require_lease_capacity();
-    char* end = nullptr;
-    const long mode_value = std::strtol(arguments[2].c_str(), &end, 10);
-    if (end == arguments[2].c_str() || *end != '\0' || mode_value < 0 || mode_value > 0777 ||
-        (mode_value & kPrivateFileModeMask) != 0) {
+    const unsigned int mode_value = command.mode.value();
+    if ((mode_value & kPrivateFileModeMask) != 0U) {
       throw GuardError("INVALID_INPUT");
     }
-    UniqueFd fd(open_at(directory.fd.get(), arguments[1],
+    UniqueFd fd(open_at(directory.fd.get(), command.file_name,
                         O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
                         static_cast<mode_t>(mode_value)));
     if (!fd.valid())
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     bool remove_file = true;
     if (fchmod(fd.get(), static_cast<mode_t>(mode_value)) != 0) {
-      unlinkat(directory.fd.get(), arguments[1].c_str(), 0);
+      unlinkat(directory.fd.get(), command.file_name.c_str(), 0);
       throw GuardError("IO_FAILED");
     }
     checked_stat(fd.get(), directory.root_device, false, true);
     UniqueFd parent(duplicate_fd(directory.fd.get()));
     if (!parent.valid()) {
-      unlinkat(directory.fd.get(), arguments[1].c_str(), 0);
+      unlinkat(directory.fd.get(), command.file_name.c_str(), 0);
       throw GuardError("IO_FAILED");
     }
     try {
@@ -742,7 +730,7 @@ public:
       const std::string token = add_lease(Lease{std::move(fd),
                                                 std::move(parent),
                                                 LeaseKind::kFile,
-                                                arguments[1],
+                                                command.file_name,
                                                 directory.root_device,
                                                 false,
                                                 {}});
@@ -750,59 +738,44 @@ public:
       return {token, identity};
     } catch (...) {
       if (remove_file)
-        unlinkat(directory.fd.get(), arguments[1].c_str(), 0);
+        unlinkat(directory.fd.get(), command.file_name.c_str(), 0);
       throw;
     }
   }
 
-  ResponseFields write_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& file = require_lease(arguments[0]);
+  ResponseFields write_file(const WriteFileCommand& command) {
+    Lease& file = require_lease(command.file_token);
     if (file.kind != LeaseKind::kFile)
       throw GuardError("INVALID_INPUT");
-    const std::string bytes = base64url_decode(arguments[1]);
-    write_all(file.fd, bytes);
+    write_all(file.fd, command.bytes);
     return {};
   }
 
-  ResponseFields seal_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 1)
-      throw GuardError("INVALID_INPUT");
-    Lease& file = require_lease(arguments[0]);
+  ResponseFields seal_file(const SealFileCommand& command) {
+    Lease& file = require_lease(command.file_token);
     if (file.kind != LeaseKind::kFile || fsync(file.fd) != 0)
       throw GuardError("IO_FAILED");
     checked_stat(file.fd, file.root_device, false, true);
     return {identity_string(file.fd, file.parent_fd)};
   }
 
-  ResponseFields list(const std::vector<std::string>& arguments) {
-    if (arguments.empty())
-      throw GuardError("INVALID_INPUT");
-    for (std::size_t index = 1; index < arguments.size(); ++index) {
-      const auto expected = split(arguments[index], '|');
-      if (expected.size() != 2 || !is_file_name(expected[0])) {
-        throw GuardError("INVALID_INPUT");
-      }
+  ResponseFields list(const ListCommand& command) {
+    std::map<std::string, unsigned int> expected_modes;
+    for (const ExpectedEntry& expected : command.expected_entries) {
+      expected_modes.emplace(expected.name, expected.mode.value());
     }
-    return list_directory(require_lease(arguments[0]));
+    return list_directory(require_lease(command.directory_token), expected_modes);
   }
 
-  ResponseFields list_namespace_command(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2 || (arguments[1] != "models" && arguments[1] != "runtimes")) {
-      throw GuardError("INVALID_INPUT");
-    }
-    return list_namespace(require_root(arguments[0]), arguments[1]);
+  ResponseFields list_namespace_command(const ListNamespaceCommand& command) {
+    return list_namespace(require_root(command.root_token),
+                          std::string(command.namespace_name.text()));
   }
 
-  ResponseFields open_artifact(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || (arguments[1] != "models" && arguments[1] != "runtimes") ||
-        !is_artifact_name(arguments[2])) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    UniqueFd parent(open_namespace(root, arguments[1]));
-    UniqueFd fd(open_managed_directory(parent.get(), arguments[2], root.root_device));
+  ResponseFields open_artifact(const OpenArtifactCommand& command) {
+    Lease& root = require_root(command.root_token);
+    UniqueFd parent(open_namespace(root, std::string(command.namespace_name.text())));
+    UniqueFd fd(open_managed_directory(parent.get(), command.artifact_name, root.root_device));
     if (!fd.valid() && errno == ENOENT) {
       return {"MISSING"};
     }
@@ -814,20 +787,16 @@ public:
     const std::string token = add_lease(Lease{std::move(fd),
                                               std::move(parent),
                                               LeaseKind::kDirectory,
-                                              arguments[2],
+                                              command.artifact_name,
                                               root.root_device,
                                               false,
                                               {}});
     return {token, identity};
   }
 
-  ResponseFields promote(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 4 || (arguments[2] != "models" && arguments[2] != "runtimes") ||
-        !is_artifact_name(arguments[3])) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    Lease& staging = require_lease(arguments[1]);
+  ResponseFields promote(const PromoteCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& staging = require_lease(command.staging_token);
     if (staging.kind != LeaseKind::kDirectory || staging.root_device != root.root_device ||
         staging.name.rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
@@ -840,39 +809,36 @@ public:
         held.st_dev != named.st_dev || held.st_ino != named.st_ino) {
       throw GuardError("IDENTITY_CHANGED");
     }
-    UniqueFd final_parent(open_namespace(root, arguments[2]));
+    UniqueFd final_parent(open_namespace(root, std::string(command.namespace_name.text())));
     if (syscall(SYS_renameat2, staging.parent_fd.get(), staging.name.c_str(), final_parent.get(),
-                arguments[3].c_str(), RENAME_NOREPLACE) != 0) {
+                command.artifact_name.c_str(), RENAME_NOREPLACE) != 0) {
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     }
     const std::string result = identity_string(staging.fd.get(), final_parent.get());
     return {result};
   }
 
-  ResponseFields quarantine(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 5 || (arguments[2] != "models" && arguments[2] != "runtimes") ||
-        !is_artifact_name(arguments[3]) || !is_safe_token(arguments[4], 16, 128)) {
-      throw GuardError("INVALID_INPUT");
-    }
-    Lease& root = require_root(arguments[0]);
-    Lease& artifact = require_lease(arguments[1]);
-    if (artifact.kind != LeaseKind::kDirectory || artifact.name != arguments[3] ||
+  ResponseFields quarantine(const QuarantineCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& artifact = require_lease(command.artifact_token);
+    if (artifact.kind != LeaseKind::kDirectory || artifact.name != command.artifact_name ||
         artifact.root_device != root.root_device) {
       throw GuardError("IDENTITY_CHANGED");
     }
     require_lease_capacity();
-    UniqueFd source_parent(open_namespace(root, arguments[2]));
+    UniqueFd source_parent(open_namespace(root, std::string(command.namespace_name.text())));
     struct stat named {};
     struct stat held {};
     if (fstat(artifact.fd, &held) != 0 ||
-        fstatat(source_parent.get(), arguments[3].c_str(), &named, AT_SYMLINK_NOFOLLOW) != 0 ||
+        fstatat(source_parent.get(), command.artifact_name.c_str(), &named, AT_SYMLINK_NOFOLLOW) !=
+            0 ||
         held.st_dev != named.st_dev || held.st_ino != named.st_ino) {
       throw GuardError("IDENTITY_CHANGED");
     }
     UniqueFd quarantine_parent(open_namespace(root, "quarantine"));
-    const std::string quarantine_name = "quarantine-" + arguments[3] + "-" + arguments[4];
-    if (syscall(SYS_renameat2, source_parent.get(), arguments[3].c_str(), quarantine_parent.get(),
-                quarantine_name.c_str(), RENAME_NOREPLACE) != 0) {
+    const std::string quarantine_name = "quarantine-" + command.artifact_name + "-" + command.nonce;
+    if (syscall(SYS_renameat2, source_parent.get(), command.artifact_name.c_str(),
+                quarantine_parent.get(), quarantine_name.c_str(), RENAME_NOREPLACE) != 0) {
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     }
     UniqueFd duplicate(duplicate_fd(artifact.fd.get()));
@@ -890,56 +856,50 @@ public:
     return {token, identity};
   }
 
-  ResponseFields delete_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || !is_file_name(arguments[1]))
-      throw GuardError("INVALID_INPUT");
-    Lease& directory = require_lease(arguments[0]);
+  ResponseFields delete_file(const DeleteFileCommand& command) {
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("quarantine-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    UniqueFd fd(openat2_relative(directory.fd.get(), arguments[1],
+    UniqueFd fd(openat2_relative(directory.fd.get(), command.file_name,
                                  O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged));
     if (!fd.valid())
       throw GuardError("IDENTITY_CHANGED");
     checked_stat(fd.get(), directory.root_device, false, true);
     const std::string current = identity_string(fd.get(), directory.fd.get());
-    if (current != arguments[2])
+    if (current != command.identity)
       throw GuardError("IDENTITY_CHANGED");
-    if (unlinkat(directory.fd, arguments[1].c_str(), 0) != 0)
+    if (unlinkat(directory.fd, command.file_name.c_str(), 0) != 0)
       throw GuardError("IO_FAILED");
     return {};
   }
 
-  ResponseFields delete_staging_file(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 3 || !is_file_name(arguments[1]))
-      throw GuardError("INVALID_INPUT");
-    Lease& directory = require_lease(arguments[0]);
+  ResponseFields delete_staging_file(const DeleteStagingFileCommand& command) {
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("stage-", 0) != 0) {
       throw GuardError("INVALID_INPUT");
     }
-    UniqueFd fd(openat2_relative(directory.fd.get(), arguments[1],
+    UniqueFd fd(openat2_relative(directory.fd.get(), command.file_name,
                                  O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0, kResolveManaged));
     if (!fd.valid())
       throw GuardError("IDENTITY_CHANGED");
     checked_stat(fd.get(), directory.root_device, false, true);
     const std::string current = identity_string(fd.get(), directory.fd.get());
-    if (current != arguments[2])
+    if (current != command.identity)
       throw GuardError("IDENTITY_CHANGED");
-    if (unlinkat(directory.fd, arguments[1].c_str(), 0) != 0)
+    if (unlinkat(directory.fd, command.file_name.c_str(), 0) != 0)
       throw GuardError("IO_FAILED");
     return {};
   }
 
-  ResponseFields remove_quarantine(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& root = require_root(arguments[0]);
-    Lease& directory = require_lease(arguments[1]);
+  ResponseFields remove_quarantine(const RemoveQuarantineCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("quarantine-", 0) != 0 ||
         directory.root_device != root.root_device) {
       throw GuardError("INVALID_INPUT");
     }
-    if (!list_directory(directory).empty())
+    if (!list_directory(directory, {}).empty())
       throw GuardError("UNSAFE_ENTRY");
     struct stat held {};
     struct stat named {};
@@ -952,16 +912,14 @@ public:
     return {};
   }
 
-  ResponseFields remove_staging(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& root = require_root(arguments[0]);
-    Lease& directory = require_lease(arguments[1]);
+  ResponseFields remove_staging(const RemoveStagingCommand& command) {
+    Lease& root = require_root(command.root_token);
+    Lease& directory = require_lease(command.directory_token);
     if (directory.kind != LeaseKind::kDirectory || directory.name.rfind("stage-", 0) != 0 ||
         directory.root_device != root.root_device) {
       throw GuardError("INVALID_INPUT");
     }
-    if (!list_directory(directory).empty())
+    if (!list_directory(directory, {}).empty())
       throw GuardError("UNSAFE_ENTRY");
     struct stat held {};
     struct stat named {};
@@ -974,11 +932,9 @@ public:
     return {};
   }
 
-  ResponseFields revalidate(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 2)
-      throw GuardError("INVALID_INPUT");
-    Lease& lease = require_lease(arguments[0]);
-    const auto expected = split(arguments[1], '|');
+  ResponseFields revalidate(const RevalidateCommand& command) {
+    Lease& lease = require_lease(command.token);
+    const auto expected = split(command.identity, '|');
     const auto current = split(identity_string(lease.fd, lease.parent_fd), '|');
     if (expected.size() != 7 || current.size() != 7)
       throw GuardError("INVALID_INPUT");
@@ -1001,10 +957,8 @@ public:
     return {};
   }
 
-  ResponseFields release(const std::vector<std::string>& arguments) {
-    if (arguments.size() != 1)
-      throw GuardError("INVALID_INPUT");
-    const auto found = leases.find(arguments[0]);
+  ResponseFields release(const ReleaseCommand& command) {
+    const auto found = leases.find(command.token);
     if (found == leases.end())
       return {};
     close_lease(found->second);
@@ -1024,83 +978,71 @@ LinuxBackend::LinuxBackend(LinuxBackend&&) noexcept = default;
 LinuxBackend& LinuxBackend::operator=(LinuxBackend&&) noexcept = default;
 
 ResponseFields LinuxBackend::process_identity(const ProcessIdentityCommand& command) {
-  return impl_->process_identity({command.process_id});
+  return impl_->process_identity(command);
 }
 
 ResponseFields LinuxBackend::initialize(const InitCommand& command) {
-  return impl_->initialize({command.platform, command.root_path});
+  return impl_->initialize(command);
 }
 
-ResponseFields LinuxBackend::lock(const LockCommand& command) {
-  return impl_->lock({command.root_token, command.artifact_name, command.instance_nonce,
-                      command.process_id, command.process_identity, command.operation,
-                      command.artifact_id});
-}
+ResponseFields LinuxBackend::lock(const LockCommand& command) { return impl_->lock(command); }
 
 ResponseFields LinuxBackend::create_staging(const CreateStagingCommand& command) {
-  return impl_->create_staging(
-      {command.root_token, command.artifact_kind, command.artifact_name, command.nonce});
+  return impl_->create_staging(command);
 }
 
 ResponseFields LinuxBackend::create_file(const CreateFileCommand& command) {
-  return impl_->create_file({command.directory_token, command.file_name, command.mode});
+  return impl_->create_file(command);
 }
 
 ResponseFields LinuxBackend::write_file(const WriteFileCommand& command) {
-  return impl_->write_file({command.file_token, command.encoded_bytes});
+  return impl_->write_file(command);
 }
 
 ResponseFields LinuxBackend::seal_file(const SealFileCommand& command) {
-  return impl_->seal_file({command.file_token});
+  return impl_->seal_file(command);
 }
 
-ResponseFields LinuxBackend::list(const ListCommand& command) {
-  std::vector<std::string> arguments{command.directory_token};
-  arguments.insert(arguments.end(), command.expected_entries.begin(),
-                   command.expected_entries.end());
-  return impl_->list(arguments);
-}
+ResponseFields LinuxBackend::list(const ListCommand& command) { return impl_->list(command); }
 
 ResponseFields LinuxBackend::list_namespace(const ListNamespaceCommand& command) {
-  return impl_->list_namespace_command({command.root_token, command.namespace_name});
+  return impl_->list_namespace_command(command);
 }
 
 ResponseFields LinuxBackend::open_artifact(const OpenArtifactCommand& command) {
-  return impl_->open_artifact({command.root_token, command.namespace_name, command.artifact_name});
+  return impl_->open_artifact(command);
 }
 
 ResponseFields LinuxBackend::promote(const PromoteCommand& command) {
-  return impl_->promote(
-      {command.root_token, command.staging_token, command.namespace_name, command.artifact_name});
+  return impl_->promote(command);
 }
 
 ResponseFields LinuxBackend::quarantine(const QuarantineCommand& command) {
-  return impl_->quarantine({command.root_token, command.artifact_token, command.namespace_name,
-                            command.artifact_name, command.nonce});
+  return impl_->quarantine(command);
 }
 
 ResponseFields LinuxBackend::delete_file(const DeleteFileCommand& command) {
-  return impl_->delete_file({command.directory_token, command.file_name, command.identity});
+  return impl_->delete_file(command);
 }
 
 ResponseFields LinuxBackend::delete_staging_file(const DeleteStagingFileCommand& command) {
-  return impl_->delete_staging_file({command.directory_token, command.file_name, command.identity});
+  return impl_->delete_staging_file(command);
 }
 
 ResponseFields LinuxBackend::remove_quarantine(const RemoveQuarantineCommand& command) {
-  return impl_->remove_quarantine({command.root_token, command.directory_token});
+  return impl_->remove_quarantine(command);
 }
 
 ResponseFields LinuxBackend::remove_staging(const RemoveStagingCommand& command) {
-  return impl_->remove_staging({command.root_token, command.directory_token});
+  return impl_->remove_staging(command);
 }
 
 ResponseFields LinuxBackend::revalidate(const RevalidateCommand& command) {
-  return impl_->revalidate({command.token, command.identity});
+  return impl_->revalidate(command);
 }
 
 ResponseFields LinuxBackend::release(const ReleaseCommand& command) {
-  return impl_->release({command.token});
+  return impl_->release(command);
 }
 
 } // namespace local_whisper::fs_guard

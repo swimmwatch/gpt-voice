@@ -1,6 +1,7 @@
 #include "local_whisper/fs_guard/guard_application.hpp"
 
 #include "local_whisper/fs_guard/backend.hpp"
+#include "local_whisper/fs_guard/bounded_line_reader.hpp"
 #include "local_whisper/fs_guard/error.hpp"
 #include "local_whisper/fs_guard/protocol.hpp"
 
@@ -60,14 +61,16 @@ ResponseFields dispatch_command(Backend& backend, const Command& command) {
 GuardApplication::GuardApplication(Backend& backend) noexcept : backend_(backend) {}
 
 int GuardApplication::run(std::istream& input, std::ostream& output) {
-  std::string line;
-  while (std::getline(input, line)) {
+  BoundedLineReader reader(kMaxLineBytes);
+  while (true) {
+    const LineReadResult line = reader.read(input);
+    if (line.status == LineReadStatus::kEnd)
+      return 0;
+    if (line.status == LineReadStatus::kOverflow)
+      return 1;
     std::string request_id = "0";
     try {
-      if (line.size() > kMaxLineBytes) {
-        throw GuardError(ErrorCode::kInvalidInput);
-      }
-      const Request request = parse_request(line, request_id);
+      const Request request = parse_request(line.payload, request_id);
       output << serialize_response(request.id, true, dispatch_command(backend_, request.command));
     } catch (const GuardError& error) {
       output << serialize_response(request_id, false, {std::string(error.code())});
@@ -76,7 +79,6 @@ int GuardApplication::run(std::istream& input, std::ostream& output) {
     }
     output.flush();
   }
-  return 0;
 }
 
 } // namespace local_whisper::fs_guard

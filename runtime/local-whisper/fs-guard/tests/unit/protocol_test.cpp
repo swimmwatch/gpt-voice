@@ -1,3 +1,4 @@
+#include "local_whisper/fs_guard/bounded_line_reader.hpp"
 #include "local_whisper/fs_guard/guard_application.hpp"
 #include "local_whisper/fs_guard/protocol.hpp"
 
@@ -59,8 +60,51 @@ TEST(GuardApplicationTest, RejectsLinesAboveTheFixedLimit) {
   std::istringstream input(std::string(kMaxLineBytes + 1, 'a') + "\n");
   std::ostringstream output;
 
-  EXPECT_EQ(application.run(input, output), 0);
-  EXPECT_EQ(output.str(), "0\t1\tERR\tSU5WQUxJRF9JTlBVVA\n");
+  EXPECT_NE(application.run(input, output), 0);
+  EXPECT_TRUE(output.str().empty());
+  EXPECT_TRUE(backend.last_call().empty());
+}
+
+TEST(GuardApplicationTest, RejectsNewlineFreeInputAboveTheFixedLimit) {
+  test::RecordingBackend backend;
+  GuardApplication application(backend);
+  std::istringstream input(std::string(kMaxLineBytes + 1, 'a'));
+  std::ostringstream output;
+
+  EXPECT_NE(application.run(input, output), 0);
+  EXPECT_TRUE(output.str().empty());
+  EXPECT_TRUE(backend.last_call().empty());
+}
+
+TEST(BoundedLineReaderTest, PreservesOnlyPayloadsAtOrBelowTheConfiguredLimit) {
+  const BoundedLineReader reader(kMaxLineBytes);
+  for (const std::size_t size : {kMaxLineBytes - 1, kMaxLineBytes}) {
+    std::istringstream input(std::string(size, 'x') + "\n");
+    const LineReadResult result = reader.read(input);
+    EXPECT_EQ(result.status, LineReadStatus::kLine);
+    EXPECT_EQ(result.payload.size(), size);
+  }
+}
+
+TEST(BoundedLineReaderTest, TreatsFinalBoundedEofLineAsARequest) {
+  const BoundedLineReader reader(kMaxLineBytes);
+  for (const std::size_t size : {kMaxLineBytes - 1, kMaxLineBytes}) {
+    std::istringstream input(std::string(size, 'x'));
+    const LineReadResult result = reader.read(input);
+    EXPECT_EQ(result.status, LineReadStatus::kLine);
+    EXPECT_EQ(result.payload.size(), size);
+  }
+}
+
+TEST(BoundedLineReaderTest, StopsAtTheFirstByteBeyondTheLimitWithoutDraining) {
+  const BoundedLineReader reader(kMaxLineBytes);
+  std::istringstream input(std::string(kMaxLineBytes + 1, 'x') + "still-unread\n");
+
+  const LineReadResult result = reader.read(input);
+
+  EXPECT_EQ(result.status, LineReadStatus::kOverflow);
+  EXPECT_EQ(result.payload.size(), kMaxLineBytes);
+  EXPECT_EQ(input.peek(), 's');
 }
 
 TEST(ErrorTest, NormalizesOnlyTheSafeNativeVocabulary) {

@@ -1,68 +1,176 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
 namespace local_whisper::fs_guard {
 
+class Platform final {
+public:
+  enum class Value { kLinux, kWindows };
+
+  Platform() noexcept = default;
+  Platform(Value value) noexcept;
+  Platform(const char* value);
+  Platform(const std::string& value);
+  Platform(std::string_view value);
+
+  [[nodiscard]] Value value() const noexcept;
+  [[nodiscard]] std::string_view text() const noexcept;
+
+private:
+  Value value_ = Value::kLinux;
+};
+
+class ArtifactKind final {
+public:
+  enum class Value { kModel, kRuntime };
+
+  ArtifactKind() noexcept = default;
+  ArtifactKind(Value value) noexcept;
+  ArtifactKind(const char* value);
+  ArtifactKind(const std::string& value);
+  ArtifactKind(std::string_view value);
+
+  [[nodiscard]] Value value() const noexcept;
+  [[nodiscard]] std::string_view text() const noexcept;
+
+private:
+  Value value_ = Value::kModel;
+};
+
+class ArtifactNamespace final {
+public:
+  enum class Value { kModels, kRuntimes };
+
+  ArtifactNamespace() noexcept = default;
+  ArtifactNamespace(Value value) noexcept;
+  ArtifactNamespace(const char* value);
+  ArtifactNamespace(const std::string& value);
+  ArtifactNamespace(std::string_view value);
+
+  [[nodiscard]] Value value() const noexcept;
+  [[nodiscard]] std::string_view text() const noexcept;
+
+private:
+  Value value_ = Value::kModels;
+};
+
+class LeaseOperation final {
+public:
+  enum class Value { kDelete, kIntegrity, kLoad, kPromote, kQuarantine, kStaging, kVerify };
+
+  LeaseOperation() noexcept = default;
+  LeaseOperation(Value value) noexcept;
+  LeaseOperation(const char* value);
+  LeaseOperation(const std::string& value);
+  LeaseOperation(std::string_view value);
+
+  [[nodiscard]] Value value() const noexcept;
+  [[nodiscard]] std::string_view text() const noexcept;
+
+private:
+  Value value_ = Value::kDelete;
+};
+
+class ProcessId final {
+public:
+  ProcessId() noexcept = default;
+  ProcessId(std::uint32_t value);
+  ProcessId(const char* value);
+  ProcessId(const std::string& value);
+  ProcessId(std::string_view value);
+
+  [[nodiscard]] std::uint32_t value() const noexcept;
+  [[nodiscard]] std::string text() const;
+
+private:
+  std::uint32_t value_ = 1U;
+};
+
+class FileMode final {
+public:
+  FileMode() noexcept = default;
+  FileMode(unsigned int value);
+  FileMode(const char* value);
+  FileMode(const std::string& value);
+  FileMode(std::string_view value);
+
+  [[nodiscard]] unsigned int value() const noexcept;
+
+private:
+  unsigned int value_ = 0U;
+};
+
+struct ExpectedEntry final {
+  std::string name;
+  FileMode mode;
+
+  ExpectedEntry(std::string name, FileMode mode);
+  ExpectedEntry(const char* encoded);
+  ExpectedEntry(const std::string& encoded);
+};
+
 struct ProcessIdentityCommand {
-  std::string process_id;
+  ProcessId process_id;
 };
 struct InitCommand {
-  std::string platform;
+  Platform platform;
   std::string root_path;
 };
 struct LockCommand {
   std::string root_token;
   std::string artifact_name;
   std::string instance_nonce;
-  std::string process_id;
+  ProcessId process_id;
   std::string process_identity;
-  std::string operation;
+  LeaseOperation operation;
   std::string artifact_id;
 };
 struct CreateStagingCommand {
   std::string root_token;
-  std::string artifact_kind;
+  ArtifactKind artifact_kind;
   std::string artifact_name;
   std::string nonce;
 };
 struct CreateFileCommand {
   std::string directory_token;
   std::string file_name;
-  std::string mode;
+  FileMode mode;
 };
 struct WriteFileCommand {
   std::string file_token;
-  std::string encoded_bytes;
+  std::string bytes;
 };
 struct SealFileCommand {
   std::string file_token;
 };
 struct ListCommand {
   std::string directory_token;
-  std::vector<std::string> expected_entries;
+  std::vector<ExpectedEntry> expected_entries;
 };
 struct ListNamespaceCommand {
   std::string root_token;
-  std::string namespace_name;
+  ArtifactNamespace namespace_name;
 };
 struct OpenArtifactCommand {
   std::string root_token;
-  std::string namespace_name;
+  ArtifactNamespace namespace_name;
   std::string artifact_name;
 };
 struct PromoteCommand {
   std::string root_token;
   std::string staging_token;
-  std::string namespace_name;
+  ArtifactNamespace namespace_name;
   std::string artifact_name;
 };
 struct QuarantineCommand {
   std::string root_token;
   std::string artifact_token;
-  std::string namespace_name;
+  ArtifactNamespace namespace_name;
   std::string artifact_name;
   std::string nonce;
 };
