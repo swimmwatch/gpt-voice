@@ -165,70 +165,82 @@ export class PublicModelTransportQualification {
     const spoolId = 'public-model-resume-v1';
     const firstController = new AbortController();
     const first = await transport.open(spec, null, firstController.signal);
-    if (!first.validator) throw new Error('Public model transport did not provide an immutable validator');
+    let firstValidator: string;
+    let partialSize: number;
     let cancelledAtBytes = 0;
-    await assertCancelled(
-      worker.process({
-        artifactId: spec.artifactId,
-        expectedFiles: spec.expectedFiles,
-        expectedTransferSha256: spec.expectedTransferSha256,
-        expectedTransferSizeBytes: spec.expectedTransferSizeBytes,
-        operationId: spoolId,
-        resume: null,
-        signal: firstController.signal,
-        stream: first.body,
-        transferProfile: spec.transferProfile,
-        onProgress: (receivedBytes) => {
-          cancelledAtBytes = receivedBytes;
-          if (receivedBytes >= CANCEL_AFTER_BYTES) firstController.abort();
-          return Promise.resolve();
-        },
-      }),
-    );
     const spoolPath = path.join(spoolRoot, `spool-${spoolId}.partial`);
-    const partial = await stat(spoolPath);
-    if (
-      partial.size !== cancelledAtBytes ||
-      partial.size < CANCEL_AFTER_BYTES ||
-      partial.size >= input.model.sizeBytes
-    ) {
-      throw new Error('Public model cancellation did not preserve an exact resumable prefix');
+    try {
+      if (!first.validator) throw new Error('Public model transport did not provide an immutable validator');
+      firstValidator = first.validator;
+      await assertCancelled(
+        worker.process({
+          artifactId: spec.artifactId,
+          expectedFiles: spec.expectedFiles,
+          expectedTransferSha256: spec.expectedTransferSha256,
+          expectedTransferSizeBytes: spec.expectedTransferSizeBytes,
+          operationId: spoolId,
+          resume: null,
+          signal: firstController.signal,
+          stream: first.body,
+          transferProfile: spec.transferProfile,
+          onProgress: (receivedBytes) => {
+            cancelledAtBytes = receivedBytes;
+            if (receivedBytes >= CANCEL_AFTER_BYTES) firstController.abort();
+            return Promise.resolve();
+          },
+        }),
+      );
+      const partial = await stat(spoolPath);
+      if (
+        partial.size !== cancelledAtBytes ||
+        partial.size < CANCEL_AFTER_BYTES ||
+        partial.size >= input.model.sizeBytes
+      ) {
+        throw new Error('Public model cancellation did not preserve an exact resumable prefix');
+      }
+      partialSize = partial.size;
+    } finally {
+      await first.dispose().catch(() => undefined);
     }
 
     const secondController = new AbortController();
     const resumed = await transport.open(
       spec,
-      { offset: partial.size, validator: first.validator },
+      { offset: partialSize, validator: firstValidator },
       secondController.signal,
     );
-    const result = await worker.process({
-      artifactId: spec.artifactId,
-      expectedFiles: spec.expectedFiles,
-      expectedTransferSha256: spec.expectedTransferSha256,
-      expectedTransferSizeBytes: spec.expectedTransferSizeBytes,
-      operationId: 'public-model-resume-complete-v1',
-      resume: { offset: partial.size, spoolId },
-      signal: secondController.signal,
-      stream: resumed.body,
-      transferProfile: spec.transferProfile,
-      onProgress: () => Promise.resolve(),
-    });
-    const entry = result.entries[0];
-    if (
-      result.receivedBytes !== input.model.sizeBytes ||
-      result.transferSha256 !== input.model.sha256 ||
-      result.entries.length !== 1 ||
-      !entry ||
-      (await hashQualificationArtifactEntry(entry)) !== input.model.sha256
-    ) {
-      throw new Error('Public model whole-object verification failed');
+    try {
+      const result = await worker.process({
+        artifactId: spec.artifactId,
+        expectedFiles: spec.expectedFiles,
+        expectedTransferSha256: spec.expectedTransferSha256,
+        expectedTransferSizeBytes: spec.expectedTransferSizeBytes,
+        operationId: 'public-model-resume-complete-v1',
+        resume: { offset: partialSize, spoolId },
+        signal: secondController.signal,
+        stream: resumed.body,
+        transferProfile: spec.transferProfile,
+        onProgress: () => Promise.resolve(),
+      });
+      const entry = result.entries[0];
+      if (
+        result.receivedBytes !== input.model.sizeBytes ||
+        result.transferSha256 !== input.model.sha256 ||
+        result.entries.length !== 1 ||
+        !entry ||
+        (await hashQualificationArtifactEntry(entry)) !== input.model.sha256
+      ) {
+        throw new Error('Public model whole-object verification failed');
+      }
+      await installVerifiedQualificationModel(
+        spoolPath,
+        path.join(input.modelCacheRoot, input.model.file),
+        input.model.sha256,
+      );
+      await worker.discard(spoolId);
+    } finally {
+      await resumed.dispose().catch(() => undefined);
     }
-    await installVerifiedQualificationModel(
-      spoolPath,
-      path.join(input.modelCacheRoot, input.model.file),
-      input.model.sha256,
-    );
-    await worker.discard(spoolId);
     const redirectHosts = [...new Set(client.hosts)];
     if (!redirectHosts.includes('huggingface.co') || !redirectHosts.includes('us.aws.cdn.hf.co')) {
       throw new Error('Public model transport did not exercise the signed redirect policy');
@@ -245,7 +257,7 @@ export class PublicModelTransportQualification {
       cancelledAtBytes,
       resumeObserved: true,
       rangeRequestCount: client.rangeRequestCount,
-      validatorSha256: createHash('sha256').update(first.validator, 'utf8').digest('hex'),
+      validatorSha256: createHash('sha256').update(firstValidator, 'utf8').digest('hex'),
       credentialsUsed: false,
       privateHeadersUsed: false,
     });

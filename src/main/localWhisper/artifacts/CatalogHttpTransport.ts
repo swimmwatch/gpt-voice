@@ -1,9 +1,6 @@
 import {
   ARTIFACT_CONNECTION_TIMEOUT_MS,
   ARTIFACT_HELPER_CANCELLATION_TIMEOUT_MS,
-  ARTIFACT_MAX_BUFFER_BYTES,
-  ARTIFACT_NO_PROGRESS_TIMEOUT_MS,
-  ARTIFACT_TOTAL_TRANSFER_TIMEOUT_MS,
   LocalWhisperArtifactLifecycleError,
   type ArtifactClock,
   type ArtifactHttpClient,
@@ -13,16 +10,29 @@ import {
   type LocalWhisperArtifactDownloadSpec,
 } from './ArtifactLifecycleTypes';
 import { ArtifactHttpClientError } from './ArtifactHttpClientError';
+import { OwnedArtifactTransportStream, withArtifactTimeout } from './OwnedArtifactTransport';
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const ENCODED_SEPARATOR_OR_DOT_PATTERN = /%(?:2e|2f|5c)/iu;
 const MULTIPART_PATTERN = /^multipart\//iu;
 
+function rawPath(value: string): string {
+  const authority = /^(?:[a-z][a-z\d+.-]*:)?\/\/[^/?#]*/iu.exec(value);
+  const valueAfterAuthority = value.slice(authority?.[0].length ?? 0);
+  return valueAfterAuthority.split(/[?#]/u, 1)[0];
+}
+
+function assertRawPathIsSafe(value: string): void {
+  if (value.includes('\\') || ENCODED_SEPARATOR_OR_DOT_PATTERN.test(rawPath(value))) {
+    throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+  }
+}
+
 function effectivePort(url: URL): number {
   return url.port === '' ? 443 : Number(url.port);
 }
 
-function hasSafePath(value: string, parsed: URL): boolean {
+function hasSafePath(parsed: URL): boolean {
   if (parsed.pathname.includes('\\') || ENCODED_SEPARATOR_OR_DOT_PATTERN.test(parsed.pathname)) return false;
   try {
     return parsed.pathname
@@ -34,22 +44,27 @@ function hasSafePath(value: string, parsed: URL): boolean {
   }
 }
 
+function assertSafeUrl(parsed: URL): void {
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
+    parsed.hash !== '' ||
+    !hasSafePath(parsed)
+  ) {
+    throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+  }
+}
+
 function parseSafeUrl(value: string): URL {
+  assertRawPathIsSafe(value);
   let parsed: URL;
   try {
     parsed = new URL(value);
   } catch {
     throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
   }
-  if (
-    parsed.protocol !== 'https:' ||
-    parsed.username !== '' ||
-    parsed.password !== '' ||
-    parsed.hash !== '' ||
-    !hasSafePath(value, parsed)
-  ) {
-    throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
-  }
+  assertSafeUrl(parsed);
   return parsed;
 }
 
@@ -82,13 +97,14 @@ function assertRedirectTarget(url: URL, spec: LocalWhisperArtifactDownloadSpec):
 
 function parseRedirect(current: URL, location: string | null, spec: LocalWhisperArtifactDownloadSpec): URL {
   if (!location) throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+  assertRawPathIsSafe(location);
   let redirected: URL;
   try {
     redirected = new URL(location, current);
   } catch {
     throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
   }
-  parseSafeUrl(redirected.toString());
+  assertSafeUrl(redirected);
   assertRedirectTarget(redirected, spec);
   return redirected;
 }
@@ -98,49 +114,6 @@ function mapClientError(error: unknown): LocalWhisperArtifactLifecycleError {
   return new LocalWhisperArtifactLifecycleError(
     error instanceof ArtifactHttpClientError && error.code === 'offline' ? 'DOWNLOAD_OFFLINE' : 'DOWNLOAD_FAILED',
   );
-}
-
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  clock: ArtifactClock,
-  signal: AbortSignal,
-  onTimeout: () => void = () => undefined,
-): Promise<T> {
-  if (signal.aborted) return Promise.reject(new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED'));
-  return new Promise<T>((resolve, reject) => {
-    let settled = false;
-    const handle = clock.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      signal.removeEventListener('abort', abort);
-      onTimeout();
-      reject(new LocalWhisperArtifactLifecycleError('OPERATION_TIMEOUT'));
-    }, timeoutMs);
-    function abort(): void {
-      if (settled) return;
-      settled = true;
-      clock.clearTimeout(handle);
-      reject(new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED'));
-    }
-    signal.addEventListener('abort', abort, { once: true });
-    void promise.then(
-      (value) => {
-        if (settled) return;
-        settled = true;
-        clock.clearTimeout(handle);
-        signal.removeEventListener('abort', abort);
-        resolve(value);
-      },
-      (error: unknown) => {
-        if (settled) return;
-        settled = true;
-        clock.clearTimeout(handle);
-        signal.removeEventListener('abort', abort);
-        reject(error instanceof Error ? error : new Error('Artifact HTTP client failed'));
-      },
-    );
-  });
 }
 
 function assertResponse(
@@ -200,10 +173,10 @@ export class CatalogHttpTransport {
     signal.addEventListener('abort', forwardAbort, { once: true });
     if (signal.aborted) transportController.abort();
     let redirectCount = 0;
-    let response: ArtifactHttpClientResponse;
+    let response: ArtifactHttpClientResponse | null = null;
     try {
       while (true) {
-        response = await withTimeout(
+        response = await withArtifactTimeout(
           this.dependencies.client.open({
             signal: transportController.signal,
             url: url.toString(),
@@ -218,70 +191,52 @@ export class CatalogHttpTransport {
           () => transportController.abort(),
         );
         if (!REDIRECT_STATUSES.has(response.status)) break;
-        if (redirectCount >= spec.redirectPolicy.maxRedirects) {
-          throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+        try {
+          if (redirectCount >= spec.redirectPolicy.maxRedirects) {
+            throw new LocalWhisperArtifactLifecycleError('UNSAFE_REDIRECT');
+          }
+          const redirected = parseRedirect(url, response.headers.location, spec);
+          await this.disposeResponse(response);
+          response = null;
+          url = redirected;
+          redirectCount += 1;
+        } catch (error) {
+          if (response) {
+            await this.disposeResponse(response).catch(() => undefined);
+            response = null;
+          }
+          throw error;
         }
-        url = parseRedirect(url, response.headers.location, spec);
-        redirectCount += 1;
       }
       assertResponse(response, spec.expectedTransferSizeBytes, resume);
-      return Object.freeze({
-        body: this.boundedBody(response.body, signal, transportController, forwardAbort, startedAt),
+      const transport = new OwnedArtifactTransportStream({
+        clock: this.dependencies.clock,
         expectedCompleteLength: spec.expectedTransferSizeBytes,
+        forwardAbort,
+        mapError: mapClientError,
+        response,
         resumeOffset: resume?.offset ?? 0,
+        signal,
+        startedAt,
+        transportController,
         validator: response.headers.etag,
       });
+      response = null;
+      return transport;
     } catch (error) {
       signal.removeEventListener('abort', forwardAbort);
       transportController.abort();
+      if (response) await this.disposeResponse(response).catch(() => undefined);
       throw mapClientError(error);
     }
   }
 
-  private async *boundedBody(
-    source: AsyncIterable<Uint8Array>,
-    signal: AbortSignal,
-    transportController: AbortController,
-    forwardAbort: () => void,
-    startedAt: number,
-  ): AsyncIterable<Uint8Array> {
-    const iterator = source[Symbol.asyncIterator]();
-    try {
-      while (true) {
-        const elapsed = this.dependencies.clock.now() - startedAt;
-        const remaining = ARTIFACT_TOTAL_TRANSFER_TIMEOUT_MS - elapsed;
-        if (remaining <= 0) throw new LocalWhisperArtifactLifecycleError('OPERATION_TIMEOUT');
-        const next = await withTimeout(
-          iterator.next(),
-          Math.min(ARTIFACT_NO_PROGRESS_TIMEOUT_MS, remaining),
-          this.dependencies.clock,
-          signal,
-          () => transportController.abort(),
-        );
-        if (next.done) return;
-        if (!(next.value instanceof Uint8Array) || next.value.byteLength > ARTIFACT_MAX_BUFFER_BYTES) {
-          throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
-        }
-        yield next.value;
-      }
-    } catch (error) {
-      throw mapClientError(error);
-    } finally {
-      transportController.abort();
-      signal.removeEventListener('abort', forwardAbort);
-      try {
-        const closing = iterator.return?.();
-        if (closing) {
-          await withTimeout(
-            Promise.resolve(closing),
-            ARTIFACT_HELPER_CANCELLATION_TIMEOUT_MS,
-            this.dependencies.clock,
-            new AbortController().signal,
-          );
-        }
-      } catch {
-        // Transport teardown is bounded and never replaces the primary result.
-      }
-    }
+  private async disposeResponse(response: ArtifactHttpClientResponse): Promise<void> {
+    await withArtifactTimeout(
+      response.dispose(),
+      ARTIFACT_HELPER_CANCELLATION_TIMEOUT_MS,
+      this.dependencies.clock,
+      new AbortController().signal,
+    );
   }
 }

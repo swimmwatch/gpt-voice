@@ -15,8 +15,12 @@ import { QualificationArtifactHttpClient } from '../../../../scripts/local-whisp
 
 async function body(response: ArtifactHttpClientResponse): Promise<Buffer> {
   const chunks: Uint8Array[] = [];
-  for await (const chunk of response.body) chunks.push(chunk);
-  return Buffer.concat(chunks);
+  try {
+    for await (const chunk of response.body) chunks.push(chunk);
+    return Buffer.concat(chunks);
+  } finally {
+    await response.dispose();
+  }
 }
 
 describe('QualificationArtifactHttpClient', () => {
@@ -63,6 +67,7 @@ describe('QualificationArtifactHttpClient', () => {
         ifRange: '"wrong"',
       });
       assert.equal(mismatch.status, 412);
+      await mismatch.dispose();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -77,6 +82,7 @@ describe('QualificationArtifactHttpClient', () => {
         status: 404,
         body: Readable.from([]),
         headers: { contentLength: 0, contentRange: null, etag: null, location: null },
+        dispose: async () => undefined,
       };
       const delegate: ArtifactHttpClient = { open: () => Promise.resolve(delegateResponse) };
       await assert.rejects(
@@ -94,17 +100,17 @@ describe('QualificationArtifactHttpClient', () => {
         /identity/u,
       );
       const client = await QualificationArtifactHttpClient.create([], delegate);
-      assert.equal(
-        (
-          await client.open({
-            url: 'https://127.0.0.1:443/runtime',
-            signal: new AbortController().signal,
-            rangeStart: null,
-            ifRange: null,
-          })
-        ).status,
-        404,
-      );
+      const delegated = await client.open({
+        url: 'https://127.0.0.1:443/runtime',
+        signal: new AbortController().signal,
+        rangeStart: null,
+        ifRange: null,
+      });
+      try {
+        assert.equal(delegated.status, 404);
+      } finally {
+        await delegated.dispose();
+      }
     } finally {
       await rm(root, { recursive: true, force: true });
     }

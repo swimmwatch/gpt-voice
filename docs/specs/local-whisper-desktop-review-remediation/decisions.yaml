@@ -795,3 +795,34 @@ decisions:
     rationale: The user separately authorized packet 01 for a future incremental-implementation invocation; the planning turn remains implementation-free.
     supersedes_revision: null
     requirement_ids: [EXEC-AUTH-001]
+
+  - id: authorization.commit-packet-01
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 01 is complete, verified, and remains uncommitted before packet 02 starts.
+      - The user authorized its atomic commit through the persistent implementation interview on 2026-08-08.
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: authorization-round-02
+      question_id: authorization.commit-packet-01
+      idempotency_key: authorization.commit-packet-01:v1
+      last_status: answered
+    question:
+      text: Do you authorize creating one atomic commit containing only completed packet 01 Artifact Transport Ownership changes, including its checklist and handoff, before packet 02 starts?
+      kind: single
+      options:
+        - id: authorize-commit-packet-01
+          label: Authorize packet 01 commit
+          description: Commit only verified packet 01 files, excluding all unrelated dirty-worktree edits, then stop before packet 02.
+        - id: hold-uncommitted
+          label: Hold for review
+          description: Leave packet 01 uncommitted and do not start packet 02.
+    answer:
+      selected_ids: [authorize-commit-packet-01]
+      text: ''
+    rationale: The atomic commit preserves the reviewed packet boundary before another packet modifies the repository.
+    supersedes_revision: null
+    requirement_ids: []

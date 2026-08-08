@@ -83,6 +83,7 @@ export interface ArtifactHttpClientResponse {
     readonly etag: string | null;
     readonly location: string | null;
   };
+  dispose(): Promise<void>;
 }
 
 export interface ArtifactHttpClient {
@@ -99,6 +100,7 @@ export interface ArtifactTransportStream {
   readonly expectedCompleteLength: number;
   readonly resumeOffset: number;
   readonly validator: string | null;
+  dispose(): Promise<void>;
 }
 
 export type ArtifactEntryType =

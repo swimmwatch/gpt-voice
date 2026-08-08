@@ -195,6 +195,7 @@ export class LocalWhisperArtifactService {
     let journal: ArtifactTransferJournal | null = null;
     let resume: { readonly offset: number; readonly spoolId: string; readonly validator: string } | null = null;
     let latestReceivedBytes = 0;
+    let transport: Awaited<ReturnType<CatalogHttpTransport['open']>> | null = null;
     try {
       const classification = await this.dependencies.journals.classifyResume(spec);
       if (mode === 'resume') {
@@ -225,7 +226,7 @@ export class LocalWhisperArtifactService {
         journal = await this.dependencies.journals.create(spec, operationId, this.dependencies.clock.now());
       }
       await this.preflightDisk(spec, resume?.offset ?? 0);
-      const transport = await this.dependencies.transport.open(
+      transport = await this.dependencies.transport.open(
         spec,
         resume ? { offset: resume.offset, validator: resume.validator } : null,
         signal,
@@ -287,6 +288,15 @@ export class LocalWhisperArtifactService {
       }
       const code = errorCode(error, 'DOWNLOAD_FAILED');
       return await this.finishFailedTransfer(spec, operationId, mode, journal, code);
+    } finally {
+      if (transport) {
+        await transport.dispose().catch(() => {
+          this.dependencies.logger.warn('local-whisper-artifact-transport-cleanup-failed', {
+            artifactId: spec.artifactId,
+            operationId,
+          });
+        });
+      }
     }
   }
 

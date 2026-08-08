@@ -150,6 +150,7 @@ describe('LocalWhisperArtifactService lifecycle', () => {
         etag: STRONG_ETAG,
         location: null,
       },
+      dispose: async () => undefined,
     }));
     const lengthHarness = createArtifactServiceHarness({ client: lengthClient });
     lengthHarness.store.installed.add(lengthHarness.catalogFixture.runtime.artifactId);
@@ -243,6 +244,7 @@ describe('LocalWhisperArtifactService lifecycle', () => {
         etag: STRONG_ETAG,
         location: null,
       },
+      dispose: async () => undefined,
     }));
     const harness = createArtifactServiceHarness({ client });
     const fixture = harness.worker.fixtures.get(harness.catalogFixture.model.artifactId);
@@ -304,6 +306,7 @@ describe('LocalWhisperArtifactService lifecycle', () => {
         etag: request.rangeStart === null ? STRONG_ETAG : '"changed-etag"',
         location: null,
       },
+      dispose: async () => undefined,
     }));
     const harness = createArtifactServiceHarness({ client });
     harness.store.installed.add(harness.catalogFixture.runtime.artifactId);

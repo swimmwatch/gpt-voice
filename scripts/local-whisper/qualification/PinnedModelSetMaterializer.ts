@@ -128,8 +128,9 @@ export class PinnedModelSetMaterializer {
     const worker = new FileBackedArtifactStreamingWorker(modelWorkRoot);
     const spec = createPublicModelDownloadSpec(model);
     const controller = new AbortController();
+    let transport: Awaited<ReturnType<CatalogHttpTransport['open']>> | null = null;
     try {
-      const transport = await new CatalogHttpTransport({ client: new NodeArtifactHttpClient(), clock }).open(
+      transport = await new CatalogHttpTransport({ client: new NodeArtifactHttpClient(), clock }).open(
         spec,
         null,
         controller.signal,
@@ -153,6 +154,7 @@ export class PinnedModelSetMaterializer {
       const spoolPath = path.join(modelWorkRoot, `spool-download-${model.family}-${model.variant}.partial`);
       await installVerifiedQualificationModel(spoolPath, destination, model.sha256);
     } finally {
+      if (transport) await transport.dispose().catch(() => undefined);
       controller.abort();
       await rm(modelWorkRoot, { recursive: true, force: true });
     }

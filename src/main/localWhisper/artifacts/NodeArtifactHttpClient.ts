@@ -8,6 +8,7 @@ import type {
   ArtifactHttpClientResponse,
 } from './ArtifactLifecycleTypes';
 import { ArtifactHttpClientError } from './ArtifactHttpClientError';
+import { OwnedArtifactHttpClientResponse } from './OwnedArtifactTransport';
 
 const OFFLINE_CODES = new Set(['EAI_AGAIN', 'ENETDOWN', 'ENETUNREACH', 'ENOTFOUND', 'EHOSTUNREACH']);
 
@@ -63,23 +64,30 @@ export class NodeArtifactHttpClient implements ArtifactHttpClient {
           // Keep one terminal listener so a late ECONNRESET cannot escape as an uncaught process error.
           response.on('error', () => undefined);
           try {
+            const responseHeaders = Object.freeze({
+              acceptRanges: singleHeader(response.headers, 'accept-ranges'),
+              contentEncoding: singleHeader(response.headers, 'content-encoding'),
+              contentLength: contentLength(response.headers),
+              contentRange: singleHeader(response.headers, 'content-range'),
+              contentType: singleHeader(response.headers, 'content-type'),
+              etag: singleHeader(response.headers, 'etag'),
+              location: singleHeader(response.headers, 'location'),
+            });
             resolve(
-              Object.freeze({
+              new OwnedArtifactHttpClientResponse({
                 status: response.statusCode ?? 0,
                 body: response,
-                headers: Object.freeze({
-                  acceptRanges: singleHeader(response.headers, 'accept-ranges'),
-                  contentEncoding: singleHeader(response.headers, 'content-encoding'),
-                  contentLength: contentLength(response.headers),
-                  contentRange: singleHeader(response.headers, 'content-range'),
-                  contentType: singleHeader(response.headers, 'content-type'),
-                  etag: singleHeader(response.headers, 'etag'),
-                  location: singleHeader(response.headers, 'location'),
-                }),
+                headers: responseHeaders,
+                close: () => {
+                  if (!response.destroyed) response.destroy();
+                  if (!clientRequest.destroyed) clientRequest.destroy();
+                },
+                onDisposed: () => input.signal.removeEventListener('abort', abort),
               }),
             );
           } catch (error) {
             response.destroy();
+            input.signal.removeEventListener('abort', abort);
             reject(error instanceof Error ? error : new ArtifactHttpClientError('failed'));
           }
         },
@@ -89,7 +97,10 @@ export class NodeArtifactHttpClient implements ArtifactHttpClient {
       };
       input.signal.addEventListener('abort', abort, { once: true });
       clientRequest.once('close', () => input.signal.removeEventListener('abort', abort));
-      clientRequest.once('error', (error) => reject(mapNetworkError(error)));
+      clientRequest.once('error', (error) => {
+        input.signal.removeEventListener('abort', abort);
+        reject(mapNetworkError(error));
+      });
       if (input.signal.aborted) abort();
       clientRequest.end();
     });

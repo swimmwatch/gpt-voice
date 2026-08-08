@@ -437,6 +437,7 @@ export function createArtifactServiceHarness(
           etag: STRONG_ETAG,
           location: null,
         },
+        dispose: async () => undefined,
       };
     });
   const worker = options.worker ?? new FixtureStreamingArtifactWorker();

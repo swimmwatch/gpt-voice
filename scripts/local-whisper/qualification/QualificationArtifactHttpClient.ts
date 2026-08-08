@@ -7,6 +7,7 @@ import type {
   ArtifactHttpClientRequest,
   ArtifactHttpClientResponse,
 } from '@main/localWhisper/artifacts/ArtifactLifecycleTypes';
+import { OwnedArtifactHttpClientResponse } from '@main/localWhisper/artifacts/OwnedArtifactTransport';
 
 import { sha256File } from '../packaging/fileIntegrity';
 
@@ -22,7 +23,7 @@ interface VerifiedQualificationCachedArtifact extends QualificationCachedArtifac
 }
 
 function emptyResponse(status: number): ArtifactHttpClientResponse {
-  return Object.freeze({
+  return new OwnedArtifactHttpClientResponse({
     status,
     body: Readable.from([]),
     headers: Object.freeze({
@@ -34,6 +35,7 @@ function emptyResponse(status: number): ArtifactHttpClientResponse {
       etag: null,
       location: null,
     }),
+    close: () => undefined,
   });
 }
 
@@ -91,7 +93,7 @@ export class QualificationArtifactHttpClient implements ArtifactHttpClient {
     };
     request.signal.addEventListener('abort', abort, { once: true });
     stream.once('close', () => request.signal.removeEventListener('abort', abort));
-    return Object.freeze({
+    return new OwnedArtifactHttpClientResponse({
       status: hasRange ? 206 : 200,
       body: stream,
       headers: Object.freeze({
@@ -103,6 +105,10 @@ export class QualificationArtifactHttpClient implements ArtifactHttpClient {
         etag: artifact.etag,
         location: null,
       }),
+      close: () => {
+        if (!stream.destroyed) stream.destroy();
+      },
+      onDisposed: () => request.signal.removeEventListener('abort', abort),
     });
   }
 }

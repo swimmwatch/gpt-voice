@@ -15,8 +15,12 @@ import { QualificationHttpsArtifactServer } from '@scripts/local-whisper/qualifi
 
 async function body(response: Awaited<ReturnType<NodeArtifactHttpClient['open']>>): Promise<Buffer> {
   const chunks: Buffer[] = [];
-  for await (const chunk of response.body) chunks.push(Buffer.from(chunk));
-  return Buffer.concat(chunks);
+  try {
+    for await (const chunk of response.body) chunks.push(Buffer.from(chunk));
+    return Buffer.concat(chunks);
+  } finally {
+    await response.dispose();
+  }
 }
 
 let root = '';
@@ -111,6 +115,40 @@ describe('QualificationHttpsArtifactServer', () => {
       });
       assert.equal(missing.status, 404);
       assert.deepEqual(await body(missing), Buffer.alloc(0));
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it('releases abandoned and cancelled HTTPS responses without external traffic', async () => {
+    const server = new QualificationHttpsArtifactServer({ certificatePem, privateKeyPem }, [
+      {
+        route: '/runtime/cpu.tar.gz',
+        filePath: artifactPath,
+        sizeBytes: artifact.byteLength,
+        sha256: sha256Bytes(artifact),
+      },
+    ]);
+    const identity = await server.start();
+    try {
+      const client = new NodeArtifactHttpClient({ trustedCertificateAuthorities: [certificatePem] });
+      const abandoned = await client.open({
+        url: `${identity.origin}/runtime/cpu.tar.gz`,
+        rangeStart: null,
+        ifRange: null,
+        signal: new AbortController().signal,
+      });
+      await Promise.all([abandoned.dispose(), abandoned.dispose()]);
+
+      const controller = new AbortController();
+      const cancelled = await client.open({
+        url: `${identity.origin}/runtime/cpu.tar.gz`,
+        rangeStart: null,
+        ifRange: null,
+        signal: controller.signal,
+      });
+      controller.abort();
+      await cancelled.dispose();
     } finally {
       await server.stop();
     }
