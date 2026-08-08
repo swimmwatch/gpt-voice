@@ -788,7 +788,7 @@ decisions:
     state: answered
     provenance: user
     evidence:
-      - User request: "PLEASE IMPLEMENT THIS PLAN" for Packet 01 — Worker Concurrency And Cancel Protocol.
+      - 'User request: "PLEASE IMPLEMENT THIS PLAN" for Packet 01 — Worker Concurrency And Cancel Protocol.'
       - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
     prompt_mcp: null
     question: null
@@ -1375,7 +1375,7 @@ decisions:
     state: answered
     provenance: user
     evidence:
-      - User reply: "approve" after the exact Packet 02 execution request.
+      - 'User reply: "approve" after the exact Packet 02 execution request.'
       - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
       - Prompt MCP batch authorization request returned invalid_request, so no persisted Prompt MCP answer was available.
     prompt_mcp: null
@@ -1417,3 +1417,230 @@ decisions:
     rationale: The user authorized one isolated local Packet 02 commit, excluding unrelated worktree files, pushes, and publication.
     supersedes_revision: null
     requirement_ids: [EXEC-AUTH-001]
+
+  - id: authorization.packet-03-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: authorization-packet-03-execution-round-01
+      question_id: authorization.packet-03-execution
+      idempotency_key: authorization.packet-03-execution:v1
+      last_status: answered
+    question:
+      text: May I implement Packet 03, Filesystem-Guard Input And Typed Commands, in this invocation? It will add the bounded 262,144-byte reader, typed command boundary, exact cross-platform LIST validation, and transport recovery tests; Windows source and tests will be authored but real MSVC execution remains deferred to Packet 15. It excludes commits, pushes, releases, and later packets.
+      kind: single
+      options:
+        - id: authorize-packet-03
+          label: Authorize Packet 03 (Recommended)
+          description: Implement and verify Packet 03 only, then update its checklist and handoff without committing.
+        - id: do-not-authorize-packet-03
+          label: Do not authorize Packet 03
+          description: Stop after retaining the Packet 03 execution decision as unresolved.
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: The user authorized implementation and verification of Packet 03 only, with Windows source/test authoring but no real Windows-host execution.
+    supersedes_revision: null
+    requirement_ids: [FSG-002, FSG-003, FSG-004, ARC-001, EXEC-AUTH-001]
+
+  - id: plan.packet-platform-slicing
+    revision: 3
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+      - .github/workflows/pr-checks.yml
+      - User required every task to commit and push its changes, verify CI launch, inspect Linux and Windows implementation jobs, and pass every required C++ check before completion.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: remote-completion-round-01
+      question_id: plan.packet-platform-slicing
+      idempotency_key: plan.packet-platform-slicing:v3
+      last_status: answered
+    question:
+      text: How should automated Linux and Windows CI evidence be scheduled after this plan revision?
+      kind: single
+      options:
+        - id: packet-local-cross-platform-ci
+          label: Per-packet CI (Recommended)
+          description: After every packet, commit and push it, then require all applicable Linux and Windows CI jobs plus every required C++ check to pass; keep only supported-host manual Windows smoke testing in final Packet 15.
+        - id: final-windows-ci
+          label: Final Windows CI
+          description: Continue deferring automated Windows execution and fixes to Packet 15 while earlier packets use Linux/shared evidence only.
+    answer:
+      selected_ids: [packet-local-cross-platform-ci]
+      text: ''
+    rationale: Beginning with Packet 04, automated Linux and Windows execution is a packet-local completion gate. Packet 15 retains only supported-host manual Windows validation, final regression, and manual-only remediation ownership.
+    supersedes_revision: 2
+    requirement_ids: [CMP-004, CMP-006, TST-001, TST-002, TST-007, OPS-004, EXEC-AUTH-001]
+
+  - id: plan.remote-completion-backfill
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - Packet 01 is already in commit 0b4d7825, Packet 02 is already in commit b645421, and Packet 03 is implemented but uncommitted.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: remote-completion-round-01
+      question_id: plan.remote-completion-backfill
+      idempotency_key: plan.remote-completion-backfill:v1
+      last_status: answered
+    question:
+      text: How should Packets 01–03, which were checked under the previous local-only completion rule, be handled?
+      kind: single
+      options:
+        - id: reopen-and-backfill
+          label: Reopen and backfill (Recommended)
+          description: Mark them incomplete, push their existing packet commits sequentially, require a distinct successful cross-platform CI run for each packet revision, then commit/push/check Packet 03 before Packet 04.
+        - id: prospective-only
+          label: Future packets only
+          description: Keep Packets 01–03 complete under the former rule and apply the new remote completion gate only to Packet 04 onward.
+    answer:
+      selected_ids: [prospective-only]
+      text: ''
+    rationale: Packets 01–03 remain complete under their prior approved evidence rules. The new commit, push, exact-SHA CI, Linux, Windows, and full native-check gate begins with Packet 04; any later reopening of Packets 01–03 uses the new gate.
+    supersedes_revision: null
+    requirement_ids: [OPS-004, EXEC-AUTH-001]
+
+  - id: plan.windows-job-skip-policy
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User instruction: "No skip windows jobs"
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-jobs-must-run]
+      text: ''
+    rationale: Every required Windows CI job for Packet 04 onward must be scheduled, execute, and conclude successfully. A skipped Windows job is missing evidence and leaves the packet incomplete.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, CMP-005, CMP-006, TST-001, TST-002, TST-003, TST-007]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/06_typed_launch_failures.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/07_native_hardening_and_binary_verifier.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/08_sanitizer_and_stl_hardening.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_native_execution_analysis_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_linux_shared_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-03
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+    question:
+      text: What should happen to the revised 15-packet plan, where Packet 04 onward requires candidate and completion-record commits/pushes, exact-SHA Linux and Windows CI success, every required C++ check, and no skipped Windows jobs, while Packets 01–03 remain complete under the prior rule?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan (Recommended)
+          description: Make this the authoritative packet contract; implementation still requires a separate incremental-implementation invocation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise its packet, push, CI, or completion rules.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the edited artifacts without approving or executing them.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the packet-local remote completion contract. Packets 04–15 require candidate and completion-record commits/pushes, exact-SHA CI, all required C++ checks, and successful execution of every required Windows job; Packets 01–03 remain complete under the prior rule.
+    supersedes_revision: 2
+    requirement_ids: [PLAN-APPROVAL-003, OPS-004, EXEC-AUTH-001]
+
+  - id: authorization.packet-03-commit
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: implementation:local-whisper-native-review-remediation
+      batch_id: authorization-round-01
+      question_id: authorization.packet-03-commit
+      idempotency_key: authorization.packet-03-commit:v1
+      last_status: answered
+    question:
+      text: May I create one isolated local commit containing only the completed Packet 03 filesystem-guard input/typed-command changes and its checklist/handoff updates? This prerequisite excludes the separate plan revisions and unrelated review files; it will not push, publish, or start Packet 04 by itself.
+      kind: single
+      options:
+        - id: authorize-isolated-packet-03-commit
+          label: Authorize Packet 03 commit
+          description: Create the isolated local Packet 03 commit, then continue to the separately authorized Packet 04 work.
+        - id: do-not-authorize-packet-03-commit
+          label: Do not commit
+          description: Leave Packet 03 uncommitted and stop before Packet 04.
+    answer:
+      selected_ids: [authorize-isolated-packet-03-commit]
+      text: ''
+    rationale: The user authorized one local, isolated Packet 03 commit as the prerequisite for Packet 04; it excludes plan revisions, unrelated review files, pushing, and publishing.
+    supersedes_revision: null
+    requirement_ids: [FSG-002, FSG-003, FSG-004, EXEC-AUTH-001]
+
+  - id: authorization.packet-04-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: implementation:local-whisper-native-review-remediation
+      batch_id: authorization-round-01
+      question_id: authorization.packet-04-execution
+      idempotency_key: authorization.packet-04-execution:v1
+      last_status: answered
+    question:
+      text: May I implement Packet 04, Process And Capability Lifecycle, in this invocation? It will fix closed-control wait lifecycle and Linux/Windows rejected-capability cleanup, run the packet's local checks, then complete its required non-force candidate and completion-record pushes with exact-SHA Linux and Windows CI evidence. It excludes Packet 05, releases, and manual supported-host Windows testing.
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize Packet 04
+          description: Commit Packet 03 as its prerequisite and implement, verify, push, and close Packet 04 under its two-phase CI gate.
+        - id: do-not-authorize-packet-04
+          label: Do not authorize
+          description: Stop after preserving the existing Packet 03 and planning work unchanged.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: The user authorized exactly Packet 04, including its required two-phase non-force pushes and exact-SHA Linux/Windows CI gates; Packet 05, releases, and supported-host manual Windows testing remain excluded.
+    supersedes_revision: null
+    requirement_ids: [LNX-001, CAP-001, CMP-004, ARC-002, ARC-003, SEC-001, SEC-002, TST-001, TST-002, EXEC-AUTH-001]

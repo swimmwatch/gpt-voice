@@ -58,6 +58,15 @@ npm run test:local-whisper:launcher:gcc
 npm run test:local-whisper:native-ci-workflow
 ```
 
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 12 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 12 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and the focused GCC job introduced by this packet.
+4. The GCC 13 job and the ordinary Clang/MSVC native jobs must execute and pass their applicable C++ checks. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable even though GCC evidence remains Linux-only.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 12, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+
 ## Failure And Rollback
 
 - Fix GCC-specific portability defects without weakening warnings or changing public behavior.
@@ -66,8 +75,8 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Manual Gates
 
-- No external or Windows manual gate applies.
-- No push, workflow dispatch, packaging, or publication is authorized.
+- No supported-host manual Windows smoke applies, but every required Windows native job must execute and succeed; a skipped Windows job is not evidence.
+- The packet's non-force PR-head pushes are required; manual workflow dispatch, packaging, and publication remain unauthorized.
 
 ## References
 
@@ -75,6 +84,6 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Completion And Handoff
 
-- Record GCC profile, source manifests, commands, and results in `handoff.md`.
-- Check Packet 12 after both focused GCC suites pass.
+- Record GCC profile, source manifests, commands/results, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 12 only after both focused GCC suites and both exact-SHA remote phases pass with no skipped Windows job.
 - Set the exact next packet to Packet 13 and stop.

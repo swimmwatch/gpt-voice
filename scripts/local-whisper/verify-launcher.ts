@@ -387,7 +387,10 @@ async function verifyModelLaunchChain(): Promise<void> {
       maxControlFrameBytes: 1_048_576,
       maxAudioChunkBytes: 1_048_576,
     });
-    owned.input.end();
+    // This reaches the model-launch owner-control loop as well as the launcher proxy loop.
+    // The fixture is deliberately kept live until the close so both platforms exercise their
+    // terminal-control transition rather than only a normal worker-input EOF.
+    owned.closeOwnershipControl();
     assert.equal(await owned.waitForExit(5_000), true);
   } finally {
     if (owned && !(await owned.waitForExit(0))) {

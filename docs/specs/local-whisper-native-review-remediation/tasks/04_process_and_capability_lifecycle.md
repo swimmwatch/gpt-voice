@@ -6,7 +6,7 @@ Launcher and model-launch process loops stop waiting on permanently closed contr
 
 ## Prerequisites
 
-- Packets 01 and 02 are complete with Linux/shared evidence so worker shutdown behavior and native RAII owners are stable. Their real Windows evidence remains deferred to Packet 15.
+- Packets 01–03 are complete under decision `plan.remote-completion-backfill` revision 1, and Packet 03's implementation is isolated in its own local commit before Packet 04 implementation begins.
 - This packet has separate execution authorization and no other packet is in progress.
 - Packet 03 may be complete or may execute later; do not modify its common command/input ownership.
 
@@ -90,7 +90,16 @@ npm run lint:local-whisper:fs-guard
 npm run test:local-whisper:fs-guard:native
 ```
 
-Author the Windows executable handle-policy and closed-channel cases in this packet; `--contract-only` is not sufficient evidence for CAP-001. Packet 15 owns real Windows execution and any resulting fixes. Formatting and clang-tidy remain Linux-only quality gates.
+Author the Windows executable handle-policy and closed-channel cases in this packet; `--contract-only` is not sufficient evidence for CAP-001. The remote Windows native job must execute them and all resulting fixes before Packet 04 completes. Formatting and clang-tidy remain Linux-only quality gates and do not substitute for MSVC execution.
+
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 04 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 04 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and every new or split native job introduced by this packet.
+4. The Linux and Windows native jobs must execute the packet's applicable C++ builds, warnings-as-errors, formatting, lint/static analysis, sanitizer configuration, native tests, and process/capability cases. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 04, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
 
 ## Failure And Rollback
 
@@ -100,8 +109,8 @@ Author the Windows executable handle-policy and closed-channel cases in this pac
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed in this packet. Record the deferred executable handle-policy and closed-channel suites for Packet 15.
-- Verify fixture process IDs/jobs before cleanup. No workflow dispatch, push, or termination of non-fixture processes is authorized.
+- No supported-host manual Windows smoke is performed in this packet; Packet 15 retains that final manual gate. Automated Windows CI is mandatory here.
+- Verify fixture process IDs/jobs before cleanup. The packet's non-force PR-head pushes are required by the remote completion gate; manual workflow dispatch and termination of non-fixture processes remain unauthorized.
 
 ## References
 
@@ -111,6 +120,6 @@ Author the Windows executable handle-policy and closed-channel cases in this pac
 
 ## Completion And Handoff
 
-- Record changed process/capability components, Linux hostile-case and resource-count results, and the deferred Windows suite inventory in `handoff.md`.
-- Check Packet 04 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows lifecycle evidence.
-- Set the exact next packet to Packet 05 when Packets 02 and 04 are complete, then stop without starting it or committing/pushing.
+- Record changed process/capability components, local Linux results, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 04 only after local verification and both exact-SHA remote phases pass with no skipped Windows job. Packet 15 remains mandatory for supported-host manual Windows evidence.
+- Set the exact next packet to Packet 05 and stop without starting it. The Packet 04 candidate and completion-record commits must already be pushed and green.

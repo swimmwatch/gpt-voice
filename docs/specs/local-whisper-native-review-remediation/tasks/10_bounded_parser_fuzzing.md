@@ -69,6 +69,15 @@ npm run test:local-whisper:native-ci-workflow
 
 Run the full 60-second mutation budget only as this packet's completion gate, not on every edit iteration.
 
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 10 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 10 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and the bounded fuzz job introduced by this packet.
+4. The Linux fuzz job must run all seven targets and budgets, while the required Windows native jobs must still execute and pass the ordinary packet regression surface. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable even though libFuzzer instrumentation remains Linux-only.
+5. Fix packet-caused in-scope failures, retain minimized synthetic regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 10, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+
 ## Failure And Rollback
 
 - Fix a discovered production defect and retain its minimized synthetic reproducer; never delete the input or suppress the sanitizer.
@@ -78,7 +87,7 @@ Run the full 60-second mutation budget only as this packet's completion gate, no
 ## Manual Gates
 
 - Inspect corpus/report additions for sensitive data before completion. No private input collection or artifact publication is authorized.
-- No Windows-host gate applies because this packet's instrumentation claim is intentionally Linux/shared only.
+- No Windows-specific fuzz instrumentation or supported-host manual Windows smoke applies, but every required ordinary Windows CI job must execute and succeed; a skipped Windows job is not evidence.
 
 ## References
 
@@ -87,6 +96,6 @@ Run the full 60-second mutation budget only as this packet's completion gate, no
 
 ## Completion And Handoff
 
-- Record target inventory, limits, budgets, corpus changes, proof result, and discovered reproducers in `handoff.md`.
-- Check Packet 10 only after the bounded Linux fuzz gate passes.
+- Record target inventory, limits, budgets, corpus changes, proof result, discovered reproducers, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 10 only after the bounded Linux fuzz gate and both exact-SHA remote phases pass with no skipped Windows job.
 - Set the exact next packet to Packet 11 and stop.

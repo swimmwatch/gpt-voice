@@ -67,6 +67,15 @@ npm run validate:workflows
 
 If public sources are temporarily unavailable, fixture tests may complete the packet implementation, but record live evidence as unavailable; qualification remains blocked after freshness expiry.
 
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 13 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 13 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA; do not manually dispatch the scheduled advisory workflow.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, deterministic advisory fixture checks, and every workflow-policy check introduced by this packet.
+4. The required Linux and Windows native jobs must still execute and pass the complete applicable C++ surface. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable. Live advisory-service availability remains outside pull-request reproducibility and is handled by the separate freshness contract.
+5. Fix packet-caused in-scope failures, add focused synthetic regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 13, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+
 ## Failure And Rollback
 
 - Treat ambiguous mapping or malformed evidence as unavailable, never safe.
@@ -75,7 +84,7 @@ If public sources are temporarily unavailable, fixture tests may complete the pa
 
 ## Manual Gates
 
-- Live public reads are allowed only through the read-only scanner and may be unavailable. No credentials, workflow dispatch, external write, or publication is authorized.
+- Live public reads are allowed only through the read-only scanner and may be unavailable. The packet's non-force PR-head pushes are required; credentials, manual workflow dispatch, other external writes, and publication remain unauthorized.
 - This packet does not qualify a candidate.
 
 ## References
@@ -84,6 +93,6 @@ If public sources are temporarily unavailable, fixture tests may complete the pa
 
 ## Completion And Handoff
 
-- Record sources, exact lock mappings, fixture results, live status/freshness, and workflow cadence in `handoff.md`.
-- Check Packet 13 after deterministic implementation checks pass; stale or unavailable live evidence remains an explicit qualification blocker, not a PR failure.
+- Record sources, exact lock mappings, fixture results, live status/freshness, workflow cadence, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 13 only after deterministic implementation checks and both exact-SHA remote phases pass with no skipped Windows job; stale or unavailable live evidence remains an explicit qualification blocker, not a PR failure.
 - Set the exact next packet to Packet 14 and stop.

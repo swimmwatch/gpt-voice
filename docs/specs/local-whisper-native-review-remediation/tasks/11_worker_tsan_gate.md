@@ -61,6 +61,15 @@ npm run test:local-whisper:worker-tsan
 npm run test:local-whisper:native-ci-workflow
 ```
 
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 11 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 11 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and the worker TSan job introduced by this packet.
+4. The Linux TSan proof/suite and the ordinary Windows worker/native jobs must execute and pass. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable even though TSan instrumentation remains Linux-only.
+5. Fix packet-caused in-scope failures, add focused deterministic regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 11, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+
 ## Failure And Rollback
 
 - Fix a real worker race in Packet 01-owned code within this authorized packet and rerun Packet 01's Linux/shared completion set plus TSan.
@@ -69,8 +78,8 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Manual Gates
 
-- No Windows-host gate applies. Packet 15 independently runs the deterministic Windows worker matrix without claiming TSan instrumentation.
-- No workflow dispatch or artifact publication is authorized.
+- No Windows TSan instrumentation or supported-host manual Windows smoke applies, but the required Windows worker/native jobs must execute and pass without claiming TSan coverage. Packet 15 retains the final supported-host Windows matrix.
+- The packet's non-force PR-head pushes are required; manual workflow dispatch and artifact publication remain unauthorized.
 
 ## References
 
@@ -79,6 +88,6 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Completion And Handoff
 
-- Record profile, proof classification, concurrency cases, and TSan result in `handoff.md`.
-- Check Packet 11 only after the proof and remediated suite pass.
+- Record profile, proof classification, concurrency cases, TSan result, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 11 only after the proof/remediated suite and both exact-SHA remote phases pass with no skipped Windows job.
 - Set the exact next packet to Packet 12 and stop.

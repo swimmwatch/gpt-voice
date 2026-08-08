@@ -2,11 +2,11 @@
 
 ## Outcome
 
-The complete Linux/shared implementation, sanitizer, analyzer, fuzz, TSan, GCC, hardening, privacy, and supported-host smoke matrix passes against the approved specification. Any Linux/shared defects discovered by the integrated gate are fixed and reverified here before Windows testing begins.
+The complete Linux/shared implementation, sanitizer, analyzer, fuzz, TSan, GCC, hardening, privacy, and supported-host smoke matrix passes against the approved specification. Any Linux/shared defects discovered by the integrated gate are fixed and reverified here before final supported-host manual Windows validation begins.
 
 ## Prerequisites
 
-- Packets 01–13 are checked complete with their Linux/shared evidence and deferred Windows inventories.
+- Packets 01–13 are checked complete. Packets 04–13 have successful candidate and completion-record CI for Linux and Windows with no skipped required Windows job.
 - This packet has separate execution authorization and no other packet is in progress.
 - A supported Linux x64 host, pinned toolchains, verified native inputs, and authorized non-sensitive smoke fixtures are available.
 
@@ -22,11 +22,11 @@ The complete Linux/shared implementation, sanitizer, analyzer, fuzz, TSan, GCC, 
 - Linux Clang ASan/UBSan/analyzer/fuzz/TSan, focused GCC, exact ELF inspection, coverage reporting, and advisory fixtures/evidence.
 - Supported-host worker/launcher/guard smoke behavior and descriptor/process baselines.
 - Fixing failures discovered by these gates within the already approved behavior and CI contracts, then rerunning all affected checks.
-- Final inventory of every Windows command, source manifest, expected binary, and manual case deferred to Packet 15.
+- Final inventory of every supported-host manual Windows command, expected binary, fixture, and case reserved for Packet 15.
 
 ## Out Of Scope
 
-- Windows execution, Windows-only findings, new product behavior, dependencies, packaging, signing, qualification, release, publication, commits, pushes, or PRs.
+- Supported-host manual Windows execution and its host-only findings; new product behavior, dependencies, packaging, signing, qualification, release, publication, force-pushes, or pull-request modification.
 - Weakening/suppressing a check, increasing timeouts to hide a defect, or changing an approved contract to obtain a pass.
 
 ## Task Contract
@@ -38,13 +38,13 @@ The complete Linux/shared implementation, sanitizer, analyzer, fuzz, TSan, GCC, 
 5. Perform AC-MAN-005 and confirm each gate used its locked profile, exact source set, bounded budget, and actual evidence kind.
 6. Inspect descriptor counts, child/process ownership, logs, reports, corpora, caches selected for upload, and retained evidence for leaks or sensitive content.
 7. Fix every Linux/shared defect found within the approved contract, add/retain a focused regression, and rerun the failing gate plus every affected upstream/downstream check. If the fix requires a new dependency, public behavior, support change, or specification change, stop and return to specification.
-8. Produce the exact Packet 15 run manifest: ordinary MSVC, dedicated MSVC ASan, MSVC analysis, Windows deterministic suites, handle baselines, PE outputs, and manual smoke cases. Do not label them passed.
+8. Produce the exact Packet 15 supported-host manual run manifest: ordinary MSVC, dedicated MSVC ASan, MSVC analysis, Windows deterministic suites, handle baselines, PE outputs, and smoke cases. Automated CI evidence may be referenced, but manual cases must remain explicitly unexecuted until Packet 15.
 
 ## Contracts And Boundaries
 
 - Use validated temporary roots and exact fixture processes; do not remove user data or terminate ambient processes.
 - Audio/transcripts remain private; evidence records classifications and outcomes, never contents.
-- Passing this packet proves Linux/shared remediation only. It does not satisfy Windows evidence or qualification.
+- Passing this packet proves Linux supported-host/manual readiness plus complete packet-local automated Linux/Windows CI. It does not satisfy Packet 15's supported-host manual Windows evidence or qualification.
 
 ## Expected Files Or Components
 
@@ -57,7 +57,7 @@ The complete Linux/shared implementation, sanitizer, analyzer, fuzz, TSan, GCC, 
 - Every applicable Linux/shared AC-AUT case passes under its intended evidence class and locked profile.
 - AC-MAN-001, Linux AC-MAN-003, and AC-MAN-005 pass without abort, hang, busy loop, orphan, descriptor leak, sensitive output, or lost committed transcript.
 - Every gate-discovered defect has a focused regression and all affected checks pass after the fix.
-- The Packet 15 manifest is complete and no deferred Windows item is mislabeled as passing evidence.
+- The Packet 15 manual manifest is complete and no automated Windows result is mislabeled as supported-host manual evidence.
 - Exclusions, privacy constraints, and no-release/no-qualification boundaries remain intact.
 
 ## Verification
@@ -92,6 +92,15 @@ npm run test:types
 
 Use canonical command names established during implementation and update this packet if they differ before execution.
 
+## Remote Completion Gate
+
+1. After local and supported-host Linux verification passes, leave Packet 14 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 14 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and all sanitizer, analyzer, fuzz, TSan, GCC, hardening, and reporting jobs introduced by Packets 04–13.
+4. Every required Linux and Windows job must execute the complete final native/C++ surface. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable. This automated Windows rerun does not replace Packet 15's supported-host manual Windows cases.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 14, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+
 ## Failure And Rollback
 
 - Keep Packet 14 unchecked until every Linux/shared gate passes. Record the exact requirement, acceptance ID, command, and bounded failure classification.
@@ -102,7 +111,7 @@ Use canonical command names established during implementation and update this pa
 
 - **MANUAL GATE:** AC-MAN-001 requires a supported Linux x64 host and already authorized non-sensitive Local Whisper inputs.
 - **MANUAL GATE:** Linux AC-MAN-003 and AC-MAN-005 require exact binary/profile evidence from that host.
-- No Windows host, workflow dispatch, push, package, qualification, or release action is authorized.
+- No supported-host manual Windows execution, manual workflow dispatch, package, qualification, or release action is authorized. The packet's two required non-force PR-head pushes are part of the remote completion gate.
 
 ## References
 
@@ -111,6 +120,6 @@ Use canonical command names established during implementation and update this pa
 
 ## Completion And Handoff
 
-- Record all Linux/shared results, gate-discovered fixes, exact ELF roles/digests, manual evidence, and the complete deferred Windows manifest in `handoff.md`.
-- Check Packet 14 only after every automated and manual Linux/shared gate passes.
+- Record all Linux/shared results, gate-discovered fixes, exact ELF roles/digests, manual evidence, the Packet 15 manual manifest, exact candidate/completion commits, and successful final Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 14 only after every local/manual Linux gate and both exact-SHA remote phases pass with no skipped required Windows job.
 - Set `Exact next packet: 15 — Windows Validation And Remediation Gate` and stop.

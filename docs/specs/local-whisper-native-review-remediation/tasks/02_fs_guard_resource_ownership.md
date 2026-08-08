@@ -7,7 +7,7 @@ The Linux and Windows filesystem-guard backends release every transient native r
 ## Prerequisites
 
 - The plan is approved and this packet has separate execution authorization.
-- No other packet is in progress. Packet 01 is independent and need not be complete. Real Windows execution is deferred to Packet 15.
+- No other packet is in progress. Packet 01 is independent and need not be complete. This completed packet's former Windows-execution deferral is grandfathered by `plan.remote-completion-backfill` revision 1.
 - Verified GoogleTest/native inputs are available.
 
 ## Owned Requirements
@@ -82,7 +82,12 @@ npm run test:local-whisper:fs-guard:integration
 npm run test:local-whisper:fs-guard:native
 ```
 
-Formatting and clang-tidy are Linux-only quality gates. Author the Windows handle-baseline, failure-injection, and lease-boundary cases in this packet; Packet 15 owns their real MSVC execution and any resulting fixes.
+Formatting and clang-tidy are Linux-only quality gates. Windows handle-baseline, failure-injection, and lease-boundary cases were authored without a required MSVC run under the historical rule. Decision `plan.remote-completion-backfill` revision 1 preserves that completion; any future reopening uses the current packet-local Windows CI gate.
+
+## Remote Completion Gate
+
+- Historical exception: decision `plan.remote-completion-backfill` revision 1 keeps this already completed packet under its former local Linux/shared evidence rule; no retroactive commit, push, or CI run is required.
+- Any future change that reopens this packet must use the current Packet 04+ two-phase remote completion gate. Its required Windows jobs must execute and succeed; a skipped Windows job is not evidence.
 
 ## Failure And Rollback
 
@@ -92,7 +97,7 @@ Formatting and clang-tidy are Linux-only quality gates. Author the Windows handl
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed in this packet. Record the deferred handle-baseline and lease-boundary suites for Packet 15.
+- No supported-host manual Windows gate was performed in this historical packet. Packet 15 retains final manual Windows validation for the integrated workstream.
 - No destructive test may target a user directory; inspect the resolved temporary root before any integration run.
 
 ## References
@@ -103,6 +108,6 @@ Formatting and clang-tidy are Linux-only quality gates. Author the Windows handl
 
 ## Completion And Handoff
 
-- Record changed files, Linux leak-injection and lease-boundary results, and the deferred Windows suite inventory in `handoff.md`.
-- Check Packet 02 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows resource evidence.
-- Set the exact next packet to the first unchecked packet permitted by dependencies, normally Packet 03, and stop without starting it or committing/pushing.
+- Record changed files and historical Linux leak-injection and lease-boundary results in `handoff.md`.
+- Packet 02 remains checked under `plan.remote-completion-backfill` revision 1; any future reopening requires the current two-phase remote gate with successful Windows jobs.
+- Preserve the historical stop boundary after Packet 02. The current exact next packet is owned by `handoff.md`.

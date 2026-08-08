@@ -6,7 +6,7 @@ All Local Whisper native CMake projects apply one explicit configuration-aware h
 
 ## Prerequisites
 
-- Packets 01–06 are complete with Linux/shared evidence so CMake/source composition is stable. Real Windows execution and final PE remediation remain deferred to Packet 15.
+- Packets 01–06 are complete, including Packet 04–06 packet-local Linux/Windows remote gates, so CMake/source composition is stable.
 - This packet has separate execution authorization and no other packet is in progress.
 - The locked Linux GCC/Clang and Windows MSVC build profiles and verified native sources are available.
 
@@ -99,7 +99,16 @@ npm run format:check
 npm run lint
 ```
 
-Author the PE parser fixtures, MSVC hardening configuration, exact-output manifest, and Windows workflow wiring in this packet. Packet 15 owns the real optimized MSVC build, live PE inspection, and any resulting fixes. If canonical command names change, update `package.json`, the later packets, `todo.md`/`handoff.md`, and CI together.
+Author the PE parser fixtures, MSVC hardening configuration, exact-output manifest, and Windows workflow wiring in this packet. The remote Windows native job must run the optimized MSVC build, live PE inspection, and all resulting fixes before Packet 07 completes. If canonical command names change, update `package.json`, the later packets, `todo.md`/`handoff.md`, and CI together.
+
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 07 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 07 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and every new or split native job introduced by this packet.
+4. The Linux and Windows native jobs must execute the packet's applicable C++ builds, warnings-as-errors, formatting, lint/static analysis, sanitizer configuration, native tests, and live ELF/PE hardening checks. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 07, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
 
 ## Failure And Rollback
 
@@ -109,8 +118,8 @@ Author the PE parser fixtures, MSVC hardening configuration, exact-output manife
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed in this packet. Record the deferred optimized MSVC executable manifest and PE verifier command for Packet 15.
-- Building locked native inputs is authorized; signing, packaging, uploading, publishing, or dispatching workflows is not.
+- No supported-host manual Windows smoke is performed in this packet; Packet 15 retains that final manual gate. Automated optimized MSVC build and live PE verification are mandatory here.
+- Building locked native inputs and the packet's non-force PR-head pushes are authorized by the completion gate; signing, artifact upload, packaging, publishing, and manual workflow dispatch remain unauthorized.
 
 ## References
 
@@ -120,6 +129,6 @@ Author the PE parser fixtures, MSVC hardening configuration, exact-output manife
 
 ## Completion And Handoff
 
-- Record Linux optimized binary roles/hashes, mitigation report paths, sanitizer results, and the deferred Windows manifest in `handoff.md` without committing generated binaries/reports.
-- Check Packet 07 after its Linux/shared completion set passes; Packet 15 remains mandatory for live PE evidence.
-- Set the exact next packet to Packet 08 and stop without starting it, committing, pushing, packaging, or publishing.
+- Record Linux optimized binary roles/hashes, mitigation report paths, sanitizer results, exact candidate/completion commits, and successful Linux/Windows live-binary CI jobs in `handoff.md` without committing generated binaries/reports.
+- Check Packet 07 only after local verification and both exact-SHA remote phases pass with no skipped Windows job. Packet 15 remains mandatory for supported-host manual Windows evidence.
+- Set the exact next packet to Packet 08 and stop without starting it, packaging, or publishing. The Packet 07 candidate and completion-record commits must already be pushed and green.

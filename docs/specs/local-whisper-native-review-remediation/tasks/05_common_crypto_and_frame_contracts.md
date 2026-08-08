@@ -6,7 +6,7 @@ Every native Local Whisper consumer uses one hardened common SHA-256 implementat
 
 ## Prerequisites
 
-- Packets 02 and 04 are complete with Linux/shared evidence so filesystem/launcher resource and capability ownership is stable. Real Windows execution remains deferred to Packet 15.
+- Packets 02 and 04 are complete, including Packet 04's packet-local Linux/Windows remote gate, so filesystem/launcher resource and capability ownership is stable.
 - This packet has separate execution authorization and no other packet is in progress.
 - Verified common-native test inputs are available on Linux and Windows.
 
@@ -103,7 +103,16 @@ npm run test:local-whisper:launcher:native
 npm run verify:local-whisper:worker-vectors -- --check-clean
 ```
 
-Author the Windows common-native codec/SHA, retained-CNG digest-agreement, guard, launcher, and worker-core cases in this packet. Packet 15 owns their real MSVC execution; TypeScript-only vectors will not satisfy that final gate.
+Author the Windows common-native codec/SHA, retained-CNG digest-agreement, guard, launcher, and worker-core cases in this packet. The remote Windows native job must execute them and all resulting fixes before Packet 05 completes; TypeScript-only vectors are not Windows evidence.
+
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 05 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 05 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and every new or split native job introduced by this packet.
+4. The Linux and Windows native jobs must execute the packet's applicable C++ builds, warnings-as-errors, formatting, lint/static analysis, sanitizer configuration, native tests, SHA/digest agreement, and frame-boundary cases. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 05, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
 
 ## Failure And Rollback
 
@@ -113,7 +122,7 @@ Author the Windows common-native codec/SHA, retained-CNG digest-agreement, guard
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed in this packet. Record the deferred common-native, retained-CNG, guard, launcher, and worker-core suites for Packet 15.
+- No supported-host manual Windows smoke is performed in this packet; Packet 15 retains that final manual gate. Automated common/SHA/CNG, guard, launcher, and worker-core MSVC execution is mandatory here.
 - Do not update model/runtime catalog digests, generate packages, or remove a measured hash pass.
 
 ## References
@@ -125,6 +134,6 @@ Author the Windows common-native codec/SHA, retained-CNG digest-agreement, guard
 
 ## Completion And Handoff
 
-- Record removed duplicate implementations, common adapters, Linux/shared boundary results, and the deferred Windows suite inventory in `handoff.md`.
-- Check Packet 05 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows digest and frame evidence.
-- Set the exact next packet to Packet 06 and stop without beginning it or committing/pushing.
+- Record removed duplicate implementations, common adapters, local Linux results, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
+- Check Packet 05 only after local verification and both exact-SHA remote phases pass with no skipped Windows job. Packet 15 remains mandatory for supported-host manual Windows evidence.
+- Set the exact next packet to Packet 06 and stop without beginning it. The Packet 05 candidate and completion-record commits must already be pushed and green.

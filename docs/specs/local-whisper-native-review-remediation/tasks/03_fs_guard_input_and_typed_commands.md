@@ -6,7 +6,7 @@ The guard rejects an oversized request line without unbounded buffering or drain
 
 ## Prerequisites
 
-- Packet 02 is complete with its Linux/shared implementation evidence; its deferred Windows evidence remains owned by Packet 15.
+- Packet 02 is complete under the historical evidence rule retained by `plan.remote-completion-backfill` revision 1.
 - This packet has separate execution authorization and no other packet is in progress.
 
 ## Owned Requirements
@@ -91,7 +91,12 @@ npm run typecheck
 npm run test:types
 ```
 
-The Linux native integration suite must use the real Linux backend, not only `FakeBackend`. Author the equivalent Windows backend matrix in this packet; Packet 15 owns its real MSVC execution and any resulting fixes. Formatting and clang-tidy remain Linux-only quality gates.
+The Linux native integration suite must use the real Linux backend, not only `FakeBackend`. The equivalent Windows backend matrix was authored without a required MSVC run under the historical rule. Decision `plan.remote-completion-backfill` revision 1 preserves that completion; any future reopening uses the current packet-local Windows CI gate. Formatting and clang-tidy remain Linux-only quality gates.
+
+## Remote Completion Gate
+
+- Historical exception: decision `plan.remote-completion-backfill` revision 1 keeps this already completed packet under its former local Linux/shared evidence rule; no retroactive push or CI run is required. Its existing uncommitted implementation still must be isolated in a local Packet 03 commit before Packet 04 implementation begins.
+- Any future change that reopens this packet must use the current Packet 04+ two-phase remote completion gate. Its required Windows jobs must execute and succeed; a skipped Windows job is not evidence.
 
 ## Failure And Rollback
 
@@ -101,7 +106,7 @@ The Linux native integration suite must use the real Linux backend, not only `Fa
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed in this packet. Record the deferred exact-`LIST`, typed-command, and overlong-input Windows suites for Packet 15.
+- No supported-host manual Windows gate was performed in this historical packet. Packet 15 retains final manual Windows validation for the integrated workstream.
 - Validate every integration-test temporary root before executing removal or quarantine cases.
 
 ## References
@@ -112,6 +117,6 @@ The Linux native integration suite must use the real Linux backend, not only `Fa
 
 ## Completion And Handoff
 
-- Record command type changes, Linux/shared boundary and recovery results, and the deferred Windows suite inventory in `handoff.md`.
-- Check Packet 03 after its Linux/shared completion set passes; Packet 15 remains mandatory for Windows behavior evidence.
-- Set the exact next packet to Packet 04 and stop without implementation of that packet, commits, pushes, or external actions.
+- Record command type changes and historical Linux/shared boundary and recovery results in `handoff.md`.
+- Packet 03 remains checked under `plan.remote-completion-backfill` revision 1; its implementation must still be isolated in a local commit before Packet 04 begins. Any future reopening requires the current two-phase remote gate with successful Windows jobs.
+- Set the exact next packet to Packet 04 and stop without implementing it. The current `handoff.md` owns the remaining commit and authorization preconditions.

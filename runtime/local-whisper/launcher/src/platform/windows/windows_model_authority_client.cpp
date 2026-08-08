@@ -19,6 +19,13 @@ local_whisper::common::AuthorityTransfer WindowsModelAuthorityClient::duplicate_
       worker_process == nullptr || worker_process == INVALID_HANDLE_VALUE) {
     throw std::runtime_error("invalid Windows launcher model authority");
   }
+  FILE_STANDARD_INFO information{};
+  if (!GetFileInformationByHandleEx(launcher_model_handle, FileStandardInfo, &information,
+                                    sizeof(information)) ||
+      information.Directory != (launcher_transfer.binding.artifact_kind ==
+                                local_whisper::common::AuthorityArtifactKind::directory)) {
+    throw std::runtime_error("Windows launcher model authority type changed");
+  }
   HANDLE worker_model_handle = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(GetCurrentProcess(), launcher_model_handle, worker_process,
                        &worker_model_handle, 0, TRUE, DUPLICATE_SAME_ACCESS) ||
@@ -28,6 +35,26 @@ local_whisper::common::AuthorityTransfer WindowsModelAuthorityClient::duplicate_
   return {launcher_transfer.binding, 2,
           local_whisper::common::AuthorityCarrierKind::windows_worker_handle,
           static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(worker_model_handle))};
+}
+
+void WindowsModelAuthorityClient::close_unconfirmed_worker_duplicate(
+    const local_whisper::common::AuthorityTransfer& worker_transfer,
+    HANDLE worker_process) noexcept {
+  if (worker_transfer.hop != 2U ||
+      worker_transfer.carrier_kind !=
+          local_whisper::common::AuthorityCarrierKind::windows_worker_handle ||
+      worker_transfer.carrier_value == 0U || worker_process == nullptr ||
+      worker_process == INVALID_HANDLE_VALUE) {
+    return;
+  }
+  HANDLE local_duplicate = INVALID_HANDLE_VALUE;
+  const HANDLE worker_model =
+      reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(worker_transfer.carrier_value));
+  if (DuplicateHandle(worker_process, worker_model, GetCurrentProcess(), &local_duplicate, 0, FALSE,
+                      DUPLICATE_SAME_ACCESS | DUPLICATE_CLOSE_SOURCE) &&
+      local_duplicate != nullptr && local_duplicate != INVALID_HANDLE_VALUE) {
+    static_cast<void>(CloseHandle(local_duplicate));
+  }
 }
 
 void WindowsModelAuthorityClient::validate_worker_acknowledgment(

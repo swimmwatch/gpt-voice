@@ -225,6 +225,7 @@ local_whisper::common::AuthorityBinding binding_for(const ModelLaunchRequest& re
 
 int wait_for_launcher(const pid_t launcher_pid, const int owner_control,
                       UniqueFd& launcher_control) {
+  UniqueFd control(owner_control);
   bool termination_started = false;
   bool hard_kill_sent = false;
   auto hard_kill_deadline = std::chrono::steady_clock::time_point::max();
@@ -239,7 +240,7 @@ int wait_for_launcher(const pid_t launcher_pid, const int owner_control,
     if (result < 0 && errno != EINTR)
       throw std::runtime_error("model launch wait failed");
     struct pollfd descriptor {
-      owner_control, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0
+      control.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0
     };
     const int polled = poll(&descriptor, 1, static_cast<int>(kPollInterval.count()));
     if (polled < 0 && errno != EINTR)
@@ -247,6 +248,7 @@ int wait_for_launcher(const pid_t launcher_pid, const int owner_control,
     if (!termination_started &&
         (termination_requested != 0 ||
          (polled > 0 && (descriptor.revents & (POLLIN | POLLHUP | POLLERR)) != 0))) {
+      control.reset();
       termination_started = true;
       hard_kill_deadline = std::chrono::steady_clock::now() + kTerminationBudget;
       launcher_control.reset();

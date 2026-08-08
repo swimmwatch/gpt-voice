@@ -22,7 +22,7 @@ The resident worker handles control failures, inference completion, and both can
 - A Linux and Windows channel wait contract for control input or inference completion.
 - Protocol-v1 `cancelTooLate` generation, validation, fixtures, supervisor mapping, and coordinator state.
 - Deterministic C++, TypeScript, conformance-worker, and mixed-identity tests.
-- Windows native worker-core tests and quality-workflow wiring, with real Windows-host execution deferred to Packet 15.
+- Windows native worker-core tests and quality-workflow wiring. This completed packet's former Windows-execution deferral is grandfathered by `plan.remote-completion-backfill` revision 1.
 
 ## Out Of Scope
 
@@ -108,7 +108,12 @@ npm run typecheck
 npm run test:types
 ```
 
-Run the smallest targeted tests while iterating; the Linux/shared commands above are this packet's completion set. Author the applicable Windows native-channel cases and workflow wiring in this packet, but do not require a Windows host run here. Packet 15 owns their real MSVC execution and any resulting fixes.
+Run the smallest targeted tests while iterating; the Linux/shared commands above were this packet's historical completion set. Applicable Windows native-channel cases and workflow wiring were authored without a required Windows host run. Decision `plan.remote-completion-backfill` revision 1 preserves that completion; any future reopening uses the current packet-local Windows CI gate.
+
+## Remote Completion Gate
+
+- Historical exception: decision `plan.remote-completion-backfill` revision 1 keeps this already completed packet under its former local Linux/shared evidence rule; no retroactive commit, push, or CI run is required.
+- Any future change that reopens this packet must use the current Packet 04+ two-phase remote completion gate. Its required Windows jobs must execute and succeed; a skipped Windows job is not evidence.
 
 ## Failure And Rollback
 
@@ -118,8 +123,8 @@ Run the smallest targeted tests while iterating; the Linux/shared commands above
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed in this packet. Record the exact deferred Windows suites and source paths for Packet 15.
-- No push or workflow dispatch is authorized by this packet.
+- No supported-host manual Windows gate was performed in this historical packet. Packet 15 retains final manual Windows validation for the integrated workstream.
+- Historical execution did not authorize a push or workflow dispatch; the current remote completion rule is prospective from Packet 04.
 
 ## References
 
@@ -129,6 +134,6 @@ Run the smallest targeted tests while iterating; the Linux/shared commands above
 
 ## Completion And Handoff
 
-- Record changed files, exact Linux/shared check results, and the deferred Windows suite inventory in `handoff.md`.
-- Check Packet 01 in `todo.md` after its Linux/shared completion set passes; this does not satisfy the overall Windows evidence gate.
-- Set the exact next packet to Packet 02 and stop. Do not begin Packet 02 or commit/push changes.
+- Record changed files and exact historical Linux/shared check results in `handoff.md`.
+- Packet 01 remains checked under `plan.remote-completion-backfill` revision 1; any future reopening requires the current two-phase remote gate with successful Windows jobs.
+- Preserve the historical stop boundary after Packet 01. The current exact next packet is owned by `handoff.md`.

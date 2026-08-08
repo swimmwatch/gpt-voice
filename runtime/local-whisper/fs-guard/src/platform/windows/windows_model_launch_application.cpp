@@ -391,12 +391,18 @@ bool owner_control_closed(int descriptor) {
 
 int wait_for_launcher(HANDLE job, HANDLE launcher, int owner_control) {
   bool terminated = false;
+  bool control_open = true;
   while (true) {
     if (WaitForSingleObject(launcher, 0) == WAIT_OBJECT_0) {
       DWORD exit_code = 1;
       return GetExitCodeProcess(launcher, &exit_code) ? static_cast<int>(exit_code) : 1;
     }
-    if (!terminated && owner_control_closed(owner_control)) {
+    const bool control_closed = control_open && owner_control_closed(owner_control);
+    if (control_closed) {
+      control_open = false;
+      static_cast<void>(_close(owner_control));
+    }
+    if (!terminated && control_closed) {
       terminated = true;
       if (!TerminateJobObject(job, 1))
         throw std::runtime_error("model launch job termination failed");

@@ -10,13 +10,16 @@
 #include <array>
 #include <cerrno>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -115,6 +118,118 @@ void wait_success(pid_t child) {
   }
   if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
     throw std::runtime_error("authority child failed");
+}
+
+enum class TransferShape { kValid, kNoDescriptor, kMultipleDescriptors, kTruncated, kWrongBinding };
+
+std::size_t open_descriptor_count() {
+  std::size_t count = 0;
+  for (const auto& entry : std::filesystem::directory_iterator("/proc/self/fd"))
+    static_cast<void>(entry), ++count;
+  return count;
+}
+
+void receive_authority_request(const int channel_descriptor) {
+  std::array<std::uint8_t, local_whisper::common::kAuthorityRequestBytes> request{};
+  if (recv(channel_descriptor, request.data(), request.size(), 0) !=
+      static_cast<ssize_t>(request.size())) {
+    throw std::runtime_error("authority fixture request receive failed");
+  }
+}
+
+void send_transfer(const int channel_descriptor, const AuthorityBinding& expected_binding,
+                   const std::vector<int>& descriptors, const bool wrong_binding) {
+  AuthorityBinding transfer_binding = expected_binding;
+  if (wrong_binding)
+    ++transfer_binding.configuration_epoch;
+  const auto transfer =
+      local_whisper::common::encode_authority_record(local_whisper::common::AuthorityTransfer{
+          transfer_binding, 1, local_whisper::common::AuthorityCarrierKind::linux_rights, 0});
+  std::vector<std::byte> control(
+      CMSG_SPACE(sizeof(struct ucred)) +
+      (descriptors.empty() ? 0U : CMSG_SPACE(sizeof(int) * descriptors.size())));
+  struct iovec vector {
+    const_cast<std::uint8_t*>(transfer.data()), transfer.size()
+  };
+  struct msghdr message {};
+  message.msg_iov = &vector;
+  message.msg_iovlen = 1;
+  message.msg_control = control.data();
+  message.msg_controllen = control.size();
+  struct cmsghdr* credentials_header = CMSG_FIRSTHDR(&message);
+  if (credentials_header == nullptr)
+    throw std::runtime_error("authority fixture credentials unavailable");
+  credentials_header->cmsg_level = SOL_SOCKET;
+  credentials_header->cmsg_type = SCM_CREDENTIALS;
+  credentials_header->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+  const struct ucred credentials = {getpid(), geteuid(), getegid()};
+  std::memcpy(CMSG_DATA(credentials_header), &credentials, sizeof(credentials));
+  if (!descriptors.empty()) {
+    struct cmsghdr* rights_header = CMSG_NXTHDR(&message, credentials_header);
+    if (rights_header == nullptr)
+      throw std::runtime_error("authority fixture rights unavailable");
+    rights_header->cmsg_level = SOL_SOCKET;
+    rights_header->cmsg_type = SCM_RIGHTS;
+    rights_header->cmsg_len = CMSG_LEN(sizeof(int) * descriptors.size());
+    std::memcpy(CMSG_DATA(rights_header), descriptors.data(), sizeof(int) * descriptors.size());
+  }
+  if (sendmsg(channel_descriptor, &message, MSG_NOSIGNAL) != static_cast<ssize_t>(transfer.size()))
+    throw std::runtime_error("authority fixture transfer send failed");
+}
+
+[[noreturn]] void run_hostile_sender(const int channel_descriptor,
+                                     const std::filesystem::path& artifact,
+                                     const AuthorityBinding& binding, const TransferShape shape) {
+  try {
+    receive_authority_request(channel_descriptor);
+    const std::size_t descriptor_count = shape == TransferShape::kNoDescriptor          ? 0U
+                                         : shape == TransferShape::kMultipleDescriptors ? 3U
+                                         : shape == TransferShape::kTruncated           ? 192U
+                                                                                        : 1U;
+    std::vector<int> descriptors;
+    descriptors.reserve(descriptor_count);
+    for (std::size_t index = 0; index < descriptor_count; ++index) {
+      const int descriptor = open_artifact(artifact, AuthorityArtifactKind::regular_file);
+      descriptors.push_back(descriptor);
+    }
+    send_transfer(channel_descriptor, binding, descriptors, shape == TransferShape::kWrongBinding);
+    for (const int descriptor : descriptors)
+      static_cast<void>(close(descriptor));
+    _exit(0);
+  } catch (...) {
+    _exit(10);
+  }
+}
+
+void expect_hostile_transfer(const std::filesystem::path& artifact, const TransferShape shape,
+                             const bool expect_success) {
+  const std::size_t baseline = open_descriptor_count();
+  std::array<int, 2> channel{};
+  ASSERT_EQ(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0, channel.data()), 0);
+  const pid_t sender = fork();
+  if (sender < 0)
+    throw std::runtime_error("authority hostile sender fork failed");
+  if (sender == 0) {
+    static_cast<void>(close(channel[0]));
+    const AuthorityBinding binding =
+        make_binding(getppid(), getpid(), AuthorityArtifactKind::regular_file);
+    run_hostile_sender(channel[1], artifact, binding, shape);
+  }
+  static_cast<void>(close(channel[1]));
+  const AuthorityBinding binding =
+      make_binding(getpid(), sender, AuthorityArtifactKind::regular_file);
+  LinuxModelAuthorityClient client;
+  bool accepted = false;
+  try {
+    UniqueModelDescriptor authority = client.acquire(channel[0], binding);
+    accepted = authority.get() >= 0;
+  } catch (...) {
+    accepted = false;
+  }
+  static_cast<void>(close(channel[0]));
+  ASSERT_NO_THROW(wait_success(sender));
+  EXPECT_EQ(accepted, expect_success);
+  EXPECT_EQ(open_descriptor_count(), baseline);
 }
 
 [[noreturn]] void run_guard(int channel_descriptor, int model_descriptor,
@@ -253,6 +368,15 @@ TEST(ModelAuthorityHandoff, TransfersDirectoryAndBootstrapsWorker) {
 TEST(ModelAuthorityHandoff, ConsumesOperationNonceAfterOneTransfer) {
   TemporaryAuthorityRoot root(AuthorityArtifactKind::regular_file);
   expect_isolated_success(root.artifact(), AuthorityArtifactKind::regular_file, true);
+}
+
+TEST(ModelAuthorityHandoff, RejectsHostileAncillaryDescriptorShapesWithoutLeaks) {
+  TemporaryAuthorityRoot root(AuthorityArtifactKind::regular_file);
+  expect_hostile_transfer(root.artifact(), TransferShape::kValid, true);
+  expect_hostile_transfer(root.artifact(), TransferShape::kNoDescriptor, false);
+  expect_hostile_transfer(root.artifact(), TransferShape::kMultipleDescriptors, false);
+  expect_hostile_transfer(root.artifact(), TransferShape::kTruncated, false);
+  expect_hostile_transfer(root.artifact(), TransferShape::kWrongBinding, false);
 }
 
 } // namespace

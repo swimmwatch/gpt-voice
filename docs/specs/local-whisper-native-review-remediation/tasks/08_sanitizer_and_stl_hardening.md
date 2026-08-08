@@ -2,11 +2,11 @@
 
 ## Outcome
 
-Every Linux sanitized Local Whisper native graph fails on the first ASan/UBSan finding, proves that policy with dedicated fixtures, and uses consistent standard-library bounds hardening. A compatible dedicated MSVC ASan configuration and complete Windows STL-debug contract are authored for execution in Packet 15.
+Every Linux sanitized Local Whisper native graph fails on the first ASan/UBSan finding, proves that policy with dedicated fixtures, and uses consistent standard-library bounds hardening. A compatible dedicated MSVC ASan configuration and complete Windows STL-debug contract execute successfully in packet-local CI.
 
 ## Prerequisites
 
-- Packets 01–07 are complete with Linux/shared evidence so the final native target graph is stable.
+- Packets 01–07 are complete, including Packet 04–07 packet-local Linux/Windows remote gates, so the final native target graph is stable.
 - This packet has separate execution authorization and no other packet is in progress.
 - Verified native test sources and the pinned Linux Clang and Windows MSVC profiles are available.
 
@@ -27,7 +27,7 @@ Every Linux sanitized Local Whisper native graph fails on the first ASan/UBSan f
 ## Out Of Scope
 
 - TSan, fuzz targets, broad analyzer rollout, unsupported Windows UBSan/LeakSanitizer/TSan claims, new dependencies, or disabling a finding to make CI pass.
-- Real Windows-host execution; Packet 15 owns it and all resulting fixes.
+- Supported-host manual Windows smoke, which remains owned by Packet 15; automated ordinary and ASan MSVC execution is in scope here.
 
 ## Task Contract
 
@@ -57,7 +57,7 @@ Every Linux sanitized Local Whisper native graph fails on the first ASan/UBSan f
 - AC-AUT-017 passes for the proof and every Linux sanitized project suite.
 - The Linux bounds fixture fails at the bounds check while all normal sanitized suites pass with `_GLIBCXX_ASSERTIONS` across the linked graph.
 - Source/configuration tests prove the Windows ASan graph is distinct, contains no incompatible `/RTC1`, claims no unsupported sanitizer, and has a uniform STL debug level.
-- The real Windows AC-AUT-018 and Windows half of AC-AUT-020 remain explicitly deferred to Packet 15.
+- The remote Windows jobs execute and pass AC-AUT-018 and the Windows half of AC-AUT-020 with no skipped Windows job.
 
 ## Verification
 
@@ -72,7 +72,16 @@ npm run test:local-whisper:whisper-cpp-core
 npm run test:local-whisper:native-build-audits
 ```
 
-Also run the smallest workflow/profile contract tests covering Windows ASan selection and STL consistency. Packet 15 owns the real Windows ordinary/ASan execution.
+Also run the smallest workflow/profile contract tests covering Windows ASan selection and STL consistency. The packet-local remote gate owns real Windows ordinary/ASan execution and all resulting fixes.
+
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 08 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 08 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and every new or split sanitizer/native job introduced by this packet.
+4. Linux sanitizer/STL jobs and ordinary plus dedicated-ASan Windows jobs must execute their real native suites and proof fixtures. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 08, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
 
 ## Failure And Rollback
 
@@ -82,8 +91,8 @@ Also run the smallest workflow/profile contract tests covering Windows ASan sele
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed here. Record every deferred ordinary/ASan target and its expected source manifest for Packet 15.
-- No workflow dispatch, artifact upload, packaging, or publication is authorized.
+- No supported-host manual Windows smoke is performed here; Packet 15 retains that final manual gate. Automated ordinary/ASan Windows jobs are mandatory here.
+- The packet's non-force PR-head pushes are required; manual workflow dispatch, artifact upload, packaging, and publication remain unauthorized.
 
 ## References
 
@@ -92,6 +101,6 @@ Also run the smallest workflow/profile contract tests covering Windows ASan sele
 
 ## Completion And Handoff
 
-- Record changed policy/profile files, Linux sanitizer and bounds results, and the deferred Windows target manifest in `handoff.md`.
-- Check Packet 08 after its Linux/shared completion set passes; this does not satisfy the overall Windows evidence gate.
-- Set the exact next packet to Packet 09 and stop without starting it, committing, pushing, or dispatching CI.
+- Record changed policy/profile files, local Linux sanitizer/bounds results, exact candidate/completion commits, and successful ordinary/ASan Windows CI jobs in `handoff.md`.
+- Check Packet 08 only after local verification and both exact-SHA remote phases pass with no skipped Windows job. Packet 15 remains mandatory for supported-host manual Windows evidence.
+- Set the exact next packet to Packet 09 and stop without starting it or manually dispatching CI. The Packet 08 candidate and completion-record commits must already be pushed and green.

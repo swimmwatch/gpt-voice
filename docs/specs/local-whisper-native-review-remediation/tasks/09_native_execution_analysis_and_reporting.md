@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Native quality jobs use explicit per-host source manifests, run path-sensitive Linux analysis, are wired for real ordinary and analyzed MSVC execution, and emit platform-truthful coverage summaries. Real Windows execution and remediation are deferred to Packet 15.
+Native quality jobs use explicit per-host source manifests, run path-sensitive Linux analysis, execute real ordinary and analyzed MSVC suites, and emit platform-truthful coverage summaries before this packet completes.
 
 ## Prerequisites
 
@@ -25,7 +25,7 @@ Native quality jobs use explicit per-host source manifests, run path-sensitive L
 
 ## Out Of Scope
 
-- Blanket noisy check-family enablement, unreviewed baselines, Windows clang-tidy, CodeQL substitution, `clang-cl`, qualification, or real Windows-host execution in this packet.
+- Blanket noisy check-family enablement, unreviewed baselines, Windows clang-tidy, CodeQL substitution, `clang-cl`, qualification, or supported-host manual Windows smoke in this packet.
 
 ## Task Contract
 
@@ -55,7 +55,7 @@ Native quality jobs use explicit per-host source manifests, run path-sensitive L
 - Linux path-sensitive analysis passes for every Linux manifest source and its bad fixture is detected.
 - Workflow/profile tests prove every ordinary and analyzed Windows manifest source will be compiled by MSVC and no contract-only step is reported as execution.
 - The coverage summary rejects absent sources, unsupported evidence claims, and Linux-to-Windows overstatement.
-- Real AC-AUT-018 Windows execution, the Windows half of AC-AUT-019, and the final AC-AUT-025 summary remain deferred to Packet 15.
+- Packet-local Windows jobs execute AC-AUT-018 and the Windows half of AC-AUT-019; the packet emits a truthful interim AC-AUT-025 summary, with final workstream aggregation retained by Packet 15.
 
 ## Verification
 
@@ -70,7 +70,16 @@ npm run test:local-whisper:native-build-audits
 npm run test:local-whisper:native-ci-workflow
 ```
 
-If canonical command names differ during implementation, update `package.json`, Packets 14–15, and the workflow tests together. Do not dispatch Windows CI in this packet.
+If canonical command names differ during implementation, update `package.json`, Packets 14–15, and the workflow tests together. Do not manually dispatch Windows CI; the required non-force push must launch it through the pull request.
+
+## Remote Completion Gate
+
+1. After local verification passes, leave Packet 09 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 09 candidate commit.
+2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
+3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and every analyzer/reporting job introduced by this packet.
+4. Linux path-sensitive analysis and all ordinary-MSVC, MSVC-analysis, and dedicated-MSVC-ASan jobs must execute their complete manifests and proof fixtures. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable.
+5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
+6. After the candidate SHA passes, check Packet 09, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
 
 ## Failure And Rollback
 
@@ -80,8 +89,8 @@ If canonical command names differ during implementation, update `package.json`, 
 
 ## Manual Gates
 
-- No Windows-host manual gate is performed here. Record ordinary MSVC and MSVC-analysis commands and expected manifests for Packet 15.
-- No push, workflow dispatch, artifact publication, or qualification is authorized.
+- No supported-host manual Windows smoke is performed here; Packet 15 retains that final manual gate. Ordinary MSVC, MSVC-analysis, and MSVC-ASan jobs are mandatory here.
+- The packet's non-force PR-head pushes are required; manual workflow dispatch, artifact publication, and qualification remain unauthorized.
 
 ## References
 
@@ -90,6 +99,6 @@ If canonical command names differ during implementation, update `package.json`, 
 
 ## Completion And Handoff
 
-- Record manifests, enabled checks, Linux analyzer results, report tests, and deferred Windows commands in `handoff.md`.
-- Check Packet 09 after its Linux/shared completion set passes; Packet 15 remains mandatory for real Windows evidence.
+- Record manifests, enabled checks, local Linux analyzer results, exact candidate/completion commits, and successful ordinary/analyzed/ASan Windows jobs in `handoff.md`.
+- Check Packet 09 only after local verification and both exact-SHA remote phases pass with no skipped Windows job. Packet 15 remains mandatory for supported-host manual Windows evidence and the final aggregate report.
 - Set the exact next packet to Packet 10 and stop.

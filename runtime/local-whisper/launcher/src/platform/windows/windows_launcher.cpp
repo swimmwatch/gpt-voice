@@ -416,6 +416,7 @@ bool ownership_control_closed(int descriptor) {
 
 int wait_for_job(HANDLE job, HANDLE worker_process, int control_descriptor) {
   bool termination_started = false;
+  bool control_open = true;
   while (true) {
     const std::uint32_t active = active_job_processes(job);
     if (active == 0) {
@@ -425,7 +426,12 @@ int wait_for_job(HANDLE job, HANDLE worker_process, int control_descriptor) {
       return static_cast<int>(exit_code);
     }
     const bool worker_exited = WaitForSingleObject(worker_process, 0) == WAIT_OBJECT_0;
-    if ((worker_exited || ownership_control_closed(control_descriptor)) && !termination_started) {
+    const bool control_closed = control_open && ownership_control_closed(control_descriptor);
+    if (control_closed) {
+      control_open = false;
+      static_cast<void>(_close(control_descriptor));
+    }
+    if ((worker_exited || control_closed) && !termination_started) {
       termination_started = true;
       if (!TerminateJobObject(job, 1))
         throw std::runtime_error("launcher job termination failed");
@@ -466,6 +472,7 @@ int proxy_owned_job(HANDLE job, HANDLE worker_process, int control_descriptor,
   HANDLE app_input = descriptor_handle(0);
   HANDLE app_output = descriptor_handle(1);
   bool termination_started = false;
+  bool control_open = true;
   bool output_closed = false;
   while (true) {
     const bool worker_exited = WaitForSingleObject(worker_process, 0) == WAIT_OBJECT_0;
@@ -494,7 +501,12 @@ int proxy_owned_job(HANDLE job, HANDLE worker_process, int control_descriptor,
         return 1;
       return static_cast<int>(exit_code);
     }
-    if (ownership_control_closed(control_descriptor) && !termination_started) {
+    const bool control_closed = control_open && ownership_control_closed(control_descriptor);
+    if (control_closed) {
+      control_open = false;
+      static_cast<void>(_close(control_descriptor));
+    }
+    if (control_closed && !termination_started) {
       termination_started = true;
       worker_input.reset();
       if (!TerminateJobObject(job, 1))
@@ -580,12 +592,13 @@ public:
     UniqueHandle worker_thread(process_information.hThread);
     for (auto& handle : standard_handles)
       handle.reset();
+    std::optional<local_whisper::common::AuthorityTransfer> worker_transfer;
+    bool worker_authority_confirmed = false;
     try {
       if (!AssignProcessToJobObject(job.get(), worker_process.get()))
         throw std::runtime_error("launcher job assignment failed");
 
       std::optional<local_whisper::common::AuthorityBinding> authority_binding;
-      std::optional<local_whisper::common::AuthorityTransfer> worker_transfer;
       if (full_load) {
         authority_binding = model_binding(request);
         const auto launcher_bytes = read_exact(descriptor_handle(authority_descriptor),
@@ -631,6 +644,7 @@ public:
             local_whisper::common::windows_process_start_identity_sha256(worker_process.get())) {
           throw std::runtime_error("launcher worker process identity changed");
         }
+        worker_authority_confirmed = true;
         constexpr std::array<std::uint8_t, 1> release = {1U};
         write_exact(worker_input.write.get(), release);
       }
@@ -641,6 +655,10 @@ public:
                                    std::move(worker_input.write), std::move(worker_output.read))
                  : wait_for_job(job.get(), worker_process.get(), control_descriptor);
     } catch (...) {
+      if (worker_transfer.has_value() && !worker_authority_confirmed) {
+        WindowsModelAuthorityClient::close_unconfirmed_worker_duplicate(*worker_transfer,
+                                                                        worker_process.get());
+      }
       static_cast<void>(TerminateJobObject(job.get(), 1));
       throw;
     }

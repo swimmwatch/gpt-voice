@@ -202,6 +202,7 @@ void terminate_and_reap_owned_group(const pid_t worker_pid) noexcept {
 }
 
 int wait_for_owned_group(pid_t worker_pid, int control_descriptor) {
+  UniqueDescriptor control(control_descriptor);
   bool root_exited = false;
   int root_status = 0;
   bool termination_started = false;
@@ -216,14 +217,14 @@ int wait_for_owned_group(pid_t worker_pid, int control_descriptor) {
       return root_exit_code(root_status);
 
     struct pollfd control_poll {
-      control_descriptor, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0
+      control.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0
     };
     const int poll_result = poll(&control_poll, 1, static_cast<int>(kPollInterval.count()));
     if (poll_result < 0 && errno != EINTR)
       termination_requested = 1;
     if (poll_result > 0 && (control_poll.revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+      control.reset();
       termination_requested = 1;
-      std::this_thread::sleep_for(kPollInterval);
     }
 
     if ((termination_requested != 0 || root_exited) && !termination_started) {
@@ -268,6 +269,7 @@ std::vector<std::uint8_t> read_exact(const int descriptor, const std::size_t siz
 
 int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
                       UniqueDescriptor worker_input, UniqueDescriptor worker_output) {
+  UniqueDescriptor control(control_descriptor);
   bool root_exited = false;
   int root_status = 0;
   bool termination_started = false;
@@ -281,7 +283,7 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
       return root_exit_code(root_status);
 
     std::array<struct pollfd, 3> descriptors = {
-        pollfd{control_descriptor, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
+        pollfd{control.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
         pollfd{STDIN_FILENO, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
         pollfd{worker_output.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
     };
@@ -290,8 +292,10 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
     if (polled < 0 && errno != EINTR)
       termination_requested = 1;
     if (polled > 0) {
-      if ((descriptors[0].revents & (POLLIN | POLLHUP | POLLERR)) != 0)
+      if ((descriptors[0].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+        control.reset();
         termination_requested = 1;
+      }
       if ((descriptors[1].revents & POLLIN) != 0 && worker_input.get() >= 0) {
         const ssize_t count = read(STDIN_FILENO, buffer.data(), buffer.size());
         if (count > 0) {
