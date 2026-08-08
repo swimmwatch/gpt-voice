@@ -61,11 +61,13 @@
 - Packet 04 adds the read-only `local-whisper-remediation` matrix job for `ubuntu-latest` and `windows-latest`, with Node.js 24, 60-minute timeout, npm/Electron caches, and deterministic remediation checks. The existing unconditional `quality` job retains `npm run audit:prod`.
 - Local Packet 04 preflight passes: `npm run test:local-whisper:artifacts` (32 tests), `npm run test:local-whisper:ipc` (88 tests), `npm run test:local-whisper:composition`, `npm run verify:local-whisper:ui`, qualification HTTPS tests (6 tests), `npm run typecheck`, `npm run test:types`, `npm run lint` (88 pre-existing warnings and no errors), `npm run build:prod` (webpack performance warnings only), and `npm run audit:prod` (0 vulnerabilities).
 - `npm run format:check` and `npm run test:types` pass after formatting-only changes to `tests/main/localWhisper/capability/NvidiaRtx50Applicability.test.ts` and `tests/main/prettifyCodexCli.test.ts`. Their focused test command passes (21 tests).
+- GitHub Actions [workflow dispatch run 31271967296](https://github.com/swimmwatch/gpt-voice/actions/runs/31271967296) passed the `Local Whisper Remediation` job on both `ubuntu-latest` and `windows-latest`, including the full Packet 04 command sequence.
+- The same workflow’s overall conclusion is failure outside the Packet 04 matrix: existing Linux and Windows native-quality source-integrity checks failed, and the existing `quality` job’s full unit-test step failed. The Packet 04 remediation jobs completed successfully and no unrelated failure was changed.
 
 ## Exact Next Step
 
-- Separately authorize a Packet 04 commit/push, GitHub Actions matrix execution, and Linux/Windows desktop smoke before marking Packet 04 complete.
+- Complete the pending Linux x64 and Windows x64 desktop smoke gates, then resolve the unrelated native-quality and full-unit-test CI failures through their owning workstreams before marking Packet 04 complete.
 
 ## Blockers
 
-- Packet 04 remains incomplete only because the GitHub Actions Linux/Windows matrix and Linux/Windows x64 desktop smoke are pending. No external validation was requested or run.
+- Packet 04 remains incomplete because Linux and Windows x64 desktop smoke gates are pending. The overall workflow also remains failing due to unrelated native-quality source-integrity and full-unit-test failures; the dedicated Packet 04 matrix passed on both runners.
