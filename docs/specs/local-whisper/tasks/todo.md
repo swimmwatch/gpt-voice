@@ -19,13 +19,14 @@ and bounded ordinary-app CPU/RTX 5090 smoke passed without creating Production
 evidence. Task 25 RTX 50 Readiness Closure is complete:
 deterministic inventory, applicability, catalog, migration, renderer-projection,
 and acquisition-guard checks passed without physical-host or qualification
-evidence. Task 27's authorized local automated scope is implemented and verified but its
-external/manual gates remain pending. Revision 28 selects a locked
+evidence. Task 27's authorized local automated scope is implemented and verified in
+`429aadf3`, but its external/manual gates remain pending. Revision 28 selects a locked
 acquisition-only WASM XZ decoder plus strict project-owned TAR parsing for the
-official Linux CUDA `.tar.xz` inputs; source/submodule/license review,
-production locks, closed profiles, and hosted rows still remain. Tasks 31, 30,
-28, 29, 21, and 22 remain unstarted. Task 26 is retained only as deferred,
-non-executable RTX 30/40 future work.
+official Linux CUDA `.tar.xz` inputs; its exact upstream tree has no license
+text, so the decoder must remain Pending rather than be substituted. Production
+locks, closed profiles, and hosted rows remain. Tasks 31, 30, 28, 29, 21, and
+22 remain unstarted. Task 26 is retained only as deferred, non-executable RTX
+30/40 future work.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`

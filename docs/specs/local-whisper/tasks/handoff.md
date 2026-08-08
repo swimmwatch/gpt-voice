@@ -39,7 +39,7 @@
   exact official acquisition records, closed active profiles, CUDA driver-stub
   separation, read-only hosted workflow, and actual Linux/Windows rows remain;
   no production object, pack, installer, or qualification evidence was
-  produced.
+  produced. The local scope is committed and pushed as `429aadf3`.
 - Task 31 consumes Task 27 unchanged and implements the read-only hosted
   Linux/Windows application plus CPU/RTX 50 builders and reproducibility checks
   without production secrets, installable artifact upload, or hardware claims.
@@ -77,7 +77,7 @@
 - Public-runner Task 27 preparation and Task 31 six-output execution each
   require a separately authorized immutable commit/push/PR or approved main
   source; neither requires a physical GPU.
-- The current Task 27 worktree updates `validate-task-plan.mjs` through plan
+- Task 27 commit `429aadf3` updates `validate-task-plan.mjs` through plan
   revision 28, all 31 task packets, and Task 31 ownership of `AC-AUTO-080`,
   `AC-AUTO-083`, and `AC-AUTO-084`.
 - All application/native runtime installation origins must be immutable assets
@@ -158,6 +158,15 @@ Prettier for revised planning files, and `rtk git diff --check`.
 
 ### Remaining Manual Gates
 
+- The explicitly authorized public review confirmed that the NVIDIA
+  `redistrib_12.8.1.json` catalog and the exact `xz-decompress@0.2.3` npm
+  object match their recorded SHA-256 values. The decoder's five-entry npm
+  inventory, upstream commit, `xz-embedded` public-domain `COPYING`, and
+  `walloc` MIT-style `LICENSE.md` were also reviewed. However, the exact
+  `httptoolkit/xz-decompress` upstream tree has no license file and the GitHub
+  repository API reports no repository license. Its npm `license: MIT` metadata
+  is explicitly insufficient under Task 27, so the selected decoder remains
+  `Pending`; do not create its production record or substitute a decoder.
 - Research and review the complete official Linux/Windows compiler, SDK, CUDA
   12.8.1, packaging, Node/Electron, inspection, network-probe, license, and
   signature inputs; then create verified production locks and close all active
@@ -167,11 +176,9 @@ Prettier for revised planning files, and `rtk git diff --check`.
   CUDART, and CCCL downloads matched the vendor-published SHA-256 values. The
   CUDART component contains the build-only `lib/stubs/libcuda.so`; it confirms
   the required separation from the real host `libcuda.so.1`. Linux CUDA inputs
-  are `.tar.xz`; revision 28 resolves the implementation choice with
-  `xz-decompress@0.2.3` as a locked acquisition-only WASM candidate and a
-  project-owned bounded GZIP/XZ/TAR path. Its exact npm bytes, upstream source,
-  `xz-embedded`/`walloc` commits, npm-to-source correspondence, and license
-  provenance must be reviewed before its record can leave `Pending`.
+  are `.tar.xz`; revision 28 selects `xz-decompress@0.2.3` plus a project-owned
+  bounded GZIP/XZ/TAR path, but its own missing upstream license text blocks
+  production provenance closure.
 - Complete the CUDA toolkit driver-stub versus physical `libcuda.so.1`
   contract and verify that runtime outputs exclude the stub.
 - Review exact commit pins for a read-only public preparation workflow, commit
@@ -225,8 +232,11 @@ Passed:
 ## Next Packet
 
 Task 27 remains the exact next packet for its external/manual gates; its local
-XZ/TAR remediation is complete. Do not start Task 31, release preparation,
-candidate freeze, signing, hardware qualification, or any external release
-action. This packet is intentionally uncommitted; the local-scope authorization
-does not authorize a commit, push, public-runner workflow, Task 30, release
-branch/PR, repository-setting change, merge, tag, or publication.
+XZ/TAR remediation is complete and committed as `429aadf3`. The newly
+authorized public-source review is blocked on the selected decoder's missing
+upstream license text. Do not start Task 31, release preparation, candidate
+freeze, signing, hardware qualification, or any external release action. Do
+not substitute a decoder, create a production lock, or run a hosted row unless
+the licensing blocker is resolved through a new reviewed decision. Commit,
+push, Task 30, release branch/PR, repository-setting change, merge, tag, and
+publication require separate authorization.

@@ -9976,3 +9976,36 @@ decisions:
     rationale: The user authorized one incremental pass that resumes only Task 27's local XZ/TAR materializer and revision-28 validator remediation, focused local verification, and accurate handoff updates. Networked production-object acquisition, provenance/license closure, hosted workflow execution, commit, push, PR, signing, qualification, merge, tag, upload, publication, and release remain outside this authorization.
     supersedes_revision: null
     requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
+
+  - id: execution.task-27-external-gates
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The committed Task 27 local remediation leaves official input review/acquisition, provenance/license closure, profile closure, and read-only hosted preparation rows as explicit manual gates.
+      - The user explicitly approved continuation after those gates were presented as the exact blocker for Task 31.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: execution-round-102
+      question_id: execution.task-27-external-gates
+      idempotency_key: execution.task-27-external-gates:v1
+      last_status: answered
+      sequence: 102
+      revision: 1
+    question:
+      text: What should this Task 27 continuation execute after the local remediation has been committed?
+      kind: single
+      options:
+        - id: execute-public-gates
+          label: Execute public Task 27 gates (Recommended)
+          description: Review and acquire only named public inputs, create verified locks, and run the read-only hosted preparation rows; do not sign, release, merge, tag, or publish.
+        - id: retain-manual-gates
+          label: Keep gates pending
+          description: Do not perform external acquisition or hosted workflows; retain the completed local remediation only.
+    answer:
+      selected_ids: [execute-public-gates]
+      text: ''
+    rationale: 'The user authorized the public Task 27 continuation: official-source review and exact acquisition, verified production locks/profile closure, and read-only hosted preparation. Signing, release, merge, tag, upload, publication, and Task 31 remain outside this execution pass.'
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
