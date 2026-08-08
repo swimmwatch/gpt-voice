@@ -19,12 +19,19 @@ export function loaderLimitInputsPath(workspaceRoot) {
   );
 }
 
+export function canonicalLoaderLimitToolSourceBytes(bytes) {
+  return Buffer.from(bytes.toString('utf8').replace(/\r\n/gu, '\n'), 'utf8');
+}
+
 export function loaderLimitToolDigest() {
   const files = [
     resolve(import.meta.dirname, 'derive-whisper-cpp-loader-limits.mjs'),
     resolve(import.meta.dirname, 'loader-limit-core.mjs'),
     resolve(import.meta.dirname, 'verify-whisper-cpp-loader-limits.mjs'),
-  ].map((path) => ({ path: basename(path), sha256: sha256(readFileSync(path)) }));
+  ].map((path) => ({
+    path: basename(path),
+    sha256: sha256(canonicalLoaderLimitToolSourceBytes(readFileSync(path))),
+  }));
   return canonicalDigest(files);
 }
 

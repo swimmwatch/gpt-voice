@@ -13,7 +13,7 @@
       "symbols": ["read_safe", "whisper_model_load", "whisper_hparams", "whisper_model_loader"]
     }
   ],
-  "derivationToolSha256": "ff33e6b999cf079fc1a84d42e82bd910b07cd8415e88b770bd2c9178a9467d59",
+  "derivationToolSha256": "97a590ddfbc966a7cd804ba3fb5d87c00af47144d6792c12f16bcda4401e0924",
   "families": ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"],
   "variants": ["full", "q5_0"],
   "tensorTypes": ["F32", "F16", "Q5_0"],
@@ -93,10 +93,10 @@
   },
   "review": {
     "status": "approved",
-    "reviewedAt": "2026-08-06T00:00:00.000Z",
-    "reviewedBy": "User-approved Task 24 plan revision 23",
+    "reviewedAt": "2026-08-09T00:00:00.000Z",
+    "reviewedBy": "Packet 04 cross-platform CI remediation",
     "provenancePath": "whisper-cpp-loader-limits-v1.provenance.json",
     "unresolvedExclusions": []
   },
-  "tableSha256": "fa66ffe2e61ff30d649bf45b0c4b37a659a230c1159dffbeb51c329c3687bd7a"
+  "tableSha256": "e625802a6fbf31aba996150df44babc2f5784ab7ce28aa1408ae67bacd53f715"
 }

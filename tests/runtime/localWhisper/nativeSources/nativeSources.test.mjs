@@ -9,7 +9,10 @@ import test from 'node:test';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { validateDerivationInputs } from '../../../../scripts/local-whisper/native-build/loader-limit-core.mjs';
+import {
+  canonicalLoaderLimitToolSourceBytes,
+  validateDerivationInputs,
+} from '../../../../scripts/local-whisper/native-build/loader-limit-core.mjs';
 import { resolveNativeBuildToolPaths } from '../../../../scripts/local-whisper/native-build/native-build-tool-paths.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from '../../../../scripts/local-whisper/native-build/windows-msvc-build-environment.mjs';
 import { parseDumpbinDependencies } from '../../../../scripts/local-whisper/native-build/windows-pe-dependency-core.mjs';
@@ -48,6 +51,13 @@ test('native source importer identity is invariant across checkout line endings'
     const lock = readJson(resolve(sourceRoot, 'locks', `${lockId}.json`));
     assert.equal(lock.importer.implementationSha256, importerImplementationDigest());
   }
+});
+
+test('loader-limit derivation tool identity is invariant across checkout line endings', () => {
+  assert.deepEqual(
+    canonicalLoaderLimitToolSourceBytes(Buffer.from('first\r\nsecond\n', 'utf8')),
+    Buffer.from('first\nsecond\n', 'utf8'),
+  );
 });
 
 function git(repository, arguments_) {
