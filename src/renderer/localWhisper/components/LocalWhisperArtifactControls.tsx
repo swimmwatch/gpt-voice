@@ -208,7 +208,7 @@ export function LocalWhisperArtifactOverflowMenu({
           </TooltipTrigger>
           <TooltipContent>{actionsDisabledReason ?? `Manage ${artifact.label}`}</TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="end" className="lw-menu-content">
+        <DropdownMenuContent align="end">
           {artifact.references.map((reference) => (
             <DropdownMenuItem key={reference.referenceId} onSelect={() => void onViewReference(reference)}>
               {reference.kind === 'openProvenanceReference' ? (

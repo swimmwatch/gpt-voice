@@ -747,16 +747,6 @@
   height: 20px;
 }
 
-.lw-menu-content {
-  gap: 8px;
-  border-color: var(--lw-line) !important;
-  background: var(--lw-surface) !important;
-}
-
-.lw-menu-content [data-slot='dropdown-menu-item'] {
-  gap: 9px;
-}
-
 .lw-selected-model-control {
   display: flex;
   flex-direction: column;

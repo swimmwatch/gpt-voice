@@ -352,33 +352,31 @@ function ProfileRow({
           <DropdownMenuLabel>{profile.name}</DropdownMenuLabel>
           <DropdownMenuItem onSelect={onEditOrInspect}>
             {isBuiltIn ? <Eye aria-hidden="true" /> : <Pencil aria-hidden="true" />}
-            <span className="ml-2">{t(isBuiltIn ? 'prettify.profiles.view' : 'prettify.profiles.edit')}</span>
+            <span>{t(isBuiltIn ? 'prettify.profiles.view' : 'prettify.profiles.edit')}</span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={onDuplicate}>
             <Copy aria-hidden="true" />
-            <span className="ml-2">{t('prettify.profiles.duplicate')}</span>
+            <span>{t('prettify.profiles.duplicate')}</span>
           </DropdownMenuItem>
           <DropdownMenuItem disabled={profile.isDefault} onSelect={onSetDefault}>
             <Star aria-hidden="true" />
-            <span className="ml-2">
-              {t(profile.isDefault ? 'prettify.profiles.currentDefault' : 'prettify.profiles.setDefault')}
-            </span>
+            <span>{t(profile.isDefault ? 'prettify.profiles.currentDefault' : 'prettify.profiles.setDefault')}</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {reorderingDisabled ? (
             <DropdownMenuItem disabled>
               <Search aria-hidden="true" />
-              <span className="ml-2">{t('prettify.profiles.clearSearchToReorder')}</span>
+              <span>{t('prettify.profiles.clearSearchToReorder')}</span>
             </DropdownMenuItem>
           ) : (
             <>
               <DropdownMenuItem disabled={index === 0} onSelect={() => onMove(-1)}>
                 <ArrowUp aria-hidden="true" />
-                <span className="ml-2">{t('prettify.profiles.moveUp')}</span>
+                <span>{t('prettify.profiles.moveUp')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem disabled={index === total - 1} onSelect={() => onMove(1)}>
                 <ArrowDown aria-hidden="true" />
-                <span className="ml-2">{t('prettify.profiles.moveDown')}</span>
+                <span>{t('prettify.profiles.moveDown')}</span>
               </DropdownMenuItem>
             </>
           )}
@@ -387,7 +385,7 @@ function ProfileRow({
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={onDelete}>
                 <Trash2 aria-hidden="true" />
-                <span className="ml-2">{t('prettify.profiles.delete')}</span>
+                <span>{t('prettify.profiles.delete')}</span>
               </DropdownMenuItem>
             </>
           )}

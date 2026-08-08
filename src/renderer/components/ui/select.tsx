@@ -3,6 +3,7 @@ import * as SelectPrimitive from '@radix-ui/react-select';
 import { useCallback, useEffect, useState, type ComponentProps } from 'react';
 import { useSelectOpenCoordinator } from '@renderer/DesktopApiProvider';
 import { cn } from '@renderer/lib/cn';
+import { FLOATING_LIST_ITEM_CLASS, FLOATING_LIST_SURFACE_CLASS } from './floating-list-styles';
 
 function Select(rootProps: ComponentProps<typeof SelectPrimitive.Root>): React.JSX.Element {
   const selectOpenCoordinator = useSelectOpenCoordinator();
@@ -115,7 +116,8 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         className={cn(
-          'z-50 max-h-[var(--radix-select-content-available-height)] min-w-32 overflow-hidden rounded-md border border-border bg-surface text-foreground shadow-lg [-webkit-app-region:no-drag] data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+          'max-h-[var(--radix-select-content-available-height)] min-w-32 overflow-hidden data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+          FLOATING_LIST_SURFACE_CLASS,
           position === 'popper' && 'w-[var(--radix-select-trigger-width)]',
           className,
         )}
@@ -146,10 +148,7 @@ function SelectLabel({ className, ...props }: ComponentProps<typeof SelectPrimit
 function SelectItem({ className, children, ...props }: ComponentProps<typeof SelectPrimitive.Item>): React.JSX.Element {
   return (
     <SelectPrimitive.Item
-      className={cn(
-        'relative flex w-full min-w-0 cursor-pointer select-none items-center overflow-hidden rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none focus:bg-surface-muted focus:text-foreground data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
-        className,
-      )}
+      className={cn(FLOATING_LIST_ITEM_CLASS, 'overflow-hidden pr-8', className)}
       data-slot="select-item"
       {...props}
     >

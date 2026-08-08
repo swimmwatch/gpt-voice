@@ -1,6 +1,7 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useSelectOpenCoordinator } from '@renderer/DesktopApiProvider';
+import { FLOATING_LIST_ITEM_CLASS, FLOATING_LIST_SURFACE_CLASS } from '@renderer/components/ui/floating-list-styles';
 import { Input } from '@renderer/components/ui/input';
 import { cn } from '@renderer/lib/cn';
 
@@ -220,7 +221,7 @@ function SearchableSelectInput({
       {isOpen && (
         <div
           aria-label={ariaLabel}
-          className="mt-1 max-h-60 overflow-y-auto rounded-md border border-border bg-surface p-1 shadow-lg"
+          className={cn(FLOATING_LIST_SURFACE_CLASS, 'mt-1 max-h-60 overflow-y-auto p-1')}
           id={listboxId}
           role="listbox"
         >
@@ -229,7 +230,8 @@ function SearchableSelectInput({
               <button
                 aria-selected={option.value === value}
                 className={cn(
-                  'relative flex w-full cursor-pointer items-center rounded-sm py-1.5 pr-8 pl-2 text-left text-sm text-foreground outline-none hover:bg-surface-muted focus:bg-surface-muted',
+                  FLOATING_LIST_ITEM_CLASS,
+                  'pr-8 text-left hover:bg-surface-muted',
                   index === effectiveActiveIndex && 'bg-surface-muted',
                 )}
                 id={`${listboxId}-option-${index}`}
@@ -241,7 +243,7 @@ function SearchableSelectInput({
                 type="button"
               >
                 <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                <span className="ml-3 shrink-0 text-xs text-muted-foreground">{option.value}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">{option.value}</span>
                 {option.value === value && <Check aria-hidden="true" className="absolute right-2 size-4" />}
               </button>
             ))
