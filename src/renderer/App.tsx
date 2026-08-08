@@ -36,6 +36,7 @@ import {
 } from './providerSelectionCoordinator';
 import { createPrettifyProviderSettingsInput } from './appSettingsUtils';
 import {
+  clearRecoveredBrowserFailureStatus,
   createBrowserProviderFailurePresentation,
   notificationErrorStatus,
   renderRendererStatus,
@@ -587,6 +588,7 @@ const App: React.FC = () => {
         setIsLoggedIn(true);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
         setProviderConnectionFailureStatus(null);
+        setStatus(clearRecoveredBrowserFailureStatus);
       }),
       desktopApi.onBgBrowserError((providerId, error, authExpired) => {
         if (

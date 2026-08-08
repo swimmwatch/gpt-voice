@@ -15,7 +15,12 @@ import {
   getMainPrettifyProviderViewState,
 } from '@renderer/mainPrettifyProvider';
 import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
-import { createBrowserProviderFailurePresentation, renderRendererStatus } from '@renderer/statusPresentation';
+import {
+  clearRecoveredBrowserFailureStatus,
+  createBrowserProviderFailurePresentation,
+  renderRendererStatus,
+  translatedStatus,
+} from '@renderer/statusPresentation';
 import { presentNotificationError } from '@shared/notifications';
 import { APP_LOCALE_IDS } from '@shared/appLocale';
 import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
@@ -156,7 +161,10 @@ describe('provider status presentation', () => {
       app,
       /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isPrettifyProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*isPrettifyModelActionRunning \|\|\s*activeTextAction !== null;/u,
     );
-    assert.match(app, /const \[activeTextAction, setActiveTextAction\] = useState<TextActionStatusAction \| null>\(null\);/u);
+    assert.match(
+      app,
+      /const \[activeTextAction, setActiveTextAction\] = useState<TextActionStatusAction \| null>\(null\);/u,
+    );
     assert.match(
       app,
       /onTranslationStatus\(\(nextStatus\) => \{[\s\S]*?if \(nextStatus\.phase === 'working'\) return nextStatus\.action;[\s\S]*?current === nextStatus\.action \? null : current/u,
@@ -203,7 +211,7 @@ describe('provider status presentation', () => {
     assert.match(controls, /progress\?\.state === 'Downloading' && progress\.totalBytes > 0/u);
     assert.match(
       controls,
-      /<ProgressSpinner announce=\{false\} label=\{progressLabel\} progress=\{percent\} size="sm"/u,
+      /<ProgressSpinner announce=\{false\} label=\{progressLabel\} progress=\{presentation\.percent\} size="sm"/u,
     );
     assert.match(controls, /<Spinner announce=\{false\} label=\{progressLabel\} size="sm"/u);
   });
@@ -228,6 +236,9 @@ describe('provider status presentation', () => {
     assert.equal(failure.reason, PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
     assert.equal(Boolean(localizedStatus.trim()), true);
     assert.doesNotMatch(localizedStatus, /private-session-canary|private\.example|https?:\/\//u);
+    assert.equal(clearRecoveredBrowserFailureStatus(failure.status), null);
+    const activeRecordingStatus = translatedStatus('status.recording');
+    assert.equal(clearRecoveredBrowserFailureStatus(activeRecordingStatus), activeRecordingStatus);
 
     const app = readProjectFile('src/renderer/App.tsx');
     const failureHandler = app.slice(
@@ -255,6 +266,7 @@ describe('provider status presentation', () => {
     assert.match(selectionHandler, /case 'switch-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
     assert.match(selectionHandler, /activeProviderAuthTypeRef\.current === 'localRuntime'/u);
     assert.doesNotMatch(settledCase, /setProviderConnectionReason|setProviderConnectionFailureStatus/u);
+    assert.match(app, /onBgBrowserReady\([\s\S]*?setStatus\(clearRecoveredBrowserFailureStatus\)/u);
   });
 
   it('localizes every closed Voice and Translation connection explanation', () => {

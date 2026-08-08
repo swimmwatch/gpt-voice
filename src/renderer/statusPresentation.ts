@@ -116,6 +116,11 @@ export function createBrowserProviderFailurePresentation(error: unknown): Browse
   };
 }
 
+/** Removes only the obsolete initialization error once main confirms the browser provider is ready. */
+export function clearRecoveredBrowserFailureStatus(status: RendererStatus | null): RendererStatus | null {
+  return status?.key === 'status.browserInitFailed' ? null : status;
+}
+
 export function shouldPresentIdleHotkeyStatus(
   recordingState: RecordingLifecycleState,
   preserveStatus: boolean,
