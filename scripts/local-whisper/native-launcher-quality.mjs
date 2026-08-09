@@ -7,6 +7,7 @@ import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
+import { sanitizerRuntimeEnvironment } from './native-build/sanitizer-runtime-policy.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 
 const allowedActions = new Set(['format', 'lint', 'unit', 'integration', 'all']);
@@ -25,8 +26,20 @@ const sourceDirectory = resolve(workspaceRoot, 'runtime', 'local-whisper', 'laun
 const outputDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'launcher');
 const fixtureDirectory = resolve(outputDirectory, 'fixtures');
 const platformName = process.platform === 'win32' ? 'windows' : 'linux';
-const preset = `${platformName}-test`;
-const buildDirectory = resolve(outputDirectory, `build-${platformName}-test`);
+const configurationArgument = process.argv[3] ?? 'default';
+const windowsAsan = configurationArgument === '--configuration=windows-asan';
+if (!['default', '--configuration=windows-asan'].includes(configurationArgument)) {
+  process.stderr.write('Expected no configuration or --configuration=windows-asan\n');
+  process.exit(2);
+}
+if (process.platform !== 'win32' && windowsAsan) {
+  process.stderr.write('The Windows ASan configuration is available only on Windows\n');
+  process.exit(2);
+}
+const preset = windowsAsan ? 'windows-asan' : `${platformName}-test`;
+const testPresetPrefix = windowsAsan ? 'windows-asan' : platformName;
+const sanitizers = process.platform === 'linux' || windowsAsan;
+const buildDirectory = resolve(outputDirectory, windowsAsan ? 'build-windows-asan' : `build-${platformName}-test`);
 const googleTestSource = resolve(
   workspaceRoot,
   '.cache',
@@ -56,7 +69,7 @@ const buildEnvironment =
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
     cwd: options.cwd ?? sourceDirectory,
-    env: buildEnvironment,
+    env: options.env ?? buildEnvironment,
     shell: false,
     stdio: 'inherit',
   });
@@ -96,10 +109,11 @@ function configureAndBuild() {
   run(cmake, ['--build', '--preset', preset, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
 }
 
-function runExecutableIntegration() {
-  run(process.execPath, ['scripts/local-whisper/build-fs-guard.mjs'], { cwd: workspaceRoot });
+function runExecutableIntegration(environment) {
+  run(process.execPath, ['scripts/local-whisper/build-fs-guard.mjs'], { cwd: workspaceRoot, env: environment });
   run(process.execPath, ['--import', 'tsx', 'scripts/local-whisper/verify-launcher.ts', '--fixture'], {
     cwd: workspaceRoot,
+    env: environment,
   });
 }
 
@@ -128,13 +142,19 @@ if (action === 'format') {
   });
 } else {
   configureAndBuild();
+  const testEnvironment = sanitizerRuntimeEnvironment(buildEnvironment, platformName, sanitizers);
+  process.stdout.write(`Local Whisper launcher ${sanitizers ? 'sanitized' : 'ordinary'} coverage\n`);
   if (action === 'unit' || action === 'all') {
-    run(ctest, ['--preset', `${platformName}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
+    run(ctest, ['--preset', `${testPresetPrefix}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))], {
+      env: testEnvironment,
+    });
   }
   if (action === 'integration' || action === 'all') {
     if (process.platform === 'linux') {
-      run(ctest, ['--preset', 'linux-integration', '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
+      run(ctest, ['--preset', 'linux-integration', '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))], {
+        env: testEnvironment,
+      });
     }
-    runExecutableIntegration();
+    runExecutableIntegration(testEnvironment);
   }
 }

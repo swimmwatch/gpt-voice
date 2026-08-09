@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
+import { sanitizerRuntimeEnvironment } from './native-build/sanitizer-runtime-policy.mjs';
 
 const allowedActions = new Set(['all', 'authority', 'codec', 'format', 'lint', 'proof']);
 const action = process.argv[2] ?? 'all';
@@ -17,6 +18,16 @@ const isLinux = process.platform === 'linux';
 const isWindows = process.platform === 'win32';
 if (!isLinux && !isWindows) {
   process.stderr.write('Local Whisper common native execution supports Linux and Windows only\n');
+  process.exit(2);
+}
+const configurationArgument = process.argv[3] ?? 'default';
+const configuration = configurationArgument === '--configuration=windows-asan' ? 'windows-asan' : configurationArgument;
+if (!['default', 'windows-asan'].includes(configuration)) {
+  process.stderr.write('Expected no configuration or --configuration=windows-asan\n');
+  process.exit(2);
+}
+if (!isWindows && configuration !== 'default') {
+  process.stderr.write('The Windows ASan configuration is available only on Windows\n');
   process.exit(2);
 }
 
@@ -32,17 +43,26 @@ const ctest = process.env.CTEST_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8'
 const ninja = process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja');
 const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
 
+const windowsProfiles = [
+  {
+    buildType: 'Debug',
+    cCompiler: process.env.LOCAL_WHISPER_MSVC_C_COMPILER || process.env.CXX || '',
+    cxxCompiler: process.env.LOCAL_WHISPER_MSVC_CXX_COMPILER || process.env.CXX || '',
+    id: 'windows-x64-msvc-19.39-v1',
+    linker: null,
+    sanitizers: false,
+  },
+  {
+    buildType: 'Debug',
+    cCompiler: process.env.LOCAL_WHISPER_MSVC_C_COMPILER || process.env.CXX || '',
+    cxxCompiler: process.env.LOCAL_WHISPER_MSVC_CXX_COMPILER || process.env.CXX || '',
+    id: 'windows-x64-msvc-19.39-asan-v1',
+    linker: null,
+    sanitizers: true,
+  },
+];
 const profiles = isWindows
-  ? [
-      {
-        buildType: 'Debug',
-        cCompiler: process.env.LOCAL_WHISPER_MSVC_C_COMPILER || process.env.CXX || '',
-        cxxCompiler: process.env.LOCAL_WHISPER_MSVC_CXX_COMPILER || process.env.CXX || '',
-        id: 'windows-x64-msvc-v1',
-        linker: null,
-        sanitizers: false,
-      },
-    ]
+  ? windowsProfiles.filter((profile) => (configuration === 'windows-asan' ? profile.sanitizers : !profile.sanitizers))
   : [
       {
         buildType: 'Release',
@@ -146,11 +166,8 @@ function buildAndTest(profile) {
   arguments_.push('--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' })));
   const regex = testRegex();
   if (regex) arguments_.push('-R', regex);
-  const environment = { ...process.env };
-  if (profile.sanitizers) {
-    environment.ASAN_OPTIONS = 'detect_leaks=1:halt_on_error=1';
-    environment.UBSAN_OPTIONS = 'halt_on_error=1:print_stacktrace=1';
-  }
+  const environment = sanitizerRuntimeEnvironment(process.env, isWindows ? 'windows' : 'linux', profile.sanitizers);
+  process.stdout.write(`Local Whisper common ${profile.sanitizers ? 'sanitized' : 'ordinary'} coverage\n`);
   run(ctest, arguments_, { env: environment });
 }
 

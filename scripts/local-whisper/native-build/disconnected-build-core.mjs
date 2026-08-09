@@ -22,6 +22,7 @@ import { verifyElfDependencyClosure } from './elf-dependency-core.mjs';
 import { resolveNativeBuildJobs } from './native-build-parallelism.mjs';
 import { qualificationInputDigest } from './native-toolchain-evidence-core.mjs';
 import { readQualificationFixtureIdentity } from './qualification-fixture-core.mjs';
+import { sanitizerRuntimeOptions } from './sanitizer-runtime-policy.mjs';
 import {
   auditGeneratedBuildGraph,
   resolveProfileComponent,
@@ -74,11 +75,10 @@ function sanitizedEnvironment(profile, toolInputs) {
   const directories = new Set(['/usr/bin', '/bin']);
   for (const tool of toolInputs.tools.values()) directories.add(dirname(tool.path));
   const values = {
-    ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
     LANG: 'C',
     LC_ALL: 'C',
     PATH: [...directories].join(':'),
-    UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
+    ...sanitizerRuntimeOptions(profile.target.os, profile.profileId === SANITIZER_PROFILE_ID),
   };
   const environment = Object.fromEntries(profile.environmentAllowlist.map((key) => [key, values[key]]));
   if (Object.values(environment).some((value) => typeof value !== 'string')) {

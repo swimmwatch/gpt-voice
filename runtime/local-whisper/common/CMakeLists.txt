@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
 
 option(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS
-       "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+       "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
 set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL
     "Require a disconnected dependency graph")
 if(NOT FETCHCONTENT_FULLY_DISCONNECTED)
@@ -22,6 +22,8 @@ set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
     "Verified GoogleTest complete source root")
 set(LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT "" CACHE PATH
     "Checked-in Local Whisper protocol fixture root")
+local_whisper_configure_msvc_stl_debug_level()
+local_whisper_configure_sanitizer_graph(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
 
 if(NOT EXISTS "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include/nlohmann/json.hpp")
   message(FATAL_ERROR "LOCAL_WHISPER_NLOHMANN_SOURCE must be the verified subset root")

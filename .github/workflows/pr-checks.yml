@@ -67,6 +67,9 @@ jobs:
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 
+      - name: Prove non-recovering Linux sanitizer policy
+        run: npm run test:local-whisper:native-sanitizer-proof
+
       - name: Verify Local Whisper worker vectors
         run: npm run verify:local-whisper:worker-vectors -- --check-clean
 
@@ -214,6 +217,13 @@ jobs:
 
       - name: Run MSVC Whisper.cpp worker-core suite
         run: npm run test:local-whisper:whisper-cpp-core
+
+      - name: Run MSVC AddressSanitizer native suites
+        run: |
+          npm run test:local-whisper:fs-guard:msvc-asan
+          npm run test:local-whisper:launcher:msvc-asan
+          npm run test:local-whisper:worker-codec:msvc-asan
+          npm run test:local-whisper:whisper-cpp:msvc-asan
 
       - name: Run Local Whisper supervisor conformance tests
         run: npm run test:local-whisper:supervisor

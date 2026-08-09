@@ -19,6 +19,7 @@ import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs
 import { assertClosedHostedWindowsProfile } from './native-build/hosted-toolchain-core.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
+import { sanitizerRuntimeEnvironment, sanitizerRuntimeOptions } from './native-build/sanitizer-runtime-policy.mjs';
 import { verifyLoaderLimitAuthority } from './native-build/loader-limit-core.mjs';
 import { resolveNetworkDeniedCommand } from './native-build/network-denied-build-core.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
@@ -363,7 +364,6 @@ export function resolvePreparedLinuxQualityTools(profile, environment = process.
 
 function networkDeniedEnvironment(profile, tools) {
   const values = {
-    ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
     LANG: 'C',
     LC_ALL: 'C',
     PATH: [
@@ -376,7 +376,7 @@ function networkDeniedEnvironment(profile, tools) {
         '/bin',
       ]),
     ].join(':'),
-    UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
+    ...sanitizerRuntimeOptions(profile.target.os, profile.profileId.includes('clang-18.1.3')),
   };
   return Object.fromEntries(profile.environmentAllowlist.map((key) => [key, values[key]]));
 }
@@ -409,6 +409,7 @@ export function configureBuild(
     preparedLinuxQuality = false,
     preparedWindowsQuality = false,
     rootTag = '',
+    sanitizers = false,
     tests,
   },
 ) {
@@ -419,6 +420,7 @@ export function configureBuild(
     profileTemplate.target.os === 'windows' && !networkDenied && !usePreparedWindowsQuality
       ? captureToolchainInputLock(profileTemplate, toolchainRoot)
       : profileTemplate;
+  const sanitizerEnabled = sanitizers || profileId.includes('clang-18.1.3');
   if (isAmdPreviewProfile(profileId)) {
     throw new Error('AMD Preview profiles are contract-only until the packet manual gates pass');
   }
@@ -444,7 +446,7 @@ export function configureBuild(
     profile.target.os === 'windows'
       ? `${profileId.includes('cuda') ? 'wcuda' : profileId.includes('amd') ? 'wamd' : 'wcpu'}-${
           directEngine ? 'direct' : engine ? 'engine' : 'quality'
-        }${rootTag === '' ? '' : `-${rootTag}`}`
+        }${sanitizerEnabled ? '-asan' : ''}${rootTag === '' ? '' : `-${rootTag}`}`
       : `${profileId}-${buildKind}${rootTag === '' ? '' : `-${rootTag}`}`;
   const buildRoot = resolve(taskCacheRoot, 'build', buildRootName);
   removeTaskOwnedTree(buildRoot);
@@ -467,7 +469,7 @@ export function configureBuild(
     `-DLOCAL_WHISPER_BUILD_DIRECT_ENGINE=${directEngine ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BACKEND_ID=${profileId.includes('cuda') ? 'cuda' : 'cpu'}`,
-    `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${profileId.includes('clang-18.1.3') ? 'ON' : 'OFF'}`,
+    `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${sanitizerEnabled ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_SOURCE_ROOT=${engine || directEngine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId, profile)}`,
   ];
@@ -490,7 +492,7 @@ export function configureBuild(
       arguments_.push(`-D${key}=${configuredValue}`);
     }
   } else {
-    arguments_.push(`-DCMAKE_BUILD_TYPE=${profileId.includes('clang-18.1.3') ? 'Debug' : 'Release'}`);
+    arguments_.push(`-DCMAKE_BUILD_TYPE=${sanitizerEnabled ? 'Debug' : 'Release'}`);
     arguments_.push('-DCMAKE_SKIP_BUILD_RPATH=ON', '-DCMAKE_CXX_SCAN_FOR_MODULES=OFF');
   }
   const configured = {
@@ -513,6 +515,7 @@ export function configureBuild(
           : process.env,
     networkDenied,
     profile,
+    sanitizers: sanitizerEnabled,
     tools,
   };
   runBuildCommand(configured, tools.cmake, arguments_, `configure ${profileId}`);
@@ -540,11 +543,11 @@ export function runTests(configured, label) {
   const ctest =
     configured.tools.ctest ??
     resolve(configured.tools.cmake, '..', process.platform === 'win32' ? 'ctest.exe' : 'ctest');
-  const environment = {
-    ...configured.environment,
-    ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
-    UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
-  };
+  const environment = sanitizerRuntimeEnvironment(
+    configured.environment,
+    configured.profile.target.os,
+    configured.sanitizers,
+  );
   runBuildCommand(
     configured,
     ctest,

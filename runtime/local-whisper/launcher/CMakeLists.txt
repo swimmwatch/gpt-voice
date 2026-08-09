@@ -10,13 +10,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
 
 option(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS
-       "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+       "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
 set(LOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production launcher executable")
 set(LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fixtures" CACHE PATH
     "Directory containing launcher-only test fixtures")
 set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
     "Verified GoogleTest complete source root")
+local_whisper_configure_msvc_stl_debug_level()
+local_whisper_configure_sanitizer_graph(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 
 add_library(local_whisper_launcher_core STATIC
   src/common/launcher_error.cpp

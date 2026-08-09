@@ -46,6 +46,17 @@
         "BUILD_TESTING": "ON",
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    },
+    {
+      "name": "windows-asan",
+      "displayName": "Windows MSVC AddressSanitizer Local Whisper launcher tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/launcher/build-windows-asan",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -64,6 +75,10 @@
     {
       "name": "windows-test",
       "configurePreset": "windows-test"
+    },
+    {
+      "name": "windows-asan",
+      "configurePreset": "windows-asan"
     }
   ],
   "testPresets": [
@@ -76,6 +91,12 @@
     {
       "name": "windows-unit",
       "configurePreset": "windows-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } }
+    },
+    {
+      "name": "windows-asan-unit",
+      "configurePreset": "windows-asan",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "unit" } }
     },

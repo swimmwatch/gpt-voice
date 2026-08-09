@@ -9,11 +9,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
 
-option(FS_GUARD_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(FS_GUARD_ENABLE_SANITIZERS "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
 set(FS_GUARD_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production fs-guard executable")
 set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
     "Verified GoogleTest complete source root")
+local_whisper_configure_msvc_stl_debug_level()
+local_whisper_configure_sanitizer_graph(FS_GUARD_ENABLE_SANITIZERS)
 
 add_library(fs_guard_core STATIC
   src/common/bounded_line_reader.cpp

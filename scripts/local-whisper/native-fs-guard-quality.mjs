@@ -7,6 +7,7 @@ import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
+import { sanitizerRuntimeEnvironment } from './native-build/sanitizer-runtime-policy.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 
 const allowedActions = new Set(['format', 'lint', 'unit', 'integration', 'all']);
@@ -23,8 +24,26 @@ if (process.platform !== 'linux' && process.platform !== 'win32') {
 const workspaceRoot = resolve(import.meta.dirname, '..', '..');
 const sourceDirectory = resolve(workspaceRoot, 'runtime', 'local-whisper', 'fs-guard');
 const platformName = process.platform === 'win32' ? 'windows' : 'linux';
-const preset = `${platformName}-test`;
-const buildDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'fs-guard', `build-${platformName}-test`);
+const configurationArgument = process.argv[3] ?? 'default';
+const windowsAsan = configurationArgument === '--configuration=windows-asan';
+if (!['default', '--configuration=windows-asan'].includes(configurationArgument)) {
+  process.stderr.write('Expected no configuration or --configuration=windows-asan\n');
+  process.exit(2);
+}
+if (process.platform !== 'win32' && windowsAsan) {
+  process.stderr.write('The Windows ASan configuration is available only on Windows\n');
+  process.exit(2);
+}
+const preset = windowsAsan ? 'windows-asan' : `${platformName}-test`;
+const testPresetPrefix = windowsAsan ? 'windows-asan' : platformName;
+const sanitizers = process.platform === 'linux' || windowsAsan;
+const buildDirectory = resolve(
+  workspaceRoot,
+  '.cache',
+  'local-whisper',
+  'fs-guard',
+  windowsAsan ? 'build-windows-asan' : `build-${platformName}-test`,
+);
 const googleTestSource = resolve(
   workspaceRoot,
   '.cache',
@@ -51,10 +70,10 @@ const buildEnvironment =
       })
     : process.env;
 
-function run(command, arguments_) {
+function run(command, arguments_, environment = buildEnvironment) {
   const result = spawnSync(command, arguments_, {
     cwd: sourceDirectory,
-    env: buildEnvironment,
+    env: environment,
     shell: false,
     stdio: 'inherit',
   });
@@ -113,15 +132,17 @@ if (action === 'format') {
   });
 } else {
   configureAndBuild();
+  const testEnvironment = sanitizerRuntimeEnvironment(buildEnvironment, platformName, sanitizers);
+  process.stdout.write(`Local Whisper fs-guard ${sanitizers ? 'sanitized' : 'ordinary'} coverage\n`);
   if (action === 'unit' || action === 'all') {
-    run(ctest, ['--preset', `${platformName}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
+    run(ctest, ['--preset', `${testPresetPrefix}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))], testEnvironment);
   }
   if (action === 'integration' || action === 'all') {
     run(ctest, [
       '--preset',
-      `${platformName}-integration`,
+      `${testPresetPrefix}-integration`,
       '--parallel',
       String(resolveNativeBuildJobs({ backend: 'cpu' })),
-    ]);
+    ], testEnvironment);
   }
 }

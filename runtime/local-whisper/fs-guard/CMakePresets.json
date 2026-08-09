@@ -46,6 +46,17 @@
         "BUILD_TESTING": "ON",
         "CMAKE_BUILD_TYPE": "Debug"
       }
+    },
+    {
+      "name": "windows-asan",
+      "displayName": "Windows MSVC AddressSanitizer native tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/fs-guard/build-windows-asan",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FS_GUARD_ENABLE_SANITIZERS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -64,6 +75,10 @@
     {
       "name": "windows-test",
       "configurePreset": "windows-test"
+    },
+    {
+      "name": "windows-asan",
+      "configurePreset": "windows-asan"
     }
   ],
   "testPresets": [
@@ -88,6 +103,18 @@
     {
       "name": "windows-integration",
       "configurePreset": "windows-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "integration" } }
+    },
+    {
+      "name": "windows-asan-unit",
+      "configurePreset": "windows-asan",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } }
+    },
+    {
+      "name": "windows-asan-integration",
+      "configurePreset": "windows-asan",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "integration" } }
     }

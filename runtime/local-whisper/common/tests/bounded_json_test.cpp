@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <vector>
+
 namespace local_whisper::common {
 
 TEST(BoundedJson, AgreesWithEveryCheckedInLexicalVector) {
@@ -21,6 +23,20 @@ TEST(BoundedJson, RejectsRawBodyAboveProtocolLimitBeforeParsing) {
   const auto result = validate_bounded_json(body);
   EXPECT_FALSE(result.valid);
   EXPECT_EQ(result.event_count, 0U);
+}
+
+TEST(StandardLibraryBounds, RejectsOutOfRangeVectorAccessWhenAssertionsAreEnabled) {
+#if defined(_GLIBCXX_ASSERTIONS)
+  EXPECT_DEATH(
+    {
+      const std::vector<int> values{42};
+      volatile int value = values[1];
+      static_cast<void>(value);
+    },
+    ".*");
+#else
+  GTEST_SKIP() << "_GLIBCXX_ASSERTIONS is enabled only for Linux sanitized graphs";
+#endif
 }
 
 } // namespace local_whisper::common

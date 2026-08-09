@@ -33,9 +33,35 @@ function(local_whisper_resolve_fortify_level output_variable)
   set(${output_variable} "${LOCAL_WHISPER_FORTIFY_LEVEL}" PARENT_SCOPE)
 endfunction()
 
+function(local_whisper_configure_msvc_stl_debug_level)
+  if(MSVC)
+    # Keep every project-owned and GoogleTest translation unit on one ABI-safe STL setting.
+    add_compile_definitions(_ITERATOR_DEBUG_LEVEL=0 _CONTAINER_DEBUG_LEVEL=0)
+  endif()
+endfunction()
+
+function(local_whisper_configure_sanitizer_graph sanitizer_option)
+  if(NOT ${sanitizer_option})
+    return()
+  endif()
+
+  if(MSVC)
+    foreach(local_whisper_language C CXX)
+      string(REPLACE "/RTC1" "" local_whisper_debug_flags "${CMAKE_${local_whisper_language}_FLAGS_DEBUG}")
+      set(CMAKE_${local_whisper_language}_FLAGS_DEBUG "${local_whisper_debug_flags}" PARENT_SCOPE)
+    endforeach()
+  else()
+    add_compile_definitions(_GLIBCXX_ASSERTIONS)
+  endif()
+endfunction()
+
 function(local_whisper_apply_compile_hardening target sanitizer_option)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc /GS /guard:cf)
+    if(${sanitizer_option})
+      target_compile_options(${target} PRIVATE /fsanitize=address)
+      target_link_options(${target} PRIVATE /fsanitize=address)
+    endif()
   else()
     local_whisper_resolve_fortify_level(local_whisper_fortify_level)
     target_compile_options(${target} PRIVATE
@@ -48,7 +74,10 @@ function(local_whisper_apply_compile_hardening target sanitizer_option)
     target_compile_definitions(${target} PRIVATE
       "$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:_FORTIFY_SOURCE=${local_whisper_fortify_level}>")
     if(${sanitizer_option})
-      target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+      target_compile_options(${target} PRIVATE
+        -fsanitize=address,undefined
+        -fno-omit-frame-pointer
+        -fno-sanitize-recover=all)
       target_link_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
     endif()
   endif()
