@@ -541,6 +541,9 @@ test('Linux Whisper.cpp quality selects explicit prepared tools for each compile
     LOCAL_WHISPER_CLANG_C_COMPILER: paths.clang,
     LOCAL_WHISPER_CLANG_CXX_COMPILER: paths['clang++'],
     LOCAL_WHISPER_CLANG_LINKER: paths['ld.lld'],
+    LOCAL_WHISPER_COMPATIBILITY_C_COMPILER: paths.clang,
+    LOCAL_WHISPER_COMPATIBILITY_CXX_COMPILER: paths['clang++'],
+    LOCAL_WHISPER_COMPATIBILITY_LINKER: paths['ld.bfd'],
     LOCAL_WHISPER_GCC_C_COMPILER: paths.gcc,
     LOCAL_WHISPER_GCC_CXX_COMPILER: paths['g++'],
     LOCAL_WHISPER_GCC_LINKER: paths['ld.bfd'],
@@ -570,6 +573,23 @@ test('Linux Whisper.cpp quality selects explicit prepared tools for each compile
     cudaHostCompiler: null,
     inputs: null,
   });
+  assert.deepEqual(
+    resolvePreparedLinuxQualityTools(gccProfile, {
+      ...environment,
+      LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY: 'true',
+    }),
+    {
+      ctest: paths.ctest,
+      cCompiler: paths.clang,
+      cmake: paths.cmake,
+      cxxCompiler: paths['clang++'],
+      linker: paths['ld.bfd'],
+      ninja: paths.ninja,
+      cudaCompiler: null,
+      cudaHostCompiler: null,
+      inputs: null,
+    },
+  );
   assert.throws(() => resolvePreparedLinuxQualityTools(gccProfile, {}));
 });
 

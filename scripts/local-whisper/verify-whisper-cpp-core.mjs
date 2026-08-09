@@ -46,30 +46,34 @@ try {
   }
   requireVerifiedInputs();
   const preparedLinuxQuality = process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true';
-  const gcc = configureBuild('linux-x64-cpu-baseline-v1', {
-    engine: false,
-    preparedLinuxQuality,
-    tests: true,
-  });
+  const preparedLinuxCompatibility = process.env.LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY === 'true';
+  const preparedLinux = preparedLinuxQuality || preparedLinuxCompatibility;
   const targets = [
     'local_whisper_whisper_cpp_core_tests',
     'local_whisper_whisper_cpp_loader_tests',
     'local_whisper_whisper_cpp_device_tests',
     'local_whisper_whisper_cpp_cancellation_tests',
   ];
-  buildTargets(gcc, targets);
-  for (const label of suites) runTests(gcc, label);
-  const clang = configureBuild('linux-x64-clang-18.1.3-asan-ubsan-v1', {
-    engine: false,
-    preparedLinuxQuality,
-    tests: true,
-  });
-  buildTargets(clang, targets);
-  for (const label of suites) runTests(clang, label);
+  const profiles = preparedLinuxCompatibility
+    ? ['linux-x64-cpu-baseline-v1']
+    : ['linux-x64-cpu-baseline-v1', 'linux-x64-clang-18.1.3-asan-ubsan-v1'];
+  const configuredProfiles = profiles.map((profileId) =>
+    configureBuild(profileId, { engine: false, preparedLinuxQuality: preparedLinux, tests: true }),
+  );
+  for (const configured of configuredProfiles) {
+    buildTargets(configured, targets);
+    for (const label of suites) runTests(configured, label);
+  }
+  if (preparedLinuxCompatibility) {
+    process.stdout.write(`Local Whisper Whisper.cpp ${suite} suite verified\n`);
+    process.exit(0);
+  }
+  const clang = configuredProfiles[1];
+  if (!clang) throw new Error('Linux Clang sanitizer profile is unavailable');
   const engine = configureBuild('linux-x64-cpu-baseline-v1', {
     directEngine: true,
     engine: true,
-    preparedLinuxQuality,
+    preparedLinuxQuality: preparedLinux,
     tests: false,
   });
   await runFormattingAndTidy(clang, engine);

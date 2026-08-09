@@ -11,7 +11,8 @@ runs:
     - shell: pwsh
       env:
         REQUIRED_COMPILER_VERSION: ${{ inputs.required-compiler-version }}
-      run: | # zizmor: ignore[github-env] -- this pull-request-safe action exports only validated hosted-toolchain paths.
+      run:
+        | # zizmor: ignore[github-env] -- this pull-request-safe action exports only validated hosted-toolchain paths.
         if ($env:REQUIRED_COMPILER_VERSION -notmatch '^19\.39$') { throw 'Only the reviewed MSVC 19.39 profile is supported' }
         $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
         if (!(Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio locator is unavailable' }
@@ -19,7 +20,12 @@ runs:
         if ([string]::IsNullOrWhiteSpace($installationPath)) { throw 'Visual Studio C++ build tools are unavailable' }
         $vcvars = Join-Path $installationPath 'VC\Auxiliary\Build\vcvarsall.bat'
         if (!(Test-Path -LiteralPath $vcvars)) { throw 'Visual Studio x64 developer environment is unavailable' }
-        $captured = & cmd.exe /d /c "call `"$vcvars`" x64 && set"
+        $toolset = Get-ChildItem -LiteralPath (Join-Path $installationPath 'VC\Tools\MSVC') -Directory |
+          Where-Object { $_.Name -match '^14\.39\.' } |
+          Sort-Object Name -Descending |
+          Select-Object -First 1
+        if ($null -eq $toolset) { throw 'Hosted MSVC 14.39 toolset is unavailable' }
+        $captured = & cmd.exe /d /c "call `"$vcvars`" x64 -vcvars_ver=$($toolset.Name) && set"
         if ($LASTEXITCODE -ne 0) { throw 'Visual Studio developer environment initialization failed' }
         $required = @('INCLUDE', 'LIB', 'LIBPATH', 'PATH', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR')
         $values = @{}

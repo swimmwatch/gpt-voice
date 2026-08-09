@@ -47,6 +47,8 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   assert.match(windowsJob, /Initialize MSVC developer environment/u);
   assert.match(windowsJob, /uses: \.\/\.github\/actions\/initialize-msvc-environment/u);
   assert.match(msvcAction, /vcvarsall\.bat/u);
+  assert.match(msvcAction, /Hosted MSVC 14\.39 toolset is unavailable/u);
+  assert.match(msvcAction, /-vcvars_ver=\$\(\$toolset\.Name\)/u);
   assert.match(msvcAction, /\$env:PATH = \$values\['PATH'\]/u);
   assert.match(msvcAction, /Get-Command cmake\.exe/u);
   assert.match(msvcAction, /Get-Command ctest\.exe/u);
@@ -74,6 +76,7 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   assert.match(linuxCompatibilityJob, /LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY: 'true'/u);
   assert.match(linuxCompatibilityJob, /LOCAL_WHISPER_COMPATIBILITY_C_COMPILER: \/usr\/bin\/clang-18/u);
   assert.match(linuxCompatibilityJob, /LOCAL_WHISPER_COMPATIBILITY_CXX_COMPILER: \/usr\/bin\/clang\+\+-18/u);
+  assert.match(linuxCompatibilityJob, /LOCAL_WHISPER_COMPATIBILITY_LINKER: \/usr\/bin\/ld/u);
   assert.match(linuxCompatibilityJob, /test:local-whisper:fs-guard:native/u);
   assert.match(linuxCompatibilityJob, /test:local-whisper:launcher:native/u);
   assert.match(linuxCompatibilityJob, /test:local-whisper:worker-codec/u);

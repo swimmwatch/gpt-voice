@@ -11,7 +11,9 @@ try {
   requireVerifiedInputs(profileId);
   const configured = configureBuild(profileId, {
     engine: true,
-    preparedLinuxQuality: process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true',
+    preparedLinuxQuality:
+      process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true' ||
+      process.env.LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY === 'true',
     preparedWindowsQuality: process.env.LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY === 'true',
     tests: false,
   });

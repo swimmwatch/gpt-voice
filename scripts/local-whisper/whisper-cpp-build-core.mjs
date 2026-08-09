@@ -345,7 +345,12 @@ export function resolvePreparedWindowsQualityTools(environment = process.env) {
 /** Resolves the explicit Linux tools installed by the hosted native-quality workflow. */
 export function resolvePreparedLinuxQualityTools(profile, environment = process.env) {
   if (profile.target.os !== 'linux') throw new Error('Prepared Linux quality tools require a Linux profile');
-  const prefix = profile.profileId.includes('clang') ? 'LOCAL_WHISPER_CLANG' : 'LOCAL_WHISPER_GCC';
+  const prefix =
+    environment.LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY === 'true'
+      ? 'LOCAL_WHISPER_COMPATIBILITY'
+      : profile.profileId.includes('clang')
+        ? 'LOCAL_WHISPER_CLANG'
+        : 'LOCAL_WHISPER_GCC';
   const values = {
     ctest: environment.CTEST_COMMAND,
     cCompiler: environment[`${prefix}_C_COMPILER`],

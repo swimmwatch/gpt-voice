@@ -318,6 +318,7 @@ jobs:
       CXX: clang++-18
       LOCAL_WHISPER_COMPATIBILITY_C_COMPILER: /usr/bin/clang-18
       LOCAL_WHISPER_COMPATIBILITY_CXX_COMPILER: /usr/bin/clang++-18
+      LOCAL_WHISPER_COMPATIBILITY_LINKER: /usr/bin/ld
       LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY: 'true'
       NINJA_COMMAND: /usr/bin/ninja
       NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
