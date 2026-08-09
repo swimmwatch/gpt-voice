@@ -654,6 +654,7 @@ describe('translation language monitor diffs and reports', () => {
       prepareOperation: () => never,
     });
     const created = new Map<ProbeProviderId, FakeSession>();
+    const clock = fakeClock();
     const report = await runTranslationLanguageMonitor(
       {
         createSession: async (providerId) => {
@@ -668,6 +669,7 @@ describe('translation language monitor diffs and reports', () => {
           return session;
         },
         loadBaseline: async (providerId) => baselineSource(providerId),
+        ...clock,
       },
       {
         hydrationTimeoutMs: 10,

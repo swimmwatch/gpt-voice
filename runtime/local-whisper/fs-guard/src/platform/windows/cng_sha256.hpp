@@ -3,8 +3,10 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <bcrypt.h>
+// clang-format off
 #include <windows.h>
+#include <bcrypt.h>
+// clang-format on
 
 #include <cstdint>
 #include <functional>
