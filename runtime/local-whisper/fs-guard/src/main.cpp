@@ -1,4 +1,6 @@
+#include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/fs_guard/guard_application.hpp"
+#include "local_whisper/fs_guard/model_launch_error.hpp"
 
 #if defined(_WIN32)
 #include "platform/windows/windows_backend.hpp"
@@ -16,33 +18,6 @@
 #include <io.h>
 
 namespace {
-std::string_view model_launch_failure_code(const std::string_view message) noexcept {
-  if (message.starts_with("model launch path "))
-    return "MODEL_PATH_INVALID";
-  if (message == "model launch directory open failed")
-    return "MODEL_DIRECTORY_OPEN_FAILED";
-  if (message == "model launch file open failed")
-    return "MODEL_FILE_OPEN_FAILED";
-  if (message.find("identity") != std::string_view::npos ||
-      message.find("alternate stream") != std::string_view::npos)
-    return "MODEL_IDENTITY_REJECTED";
-  if (message.find("digest") != std::string_view::npos ||
-      message.find("hash") != std::string_view::npos || message == "model launch seek failed")
-    return "MODEL_DIGEST_REJECTED";
-  if (message == "model launch launcher creation failed")
-    return "MODEL_LAUNCHER_CREATION_FAILED";
-  if (message.starts_with("model launch job "))
-    return "MODEL_JOB_OWNERSHIP_FAILED";
-  if (message.starts_with("model launch attribute ") ||
-      message.starts_with("model launch descriptor "))
-    return "MODEL_HANDLE_POLICY_FAILED";
-  if (message.starts_with("model launch pipe ") || message == "model launch write failed")
-    return "MODEL_PIPE_IO_FAILED";
-  if (message == "model launch launcher resume failed")
-    return "MODEL_LAUNCHER_RESUME_FAILED";
-  return "MODEL_BOOTSTRAP_REJECTED";
-}
-
 void write_model_launch_failure(const std::string_view code) noexcept {
   const std::string line = "FAILED\t" + std::string(code) + "\n";
   static_cast<void>(_write(4, line.data(), static_cast<unsigned int>(line.size())));
@@ -59,15 +34,17 @@ int main(int argc, char** argv) {
 #else
       return local_whisper::fs_guard::run_linux_model_launch(3, 4);
 #endif
-    } catch (const std::exception& error) {
+    } catch (...) {
+      const auto policy =
+          local_whisper::fs_guard::model_launch_exception_failure_policy(std::current_exception());
 #if defined(_WIN32)
-      write_model_launch_failure(model_launch_failure_code(error.what()));
+      write_model_launch_failure(policy.acknowledgment);
 #endif
-      return 20;
+      return policy.exit_code;
     }
   }
   if (argc != 1)
-    return 2;
+    return local_whisper::common::kInvalidInvocationExitCode;
 #if defined(_WIN32)
   local_whisper::fs_guard::WindowsBackend backend;
 #else

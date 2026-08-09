@@ -31,9 +31,10 @@ function(local_whisper_launcher_apply_quality target)
 endfunction()
 
 add_library(local_whisper_launcher_core STATIC
+  src/common/launcher_error.cpp
   src/common/launch_request.cpp
 )
-target_include_directories(local_whisper_launcher_core PUBLIC include)
+target_include_directories(local_whisper_launcher_core PUBLIC include ../common/include)
 add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
 local_whisper_launcher_apply_quality(local_whisper_common_sha256)
@@ -91,6 +92,7 @@ if(BUILD_TESTING)
                    "${CMAKE_BINARY_DIR}/verified-googletest" EXCLUDE_FROM_ALL)
 
   add_executable(local_whisper_launcher_unit_tests
+    tests/unit/launcher_error_test.cpp
     tests/unit/launch_request_test.cpp
   )
   target_link_libraries(local_whisper_launcher_unit_tests

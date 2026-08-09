@@ -3,7 +3,9 @@
 #include "local_whisper/common/authority_bootstrap.hpp"
 #include "local_whisper/common/linux_process_identity.hpp"
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/common/sha256.hpp"
+#include "local_whisper/launcher/launcher_error.hpp"
 #include "local_whisper/launcher/model_authority_client.hpp"
 
 #include <array>
@@ -79,7 +81,7 @@ std::uint64_t parse_number(const std::string& value) {
   std::uint64_t result = 0;
   const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
   if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size())
-    throw std::runtime_error("invalid identity number");
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected, "invalid identity number");
   return result;
 }
 
@@ -96,7 +98,7 @@ void validate_identity(const struct stat& value, const struct stat& parent,
       static_cast<std::uint32_t>(value.st_mode & 0777U) != expected.mode ||
       unsigned_string(static_cast<std::uint64_t>(parent.st_ino)) != expected.parent_file_id ||
       static_cast<std::uint64_t>(value.st_size) != expected.size_bytes) {
-    throw std::runtime_error("launcher identity changed");
+    throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher identity changed");
   }
 }
 
@@ -107,13 +109,13 @@ UniqueDescriptor open_hardened_directory(const std::filesystem::path& path) {
   const int descriptor = static_cast<int>(
       syscall(SYS_openat2, AT_FDCWD, path.c_str(), &how, static_cast<std::size_t>(sizeof(how))));
   if (descriptor < 0)
-    throw std::runtime_error("launcher directory open failed");
+    throw LauncherError(LauncherErrorCode::kDirectoryOpenFailed, "launcher directory open failed");
   return UniqueDescriptor(descriptor);
 }
 
 std::string hash_descriptor(int descriptor) {
   if (lseek(descriptor, 0, SEEK_SET) < 0)
-    throw std::runtime_error("launcher seek failed");
+    throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher seek failed");
   local_whisper::common::Sha256 hash;
   std::array<unsigned char, 64 * 1024> buffer{};
   while (true) {
@@ -121,13 +123,13 @@ std::string hash_descriptor(int descriptor) {
     if (count < 0 && errno == EINTR)
       continue;
     if (count < 0)
-      throw std::runtime_error("launcher read failed");
+      throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher read failed");
     if (count == 0)
       break;
     hash.update(std::span<const std::uint8_t>(buffer.data(), static_cast<std::size_t>(count)));
   }
   if (lseek(descriptor, 0, SEEK_SET) < 0)
-    throw std::runtime_error("launcher seek failed");
+    throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher seek failed");
   return local_whisper::common::to_lower_hex(hash.finish());
 }
 
@@ -139,7 +141,8 @@ void write_acknowledgment(int descriptor, pid_t worker_pid) {
     if (count < 0 && errno == EINTR)
       continue;
     if (count <= 0)
-      throw std::runtime_error("launcher acknowledgment failed");
+      throw LauncherError(LauncherErrorCode::kAcknowledgmentFailed,
+                          "launcher acknowledgment failed");
     offset += static_cast<std::size_t>(count);
   }
 }
@@ -150,13 +153,13 @@ void install_signal_handlers() {
   sigemptyset(&action.sa_mask);
   if (sigaction(SIGTERM, &action, nullptr) != 0 || sigaction(SIGINT, &action, nullptr) != 0 ||
       sigaction(SIGHUP, &action, nullptr) != 0) {
-    throw std::runtime_error("launcher signal setup failed");
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected, "launcher signal setup failed");
   }
   struct sigaction ignored {};
   ignored.sa_handler = SIG_IGN;
   sigemptyset(&ignored.sa_mask);
   if (sigaction(SIGPIPE, &ignored, nullptr) != 0)
-    throw std::runtime_error("launcher pipe signal setup failed");
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected, "launcher pipe signal setup failed");
 }
 
 bool process_group_empty(pid_t process_group) {
@@ -164,7 +167,7 @@ bool process_group_empty(pid_t process_group) {
     return false;
   if (errno == ESRCH)
     return true;
-  throw std::runtime_error("launcher group query failed");
+  throw LauncherError(LauncherErrorCode::kJobOwnershipFailed, "launcher group query failed");
 }
 
 void reap_available_children(pid_t worker_pid, bool& root_exited, int& root_status) {
@@ -184,8 +187,8 @@ int root_exit_code(int status) {
   if (WIFEXITED(status))
     return WEXITSTATUS(status);
   if (WIFSIGNALED(status))
-    return 128 + WTERMSIG(status);
-  return 1;
+    return common::kChildSignalExitCodeBase + WTERMSIG(status);
+  return common::kChildStatusUnavailableExitCode;
 }
 
 void terminate_and_reap_owned_group(const pid_t worker_pid) noexcept {
@@ -248,7 +251,7 @@ void write_exact(const int descriptor, std::span<const std::uint8_t> bytes) {
     if (count < 0 && errno == EINTR)
       continue;
     if (count <= 0)
-      throw std::runtime_error("launcher proxy write failed");
+      throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher proxy write failed");
     bytes = bytes.subspan(static_cast<std::size_t>(count));
   }
 }
@@ -261,7 +264,7 @@ std::vector<std::uint8_t> read_exact(const int descriptor, const std::size_t siz
     if (count < 0 && errno == EINTR)
       continue;
     if (count <= 0)
-      throw std::runtime_error("launcher bootstrap input failed");
+      throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher bootstrap input failed");
     offset += static_cast<std::size_t>(count);
   }
   return bytes;
@@ -348,12 +351,20 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
 }
 
 local_whisper::common::AuthorityBinding model_binding(const LaunchRequest& request) {
-  const auto decoded =
-      local_whisper::common::decode_authority_record(request.model_authority_request);
-  const auto* authority = std::get_if<local_whisper::common::AuthorityRequest>(&decoded);
-  if (authority == nullptr)
-    throw std::runtime_error("launcher model authority request invalid");
-  return authority->binding;
+  try {
+    const auto decoded =
+        local_whisper::common::decode_authority_record(request.model_authority_request);
+    const auto* authority = std::get_if<local_whisper::common::AuthorityRequest>(&decoded);
+    if (authority == nullptr)
+      throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                          "launcher model authority request invalid");
+    return authority->binding;
+  } catch (const LauncherError&) {
+    throw;
+  } catch (...) {
+    throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                        "launcher model authority request invalid");
+  }
 }
 
 class LinuxLauncher final : public PlatformLauncher {
@@ -365,7 +376,7 @@ public:
     if (!worker_path.is_absolute() || !working_directory.is_absolute() ||
         worker_path.parent_path().lexically_normal() != working_directory.lexically_normal() ||
         worker_path.filename().empty()) {
-      throw std::runtime_error("launcher path invalid");
+      throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path invalid");
     }
 
     UniqueDescriptor directory = open_hardened_directory(working_directory);
@@ -374,7 +385,7 @@ public:
     UniqueDescriptor worker(
         openat(directory.get(), worker_path.filename().c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
     if (directory_parent.get() < 0 || worker.get() < 0)
-      throw std::runtime_error("launcher file open failed");
+      throw LauncherError(LauncherErrorCode::kWorkerOpenFailed, "launcher file open failed");
 
     struct stat directory_stat {};
     struct stat directory_parent_stat {};
@@ -382,27 +393,30 @@ public:
     if (fstat(directory.get(), &directory_stat) != 0 ||
         fstat(directory_parent.get(), &directory_parent_stat) != 0 ||
         fstat(worker.get(), &worker_stat) != 0) {
-      throw std::runtime_error("launcher identity read failed");
+      throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher identity read failed");
     }
     validate_identity(directory_stat, directory_parent_stat, request.directory_identity);
     validate_identity(worker_stat, directory_stat, request.worker_identity);
     if (hash_descriptor(worker.get()) != request.worker_sha256)
-      throw std::runtime_error("launcher digest changed");
+      throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher digest changed");
     struct stat worker_after_hash {};
     if (fstat(worker.get(), &worker_after_hash) != 0 ||
         worker_after_hash.st_dev != worker_stat.st_dev ||
         worker_after_hash.st_ino != worker_stat.st_ino ||
         worker_after_hash.st_size != worker_stat.st_size) {
-      throw std::runtime_error("launcher executable changed during verification");
+      throw LauncherError(LauncherErrorCode::kDigestRejected,
+                          "launcher executable changed during verification");
     }
 
     termination_requested = 0;
     const pid_t expected_parent = getppid();
     if (expected_parent <= 1 || prctl(PR_SET_CHILD_SUBREAPER, 1) != 0)
-      throw std::runtime_error("launcher ownership setup failed");
+      throw LauncherError(LauncherErrorCode::kJobOwnershipFailed,
+                          "launcher ownership setup failed");
     install_signal_handlers();
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) != 0 || getppid() != expected_parent)
-      throw std::runtime_error("launcher parent ownership failed");
+      throw LauncherError(LauncherErrorCode::kJobOwnershipFailed,
+                          "launcher parent ownership failed");
 
     std::optional<UniqueModelDescriptor> model_authority;
     UniqueDescriptor worker_input_read;
@@ -414,31 +428,40 @@ public:
     if (full_load) {
       authority_binding = model_binding(request);
       LinuxModelAuthorityClient authority_client;
-      model_authority.emplace(authority_client.acquire(authority_descriptor, authority_binding));
+      try {
+        model_authority.emplace(authority_client.acquire(authority_descriptor, authority_binding));
+      } catch (const LauncherError&) {
+        throw;
+      } catch (...) {
+        throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                            "launcher model authority acquire failed");
+      }
       static_cast<void>(close(authority_descriptor));
       std::array<int, 2> input_pipe{};
       if (pipe2(input_pipe.data(), O_CLOEXEC) != 0)
-        throw std::runtime_error("launcher worker pipe creation failed");
+        throw LauncherError(LauncherErrorCode::kPipeIoFailed,
+                            "launcher worker pipe creation failed");
       worker_input_read.reset(input_pipe[0]);
       worker_input_write.reset(input_pipe[1]);
       std::array<int, 2> output_pipe{};
       if (pipe2(output_pipe.data(), O_CLOEXEC) != 0)
-        throw std::runtime_error("launcher worker pipe creation failed");
+        throw LauncherError(LauncherErrorCode::kPipeIoFailed,
+                            "launcher worker pipe creation failed");
       worker_output_read.reset(output_pipe[0]);
       worker_output_write.reset(output_pipe[1]);
     }
 
     const pid_t child = fork();
     if (child < 0)
-      throw std::runtime_error("launcher fork failed");
+      throw LauncherError(LauncherErrorCode::kWorkerCreationFailed, "launcher fork failed");
     if (child == 0) {
       const pid_t launcher_pid = getppid();
       if (setpgid(0, 0) != 0 || prctl(PR_SET_PDEATHSIG, SIGKILL) != 0 || launcher_pid <= 1 ||
           getppid() != launcher_pid) {
-        _exit(126);
+        _exit(common::kChildExecBootstrapFailureExitCode);
       }
       if (fchdir(directory.get()) != 0)
-        _exit(126);
+        _exit(common::kChildExecBootstrapFailureExitCode);
       static_cast<void>(close(control_descriptor));
       static_cast<void>(close(acknowledgment_descriptor));
       if (full_load) {
@@ -446,13 +469,13 @@ public:
         worker_output_read.reset();
         if (dup2(worker_input_read.get(), STDIN_FILENO) != STDIN_FILENO ||
             dup2(worker_output_write.get(), STDOUT_FILENO) != STDOUT_FILENO) {
-          _exit(126);
+          _exit(common::kChildExecBootstrapFailureExitCode);
         }
         worker_input_read.reset();
         worker_output_write.reset();
         if (!model_authority.has_value() ||
             LinuxModelAuthorityClient::install_at_logical_slot(std::move(*model_authority)) != 3) {
-          _exit(126);
+          _exit(common::kChildExecBootstrapFailureExitCode);
         }
       }
       const char* mode = request.launch_mode == WorkerLaunchMode::full_load  ? "--load"
@@ -461,12 +484,12 @@ public:
       std::array<char*, 3> arguments = {const_cast<char*>("local-whisper-worker"),
                                         const_cast<char*>(mode), nullptr};
       fexecve(worker.get(), arguments.data(), environ);
-      _exit(126);
+      _exit(common::kChildExecBootstrapFailureExitCode);
     }
 
     try {
       if (setpgid(child, child) != 0 && errno != EACCES)
-        throw std::runtime_error("launcher worker group failed");
+        throw LauncherError(LauncherErrorCode::kJobOwnershipFailed, "launcher worker group failed");
       UniqueDescriptor full_load_input;
       UniqueDescriptor full_load_output;
       if (full_load) {
@@ -479,10 +502,17 @@ public:
           const auto device_bootstrap = read_exact(STDIN_FILENO, request.worker_bootstrap_bytes);
           write_exact(full_load_input.get(), device_bootstrap);
         }
-        local_whisper::common::authorize_worker_model_bootstrap(
-            full_load_input.get(), full_load_output.get(), authority_binding,
-            static_cast<std::uint64_t>(child),
-            local_whisper::common::linux_process_start_identity_sha256(child));
+        try {
+          local_whisper::common::authorize_worker_model_bootstrap(
+              full_load_input.get(), full_load_output.get(), authority_binding,
+              static_cast<std::uint64_t>(child),
+              local_whisper::common::linux_process_start_identity_sha256(child));
+        } catch (const LauncherError&) {
+          throw;
+        } catch (...) {
+          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                              "launcher worker authority bootstrap failed");
+        }
       }
       worker.reset();
       directory.reset();

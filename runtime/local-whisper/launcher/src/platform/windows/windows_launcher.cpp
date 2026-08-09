@@ -1,8 +1,10 @@
 #include "local_whisper/launcher/platform_launcher.hpp"
 
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/common/windows_process_identity.hpp"
+#include "local_whisper/launcher/launcher_error.hpp"
 #include "local_whisper/launcher/windows_model_authority_client.hpp"
 
 #define NOMINMAX
@@ -77,14 +79,16 @@ public:
     SIZE_T byte_count = 0;
     static_cast<void>(InitializeProcThreadAttributeList(nullptr, 1, 0, &byte_count));
     if (byte_count == 0)
-      throw std::runtime_error("launcher attribute sizing failed");
+      throw LauncherError(LauncherErrorCode::kHandlePolicyFailed,
+                          "launcher attribute sizing failed");
     storage_.resize(byte_count);
     list_ = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(storage_.data());
     if (!InitializeProcThreadAttributeList(list_, 1, 0, &byte_count) ||
         !UpdateProcThreadAttribute(list_, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
                                    const_cast<HANDLE*>(inherited_handles.data()),
                                    inherited_handles.size_bytes(), nullptr, nullptr)) {
-      throw std::runtime_error("launcher attribute setup failed");
+      throw LauncherError(LauncherErrorCode::kHandlePolicyFailed,
+                          "launcher attribute setup failed");
     }
   }
 
@@ -113,11 +117,12 @@ PipePair create_pipe(bool inherit_read, bool inherit_write) {
   HANDLE read = INVALID_HANDLE_VALUE;
   HANDLE write = INVALID_HANDLE_VALUE;
   if (!CreatePipe(&read, &write, &security, 0))
-    throw std::runtime_error("launcher worker pipe creation failed");
+    throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher worker pipe creation failed");
   PipePair result{UniqueHandle(read), UniqueHandle(write)};
   if ((!inherit_read && !SetHandleInformation(result.read.get(), HANDLE_FLAG_INHERIT, 0)) ||
       (!inherit_write && !SetHandleInformation(result.write.get(), HANDLE_FLAG_INHERIT, 0))) {
-    throw std::runtime_error("launcher worker pipe inheritance failed");
+    throw LauncherError(LauncherErrorCode::kPipeIoFailed,
+                        "launcher worker pipe inheritance failed");
   }
   return result;
 }
@@ -125,7 +130,7 @@ PipePair create_pipe(bool inherit_read, bool inherit_write) {
 HANDLE descriptor_handle(int descriptor) {
   const intptr_t value = _get_osfhandle(descriptor);
   if (value == -1)
-    throw std::runtime_error("launcher descriptor invalid");
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected, "launcher descriptor invalid");
   return reinterpret_cast<HANDLE>(value);
 }
 
@@ -137,7 +142,7 @@ std::vector<std::uint8_t> read_exact(HANDLE handle, std::size_t size) {
     if (!ReadFile(handle, bytes.data() + offset, static_cast<DWORD>(bytes.size() - offset), &count,
                   nullptr) ||
         count == 0U) {
-      throw std::runtime_error("launcher exact read failed");
+      throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher exact read failed");
     }
     offset += count;
   }
@@ -149,7 +154,7 @@ void write_exact(HANDLE handle, std::span<const std::uint8_t> bytes) {
     DWORD count = 0;
     if (!WriteFile(handle, bytes.data(), static_cast<DWORD>(bytes.size()), &count, nullptr) ||
         count == 0U) {
-      throw std::runtime_error("launcher exact write failed");
+      throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher exact write failed");
     }
     bytes = bytes.subspan(count);
   }
@@ -170,15 +175,15 @@ struct ParsedPath final {
 
 std::wstring utf8_to_wide(const std::string& value) {
   if (value.empty())
-    throw std::runtime_error("launcher path empty");
+    throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path empty");
   const int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
                                          static_cast<int>(value.size()), nullptr, 0);
   if (length <= 0)
-    throw std::runtime_error("launcher path encoding invalid");
+    throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path encoding invalid");
   std::wstring result(static_cast<std::size_t>(length), L'\0');
   if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value.data(),
                           static_cast<int>(value.size()), result.data(), length) != length) {
-    throw std::runtime_error("launcher path encoding invalid");
+    throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path encoding invalid");
   }
   return result;
 }
@@ -186,7 +191,7 @@ std::wstring utf8_to_wide(const std::string& value) {
 ParsedPath parse_absolute_path(const std::wstring& path) {
   if (path.size() < 4 || std::iswalpha(path[0]) == 0 || path[1] != L':' ||
       (path[2] != L'\\' && path[2] != L'/') || path.back() == L'\\' || path.back() == L'/') {
-    throw std::runtime_error("launcher path invalid");
+    throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path invalid");
   }
   ParsedPath result;
   result.drive = static_cast<wchar_t>(std::towupper(path[0]));
@@ -198,7 +203,7 @@ ParsedPath parse_absolute_path(const std::wstring& path) {
     if (component.empty() || component == L"." || component == L".." ||
         component.find(L':') != std::wstring::npos || component.back() == L'.' ||
         component.back() == L' ') {
-      throw std::runtime_error("launcher path component invalid");
+      throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path component invalid");
     }
     result.components.push_back(component);
     if (end == std::wstring::npos)
@@ -206,7 +211,7 @@ ParsedPath parse_absolute_path(const std::wstring& path) {
     start = end + 1;
   }
   if (result.components.empty())
-    throw std::runtime_error("launcher path invalid");
+    throw LauncherError(LauncherErrorCode::kPathInvalid, "launcher path invalid");
   return result;
 }
 
@@ -217,10 +222,10 @@ bool equal_path_component(const std::wstring& left, const std::wstring& right) {
 void require_worker_below_directory(const ParsedPath& worker, const ParsedPath& directory) {
   if (worker.drive != directory.drive ||
       worker.components.size() != directory.components.size() + 1)
-    throw std::runtime_error("launcher worker path invalid");
+    throw LauncherError(LauncherErrorCode::kWorkerPathInvalid, "launcher worker path invalid");
   for (std::size_t index = 0; index < directory.components.size(); ++index) {
     if (!equal_path_component(worker.components[index], directory.components[index]))
-      throw std::runtime_error("launcher worker path invalid");
+      throw LauncherError(LauncherErrorCode::kWorkerPathInvalid, "launcher worker path invalid");
   }
 }
 
@@ -248,7 +253,7 @@ void reject_alternate_streams(HANDLE handle) {
   std::array<unsigned char, 64 * 1024> storage{};
   if (!GetFileInformationByHandleEx(handle, FileStreamInfo, storage.data(),
                                     static_cast<DWORD>(storage.size()))) {
-    throw std::runtime_error("launcher stream identity failed");
+    throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher stream identity failed");
   }
   std::size_t offset = 0;
   std::size_t count = 0;
@@ -257,15 +262,16 @@ void reject_alternate_streams(HANDLE handle) {
     const std::wstring name(stream->StreamName, stream->StreamNameLength / sizeof(wchar_t));
     ++count;
     if (name != L"::$DATA")
-      throw std::runtime_error("launcher alternate stream rejected");
+      throw LauncherError(LauncherErrorCode::kIdentityRejected,
+                          "launcher alternate stream rejected");
     if (stream->NextEntryOffset == 0)
       break;
     offset += stream->NextEntryOffset;
     if (offset >= storage.size())
-      throw std::runtime_error("launcher stream identity invalid");
+      throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher stream identity invalid");
   }
   if (count != 1)
-    throw std::runtime_error("launcher stream identity invalid");
+    throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher stream identity invalid");
 }
 
 StableIdentity stable_identity(HANDLE handle) {
@@ -276,12 +282,12 @@ StableIdentity stable_identity(HANDLE handle) {
       !GetFileInformationByHandleEx(handle, FileStandardInfo, &standard, sizeof(standard)) ||
       !GetFileInformationByHandleEx(handle, FileAttributeTagInfo, &attributes,
                                     sizeof(attributes))) {
-    throw std::runtime_error("launcher identity read failed");
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected, "launcher identity read failed");
   }
   if ((attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 ||
       attributes.ReparseTag != 0 || standard.NumberOfLinks != 1 ||
       standard.EndOfFile.QuadPart < 0) {
-    throw std::runtime_error("launcher unsafe identity");
+    throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher unsafe identity");
   }
   if (standard.Directory == FALSE)
     reject_alternate_streams(handle);
@@ -298,7 +304,7 @@ void validate_identity(HANDLE handle, HANDLE parent, const IdentityExpectation& 
       value.file_id != expected.file_id || value.links != expected.link_count ||
       expected.mode != expected_mode || parent_value.file_id != expected.parent_file_id ||
       value.size != expected.size_bytes || value.directory != expected.directory) {
-    throw std::runtime_error("launcher identity changed");
+    throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher identity changed");
   }
 }
 
@@ -310,7 +316,7 @@ std::vector<UniqueHandle> hold_directory_path(const ParsedPath& directory) {
       volume.c_str(), kDirectoryAccess, kGuardCompatibleShareMode, nullptr, OPEN_EXISTING,
       FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
   if (!handles.back().valid())
-    throw std::runtime_error("launcher volume open failed");
+    throw LauncherError(LauncherErrorCode::kVolumeOpenFailed, "launcher volume open failed");
   static_cast<void>(stable_identity(handles.back().get()));
 
   for (std::size_t index = 0; index < directory.components.size(); ++index) {
@@ -319,7 +325,8 @@ std::vector<UniqueHandle> hold_directory_path(const ParsedPath& directory) {
         current.c_str(), kDirectoryAccess, kGuardCompatibleShareMode, nullptr, OPEN_EXISTING,
         FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
     if (!handles.back().valid() || !stable_identity(handles.back().get()).directory)
-      throw std::runtime_error("launcher directory open failed");
+      throw LauncherError(LauncherErrorCode::kDirectoryOpenFailed,
+                          "launcher directory open failed");
   }
   return handles;
 }
@@ -327,30 +334,32 @@ std::vector<UniqueHandle> hold_directory_path(const ParsedPath& directory) {
 std::string hash_handle(HANDLE handle) {
   LARGE_INTEGER beginning{};
   if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
-    throw std::runtime_error("launcher seek failed");
+    throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher seek failed");
   local_whisper::common::Sha256 hash;
   std::array<unsigned char, 64 * 1024> buffer{};
   while (true) {
     DWORD count = 0;
     if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr))
-      throw std::runtime_error("launcher read failed");
+      throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher read failed");
     if (count == 0)
       break;
     hash.update(std::span<const std::uint8_t>(buffer.data(), count));
   }
   if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
-    throw std::runtime_error("launcher seek failed");
+    throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher seek failed");
   return local_whisper::common::to_lower_hex(hash.finish());
 }
 
 UniqueHandle duplicate_inheritable_descriptor(int descriptor) {
   const intptr_t native = _get_osfhandle(descriptor);
   if (native == -1)
-    throw std::runtime_error("launcher inherited descriptor invalid");
+    throw LauncherError(LauncherErrorCode::kInheritedHandleRejected,
+                        "launcher inherited descriptor invalid");
   HANDLE duplicate = INVALID_HANDLE_VALUE;
   if (!DuplicateHandle(GetCurrentProcess(), reinterpret_cast<HANDLE>(native), GetCurrentProcess(),
                        &duplicate, 0, TRUE, DUPLICATE_SAME_ACCESS)) {
-    throw std::runtime_error("launcher inherited handle duplication failed");
+    throw LauncherError(LauncherErrorCode::kInheritedHandleRejected,
+                        "launcher inherited handle duplication failed");
   }
   return UniqueHandle(duplicate);
 }
@@ -362,7 +371,8 @@ void write_acknowledgment(int descriptor, DWORD worker_pid) {
     const int count =
         _write(descriptor, line.data() + offset, static_cast<unsigned int>(line.size() - offset));
     if (count <= 0)
-      throw std::runtime_error("launcher acknowledgment failed");
+      throw LauncherError(LauncherErrorCode::kAcknowledgmentFailed,
+                          "launcher acknowledgment failed");
     offset += static_cast<std::size_t>(count);
   }
 }
@@ -376,7 +386,8 @@ std::vector<wchar_t> sanitized_environment() {
     std::wstring value(static_cast<std::size_t>(length), L'\0');
     const DWORD written = GetEnvironmentVariableW(key, value.data(), length);
     if (written == 0 || written >= length)
-      throw std::runtime_error("launcher environment read failed");
+      throw LauncherError(LauncherErrorCode::kBootstrapRejected,
+                          "launcher environment read failed");
     value.resize(written);
     entries.emplace_back(std::wstring(key) + L"=" + value);
   }
@@ -399,7 +410,7 @@ std::uint32_t active_job_processes(HANDLE job) {
   JOBOBJECT_BASIC_ACCOUNTING_INFORMATION information{};
   if (!QueryInformationJobObject(job, JobObjectBasicAccountingInformation, &information,
                                  sizeof(information), nullptr)) {
-    throw std::runtime_error("launcher job query failed");
+    throw LauncherError(LauncherErrorCode::kJobOwnershipFailed, "launcher job query failed");
   }
   return information.ActiveProcesses;
 }
@@ -422,7 +433,7 @@ int wait_for_job(HANDLE job, HANDLE worker_process, int control_descriptor) {
     if (active == 0) {
       DWORD exit_code = 1;
       if (!GetExitCodeProcess(worker_process, &exit_code) || exit_code == STILL_ACTIVE)
-        return 1;
+        return common::kChildStatusUnavailableExitCode;
       return static_cast<int>(exit_code);
     }
     const bool worker_exited = WaitForSingleObject(worker_process, 0) == WAIT_OBJECT_0;
@@ -433,20 +444,29 @@ int wait_for_job(HANDLE job, HANDLE worker_process, int control_descriptor) {
     }
     if ((worker_exited || control_closed) && !termination_started) {
       termination_started = true;
-      if (!TerminateJobObject(job, 1))
-        throw std::runtime_error("launcher job termination failed");
+      if (!TerminateJobObject(job, common::kForcedJobTerminationExitCode))
+        throw LauncherError(LauncherErrorCode::kJobOwnershipFailed,
+                            "launcher job termination failed");
     }
     std::this_thread::sleep_for(kPollInterval);
   }
 }
 
 local_whisper::common::AuthorityBinding model_binding(const LaunchRequest& request) {
-  const auto decoded =
-      local_whisper::common::decode_authority_record(request.model_authority_request);
-  const auto* authority = std::get_if<local_whisper::common::AuthorityRequest>(&decoded);
-  if (authority == nullptr)
-    throw std::runtime_error("launcher model authority request invalid");
-  return authority->binding;
+  try {
+    const auto decoded =
+        local_whisper::common::decode_authority_record(request.model_authority_request);
+    const auto* authority = std::get_if<local_whisper::common::AuthorityRequest>(&decoded);
+    if (authority == nullptr)
+      throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                          "launcher model authority request invalid");
+    return authority->binding;
+  } catch (const LauncherError&) {
+    throw;
+  } catch (...) {
+    throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                        "launcher model authority request invalid");
+  }
 }
 
 std::optional<DWORD> available_pipe_bytes(HANDLE pipe) {
@@ -455,7 +475,7 @@ std::optional<DWORD> available_pipe_bytes(HANDLE pipe) {
     return available;
   if (GetLastError() == ERROR_BROKEN_PIPE)
     return std::nullopt;
-  throw std::runtime_error("launcher pipe state failed");
+  throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher pipe state failed");
 }
 
 void transfer_available(HANDLE source, HANDLE destination, DWORD available) {
@@ -463,7 +483,7 @@ void transfer_available(HANDLE source, HANDLE destination, DWORD available) {
   const DWORD requested = std::min<DWORD>(available, static_cast<DWORD>(buffer.size()));
   DWORD count = 0;
   if (!ReadFile(source, buffer.data(), requested, &count, nullptr) || count == 0U)
-    throw std::runtime_error("launcher proxy read failed");
+    throw LauncherError(LauncherErrorCode::kPipeIoFailed, "launcher proxy read failed");
   write_exact(destination, std::span<const std::uint8_t>(buffer.data(), count));
 }
 
@@ -498,7 +518,7 @@ int proxy_owned_job(HANDLE job, HANDLE worker_process, int control_descriptor,
     if (active == 0U && output_closed) {
       DWORD exit_code = 1;
       if (!GetExitCodeProcess(worker_process, &exit_code) || exit_code == STILL_ACTIVE)
-        return 1;
+        return common::kChildStatusUnavailableExitCode;
       return static_cast<int>(exit_code);
     }
     const bool control_closed = control_open && ownership_control_closed(control_descriptor);
@@ -509,8 +529,9 @@ int proxy_owned_job(HANDLE job, HANDLE worker_process, int control_descriptor,
     if (control_closed && !termination_started) {
       termination_started = true;
       worker_input.reset();
-      if (!TerminateJobObject(job, 1))
-        throw std::runtime_error("launcher job termination failed");
+      if (!TerminateJobObject(job, common::kForcedJobTerminationExitCode))
+        throw LauncherError(LauncherErrorCode::kJobOwnershipFailed,
+                            "launcher job termination failed");
     }
     std::this_thread::sleep_for(kPollInterval);
   }
@@ -527,7 +548,8 @@ public:
 
     std::vector<UniqueHandle> directory_handles = hold_directory_path(working_directory);
     if (directory_handles.size() < 2)
-      throw std::runtime_error("launcher directory parent unavailable");
+      throw LauncherError(LauncherErrorCode::kDirectoryOpenFailed,
+                          "launcher directory parent unavailable");
     HANDLE directory = directory_handles.back().get();
     HANDLE directory_parent = directory_handles[directory_handles.size() - 2].get();
     validate_identity(directory, directory_parent, request.directory_identity);
@@ -538,20 +560,21 @@ public:
                                          kGuardCompatibleShareMode, nullptr, OPEN_EXISTING,
                                          FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
     if (!worker_file.valid())
-      throw std::runtime_error("launcher worker open failed");
+      throw LauncherError(LauncherErrorCode::kWorkerOpenFailed, "launcher worker open failed");
     validate_identity(worker_file.get(), directory, request.worker_identity);
     if (hash_handle(worker_file.get()) != request.worker_sha256)
-      throw std::runtime_error("launcher digest changed");
+      throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher digest changed");
     validate_identity(worker_file.get(), directory, request.worker_identity);
 
     UniqueHandle job(CreateJobObjectW(nullptr, nullptr));
     if (!job.valid())
-      throw std::runtime_error("launcher job creation failed");
+      throw LauncherError(LauncherErrorCode::kJobOwnershipFailed, "launcher job creation failed");
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
     if (!SetInformationJobObject(job.get(), JobObjectExtendedLimitInformation, &limits,
                                  sizeof(limits))) {
-      throw std::runtime_error("launcher job configuration failed");
+      throw LauncherError(LauncherErrorCode::kJobOwnershipFailed,
+                          "launcher job configuration failed");
     }
 
     const bool full_load = request.launch_mode == WorkerLaunchMode::full_load;
@@ -586,7 +609,8 @@ public:
     if (!CreateProcessW(worker_application.c_str(), command_line.data(), nullptr, nullptr, TRUE,
                         flags, environment.data(), working_directory_path.c_str(),
                         &startup.StartupInfo, &process_information)) {
-      throw std::runtime_error("launcher worker creation failed");
+      throw LauncherError(LauncherErrorCode::kWorkerCreationFailed,
+                          "launcher worker creation failed");
     }
     UniqueHandle worker_process(process_information.hProcess);
     UniqueHandle worker_thread(process_information.hThread);
@@ -596,7 +620,8 @@ public:
     bool worker_authority_confirmed = false;
     try {
       if (!AssignProcessToJobObject(job.get(), worker_process.get()))
-        throw std::runtime_error("launcher job assignment failed");
+        throw LauncherError(LauncherErrorCode::kJobOwnershipFailed,
+                            "launcher job assignment failed");
 
       std::optional<local_whisper::common::AuthorityBinding> authority_binding;
       if (full_load) {
@@ -607,11 +632,19 @@ public:
         const auto* launcher_transfer =
             std::get_if<local_whisper::common::AuthorityTransfer>(&launcher_record);
         if (launcher_transfer == nullptr || launcher_transfer->binding != *authority_binding)
-          throw std::runtime_error("launcher model authority transfer invalid");
+          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                              "launcher model authority transfer invalid");
         UniqueHandle launcher_model(reinterpret_cast<HANDLE>(
             static_cast<std::uintptr_t>(launcher_transfer->carrier_value)));
-        worker_transfer = WindowsModelAuthorityClient::duplicate_to_worker(
-            *launcher_transfer, launcher_model.get(), worker_process.get());
+        try {
+          worker_transfer = WindowsModelAuthorityClient::duplicate_to_worker(
+              *launcher_transfer, launcher_model.get(), worker_process.get());
+        } catch (const LauncherError&) {
+          throw;
+        } catch (...) {
+          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                              "launcher worker authority duplication failed");
+        }
         if (request.worker_bootstrap_bytes > 0U) {
           const auto device_bootstrap =
               read_exact(descriptor_handle(0), request.worker_bootstrap_bytes);
@@ -623,7 +656,8 @@ public:
       }
 
       if (ResumeThread(worker_thread.get()) == static_cast<DWORD>(-1))
-        throw std::runtime_error("launcher worker resume failed");
+        throw LauncherError(LauncherErrorCode::kWorkerResumeFailed,
+                            "launcher worker resume failed");
       worker_thread.reset();
       if (full_load) {
         const auto acknowledgment_bytes = read_exact(
@@ -634,15 +668,24 @@ public:
             std::get_if<local_whisper::common::AuthorityAcknowledgment>(&acknowledgment_record);
         if (acknowledgment == nullptr || !worker_transfer.has_value() ||
             !authority_binding.has_value()) {
-          throw std::runtime_error("launcher worker authority acknowledgment invalid");
+          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                              "launcher worker authority acknowledgment invalid");
         }
-        WindowsModelAuthorityClient::validate_worker_acknowledgment(
-            *acknowledgment, *authority_binding,
-            reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(worker_transfer->carrier_value)),
-            process_information.dwProcessId);
+        try {
+          WindowsModelAuthorityClient::validate_worker_acknowledgment(
+              *acknowledgment, *authority_binding,
+              reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(worker_transfer->carrier_value)),
+              process_information.dwProcessId);
+        } catch (const LauncherError&) {
+          throw;
+        } catch (...) {
+          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                              "invalid Windows worker authority acknowledgment");
+        }
         if (acknowledgment->worker_start_identity_sha256 !=
             local_whisper::common::windows_process_start_identity_sha256(worker_process.get())) {
-          throw std::runtime_error("launcher worker process identity changed");
+          throw LauncherError(LauncherErrorCode::kWorkerProcessIdentityRejected,
+                              "launcher worker process identity changed");
         }
         worker_authority_confirmed = true;
         constexpr std::array<std::uint8_t, 1> release = {1U};
@@ -659,7 +702,7 @@ public:
         WindowsModelAuthorityClient::close_unconfirmed_worker_duplicate(*worker_transfer,
                                                                         worker_process.get());
       }
-      static_cast<void>(TerminateJobObject(job.get(), 1));
+      static_cast<void>(TerminateJobObject(job.get(), common::kForcedJobTerminationExitCode));
       throw;
     }
   }

@@ -32,11 +32,12 @@ add_library(fs_guard_core STATIC
   src/common/command.cpp
   src/common/error.cpp
   src/common/guard_application.cpp
+  src/common/model_launch_error.cpp
   src/common/model_launch_request.cpp
   src/common/protocol.cpp
   src/common/validation.cpp
 )
-target_include_directories(fs_guard_core PUBLIC include)
+target_include_directories(fs_guard_core PUBLIC include ../common/include)
 fs_guard_apply_quality(fs_guard_core)
 
 add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
@@ -100,6 +101,7 @@ if(BUILD_TESTING)
   add_executable(fs_guard_unit_tests
     tests/unit/command_test.cpp
     tests/unit/dispatch_test.cpp
+    tests/unit/model_launch_error_test.cpp
     tests/unit/model_launch_request_test.cpp
     tests/unit/protocol_test.cpp
     tests/unit/raii_test.cpp
