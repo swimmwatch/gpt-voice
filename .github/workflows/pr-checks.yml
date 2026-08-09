@@ -77,6 +77,7 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Install native toolchain
         run: |
@@ -333,15 +334,21 @@ jobs:
       - name: Provision pinned ordinary native toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install --yes ca-certificates cmake curl gpg ninja-build
+          sudo apt-get install --yes ca-certificates curl gpg ninja-build
           curl --fail --show-error --silent --location https://apt.llvm.org/llvm-snapshot.gpg.key --output /tmp/llvm-snapshot.asc
           echo '8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d  /tmp/llvm-snapshot.asc' | sha256sum --check --status
           gpg --dearmor --yes --output /tmp/llvm-snapshot.gpg /tmp/llvm-snapshot.asc
           sudo install --mode=0644 /tmp/llvm-snapshot.gpg /usr/share/keyrings/llvm-snapshot.gpg
           echo 'deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] https://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main' | sudo tee /etc/apt/sources.list.d/llvm-toolchain-jammy-18.list >/dev/null
+          curl --fail --show-error --silent --location https://apt.kitware.com/keys/kitware-archive-latest.asc --output /tmp/kitware-archive.asc
+          echo '801bc629e356c3c96f184351272914222ce427777400fa7d1baed3ab180b3e3b  /tmp/kitware-archive.asc' | sha256sum --check --status
+          gpg --dearmor --yes --output /tmp/kitware-archive.gpg /tmp/kitware-archive.asc
+          sudo install --mode=0644 /tmp/kitware-archive.gpg /usr/share/keyrings/kitware-archive.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/kitware-archive.gpg] https://apt.kitware.com/ubuntu/ jammy main' | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
           sudo apt-get update
-          sudo apt-get install --yes clang-18
+          sudo apt-get install --yes clang-18 cmake=3.25.2-0kitware1ubuntu22.04.1 cmake-data=3.25.2-0kitware1ubuntu22.04.1
           clang++-18 --version
+          cmake --version
 
       - name: Install dependencies
         run: npm run ci:install
@@ -550,21 +557,10 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
-      - name: Cache Fedora release workspace
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            .cache/npm
-            .cache/electron
-            .cache/electron-builder
-            .cache/fedora-home
-          key: ${{ runner.os }}-fedora-smoke-workspace-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs', 'build/fedora-release/**') }}
-          restore-keys: |
-            ${{ runner.os }}-fedora-smoke-workspace-
 
       - name: Build Fedora release image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -573,8 +569,6 @@ jobs:
           file: build/fedora-release/Dockerfile
           load: true
           tags: ${{ env.FEDORA_RELEASE_IMAGE }}
-          cache-from: type=gha,scope=fedora-release-image
-          cache-to: type=gha,mode=max,scope=fedora-release-image
 
       - name: Smoke package app in Fedora
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=2026-05-18

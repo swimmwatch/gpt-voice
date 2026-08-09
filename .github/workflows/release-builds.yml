@@ -40,21 +40,10 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
-      - name: Cache Fedora release workspace
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            .cache/npm
-            .cache/electron
-            .cache/electron-builder
-            .cache/fedora-home
-          key: ${{ runner.os }}-fedora-release-workspace-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs', 'build/fedora-release/**') }}
-          restore-keys: |
-            ${{ runner.os }}-fedora-release-workspace-
 
       - name: Build Fedora release image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -63,8 +52,6 @@ jobs:
           file: build/fedora-release/Dockerfile
           load: true
           tags: ${{ env.FEDORA_RELEASE_IMAGE }}
-          cache-from: type=gha,scope=fedora-release-image
-          cache-to: type=gha,mode=max,scope=fedora-release-image
 
       - name: Build Linux release artifacts in Fedora
         env:
