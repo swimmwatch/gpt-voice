@@ -82,10 +82,9 @@ describe('VoiceProviderSelectionService', () => {
     assert.equal(config.saveCalls, 1);
   });
 
-  it('restores the prior committed provider after runtime or persistence failure', async () => {
+  it('commits a provider with a runtime error and rolls back only a persistence failure', async () => {
     const config = new SelectionConfig();
     const switched: string[] = [];
-    let returnRuntimeError = true;
     const service = new VoiceProviderSelectionService({
       config,
       registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
@@ -97,7 +96,7 @@ describe('VoiceProviderSelectionService', () => {
         switchProvider: async (providerId) => {
           switched.push(providerId);
           config.setProvider(providerId);
-          if (providerId === 'local-whisper' && returnRuntimeError) return { error: 'private native detail' };
+          if (providerId === 'local-whisper') return { error: 'private native detail' };
           return {};
         },
       },
@@ -106,22 +105,49 @@ describe('VoiceProviderSelectionService', () => {
     });
 
     const runtimeFailure = await service.select('local-whisper');
-    assert.equal(runtimeFailure.success, false);
-    assert.equal(runtimeFailure.committedProviderId, 'chatgpt');
+    assert.equal(runtimeFailure.success, true);
+    assert.equal(runtimeFailure.committedProviderId, 'local-whisper');
     assert.equal(JSON.stringify(runtimeFailure).includes('private native detail'), false);
-    assert.equal(config.provider, 'chatgpt');
+    assert.equal(config.provider, 'local-whisper');
+    assert.equal(service.getCommittedProviderId(), 'local-whisper');
 
-    returnRuntimeError = false;
     config.failNextSave = true;
-    const persistenceFailure = await service.select('local-whisper');
+    const persistenceFailure = await service.select('chatgpt');
     assert.equal(persistenceFailure.success, false);
-    assert.equal(persistenceFailure.committedProviderId, 'chatgpt');
-    assert.equal(service.getCommittedProviderId(), 'chatgpt');
-    assert.equal(config.provider, 'chatgpt');
-    assert.deepEqual(switched, ['local-whisper', 'chatgpt', 'local-whisper', 'chatgpt']);
+    assert.equal(persistenceFailure.committedProviderId, 'local-whisper');
+    assert.equal(service.getCommittedProviderId(), 'local-whisper');
+    assert.equal(config.provider, 'local-whisper');
+    assert.deepEqual(switched, ['local-whisper', 'chatgpt', 'local-whisper']);
   });
 
-  it('rolls a failed initial selection back to the intentional no-provider state', async () => {
+  it('commits a browser-session provider when its saved session has expired', async () => {
+    const config = new SelectionConfig('local-whisper');
+    const switched: string[] = [];
+    const service = new VoiceProviderSelectionService({
+      config,
+      registry: { isKnownProviderId: (value): value is string => value === 'chatgpt' || value === 'local-whisper' },
+      runtime: {
+        clearProvider: async () => ({}),
+        switchProvider: async (providerId) => {
+          switched.push(providerId);
+          config.setProvider(providerId);
+          return providerId === 'chatgpt' ? { authExpired: true, error: 'private authentication detail' } : {};
+        },
+      },
+      getReadinessRevision: () => 8,
+      mainInteractionLock: new MainInteractionLock(() => false),
+    });
+
+    const result = await service.select('chatgpt');
+
+    assert.deepEqual(result, { success: true, committedProviderId: 'chatgpt', readinessRevision: 8 });
+    assert.equal(service.getCommittedProviderId(), 'chatgpt');
+    assert.equal(config.provider, 'chatgpt');
+    assert.equal(config.saveCalls, 1);
+    assert.deepEqual(switched, ['chatgpt']);
+  });
+
+  it('commits a failed initial provider startup so the renderer can present its status', async () => {
     const config = new SelectionConfig(null);
     const transitions: string[] = [];
     const service = new VoiceProviderSelectionService({
@@ -145,11 +171,12 @@ describe('VoiceProviderSelectionService', () => {
 
     const result = await service.select('chatgpt');
 
-    assert.equal(result.success, false);
-    assert.equal(result.committedProviderId, null);
-    assert.equal(service.getCommittedProviderId(), null);
-    assert.equal(config.provider, null);
-    assert.deepEqual(transitions, ['switch:chatgpt', 'clear']);
+    assert.equal(result.success, true);
+    assert.equal(result.committedProviderId, 'chatgpt');
+    assert.equal(service.getCommittedProviderId(), 'chatgpt');
+    assert.equal(config.provider, 'chatgpt');
+    assert.equal(config.saveCalls, 1);
+    assert.deepEqual(transitions, ['switch:chatgpt']);
   });
 
   it('rejects concurrent and unknown selections without changing committed authority', async () => {

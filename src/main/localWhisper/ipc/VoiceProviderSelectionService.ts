@@ -28,7 +28,7 @@ export interface VoiceProviderSelectionServiceDependencies {
   readonly mainInteractionLock: Pick<MainInteractionLock, 'locked' | 'operationActive'>;
 }
 
-/** Serializes provider switching and restores runtime/config before reporting any failure. */
+/** Serializes provider switching while the renderer presents the resulting runtime status. */
 export class VoiceProviderSelectionService {
   private switching = false;
   private committedProviderId: string | null;
@@ -53,11 +53,7 @@ export class VoiceProviderSelectionService {
     if (providerId === previousProviderId) return this.success(previousProviderId);
     this.switching = true;
     try {
-      const status = await this.dependencies.runtime.switchProvider(providerId);
-      if (status.error) {
-        await this.rollback(previousProviderId);
-        return this.failure(previousProviderId, 'OPERATION_CONFLICT');
-      }
+      await this.dependencies.runtime.switchProvider(providerId);
       try {
         this.dependencies.config.save();
       } catch {

@@ -66,9 +66,9 @@ export function getProviderLoginState(
 
   if (backgroundStatus?.error) {
     return {
-      isLoggedIn: false,
+      isLoggedIn: hasSession,
       isLoading: false,
-      reason: PROVIDER_CONNECTION_REASONS.BrowserUnavailable,
+      reason: hasSession ? PROVIDER_CONNECTION_REASONS.BrowserReady : PROVIDER_CONNECTION_REASONS.SessionMissing,
       sessionExpired: false,
     };
   }

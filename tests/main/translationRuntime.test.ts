@@ -319,7 +319,7 @@ describe('TranslationRuntime', () => {
     assert.deepEqual(harness.getProviderCalls, []);
   });
 
-  it('presents a typed timeout and maps it to the existing unexpected connection failure state', async () => {
+  it('presents a typed timeout without demoting an already-ready provider', async () => {
     const harness = createRuntimeHarness({
       outcome: {
         success: false,
@@ -336,6 +336,7 @@ describe('TranslationRuntime', () => {
         },
       },
     });
+    await harness.runtime.initializeSelectedProvider();
     const snapshot = getSnapshot(harness.runtime);
 
     const outcome = await harness.runtime.translateWithSnapshot('synthetic source', snapshot);
@@ -345,9 +346,9 @@ describe('TranslationRuntime', () => {
     assert.equal(outcome.code, 'timed-out');
     assert.equal(harness.runtime.getFailureMessage(outcome), 'Translation timed out. Try again.');
     assert.deepEqual(harness.runtime.getConnectionState(), {
-      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
       providerId: 'google',
-      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
       targetLanguage: 'uk',
     });
   });

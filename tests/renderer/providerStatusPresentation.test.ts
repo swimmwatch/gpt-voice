@@ -8,7 +8,7 @@ import { I18nService } from '@main/i18n';
 import { ProviderStatusIndicator, getProviderStatusAccessibleName } from '@renderer/components/ProviderStatusIndicator';
 import { ProgressSpinner } from '@renderer/components/ui/spinner';
 import { getTranslationProviderConnectionPresentation } from '@renderer/components/TranslateSection';
-import { VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS } from '@renderer/components/MainToolbar';
+import { getProviderActionLabelKey, VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS } from '@renderer/components/MainToolbar';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import {
   MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
@@ -38,6 +38,18 @@ function readProjectFile(relativePath: string): string {
 }
 
 describe('provider status presentation', () => {
+  it('offers re-login only for an expired browser session', () => {
+    assert.equal(
+      getProviderActionLabelKey('browserSession', PROVIDER_CONNECTION_REASONS.SessionExpired),
+      'providerSettings.relogin',
+    );
+    assert.equal(
+      getProviderActionLabelKey('browserSession', PROVIDER_CONNECTION_REASONS.BrowserUnavailable),
+      'provider.connect',
+    );
+    assert.equal(getProviderActionLabelKey('apiKey', PROVIDER_CONNECTION_REASONS.SessionExpired), 'provider.configure');
+  });
+
   it('deduplicates equal accessible status text while preserving distinct explanations in order', () => {
     assert.equal(getProviderStatusAccessibleName(' Connected ', 'Connected'), 'Connected');
     assert.equal(

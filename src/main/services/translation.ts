@@ -709,7 +709,6 @@ export class TranslationRuntime {
         this.dependencies.audit.terminalFailure(auditLifecycle, failure, {
           signalAborted: operationLifecycle.signal.aborted,
         });
-        if (this.isConfiguredConnectionSelection(snapshot)) this.publishConnectionFailure(failure.code, snapshot);
         return failure;
       }
 
@@ -768,7 +767,6 @@ export class TranslationRuntime {
         this.dependencies.audit.terminalFailure(auditLifecycle, failure, {
           signalAborted: operationLifecycle.signal.aborted,
         });
-        if (this.isConfiguredConnectionSelection(snapshot)) this.publishConnectionFailure(failure.code, snapshot);
         return failure;
       }
       if (outcome.success) {
@@ -801,17 +799,13 @@ export class TranslationRuntime {
           signalAborted: operationLifecycle.signal.aborted,
         });
       }
-      if (this.isConfiguredConnectionSelection(snapshot)) {
-        if (outcome.success) {
-          this.publishConnectionState({
-            detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
-            providerId: snapshot.providerId,
-            status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
-            targetLanguage: snapshot.targetLanguage,
-          });
-        } else {
-          this.publishConnectionFailure(outcome.code, snapshot);
-        }
+      if (outcome.success && this.isConfiguredConnectionSelection(snapshot)) {
+        this.publishConnectionState({
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+          providerId: snapshot.providerId,
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+          targetLanguage: snapshot.targetLanguage,
+        });
       }
       return outcome;
     } catch (error: unknown) {
@@ -824,14 +818,6 @@ export class TranslationRuntime {
       this.dependencies.audit.terminalFailure(auditLifecycle, failure, {
         exceptionType: normalizeProviderAuditExceptionType(error),
       });
-      if (this.isConfiguredConnectionSelection(snapshot)) {
-        this.publishConnectionState({
-          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
-          providerId: snapshot.providerId,
-          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
-          targetLanguage: snapshot.targetLanguage,
-        });
-      }
       return failure;
     } finally {
       this.activeLifecycles.delete(operationLifecycle);

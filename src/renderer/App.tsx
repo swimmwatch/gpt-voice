@@ -290,6 +290,16 @@ const App: React.FC = () => {
     [setStatusAndNotify],
   );
 
+  const presentBrowserProviderRequestFailure = useCallback(
+    (error: unknown): void => {
+      const failure = createBrowserProviderFailurePresentation(error);
+      setProviderConnectionFailureStatus(failure.status);
+      preserveStatusRef.current = true;
+      setStatusAndNotify(failure.status);
+    },
+    [setStatusAndNotify],
+  );
+
   const refreshPrettifyProviderState = useCallback(
     async (settings: PrettifySettings): Promise<void> => {
       const refreshId = ++prettifyModelRefreshIdRef.current;
@@ -413,14 +423,14 @@ const App: React.FC = () => {
         preserveStatusRef.current = true;
         setStatusAndNotify(translatedStatus('status.sessionExpired'));
       } else if (authType === 'browserSession' && backgroundStatus?.error) {
-        applyBrowserProviderFailure(backgroundStatus.error);
+        presentBrowserProviderRequestFailure(backgroundStatus.error);
       } else if (authType === 'browserSession' && backgroundStatus?.ready) {
         preserveStatusRef.current = false;
       }
 
       return loginState;
     },
-    [applyBrowserProviderFailure, setStatusAndNotify],
+    [presentBrowserProviderRequestFailure, setStatusAndNotify],
   );
 
   const applyProviderLoginStateRef = useRef(applyProviderLoginState);

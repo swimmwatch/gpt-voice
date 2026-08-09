@@ -64,6 +64,17 @@ export const VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS = {
   [PROVIDER_CONNECTION_REASONS.SessionMissing]: 'provider.sessionMissingTooltip',
 } as const satisfies Record<ProviderConnectionReason, TranslationKey>;
 
+/** Names the available recovery action without exposing a provider error payload. */
+export function getProviderActionLabelKey(
+  activeProviderAuthType: ProviderAuthType | null,
+  providerConnectionReason: ProviderConnectionReason,
+): TranslationKey {
+  if (activeProviderAuthType === 'apiKey') return 'provider.configure';
+  return providerConnectionReason === PROVIDER_CONNECTION_REASONS.SessionExpired
+    ? 'providerSettings.relogin'
+    : 'provider.connect';
+}
+
 /** Coordinates main-window provider controls, session actions, and status affordances. */
 function MainToolbar({
   activeProviderAuthType,
@@ -91,7 +102,7 @@ function MainToolbar({
 }: MainToolbarProps): React.JSX.Element {
   const { t } = useI18n();
   const isLocalWhisperProvider = activeProviderId === LOCAL_WHISPER_PROVIDER_ID;
-  const providerActionLabel = t(activeProviderAuthType === 'apiKey' ? 'provider.configure' : 'provider.connect');
+  const providerActionLabel = t(getProviderActionLabelKey(activeProviderAuthType, providerConnectionReason));
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
   const providerStatusTooltip =
     providerConnectionFailureTooltip ||

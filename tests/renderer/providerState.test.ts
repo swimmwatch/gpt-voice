@@ -28,11 +28,11 @@ describe('providerState', () => {
     });
   });
 
-  it('requires browser readiness when a saved session temporarily fails to start', () => {
+  it('keeps a saved browser session connected when a request temporarily fails', () => {
     assert.deepEqual(getProviderLoginState('browserSession', true, { ready: false, error: 'Browser startup failed' }), {
-      isLoggedIn: false,
+      isLoggedIn: true,
       isLoading: false,
-      reason: PROVIDER_CONNECTION_REASONS.BrowserUnavailable,
+      reason: PROVIDER_CONNECTION_REASONS.BrowserReady,
       sessionExpired: false,
     });
   });
