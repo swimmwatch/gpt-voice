@@ -296,7 +296,7 @@ jobs:
 
       - name: Emit primary Windows runner evidence
         shell: pwsh
-        run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-19.39 --compiler="$env:CXX" --output=release-artifacts/local-whisper-runner-evidence-windows-primary.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-hosted --compiler="$env:CXX" --output=release-artifacts/local-whisper-runner-evidence-windows-primary.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
 
       - name: Upload primary Windows runner evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

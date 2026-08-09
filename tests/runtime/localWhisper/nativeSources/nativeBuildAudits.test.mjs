@@ -9,6 +9,7 @@ import {
   readFileSync,
   realpathSync,
   renameSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -42,6 +43,13 @@ const workspaceRoot = resolve(import.meta.dirname, '..', '..', '..', '..');
 const toolchainRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains');
 const dependencyFixtureRoot = resolve(toolchainRoot, 'fixtures', 'dependency-closure');
 const EMPTY_SHA256 = sha256(Buffer.alloc(0));
+const RUNNER_EVIDENCE_EMITTER = resolve(
+  workspaceRoot,
+  'scripts',
+  'local-whisper',
+  'native-build',
+  'emit-runner-evidence.mjs',
+);
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -56,6 +64,44 @@ function run(command, arguments_, options = {}) {
   }
   return result;
 }
+
+test('runner evidence emitter creates its missing output directory', { skip: process.platform !== 'linux' }, () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-runner-evidence-'));
+  const compiler = resolve(root, 'clang-18');
+  const output = resolve(root, 'evidence', 'runner.json');
+  try {
+    writeFileSync(compiler, "#!/bin/sh\nprintf 'clang version 18.1.3\\n'\n", { mode: 0o700 });
+    const result = run(
+      process.execPath,
+      [
+        RUNNER_EVIDENCE_EMITTER,
+        '--runner-label=ubuntu-24.04',
+        '--toolchain=clang-18',
+        `--compiler=${compiler}`,
+        `--output=${output}`,
+        `--tested-digests=${'a'.repeat(40)}`,
+      ],
+      {
+        cwd: workspaceRoot,
+        env: {
+          GITHUB_SHA: 'b'.repeat(40),
+          ImageOS: 'ubuntu24',
+          ImageVersion: 'test-image',
+          PATH: process.env.PATH,
+          RUNNER_ARCH: 'X64',
+          RUNNER_OS: 'Linux',
+        },
+      },
+    );
+    assert.equal(result.status, 0);
+    const evidence = JSON.parse(readFileSync(output, 'utf8'));
+    assert.equal(evidence.runnerLabel, 'ubuntu-24.04');
+    assert.equal(evidence.toolchain.profile, 'clang-18');
+    assert.match(evidence.toolchain.version, /clang version 18\./u);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
 
 function identity(path) {
   return Object.freeze({ path: realpathSync(path), sha256: sha256(readFileSync(realpathSync(path))) });

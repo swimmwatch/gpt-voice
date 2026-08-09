@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
 const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
-const APPROVED_RUNNERS = new Set(['ubuntu-24.04', 'ubuntu-22.04', 'windows-2025', 'windows-2022']);
+const APPROVED_RUNNERS = new Set(['ubuntu-24.04', 'windows-latest']);
+const SUPPORTED_TOOLCHAINS = new Set(['clang-18', 'msvc-hosted']);
 
 function parseArguments(argv) {
   const values = new Map();
@@ -31,8 +32,8 @@ function compilerVersion(compiler, toolchain) {
   if (toolchain === 'clang-18' && !/clang version 18\./u.test(output)) {
     throw new Error('Compiler does not match the required clang-18 profile');
   }
-  if (toolchain === 'msvc-19.39' && !/Version 19\.39\./u.test(output)) {
-    throw new Error('Compiler does not match the required MSVC 19.39 profile');
+  if (toolchain === 'msvc-hosted' && !/Version 19\.\d+\./u.test(output)) {
+    throw new Error('Compiler does not report a supported hosted MSVC version');
   }
   return (
     output
@@ -61,6 +62,7 @@ async function main() {
   const compiler = required(values, 'compiler');
   const output = required(values, 'output');
   if (!APPROVED_RUNNERS.has(runnerLabel)) throw new Error(`Unsupported runner label ${runnerLabel}`);
+  if (!SUPPORTED_TOOLCHAINS.has(toolchain)) throw new Error(`Unsupported toolchain profile ${toolchain}`);
   if (process.arch !== 'x64' || process.env.RUNNER_ARCH !== 'X64')
     throw new Error('Runner evidence requires x64 execution');
   const sourceCommit = process.env.GITHUB_SHA;
@@ -80,7 +82,9 @@ async function main() {
     testedDigests: values.get('tested-digests')?.split(',').sort() ?? [],
     toolchain: { profile: toolchain, version: compilerVersion(compiler, toolchain) },
   };
-  await writeFile(path.resolve(workspaceRoot, output), `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
+  const outputPath = path.resolve(workspaceRoot, output);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
 }
 
 main().catch((error) => {

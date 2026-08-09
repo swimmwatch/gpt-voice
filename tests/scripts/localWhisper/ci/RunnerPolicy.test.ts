@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - run: npm run test:local-whisper:fs-guard:msvc-asan && npm run verify:local-whisper:native-hardening
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-19.39
+      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-hosted
 `;
 
 describe('Native CI runner policy', () => {
@@ -52,7 +52,10 @@ describe('Native CI runner policy', () => {
       runnerLabel: 'windows-latest',
       sourceCommit: 'b'.repeat(40),
       testedDigests: ['c'.repeat(40)],
-      toolchain: { profile: 'msvc-19.39' },
+      toolchain: {
+        profile: 'msvc-hosted',
+        version: 'Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36231 for x64',
+      },
     };
     verifier.verifyEvidence(evidence);
     assert.throws(() => verifier.verifyEvidence({ ...evidence, architecture: 'arm64' }), /x64/u);
@@ -65,8 +68,17 @@ describe('Native CI runner policy', () => {
       /host does not match/u,
     );
     assert.throws(
-      () => verifier.verifyEvidence({ ...evidence, toolchain: { profile: 'clang-18' } }),
+      () =>
+        verifier.verifyEvidence({ ...evidence, toolchain: { profile: 'clang-18', version: 'clang version 18.1.3' } }),
       /toolchain does not match/u,
+    );
+    assert.throws(
+      () =>
+        verifier.verifyEvidence({
+          ...evidence,
+          toolchain: { profile: 'msvc-hosted', version: 'Microsoft (R) C/C++ Optimizing Compiler Version 18.00' },
+        }),
+      /compiler version/u,
     );
     assert.throws(() => verifier.verifyEvidence({ ...evidence, sourceCommit: 'unknown' }), /source commit/u);
   });

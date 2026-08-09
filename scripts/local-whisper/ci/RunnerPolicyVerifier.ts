@@ -65,7 +65,7 @@ function countOccurrences(text: string, value: string): number {
 }
 
 function expectedToolchain(runnerLabel: string): string {
-  return runnerLabel.startsWith('windows-') ? 'msvc-19.39' : 'clang-18';
+  return runnerLabel.startsWith('windows-') ? 'msvc-hosted' : 'clang-18';
 }
 
 function verifyPathFilters(workflowText: string): void {
@@ -149,12 +149,22 @@ export class RunnerPolicyVerifier {
     if (evidence.reportedImage.runnerOS !== expectedOperatingSystem) {
       throw new Error('Runner evidence host does not match its runner label');
     }
-    if (!isRecord(evidence.toolchain) || typeof evidence.toolchain.profile !== 'string') {
+    if (
+      !isRecord(evidence.toolchain) ||
+      typeof evidence.toolchain.profile !== 'string' ||
+      typeof evidence.toolchain.version !== 'string'
+    ) {
       throw new Error('Runner evidence toolchain is missing');
     }
     const expectedToolchainProfile = expectedToolchain(evidence.runnerLabel);
     if (evidence.toolchain.profile !== expectedToolchainProfile) {
       throw new Error('Runner evidence toolchain does not match its runner label');
+    }
+    if (
+      (evidence.toolchain.profile === 'clang-18' && !/clang version 18\./u.test(evidence.toolchain.version)) ||
+      (evidence.toolchain.profile === 'msvc-hosted' && !/Version 19\.\d+\./u.test(evidence.toolchain.version))
+    ) {
+      throw new Error('Runner evidence compiler version does not match its toolchain profile');
     }
     if (
       !isRecord(evidence.nativeSourceManifest) ||
