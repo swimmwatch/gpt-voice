@@ -22,6 +22,7 @@ import {
 
 const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const APPLICATION_STATE_DIRECTORY_NAME = 'application-state';
+const APPLICATION_CONFIGURATION_DIRECTORY_NAME = 'configuration';
 const ELECTRON_USER_DATA_DIRECTORY_NAME = 'electron-user-data';
 const DEVELOPMENT_ACTIVATION_FILE_PREFIX = 'development-activation-';
 
@@ -61,6 +62,7 @@ export type DevelopmentApplicationLauncher = (
   executable: string,
   arguments_: readonly string[],
   cwd: string,
+  environment: NodeJS.ProcessEnv,
 ) => Promise<DevelopmentApplicationSession>;
 
 function waitForExit(child: ChildProcess): Promise<void> {
@@ -88,10 +90,24 @@ function assertOwnedApplicationStatePath(applicationStateRoot: string, ownedPath
   }
 }
 
-/** Preserves the desktop environment while preventing Electron from falling back to plain Node mode. */
-export function developmentElectronEnvironment(environment: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv {
+/** Preserves the desktop environment while isolating Electron and app configuration from the regular profile. */
+export function developmentElectronEnvironment(
+  environment: Readonly<NodeJS.ProcessEnv>,
+  configurationRoot?: string,
+  platform: NodeJS.Platform = process.platform,
+): NodeJS.ProcessEnv {
   const sanitized = { ...environment };
   delete sanitized.ELECTRON_RUN_AS_NODE;
+  if (!configurationRoot) return sanitized;
+  if (!path.isAbsolute(configurationRoot)) {
+    throw new Error('Local Whisper development configuration root must be absolute');
+  }
+  if (platform === 'win32') {
+    sanitized.APPDATA = configurationRoot;
+    sanitized.LOCALAPPDATA = configurationRoot;
+  } else {
+    sanitized.XDG_CONFIG_HOME = configurationRoot;
+  }
   return sanitized;
 }
 
@@ -180,7 +196,9 @@ export class LocalWhisperDevelopmentSession {
       sessionRoot,
       `${DEVELOPMENT_ACTIVATION_FILE_PREFIX}${path.basename(sessionRoot)}.json`,
     );
+    const configurationRoot = path.join(applicationStateRoot, APPLICATION_CONFIGURATION_DIRECTORY_NAME);
     const userDataPath = path.join(applicationStateRoot, ELECTRON_USER_DATA_DIRECTORY_NAME);
+    assertOwnedApplicationStatePath(applicationStateRoot, configurationRoot);
     assertOwnedApplicationStatePath(applicationStateRoot, userDataPath);
     let server: DevelopmentArtifactServer | null = null;
     let tls: Awaited<ReturnType<EphemeralQualificationTlsIdentityFactory['create']>> | null = null;
@@ -189,6 +207,7 @@ export class LocalWhisperDevelopmentSession {
     try {
       await Promise.all([
         this.dependencies.resources.stage(workspace, resourcesPath, platform),
+        mkdir(configurationRoot, { recursive: true, mode: 0o700 }),
         mkdir(userDataPath, { recursive: true, mode: 0o700 }),
       ]);
       const runtimeAttestation = await this.dependencies.attestations.load(
@@ -225,6 +244,7 @@ export class LocalWhisperDevelopmentSession {
           `${LOCAL_WHISPER_DEVELOPMENT_ACTIVATION_ARGUMENT}${descriptorPath}`,
         ],
         workspace,
+        developmentElectronEnvironment(process.env, configurationRoot, platform),
       );
       process.once('SIGINT', terminateApplication);
       process.once('SIGTERM', terminateApplication);
@@ -256,10 +276,10 @@ export function createLocalWhisperDevelopmentSession(
     createServer: (tls, objects) => new QualificationHttpsArtifactServer(tls, objects),
     launch:
       applicationLauncher ??
-      ((executable, arguments_, cwd) => {
+      ((executable, arguments_, cwd, environment) => {
         const child = spawn(executable, [...arguments_], {
           cwd,
-          env: developmentElectronEnvironment(process.env),
+          env: environment,
           shell: false,
           stdio: 'inherit',
         });

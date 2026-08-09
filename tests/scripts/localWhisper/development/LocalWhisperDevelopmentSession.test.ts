@@ -19,6 +19,27 @@ describe('LocalWhisperDevelopmentSession', () => {
     });
   });
 
+  it('isolates supported-platform application configuration from the inherited profile', () => {
+    const inherited = {
+      APPDATA: '/regular/app-data',
+      ELECTRON_RUN_AS_NODE: '1',
+      LOCALAPPDATA: '/regular/local-app-data',
+      XDG_CONFIG_HOME: '/regular/config',
+    };
+    const configurationRoot = '/temporary/development-configuration';
+
+    assert.deepEqual(developmentElectronEnvironment(inherited, configurationRoot, 'linux'), {
+      APPDATA: '/regular/app-data',
+      LOCALAPPDATA: '/regular/local-app-data',
+      XDG_CONFIG_HOME: configurationRoot,
+    });
+    assert.deepEqual(developmentElectronEnvironment(inherited, configurationRoot, 'win32'), {
+      APPDATA: configurationRoot,
+      LOCALAPPDATA: configurationRoot,
+      XDG_CONFIG_HOME: '/regular/config',
+    });
+  });
+
   it('resolves a lazily installed Electron runtime through the workspace package entrypoint', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-electron-'));
     const electronPackageRoot = path.join(root, 'node_modules', 'electron');
@@ -71,6 +92,7 @@ describe('LocalWhisperDevelopmentSession', () => {
     ]);
     const events: string[] = [];
     const descriptorPaths: string[] = [];
+    const launchedConfigurationRoots: string[] = [];
     const launchedUserDataPaths: string[] = [];
     let launchCount = 0;
     const dependencies: DevelopmentSessionDependencies = {
@@ -112,7 +134,7 @@ describe('LocalWhisperDevelopmentSession', () => {
           events.push('server-stop');
         },
       }),
-      launch: async (executable, arguments_) => {
+      launch: async (executable, arguments_, _cwd, environment) => {
         assert.equal(executable, electronPath);
         const userDataArgument = arguments_[0];
         const activationArgument = arguments_[2];
@@ -122,13 +144,18 @@ describe('LocalWhisperDevelopmentSession', () => {
         const descriptorPath = activationArgument?.slice('--local-whisper-development-activation='.length);
         assert.ok(userDataPath);
         assert.ok(descriptorPath);
+        const configurationRoot =
+          process.platform === 'win32' ? environment.APPDATA : environment.XDG_CONFIG_HOME;
+        assert.ok(configurationRoot);
+        if (process.platform === 'win32') assert.equal(environment.LOCALAPPDATA, configurationRoot);
         assert.notEqual(path.dirname(descriptorPath), path.dirname(userDataPath));
         assert.equal(
           path.dirname(path.dirname(descriptorPath)),
           path.join(root, '.cache', 'local-whisper', 'development', 'sessions'),
         );
+        launchedConfigurationRoots.push(configurationRoot);
         launchedUserDataPaths.push(userDataPath);
-        const settingsPath = path.join(path.dirname(userDataPath), 'GPT-Voice', 'local-whisper', 'settings.json');
+        const settingsPath = path.join(configurationRoot, 'GPT-Voice', 'local-whisper', 'settings.json');
         const electronStatePath = path.join(userDataPath, 'Local State');
         if (launchCount === 0) {
           await Promise.all([
@@ -169,7 +196,9 @@ describe('LocalWhisperDevelopmentSession', () => {
         'tls-destroy',
       ]);
       assert.equal(launchCount, 2);
+      assert.equal(launchedConfigurationRoots[0], launchedConfigurationRoots[1]);
       assert.equal(launchedUserDataPaths[0], launchedUserDataPaths[1]);
+      assert.notEqual(launchedConfigurationRoots[0], launchedUserDataPaths[0]);
       assert.notEqual(descriptorPaths[0], descriptorPaths[1]);
       for (const descriptorPath of descriptorPaths) {
         await assert.rejects(readFile(descriptorPath), { code: 'ENOENT' });
