@@ -61,3 +61,17 @@ evaluations.
 The comparison is derived solely from injected clocks, fake adapter evaluations, and
 sanitized audit counters. It contains no provider-page, network, account, URL, DOM, or
 translation text data.
+
+## Packet 05 Automated Acceptance Summary
+
+- Deterministic platform: Linux x64 with Node.js `v24.18.0`; no live network, provider,
+  credential, browser-profile, or package interaction occurred.
+- Focused gate: 18 named provider, lifecycle, runtime, selected-text, audit/privacy,
+  localization, composition, and shared-contract test files passed.
+- Full gate: format, lint, strict typecheck, test-type check, complete unit suite, and
+  production build passed; `git diff --check` passed. The lint command exited successfully
+  with 88 existing warnings outside the translation packet; it reported no errors.
+- The six candidate cells above remain strictly faster than baseline with non-regressing
+  named phases and non-increasing browser evaluations. Google, Bing, and Yandex remain
+  on the verified 500 ms fallback because completion evidence is intentionally
+  unavailable pending a separately authorized live inspection.

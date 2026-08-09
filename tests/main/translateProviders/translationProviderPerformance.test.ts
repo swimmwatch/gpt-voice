@@ -247,7 +247,10 @@ class GooglePerformanceAdapter implements GoogleTranslatePageAdapter {
   private visibleClearControls = 0;
   public readonly readResultObservationSnapshot?: () => Promise<GoogleResultObservationSnapshot>;
 
-  public constructor(private readonly timeline: ControlledTimeline, coherentResultObservation = false) {
+  public constructor(
+    private readonly timeline: ControlledTimeline,
+    coherentResultObservation = false,
+  ) {
     if (coherentResultObservation) {
       this.readResultObservationSnapshot = async () => {
         this.timeline.browserEvaluation('google.result.observe');
@@ -377,7 +380,10 @@ class BingPerformanceAdapter implements BingTranslatePageAdapter {
   private visibleClearControls = 0;
   public readonly readResultObservationSnapshot?: () => Promise<BingResultObservationSnapshot>;
 
-  public constructor(private readonly timeline: ControlledTimeline, coherentResultObservation = false) {
+  public constructor(
+    private readonly timeline: ControlledTimeline,
+    coherentResultObservation = false,
+  ) {
     if (coherentResultObservation) {
       this.readResultObservationSnapshot = async () => {
         this.timeline.browserEvaluation('bing.result.observe');
@@ -520,7 +526,10 @@ class YandexPerformanceAdapter implements YandexTranslatePageAdapter {
   private visibleClearControls = 0;
   public readonly readResultObservationSnapshot?: () => Promise<YandexResultObservationSnapshot>;
 
-  public constructor(private readonly timeline: ControlledTimeline, coherentResultObservation = false) {
+  public constructor(
+    private readonly timeline: ControlledTimeline,
+    coherentResultObservation = false,
+  ) {
     if (coherentResultObservation) {
       this.readResultObservationSnapshot = async () => {
         this.timeline.browserEvaluation('yandex.result.observe');

@@ -1065,3 +1065,91 @@ decisions:
     rationale: The persistent implementation interview and the user's explicit request separately authorize an isolated local Packet 04 commit.
     supersedes_revision: null
     requirement_ids: [OUT-004, SCOPE-003, ACC-003, ACC-010, ACC-011, ACC-017, ACC-018, ACC-019, ACC-020]
+
+  - id: execution.packet-05
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 04 was committed locally as 1ca2f81e after separate commit authorization.
+      - docs/specs/translation-provider-reliability-remediation/tasks/todo.md identifies Packet 05 as the next unchecked packet.
+      - Packet 05 closes deterministic acceptance and privacy gates without live provider, packaging, or public-contract changes.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: execution-round-05
+      question_id: execution.packet-05
+      idempotency_key: execution.packet-05:v1
+      last_status: answered
+    question:
+      text: Authorize execution and verification of Packet 05, Close automated acceptance and privacy gates, leaving its resulting changes uncommitted?
+      kind: single
+      options:
+        - id: execute-packet-05
+          label: Execute Packet 05 (Recommended)
+          description: Implement and verify only Packet 05 after Packet 04 is committed; do not push, package, or begin Packet 06.
+        - id: do-not-execute
+          label: Do not execute
+          description: Leave Packet 05 unchanged and stop without implementation work.
+    answer:
+      selected_ids: [execute-packet-05]
+      text: ''
+    rationale: The persistent implementation interview separately authorized Packet 05 execution and verification.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, SCOPE-001, SCOPE-002, SCOPE-003, TIME-001, TIME-002, TIME-003, TIME-004, TIME-005, TIME-006, TIME-007, TIME-008, TIME-009, PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, PERF-006, PERF-007, QUAL-001, QUAL-002, ARCH-001, ARCH-002, ARCH-003, ARCH-004, ARCH-005, ARCH-006, ARCH-007, ARCH-008, ARCH-009, CONC-001, CONC-002, CONC-003, CONC-004, CONC-005, CONC-006, CONC-007, LIFE-001, LIFE-002, LIFE-003, LIFE-004, LIFE-005, LIFE-006, LIFE-007, LIFE-008, FAIL-001, FAIL-002, FAIL-003, FAIL-004, FAIL-005, FAIL-006, FAIL-007, FAIL-008, SEC-001, SEC-002, SEC-003, SEC-004, SEC-005, SEC-006, SEC-007, SEC-008, SEC-009, OBS-001, OBS-002, OBS-003, OBS-004, OBS-005, OBS-006, OBS-007, COMP-001, COMP-002, COMP-003, COMP-004, COMP-005, COMP-006, CONF-001, CONF-002, CONF-003, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010, ACC-011, ACC-012, ACC-017, ACC-018, ACC-019, ACC-020]
+
+  - id: verification.packet-05
+    revision: 1
+    category: verification
+    state: observed
+    provenance: repository
+    evidence:
+      - The 18-file focused deterministic suite passed across translation providers,
+        lifecycle, runtime, selected-text effects, audit/privacy, localization,
+        composition, and shared contracts.
+      - npm run format:check, npm run lint, npm run typecheck, npm run test:types,
+        npm test, npm run build:prod, and git diff --check passed on 2026-08-09. Lint
+        reported 88 existing unrelated warnings but no errors and exited successfully.
+      - The only detected defect was Prettier drift in four Packet 04 source/test files;
+        formatting was corrected without behavior change, and the full gate then passed.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [packet-05-verified]
+      text: ''
+    rationale: The deterministic acceptance gate closes the automated scope while preserving
+      private fixtures, quality fallback behavior, and the later supported-platform gate.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010, ACC-011, ACC-012, ACC-017, ACC-018, ACC-019, ACC-020]
+
+  - id: authorization.commit-packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 05 matches its handoff; its focused and full verification gates passed on
+        2026-08-09, with 88 existing unrelated lint warnings and no lint errors.
+      - The user explicitly requested a commit on 2026-08-09.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-06
+      question_id: authorization.commit-packet-05
+      idempotency_key: authorization.commit-packet-05:v1
+      last_status: answered
+    question:
+      text: Authorize one isolated local commit for completed Packet 05, containing only Translation Provider Reliability Remediation automated-gate, formatting, evidence, and workstream changes?
+      kind: single
+      options:
+        - id: commit-packet-05
+          label: Commit Packet 05 (Recommended)
+          description: Create the required local commit for Packet 05 only; do not push or begin Packet 06.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 05 uncommitted and stop; Packet 06 cannot begin.
+    answer:
+      selected_ids: [commit-packet-05]
+      text: ''
+    rationale: The persistent implementation interview and the user's explicit request separately authorize an isolated local Packet 05 commit.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, SCOPE-003, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010, ACC-011, ACC-012, ACC-017, ACC-018, ACC-019, ACC-020]

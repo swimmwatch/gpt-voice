@@ -352,9 +352,7 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
                   }
                   return {
                     branchIndex:
-                      primaryBranch?.parentElement === region
-                        ? Array.from(region.children).indexOf(primaryBranch)
-                        : -1,
+                      primaryBranch?.parentElement === region ? Array.from(region.children).indexOf(primaryBranch) : -1,
                     insideListItem: fragment.closest('[role="listitem"]') !== null,
                     text: fragment instanceof HTMLElement ? fragment.innerText : (fragment.textContent ?? ''),
                     visible: isVisible(fragment),

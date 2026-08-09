@@ -117,10 +117,7 @@ export type TranslationProviderHookResult<T = void> =
  * target, route, generation, and text validation remain mandatory.
  */
 export type TranslationProviderCompletionClassification =
-  | 'ambiguous'
-  | 'incomplete'
-  | 'unavailable'
-  | 'verified-complete';
+  'ambiguous' | 'incomplete' | 'unavailable' | 'verified-complete';
 
 export interface TranslationProviderResultObservation {
   readonly completion: TranslationProviderCompletionClassification;

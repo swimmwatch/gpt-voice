@@ -2,9 +2,9 @@
 
 ## Status
 
-Packets 01–03 are committed as `e1fe686`, `de5ec2e`, and `02fbd227`. Packet 04 is
-complete and remains uncommitted for review. The plan remains approved; no later packet
-is authorized.
+Packets 01–04 are committed as `e1fe686`, `de5ec2e`, `02fbd227`, and `1ca2f81e`.
+Packet 05 is complete and remains uncommitted for review. The plan remains approved; no
+later packet is authorized.
 
 ## Completed Packets
 
@@ -42,6 +42,11 @@ is authorized.
     signal is enabled without the separate live public-page inspection authorization.
   - Enforced the absolute injected result deadline across polls and fallback delay; exact
     deadline equality returns a timeout before a late confirmation can be accepted.
+- [05 Close automated acceptance and privacy gates](05_close_automated_acceptance_and_privacy_gates.md)
+  - Passed the exhaustive deterministic provider/lifecycle/runtime/selected-text/audit/
+    privacy/localization/composition quality gate without live provider access.
+  - Corrected only Prettier drift in Packet 04 files; no production behavior, public
+    contract, dependency, IPC, settings, database, package, or workflow change was needed.
 
 ## Changed Files
 
@@ -54,6 +59,9 @@ is authorized.
 - Packet 04 updates the shared result-observation contract, base provider timing, Google,
   Bing, and Yandex public-page adapters, deterministic provider tests, and the controlled
   performance evidence.
+- Packet 05 records the durable execution decision, formats Packet 04 source and test
+  files, appends the sanitized automated-acceptance evidence, and updates workstream
+  completion state.
 - No dependency, IPC, renderer, settings, database, workflow, generated artifact, or release file changed.
 
 ## Checks
@@ -68,17 +76,24 @@ is authorized.
   regression and no additional browser evaluation.
 - `npm run typecheck`, `npm run test:types`, scoped ESLint, scoped Prettier, and
   `git diff --check` — passed for Packet 04.
+- Packet 05 focused gate — 18 named deterministic test files passed across providers,
+  lifecycle, runtime, selected-text effects, audit/privacy, localization, composition,
+  and shared contracts.
+- Packet 05 full gate — `npm run format:check`, `npm run lint`, `npm run typecheck`,
+  `npm run test:types`, `npm test`, `npm run build:prod`, and `git diff --check` passed.
+  Lint exited successfully with 88 existing unrelated warnings and no errors.
 
 ## Exact Next Packet
 
-- [05 Close automated acceptance and privacy gates](05_close_automated_acceptance_and_privacy_gates.md)
+- [06 Qualify supported packaged platforms](06_qualify_supported_packaged_platforms.md)
 
 ## Blockers
 
-- Packet 04 is intentionally uncommitted. A future implementation invocation must obtain
+- Packet 05 is intentionally uncommitted. A future implementation invocation must obtain
   separate commit authorization through Prompt MCP, verify this handoff, and commit only
-  Packet 04 before it may open Packet 05.
-- Packet 05 requires separate execution authorization.
+  Packet 05 before it may open Packet 06.
+- Packet 06 requires separate execution authorization and its supported-platform manual
+  gates; it must not start from this packet.
 
 ## Remaining Manual Gates
 

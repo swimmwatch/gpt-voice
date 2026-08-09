@@ -436,8 +436,12 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
           const style = window.getComputedStyle(element);
           return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
         };
-        const sourceEditors = Array.from(document.querySelectorAll<HTMLElement>(sourceCandidateSelector)).filter(isVisible);
-        const primarySourceEditors = Array.from(document.querySelectorAll<HTMLElement>(sourcePrimarySelector)).filter(isVisible);
+        const sourceEditors = Array.from(document.querySelectorAll<HTMLElement>(sourceCandidateSelector)).filter(
+          isVisible,
+        );
+        const primarySourceEditors = Array.from(document.querySelectorAll<HTMLElement>(sourcePrimarySelector)).filter(
+          isVisible,
+        );
         const forbiddenTextareas = Array.from(document.querySelectorAll(forbiddenTextareaSelector)).filter(isVisible);
         const panels = Array.from(document.querySelectorAll<HTMLElement>(destinationPanelSelector));
         const primaryDestinations = panels.flatMap((panel) =>
@@ -468,7 +472,9 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
             destinationResolution,
             destinationText: destination?.innerText ?? '',
             destinationVisible: destination ? isVisible(destination) : false,
-            editableSourceEditors: sourceEditors.filter((editor) => editor.isContentEditable && !editor.matches(':disabled')).length,
+            editableSourceEditors: sourceEditors.filter(
+              (editor) => editor.isContentEditable && !editor.matches(':disabled'),
+            ).length,
             sourceEditors: sourceEditors.length,
             sourceResolution,
             sourceTextLength: sourceEditors.length === 1 ? (sourceEditors[0]?.innerText.length ?? null) : null,
