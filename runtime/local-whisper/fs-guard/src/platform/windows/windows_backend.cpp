@@ -687,13 +687,18 @@ public:
         throw GuardError("UNSAFE_ENTRY");
       }
       const auto known_mode = directory.file_modes.find(wide_name);
-      if (known_mode == directory.file_modes.end())
-        throw GuardError("UNSAFE_ENTRY");
       if (require_exact_expectations) {
-        if (expected->second != known_mode->second)
+        const unsigned int mode =
+            known_mode == directory.file_modes.end() ? expected->second : known_mode->second;
+        if (expected->second != mode)
           throw GuardError("UNSAFE_ENTRY");
         remaining.erase(expected);
+        result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
+                         sha256_file(file.get()));
+        continue;
       }
+      if (known_mode == directory.file_modes.end())
+        throw GuardError("UNSAFE_ENTRY");
       const unsigned int mode = known_mode->second;
       result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
                        sha256_file(file.get()));
