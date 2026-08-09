@@ -175,7 +175,7 @@ class RecordingBrowserWindow {
 class WindowManagerHarness {
   public readonly created: RecordingBrowserWindow[] = [];
   public operationActive = false;
-  public readonly mainInteractionLock = new MainInteractionLock({ isOperationActive: () => this.operationActive });
+  public readonly mainInteractionLock = new MainInteractionLock(() => this.operationActive);
   public readonly manager = new WindowManager({
     createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
     createBrowserWindow: (options) => {

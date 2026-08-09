@@ -37,7 +37,7 @@ function createHarness(
   const transport = new FakeTransport();
   const authority = new FakeAuthority();
   const coordinator = new FakeCoordinator();
-  const mainInteractionLock = new MainInteractionLock();
+  const mainInteractionLock = new MainInteractionLock(() => false);
   const privileged = new FakePrivilegedPorts();
   const snapshots = createSnapshotService(coordinator, facts);
   let openSettingsCalls = 0;
@@ -123,7 +123,7 @@ describe('LocalWhisperIpcController', () => {
     const coordinator = new FakeCoordinator();
     const privileged = new FakePrivilegedPorts();
     const snapshots = createSnapshotService(coordinator, snapshotFacts());
-    const mainInteractionLock = new MainInteractionLock();
+    const mainInteractionLock = new MainInteractionLock(() => false);
     let finishRefresh = (): void => {
       throw new Error('Refresh completion was not initialized');
     };

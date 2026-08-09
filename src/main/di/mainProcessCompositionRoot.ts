@@ -629,9 +629,7 @@ export class MainProcessCompositionRoot {
       registry: prettifyProviderRegistry,
       settings: prettifySettingsStorage,
     });
-    const mainInteractionLock = new MainInteractionLock({
-      isOperationActive: () => selectedTextActionGate.getActive() !== null,
-    });
+    const mainInteractionLock = new MainInteractionLock(() => selectedTextActionGate.getActive() !== null);
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),

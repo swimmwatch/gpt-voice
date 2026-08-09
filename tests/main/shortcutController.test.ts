@@ -69,7 +69,7 @@ class ShortcutControllerHarness {
   public readonly controller: ShortcutController;
   public generationObserver: SelectedTextPrettifyRunObserver | null = null;
   public readonly globalShortcuts = new RecordingGlobalShortcuts();
-  public readonly mainInteractionLock = new MainInteractionLock();
+  public readonly mainInteractionLock = new MainInteractionLock(() => false);
   public quickCalls = 0;
   public quickResult: Promise<SelectedTextPrettifyResult> = Promise.resolve(SUCCESSFUL_PRETTIFY_RESULT);
   public readonly connectionChecks: unknown[] = [];

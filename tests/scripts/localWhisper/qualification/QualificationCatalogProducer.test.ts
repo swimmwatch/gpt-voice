@@ -151,7 +151,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
     );
   });
 
-  it('produces only the closed Windows x64 CPU and sm_120a rows', () => {
+  it('produces only the closed Windows x64 CPU and sm_120a-real rows', () => {
     const payload = new LocalWhisperQualificationCatalogProducer().produce({
       platform: 'win32',
       candidateSemVer: '2.4.0',
@@ -184,7 +184,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
           architecture: 'x64',
           backend: 'cuda',
           packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
-          computeTargets: ['sm-120a'],
+          computeTargets: ['sm_120a-real'],
         },
       ],
     );

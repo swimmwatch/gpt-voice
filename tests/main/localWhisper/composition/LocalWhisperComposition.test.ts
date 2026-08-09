@@ -42,7 +42,7 @@ describe('VoiceProviderSelectionService', () => {
         switchProvider: async () => ({}),
       },
       getReadinessRevision: () => 6,
-      mainInteractionLock: new MainInteractionLock({ isOperationActive: () => true }),
+      mainInteractionLock: new MainInteractionLock(() => true),
     });
 
     const result = await service.select('local-whisper');
@@ -72,7 +72,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 7,
-      mainInteractionLock: new MainInteractionLock(),
+      mainInteractionLock: new MainInteractionLock(() => false),
     });
 
     const result = await service.select('local-whisper');
@@ -102,7 +102,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 8,
-      mainInteractionLock: new MainInteractionLock(),
+      mainInteractionLock: new MainInteractionLock(() => false),
     });
 
     const runtimeFailure = await service.select('local-whisper');
@@ -140,7 +140,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 9,
-      mainInteractionLock: new MainInteractionLock(),
+      mainInteractionLock: new MainInteractionLock(() => false),
     });
 
     const result = await service.select('chatgpt');
@@ -173,7 +173,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 9,
-      mainInteractionLock: new MainInteractionLock(),
+      mainInteractionLock: new MainInteractionLock(() => false),
     });
 
     const first = service.select('local-whisper');
@@ -205,7 +205,7 @@ describe('VoiceProviderSelectionService', () => {
         },
       },
       getReadinessRevision: () => 10,
-      mainInteractionLock: new MainInteractionLock(),
+      mainInteractionLock: new MainInteractionLock(() => false),
     });
 
     const result = await service.select('local-whisper');
@@ -218,7 +218,7 @@ describe('VoiceProviderSelectionService', () => {
 
   it('rejects direct provider switching while a settings lease is active', async () => {
     const config = new SelectionConfig();
-    const mainInteractionLock = new MainInteractionLock();
+    const mainInteractionLock = new MainInteractionLock(() => false);
     let switchCalls = 0;
     const service = new VoiceProviderSelectionService({
       config,

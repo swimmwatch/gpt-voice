@@ -4,7 +4,7 @@ import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 describe('MainInteractionLock', () => {
   it('publishes only real lease transitions and releases idempotently', () => {
-    const lock = new MainInteractionLock();
+    const lock = new MainInteractionLock(() => false);
     const states: boolean[] = [];
     const unsubscribe = lock.subscribe((locked) => states.push(locked));
 
@@ -22,7 +22,7 @@ describe('MainInteractionLock', () => {
   });
 
   it('rejects configuration locking while recording is busy', () => {
-    const lock = new MainInteractionLock();
+    const lock = new MainInteractionLock(() => false);
     lock.setRecordingLifecycleState('recording');
 
     const acquisition = lock.acquire();
@@ -34,7 +34,7 @@ describe('MainInteractionLock', () => {
 
   it('keeps active provider work separate from the settings-window lease', () => {
     let operationActive = true;
-    const lock = new MainInteractionLock({ isOperationActive: () => operationActive });
+    const lock = new MainInteractionLock(() => operationActive);
 
     const blocked = lock.acquire();
 

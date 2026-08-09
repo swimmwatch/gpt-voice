@@ -16,10 +16,11 @@ describe('Translation connection IPC contract', () => {
       ipc.indexOf('this.trustedIpc.handle(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get'),
       ipc.indexOf("this.trustedIpc.handle('get-text-action-settings'"),
     );
-    const translationMutation = ipc.slice(
-      ipc.indexOf("this.trustedIpc.handle('set-translate-settings'"),
-      ipc.indexOf("this.trustedIpc.handle('get-prettify-settings'"),
-    );
+    const mutationStart = ipc.indexOf('private registerTranslationSettingsSaveIpc(): void {');
+    const mutationEnd = ipc.indexOf('\n  private ', mutationStart + 1);
+    assert.notEqual(mutationStart, -1);
+    assert.notEqual(mutationEnd, -1);
+    const translationMutation = ipc.slice(mutationStart, mutationEnd);
 
     assert.match(getHandler, /dependencies\.translationRuntime\.getConnectionState\(\)/u);
     assert.match(translationMutation, /saveTranslationSettings\(candidate\)[\s\S]*initializeSelectedProvider\(\)/u);

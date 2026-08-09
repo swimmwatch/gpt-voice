@@ -156,7 +156,7 @@ function createHarness(
 ) {
   const transport = new RecordingTransport();
   const coordinator = options.coordinator ?? new StartupCoordinatorDouble(options.snapshot ?? createPendingSnapshot());
-  const mainInteractionLock = new MainInteractionLock();
+  const mainInteractionLock = new MainInteractionLock(() => false);
   const registrar = new TrustedIpcRegistrar(
     transport,
     { error: () => undefined, info: () => undefined, warn: () => undefined },

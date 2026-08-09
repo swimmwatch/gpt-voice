@@ -90,7 +90,7 @@ class RecordingWindowManager {
 class TrayControllerHarness {
   public readonly menus: MenuItemConstructorOptions[][] = [];
   public quitCount = 0;
-  public readonly mainInteractionLock = new MainInteractionLock();
+  public readonly mainInteractionLock = new MainInteractionLock(() => false);
   public readonly trays: RecordingTray[] = [];
   public readonly windowManager = new RecordingWindowManager();
   public readonly controller = new TrayController({

@@ -14,11 +14,6 @@ export const MAIN_INTERACTION_LOCK_ACQUIRE_RESULTS = [
 
 export type MainInteractionLockAcquireResult = (typeof MAIN_INTERACTION_LOCK_ACQUIRE_RESULTS)[number];
 
-export interface MainInteractionLockDependencies {
-  /** Reports work that must finish before configuration can change. */
-  readonly isOperationActive?: () => boolean;
-}
-
 export interface MainInteractionLockLease {
   release(): void;
 }
@@ -35,7 +30,8 @@ export class MainInteractionLock {
   private nextLeaseId = 1;
   private recordingLifecycleState: RecordingLifecycleState = 'idle';
 
-  public constructor(private readonly dependencies: MainInteractionLockDependencies = {}) {}
+  /** Injects the owner of work that must finish before configuration can change. */
+  public constructor(private readonly isOperationActive: () => boolean) {}
 
   public get locked(): boolean {
     return this.leases.size > 0;
@@ -43,7 +39,7 @@ export class MainInteractionLock {
 
   /** True only for in-flight work; unlike `locked`, this never disables a settings owner window. */
   public get operationActive(): boolean {
-    return this.dependencies.isOperationActive?.() === true;
+    return this.isOperationActive();
   }
 
   public acquire(): MainInteractionLockAcquisition {
