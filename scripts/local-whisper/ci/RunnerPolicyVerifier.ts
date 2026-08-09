@@ -80,6 +80,65 @@ function countOccurrences(text: string, value: string): number {
   return text.split(value).length - 1;
 }
 
+function expectedToolchain(runnerLabel: string): string {
+  return runnerLabel.startsWith('windows-') ? 'msvc-19.39' : 'clang-18';
+}
+
+function verifyPathFilters(workflowText: string): void {
+  if (!workflowText.includes('pull_request:')) return;
+  for (const owner of NATIVE_PATH_OWNERS) {
+    if (countOccurrences(workflowText, `- ${owner}`) !== 2) {
+      throw new Error(`Native CI workflow must select ${owner} on pull requests and pushes`);
+    }
+  }
+}
+
+function verifyApprovedRunners(jobs: Record<string, WorkflowJob>): void {
+  for (const [jobName, job] of Object.entries(jobs)) {
+    if (!isRecord(job) || typeof job['runs-on'] !== 'string') continue;
+    if (!APPROVED_RUNNER_LABELS.has(job['runs-on'])) {
+      throw new Error(`Job ${jobName} has an unsupported runner label ${job['runs-on']}`);
+    }
+  }
+}
+
+function verifyCompatibilityJob(jobName: string, text: string): void {
+  for (const required of COMPATIBILITY_REQUIRED) {
+    if (!text.includes(required)) throw new Error(`${jobName} must execute ${required}`);
+  }
+  for (const exhaustive of EXHAUSTIVE_ONLY) {
+    if (text.includes(exhaustive)) throw new Error(`${jobName} must not duplicate ${exhaustive}`);
+  }
+}
+
+function verifyRequiredRunnerJobs(jobs: Record<string, WorkflowJob>): void {
+  for (const [jobName, contract] of Object.entries(JOBS)) {
+    const job = jobs[jobName];
+    if (!isRecord(job) || job['runs-on'] !== contract.label) {
+      throw new Error(`${jobName} must run on ${contract.label}`);
+    }
+    const text = jobText(job);
+    if (
+      !text.includes(`--runner-label=${contract.label}`) ||
+      !text.includes(`--toolchain=${expectedToolchain(contract.label)}`)
+    ) {
+      throw new Error(`${jobName} must emit evidence for its exact runner and toolchain`);
+    }
+    if (!contract.primary) verifyCompatibilityJob(jobName, text);
+  }
+}
+
+function verifyPrimaryEvidence(jobs: Record<string, WorkflowJob>): void {
+  const primaryLinux = jobText(jobs['native-quality-linux'] ?? {});
+  const primaryWindows = jobText(jobs['native-quality-windows'] ?? {});
+  if (!primaryLinux.includes('native-sanitizer-proof') || !primaryLinux.includes('lint:local-whisper')) {
+    throw new Error('Primary Linux runner must retain sanitizer and lint evidence');
+  }
+  if (!primaryWindows.includes('msvc-asan') || !primaryWindows.includes('native-hardening')) {
+    throw new Error('Primary Windows runner must retain ASan and PE-hardening evidence');
+  }
+}
+
 /** Keeps the ordinary native matrix fixed while retaining costly analysis on primary runners only. */
 export class RunnerPolicyVerifier {
   public ownsNativePath(path: string): boolean {
@@ -88,46 +147,10 @@ export class RunnerPolicyVerifier {
 
   public verify(workflowText: string): void {
     const jobs = parseJobs(workflowText);
-    if (workflowText.includes('pull_request:')) {
-      for (const owner of NATIVE_PATH_OWNERS) {
-        if (countOccurrences(workflowText, `- ${owner}`) !== 2) {
-          throw new Error(`Native CI workflow must select ${owner} on pull requests and pushes`);
-        }
-      }
-    }
-    for (const [jobName, job] of Object.entries(jobs)) {
-      if (!isRecord(job) || typeof job['runs-on'] !== 'string') continue;
-      if (!APPROVED_RUNNER_LABELS.has(job['runs-on'])) {
-        throw new Error(`Job ${jobName} has an unsupported runner label ${job['runs-on']}`);
-      }
-    }
-    for (const [jobName, contract] of Object.entries(JOBS)) {
-      const job = jobs[jobName];
-      if (!isRecord(job) || job['runs-on'] !== contract.label) {
-        throw new Error(`${jobName} must run on ${contract.label}`);
-      }
-      const text = jobText(job);
-      const expectedToolchain = contract.label.startsWith('windows-') ? 'msvc-19.39' : 'clang-18';
-      if (!text.includes(`--runner-label=${contract.label}`) || !text.includes(`--toolchain=${expectedToolchain}`)) {
-        throw new Error(`${jobName} must emit evidence for its exact runner and toolchain`);
-      }
-      if (!contract.primary) {
-        for (const required of COMPATIBILITY_REQUIRED) {
-          if (!text.includes(required)) throw new Error(`${jobName} must execute ${required}`);
-        }
-        for (const exhaustive of EXHAUSTIVE_ONLY) {
-          if (text.includes(exhaustive)) throw new Error(`${jobName} must not duplicate ${exhaustive}`);
-        }
-      }
-    }
-    const primaryLinux = jobText(jobs['native-quality-linux'] ?? {});
-    const primaryWindows = jobText(jobs['native-quality-windows'] ?? {});
-    if (!primaryLinux.includes('native-sanitizer-proof') || !primaryLinux.includes('lint:local-whisper')) {
-      throw new Error('Primary Linux runner must retain sanitizer and lint evidence');
-    }
-    if (!primaryWindows.includes('msvc-asan') || !primaryWindows.includes('native-hardening')) {
-      throw new Error('Primary Windows runner must retain ASan and PE-hardening evidence');
-    }
+    verifyPathFilters(workflowText);
+    verifyApprovedRunners(jobs);
+    verifyRequiredRunnerJobs(jobs);
+    verifyPrimaryEvidence(jobs);
   }
 
   public verifyEvidence(value: unknown): void {
@@ -155,8 +178,8 @@ export class RunnerPolicyVerifier {
     if (!isRecord(evidence.toolchain) || typeof evidence.toolchain.profile !== 'string') {
       throw new Error('Runner evidence toolchain is missing');
     }
-    const expectedToolchain = evidence.runnerLabel.startsWith('windows-') ? 'msvc-19.39' : 'clang-18';
-    if (evidence.toolchain.profile !== expectedToolchain) {
+    const expectedToolchainProfile = expectedToolchain(evidence.runnerLabel);
+    if (evidence.toolchain.profile !== expectedToolchainProfile) {
       throw new Error('Runner evidence toolchain does not match its runner label');
     }
     if (

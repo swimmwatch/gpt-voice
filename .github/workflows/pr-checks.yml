@@ -333,7 +333,14 @@ jobs:
       - name: Provision pinned ordinary native toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install --yes cmake ninja-build clang-18
+          sudo apt-get install --yes ca-certificates cmake curl gpg ninja-build
+          curl --fail --show-error --silent --location https://apt.llvm.org/llvm-snapshot.gpg.key --output /tmp/llvm-snapshot.asc
+          echo '8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d  /tmp/llvm-snapshot.asc' | sha256sum --check --status
+          gpg --dearmor --yes --output /tmp/llvm-snapshot.gpg /tmp/llvm-snapshot.asc
+          sudo install --mode=0644 /tmp/llvm-snapshot.gpg /usr/share/keyrings/llvm-snapshot.gpg
+          echo 'deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] https://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main' | sudo tee /etc/apt/sources.list.d/llvm-toolchain-jammy-18.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes clang-18
           clang++-18 --version
 
       - name: Install dependencies

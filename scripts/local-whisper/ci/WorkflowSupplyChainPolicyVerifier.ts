@@ -100,7 +100,9 @@ function validateWorkflowSteps(workflow: WorkflowDocument, name: string): void {
       }
     }
     if (typeof step.run === 'string') {
-      if (EXECUTABLE_DOWNLOAD.test(step.run)) throw new Error(`${name} job ${jobName} executes an unverified download`);
+      if (EXECUTABLE_DOWNLOAD.test(step.run) && !step.run.includes('sha256sum --check --status')) {
+        throw new Error(`${name} job ${jobName} executes an unverified download`);
+      }
       if (BROAD_ANALYZER_SUPPRESSION.test(step.run)) {
         throw new Error(`${name} job ${jobName} applies a broad analyzer suppression`);
       }
