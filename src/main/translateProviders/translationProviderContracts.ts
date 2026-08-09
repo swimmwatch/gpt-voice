@@ -14,6 +14,7 @@ export const TRANSLATION_PROVIDER_FAILURE_CODES = [
   'resultTimeoutOrEmpty',
   'timed-out',
   'cancelledOrStaleOperation',
+  'resultDeliveryFailure',
   'cleanupFailure',
 ] as const;
 
@@ -37,6 +38,12 @@ export type TranslationProviderPhase = (typeof TRANSLATION_PROVIDER_PHASES)[numb
 export interface TranslationProviderRequest {
   readonly audit: TranslationProviderAudit;
   readonly auditContext: TranslationProviderAuditOperationContext;
+  /**
+   * Main-process selected-text hand-off for providers that explicitly deliver a fully
+   * verified result before visible cleanup. Returning true acknowledges completed
+   * clipboard delivery. It is intentionally unavailable to public IPC.
+   */
+  readonly onResultReady?: (text: string) => boolean;
   readonly providerId: TranslationProviderId;
   readonly targetLanguage: string;
   readonly sourceText: string;
@@ -121,8 +128,28 @@ export type TranslationProviderHookResult<T = void> =
 export type TranslationProviderCompletionClassification =
   'ambiguous' | 'incomplete' | 'unavailable' | 'verified-complete';
 
+/** Associates a provider observation with the current source submission. */
+export type TranslationProviderResultGeneration = 'changed-after-submission' | 'renewed-identical' | 'unavailable';
+
+export interface TranslationProviderCompletionControlSnapshot {
+  readonly visible: number;
+  readonly visibleEnabled: number;
+}
+
+/** Classifies one provider-owned public control that is enabled only for a copy-ready result. */
+export function classifyTranslationProviderCompletionControl(
+  snapshot: TranslationProviderCompletionControlSnapshot,
+): TranslationProviderCompletionClassification {
+  if (snapshot.visible === 0 && snapshot.visibleEnabled === 0) return 'unavailable';
+  if (snapshot.visible === 1 && snapshot.visibleEnabled === 0) return 'incomplete';
+  if (snapshot.visible === 1 && snapshot.visibleEnabled === 1) return 'verified-complete';
+  return 'ambiguous';
+}
+
 export interface TranslationProviderResultObservation {
   readonly completion: TranslationProviderCompletionClassification;
+  /** Optional provider-specific proof that permits immediate current-result acceptance. */
+  readonly generation?: TranslationProviderResultGeneration;
   readonly targetVerified: boolean;
   readonly text: string;
 }

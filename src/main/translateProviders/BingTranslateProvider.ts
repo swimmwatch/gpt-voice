@@ -11,8 +11,10 @@ import {
   type BaseTranslateProviderDependencies,
 } from '@main/translateProviders/BaseTranslateProvider';
 import {
+  classifyTranslationProviderCompletionControl,
   translationHookFailure,
   translationHookSuccess,
+  type TranslationProviderCompletionControlSnapshot,
   type TranslationProviderHookResult,
   type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
@@ -30,6 +32,7 @@ const BING_SOURCE_SELECT_SELECTOR = 'select#tta_srcsl[aria-label="Input Language
 const BING_TARGET_SELECT_SELECTOR = 'select#tta_tgtsl[aria-label="Output Language Selection Dropdown"]';
 const BING_SOURCE_SELECTOR = 'div#tta_input_ta[role="textbox"][aria-label="Input text area"][contenteditable="true"]';
 const BING_RESULT_SELECTOR = 'div#tta_output_ta[data-placeholder="Translation"]';
+const BING_COPY_TRANSLATION_SELECTOR = 'button#tta_copyIcon[aria-label="Copy"]';
 const BING_CANONICAL_GROUP_SELECTOR = ':scope > optgroup#t_tgtAllLang';
 const BING_CANONICAL_OPTION_SELECTOR = ':scope > option';
 const BING_CLEAR_SELECTOR = '#tta_clear[role="button"][aria-label="Click to Clear"]';
@@ -37,6 +40,7 @@ const BING_CLEAR_WRAPPER_SELECTOR = '#tta_clear_cnt';
 export const BING_BLOCKING_SURFACE_SELECTOR =
   '[role="dialog"]:not(.infobubble), iframe[title*="challenge" i], iframe[title*="captcha" i]';
 const BING_AUTOMATIC_SOURCE_VALUE = 'auto-detect';
+const BING_INPUT_ACTIVATION_CHARACTER = 'x';
 
 export type BingRouteKind = 'loginOrChallenge' | 'translator' | 'unexpected';
 
@@ -94,6 +98,7 @@ export interface BingClearSnapshot {
 }
 
 export interface BingResultObservationSnapshot {
+  readonly completionControl: TranslationProviderCompletionControlSnapshot;
   readonly controls: BingPublicControlsSnapshot;
   readonly result: BingResultSnapshot;
   readonly route: BingRouteSnapshot;
@@ -251,6 +256,10 @@ export function classifyBingResultSnapshot(snapshot: BingResultSnapshot): Transl
   return translationHookSuccess(statusText === '...' || statusText === '…' ? '' : normalizedText);
 }
 
+function normalizeBingEditorText(value: string): string {
+  return value.replace(/\r\n?/gu, '\n');
+}
+
 /** Restricts Playwright access to the researched public Bing controls. */
 class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
   constructor(private readonly page: Page) {}
@@ -340,27 +349,13 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
   async fillSourceText(sourceText: string): Promise<boolean> {
     const sourceEditors = await getVisibleLocators(this.page.locator(BING_SOURCE_SELECTOR));
     if (sourceEditors.length !== 1 || !sourceEditors[0]?.enabled || !sourceEditors[0].editable) return false;
-    return sourceEditors[0].locator.evaluate((element, value) => {
-      const editor = element as HTMLElement;
-      const beforeInputAccepted = editor.dispatchEvent(
-        new InputEvent('beforeinput', {
-          bubbles: true,
-          cancelable: true,
-          data: value,
-          inputType: 'insertText',
-        }),
-      );
-      if (!beforeInputAccepted) return false;
-      editor.textContent = value;
-      editor.dispatchEvent(
-        new InputEvent('input', {
-          bubbles: true,
-          data: value,
-          inputType: 'insertText',
-        }),
-      );
-      return editor.textContent === value;
-    }, sourceText);
+    const sourceEditor = sourceEditors[0].locator;
+    await sourceEditor.click();
+    await this.page.keyboard.insertText(sourceText);
+    await this.page.keyboard.type(BING_INPUT_ACTIVATION_CHARACTER);
+    await this.page.keyboard.press('Backspace');
+    const insertedText = await sourceEditor.textContent();
+    return normalizeBingEditorText(insertedText ?? '') === normalizeBingEditorText(sourceText);
   }
 
   async readResultSnapshot(): Promise<BingResultSnapshot> {
@@ -383,7 +378,14 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
 
   async readResultObservationSnapshot(): Promise<BingResultObservationSnapshot> {
     const snapshot = await this.page.evaluate(
-      ({ blockingSelector, outputSelector, sourceSelector, sourceSelectSelector, targetSelectSelector }) => {
+      ({
+        blockingSelector,
+        copySelector,
+        outputSelector,
+        sourceSelector,
+        sourceSelectSelector,
+        targetSelectSelector,
+      }) => {
         const isVisible = (element: Element): boolean => {
           const style = window.getComputedStyle(element);
           return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
@@ -400,8 +402,10 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
         const targetSelects = visible(targetSelectSelector) as HTMLSelectElement[];
         const sourceEditors = visible(sourceSelector);
         const outputs = visible(outputSelector);
+        const copyControls = visible(copySelector) as HTMLButtonElement[];
         const output = outputs.length === 1 ? outputs[0] : null;
         return {
+          completionControl: count(copyControls),
           controls: {
             blockingSurfaces: visible(blockingSelector).length,
             output: count(outputs),
@@ -426,6 +430,7 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
       },
       {
         blockingSelector: BING_BLOCKING_SURFACE_SELECTOR,
+        copySelector: BING_COPY_TRANSLATION_SELECTOR,
         outputSelector: BING_RESULT_SELECTOR,
         sourceSelector: BING_SOURCE_SELECTOR,
         sourceSelectSelector: BING_SOURCE_SELECT_SELECTOR,
@@ -433,6 +438,7 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
       },
     );
     return {
+      completionControl: snapshot.completionControl,
       controls: snapshot.controls,
       result: snapshot.result,
       route: createBingRouteSnapshot(snapshot.rawUrl),
@@ -686,7 +692,7 @@ export class BingTranslateProvider extends BaseTranslateProvider {
       return translationHookFailure('pageContractFailure');
     }
     return translationHookSuccess({
-      completion: 'unavailable',
+      completion: classifyTranslationProviderCompletionControl(snapshot.completionControl),
       targetVerified: true,
       text: result.value,
     });

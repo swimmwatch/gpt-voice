@@ -107,6 +107,7 @@ type TranslationProviderAuditCauseCode =
   | 'resultTimeoutOrEmpty'
   | 'timed-out'
   | 'cancelledOrStaleOperation'
+  | 'resultDeliveryFailure'
   | 'cleanupFailure';
 
 export type DiagnosticProviderAuditCauseCode =
@@ -204,6 +205,7 @@ export const PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS = {
     resultTimeoutOrEmpty: true,
     'timed-out': true,
     cancelledOrStaleOperation: true,
+    resultDeliveryFailure: true,
     cleanupFailure: true,
     ...DIAGNOSTIC_CAUSE_CODE_MAPPING,
   },

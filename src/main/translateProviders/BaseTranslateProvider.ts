@@ -147,11 +147,13 @@ export abstract class BaseTranslateProvider {
 
   private readonly dependencies: BaseTranslateProviderDependencies;
   private activeResource: ProviderResourceOwner | null = null;
+  private activeVisibleCleanupOperationKey: string | null = null;
   private generation = 0;
   private initializationGeneration = 0;
   private operationQueue: Promise<void> = Promise.resolve();
   private quarantinedResource: ProviderResourceOwner | null = null;
   private shutDown = false;
+  private translationSequence = 0;
 
   protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
     this.info = info;
@@ -204,7 +206,29 @@ export abstract class BaseTranslateProvider {
     });
   }
 
+  /**
+   * An adapter may wait for a public result candidate without returning provider
+   * text. The base still reads and validates one complete snapshot.
+   */
+  protected readonly waitForResultCandidate:
+    | ((page: Page, targetLanguage: string, timeoutMs: number) => Promise<TranslationProviderHookResult<boolean>>)
+    | undefined;
+
   protected abstract clearVisibleState(page: Page): Promise<TranslationProviderHookResult>;
+
+  /** A provider may retain a responsive dirty page after a request-level terminal. */
+  protected retainResourceOnTerminalFailure(): boolean {
+    return false;
+  }
+
+  protected isActiveResourceHealthy(_page: Page): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  /** Google alone acknowledges selected-text delivery before visible cleanup. */
+  protected deliverResultBeforeVisibleCleanup(): boolean {
+    return false;
+  }
 
   private enqueueInitialization(
     request: TranslationProviderInitializationRequest,
@@ -219,8 +243,8 @@ export abstract class BaseTranslateProvider {
   }
 
   private enqueueTranslation(request: TranslationProviderRequest): Promise<TranslationProviderOutcome> {
-    const generation = ++this.generation;
-    const operationKey = this.createOperationKey('translation', generation);
+    const generation = this.generation;
+    const operationKey = this.createOperationKey('translation', ++this.translationSequence);
     const operation = this.operationQueue.then(() => this.runTranslation(request, generation, operationKey));
     if (!request.lifecycle) {
       this.operationQueue = operation.then(
@@ -274,11 +298,33 @@ export abstract class BaseTranslateProvider {
   ): Promise<TranslationProviderOutcome> {
     const lifecycle = request.lifecycle;
     if (!lifecycle) return outcome;
-    lifecycle.acceptValidOutcome();
+    const accepted = lifecycle.acceptValidOutcome();
+    if (accepted.kind === 'completed' && outcome.success && this.hasReusableActiveResource(operationKey)) {
+      const decision = lifecycle.completeCleanup(true);
+      return decision.kind === 'completed'
+        ? outcome
+        : this.createLifecycleFailure(request, generation, operationKey, decision);
+    }
     const decision = await this.completeLifecycleCleanup(lifecycle, operationKey);
     return decision.kind === 'completed'
       ? outcome
       : this.createLifecycleFailure(request, generation, operationKey, decision);
+  }
+
+  /**
+   * A successful translation has already cleared its provider page. Keeping that
+   * proven-clean owner avoids a cold browser navigation and repeat consent flow
+   * for the next selected-text request.
+   */
+  private hasReusableActiveResource(operationKey: string): boolean {
+    const active = this.activeResource;
+    return (
+      active !== null &&
+      active.operationKey === operationKey &&
+      active.closePromise === null &&
+      active.page !== null &&
+      !active.page.isClosed()
+    );
   }
 
   private async completeLifecycleCleanup(
@@ -286,6 +332,21 @@ export abstract class BaseTranslateProvider {
     operationKey: string,
   ): Promise<TranslationOperationLifecycleDecision> {
     lifecycle.startCleanupPhase();
+    const active = this.activeResource;
+    if (
+      this.activeVisibleCleanupOperationKey !== operationKey &&
+      this.retainResourceOnTerminalFailure() &&
+      active !== null &&
+      active.operationKey === operationKey &&
+      active.page !== null &&
+      !active.page.isClosed()
+    ) {
+      try {
+        if (await this.isActiveResourceHealthy(active.page)) return lifecycle.completeCleanup(true);
+      } catch {
+        // A health-check failure falls through to the established close/quarantine path.
+      }
+    }
     const closed = await this.closeOwnedResources(operationKey);
     return lifecycle.completeCleanup(closed);
   }
@@ -470,32 +531,67 @@ export abstract class BaseTranslateProvider {
       postSubmission: true,
       resultLength: resultText.length,
     });
+    if (this.deliverResultBeforeVisibleCleanup()) {
+      const delivery = this.notifyResultReady(request, resultText, activeState);
+      if (!delivery.success) {
+        return this.createTerminalFailure(delivery.code, 'result', activeState, delivery.exceptionType);
+      }
+    }
 
     this.phaseEntered('cleanup', activeState, {
       postSubmission: true,
       resultLength: resultText.length,
     });
-    const clear = await this.invokeHook(() => this.clearVisibleState(preparation.page), 'cleanupFailure');
-    if (!this.isOperationActive(activeState)) {
-      await this.closeOwnedResources(activeState.operationKey);
-      return this.createStaleFailure('cleanup', activeState);
-    }
-    if (!clear.success) {
-      const closed = await this.closeOwnedResources(activeState.operationKey);
-      if (!closed) {
-        return this.createFailure('cleanupFailure', 'cleanup', activeState, resultText.length, {
-          exceptionType: clear.exceptionType,
-          pageClosed: false,
-        });
+    this.activeVisibleCleanupOperationKey = activeState.operationKey;
+    try {
+      const clear = await this.invokeHook(() => this.clearVisibleState(preparation.page), 'cleanupFailure');
+      if (!this.isOperationActive(activeState)) {
+        await this.closeOwnedResources(activeState.operationKey);
+        return this.createStaleFailure('cleanup', activeState);
+      }
+      if (!clear.success) {
+        const closed = await this.closeOwnedResources(activeState.operationKey);
+        if (!closed) {
+          return this.createFailure('cleanupFailure', 'cleanup', activeState, resultText.length, {
+            exceptionType: clear.exceptionType,
+            pageClosed: false,
+          });
+        }
+      }
+      this.phaseCompleted('cleanup', activeState, {
+        pageClosed: !clear.success,
+        postSubmission: true,
+        resultLength: resultText.length,
+      });
+
+      return this.createSuccess(resultText, activeState, !clear.success, request.lifecycle === undefined);
+    } finally {
+      if (this.activeVisibleCleanupOperationKey === activeState.operationKey) {
+        this.activeVisibleCleanupOperationKey = null;
       }
     }
-    this.phaseCompleted('cleanup', activeState, {
-      pageClosed: !clear.success,
-      postSubmission: true,
-      resultLength: resultText.length,
-    });
+  }
 
-    return this.createSuccess(resultText, activeState, !clear.success, request.lifecycle === undefined);
+  /**
+   * A selected-text hand-off acknowledges that clipboard delivery completed before
+   * browser-visible cleanup. Direct internal requests have no hand-off and proceed.
+   */
+  private notifyResultReady(
+    request: TranslationProviderRequest,
+    resultText: string,
+    state: ValidatedOperationState,
+  ): TranslationProviderHookResult {
+    if (!this.isOperationActive(state)) return translationHookFailure('cancelledOrStaleOperation');
+    if (!request.onResultReady) return translationHookSuccess();
+    try {
+      const delivered = request.onResultReady(resultText);
+      if (!this.isOperationActive(state)) return translationHookFailure('cancelledOrStaleOperation');
+      return delivered ? translationHookSuccess() : translationHookFailure('resultDeliveryFailure');
+    } catch (error: unknown) {
+      return translationHookFailure('resultDeliveryFailure', {
+        exceptionType: normalizeProviderAuditExceptionType(error),
+      });
+    }
   }
 
   /** Runs the bounded pre-submission page preparation and recovery sequence. */
@@ -754,6 +850,24 @@ export abstract class BaseTranslateProvider {
   ): Promise<{ readonly success: true; readonly text: string } | TranslationProviderFailure> {
     const resultStartedAt = this.dependencies.now();
     const resultDeadlineAt = resultStartedAt + this.dependencies.resultTimeoutMs;
+    if (this.waitForResultCandidate !== undefined) {
+      const candidate = await this.invokeHook(
+        async () =>
+          this.waitForResultCandidate?.(
+            page,
+            state.targetLanguage,
+            Math.max(0, resultDeadlineAt - this.dependencies.now()),
+          ) ?? translationHookSuccess(false),
+        'pageContractFailure',
+      );
+      if (!candidate.success) {
+        if (!this.isResultPhaseActive(state, resultDeadlineAt)) {
+          await this.closeOwnedResources(state.operationKey);
+          return this.createResultDeadlineFailure(state, resultDeadlineAt);
+        }
+        return this.createTerminalFailure(candidate.code, 'result', state, candidate.exceptionType);
+      }
+    }
     const readAttempts = Math.max(
       1,
       Math.ceil(this.dependencies.resultTimeoutMs / this.dependencies.resultPollIntervalMs),
@@ -798,10 +912,18 @@ export abstract class BaseTranslateProvider {
     state: ValidatedOperationState,
     resultDeadlineAt: number,
   ): Promise<ResultCandidateConfirmation> {
-    if (candidate.text.trim().length === 0 || candidate.text === previousResult) return { kind: 'continue' };
+    if (candidate.text.trim().length === 0) return { kind: 'continue' };
+    if (
+      candidate.targetVerified &&
+      (candidate.generation === 'changed-after-submission' || candidate.generation === 'renewed-identical')
+    ) {
+      return this.createConfirmedResult(candidate.text, state, resultDeadlineAt);
+    }
+    if (candidate.text === previousResult) return { kind: 'continue' };
     if (candidate.targetVerified && candidate.completion === 'verified-complete') {
       return this.createConfirmedResult(candidate.text, state, resultDeadlineAt);
     }
+    if (candidate.completion === 'incomplete') return { kind: 'continue' };
 
     await this.sleepWithinResultDeadline(this.dependencies.resultStabilityDelayMs, resultDeadlineAt);
     if (!this.isResultPhaseActive(state, resultDeadlineAt)) {

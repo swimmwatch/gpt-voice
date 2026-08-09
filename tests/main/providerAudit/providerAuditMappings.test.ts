@@ -168,6 +168,7 @@ describe('provider audit mappings', () => {
         'resultTimeoutOrEmpty',
         'timed-out',
         'cancelledOrStaleOperation',
+        'resultDeliveryFailure',
         'cleanupFailure',
       ],
     );

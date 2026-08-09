@@ -11,8 +11,10 @@ import {
   type BaseTranslateProviderDependencies,
 } from '@main/translateProviders/BaseTranslateProvider';
 import {
+  classifyTranslationProviderCompletionControl,
   translationHookFailure,
   translationHookSuccess,
+  type TranslationProviderCompletionControlSnapshot,
   type TranslationProviderHookResult,
   type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
@@ -38,6 +40,7 @@ const YANDEX_FORBIDDEN_TEXTAREA_SELECTOR = 'textarea#textarea';
 const YANDEX_DESTINATION_PANEL_SELECTOR = '[data-tracking-data*="box-dst"]';
 const YANDEX_DESTINATION_PRIMARY_SELECTOR = '[data-lexical-editor="true"][role="textbox"]';
 const YANDEX_DESTINATION_FALLBACK_SELECTOR = '#translation';
+const YANDEX_COPY_TRANSLATION_SELECTOR = 'button#copyButtonDst[aria-label="Copy"]';
 const YANDEX_TARGET_OPENER_SELECTOR = 'button[aria-label^="Choose target language"]';
 const YANDEX_TARGET_SEARCH_SELECTOR = 'input[placeholder="Search languages"]';
 const YANDEX_TARGET_OPTION_SELECTOR = '[data-lang-element="true"][data-value][role="checkbox"][aria-label]:visible';
@@ -103,6 +106,7 @@ export interface YandexClearSnapshot {
 }
 
 export interface YandexResultObservationSnapshot {
+  readonly completionControl: TranslationProviderCompletionControlSnapshot;
   readonly editors: YandexEditorSnapshot;
   readonly route: YandexRouteSnapshot;
   readonly target: YandexTargetSnapshot;
@@ -424,6 +428,7 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
   async readResultObservationSnapshot(): Promise<YandexResultObservationSnapshot> {
     const snapshot = await this.page.evaluate(
       ({
+        copySelector,
         destinationFallbackSelector,
         destinationPanelSelector,
         destinationPrimarySelector,
@@ -443,6 +448,7 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
           isVisible,
         );
         const forbiddenTextareas = Array.from(document.querySelectorAll(forbiddenTextareaSelector)).filter(isVisible);
+        const copyControls = Array.from(document.querySelectorAll<HTMLButtonElement>(copySelector)).filter(isVisible);
         const panels = Array.from(document.querySelectorAll<HTMLElement>(destinationPanelSelector));
         const primaryDestinations = panels.flatMap((panel) =>
           Array.from(panel.querySelectorAll<HTMLElement>(destinationPrimarySelector)),
@@ -467,6 +473,10 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
                 ? ('fallback' as const)
                 : ('invalid' as const);
         return {
+          completionControl: {
+            visible: copyControls.length,
+            visibleEnabled: copyControls.filter((control) => !control.disabled).length,
+          },
           editors: {
             destinationEditors: destinations.length,
             destinationResolution,
@@ -488,6 +498,7 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
         };
       },
       {
+        copySelector: YANDEX_COPY_TRANSLATION_SELECTOR,
         destinationFallbackSelector: YANDEX_DESTINATION_FALLBACK_SELECTOR,
         destinationPanelSelector: YANDEX_DESTINATION_PANEL_SELECTOR,
         destinationPrimarySelector: YANDEX_DESTINATION_PRIMARY_SELECTOR,
@@ -499,6 +510,7 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
     );
     const route = createYandexRouteSnapshot(snapshot.rawUrl);
     return {
+      completionControl: snapshot.completionControl,
       editors: snapshot.editors,
       route,
       target: {
@@ -824,7 +836,7 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
       return translationHookFailure('pageContractFailure');
     }
     return translationHookSuccess({
-      completion: 'unavailable',
+      completion: classifyTranslationProviderCompletionControl(snapshot.completionControl),
       targetVerified: true,
       text: result.value,
     });

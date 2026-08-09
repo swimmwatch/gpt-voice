@@ -6,6 +6,7 @@ import type { SelectedTextActionGate } from '@main/services/selectedTextActionSt
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
 import type { TextAutomationService } from '@main/services/textAutomation';
 import { SelectedTextTranslationOperation } from '@main/services/selectedTextTranslationOperation';
+import type { TranslationProviderOutcome } from '@main/translateProviders/translationProviderContracts';
 import {
   formatNotificationBody,
   NotificationErrorCode,
@@ -162,12 +163,19 @@ export class SelectedTextTranslationService {
       }
 
       this.notifyTranslationStarted(operation, snapshot, observer);
+      const operationSnapshot = snapshot;
+      let resultCopiedBeforeCleanup = false;
       const outcome = await this.dependencies.runtime.translateWithSnapshot(
         selectedText,
-        snapshot,
+        operationSnapshot,
         operation.controller.signal,
+        (resultText) => {
+          const delivered = this.copyVerifiedResultToClipboard(operation, operationSnapshot, resultText);
+          resultCopiedBeforeCleanup = delivered || resultCopiedBeforeCleanup;
+          return delivered;
+        },
       );
-      if (!outcome.success && outcome.cancelledByCaller) {
+      if (this.isCallerCancelledOutcome(outcome)) {
         this.restoreClipboard(previousClipboardText);
         return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
       }
@@ -187,7 +195,7 @@ export class SelectedTextTranslationService {
       if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
 
       this.dependencies.cache.set(cacheKey, outcome.text);
-      this.dependencies.clipboard.writeText(outcome.text);
+      if (!resultCopiedBeforeCleanup) this.dependencies.clipboard.writeText(outcome.text);
       this.notifyTranslationCopied(outcome.text);
       return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
     } catch (error: unknown) {
@@ -218,6 +226,20 @@ export class SelectedTextTranslationService {
     } catch {
       // Diagnostic capture cannot alter selected-text behavior.
     }
+  }
+
+  private copyVerifiedResultToClipboard(
+    operation: SelectedTextTranslationOperation,
+    snapshot: TranslationExecutionSnapshot,
+    resultText: string,
+  ): boolean {
+    if (operation.cancelled || !this.dependencies.runtime.isCurrent(snapshot)) return false;
+    this.dependencies.clipboard.writeText(resultText);
+    return true;
+  }
+
+  private isCallerCancelledOutcome(outcome: TranslationProviderOutcome): boolean {
+    return !outcome.success && outcome.cancelledByCaller === true;
   }
 
   private notifyTranslationStarted(

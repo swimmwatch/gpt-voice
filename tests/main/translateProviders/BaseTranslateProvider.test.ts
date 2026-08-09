@@ -16,6 +16,7 @@ import {
   type TranslationOperationLifecycleDependencies,
 } from '@main/translateProviders/translationOperationLifecycle';
 import {
+  classifyTranslationProviderCompletionControl,
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
@@ -127,6 +128,8 @@ class FakeTranslateProvider extends BaseTranslateProvider {
   };
 
   clearResult: TranslationProviderHookResult = translationHookSuccess();
+  clearDeferred: Deferred<TranslationProviderHookResult> | null = null;
+  deliverBeforeCleanup = false;
   insertResult: TranslationProviderHookResult = translationHookSuccess();
   navigationError: Error | null = null;
   navigationDeferred: Deferred<TranslationProviderHookResult> | null = null;
@@ -214,7 +217,16 @@ class FakeTranslateProvider extends BaseTranslateProvider {
 
   protected async clearVisibleState(): Promise<TranslationProviderHookResult> {
     this.calls.clear += 1;
+    if (this.clearDeferred) {
+      const deferred = this.clearDeferred;
+      this.clearDeferred = null;
+      return deferred.promise;
+    }
     return this.clearResult;
+  }
+
+  protected override deliverResultBeforeVisibleCleanup(): boolean {
+    return this.deliverBeforeCleanup;
   }
 }
 
@@ -263,7 +275,7 @@ const requestFixture = new TranslationProviderRequestFixture({
 });
 
 async function waitUntil(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     if (predicate()) return;
     await Promise.resolve();
   }
@@ -271,6 +283,13 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 }
 
 describe('BaseTranslateProvider', () => {
+  it('classifies provider-owned copy readiness without guessing from result text', () => {
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 0, visibleEnabled: 0 }), 'unavailable');
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 1, visibleEnabled: 0 }), 'incomplete');
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 1, visibleEnabled: 1 }), 'verified-complete');
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 2, visibleEnabled: 2 }), 'ambiguous');
+  });
+
   it('uses the required production stability window', () => {
     assert.equal(TRANSLATION_RESULT_STABILITY_DELAY_MS, 500);
   });
@@ -328,6 +347,21 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.contexts.length, 1);
     assert.equal(harness.contexts[0]?.newPageCalls, 1);
     assert.equal(harness.provider.calls.insert, 1);
+  });
+
+  it('retains a verified clean page after selected-text lifecycle completion', async () => {
+    const harness = createHarness();
+    const { lifecycle } = createLifecycle();
+    const outcome = await harness.provider.translate(requestFixture.create({ lifecycle, signal: lifecycle.signal }));
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.closeCalls, 0);
+    assert.deepEqual(lifecycle.check(), { kind: 'completed' });
+
+    assert.equal((await harness.provider.translate(requestFixture.create())).success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.newPageCalls, 1);
   });
 
   it('detaches a cancelled initialization queue and preserves retry-owned resources', async () => {
@@ -514,6 +548,30 @@ describe('BaseTranslateProvider', () => {
     assert.deepEqual(harness.sleeps, []);
   });
 
+  it('does not accept a partial observation before the provider marks the final result copy-ready', async () => {
+    const harness = createHarness();
+    harness.provider.observationResults = [
+      translationHookSuccess({
+        completion: 'incomplete',
+        targetVerified: true,
+        text: 'partial',
+      }),
+      translationHookSuccess({
+        completion: 'verified-complete',
+        targetVerified: true,
+        text: 'complete',
+      }),
+    ];
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'complete');
+    assert.equal(harness.provider.calls.observe, 2);
+    assert.equal(harness.provider.calls.targetVerification, 0);
+    assert.deepEqual(harness.sleeps, [10]);
+  });
+
   it('treats the exact result deadline as expired before a delayed fallback confirmation', async () => {
     const harness = createHarness(15);
     harness.provider.previousResult = 'stale';
@@ -655,6 +713,79 @@ describe('BaseTranslateProvider', () => {
     failedContext.closeFails = false;
     await failureHarness.provider.shutdown();
     assert.equal(failedContext.closeCalls, 3);
+  });
+
+  it('requires acknowledged result delivery before starting visible cleanup', async () => {
+    const rejected = createHarness();
+    rejected.provider.deliverBeforeCleanup = true;
+    const rejectedOutcome = await rejected.provider.translate(requestFixture.create({ onResultReady: () => false }));
+
+    assert.equal(rejectedOutcome.success, false);
+    assert.equal(rejectedOutcome.success ? null : rejectedOutcome.code, 'resultDeliveryFailure');
+    assert.equal(rejected.provider.calls.clear, 0);
+
+    const throwing = createHarness();
+    throwing.provider.deliverBeforeCleanup = true;
+    const throwingOutcome = await throwing.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          throw new Error('private clipboard failure');
+        },
+      }),
+    );
+
+    assert.equal(throwingOutcome.success, false);
+    assert.equal(throwingOutcome.success ? null : throwingOutcome.code, 'resultDeliveryFailure');
+    assert.equal(throwing.provider.calls.clear, 0);
+  });
+
+  it('keeps pre-cleanup result delivery disabled unless a provider explicitly opts in', async () => {
+    const harness = createHarness();
+    let delivered = false;
+
+    const outcome = await harness.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          delivered = true;
+          return true;
+        },
+      }),
+    );
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.provider.calls.clear, 1);
+    assert.equal(delivered, false);
+  });
+
+  it('acknowledges delivery before cleanup and holds settlement while cleanup is pending', async () => {
+    const harness = createHarness();
+    harness.provider.deliverBeforeCleanup = true;
+    const clear = createDeferred<TranslationProviderHookResult>();
+    harness.provider.clearDeferred = clear;
+    let delivered = false;
+
+    const operation = harness.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          assert.equal(harness.provider.calls.clear, 0);
+          delivered = true;
+          return true;
+        },
+      }),
+    );
+    await waitUntil(() => harness.provider.calls.clear === 1);
+
+    assert.equal(delivered, true);
+    let settled = false;
+    void operation.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    assert.equal(settled, false);
+
+    clear.resolve(translationHookSuccess());
+    const outcome = await operation;
+    assert.equal(outcome.success, true);
   });
 
   it('maps raw hook errors to sanitized audit metadata and keeps final entrypoints fixed', async () => {

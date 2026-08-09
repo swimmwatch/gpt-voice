@@ -228,6 +228,8 @@ export class TranslationRuntime {
         return translate('error.translationTimedOut');
       case 'cancelledOrStaleOperation':
         return translate('status.translationCancelled');
+      case 'resultDeliveryFailure':
+        return translate('status.translationFailed');
       case 'cleanupFailure':
         return translate('error.translationCleanupFailed');
     }
@@ -488,6 +490,7 @@ export class TranslationRuntime {
         return TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed;
       case 'cancelledOrStaleOperation':
         return TRANSLATION_PROVIDER_CONNECTION_DETAILS.Cancelled;
+      case 'resultDeliveryFailure':
       case 'emptyInput':
       case 'inputTooLong':
       case 'resultTimeoutOrEmpty':
@@ -649,6 +652,7 @@ export class TranslationRuntime {
     sourceText: unknown,
     snapshot: TranslationExecutionSnapshot,
     callerSignal?: AbortSignal,
+    onResultReady?: (text: string) => boolean,
   ): Promise<TranslationProviderOutcome> {
     const startedAt = this.dependencies.now();
     const sourceLength = typeof sourceText === 'string' ? sourceText.length : undefined;
@@ -725,6 +729,7 @@ export class TranslationRuntime {
           ...auditContext,
           lifecycle: deferredAuditTerminal,
         }),
+        onResultReady,
         providerId: snapshot.providerId,
         targetLanguage: snapshot.targetLanguage,
         sourceText: sourceText as string,

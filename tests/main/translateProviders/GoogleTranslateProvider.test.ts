@@ -8,9 +8,9 @@ import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 import {
   buildGoogleTranslateProviderUrl,
   classifyGoogleResultSnapshot,
+  createPlaywrightGoogleTranslatePageAdapter,
   createGoogleRouteSnapshot,
   GoogleTranslateProvider,
-  type GoogleClearSnapshot,
   type GoogleConsentSnapshot,
   type GoogleOriginFamily,
   type GoogleReadinessSnapshot,
@@ -21,6 +21,27 @@ import {
 } from '@main/translateProviders/GoogleTranslateProvider';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+
+interface Deferred<T> {
+  readonly promise: Promise<T>;
+  resolve(value: T): void;
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolveDeferred!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolveDeferred = resolve;
+  });
+  return { promise, resolve: resolveDeferred };
+}
+
+async function waitUntil(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (predicate()) return;
+    await Promise.resolve();
+  }
+  throw new Error('Condition was not reached');
+}
 
 function createTranslatorRoute(
   targetLanguage = 'en',
@@ -112,8 +133,9 @@ class FakeContext {
 }
 
 class FixtureGooglePageAdapter implements GoogleTranslatePageAdapter {
-  clearClicks = 0;
-  clearDoesNotComplete = false;
+  clearWithKeyboardResult = true;
+  keyboardClearDeferred: Deferred<void> | null = null;
+  readonly events: string[] = [];
   consent: GoogleConsentSnapshot = { visibleRejectAllControls: 0 };
   consentReturnRoute: GoogleRouteSnapshot | null = null;
   currentResult = createResult();
@@ -131,9 +153,10 @@ class FixtureGooglePageAdapter implements GoogleTranslatePageAdapter {
     createResult([createFragment('translated')]),
   ];
   route = createTranslatorRoute();
-  sourceValueLength = 0;
-  visibleClearControls = 0;
-  clearControlEnabled = false;
+  sourceValue = '';
+  submissionEpoch = 0;
+  resultMutationCount = 0;
+  recordsResultMutation = true;
   afterInsertionRoute: GoogleRouteSnapshot | null = null;
   private submitted = false;
 
@@ -143,6 +166,7 @@ class FixtureGooglePageAdapter implements GoogleTranslatePageAdapter {
   }
 
   async readRouteSnapshot(): Promise<GoogleRouteSnapshot> {
+    this.events.push('query:route');
     return this.route;
   }
 
@@ -158,6 +182,7 @@ class FixtureGooglePageAdapter implements GoogleTranslatePageAdapter {
   }
 
   async readReadinessSnapshot(): Promise<GoogleReadinessSnapshot> {
+    this.events.push('query:readiness');
     return this.readiness;
   }
 
@@ -166,42 +191,68 @@ class FixtureGooglePageAdapter implements GoogleTranslatePageAdapter {
       return false;
     }
     this.insertedTexts.push(sourceText);
+    this.events.push('insert');
     this.submitted = true;
-    this.sourceValueLength = sourceText.length;
-    this.visibleClearControls = 1;
-    this.clearControlEnabled = true;
-    this.route = this.afterInsertionRoute ?? { ...this.route, hasTextParameter: true };
+    this.submissionEpoch += 1;
+    if (this.recordsResultMutation) this.resultMutationCount += 1;
+    this.sourceValue = sourceText;
+    this.route = this.afterInsertionRoute ?? this.route;
     return true;
   }
 
   async readResultSnapshot(): Promise<GoogleResultSnapshot> {
+    this.events.push('query:result');
     if (this.submitted) {
       this.currentResult = this.resultReadsAfterInsertion.shift() ?? this.currentResult;
     }
     return this.currentResult;
   }
 
-  async readClearSnapshot(): Promise<GoogleClearSnapshot> {
+  async readResultObservationSnapshot(): Promise<
+    import('@main/translateProviders/GoogleTranslateProvider').GoogleResultObservationSnapshot
+  > {
     return {
-      clearControlEnabled: this.clearControlEnabled,
-      readiness: this.readiness,
+      completionControl: { visible: 0, visibleEnabled: 0 },
+      resultMutationCount: this.resultMutationCount,
       result: await this.readResultSnapshot(),
-      route: this.route,
-      sourceValueLength: this.sourceValueLength,
-      visibleClearControls: this.visibleClearControls,
+      route: await this.readRouteSnapshot(),
+      sourceValue: this.sourceValue,
+      submissionEpoch: this.submissionEpoch,
     };
   }
 
-  async clickClearSource(): Promise<boolean> {
-    if (this.visibleClearControls !== 1 || !this.clearControlEnabled) return false;
-    this.clearClicks += 1;
-    if (this.clearDoesNotComplete) return true;
+  async clearSourceWithKeyboard(): Promise<boolean> {
+    this.events.push('query:source');
+    if (!this.clearWithKeyboardResult) return false;
+    this.events.push('focus', 'Control+A', 'Backspace');
+    await this.keyboardClearDeferred?.promise;
     this.submitted = false;
-    this.sourceValueLength = 0;
-    this.visibleClearControls = 0;
-    this.clearControlEnabled = false;
+    this.sourceValue = '';
     this.currentResult = createResult();
     this.route = { ...this.route, hasTextParameter: false };
+    return true;
+  }
+}
+
+class ResultCandidateFixtureGooglePageAdapter extends FixtureGooglePageAdapter {
+  readonly candidateWaits: number[] = [];
+  completionControls = [{ visible: 1, visibleEnabled: 1 }];
+
+  public async readResultObservationSnapshot(): Promise<
+    import('@main/translateProviders/GoogleTranslateProvider').GoogleResultObservationSnapshot
+  > {
+    return {
+      completionControl: this.completionControls.shift() ?? { visible: 1, visibleEnabled: 1 },
+      resultMutationCount: this.resultMutationCount,
+      result: await this.readResultSnapshot(),
+      route: await this.readRouteSnapshot(),
+      sourceValue: this.sourceValue,
+      submissionEpoch: this.submissionEpoch,
+    };
+  }
+
+  public async waitForResultCandidate(timeoutMs: number): Promise<boolean> {
+    this.candidateWaits.push(timeoutMs);
     return true;
   }
 }
@@ -210,14 +261,18 @@ interface Harness {
   readonly adapter: FixtureGooglePageAdapter;
   readonly contexts: FakeContext[];
   readonly provider: GoogleTranslateProvider;
+  readonly sleeps: number[];
 }
 
-function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs = 4): Harness {
+function createHarness(
+  adapter = new FixtureGooglePageAdapter(),
+  resultTimeoutMs = 4,
+  resultPollIntervalMs = 1,
+): Harness {
   const contexts: FakeContext[] = [];
+  const sleeps: number[] = [];
   const provider = new GoogleTranslateProvider({
     cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    clearPollIntervalMs: 1,
-    clearTimeoutMs: 2,
     createContext: async (_options: LaunchContextOptions) => {
       const context = new FakeContext();
       contexts.push(context);
@@ -226,13 +281,14 @@ function createHarness(adapter = new FixtureGooglePageAdapter(), resultTimeoutMs
     createContextOptions: () => ({ headless: true }),
     createPageAdapter: () => adapter,
     now: () => 1_000,
-    resultPollIntervalMs: 1,
+    resultPollIntervalMs,
     resultStabilityDelayMs: 0,
     resultTimeoutMs,
-    sleep: async () => {},
-    waitForClearPoll: async () => {},
+    sleep: async (delayMs) => {
+      sleeps.push(delayMs);
+    },
   });
-  return { adapter, contexts, provider };
+  return { adapter, contexts, provider, sleeps };
 }
 
 const requestFixture = new TranslationProviderRequestFixture({
@@ -242,6 +298,77 @@ const requestFixture = new TranslationProviderRequestFixture({
 });
 
 describe('GoogleTranslateProvider', () => {
+  it('uses a public result candidate before reading the final validated snapshot', async () => {
+    const adapter = new ResultCandidateFixtureGooglePageAdapter();
+    const harness = createHarness(adapter);
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+    assert.deepEqual(adapter.candidateWaits, [4]);
+  });
+
+  it('accepts the first coherent changed Google result without Copy-control readiness', async () => {
+    const adapter = new ResultCandidateFixtureGooglePageAdapter();
+    adapter.completionControls = [
+      { visible: 1, visibleEnabled: 0 },
+      { visible: 1, visibleEnabled: 1 },
+    ];
+    adapter.resultReadsAfterInsertion = [
+      createResult([createFragment('partial translation')]),
+      createResult([createFragment('complete translation')]),
+    ];
+    const harness = createHarness(adapter);
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'partial translation');
+    assert.deepEqual(adapter.candidateWaits, [4]);
+  });
+
+  it('does not use the Google 500 ms stability fallback after a coherent changed result', async () => {
+    const adapter = new ResultCandidateFixtureGooglePageAdapter();
+    adapter.completionControls = [
+      { visible: 1, visibleEnabled: 0 },
+      { visible: 1, visibleEnabled: 1 },
+    ];
+    adapter.resultReadsAfterInsertion = [
+      createResult([createFragment('partial translation')]),
+      createResult([createFragment('complete translation')]),
+    ];
+    const harness = createHarness(adapter, 100, 100);
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'partial translation');
+    assert.deepEqual(harness.sleeps, []);
+  });
+
+  it('accepts an identical result only after current-submission mutation evidence', async () => {
+    const identical = createResult([createFragment('same translation')]);
+    const accepted = createHarness();
+    accepted.adapter.currentResult = identical;
+    accepted.adapter.resultReadsAfterInsertion = [identical];
+
+    const acceptedOutcome = await accepted.provider.translate(requestFixture.create());
+
+    assert.equal(acceptedOutcome.success ? acceptedOutcome.text : null, 'same translation');
+    assert.deepEqual(accepted.adapter.events.slice(-4), ['query:source', 'focus', 'Control+A', 'Backspace']);
+
+    const rejected = createHarness(new FixtureGooglePageAdapter(), 2);
+    rejected.adapter.currentResult = identical;
+    rejected.adapter.recordsResultMutation = false;
+    rejected.adapter.resultReadsAfterInsertion = [identical, identical];
+
+    const rejectedOutcome = await rejected.provider.translate(requestFixture.create());
+
+    assert.equal(rejectedOutcome.success, false);
+    assert.equal(rejectedOutcome.success ? null : rejectedOutcome.code, 'resultTimeoutOrEmpty');
+  });
+
   it('opens the selected Google target page during initialization without submitting text', async () => {
     const harness = createHarness();
     harness.adapter.navigationRoute = createTranslatorRoute('uk', 'ru');
@@ -479,42 +606,66 @@ describe('GoogleTranslateProvider', () => {
     assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source']);
   });
 
-  it('clears stale state, rejects its previous marker, and confirms the retained empty region after success', async () => {
+  it('replaces stale source, copies the result, then clears with keyboard without a later query', async () => {
     const harness = createHarness();
     harness.adapter.currentResult = createResult([createFragment('stale')]);
-    harness.adapter.sourceValueLength = 5;
-    harness.adapter.visibleClearControls = 1;
-    harness.adapter.clearControlEnabled = true;
-    harness.adapter.route = createTranslatorRoute('en', 'ru', true);
-    harness.adapter.resultReadsAfterInsertion = [
-      createResult([createFragment('stale')]),
-      createResult([createFragment('fresh')]),
-      createResult([createFragment('fresh')]),
-    ];
+    harness.adapter.sourceValue = 'stale';
+    harness.adapter.route = createTranslatorRoute('en', 'ru');
+    harness.adapter.resultReadsAfterInsertion = [createResult([createFragment('fresh')])];
 
-    const outcome = await harness.provider.translate(requestFixture.create());
+    const outcome = await harness.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          harness.adapter.events.push('clipboard');
+          return true;
+        },
+      }),
+    );
 
     assert.equal(outcome.success ? outcome.text : null, 'fresh');
-    assert.equal(harness.adapter.clearClicks, 2);
-    assert.equal(harness.adapter.sourceValueLength, 0);
-    assert.equal(harness.adapter.visibleClearControls, 0);
+    assert.deepEqual(harness.adapter.events.slice(-5), [
+      'clipboard',
+      'query:source',
+      'focus',
+      'Control+A',
+      'Backspace',
+    ]);
+    assert.equal(harness.adapter.sourceValue, '');
     assert.equal(harness.adapter.readiness.visibleResultRegions, 1);
     assert.deepEqual(harness.adapter.currentResult, createResult());
     assert.equal(harness.contexts[0]?.closeCalls, 0);
   });
 
-  it('returns the result only after closing the context when visible clearing cannot be confirmed', async () => {
+  it('preserves the delivered result after keyboard failure closes the Google context', async () => {
     const harness = createHarness();
-    harness.adapter.clearDoesNotComplete = true;
+    harness.adapter.clearWithKeyboardResult = false;
 
-    const outcome = await harness.provider.translate(requestFixture.create());
+    const outcome = await harness.provider.translate(requestFixture.create({ onResultReady: () => true }));
 
     assert.equal(outcome.success ? outcome.text : null, 'translated');
-    assert.equal(harness.adapter.clearClicks, 1);
+    assert.deepEqual(harness.adapter.events.slice(-1), ['query:source']);
     assert.equal(harness.contexts[0]?.closeCalls, 1);
   });
 
-  it('reuses a confirmed cleared page without repeating provider navigation', async () => {
+  it('starts generation evidence at the new page epoch after a keyboard-failure close', async () => {
+    const harness = createHarness();
+    harness.adapter.clearWithKeyboardResult = false;
+
+    const first = await harness.provider.translate(requestFixture.create({ onResultReady: () => true }));
+    assert.equal(first.success, true);
+    assert.equal(harness.contexts[0]?.closeCalls, 1);
+
+    harness.adapter.clearWithKeyboardResult = true;
+    harness.adapter.submissionEpoch = 0;
+    harness.adapter.resultMutationCount = 0;
+    harness.adapter.resultReadsAfterInsertion = [createResult([createFragment('retry translated')])];
+    const retry = await harness.provider.translate(requestFixture.create({ sourceText: 'retry synthetic source' }));
+
+    assert.equal(retry.success ? retry.text : null, 'retry translated');
+    assert.equal(harness.contexts.length, 2);
+  });
+
+  it('reuses one keyboard-cleared Google page without repeating provider navigation', async () => {
     const harness = createHarness();
 
     const first = await harness.provider.translate(requestFixture.create());
@@ -526,7 +677,83 @@ describe('GoogleTranslateProvider', () => {
     assert.equal(second.success, true);
     assert.equal(harness.contexts.length, 1);
     assert.equal(harness.adapter.navigatedUrls.length, 1);
+    assert.equal(harness.adapter.events.filter((event) => event === 'Control+A').length, 2);
+    assert.equal(harness.adapter.events.filter((event) => event === 'Backspace').length, 2);
     assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source', 'second synthetic source']);
+  });
+
+  it('does not start Google keyboard clearing when result delivery is rejected', async () => {
+    const harness = createHarness();
+
+    const outcome = await harness.provider.translate(requestFixture.create({ onResultReady: () => false }));
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'resultDeliveryFailure');
+    assert.equal(harness.adapter.events.includes('query:source'), false);
+    assert.equal(harness.adapter.events.includes('Control+A'), false);
+    assert.equal(harness.adapter.events.includes('Backspace'), false);
+  });
+
+  it('blocks a later Google submission until deferred Backspace completes', async () => {
+    const harness = createHarness();
+    const backspace = createDeferred<void>();
+    harness.adapter.keyboardClearDeferred = backspace;
+
+    const first = harness.provider.translate(requestFixture.create({ onResultReady: () => true }));
+    await waitUntil(() => harness.adapter.events.includes('Backspace'));
+    const secondResult = createResult([createFragment('second translated')]);
+    harness.adapter.resultReadsAfterInsertion = [secondResult];
+    const second = harness.provider.translate(requestFixture.create({ sourceText: 'second synthetic source' }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source']);
+
+    backspace.resolve();
+    const firstOutcome = await first;
+    const secondOutcome = await second;
+
+    assert.equal(firstOutcome.success, true);
+    assert.equal(secondOutcome.success, true);
+    assert.deepEqual(harness.adapter.insertedTexts, ['synthetic source', 'second synthetic source']);
+  });
+
+  it('focuses the production source adapter and sends Control+A then Backspace without a later query', async () => {
+    const events: string[] = [];
+    const source = {
+      focus: async () => {
+        events.push('focus');
+      },
+      isEditable: async () => true,
+      isEnabled: async () => true,
+      isVisible: async () => true,
+    };
+    const sourceCollection = {
+      count: async () => 1,
+      nth: () => source,
+    };
+    const page = {
+      keyboard: {
+        press: async (key: string) => {
+          events.push(key);
+        },
+      },
+      locator: (selector: string) => {
+        events.push(`query:${selector}`);
+        return sourceCollection;
+      },
+    } as unknown as Page;
+    const adapter = createPlaywrightGoogleTranslatePageAdapter(page);
+
+    const cleared = await adapter.clearSourceWithKeyboard();
+
+    assert.equal(cleared, true);
+    assert.deepEqual(events, [
+      'query:textarea[role="combobox"][aria-label="Source text"]',
+      'focus',
+      'Control+A',
+      'Backspace',
+    ]);
   });
 
   it('keeps the standalone URL builder free of source state', () => {

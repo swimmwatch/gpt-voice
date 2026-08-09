@@ -13,6 +13,7 @@ import {
 import {
   translationHookFailure,
   translationHookSuccess,
+  type TranslationProviderCompletionControlSnapshot,
   type TranslationProviderHookResult,
   type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
@@ -22,13 +23,14 @@ import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 const GOOGLE_TRANSLATE_ORIGIN = 'https://translate.google.ru';
 const GOOGLE_TRANSLATE_NAVIGATION_TIMEOUT_MS = 60_000;
 const GOOGLE_CONSENT_TIMEOUT_MS = 10_000;
-const GOOGLE_CLEAR_TIMEOUT_MS = 1_500;
-const GOOGLE_CLEAR_POLL_INTERVAL_MS = 50;
+const GOOGLE_RESULT_FALLBACK_POLL_INTERVAL_MS = 25;
 
 const GOOGLE_SOURCE_SELECTOR = 'textarea[role="combobox"][aria-label="Source text"]';
-const GOOGLE_RESULT_REGION_SELECTOR = '[role="region"][aria-label="Translation results"]';
+// Google removed the accessible name from its public result container in August 2026.
+// Keep the prior semantic contract as a fallback and fail closed unless exactly one
+// visible result container matches either documented public-page shape.
+const GOOGLE_RESULT_REGION_SELECTOR = '[role="region"][aria-label="Translation results"], [class~="sciAJc"]';
 const GOOGLE_RESULT_FRAGMENT_SELECTOR = '.ryNqvb';
-const GOOGLE_CLEAR_SELECTOR = 'button[aria-label="Clear source text"]';
 const GOOGLE_REJECT_CONSENT_SELECTOR = 'button[jsname="tWT92d"][aria-label="Reject all"]';
 
 export type GoogleOriginFamily = 'com' | 'ru';
@@ -67,41 +69,33 @@ export interface GoogleResultSnapshot {
   readonly visibleResultRegions: number;
 }
 
-export interface GoogleClearSnapshot {
-  readonly clearControlEnabled: boolean;
-  readonly result: GoogleResultSnapshot;
-  readonly route: GoogleRouteSnapshot;
-  readonly sourceValueLength: number | null;
-  readonly visibleClearControls: number;
-  readonly readiness: GoogleReadinessSnapshot;
-}
-
 export interface GoogleResultObservationSnapshot {
+  readonly completionControl?: TranslationProviderCompletionControlSnapshot;
+  readonly resultMutationCount?: number;
   readonly result: GoogleResultSnapshot;
   readonly route: GoogleRouteSnapshot;
+  readonly sourceValue?: string | null;
+  readonly submissionEpoch?: number;
 }
 
 export interface GoogleTranslatePageAdapter {
-  clickClearSource(): Promise<boolean>;
+  clearSourceWithKeyboard(): Promise<boolean>;
   clickRejectAll(): Promise<boolean>;
   insertSourceText(sourceText: string): Promise<boolean>;
   navigate(url: string): Promise<void>;
-  readClearSnapshot(): Promise<GoogleClearSnapshot>;
   readConsentSnapshot(): Promise<GoogleConsentSnapshot>;
   readReadinessSnapshot(): Promise<GoogleReadinessSnapshot>;
   readResultObservationSnapshot?(): Promise<GoogleResultObservationSnapshot>;
   readResultSnapshot(): Promise<GoogleResultSnapshot>;
   readRouteSnapshot(): Promise<GoogleRouteSnapshot>;
+  waitForResultCandidate?(timeoutMs: number): Promise<boolean>;
 }
 
 export type GoogleTranslatePageAdapterFactory = (page: Page) => GoogleTranslatePageAdapter;
 
 export interface GoogleTranslateProviderDependencies extends BaseTranslateProviderDependencies {
-  readonly clearPollIntervalMs?: number;
-  readonly clearTimeoutMs?: number;
   readonly createPageAdapter: GoogleTranslatePageAdapterFactory;
   readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
-  readonly waitForClearPoll?: (delayMs: number) => Promise<void>;
 }
 
 interface VisibleLocatorSnapshot {
@@ -278,9 +272,7 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
 
   async readReadinessSnapshot(): Promise<GoogleReadinessSnapshot> {
     const sourceControls = await getVisibleLocators(this.page.locator(GOOGLE_SOURCE_SELECTOR));
-    const resultRegions = await getVisibleLocators(
-      this.page.getByRole('region', { exact: true, name: 'Translation results' }),
-    );
+    const resultRegions = await getVisibleLocators(this.page.locator(GOOGLE_RESULT_REGION_SELECTOR));
     return {
       visibleEditableSourceControls: sourceControls.filter((control) => control.editable).length,
       visibleResultRegions: resultRegions.length,
@@ -294,6 +286,23 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
 
     await sourceControls[0].locator.evaluate((element, value) => {
       const textarea = element as HTMLTextAreaElement;
+      const stateKey = '__gptVoiceGoogleTranslationEpochState__';
+      type PageEpochState = { epoch: number; mutations: number; observer: MutationObserver | null };
+      const pageState = globalThis as typeof globalThis & { [stateKey]?: PageEpochState };
+      pageState[stateKey]?.observer?.disconnect();
+      const state: PageEpochState = {
+        epoch: (pageState[stateKey]?.epoch ?? 0) + 1,
+        mutations: 0,
+        observer: null,
+      };
+      state.observer = new MutationObserver((records) => {
+        const regions = Array.from(
+          document.querySelectorAll('[role="region"][aria-label="Translation results"], [class~="sciAJc"]'),
+        );
+        if (records.some((record) => regions.some((region) => region.contains(record.target)))) state.mutations += 1;
+      });
+      state.observer.observe(document.body, { characterData: true, childList: true, subtree: true });
+      pageState[stateKey] = state;
       // eslint-disable-next-line @typescript-eslint/unbound-method -- Reflect.apply supplies the textarea receiver.
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
       if (!valueSetter) throw new Error('Native textarea value setter unavailable');
@@ -304,9 +313,7 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
   }
 
   async readResultSnapshot(): Promise<GoogleResultSnapshot> {
-    const regions = await getVisibleLocators(
-      this.page.getByRole('region', { exact: true, name: 'Translation results' }),
-    );
+    const regions = await getVisibleLocators(this.page.locator(GOOGLE_RESULT_REGION_SELECTOR));
     if (regions.length !== 1 || !regions[0]) {
       return { fragments: [], visibleResultRegions: regions.length };
     }
@@ -334,7 +341,7 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
 
   async readResultObservationSnapshot(): Promise<GoogleResultObservationSnapshot> {
     const snapshot = await this.page.evaluate(
-      ({ fragmentSelector, regionSelector }) => {
+      ({ fragmentSelector, regionSelector, sourceSelector }) => {
         const isVisible = (element: Element): boolean => {
           const style = window.getComputedStyle(element);
           return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
@@ -343,6 +350,12 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
         const region = regions.length === 1 ? regions[0] : null;
         return {
           rawUrl: window.location.href,
+          resultMutationCount:
+            (
+              globalThis as typeof globalThis & {
+                __gptVoiceGoogleTranslationEpochState__?: { mutations: number };
+              }
+            ).__gptVoiceGoogleTranslationEpochState__?.mutations ?? null,
           result: {
             fragments: region
               ? Array.from(region.querySelectorAll(fragmentSelector)).map((fragment) => {
@@ -361,39 +374,68 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
               : [],
             visibleResultRegions: regions.length,
           },
+          sourceValue: document.querySelector<HTMLTextAreaElement>(sourceSelector)?.value ?? null,
+          submissionEpoch:
+            (
+              globalThis as typeof globalThis & {
+                __gptVoiceGoogleTranslationEpochState__?: { epoch: number };
+              }
+            ).__gptVoiceGoogleTranslationEpochState__?.epoch ?? null,
         };
       },
       {
         fragmentSelector: GOOGLE_RESULT_FRAGMENT_SELECTOR,
         regionSelector: GOOGLE_RESULT_REGION_SELECTOR,
+        sourceSelector: GOOGLE_SOURCE_SELECTOR,
       },
     );
     return {
+      ...(snapshot.resultMutationCount === null ? {} : { resultMutationCount: snapshot.resultMutationCount }),
       result: snapshot.result,
       route: createGoogleRouteSnapshot(snapshot.rawUrl),
+      sourceValue: snapshot.sourceValue,
+      ...(snapshot.submissionEpoch === null ? {} : { submissionEpoch: snapshot.submissionEpoch }),
     };
   }
 
-  async readClearSnapshot(): Promise<GoogleClearSnapshot> {
-    const readiness = await this.readReadinessSnapshot();
+  /** Waits on browser frames for a public result candidate; it never returns translated text. */
+  async waitForResultCandidate(timeoutMs: number): Promise<boolean> {
+    if (timeoutMs <= 0) return false;
+    try {
+      await this.page.waitForFunction(
+        ({ fragmentSelector, regionSelector }) => {
+          const isVisible = (element: Element): boolean => {
+            const style = window.getComputedStyle(element);
+            return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+          };
+          const regions = Array.from(document.querySelectorAll(regionSelector)).filter(isVisible);
+          const region = regions.length === 1 ? regions[0] : null;
+          if (!region) return false;
+          const hasVisibleText = Array.from(region.querySelectorAll(fragmentSelector)).some(
+            (fragment) => isVisible(fragment) && (fragment.textContent ?? '').trim().length > 0,
+          );
+          return hasVisibleText;
+        },
+        {
+          fragmentSelector: GOOGLE_RESULT_FRAGMENT_SELECTOR,
+          regionSelector: GOOGLE_RESULT_REGION_SELECTOR,
+        },
+        { polling: 'raf', timeout: timeoutMs },
+      );
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'TimeoutError') return false;
+      throw error;
+    }
+  }
+
+  async clearSourceWithKeyboard(): Promise<boolean> {
     const sourceControls = await getVisibleLocators(this.page.locator(GOOGLE_SOURCE_SELECTOR));
-    const clearControls = await getVisibleLocators(this.page.locator(GOOGLE_CLEAR_SELECTOR));
-    const sourceValue =
-      sourceControls.length === 1 ? await sourceControls[0]?.locator.inputValue().catch(() => null) : null;
-    return {
-      clearControlEnabled: clearControls.length === 1 && clearControls[0]?.enabled === true,
-      readiness,
-      result: await this.readResultSnapshot(),
-      route: await this.readRouteSnapshot(),
-      sourceValueLength: sourceValue?.length ?? null,
-      visibleClearControls: clearControls.length,
-    };
-  }
-
-  async clickClearSource(): Promise<boolean> {
-    const clearControls = await getVisibleLocators(this.page.locator(GOOGLE_CLEAR_SELECTOR));
-    if (clearControls.length !== 1 || !clearControls[0]?.enabled) return false;
-    await clearControls[0].locator.click();
+    const source = sourceControls[0];
+    if (sourceControls.length !== 1 || !source?.enabled || !source.editable) return false;
+    await source.locator.focus();
+    await this.page.keyboard.press('Control+A');
+    await this.page.keyboard.press('Backspace');
     return true;
   }
 }
@@ -405,28 +447,31 @@ export function createPlaywrightGoogleTranslatePageAdapter(page: Page): GoogleTr
 /** Unregistered Google public-page implementation of the shared translation lifecycle. */
 export class GoogleTranslateProvider extends BaseTranslateProvider {
   private readonly adapters = new WeakMap<Page, GoogleTranslatePageAdapter>();
-  private readonly clearPollIntervalMs: number;
-  private readonly clearTimeoutMs: number;
   private readonly createPageAdapter: GoogleTranslatePageAdapterFactory;
   private readonly expectedTargets = new WeakMap<Page, string>();
+  private readonly previousResults = new WeakMap<Page, string>();
   private readonly preparedPages = new WeakSet<Page>();
+  private readonly submissions = new WeakMap<
+    Page,
+    { readonly epoch: number; readonly previousResult: string; readonly sourceText: string }
+  >();
+  private readonly submissionEpochs = new WeakMap<Page, number>();
   private readonly onNavigationRetry?: (event: BrowserNavigationRetryEvent) => void;
-  private readonly waitForClearPoll: (delayMs: number) => Promise<void>;
 
   constructor(dependencies: GoogleTranslateProviderDependencies) {
-    super(TRANSLATION_PROVIDER_INFO.google, dependencies);
-    this.clearPollIntervalMs = dependencies.clearPollIntervalMs ?? GOOGLE_CLEAR_POLL_INTERVAL_MS;
-    this.clearTimeoutMs = dependencies.clearTimeoutMs ?? GOOGLE_CLEAR_TIMEOUT_MS;
+    super(TRANSLATION_PROVIDER_INFO.google, {
+      ...dependencies,
+      resultPollIntervalMs: Math.min(dependencies.resultPollIntervalMs, GOOGLE_RESULT_FALLBACK_POLL_INTERVAL_MS),
+    });
     this.createPageAdapter = dependencies.createPageAdapter;
     this.onNavigationRetry = dependencies.onNavigationRetry;
-    this.waitForClearPoll = dependencies.waitForClearPoll ?? dependencies.sleep;
   }
 
   protected async navigateAndHandleConsent(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
     const adapter = this.getAdapter(page);
     if (this.preparedPages.has(page)) {
       const route = await adapter.readRouteSnapshot();
-      if (routeMatchesTranslationState(route, targetLanguage) && !route.hasTextParameter) {
+      if (routeMatchesTranslationState(route, targetLanguage)) {
         this.expectedTargets.set(page, targetLanguage);
         return translationHookSuccess();
       }
@@ -517,17 +562,22 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
     if (!previousResult.success) {
       return translationHookFailure(previousResult.code, { recoverableBeforeSubmission: true });
     }
-    const clear = await this.clearAndConfirm(page);
-    if (!clear.success) {
-      return translationHookFailure(clear.code, { recoverableBeforeSubmission: true });
-    }
+    this.previousResults.set(page, previousResult.value);
     return translationHookSuccess(previousResult.value);
   }
 
   protected async insertSourceText(page: Page, sourceText: string): Promise<TranslationProviderHookResult> {
-    return (await this.getAdapter(page).insertSourceText(sourceText))
-      ? translationHookSuccess()
-      : translationHookFailure('pageContractFailure');
+    const epoch = (this.submissionEpochs.get(page) ?? 0) + 1;
+    this.submissionEpochs.set(page, epoch);
+    const submission = {
+      epoch,
+      previousResult: this.previousResults.get(page) ?? '',
+      sourceText,
+    };
+    this.submissions.set(page, submission);
+    if (await this.getAdapter(page).insertSourceText(sourceText)) return translationHookSuccess();
+    this.submissions.delete(page);
+    return translationHookFailure('pageContractFailure');
   }
 
   protected async readNormalizedResult(page: Page): Promise<TranslationProviderHookResult<string>> {
@@ -549,12 +599,34 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
     if (!routeMatchesTranslationState(snapshot.route, targetLanguage)) {
       return translationHookFailure('pageContractFailure');
     }
+    const submission = this.submissions.get(page);
+    const sourceMatches = snapshot.sourceValue === undefined || snapshot.sourceValue === submission?.sourceText;
+    const epochMatches = snapshot.submissionEpoch === undefined || snapshot.submissionEpoch === submission?.epoch;
+    const generation =
+      !submission || !sourceMatches || !epochMatches
+        ? 'unavailable'
+        : result.value !== submission.previousResult
+          ? 'changed-after-submission'
+          : (snapshot.resultMutationCount ?? 0) > 0
+            ? 'renewed-identical'
+            : 'unavailable';
     return translationHookSuccess({
       completion: 'unavailable',
+      generation,
       targetVerified: true,
       text: result.value,
     });
   }
+
+  protected override readonly waitForResultCandidate = async (
+    page: Page,
+    _targetLanguage: string,
+    timeoutMs: number,
+  ): Promise<TranslationProviderHookResult<boolean>> => {
+    const adapter = this.getAdapter(page);
+    if (!adapter.waitForResultCandidate) return translationHookSuccess(false);
+    return translationHookSuccess(await adapter.waitForResultCandidate(timeoutMs));
+  };
 
   protected async verifySelectedTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {
     const route = await this.getAdapter(page).readRouteSnapshot();
@@ -567,8 +639,28 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
   }
 
   protected async clearVisibleState(page: Page): Promise<TranslationProviderHookResult> {
-    const clear = await this.clearAndConfirm(page);
-    return clear.success ? clear : translationHookFailure('cleanupFailure');
+    return (await this.getAdapter(page).clearSourceWithKeyboard())
+      ? translationHookSuccess()
+      : translationHookFailure('cleanupFailure');
+  }
+
+  protected override retainResourceOnTerminalFailure(): boolean {
+    return true;
+  }
+
+  protected override deliverResultBeforeVisibleCleanup(): boolean {
+    return true;
+  }
+
+  protected override async isActiveResourceHealthy(page: Page): Promise<boolean> {
+    const targetLanguage = this.expectedTargets.get(page);
+    if (!targetLanguage) return false;
+    const route = await this.getAdapter(page).readRouteSnapshot();
+    return (
+      route.origin === 'translator' &&
+      route.route === 'translator' &&
+      routeMatchesTranslationState(route, targetLanguage)
+    );
   }
 
   private getAdapter(page: Page): GoogleTranslatePageAdapter {
@@ -577,50 +669,5 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
     const adapter = this.createPageAdapter(page);
     this.adapters.set(page, adapter);
     return adapter;
-  }
-
-  private isCleared(snapshot: GoogleClearSnapshot, targetLanguage: string): boolean {
-    const readiness = classifyGoogleReadinessSnapshot(snapshot.readiness);
-    const result = classifyGoogleResultSnapshot(snapshot.result);
-    return (
-      readiness.success &&
-      result.success &&
-      result.value.length === 0 &&
-      routeMatchesTranslationState(snapshot.route, targetLanguage) &&
-      !snapshot.route.hasTextParameter &&
-      snapshot.sourceValueLength === 0 &&
-      snapshot.visibleClearControls === 0
-    );
-  }
-
-  private async clearAndConfirm(page: Page): Promise<TranslationProviderHookResult> {
-    const targetLanguage = this.expectedTargets.get(page);
-    if (!targetLanguage) return translationHookFailure('pageContractFailure');
-
-    const initial = await this.getAdapter(page).readClearSnapshot();
-    if (this.isCleared(initial, targetLanguage)) return translationHookSuccess();
-    if (
-      classifyGoogleReadinessSnapshot(initial.readiness).success === false ||
-      classifyGoogleResultSnapshot(initial.result).success === false ||
-      !routeMatchesTranslationState(initial.route, targetLanguage) ||
-      initial.visibleClearControls !== 1 ||
-      !initial.clearControlEnabled
-    ) {
-      return translationHookFailure('pageContractFailure');
-    }
-    if (!(await this.getAdapter(page).clickClearSource())) {
-      return translationHookFailure('pageContractFailure');
-    }
-
-    const readAttempts = Math.max(1, Math.ceil(this.clearTimeoutMs / this.clearPollIntervalMs));
-    for (let attempt = 0; attempt < readAttempts; attempt += 1) {
-      if (this.isCleared(await this.getAdapter(page).readClearSnapshot(), targetLanguage)) {
-        return translationHookSuccess();
-      }
-      if (attempt + 1 < readAttempts) {
-        await this.waitForClearPoll(this.clearPollIntervalMs);
-      }
-    }
-    return translationHookFailure('pageContractFailure');
   }
 }
