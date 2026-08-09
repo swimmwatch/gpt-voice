@@ -42,6 +42,7 @@ const cmake = process.env.CMAKE_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8'
 const ctest = process.env.CTEST_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest');
 const ninja = process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja');
 const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
+const isLinuxCompatibility = process.env.LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY === 'true';
 
 const windowsProfiles = [
   {
@@ -61,27 +62,41 @@ const windowsProfiles = [
     sanitizers: true,
   },
 ];
+const linuxProfiles = [
+  {
+    buildType: 'Release',
+    cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
+    cxxCompiler: process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
+    id: 'linux-x64-cpu-baseline-v1',
+    linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
+    sanitizers: false,
+  },
+  {
+    buildType: 'Debug',
+    cCompiler: process.env.LOCAL_WHISPER_CLANG_C_COMPILER || resolve(clangRoot, 'clang'),
+    cxxCompiler: process.env.LOCAL_WHISPER_CLANG_CXX_COMPILER || resolve(clangRoot, 'clang++'),
+    id: 'linux-x64-clang-18.1.3-asan-ubsan-v1',
+    linker: process.env.LOCAL_WHISPER_CLANG_LINKER || resolve(clangRoot, 'ld.lld'),
+    sanitizers: true,
+  },
+];
+
+const linuxCompatibilityProfiles = [
+  {
+    buildType: 'Release',
+    cCompiler: process.env.LOCAL_WHISPER_COMPATIBILITY_C_COMPILER || '',
+    cxxCompiler: process.env.LOCAL_WHISPER_COMPATIBILITY_CXX_COMPILER || '',
+    id: 'linux-x64-clang-18.1.3-compatibility-v1',
+    linker: null,
+    sanitizers: false,
+  },
+];
+
 const profiles = isWindows
   ? windowsProfiles.filter((profile) => (configuration === 'windows-asan' ? profile.sanitizers : !profile.sanitizers))
-  : [
-      {
-        buildType: 'Release',
-        cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
-        cxxCompiler:
-          process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
-        id: 'linux-x64-cpu-baseline-v1',
-        linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
-        sanitizers: false,
-      },
-      {
-        buildType: 'Debug',
-        cCompiler: process.env.LOCAL_WHISPER_CLANG_C_COMPILER || resolve(clangRoot, 'clang'),
-        cxxCompiler: process.env.LOCAL_WHISPER_CLANG_CXX_COMPILER || resolve(clangRoot, 'clang++'),
-        id: 'linux-x64-clang-18.1.3-asan-ubsan-v1',
-        linker: process.env.LOCAL_WHISPER_CLANG_LINKER || resolve(clangRoot, 'ld.lld'),
-        sanitizers: true,
-      },
-    ];
+  : isLinuxCompatibility
+    ? linuxCompatibilityProfiles
+    : linuxProfiles;
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -108,9 +123,7 @@ function requireInputs() {
     ninja,
     resolve(nlohmannSource, 'single_include', 'nlohmann', 'json.hpp'),
     resolve(googleTestSource, 'CMakeLists.txt'),
-    ...profiles.flatMap((profile) =>
-      [profile.cCompiler, profile.cxxCompiler, profile.linker].filter(Boolean),
-    ),
+    ...profiles.flatMap((profile) => [profile.cCompiler, profile.cxxCompiler, profile.linker].filter(Boolean)),
   ]) {
     if (!existsSync(path)) throw new Error(`Required verified native input is unavailable: ${path}`);
   }
