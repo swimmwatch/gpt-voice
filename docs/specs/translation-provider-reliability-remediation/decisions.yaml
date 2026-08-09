@@ -925,3 +925,56 @@ decisions:
         ACC-009,
         ACC-010,
       ]
+
+  - id: verification.packet-03
+    revision: 1
+    category: verification
+    state: observed
+    provenance: repository
+    evidence:
+      - Packet 03 focused deterministic tests passed, including ignored-result-hook
+        timeout and cleanup quarantine-release coverage.
+      - npm run typecheck, npm run test:types, scoped ESLint, scoped Prettier, and
+        git diff --check passed on 2026-08-09.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [packet-03-verified]
+      text: ''
+    rationale: The shared lifecycle is active only in main-process translation dispatch,
+      preserves private terminal behavior, and leaves Packet 04 unstarted.
+    supersedes_revision: null
+    requirement_ids: [ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010]
+
+  - id: authorization.commit-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 03 matches its handoff and its focused deterministic suite, typecheck,
+        test-type check, lint, formatting, and whitespace verification passed on
+        2026-08-09.
+      - The user explicitly requested a commit for Task 03 on 2026-08-09.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-04
+      question_id: authorization.commit-packet-03
+      idempotency_key: authorization.commit-packet-03:v1
+      last_status: answered
+    question:
+      text: Authorize one isolated local commit for completed Packet 03, containing only the Translation Provider Reliability Remediation bounded operation and resource lifecycle changes?
+      kind: single
+      options:
+        - id: commit-packet-03
+          label: Commit Packet 03 (Recommended)
+          description: Create the required local commit for Packet 03 only; do not push or begin Packet 04.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 03 uncommitted and stop; Packet 04 cannot begin.
+    answer:
+      selected_ids: [commit-packet-03]
+      text: ''
+    rationale: The persistent implementation interview and the user's explicit request separately authorize an isolated local Packet 03 commit.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, OUT-003, SCOPE-003, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010]

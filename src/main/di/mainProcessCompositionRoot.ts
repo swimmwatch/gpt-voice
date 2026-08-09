@@ -38,6 +38,10 @@ import {
   TranslationProviderRegistry,
   type TranslationProviderFactoryDependencies,
 } from '../translateProviders';
+import {
+  TranslationOperationLifecycleFactory,
+  type TranslationOperationLifecycleDependencies,
+} from '../translateProviders/translationOperationLifecycle';
 import { TranslationProviderAudit } from '../translateProviders/translationProviderAudit';
 import { TranslationRuntime } from '../services/translation';
 import { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
@@ -191,6 +195,7 @@ export interface MainProcessLocalWhisperEnvironment {
 
 export interface MainProcessTranslationEnvironment {
   readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
+  readonly lifecycle: TranslationOperationLifecycleDependencies;
   readonly now: () => number;
   readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'createContext' | 'now'>;
   readonly selectedText: Omit<
@@ -554,6 +559,9 @@ export class MainProcessCompositionRoot {
       ...this.environment.translation.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
+    const translationOperationLifecycleFactory = new TranslationOperationLifecycleFactory(
+      this.environment.translation.lifecycle,
+    );
     const selectedTextActionGate = new SelectedTextActionGate();
     const textAutomation = new TextAutomationService(this.environment.textAutomation);
     const translationProviderFactory = new TranslationProviderFactory({
@@ -573,6 +581,7 @@ export class MainProcessCompositionRoot {
       diagnosticCapture,
       localization,
       now: this.environment.translation.now,
+      operationLifecycleFactory: translationOperationLifecycleFactory,
       readinessDeadline: this.environment.initialProviderReadiness,
       registry: translationProviderRegistry,
     });

@@ -2,8 +2,8 @@
 
 ## Status
 
-Packet 01 is committed as `e1fe686`. Packet 02 is complete and remains uncommitted for
-review. The plan remains approved; no later packet is authorized.
+Packets 01 and 02 are committed as `e1fe686` and `de5ec2e`. Packet 03 is complete and
+remains uncommitted for review. The plan remains approved; no later packet is authorized.
 
 ## Completed Packets
 
@@ -22,45 +22,46 @@ review. The plan remains approved; no later packet is authorized.
   - Added the non-discarded `timed-out` provider failure, localized it in every
     checked-in catalog, mapped it to timeout audit classification and the existing
     unexpected connection state, and preserved clipboard/cache/result safety.
+- [03 Integrate bounded operation and resource lifecycle](03_integrate_bounded_operation_and_resource_lifecycle.md)
+  - Wired one operation-owned lifecycle from validated runtime dispatch through the
+    provider request, with injected wall/monotonic clocks, timers, abort construction,
+    and a removable Electron resume listener.
+  - Made provider resource ownership generation-keyed; timed-out, stale, reset, and
+    shutdown work cannot close newer resources. Successful cleanup closes its owned page
+    before its context; unconfirmed cleanup remains quarantined until a late close confirms.
+  - Added deterministic tests for a result hook that ignores abort and for cleanup
+    expiry/quarantine release, while preserving one-way source submission and private
+    timeout presentation.
 
 ## Changed Files
 
-- Packet 01 was committed with the workstream specification/plan, deterministic
-  performance baseline test, and evidence.
-- Added `src/main/translateProviders/translationOperationLifecycle.ts` and its focused
-  deterministic test.
-- Updated `BaseTranslateProvider` to re-export the canonical result budget; updated
-  translation failure contracts, runtime mapping, selected-text timeout presentation,
-  all checked-in locale catalogs, and focused runtime/selected-text tests.
-- Updated `tasks/todo.md`, this handoff, and `decisions.yaml` with Packet 02 execution
-  authorization and completion state.
-- No dependency, IPC, renderer, provider-dispatch, workflow, generated artifact, or
-  release file was changed.
+- Packet 01 was committed with the workstream specification/plan, baseline test, and evidence.
+- Packet 02 was committed with the dormant lifecycle, typed timeout contract, locales,
+  and its focused tests.
+- Packet 03 updates the composition root, Electron main entry point, translation runtime,
+  base provider, request contract, provider audit compatibility, provider metadata, and
+  focused provider/runtime/composition/diagnostics tests.
+- No dependency, IPC, renderer, settings, database, workflow, generated artifact, or release file changed.
 
 ## Checks
 
-- Packet 01 recorded checks remain in commit `e1fe686`.
-- Packet 02 focused suite — 89 passing across lifecycle, runtime, selected-text, i18n,
-  audit mapping/privacy, and shared translation-provider tests.
-- `npm run typecheck` — passed.
-- `npm run test:types` — blocked by unrelated untracked
-  `scripts/local-whisper/ci/RunnerPolicyVerifier.ts:68` type error; Packet 02 did not
-  change that file.
-- Packet-scoped ESLint and Prettier checks — passed.
-- `git diff --check` — passed.
+- Packet 01 checks remain in commit `e1fe686`; Packet 02 verification is in commit `de5ec2e`.
+- Packet 03 focused deterministic suite — passed across lifecycle, base provider,
+  registry, runtime, selected text, composition, audit/privacy, shared contracts, and
+  diagnostics/manifest compatibility.
+- `npm run typecheck`, `npm run test:types`, scoped ESLint, scoped Prettier, and
+  `git diff --check` — passed.
 
 ## Exact Next Packet
 
-- [03 Integrate bounded operation and resource lifecycle](03_integrate_bounded_operation_and_resource_lifecycle.md)
+- [04 Accelerate provider result processing](04_accelerate_provider_result_processing.md)
 
 ## Blockers
 
-- Packet 02 is intentionally uncommitted. A future implementation invocation must
-  obtain separate commit authorization through Prompt MCP, verify this handoff, and
-  commit only Packet 02 before it may open Packet 03.
-- Packet 03 also requires its own separate execution authorization.
-- `npm run test:types` remains blocked by the unrelated Local Whisper CI type error
-  above until its owner resolves it.
+- Packet 03 is intentionally uncommitted. A future implementation invocation must obtain
+  separate commit authorization through Prompt MCP, verify this handoff, and commit only
+  Packet 03 before it may open Packet 04.
+- Packet 04 requires separate execution authorization.
 
 ## Remaining Manual Gates
 

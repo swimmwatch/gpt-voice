@@ -162,7 +162,7 @@ describe('provider audit lifecycle', () => {
       capabilityState: 'Validated',
       causeCode: 'request-failed',
       chunkCount: 2,
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       discarded: false,
       durationMs: 3.5,
       engineId: 'whisperCpp',

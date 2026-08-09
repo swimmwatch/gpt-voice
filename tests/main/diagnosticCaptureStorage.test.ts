@@ -22,7 +22,7 @@ import {
 import { DiagnosticTextRedactor } from '@main/services/diagnosticTextRedactor';
 
 const FIXED_NOW = new Date('2026-07-27T12:00:00.000Z');
-const TRANSLATION_CONTRACT_VERSION = '2026-07-25';
+const TRANSLATION_CONTRACT_VERSION = '2026-08-09';
 const PROVIDER_OPERATION_ID = '10000000-0000-4000-8000-000000000001';
 const MAIN_APPLICATION_SOURCE_PATH = path.resolve(__dirname, '../../src/main/mainProcessApplication.ts');
 const DIAGNOSTIC_SERVICE_SOURCE_PATH = path.resolve(__dirname, '../../src/main/services/diagnosticCaptureStorage.ts');

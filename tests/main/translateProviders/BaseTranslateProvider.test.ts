@@ -10,6 +10,12 @@ import {
   type BaseTranslateProviderDependencies,
 } from '@main/translateProviders/BaseTranslateProvider';
 import {
+  TRANSLATION_RESULT_TIMEOUT_MS,
+  TRANSLATION_TERMINAL_CLEANUP_TIMEOUT_MS,
+  TranslationOperationLifecycle,
+  type TranslationOperationLifecycleDependencies,
+} from '@main/translateProviders/translationOperationLifecycle';
+import {
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
@@ -55,6 +61,7 @@ class FakePage {
 
 class FakeContext {
   closeCalls = 0;
+  closeDeferred: Deferred<void> | null = null;
   closeFails = false;
   newPageCalls = 0;
   readonly page = new FakePage();
@@ -62,6 +69,7 @@ class FakeContext {
   async close(): Promise<void> {
     this.closeCalls += 1;
     if (this.closeFails) throw new Error('private context close error');
+    if (this.closeDeferred) await this.closeDeferred.promise;
     this.page.closed = true;
   }
 
@@ -69,6 +77,38 @@ class FakeContext {
     this.newPageCalls += 1;
     return this.page as unknown as Page;
   }
+}
+
+class ControlledLifecycleDependencies implements TranslationOperationLifecycleDependencies {
+  private currentMs = 0;
+
+  public activeNow = (): number => this.currentMs;
+  public clearTimeout = (): void => undefined;
+  public createAbortController = (): AbortController => new AbortController();
+  public setTimeout = (): number => 0;
+  public subscribeResume = (): (() => void) => () => undefined;
+  public wallNow = (): number => this.currentMs;
+
+  public advance(milliseconds: number): void {
+    this.currentMs += milliseconds;
+  }
+}
+
+function createLifecycle(dependencies = new ControlledLifecycleDependencies()): {
+  readonly dependencies: ControlledLifecycleDependencies;
+  readonly lifecycle: TranslationOperationLifecycle;
+} {
+  return {
+    dependencies,
+    lifecycle: new TranslationOperationLifecycle(dependencies, {
+      attemptCount: 1,
+      contractVersion: '2026-08-09',
+      generation: 0,
+      providerId: 'google',
+      sourceLength: 'source text'.length,
+      targetLanguage: 'en',
+    }),
+  };
 }
 
 class FakeTranslateProvider extends BaseTranslateProvider {
@@ -460,6 +500,61 @@ describe('BaseTranslateProvider', () => {
     assert.equal(outcome.success ? null : outcome.discard, true);
     assert.equal('text' in outcome, false);
     assert.equal(harness.contexts[0]?.closeCalls, 1);
+  });
+
+  it('returns the shared result-budget timeout while a Playwright read ignores abort', async () => {
+    const harness = createHarness();
+    const deferred = createDeferred<TranslationProviderHookResult<string>>();
+    const { dependencies, lifecycle } = createLifecycle();
+    harness.provider.readDeferred = deferred;
+
+    const operation = harness.provider.translate(requestFixture.create({ lifecycle, signal: lifecycle.signal }));
+    await waitUntil(() => harness.provider.calls.read === 1);
+
+    dependencies.advance(TRANSLATION_RESULT_TIMEOUT_MS);
+    assert.deepEqual(lifecycle.check(), { deadline: 'result', kind: 'timed-out' });
+    const outcome = await operation;
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'timed-out');
+    assert.equal(harness.contexts[0]?.closeCalls, 1);
+    assert.equal(harness.provider.calls.insert, 1);
+
+    deferred.resolve(translationHookSuccess('late private result'));
+    await Promise.resolve();
+    assert.equal(harness.provider.calls.insert, 1);
+  });
+
+  it('quarantines a hanging cleanup and releases only after its late close confirms', async () => {
+    const harness = createHarness();
+    const read = createDeferred<TranslationProviderHookResult<string>>();
+    const close = createDeferred<void>();
+    const { dependencies, lifecycle } = createLifecycle();
+    harness.provider.readDeferred = read;
+
+    const operation = harness.provider.translate(requestFixture.create({ lifecycle, signal: lifecycle.signal }));
+    await waitUntil(() => harness.provider.calls.read === 1);
+    const context = harness.contexts[0];
+    assert.ok(context);
+    context.closeDeferred = close;
+
+    lifecycle.cancel('caller');
+    dependencies.advance(TRANSLATION_TERMINAL_CLEANUP_TIMEOUT_MS);
+    assert.deepEqual(lifecycle.check(), { kind: 'cleanup-failure' });
+    const outcome = await operation;
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'cleanupFailure');
+    assert.equal(harness.contexts.length, 1);
+
+    close.resolve();
+    read.resolve(translationHookSuccess('late private result'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const retry = await harness.provider.translate(requestFixture.create());
+    assert.equal(retry.success, true);
+    assert.equal(harness.contexts.length, 2);
   });
 
   it('discards an already-cancelled request before browser creation', async () => {

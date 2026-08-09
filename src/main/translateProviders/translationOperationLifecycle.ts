@@ -1,3 +1,4 @@
+/* eslint-disable max-classes-per-file -- the factory owns the lifecycle adapter set. */
 import type { TranslationProviderId } from '@shared/translationProvider';
 
 export const TRANSLATION_OPERATION_TIMEOUT_MS = 60_000;
@@ -46,6 +47,18 @@ export interface TranslationOperationLifecycleDependencies {
   readonly setTimeout: (callback: () => void, delayMs: number) => unknown;
   readonly subscribeResume: (listener: () => void) => () => void;
   readonly wallNow: () => number;
+}
+
+/** Constructs independent operation lifecycles from one process-owned adapter set. */
+export class TranslationOperationLifecycleFactory {
+  public constructor(private readonly dependencies: TranslationOperationLifecycleDependencies) {}
+
+  public create(
+    metadata: TranslationOperationLifecycleMetadata,
+    callerSignal?: AbortSignal,
+  ): TranslationOperationLifecycle {
+    return new TranslationOperationLifecycle(this.dependencies, metadata, callerSignal);
+  }
 }
 
 type PendingDecision = Exclude<TranslationOperationLifecycleDecision, { readonly kind: 'cleanup-failure' }>;

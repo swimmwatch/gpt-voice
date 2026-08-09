@@ -113,7 +113,7 @@ describe('DiagnosticCaptureService integration', () => {
     const harness = new DiagnosticCaptureHarness();
 
     const translation = await harness.service.captureTranslationProviderSuccess({
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       providerId: 'google',
       providerOperationId: PROVIDER_OPERATION_ID,
       resultText: 'result',
@@ -127,7 +127,7 @@ describe('DiagnosticCaptureService integration', () => {
       sourceText: 'source',
     });
     harness.service.captureTranslationCacheHit({
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       providerId: 'google',
       resultText: 'cached result',
       sourceText: 'source',
@@ -148,7 +148,7 @@ describe('DiagnosticCaptureService integration', () => {
     });
 
     await harness.service.captureTranslationProviderSuccess({
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       providerId: 'bing',
       providerOperationId: PROVIDER_OPERATION_ID,
       resultText: 'translated',
@@ -165,7 +165,7 @@ describe('DiagnosticCaptureService integration', () => {
     assert.deepEqual(harness.storage.inputs, [
       {
         actionType: 'translation',
-        contractVersion: '2026-07-25',
+        contractVersion: '2026-08-09',
         providerId: 'bing',
         providerOperationId: PROVIDER_OPERATION_ID,
         resultText: 'translated',
@@ -196,7 +196,7 @@ describe('DiagnosticCaptureService integration', () => {
     harness.enable();
 
     harness.service.captureTranslationCacheHit({
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       providerId: 'yandex',
       resultText: 'translated',
       sourceText: 'source',
@@ -232,7 +232,7 @@ describe('DiagnosticCaptureService integration', () => {
     };
 
     const result = await harness.service.captureTranslationProviderSuccess({
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       providerId: 'google',
       providerOperationId: PROVIDER_OPERATION_ID,
       resultText: 'result',

@@ -1,6 +1,7 @@
 import type { TranslationProviderId } from '@shared/translationProvider';
 import type { ProviderAuditExceptionType } from '@main/providerAudit';
 import type { TranslationProviderAudit, TranslationProviderAuditOperationContext } from './translationProviderAudit';
+import type { TranslationOperationLifecycle } from './translationOperationLifecycle';
 
 export const TRANSLATION_PROVIDER_FAILURE_CODES = [
   'unsupportedProvider',
@@ -40,6 +41,8 @@ export interface TranslationProviderRequest {
   readonly targetLanguage: string;
   readonly sourceText: string;
   readonly signal?: AbortSignal;
+  /** Main-process-only deadline owner shared with the runtime. */
+  readonly lifecycle?: TranslationOperationLifecycle;
 }
 
 export interface TranslationProviderInitializationRequest {

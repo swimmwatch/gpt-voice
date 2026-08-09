@@ -29,6 +29,7 @@ import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditT
 import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
 import { INITIAL_PROVIDER_READINESS_TIMEOUT_MS } from '@main/services/initialProviderReadinessDeadline';
+import { TranslationOperationLifecycleFactory } from '@main/translateProviders/translationOperationLifecycle';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -76,7 +77,7 @@ function createSuccess(request: TranslationProviderRequest, text = 'translated')
     metadata: {
       providerId: request.providerId,
       targetLanguage: request.targetLanguage,
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       sourceLength: request.sourceText.length,
       resultLength: text.length,
       durationMs: 2,
@@ -204,6 +205,14 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   const failedProviderIds = options.shutdownFailedProviderIds ?? [];
   const diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
   const readinessDeadline = options.readinessDeadline ?? new InitialProviderReadinessTestDependencies();
+  const operationLifecycleFactory = new TranslationOperationLifecycleFactory({
+    activeNow: () => now,
+    clearTimeout: () => undefined,
+    createAbortController: () => new AbortController(),
+    setTimeout: () => 0,
+    subscribeResume: () => () => undefined,
+    wallNow: () => now,
+  });
 
   const registry: TranslationRuntimeRegistry = {
     getProvider: (providerId) => {
@@ -220,7 +229,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
             metadata: {
               providerId: request.providerId,
               targetLanguage: request.targetLanguage,
-              contractVersion: '2026-07-25',
+              contractVersion: '2026-08-09',
               durationMs: 2,
               attemptCount: 1,
               phase: 'targetSelection',
@@ -258,6 +267,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
       now += 1;
       return now;
     },
+    operationLifecycleFactory,
     readinessDeadline,
     registry,
   });
@@ -301,7 +311,7 @@ describe('TranslationRuntime', () => {
       providerId: 'google',
       providerName: 'Google',
       targetLanguage: 'uk',
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       maxInputCharacters: 5_000,
       generation: 0,
     });
@@ -318,7 +328,7 @@ describe('TranslationRuntime', () => {
         metadata: {
           providerId: 'google',
           targetLanguage: 'uk',
-          contractVersion: '2026-07-25',
+          contractVersion: '2026-08-09',
           sourceLength: 16,
           durationMs: 60_000,
           attemptCount: 1,
@@ -454,7 +464,7 @@ describe('TranslationRuntime', () => {
           discard: code === 'cancelledOrStaleOperation',
           metadata: {
             attemptCount: 1,
-            contractVersion: '2026-07-25',
+            contractVersion: '2026-08-09',
             durationMs: 2,
             phase: 'readiness',
             providerId: request.providerId,
@@ -487,7 +497,7 @@ describe('TranslationRuntime', () => {
           success: true,
           metadata: {
             attemptCount: 1,
-            contractVersion: '2026-07-25',
+            contractVersion: '2026-08-09',
             durationMs: 2,
             phase: 'targetSelection',
             providerId: request.providerId,
@@ -506,7 +516,7 @@ describe('TranslationRuntime', () => {
       success: true,
       metadata: {
         attemptCount: 1,
-        contractVersion: '2026-07-25',
+        contractVersion: '2026-08-09',
         durationMs: 3,
         phase: 'targetSelection',
         providerId: 'google',
@@ -548,7 +558,7 @@ describe('TranslationRuntime', () => {
           success: true,
           metadata: {
             attemptCount: 1,
-            contractVersion: '2026-07-25',
+            contractVersion: '2026-08-09',
             durationMs: 2,
             phase: 'targetSelection',
             providerId: request.providerId,
@@ -585,7 +595,7 @@ describe('TranslationRuntime', () => {
       success: true,
       metadata: {
         attemptCount: 1,
-        contractVersion: '2026-07-25',
+        contractVersion: '2026-08-09',
         durationMs: 3,
         phase: 'targetSelection',
         providerId: 'google',
@@ -655,6 +665,14 @@ describe('TranslationRuntime', () => {
       diagnosticCapture: new RecordingDiagnosticCapture(),
       localization,
       now: () => 100,
+      operationLifecycleFactory: new TranslationOperationLifecycleFactory({
+        activeNow: () => 100,
+        clearTimeout: () => undefined,
+        createAbortController: () => new AbortController(),
+        setTimeout: () => 0,
+        subscribeResume: () => () => undefined,
+        wallNow: () => 100,
+      }),
       readinessDeadline: new InitialProviderReadinessTestDependencies(),
       registry: {
         getProvider: () => {

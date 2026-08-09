@@ -422,6 +422,14 @@ class MainProcessCompositionHarness {
           now: () => new Date('2026-07-27T12:00:00.000Z'),
           randomUUID: () => '00000000-0000-4000-8000-000000000003',
         },
+        lifecycle: {
+          activeNow: () => 0,
+          clearTimeout: () => undefined,
+          createAbortController: () => new AbortController(),
+          setTimeout: () => 0,
+          subscribeResume: () => () => undefined,
+          wallNow: () => 0,
+        },
         now: () => 0,
         providers: {
           createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,

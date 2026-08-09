@@ -18,6 +18,7 @@ import {
   nativeImage,
   Notification,
   protocol,
+  powerMonitor,
   safeStorage,
   screen,
   session,
@@ -457,6 +458,17 @@ async function bootstrapMainProcess(): Promise<void> {
         elapsedNow: Date.now,
         now: getCurrentDate,
         randomUUID,
+      },
+      lifecycle: {
+        activeNow: getMonotonicTimeMs,
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        createAbortController: () => new AbortController(),
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+        subscribeResume: (listener) => {
+          powerMonitor.on('resume', listener);
+          return () => powerMonitor.removeListener('resume', listener);
+        },
+        wallNow: Date.now,
       },
       now: Date.now,
       providers: {

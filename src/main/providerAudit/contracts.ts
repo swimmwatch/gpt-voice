@@ -86,7 +86,7 @@ export const PROVIDER_AUDIT_EXCEPTION_TYPES = [
   'TimeoutError',
   'unknown',
 ] as const;
-export const PROVIDER_AUDIT_CONTRACT_VERSIONS = ['2026-07-25'] as const;
+export const PROVIDER_AUDIT_CONTRACT_VERSIONS = ['2026-07-25', '2026-08-09'] as const;
 export const PROVIDER_AUDIT_MODEL_SOURCES = [
   'http',
   'known-aliases',

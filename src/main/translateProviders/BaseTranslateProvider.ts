@@ -24,6 +24,10 @@ import {
   type TranslationProviderAudit,
   type TranslationProviderAuditOperationContext,
 } from './translationProviderAudit';
+import {
+  type TranslationOperationLifecycle,
+  type TranslationOperationLifecycleDecision,
+} from './translationOperationLifecycle';
 import { matchTranslationResultLineEndings } from './translationResultText';
 
 export { TRANSLATION_RESULT_TIMEOUT_MS } from './translationOperationLifecycle';
@@ -47,6 +51,8 @@ interface OperationState {
   readonly attemptCount: number;
   readonly generation: number;
   readonly kind: 'initialization' | 'translation';
+  readonly lifecycle?: TranslationOperationLifecycle;
+  readonly operationKey: string;
   readonly signal?: AbortSignal;
   readonly sourceLength?: number;
   readonly startedAt: number;
@@ -107,6 +113,13 @@ interface FailureAuditOptions {
   readonly pageClosed?: boolean;
 }
 
+interface ProviderResourceOwner {
+  closePromise: Promise<boolean> | null;
+  readonly context: BrowserContext;
+  operationKey: string;
+  page: Page | null;
+}
+
 /** Shared main-process lifecycle; subclasses implement only public-page behavior. */
 export abstract class BaseTranslateProvider {
   public readonly cancelInitialization: () => void;
@@ -118,12 +131,11 @@ export abstract class BaseTranslateProvider {
   public readonly shutdown: () => Promise<void>;
 
   private readonly dependencies: BaseTranslateProviderDependencies;
-  private context: BrowserContext | null = null;
-  private page: Page | null = null;
+  private activeResource: ProviderResourceOwner | null = null;
   private generation = 0;
   private initializationGeneration = 0;
   private operationQueue: Promise<void> = Promise.resolve();
-  private closePromise: Promise<boolean> | null = null;
+  private quarantinedResource: ProviderResourceOwner | null = null;
   private shutDown = false;
 
   protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
@@ -176,12 +188,118 @@ export abstract class BaseTranslateProvider {
 
   private enqueueTranslation(request: TranslationProviderRequest): Promise<TranslationProviderOutcome> {
     const generation = ++this.generation;
-    const operation = this.operationQueue.then(() => this.runTranslation(request, generation));
-    this.operationQueue = operation.then(
+    const operationKey = this.createOperationKey('translation', generation);
+    const operation = this.operationQueue.then(() => this.runTranslation(request, generation, operationKey));
+    if (!request.lifecycle) {
+      this.operationQueue = operation.then(
+        () => undefined,
+        () => undefined,
+      );
+      return operation;
+    }
+
+    const removeAbortListener = this.bindLifecycleCleanup(request.lifecycle, operationKey);
+    const completion = operation.then((outcome) =>
+      this.completeOperationLifecycle(request, generation, operationKey, outcome),
+    );
+    const terminalOutcome = this.awaitLifecycleFailure(request, generation, operationKey);
+    const bounded = Promise.race([completion, terminalOutcome]).finally(removeAbortListener);
+    this.operationQueue = bounded.then(
       () => undefined,
       () => undefined,
     );
-    return operation;
+    return bounded;
+  }
+
+  private createOperationKey(kind: OperationState['kind'], generation: number): string {
+    return `${kind}:${generation}`;
+  }
+
+  private bindLifecycleCleanup(lifecycle: TranslationOperationLifecycle, operationKey: string): () => void {
+    const onAbort = (): void => {
+      void this.completeLifecycleCleanup(lifecycle, operationKey);
+    };
+    try {
+      lifecycle.signal.addEventListener('abort', onAbort, { once: true });
+      if (lifecycle.signal.aborted) onAbort();
+    } catch {
+      lifecycle.completeCleanup(false);
+    }
+    return () => {
+      try {
+        lifecycle.signal.removeEventListener('abort', onAbort);
+      } catch {
+        // The lifecycle is already authoritative when listener disposal fails.
+      }
+    };
+  }
+
+  private async completeOperationLifecycle(
+    request: TranslationProviderRequest,
+    generation: number,
+    operationKey: string,
+    outcome: TranslationProviderOutcome,
+  ): Promise<TranslationProviderOutcome> {
+    const lifecycle = request.lifecycle;
+    if (!lifecycle) return outcome;
+    lifecycle.acceptValidOutcome();
+    const decision = await this.completeLifecycleCleanup(lifecycle, operationKey);
+    return decision.kind === 'completed'
+      ? outcome
+      : this.createLifecycleFailure(request, generation, operationKey, decision);
+  }
+
+  private async completeLifecycleCleanup(
+    lifecycle: TranslationOperationLifecycle,
+    operationKey: string,
+  ): Promise<TranslationOperationLifecycleDecision> {
+    lifecycle.startCleanupPhase();
+    const closed = await this.closeOwnedResources(operationKey);
+    return lifecycle.completeCleanup(closed);
+  }
+
+  private async awaitLifecycleFailure(
+    request: TranslationProviderRequest,
+    generation: number,
+    operationKey: string,
+  ): Promise<TranslationProviderOutcome> {
+    const lifecycle = request.lifecycle;
+    if (!lifecycle) return new Promise<TranslationProviderOutcome>(() => undefined);
+    return new Promise((resolve) => {
+      lifecycle.subscribeTerminal((decision) => {
+        if (decision.kind === 'completed') return;
+        resolve(this.createLifecycleFailure(request, generation, operationKey, decision));
+      });
+    });
+  }
+
+  private createLifecycleFailure(
+    request: TranslationProviderRequest,
+    generation: number,
+    operationKey: string,
+    decision: Exclude<TranslationOperationLifecycleDecision, { readonly kind: 'completed' }>,
+  ): TranslationProviderFailure {
+    const state: OperationState = {
+      audit: request.audit,
+      auditContext: request.auditContext,
+      attemptCount: 1,
+      generation,
+      kind: 'translation',
+      lifecycle: request.lifecycle,
+      operationKey,
+      signal: request.signal,
+      sourceLength: request.sourceText.length,
+      startedAt: this.dependencies.now(),
+      targetLanguage: request.targetLanguage,
+    };
+    switch (decision.kind) {
+      case 'cancelled':
+        return this.createStaleFailure('shutdown', state);
+      case 'timed-out':
+        return this.createFailure('timed-out', decision.deadline === 'result' ? 'result' : 'cleanup', state);
+      case 'cleanup-failure':
+        return this.createFailure('cleanupFailure', 'cleanup', state);
+    }
   }
 
   private async runInitialization(
@@ -195,6 +313,7 @@ export abstract class BaseTranslateProvider {
       attemptCount: 1,
       generation,
       kind: 'initialization',
+      operationKey: this.createOperationKey('initialization', generation),
       signal: request.signal,
       startedAt,
     };
@@ -232,6 +351,7 @@ export abstract class BaseTranslateProvider {
   private async runTranslation(
     request: TranslationProviderRequest,
     generation: number,
+    operationKey: string,
   ): Promise<TranslationProviderOutcome> {
     const startedAt = this.dependencies.now();
     const rawSourceText: unknown = request.sourceText;
@@ -242,6 +362,8 @@ export abstract class BaseTranslateProvider {
       attemptCount: 1,
       generation,
       kind: 'translation',
+      lifecycle: request.lifecycle,
+      operationKey,
       signal: request.signal,
       sourceLength,
       startedAt,
@@ -299,12 +421,16 @@ export abstract class BaseTranslateProvider {
       return this.createTerminalFailure(insertion.code, 'submission', activeState, insertion.exceptionType);
     }
     if (!this.isOperationActive(activeState)) {
-      await this.closeOwnedResources();
+      await this.closeOwnedResources(activeState.operationKey);
       return this.createStaleFailure('submission', activeState);
     }
     this.phaseCompleted('submission', activeState, { postSubmission: true });
 
     this.phaseEntered('result', activeState, { postSubmission: true });
+    const lifecycleDecision = activeState.lifecycle?.startResultPhase();
+    if (lifecycleDecision !== undefined && lifecycleDecision !== null && lifecycleDecision.kind !== 'completed') {
+      return this.createLifecycleFailure(request, generation, activeState.operationKey, lifecycleDecision);
+    }
     const result = await this.awaitStableResult(preparation.page, preparation.previousResult, activeState);
     if (!result.success) return result;
     const resultText = matchTranslationResultLineEndings(rawSourceText, result.text);
@@ -319,11 +445,11 @@ export abstract class BaseTranslateProvider {
     });
     const clear = await this.invokeHook(() => this.clearVisibleState(preparation.page), 'cleanupFailure');
     if (!this.isOperationActive(activeState)) {
-      await this.closeOwnedResources();
+      await this.closeOwnedResources(activeState.operationKey);
       return this.createStaleFailure('cleanup', activeState);
     }
     if (!clear.success) {
-      const closed = await this.closeOwnedResources();
+      const closed = await this.closeOwnedResources(activeState.operationKey);
       if (!closed) {
         return this.createFailure('cleanupFailure', 'cleanup', activeState, resultText.length, {
           exceptionType: clear.exceptionType,
@@ -337,7 +463,7 @@ export abstract class BaseTranslateProvider {
       resultLength: resultText.length,
     });
 
-    return this.createSuccess(resultText, activeState, !clear.success);
+    return this.createSuccess(resultText, activeState, !clear.success, request.lifecycle === undefined);
   }
 
   /** Runs the bounded pre-submission page preparation and recovery sequence. */
@@ -496,7 +622,7 @@ export abstract class BaseTranslateProvider {
   }
 
   private async recoverPreparation(state: OperationState): Promise<PreparationFailure | null> {
-    const closed = await this.closeOwnedResources();
+    const closed = await this.closeOwnedResources(state.operationKey);
     if (!closed) {
       return {
         success: false,
@@ -507,13 +633,10 @@ export abstract class BaseTranslateProvider {
     return null;
   }
 
+  /** Obtains resources only for the current generation and never bypasses quarantine. */
   private async ensurePage(
     state: OperationState,
   ): Promise<{ readonly success: true; readonly page: Page } | PreparationFailure> {
-    if (this.context && this.page && !this.page.isClosed() && this.isOperationActive(state)) {
-      return { success: true, page: this.page };
-    }
-
     if (!this.isOperationActive(state)) {
       return {
         success: false,
@@ -521,8 +644,24 @@ export abstract class BaseTranslateProvider {
       };
     }
 
-    if (this.context || this.page) {
-      const closed = await this.closeOwnedResources();
+    if (this.quarantinedResource !== null) {
+      const quarantined = this.quarantinedResource;
+      if (quarantined.closePromise !== null) await quarantined.closePromise;
+      if (this.quarantinedResource === null) return this.ensurePage(state);
+      return {
+        success: false,
+        outcome: this.createFailure('cleanupFailure', 'cleanup', state),
+      };
+    }
+
+    const active = this.activeResource;
+    if (active !== null && active.page !== null && !active.page.isClosed()) {
+      active.operationKey = state.operationKey;
+      return { success: true, page: active.page };
+    }
+
+    if (active !== null) {
+      const closed = await this.closeOwnedResources(active.operationKey);
       if (!closed) {
         return {
           success: false,
@@ -536,26 +675,32 @@ export abstract class BaseTranslateProvider {
       // eslint-disable-next-line @eslint-react/naming-convention-context-name -- this is a Playwright browser context.
       const ownedBrowser = await this.dependencies.createContext(options);
       if (!this.isOperationActive(state)) {
-        try {
-          await ownedBrowser.close();
-        } catch {
-          // Ownership is not published, and stale outcomes remain non-applicable.
-        }
+        this.releaseDetachedResources(null, ownedBrowser);
         return {
           success: false,
           outcome: this.createStaleFailure('context', state),
         };
       }
-      this.context = ownedBrowser;
+      const owner: ProviderResourceOwner = {
+        closePromise: null,
+        context: ownedBrowser,
+        operationKey: state.operationKey,
+        page: null,
+      };
+      this.activeResource = owner;
       const page = await ownedBrowser.newPage();
-      if (!this.isOperationActive(state) || this.context !== ownedBrowser) {
-        this.releaseDetachedResources(page, ownedBrowser);
+      if (
+        !this.isOperationActive(state) ||
+        this.activeResource !== owner ||
+        owner.operationKey !== state.operationKey
+      ) {
+        this.releaseDetachedPage(page);
         return {
           success: false,
           outcome: this.createStaleFailure('context', state),
         };
       }
-      this.page = page;
+      owner.page = page;
       return { success: true, page };
     } catch (error: unknown) {
       return {
@@ -582,7 +727,7 @@ export abstract class BaseTranslateProvider {
 
     for (let attempt = 0; attempt < readAttempts; attempt += 1) {
       if (!this.isOperationActive(state)) {
-        await this.closeOwnedResources();
+        await this.closeOwnedResources(state.operationKey);
         return this.createStaleFailure('result', state);
       }
 
@@ -595,7 +740,7 @@ export abstract class BaseTranslateProvider {
       if (candidate.trim().length > 0 && candidate !== previousResult) {
         await this.dependencies.sleep(this.dependencies.resultStabilityDelayMs);
         if (!this.isOperationActive(state)) {
-          await this.closeOwnedResources();
+          await this.closeOwnedResources(state.operationKey);
           return this.createStaleFailure('result', state);
         }
 
@@ -630,7 +775,15 @@ export abstract class BaseTranslateProvider {
     exceptionType?: ProviderAuditExceptionType,
     auditPhase?: 'consent-or-challenge',
   ): Promise<TranslationProviderFailure> {
-    const closed = await this.closeOwnedResources();
+    if (state.lifecycle !== undefined) {
+      state.lifecycle.acceptValidOutcome();
+      void this.completeLifecycleCleanup(state.lifecycle, state.operationKey);
+      return this.createFailure(code, phase, state, undefined, {
+        auditPhase,
+        exceptionType,
+      });
+    }
+    const closed = await this.closeOwnedResources(state.operationKey);
     return this.createFailure(closed ? code : 'cleanupFailure', closed ? phase : 'cleanup', state, undefined, {
       auditPhase,
       exceptionType,
@@ -683,7 +836,12 @@ export abstract class BaseTranslateProvider {
     };
   }
 
-  private createSuccess(text: string, state: ValidatedOperationState, pageClosed: boolean): TranslationProviderOutcome {
+  private createSuccess(
+    text: string,
+    state: ValidatedOperationState,
+    pageClosed: boolean,
+    emitTerminal = true,
+  ): TranslationProviderOutcome {
     const metadata = {
       ...this.createMetadata('cleanup', state, text.length),
       providerId: this.info.id,
@@ -697,15 +855,17 @@ export abstract class BaseTranslateProvider {
       text,
       metadata,
     };
-    state.auditContext.lifecycle.terminal(
-      'cleanup',
-      'success',
-      state.audit.createMetadata(metadata, {
-        durationMs: this.createAuditDuration(state),
-        pageClosed,
-        postSubmission: true,
-      }),
-    );
+    if (emitTerminal) {
+      state.auditContext.lifecycle.terminal(
+        'cleanup',
+        'success',
+        state.audit.createMetadata(metadata, {
+          durationMs: this.createAuditDuration(state),
+          pageClosed,
+          postSubmission: true,
+        }),
+      );
+    }
     return outcome;
   }
 
@@ -726,14 +886,16 @@ export abstract class BaseTranslateProvider {
       discard: code === 'cancelledOrStaleOperation',
       metadata: this.createMetadata(phase, state, resultLength),
     };
-    state.audit.terminalFailure(state.auditContext.lifecycle, outcome, {
-      durationMs: this.createAuditDuration(state),
-      exceptionType: auditOptions.exceptionType,
-      pageClosed: auditOptions.pageClosed,
-      phase: auditOptions.auditPhase ?? state.audit.toPhase(phase),
-      postSubmission: this.isPostSubmissionPhase(phase),
-      signalAborted: state.signal?.aborted === true,
-    });
+    if (state.lifecycle === undefined) {
+      state.audit.terminalFailure(state.auditContext.lifecycle, outcome, {
+        durationMs: this.createAuditDuration(state),
+        exceptionType: auditOptions.exceptionType,
+        pageClosed: auditOptions.pageClosed,
+        phase: auditOptions.auditPhase ?? state.audit.toPhase(phase),
+        postSubmission: this.isPostSubmissionPhase(phase),
+        signalAborted: state.signal?.aborted === true,
+      });
+    }
     return outcome;
   }
 
@@ -838,23 +1000,27 @@ export abstract class BaseTranslateProvider {
     return phase === 'submission' || phase === 'result' || phase === 'cleanup';
   }
 
-  private async closeOwnedResources(): Promise<boolean> {
-    if (this.closePromise) return this.closePromise;
-    const closePromise = this.performCloseOwnedResources();
-    this.closePromise = closePromise;
+  private async closeOwnedResources(operationKey?: string): Promise<boolean> {
+    const owner = this.activeResource ?? this.quarantinedResource;
+    if (owner === null || (operationKey !== undefined && owner.operationKey !== operationKey)) return true;
+    if (owner.closePromise !== null) return owner.closePromise;
+
+    if (this.activeResource === owner) this.activeResource = null;
+    this.quarantinedResource = owner;
+    const closePromise = this.performCloseOwnedResources(owner);
+    owner.closePromise = closePromise;
     try {
       return await closePromise;
     } finally {
-      if (this.closePromise === closePromise) this.closePromise = null;
+      if (owner.closePromise === closePromise) owner.closePromise = null;
     }
   }
 
-  private async performCloseOwnedResources(): Promise<boolean> {
-    const page = this.page;
-    const context = this.context;
+  private async performCloseOwnedResources(owner: ProviderResourceOwner): Promise<boolean> {
+    const page = owner.page;
     let pageClosed = page === null || page.isClosed();
 
-    if (page && !pageClosed) {
+    if (page !== null && !pageClosed) {
       try {
         await page.close();
         pageClosed = true;
@@ -862,21 +1028,16 @@ export abstract class BaseTranslateProvider {
         pageClosed = false;
       }
     }
-    if (pageClosed && this.page === page) this.page = null;
-
-    if (context) {
-      try {
-        await context.close();
-        if (this.context === context) this.context = null;
-        if (this.page === page) this.page = null;
-        return true;
-      } catch {
-        if (this.context === context && !pageClosed && this.page === null) this.page = page;
-        return false;
-      }
+    try {
+      await owner.context.close();
+      if (owner.page === page) owner.page = null;
+      if (this.activeResource === owner) this.activeResource = null;
+      if (this.quarantinedResource === owner) this.quarantinedResource = null;
+      return true;
+    } catch {
+      if (pageClosed && owner.page === page) owner.page = null;
+      return false;
     }
-
-    return pageClosed;
   }
 
   private async shutdownProvider(): Promise<void> {
@@ -893,12 +1054,16 @@ export abstract class BaseTranslateProvider {
     this.initializationGeneration += 1;
     this.generation += 1;
     this.operationQueue = Promise.resolve();
-    this.closePromise = null;
-    const page = this.page;
-    const context = this.context;
-    if (this.page === page) this.page = null;
-    if (this.context === context) this.context = null;
-    this.releaseDetachedResources(page, context);
+    const owner = this.activeResource ?? this.quarantinedResource;
+    if (owner !== null) void this.closeOwnedResources(owner.operationKey);
+  }
+
+  private releaseDetachedPage(page: Page): void {
+    try {
+      if (!page.isClosed()) void page.close();
+    } catch {
+      // The active owner retains context cleanup responsibility.
+    }
   }
 
   private releaseDetachedResources(page: Page | null, context: BrowserContext | null): void {
