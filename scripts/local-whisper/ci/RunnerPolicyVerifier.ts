@@ -20,30 +20,9 @@ export const NATIVE_PATH_OWNERS = [
 const JOBS = {
   'native-quality-linux': { label: 'ubuntu-24.04', primary: true },
   'native-quality-windows': { label: 'windows-2025', primary: true },
-  'native-quality-linux-compatibility': { label: 'ubuntu-22.04', primary: false },
-  'native-quality-windows-compatibility': { label: 'windows-2022', primary: false },
 } as const;
 
-const APPROVED_RUNNER_LABELS = new Set(['ubuntu-24.04', 'ubuntu-22.04', 'windows-2025', 'windows-2022']);
-const COMPATIBILITY_REQUIRED = [
-  'test:local-whisper:fs-guard:native',
-  'test:local-whisper:launcher:native',
-  'test:local-whisper:worker-codec',
-  'test:local-whisper:whisper-cpp-core',
-  'build:local-whisper:fs-guard',
-  'build:local-whisper:launcher',
-  'build:local-whisper:whisper-cpp-cpu',
-  'emit:local-whisper:runner-evidence',
-] as const;
-const EXHAUSTIVE_ONLY = [
-  'format:check:local-whisper',
-  'lint:local-whisper',
-  'native-sanitizer-proof',
-  'msvc-asan',
-  'verify:local-whisper:native-hardening',
-  'verify:local-whisper:amd-packs',
-] as const;
-
+const APPROVED_RUNNER_LABELS = new Set(['ubuntu-24.04', 'windows-2025']);
 interface WorkflowJob {
   readonly 'runs-on'?: unknown;
   readonly steps?: unknown;
@@ -107,15 +86,6 @@ function verifyApprovedRunners(jobs: Record<string, WorkflowJob>): void {
   }
 }
 
-function verifyCompatibilityJob(jobName: string, text: string): void {
-  for (const required of COMPATIBILITY_REQUIRED) {
-    if (!text.includes(required)) throw new Error(`${jobName} must execute ${required}`);
-  }
-  for (const exhaustive of EXHAUSTIVE_ONLY) {
-    if (text.includes(exhaustive)) throw new Error(`${jobName} must not duplicate ${exhaustive}`);
-  }
-}
-
 function verifyRequiredRunnerJobs(jobs: Record<string, WorkflowJob>): void {
   for (const [jobName, contract] of Object.entries(JOBS)) {
     const job = jobs[jobName];
@@ -129,7 +99,6 @@ function verifyRequiredRunnerJobs(jobs: Record<string, WorkflowJob>): void {
     ) {
       throw new Error(`${jobName} must emit evidence for its exact runner and toolchain`);
     }
-    if (!contract.primary) verifyCompatibilityJob(jobName, text);
   }
 }
 

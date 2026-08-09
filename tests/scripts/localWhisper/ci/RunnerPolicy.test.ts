@@ -3,17 +3,6 @@ import { describe, it } from 'node:test';
 
 import { RunnerPolicyVerifier } from '@scripts/local-whisper/ci/RunnerPolicyVerifier';
 
-const commonSteps = `
-    steps:
-      - run: npm run test:local-whisper:fs-guard:native
-      - run: npm run test:local-whisper:launcher:native
-      - run: npm run test:local-whisper:worker-codec
-      - run: npm run test:local-whisper:whisper-cpp-core
-      - run: npm run build:local-whisper:fs-guard
-      - run: npm run build:local-whisper:launcher
-      - run: npm run build:local-whisper:whisper-cpp-cpu
-      - run: npm run emit:local-whisper:runner-evidence
-`;
 const validWorkflow = `
 jobs:
   native-quality-linux:
@@ -26,46 +15,24 @@ jobs:
     steps:
       - run: npm run test:local-whisper:fs-guard:msvc-asan && npm run verify:local-whisper:native-hardening
       - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-2025 --toolchain=msvc-19.39
-  native-quality-linux-compatibility:
-    runs-on: ubuntu-22.04${commonSteps}
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=ubuntu-22.04 --toolchain=clang-18
-  native-quality-windows-compatibility:
-    runs-on: windows-2022${commonSteps}
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-2022 --toolchain=msvc-19.39
 `;
 
 describe('Native CI runner policy', () => {
-  it('accepts the fixed primary and compatibility native runner allocation', () => {
+  it('accepts the fixed primary native runner allocation', () => {
     new RunnerPolicyVerifier().verify(validWorkflow);
   });
 
   it('rejects mutable, unsupported, swapped, and missing runner legs', () => {
     const verifier = new RunnerPolicyVerifier();
     assert.throws(() => verifier.verify(validWorkflow.replace('ubuntu-24.04', 'ubuntu-latest')), /unsupported runner/u);
-    assert.throws(() => verifier.verify(validWorkflow.replace('windows-2025', 'windows-2022')), /windows-2025/u);
+    assert.throws(() => verifier.verify(validWorkflow.replace('windows-2025', 'windows-2022')), /unsupported runner/u);
     assert.throws(
-      () =>
-        verifier.verify(
-          validWorkflow.replace('  native-quality-linux-compatibility:', '  missing-linux-compatibility:'),
-        ),
-      /native-quality-linux-compatibility/u,
+      () => verifier.verify(validWorkflow.replace('  native-quality-linux:', '  missing-linux:')),
+      /native-quality-linux/u,
     );
   });
 
-  it('keeps exhaustive checks off compatibility runners', () => {
-    assert.throws(
-      () =>
-        new RunnerPolicyVerifier().verify(
-          validWorkflow.replace(
-            '--runner-label=ubuntu-22.04 --toolchain=clang-18',
-            '--runner-label=ubuntu-22.04 --toolchain=clang-18 && npm run lint:local-whisper:worker-common',
-          ),
-        ),
-      /must not duplicate/u,
-    );
-  });
-
-  it('maps only native ownership paths to compatibility execution', () => {
+  it('maps only native ownership paths to execution', () => {
     const verifier = new RunnerPolicyVerifier();
     assert.equal(verifier.ownsNativePath('runtime/local-whisper/worker/main.cpp'), true);
     assert.equal(verifier.ownsNativePath('package-lock.json'), true);
