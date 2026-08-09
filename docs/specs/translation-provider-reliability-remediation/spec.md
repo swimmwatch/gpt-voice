@@ -274,7 +274,12 @@ requests, packaging, or release activity.
   source submission. If the signal is missing, unsupported, ambiguous, stale,
   contradictory, or changes before acceptance, the provider falls back to two
   identical normalized reads at least 500 milliseconds apart. The first non-empty
-  snapshot alone is never sufficient.
+  snapshot alone is never sufficient. The approved Google contract uses one visible,
+  enabled `Copy translation` control inside exactly one visible result region as
+  completion evidence; an `aria-disabled="true"` control is not enabled. A bounded
+  browser-frame wait may wake the first candidate observation without returning page
+  text. That candidate is still accepted early only after the coherent snapshot
+  confirms the Google completion control; otherwise it follows the same fallback.
 - **PERF-003:** Startup readiness continues to prepare only the currently selected
   provider. Other providers initialize on the first request that uses them. Provider
   or language selection does not navigate, create a provider session, or issue a
@@ -456,6 +461,16 @@ requests, packaging, or release activity.
   performs no cache write, result copy, success notification, success diagnostic
   capture, or connection-state update. Reset, shutdown, supersession, or staleness
   that wins first remains silently discarded and cannot restore clipboard data.
+
+## Translation Activity Presentation
+
+- **UX-001:** For a configured selected-text Translation hotkey, show the existing
+  cross-platform `processing` tray icon exactly once after selection/input validation
+  and cache lookup have accepted a cache-miss provider run. Retain it through the
+  operation's accepted terminal outcome and bounded cleanup, then restore the
+  recording-derived tray state. Invalid selection, cache hit, skipped or pre-dispatch
+  cancelled work, and direct `translate-text` IPC do not change the tray. Presentation
+  failure is fail-open and cannot expose selected text, result text, or raw errors.
 
 ## Security and Privacy
 
@@ -641,6 +656,13 @@ requests, packaging, or release activity.
   success, the prior clipboard is restored exactly once, no success side effects or
   connection-state overwrite occur, reset-first work remains silent, and one
   cancelled audit terminal and renderer status result.
+- **ACC-023:** Deterministic selected-text and shortcut tests prove a cache-miss
+  Translation run changes the tray from its recording-derived state to `processing`
+  only when provider work begins, keeps it there until success, failure, timeout, or
+  caller cancellation settles, and restores it exactly once. Cache hits, invalid,
+  skipped, direct IPC, and pre-dispatch cancelled paths do not change the tray; a
+  duplicate or throwing presentation observer cannot affect operation effects or leak
+  private text.
 
 ### Supported-Platform Manual Acceptance
 

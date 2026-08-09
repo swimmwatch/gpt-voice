@@ -21,6 +21,7 @@ import type { I18nService } from './i18n';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
 import type { SelectedTextActionGate } from './services/selectedTextActionState';
 import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
+import type { SelectedTextTranslationRunObserver } from './services/selectedTextTranslation';
 import type { PrettifyRuntime } from './services/prettifyProviders';
 import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import type { TrayController } from './tray';
@@ -41,7 +42,7 @@ export interface TextActionResultForStatus {
 
 export interface SelectedTextTranslationShortcutService {
   cancel(): boolean;
-  translateSelectedTextToClipboard(): Promise<TextActionResultForStatus>;
+  translateSelectedTextToClipboard(observer?: SelectedTextTranslationRunObserver): Promise<TextActionResultForStatus>;
 }
 
 export interface TextActionStatusResolution {
@@ -254,11 +255,20 @@ export class ShortcutController {
       }
 
       this.dependencies.logger.info(`${translateHotkey} pressed, translating selected text`);
-      const resultPromise = this.dependencies.selectedTextTranslationService.translateSelectedTextToClipboard();
+      let translationPresentationStarted = false;
+      const observer: SelectedTextTranslationRunObserver = {
+        onTranslationStarted: (): void => {
+          if (translationPresentationStarted) return;
+          translationPresentationStarted = true;
+          this.dependencies.trayController.updateIcon('processing');
+        },
+      };
+      const resultPromise = this.dependencies.selectedTextTranslationService.translateSelectedTextToClipboard(observer);
       this.sendTextActionStatus({ action: 'translation', phase: 'working' });
       void resolveTextActionStatus('translation', resultPromise).then((resolution) => {
         this.reportTextActionFailure(resolution.failureLogMetadata);
         this.sendTextActionStatus(resolution.status);
+        if (translationPresentationStarted) this.updateTrayIconForRecordingLifecycle();
       });
     });
     this.dependencies.logger.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);

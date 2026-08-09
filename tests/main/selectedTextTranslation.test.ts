@@ -5,6 +5,7 @@ import type { ClipboardType } from '@main/electronRuntime';
 import { I18nService } from '@main/i18n';
 import {
   SelectedTextTranslationService,
+  type SelectedTextTranslationRunObserver,
   type SelectedTextTranslationDependencies,
   type SelectedTextTranslationRuntime,
 } from '@main/services/selectedTextTranslation';
@@ -205,6 +206,7 @@ function createTestService(options: TestServiceOptions = {}) {
     body: string;
     options?: SystemNotificationOptions;
   }> = [];
+  const warnings: unknown[][] = [];
   const snapshot = createSnapshot(options);
   const runtime = new TestTranslationRuntime(snapshot, options);
 
@@ -219,7 +221,7 @@ function createTestService(options: TestServiceOptions = {}) {
       },
     },
     diagnosticCapture,
-    logger: { info: () => undefined, warn: () => undefined },
+    logger: { info: () => undefined, warn: (...args: unknown[]) => warnings.push(args) },
     localization,
     notify: (title, body, notificationOptions) => {
       notifications.push({ title, body, options: notificationOptions });
@@ -253,6 +255,7 @@ function createTestService(options: TestServiceOptions = {}) {
     service: new SelectedTextTranslationService(dependencies),
     snapshot,
     translations: runtime.translations,
+    warnings,
   };
 }
 
@@ -269,6 +272,47 @@ afterEach(() => {
 });
 
 describe('selected-text translation', () => {
+  it('notifies a run observer only for cache-miss provider work and keeps observer failures private', async () => {
+    const started: string[] = [];
+    const observer: SelectedTextTranslationRunObserver = {
+      onTranslationStarted: () => started.push('started'),
+    };
+    const invalid = createTestService();
+    const cache = createTextActionResultCache(20);
+    const first = createTestService({ cache, copyText: 'selected text' });
+    const cached = createTestService({ cache, copyText: 'selected text' });
+    const timedOut = createTestService({
+      copyText: 'selected text',
+      translateOutcome: createFailure(createSnapshot(), 'timed-out', 13),
+    });
+    const throwing = createTestService({ copyText: 'private selected text' });
+    let timeoutStarted = 0;
+
+    await invalid.service.translateSelectedTextToClipboard(observer);
+    await first.service.translateSelectedTextToClipboard(observer);
+    await cached.service.translateSelectedTextToClipboard(observer);
+    const timeoutResult = await timedOut.service.translateSelectedTextToClipboard({
+      onTranslationStarted: () => {
+        timeoutStarted += 1;
+      },
+    });
+    const throwingResult = await throwing.service.translateSelectedTextToClipboard({
+      onTranslationStarted: () => {
+        throw new Error('private selected text');
+      },
+    });
+
+    assert.deepEqual(started, ['started']);
+    assert.equal(invalid.translations.length, 0);
+    assert.equal(first.translations.length, 1);
+    assert.equal(cached.translations.length, 0);
+    assert.equal(timeoutResult.success, false);
+    assert.equal(timeoutStarted, 1);
+    assert.equal(throwingResult.success, true);
+    assert.equal(throwing.translations.length, 1);
+    assert.doesNotMatch(JSON.stringify(throwing.warnings), /private selected text/u);
+  });
+
   it('restores clipboard and reports an empty selection', async () => {
     const harness = createTestService();
 

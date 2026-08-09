@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import type { BrowserWindow } from 'electron';
 import { ShortcutController, type ShortcutSettingsSnapshot } from '@main/shortcuts';
 import type { SelectedTextPrettifyResult, SelectedTextPrettifyRunObserver } from '@main/services/selectedTextPrettify';
+import type { SelectedTextTranslationRunObserver } from '@main/services/selectedTextTranslation';
 import type { SelectedTextAction } from '@main/services/selectedTextActionState';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
 import { TestAppConfigStore } from './appConfigTestUtils';
@@ -79,6 +80,7 @@ class ShortcutControllerHarness {
   public translationCalls = 0;
   public translationCancelCalls = 0;
   public translationCancelResult = false;
+  public translationObserver: SelectedTextTranslationRunObserver | null = null;
   public translationResult: Promise<{ cancelled?: true; success: boolean }> = Promise.resolve({ success: true });
 
   public constructor(options: ShortcutControllerHarnessOptions = {}) {
@@ -129,8 +131,9 @@ class ShortcutControllerHarness {
           this.translationCancelCalls += 1;
           return this.translationCancelResult;
         },
-        translateSelectedTextToClipboard: async () => {
+        translateSelectedTextToClipboard: async (observer) => {
           this.translationCalls += 1;
+          this.translationObserver = observer ?? null;
           return this.translationResult;
         },
       },
@@ -151,6 +154,11 @@ class ShortcutControllerHarness {
   public startGeneration(): void {
     assert.ok(this.generationObserver);
     this.generationObserver.onGenerationStarted();
+  }
+
+  public startTranslation(): void {
+    assert.ok(this.translationObserver);
+    this.translationObserver.onTranslationStarted();
   }
 }
 
@@ -358,8 +366,11 @@ describe('ShortcutController', () => {
     harness.globalShortcuts.callbacks.get('Shift+Super+T')?.();
     assert.equal(harness.translationCalls, 1);
     assert.deepEqual(harness.sent, [['translation-status', { action: 'translation', phase: 'working' }]]);
+    harness.startTranslation();
+    assert.deepEqual(harness.trayStates, ['processing']);
 
     harness.globalShortcuts.callbacks.get('Escape')?.();
+    assert.deepEqual(harness.trayStates, ['processing']);
     finishTranslation({ cancelled: true, success: false });
     await settleAsyncDispatch();
 
@@ -367,6 +378,47 @@ describe('ShortcutController', () => {
     assert.deepEqual(harness.sent, [
       ['translation-status', { action: 'translation', phase: 'working' }],
       ['translation-status', { action: 'translation', phase: 'cancelled' }],
+    ]);
+    assert.deepEqual(harness.trayStates, ['processing', 'idle']);
+  });
+
+  it('shows Translation processing only from provider dispatch through terminal settlement', async () => {
+    let finishTranslation!: (result: { success: boolean }) => void;
+    const harness = new ShortcutControllerHarness();
+    harness.translationResult = new Promise((resolve) => {
+      finishTranslation = resolve;
+    });
+    harness.controller.register();
+
+    harness.globalShortcuts.callbacks.get('Shift+Super+T')?.();
+    assert.deepEqual(harness.trayStates, []);
+    harness.startTranslation();
+    harness.startTranslation();
+    assert.deepEqual(harness.trayStates, ['processing']);
+
+    finishTranslation({ success: true });
+    await settleAsyncDispatch();
+
+    assert.deepEqual(harness.trayStates, ['processing', 'idle']);
+    assert.deepEqual(harness.sent, [
+      ['translation-status', { action: 'translation', phase: 'working' }],
+      ['translation-status', { action: 'translation', phase: 'completed' }],
+    ]);
+  });
+
+  it('restores the tray after a failed Translation provider operation', async () => {
+    const harness = new ShortcutControllerHarness();
+    harness.translationResult = Promise.resolve({ success: false });
+    harness.controller.register();
+
+    harness.globalShortcuts.callbacks.get('Shift+Super+T')?.();
+    harness.startTranslation();
+    await settleAsyncDispatch();
+
+    assert.deepEqual(harness.trayStates, ['processing', 'idle']);
+    assert.deepEqual(harness.sent, [
+      ['translation-status', { action: 'translation', phase: 'working' }],
+      ['translation-status', { action: 'translation', phase: 'failed' }],
     ]);
   });
 

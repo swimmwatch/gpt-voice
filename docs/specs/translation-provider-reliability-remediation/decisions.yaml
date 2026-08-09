@@ -35,6 +35,101 @@ decisions:
     supersedes_revision: null
     requirement_ids: [CONC-008, FAIL-009, SEC-010, ACC-022]
 
+  - id: presentation.translation-tray-activity
+    revision: 1
+    category: presentation
+    state: answered
+    provenance: user
+    evidence:
+      - The user requested a visible top-bar indicator while Translation Provider work runs in the background.
+      - The user narrowed it to a configured Translation hotkey invocation after a real translation starts, with reset after terminal completion as Prettify does.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [selected-text-cache-miss-only, provider-run-lifetime, restore-recording-derived-state]
+      text: ''
+    rationale: Show the indicator only for actual selected-text provider work, not selection capture, validation, cache hits, skipped work, or direct IPC.
+    supersedes_revision: null
+    requirement_ids: [UX-001, ACC-023]
+
+  - id: presentation.translation-tray-icon
+    revision: 1
+    category: presentation
+    state: answered
+    provenance: user
+    evidence:
+      - The user chose reuse of the existing processing icon over a dedicated Translation asset.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [reuse-processing-icon]
+      text: ''
+    rationale: Reusing the already packaged cross-platform processing state avoids new assets and keeps the indication consistent with transcription.
+    supersedes_revision: null
+    requirement_ids: [UX-001, ACC-023]
+
+  - id: execution.packet-08
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 07 was committed locally as 80f801a after separate authorization and passing focused verification.
+      - The user supplied a decision-complete Translation Provider Tray Activity Indicator plan and requested its implementation.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: execution-round-08
+      question_id: execution.packet-08
+      idempotency_key: execution.packet-08:v1
+      last_status: answered
+    question:
+      text: Authorize execution and verification of Packet 08, Translation Provider Tray Activity Indicator, leaving its resulting changes uncommitted?
+      kind: single
+      options:
+        - id: execute-packet-08
+          label: Execute Packet 08 (Recommended)
+          description: Implement and verify only the selected-text Translation processing indicator; do not push, package, or begin Packet 06.
+        - id: do-not-execute
+          label: Do not execute
+          description: Leave the tray-indicator packet unimplemented and stop after Packet 07.
+    answer:
+      selected_ids: [do-not-execute]
+      text: ''
+    rationale: The persistent implementation interview declined Packet 08 execution; its implementation must not begin.
+    supersedes_revision: null
+    requirement_ids: [UX-001, ACC-023]
+
+  - id: execution.packet-08
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The prior execution revision selected do-not-execute.
+      - The user explicitly resumed the Translation Provider Tray Activity Indicator work with “Continue”.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: execution-round-09
+      question_id: execution.packet-08
+      idempotency_key: execution.packet-08:v2
+      last_status: answered
+    question:
+      text: Authorize execution and verification of Packet 08, Translation Provider Tray Activity Indicator, leaving its resulting changes uncommitted?
+      kind: single
+      options:
+        - id: execute-packet-08
+          label: Execute Packet 08 (Recommended)
+          description: Implement and verify only the selected-text Translation processing indicator; do not push, package, or begin Packet 06.
+        - id: do-not-execute
+          label: Do not execute
+          description: Leave the tray-indicator packet unimplemented and stop.
+    answer:
+      selected_ids: [execute-packet-08]
+      text: ''
+    rationale: The current persistent execution decision authorizes Packet 08 implementation and verification without a commit.
+    supersedes_revision: 1
+    requirement_ids: [UX-001, ACC-023]
+
   - id: authorization.commit-packet-07
     revision: 1
     category: authorization
@@ -67,6 +162,37 @@ decisions:
     rationale: The persistent implementation interview separately authorized one isolated local Packet 07 commit.
     supersedes_revision: null
     requirement_ids: [CONC-008, FAIL-009, SEC-010, ACC-022]
+
+  - id: authorization.commit-packet-08
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 08 is complete and its focused selected-text, shortcut, and shortcut-registration tests pass.
+      - The approved Google Translation Overwrite-and-Reuse plan requires an isolated Packet 08 commit before Packet 09 starts.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-09
+      question_id: authorization.commit-packet-08
+      idempotency_key: authorization.commit-packet-08:v1
+      last_status: answered
+    question:
+      text: Authorize one isolated local commit for completed Packet 08, containing only the Translation tray activity implementation, its focused tests, and its workstream artifacts? This is required before Packet 09 can begin; it will not push, package, or include the Google follow-up.
+      kind: single
+      options:
+        - id: commit-packet-08
+          label: Commit Packet 08 (Recommended)
+          description: Create the isolated local Packet 08 commit only, then proceed solely with the separately authorized Packet 09.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 08 uncommitted and do not begin Packet 09.
+    answer:
+      selected_ids: [commit-packet-08]
+      text: ''
+    rationale: The persistent implementation interview separately authorized one isolated local Packet 08 commit.
+    supersedes_revision: null
+    requirement_ids: [UX-001, ACC-023]
 
   - id: scope.actionable-findings
     revision: 1
@@ -1129,6 +1255,29 @@ decisions:
         ACC-019,
         ACC-020,
       ]
+
+  - id: performance.google-copy-ready-candidate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested investigation of additional Google public-page readiness
+        flags and the fastest safe result collection without copying partial text.
+      - A non-persistent, no-login inspection with synthetic text found no usable
+        aria-busy or aria-live state. Successful observations showed one visible,
+        enabled Copy translation control with the non-empty result in one visible result region.
+      - The installed Playwright runtime supports browser-frame polling but not mutation polling.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [google-copy-control-with-frame-candidate-wait]
+      text: ''
+    rationale: Wake the first Google candidate inside the browser, then preserve the coherent
+      route, target, result, and copy-control snapshot as the sole early-acceptance authority.
+      A missing or disabled control remains on the quality-preserving fallback.
+    supersedes_revision: null
+    requirement_ids: [PERF-002, PERF-006, QUAL-001, QUAL-002, SEC-001, SEC-004, SEC-009]
 
   - id: verification.packet-04
     revision: 1

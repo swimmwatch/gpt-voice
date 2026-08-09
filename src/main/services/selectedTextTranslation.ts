@@ -25,6 +25,10 @@ export interface SelectedTextTranslationResult {
   skipped?: true;
 }
 
+export interface SelectedTextTranslationRunObserver {
+  readonly onTranslationStarted: () => void;
+}
+
 export interface SelectedTextTranslationClipboard {
   readText(type?: ClipboardType): string;
   writeText(text: string, type?: ClipboardType): void;
@@ -82,7 +86,9 @@ export class SelectedTextTranslationService {
   }
 
   /** Translates the current desktop selection and writes the accepted result to the clipboard. */
-  public readonly translateSelectedTextToClipboard = async (): Promise<SelectedTextTranslationResult> => {
+  public readonly translateSelectedTextToClipboard = async (
+    observer?: SelectedTextTranslationRunObserver,
+  ): Promise<SelectedTextTranslationResult> => {
     if (!this.dependencies.actionGate.tryBegin('translate')) {
       this.dependencies.logger.info('Selected-text translation skipped because another selected-text action is active');
       return createSkippedResult();
@@ -155,6 +161,7 @@ export class SelectedTextTranslationService {
         return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
       }
 
+      this.notifyTranslationStarted(operation, snapshot, observer);
       const outcome = await this.dependencies.runtime.translateWithSnapshot(
         selectedText,
         snapshot,
@@ -210,6 +217,22 @@ export class SelectedTextTranslationService {
       });
     } catch {
       // Diagnostic capture cannot alter selected-text behavior.
+    }
+  }
+
+  private notifyTranslationStarted(
+    operation: SelectedTextTranslationOperation,
+    snapshot: TranslationExecutionSnapshot,
+    observer?: SelectedTextTranslationRunObserver,
+  ): void {
+    if (!this.dependencies.runtime.isCurrent(snapshot) || !operation.markProviderRunStarted() || !observer) return;
+    try {
+      observer.onTranslationStarted();
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Could not present Translation provider start:',
+        this.presentTranslationError(error).safeLogMetadata,
+      );
     }
   }
 

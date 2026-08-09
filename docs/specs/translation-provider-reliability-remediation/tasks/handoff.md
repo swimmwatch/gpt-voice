@@ -2,9 +2,10 @@
 
 ## Status
 
-Packets 01–05 are committed as `e1fe686`, `de5ec2e`, `02fbd227`, `1ca2f81e`, and
-`d43fcc70`. Packet 07 is complete and intentionally uncommitted for review. Packet 06
-remains the only later packet and requires its own explicit implementation authorization.
+Packets 01–05 and 07 are committed as `e1fe686`, `de5ec2e`, `02fbd227`, `1ca2f81e`,
+`d43fcc70`, and `80f801a`. Packet 08 is complete and intentionally uncommitted for
+review. Packet 06 remains the only later packet and requires its own explicit
+implementation authorization.
 
 ## Completed Packets
 
@@ -55,6 +56,12 @@ remains the only later packet and requires its own explicit implementation autho
     cancellation restores the captured clipboard and emits the existing cancelled
     renderer status without result/cache/notification/diagnostic-success or connection
     effects; reset-first work remains silent.
+- [08 Show Translation tray activity](08_show_translation_tray_activity.md)
+  - Added a fail-open, main-process-only run observer that fires once after selected-text
+    validation and a cache miss, immediately before Translation provider dispatch.
+  - The configured Translation hotkey now changes the existing tray to `processing` for
+    that provider run, then restores the recording-derived icon only after the same
+    promise settles, including failure, timeout, and bounded cancellation cleanup.
 
 ## Changed Files
 
@@ -74,6 +81,11 @@ remains the only later packet and requires its own explicit implementation autho
   internal failure marker, Cancel shortcut, focused deterministic tests, and workstream
   contract/plan/packet artifacts. It adds no dependency, renderer, preload, IPC,
   settings, database, provider-adapter, generated artifact, or release change.
+- Packet 08 updates the selected-text Translation service and operation, Translation
+  shortcut presentation, focused deterministic tests, and workstream contract, decision,
+  plan, checklist, handoff, and Packet 06 manual-gate artifacts. It adds no dependency,
+  renderer, preload, IPC, settings, persisted data, provider-adapter, generated asset,
+  packaging, or release change.
 
 ## Checks
 
@@ -101,6 +113,10 @@ tests/main/shortcuts.test.ts tests/main/shortcutController.test.ts`, `npm run ty
 - Packet 07 compatibility suite — Base Provider, provider-registry, operation-lifecycle,
   provider-audit, and renderer status-presentation tests passed without live provider
   access.
+- Packet 08 focused deterministic suite — `node --import tsx --test
+  tests/main/selectedTextTranslation.test.ts tests/main/shortcutController.test.ts
+  tests/main/shortcuts.test.ts` passed with 47 tests. `npm run typecheck`, `npm run
+  test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed cleanly.
 
 ## Exact Next Packet
 
@@ -108,8 +124,8 @@ tests/main/shortcuts.test.ts tests/main/shortcutController.test.ts`, `npm run ty
 
 ## Blockers
 
-- Packet 07 is intentionally uncommitted. A future implementation invocation must
-  obtain separate commit authorization, verify this handoff, and commit only Packet 07
+- Packet 08 is intentionally uncommitted. A future implementation invocation must
+  obtain separate commit authorization, verify this handoff, and commit only Packet 08
   before it may open Packet 06.
 - Packet 06 requires separate execution authorization and its supported-platform manual
   gates; it must not start from this packet.
@@ -117,7 +133,5 @@ tests/main/shortcuts.test.ts tests/main/shortcutController.test.ts`, `npm run ty
 ## Remaining Manual Gates
 
 - No browser, provider, credential, package, release, or external-system gate was
-  crossed. Packet 04 deliberately leaves Google, Bing, and Yandex completion evidence as
-  `unavailable`; a separately authorized non-sensitive live public-page inspection is
-  required before enabling any fast-completion signal. Live canaries remain later-work
-  gates; supported-platform qualification remains in Packet 06.
+  crossed. Packet 06 includes the later Linux and Windows packaged tray-indicator
+  confirmation alongside supported-platform qualification.

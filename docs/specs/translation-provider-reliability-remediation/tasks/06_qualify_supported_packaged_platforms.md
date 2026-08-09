@@ -89,12 +89,17 @@ and macOS release support remains paused.
     restoration of the prior clipboard, absence of result/cache/success notification,
     bounded cleanup, and later action recovery. Do not retain selected text or
     clipboard contents in evidence.
-12. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
+12. During one non-sensitive cache-miss selected-text Translation per supported
+    platform, confirm the existing `processing` tray icon appears only after provider
+    work begins, remains visible until the accepted terminal cleanup settles, and then
+    returns to the recording-derived tray state. Record no selected text, result text,
+    screenshot, provider page, URL, or credential in evidence.
+13. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
     platform/architecture, app and provider contract versions, baseline/candidate
     revisions, provider ID, target code, cold/warm, elapsed safe phases, end-to-end
     duration, evaluation counts when available, pass/fail, scheduler tolerance, and
     explicit gaps. Exclude all sensitive/provider-controlled data named above.
-13. Generated packages, temporary worktrees, browser caches, and test-only process
+14. Generated packages, temporary worktrees, browser caches, and test-only process
     state are not committed. Remove them only through an explicitly reviewed,
     narrowly targeted cleanup after evidence is secured; never use a broad recursive
     deletion target.
