@@ -17,6 +17,7 @@ import {
   GoogleTranslateProvider,
   type GoogleClearSnapshot,
   type GoogleReadinessSnapshot,
+  type GoogleResultObservationSnapshot,
   type GoogleResultSnapshot,
   type GoogleRouteSnapshot,
   type GoogleTranslatePageAdapter,
@@ -26,6 +27,7 @@ import {
   type BingCanonicalCatalogSnapshot,
   type BingClearSnapshot,
   type BingPublicControlsSnapshot,
+  type BingResultObservationSnapshot,
   type BingResultSnapshot,
   type BingRouteSnapshot,
   type BingSelectionSnapshot,
@@ -37,6 +39,7 @@ import {
   type YandexClearSnapshot,
   type YandexEditorSnapshot,
   type YandexReadinessSnapshot,
+  type YandexResultObservationSnapshot,
   type YandexRouteSnapshot,
   type YandexTargetSnapshot,
   type YandexTranslatePageAdapter,
@@ -81,7 +84,7 @@ interface ScenarioHarness {
 }
 
 interface ProviderScenario {
-  readonly createHarness: () => ScenarioHarness;
+  readonly createHarness: (coherentResultObservation?: boolean) => ScenarioHarness;
   readonly providerId: TranslationProviderId;
 }
 
@@ -242,8 +245,20 @@ class GooglePerformanceAdapter implements GoogleTranslatePageAdapter {
   private sourceValueLength = 0;
   private submitted = false;
   private visibleClearControls = 0;
+  public readonly readResultObservationSnapshot?: () => Promise<GoogleResultObservationSnapshot>;
 
-  public constructor(private readonly timeline: ControlledTimeline) {}
+  public constructor(private readonly timeline: ControlledTimeline, coherentResultObservation = false) {
+    if (coherentResultObservation) {
+      this.readResultObservationSnapshot = async () => {
+        this.timeline.browserEvaluation('google.result.observe');
+        if (this.submitted) {
+          this.timeline.recordCandidate();
+          this.timeline.recordTargetVerification();
+        }
+        return { result: this.resultSnapshot(), route: this.route };
+      };
+    }
+  }
 
   public async clickClearSource(): Promise<boolean> {
     this.timeline.browserEvaluation('google.clear.click');
@@ -360,8 +375,25 @@ class BingPerformanceAdapter implements BingTranslatePageAdapter {
   };
   private submitted = false;
   private visibleClearControls = 0;
+  public readonly readResultObservationSnapshot?: () => Promise<BingResultObservationSnapshot>;
 
-  public constructor(private readonly timeline: ControlledTimeline) {}
+  public constructor(private readonly timeline: ControlledTimeline, coherentResultObservation = false) {
+    if (coherentResultObservation) {
+      this.readResultObservationSnapshot = async () => {
+        this.timeline.browserEvaluation('bing.result.observe');
+        if (this.submitted) {
+          this.timeline.recordCandidate();
+          this.timeline.recordTargetVerification();
+        }
+        return {
+          controls: this.controls,
+          result: this.resultSnapshot(),
+          route: { route: 'translator' },
+          selection: this.selection,
+        };
+      };
+    }
+  }
 
   public async clickClear(): Promise<boolean> {
     this.timeline.browserEvaluation('bing.clear.click');
@@ -486,8 +518,24 @@ class YandexPerformanceAdapter implements YandexTranslatePageAdapter {
   private target: YandexTargetSnapshot = { selectedTargetCode: null, visibleOpeners: 1 };
   private targetChooserOpen = false;
   private visibleClearControls = 0;
+  public readonly readResultObservationSnapshot?: () => Promise<YandexResultObservationSnapshot>;
 
-  public constructor(private readonly timeline: ControlledTimeline) {}
+  public constructor(private readonly timeline: ControlledTimeline, coherentResultObservation = false) {
+    if (coherentResultObservation) {
+      this.readResultObservationSnapshot = async () => {
+        this.timeline.browserEvaluation('yandex.result.observe');
+        if (this.submitted) {
+          this.timeline.recordCandidate();
+          this.timeline.recordTargetVerification();
+        }
+        return {
+          editors: this.submitted ? this.createEditors(this.editors.sourceTextLength ?? 0, true) : this.editors,
+          route: this.route,
+          target: this.target,
+        };
+      };
+    }
+  }
 
   public async clickClear(): Promise<boolean> {
     this.timeline.browserEvaluation('yandex.clear.click');
@@ -618,9 +666,9 @@ class YandexPerformanceAdapter implements YandexTranslatePageAdapter {
   }
 }
 
-function createGoogleHarness(): ScenarioHarness {
+function createGoogleHarness(coherentResultObservation = false): ScenarioHarness {
   const timeline = new ControlledTimeline();
-  const adapter = new GooglePerformanceAdapter(timeline);
+  const adapter = new GooglePerformanceAdapter(timeline, coherentResultObservation);
   const contexts: FakeContext[] = [];
   const provider = new GoogleTranslateProvider({
     cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
@@ -642,9 +690,9 @@ function createGoogleHarness(): ScenarioHarness {
   return { contexts, provider, timeline };
 }
 
-function createBingHarness(): ScenarioHarness {
+function createBingHarness(coherentResultObservation = false): ScenarioHarness {
   const timeline = new ControlledTimeline();
-  const adapter = new BingPerformanceAdapter(timeline);
+  const adapter = new BingPerformanceAdapter(timeline, coherentResultObservation);
   const contexts: FakeContext[] = [];
   const provider = new BingTranslateProvider({
     cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
@@ -667,9 +715,9 @@ function createBingHarness(): ScenarioHarness {
   return { contexts, provider, timeline };
 }
 
-function createYandexHarness(): ScenarioHarness {
+function createYandexHarness(coherentResultObservation = false): ScenarioHarness {
   const timeline = new ControlledTimeline();
-  const adapter = new YandexPerformanceAdapter(timeline);
+  const adapter = new YandexPerformanceAdapter(timeline, coherentResultObservation);
   const contexts: FakeContext[] = [];
   const provider = new YandexTranslateProvider({
     cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
@@ -720,13 +768,16 @@ async function measureTranslation(
   return harness.timeline.createCell(providerId, path, operation.events);
 }
 
-async function captureProviderBaseline(scenario: ProviderScenario): Promise<readonly BaselineCell[]> {
-  const coldHarness = scenario.createHarness();
+async function captureProviderBaseline(
+  scenario: ProviderScenario,
+  coherentResultObservation = false,
+): Promise<readonly BaselineCell[]> {
+  const coldHarness = scenario.createHarness(coherentResultObservation);
   const cold = await measureTranslation(coldHarness, scenario.providerId, 'cold');
   assert.equal(cold.contextCreationCount, 1);
   assert.equal(coldHarness.contexts.length, 1);
 
-  const warmHarness = scenario.createHarness();
+  const warmHarness = scenario.createHarness(coherentResultObservation);
   await measureTranslation(warmHarness, scenario.providerId, 'cold');
   assert.equal(warmHarness.contexts.length, 1);
   const warm = await measureTranslation(warmHarness, scenario.providerId, 'warm');
@@ -736,14 +787,16 @@ async function captureProviderBaseline(scenario: ProviderScenario): Promise<read
   return [cold, warm];
 }
 
-async function captureBaseline(): Promise<readonly BaselineCell[]> {
+async function captureBaseline(coherentResultObservation = false): Promise<readonly BaselineCell[]> {
   const scenarios: readonly ProviderScenario[] = [
     { createHarness: createGoogleHarness, providerId: 'google' },
     { createHarness: createBingHarness, providerId: 'bing' },
     { createHarness: createYandexHarness, providerId: 'yandex' },
   ];
   const cells: BaselineCell[] = [];
-  for (const scenario of scenarios) cells.push(...(await captureProviderBaseline(scenario)));
+  for (const scenario of scenarios) {
+    cells.push(...(await captureProviderBaseline(scenario, coherentResultObservation)));
+  }
   return cells;
 }
 
@@ -995,6 +1048,36 @@ function assertBaseline(cells: readonly BaselineCell[]): void {
   assert.deepEqual(cells, EXPECTED_BASELINES);
 }
 
+function assertCandidateImprovesEveryCell(cells: readonly BaselineCell[]): void {
+  for (const candidate of cells) {
+    const baseline = EXPECTED_BASELINES.find(
+      (cell) => cell.providerId === candidate.providerId && cell.path === candidate.path,
+    );
+    assert.ok(baseline, `${candidate.providerId} ${candidate.path} baseline must exist`);
+    assert.ok(
+      candidate.totalApplicationControlledDurationMs < baseline.totalApplicationControlledDurationMs,
+      `${candidate.providerId} ${candidate.path} must be strictly faster`,
+    );
+    assert.ok(
+      candidate.browserEvaluationCount <= baseline.browserEvaluationCount,
+      `${candidate.providerId} ${candidate.path} must not add browser evaluations`,
+    );
+    for (const phase of [
+      'initializationNavigationDurationMs',
+      'readinessDurationMs',
+      'submissionToFirstCandidateDurationMs',
+      'confirmationDurationMs',
+      'targetVerificationDurationMs',
+      'visibleClearDurationMs',
+    ] as const) {
+      assert.ok(
+        candidate[phase] <= baseline[phase],
+        `${candidate.providerId} ${candidate.path} must not regress ${phase}`,
+      );
+    }
+  }
+}
+
 describe('translation provider controlled performance baseline', () => {
   it('records the current six controlled cold and warm provider cells', async () => {
     const cells = await captureBaseline();
@@ -1015,6 +1098,29 @@ describe('translation provider controlled performance baseline', () => {
     assert.throws(() => assertBaseline([added, ...cells.slice(1)]));
     assert.throws(() => assertBaseline([omitted, ...cells.slice(1)]));
     assert.throws(() => assertBaseline([reordered, ...cells.slice(1)]));
+  });
+
+  it('makes every controlled cold and warm provider path faster with coherent result observation', async () => {
+    const candidates = await captureBaseline(true);
+
+    assert.equal(candidates.length, 6);
+    assertCandidateImprovesEveryCell(candidates);
+    assert.deepEqual(
+      candidates.map((candidate) => ({
+        browserEvaluationCount: candidate.browserEvaluationCount,
+        path: candidate.path,
+        providerId: candidate.providerId,
+        totalApplicationControlledDurationMs: candidate.totalApplicationControlledDurationMs,
+      })),
+      [
+        { browserEvaluationCount: 14, path: 'cold', providerId: 'google', totalApplicationControlledDurationMs: 580 },
+        { browserEvaluationCount: 13, path: 'warm', providerId: 'google', totalApplicationControlledDurationMs: 565 },
+        { browserEvaluationCount: 21, path: 'cold', providerId: 'bing', totalApplicationControlledDurationMs: 865 },
+        { browserEvaluationCount: 15, path: 'warm', providerId: 'bing', totalApplicationControlledDurationMs: 575 },
+        { browserEvaluationCount: 24, path: 'cold', providerId: 'yandex', totalApplicationControlledDurationMs: 630 },
+        { browserEvaluationCount: 15, path: 'warm', providerId: 'yandex', totalApplicationControlledDurationMs: 575 },
+      ],
+    );
   });
 
   it('keeps published baseline evidence limited to generic safe metadata', async () => {

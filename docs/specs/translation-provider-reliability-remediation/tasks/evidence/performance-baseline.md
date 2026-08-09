@@ -39,3 +39,25 @@ The fixed 500 ms stability confirmation appears on every successful path. Bing c
 also includes its existing 250 ms catalog-stability sleep. These values are immutable
 pre-change evidence: a later packet may append comparable candidate results but may not
 replace this table.
+
+## Packet 04 Candidate Comparison
+
+The Packet 04 deterministic fixture uses one coherent result observation per polling
+cycle. It preserves the same 500 ms two-identical-read fallback for Google, Bing, and
+Yandex because no provider-specific completion signal was enabled without the separate
+live public-page inspection gate. The fixture proves that each candidate cell is strictly
+faster than its immutable baseline, has no phase regression, and does not add browser
+evaluations.
+
+| Provider | Path | Candidate total | Baseline total | Candidate evaluations | Baseline evaluations | Result fallback | Target verification |
+| -------- | ---- | --------------: | -------------: | --------------------: | -------------------: | --------------- | ------------------: |
+| Google   | Cold |          580 ms |         585 ms |                    14 |                   15 | 500 ms          | 0 ms                |
+| Google   | Warm |          565 ms |         570 ms |                    13 |                   14 | 500 ms          | 0 ms                |
+| Bing     | Cold |          865 ms |         895 ms |                    21 |                   27 | 500 ms          | 0 ms                |
+| Bing     | Warm |          575 ms |         605 ms |                    15 |                   21 | 500 ms          | 0 ms                |
+| Yandex   | Cold |          630 ms |         650 ms |                    24 |                   28 | 500 ms          | 0 ms                |
+| Yandex   | Warm |          575 ms |         595 ms |                    15 |                   19 | 500 ms          | 0 ms                |
+
+The comparison is derived solely from injected clocks, fake adapter evaluations, and
+sanitized audit counters. It contains no provider-page, network, account, URL, DOM, or
+translation text data.

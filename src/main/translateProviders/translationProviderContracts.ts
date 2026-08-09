@@ -112,6 +112,22 @@ export interface TranslationProviderHookFailure {
 export type TranslationProviderHookResult<T = void> =
   TranslationProviderHookSuccess<T> | TranslationProviderHookFailure;
 
+/**
+ * One provider-owned public-page observation. Completion evidence is advisory:
+ * target, route, generation, and text validation remain mandatory.
+ */
+export type TranslationProviderCompletionClassification =
+  | 'ambiguous'
+  | 'incomplete'
+  | 'unavailable'
+  | 'verified-complete';
+
+export interface TranslationProviderResultObservation {
+  readonly completion: TranslationProviderCompletionClassification;
+  readonly targetVerified: boolean;
+  readonly text: string;
+}
+
 export function translationHookSuccess(): TranslationProviderHookSuccess<void>;
 export function translationHookSuccess<T>(value: T): TranslationProviderHookSuccess<T>;
 export function translationHookSuccess<T>(value?: T): TranslationProviderHookSuccess<T | undefined> {

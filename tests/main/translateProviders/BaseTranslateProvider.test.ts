@@ -19,6 +19,7 @@ import {
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
+  type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
@@ -116,6 +117,7 @@ class FakeTranslateProvider extends BaseTranslateProvider {
     clear: 0,
     insert: 0,
     navigate: 0,
+    observe: 0,
     readiness: 0,
     read: 0,
     sourceDetection: 0,
@@ -129,6 +131,7 @@ class FakeTranslateProvider extends BaseTranslateProvider {
   navigationError: Error | null = null;
   navigationDeferred: Deferred<TranslationProviderHookResult> | null = null;
   navigationResult: TranslationProviderHookResult = translationHookSuccess();
+  observationResults: TranslationProviderHookResult<TranslationProviderResultObservation>[] | null = null;
   previousResult = '';
   readinessResults: TranslationProviderHookResult[] = [translationHookSuccess()];
   readDeferred: Deferred<TranslationProviderHookResult<string>> | null = null;
@@ -201,6 +204,14 @@ class FakeTranslateProvider extends BaseTranslateProvider {
     return this.targetVerificationResult;
   }
 
+  protected override async observeResult(
+    page: Page,
+    targetLanguage: string,
+  ): Promise<TranslationProviderHookResult<TranslationProviderResultObservation>> {
+    this.calls.observe += 1;
+    return this.observationResults?.shift() ?? super.observeResult(page, targetLanguage);
+  }
+
   protected async clearVisibleState(): Promise<TranslationProviderHookResult> {
     this.calls.clear += 1;
     return this.clearResult;
@@ -214,7 +225,7 @@ interface Harness {
   readonly sleeps: number[];
 }
 
-function createHarness(): Harness {
+function createHarness(resultTimeoutMs = 31): Harness {
   const contexts: FakeContext[] = [];
   const options: LaunchContextOptions[] = [];
   const sleeps: number[] = [];
@@ -236,7 +247,7 @@ function createHarness(): Harness {
     now: () => now,
     resultPollIntervalMs: 10,
     resultStabilityDelayMs: 5,
-    resultTimeoutMs: 30,
+    resultTimeoutMs,
     sleep: async (delayMs) => {
       sleeps.push(delayMs);
       now += delayMs;
@@ -482,6 +493,42 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.provider.calls.insert, 1);
     assert.equal(harness.contexts.length, 1);
     assert.equal(harness.contexts[0]?.closeCalls, 1);
+  });
+
+  it('accepts a target-verified complete observation without the fallback delay', async () => {
+    const harness = createHarness();
+    harness.provider.observationResults = [
+      translationHookSuccess({
+        completion: 'verified-complete',
+        targetVerified: true,
+        text: 'translated',
+      }),
+    ];
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+    assert.equal(harness.provider.calls.observe, 1);
+    assert.equal(harness.provider.calls.targetVerification, 0);
+    assert.deepEqual(harness.sleeps, []);
+  });
+
+  it('treats the exact result deadline as expired before a delayed fallback confirmation', async () => {
+    const harness = createHarness(15);
+    harness.provider.previousResult = 'stale';
+    harness.provider.readResults = [
+      translationHookSuccess('stale'),
+      translationHookSuccess('candidate'),
+      translationHookSuccess('candidate'),
+    ];
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'resultTimeoutOrEmpty');
+    assert.deepEqual(harness.sleeps, [10, 5]);
+    assert.equal(harness.provider.calls.targetVerification, 0);
   });
 
   it('suppresses a late result after shutdown invalidates its generation', async () => {

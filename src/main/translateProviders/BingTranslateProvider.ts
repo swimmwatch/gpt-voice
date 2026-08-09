@@ -14,6 +14,7 @@ import {
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
+  type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
 import { normalizeTranslationResultText } from '@main/translateProviders/translationResultText';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
@@ -92,6 +93,13 @@ export interface BingClearSnapshot {
   readonly visibleClearWrappers: number;
 }
 
+export interface BingResultObservationSnapshot {
+  readonly controls: BingPublicControlsSnapshot;
+  readonly result: BingResultSnapshot;
+  readonly route: BingRouteSnapshot;
+  readonly selection: BingSelectionSnapshot;
+}
+
 export interface BingTranslatePageAdapter {
   clickClear(): Promise<boolean>;
   fillSourceText(sourceText: string): Promise<boolean>;
@@ -99,6 +107,7 @@ export interface BingTranslatePageAdapter {
   readCanonicalCatalogSnapshot(): Promise<BingCanonicalCatalogSnapshot>;
   readClearSnapshot(): Promise<BingClearSnapshot>;
   readPublicControlsSnapshot(): Promise<BingPublicControlsSnapshot>;
+  readResultObservationSnapshot?(): Promise<BingResultObservationSnapshot>;
   readResultSnapshot(): Promise<BingResultSnapshot>;
   readRouteSnapshot(): Promise<BingRouteSnapshot>;
   readSelectionSnapshot(): Promise<BingSelectionSnapshot>;
@@ -372,6 +381,65 @@ class PlaywrightBingTranslatePageAdapter implements BingTranslatePageAdapter {
     };
   }
 
+  async readResultObservationSnapshot(): Promise<BingResultObservationSnapshot> {
+    const snapshot = await this.page.evaluate(
+      ({ blockingSelector, outputSelector, sourceSelector, sourceSelectSelector, targetSelectSelector }) => {
+        const isVisible = (element: Element): boolean => {
+          const style = window.getComputedStyle(element);
+          return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+        };
+        const visible = (selector: string): HTMLElement[] =>
+          Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(isVisible);
+        const count = (elements: readonly HTMLElement[], requireEditable = false) => ({
+          visible: elements.length,
+          visibleEnabled: elements.filter(
+            (element) => !element.matches(':disabled') && (!requireEditable || element.isContentEditable),
+          ).length,
+        });
+        const sourceSelects = visible(sourceSelectSelector) as HTMLSelectElement[];
+        const targetSelects = visible(targetSelectSelector) as HTMLSelectElement[];
+        const sourceEditors = visible(sourceSelector);
+        const outputs = visible(outputSelector);
+        const output = outputs.length === 1 ? outputs[0] : null;
+        return {
+          controls: {
+            blockingSurfaces: visible(blockingSelector).length,
+            output: count(outputs),
+            sourceEditor: count(sourceEditors, true),
+            sourceSelect: count(sourceSelects),
+            sourceTextLength: sourceEditors.length === 1 ? (sourceEditors[0]?.innerText.length ?? null) : null,
+            targetSelect: count(targetSelects),
+          },
+          rawUrl: window.location.href,
+          result: {
+            outputLanguage: output?.getAttribute('lang') ?? null,
+            text: output?.innerText ?? '',
+            visibleEnabledOutputControls: count(outputs).visibleEnabled,
+            visibleOutputControls: outputs.length,
+          },
+          selection: {
+            outputLanguage: output?.getAttribute('lang') ?? null,
+            sourceLanguage: sourceSelects.length === 1 ? (sourceSelects[0]?.value ?? null) : null,
+            targetLanguage: targetSelects.length === 1 ? (targetSelects[0]?.value ?? null) : null,
+          },
+        };
+      },
+      {
+        blockingSelector: BING_BLOCKING_SURFACE_SELECTOR,
+        outputSelector: BING_RESULT_SELECTOR,
+        sourceSelector: BING_SOURCE_SELECTOR,
+        sourceSelectSelector: BING_SOURCE_SELECT_SELECTOR,
+        targetSelectSelector: BING_TARGET_SELECT_SELECTOR,
+      },
+    );
+    return {
+      controls: snapshot.controls,
+      result: snapshot.result,
+      route: createBingRouteSnapshot(snapshot.rawUrl),
+      selection: snapshot.selection,
+    };
+  }
+
   async readClearSnapshot(): Promise<BingClearSnapshot> {
     const clearControls = await getVisibleLocators(this.page.locator(BING_CLEAR_SELECTOR));
     const clearWrappers = this.page.locator(BING_CLEAR_WRAPPER_SELECTOR);
@@ -600,6 +668,28 @@ export class BingTranslateProvider extends BaseTranslateProvider {
     const controls = classifyBingPublicControls(controlsSnapshot);
     if (!controls.success) return controls;
     return classifyBingResultSnapshot(await adapter.readResultSnapshot());
+  }
+
+  protected override async observeResult(
+    page: Page,
+    targetLanguage: string,
+  ): Promise<TranslationProviderHookResult<TranslationProviderResultObservation>> {
+    const adapter = this.getAdapter(page);
+    if (!adapter.readResultObservationSnapshot) return super.observeResult(page, targetLanguage);
+    const snapshot = await adapter.readResultObservationSnapshot();
+    if (snapshot.route.route !== 'translator') return translationHookFailure('consentOrChallenge');
+    const controls = classifyBingPublicControls(snapshot.controls);
+    if (!controls.success) return controls;
+    const result = classifyBingResultSnapshot(snapshot.result);
+    if (!result.success) return result;
+    if (!this.selectionMatches(snapshot.selection, targetLanguage)) {
+      return translationHookFailure('pageContractFailure');
+    }
+    return translationHookSuccess({
+      completion: 'unavailable',
+      targetVerified: true,
+      text: result.value,
+    });
   }
 
   protected async verifySelectedTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {

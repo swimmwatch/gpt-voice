@@ -14,6 +14,7 @@ import {
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
+  type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
 import { normalizeTranslationResultText } from '@main/translateProviders/translationResultText';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
@@ -25,6 +26,7 @@ const GOOGLE_CLEAR_TIMEOUT_MS = 1_500;
 const GOOGLE_CLEAR_POLL_INTERVAL_MS = 50;
 
 const GOOGLE_SOURCE_SELECTOR = 'textarea[role="combobox"][aria-label="Source text"]';
+const GOOGLE_RESULT_REGION_SELECTOR = '[role="region"][aria-label="Translation results"]';
 const GOOGLE_RESULT_FRAGMENT_SELECTOR = '.ryNqvb';
 const GOOGLE_CLEAR_SELECTOR = 'button[aria-label="Clear source text"]';
 const GOOGLE_REJECT_CONSENT_SELECTOR = 'button[jsname="tWT92d"][aria-label="Reject all"]';
@@ -74,6 +76,11 @@ export interface GoogleClearSnapshot {
   readonly readiness: GoogleReadinessSnapshot;
 }
 
+export interface GoogleResultObservationSnapshot {
+  readonly result: GoogleResultSnapshot;
+  readonly route: GoogleRouteSnapshot;
+}
+
 export interface GoogleTranslatePageAdapter {
   clickClearSource(): Promise<boolean>;
   clickRejectAll(): Promise<boolean>;
@@ -82,6 +89,7 @@ export interface GoogleTranslatePageAdapter {
   readClearSnapshot(): Promise<GoogleClearSnapshot>;
   readConsentSnapshot(): Promise<GoogleConsentSnapshot>;
   readReadinessSnapshot(): Promise<GoogleReadinessSnapshot>;
+  readResultObservationSnapshot?(): Promise<GoogleResultObservationSnapshot>;
   readResultSnapshot(): Promise<GoogleResultSnapshot>;
   readRouteSnapshot(): Promise<GoogleRouteSnapshot>;
 }
@@ -324,6 +332,50 @@ class PlaywrightGoogleTranslatePageAdapter implements GoogleTranslatePageAdapter
     return { fragments, visibleResultRegions: 1 };
   }
 
+  async readResultObservationSnapshot(): Promise<GoogleResultObservationSnapshot> {
+    const snapshot = await this.page.evaluate(
+      ({ fragmentSelector, regionSelector }) => {
+        const isVisible = (element: Element): boolean => {
+          const style = window.getComputedStyle(element);
+          return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+        };
+        const regions = Array.from(document.querySelectorAll(regionSelector)).filter(isVisible);
+        const region = regions.length === 1 ? regions[0] : null;
+        return {
+          rawUrl: window.location.href,
+          result: {
+            fragments: region
+              ? Array.from(region.querySelectorAll(fragmentSelector)).map((fragment) => {
+                  let primaryBranch: Element | null = fragment;
+                  while (primaryBranch?.parentElement && primaryBranch.parentElement !== region) {
+                    primaryBranch = primaryBranch.parentElement;
+                  }
+                  return {
+                    branchIndex:
+                      primaryBranch?.parentElement === region
+                        ? Array.from(region.children).indexOf(primaryBranch)
+                        : -1,
+                    insideListItem: fragment.closest('[role="listitem"]') !== null,
+                    text: fragment instanceof HTMLElement ? fragment.innerText : (fragment.textContent ?? ''),
+                    visible: isVisible(fragment),
+                  };
+                })
+              : [],
+            visibleResultRegions: regions.length,
+          },
+        };
+      },
+      {
+        fragmentSelector: GOOGLE_RESULT_FRAGMENT_SELECTOR,
+        regionSelector: GOOGLE_RESULT_REGION_SELECTOR,
+      },
+    );
+    return {
+      result: snapshot.result,
+      route: createGoogleRouteSnapshot(snapshot.rawUrl),
+    };
+  }
+
   async readClearSnapshot(): Promise<GoogleClearSnapshot> {
     const readiness = await this.readReadinessSnapshot();
     const sourceControls = await getVisibleLocators(this.page.locator(GOOGLE_SOURCE_SELECTOR));
@@ -482,6 +534,28 @@ export class GoogleTranslateProvider extends BaseTranslateProvider {
 
   protected async readNormalizedResult(page: Page): Promise<TranslationProviderHookResult<string>> {
     return classifyGoogleResultSnapshot(await this.getAdapter(page).readResultSnapshot());
+  }
+
+  protected override async observeResult(
+    page: Page,
+    targetLanguage: string,
+  ): Promise<TranslationProviderHookResult<TranslationProviderResultObservation>> {
+    const adapter = this.getAdapter(page);
+    if (!adapter.readResultObservationSnapshot) return super.observeResult(page, targetLanguage);
+    const snapshot = await adapter.readResultObservationSnapshot();
+    const result = classifyGoogleResultSnapshot(snapshot.result);
+    if (!result.success) return result;
+    if (snapshot.route.origin !== 'translator' || snapshot.route.route !== 'translator') {
+      return translationHookFailure('consentOrChallenge');
+    }
+    if (!routeMatchesTranslationState(snapshot.route, targetLanguage)) {
+      return translationHookFailure('pageContractFailure');
+    }
+    return translationHookSuccess({
+      completion: 'unavailable',
+      targetVerified: true,
+      text: result.value,
+    });
   }
 
   protected async verifySelectedTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {

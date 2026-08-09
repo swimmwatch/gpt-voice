@@ -10,6 +10,7 @@ import {
 } from '@shared/translationProvider';
 import {
   translationHookFailure,
+  translationHookSuccess,
   type TranslationProviderInitializationOutcome,
   type TranslationProviderInitializationRequest,
   type TranslationProviderFailure,
@@ -19,6 +20,7 @@ import {
   type TranslationProviderOutcome,
   type TranslationProviderPhase,
   type TranslationProviderRequest,
+  type TranslationProviderResultObservation,
 } from './translationProviderContracts';
 import {
   type TranslationProviderAudit,
@@ -107,6 +109,19 @@ type StaleStatePreparationResult =
       readonly outcome: TranslationProviderFailure;
     };
 
+type ResultCandidateConfirmation =
+  | {
+      readonly kind: 'continue';
+    }
+  | {
+      readonly kind: 'failure';
+      readonly outcome: TranslationProviderFailure;
+    }
+  | {
+      readonly kind: 'success';
+      readonly text: string;
+    };
+
 interface FailureAuditOptions {
   readonly auditPhase?: 'consent-or-challenge';
   readonly exceptionType?: ProviderAuditExceptionType;
@@ -171,6 +186,23 @@ export abstract class BaseTranslateProvider {
   protected abstract readNormalizedResult(page: Page): Promise<TranslationProviderHookResult<string>>;
 
   protected abstract verifySelectedTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult>;
+
+  /**
+   * Provider adapters override this with one coherent public-page snapshot.
+   * The default preserves the validation contract for focused legacy test doubles.
+   */
+  protected async observeResult(
+    page: Page,
+    _targetLanguage: string,
+  ): Promise<TranslationProviderHookResult<TranslationProviderResultObservation>> {
+    const result = await this.readNormalizedResult(page);
+    if (!result.success) return result;
+    return translationHookSuccess({
+      completion: 'unavailable',
+      targetVerified: false,
+      text: result.value,
+    });
+  }
 
   protected abstract clearVisibleState(page: Page): Promise<TranslationProviderHookResult>;
 
@@ -720,52 +752,122 @@ export abstract class BaseTranslateProvider {
     previousResult: string,
     state: ValidatedOperationState,
   ): Promise<{ readonly success: true; readonly text: string } | TranslationProviderFailure> {
+    const resultStartedAt = this.dependencies.now();
+    const resultDeadlineAt = resultStartedAt + this.dependencies.resultTimeoutMs;
     const readAttempts = Math.max(
       1,
       Math.ceil(this.dependencies.resultTimeoutMs / this.dependencies.resultPollIntervalMs),
     );
 
     for (let attempt = 0; attempt < readAttempts; attempt += 1) {
-      if (!this.isOperationActive(state)) {
+      if (!this.isResultPhaseActive(state, resultDeadlineAt)) {
         await this.closeOwnedResources(state.operationKey);
-        return this.createStaleFailure('result', state);
+        return this.createResultDeadlineFailure(state, resultDeadlineAt);
       }
 
-      const firstRead = await this.invokeHook(() => this.readNormalizedResult(page), 'pageContractFailure');
-      if (!firstRead.success) {
-        return this.createTerminalFailure(firstRead.code, 'result', state, firstRead.exceptionType);
+      const firstObservation = await this.invokeHook(
+        () => this.observeResult(page, state.targetLanguage),
+        'pageContractFailure',
+      );
+      if (!firstObservation.success) {
+        return this.createTerminalFailure(firstObservation.code, 'result', state, firstObservation.exceptionType);
       }
 
-      const candidate = firstRead.value;
-      if (candidate.trim().length > 0 && candidate !== previousResult) {
-        await this.dependencies.sleep(this.dependencies.resultStabilityDelayMs);
-        if (!this.isOperationActive(state)) {
-          await this.closeOwnedResources(state.operationKey);
-          return this.createStaleFailure('result', state);
-        }
-
-        const secondRead = await this.invokeHook(() => this.readNormalizedResult(page), 'pageContractFailure');
-        if (!secondRead.success) {
-          return this.createTerminalFailure(secondRead.code, 'result', state, secondRead.exceptionType);
-        }
-        if (candidate === secondRead.value) {
-          const target = await this.invokeHook(
-            () => this.verifySelectedTarget(page, state.targetLanguage),
-            'pageContractFailure',
-          );
-          if (!target.success) {
-            return this.createTerminalFailure(target.code, 'result', state, target.exceptionType);
-          }
-          return { success: true, text: candidate };
-        }
-      }
+      const confirmation = await this.confirmResultCandidate(
+        page,
+        previousResult,
+        firstObservation.value,
+        state,
+        resultDeadlineAt,
+      );
+      if (confirmation.kind === 'failure') return confirmation.outcome;
+      if (confirmation.kind === 'success') return { success: true, text: confirmation.text };
 
       if (attempt + 1 < readAttempts) {
-        await this.dependencies.sleep(this.dependencies.resultPollIntervalMs);
+        await this.sleepWithinResultDeadline(this.dependencies.resultPollIntervalMs, resultDeadlineAt);
       }
     }
 
     return this.createTerminalFailure('resultTimeoutOrEmpty', 'result', state);
+  }
+
+  private async confirmResultCandidate(
+    page: Page,
+    previousResult: string,
+    candidate: TranslationProviderResultObservation,
+    state: ValidatedOperationState,
+    resultDeadlineAt: number,
+  ): Promise<ResultCandidateConfirmation> {
+    if (candidate.text.trim().length === 0 || candidate.text === previousResult) return { kind: 'continue' };
+    if (candidate.targetVerified && candidate.completion === 'verified-complete') {
+      return this.createConfirmedResult(candidate.text, state, resultDeadlineAt);
+    }
+
+    await this.sleepWithinResultDeadline(this.dependencies.resultStabilityDelayMs, resultDeadlineAt);
+    if (!this.isResultPhaseActive(state, resultDeadlineAt)) {
+      await this.closeOwnedResources(state.operationKey);
+      return { kind: 'failure', outcome: this.createResultDeadlineFailure(state, resultDeadlineAt) };
+    }
+
+    const secondObservation = await this.invokeHook(
+      () => this.observeResult(page, state.targetLanguage),
+      'pageContractFailure',
+    );
+    if (!secondObservation.success) {
+      return {
+        kind: 'failure',
+        outcome: await this.createTerminalFailure(
+          secondObservation.code,
+          'result',
+          state,
+          secondObservation.exceptionType,
+        ),
+      };
+    }
+    if (candidate.text !== secondObservation.value.text) return { kind: 'continue' };
+    if (!secondObservation.value.targetVerified) {
+      const target = await this.invokeHook(
+        () => this.verifySelectedTarget(page, state.targetLanguage),
+        'pageContractFailure',
+      );
+      if (!target.success) {
+        return {
+          kind: 'failure',
+          outcome: await this.createTerminalFailure(target.code, 'result', state, target.exceptionType),
+        };
+      }
+    }
+    return this.createConfirmedResult(candidate.text, state, resultDeadlineAt);
+  }
+
+  private async createConfirmedResult(
+    text: string,
+    state: ValidatedOperationState,
+    resultDeadlineAt: number,
+  ): Promise<ResultCandidateConfirmation> {
+    if (this.isResultPhaseActive(state, resultDeadlineAt)) return { kind: 'success', text };
+    await this.closeOwnedResources(state.operationKey);
+    return { kind: 'failure', outcome: this.createResultDeadlineFailure(state, resultDeadlineAt) };
+  }
+
+  private isResultPhaseActive(state: OperationState, resultDeadlineAt: number): boolean {
+    state.lifecycle?.check();
+    return this.isOperationActive(state) && this.dependencies.now() < resultDeadlineAt;
+  }
+
+  private createResultDeadlineFailure(
+    state: ValidatedOperationState,
+    resultDeadlineAt: number,
+  ): TranslationProviderFailure {
+    if (this.dependencies.now() >= resultDeadlineAt && state.lifecycle === undefined) {
+      return this.createFailure('resultTimeoutOrEmpty', 'result', state);
+    }
+    return this.createStaleFailure('result', state);
+  }
+
+  private async sleepWithinResultDeadline(delayMs: number, resultDeadlineAt: number): Promise<void> {
+    const remainingMs = Math.max(0, resultDeadlineAt - this.dependencies.now());
+    await this.dependencies.sleep(Math.min(Math.max(0, delayMs), remainingMs));
   }
 
   private async createTerminalFailure(
