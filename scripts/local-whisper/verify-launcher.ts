@@ -86,6 +86,24 @@ async function unlinkFixtureFile(filePath: string): Promise<void> {
   }
 }
 
+async function removeFixtureDirectory(directory: string): Promise<void> {
+  for (let attempt = 0; attempt < WINDOWS_UNLINK_RETRY_COUNT; attempt += 1) {
+    try {
+      rmSync(directory, { force: true, recursive: true });
+      return;
+    } catch (error: unknown) {
+      const retryable =
+        process.platform === 'win32' &&
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'EPERM' &&
+        attempt + 1 < WINDOWS_UNLINK_RETRY_COUNT;
+      if (!retryable) throw error;
+      await new Promise<void>((resolve) => setTimeout(resolve, WINDOWS_UNLINK_RETRY_DELAY_MS));
+    }
+  }
+}
+
 function parseParentDeathState(source: string): ParentDeathState {
   const value: unknown = JSON.parse(source);
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -404,7 +422,7 @@ async function verifyModelLaunchChain(): Promise<void> {
       chmodSync(filePath, 0o600);
       await unlinkFixtureFile(filePath);
     }
-    rmSync(directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
+    await removeFixtureDirectory(directory);
   }
 }
 
@@ -466,7 +484,7 @@ async function verifyControlClosure(): Promise<void> {
     }
     await terminateUnrelated(unrelated);
     await runtime.authority.runtimeLease.release();
-    rmSync(runtime.directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
+    await removeFixtureDirectory(runtime.directory);
   }
 }
 
@@ -487,7 +505,7 @@ async function verifyHungTreeHardKill(): Promise<void> {
       await owned.waitForExit(5_000);
     }
     await runtime.authority.runtimeLease.release();
-    rmSync(runtime.directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
+    await removeFixtureDirectory(runtime.directory);
   }
 }
 
@@ -517,7 +535,7 @@ async function verifyParentDeath(): Promise<void> {
   try {
     assert.equal(await waitUntil(() => !isAlive(state.workerPid) && !isAlive(state.descendantPid), 12_000), true);
   } finally {
-    rmSync(state.directory, { force: true, maxRetries: 100, recursive: true, retryDelay: 50 });
+    await removeFixtureDirectory(state.directory);
   }
 }
 
