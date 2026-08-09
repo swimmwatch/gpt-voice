@@ -3,9 +3,12 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const WORKFLOW_PATH = '.github/workflows/pr-checks.yml';
+const MSVC_ACTION_PATH = '.github/actions/initialize-msvc-environment/action.yml';
 const LINUX_JOB_MARKER = '  native-quality-linux:';
 const WINDOWS_JOB_MARKER = '  native-quality-windows:';
 const QUALITY_JOB_MARKER = '  quality:';
+const WINDOWS_PACKAGE_SMOKE_JOB_MARKER = '  package-smoke-windows:';
+const MSVC_ACTION_REFERENCE = 'uses: ./.github/actions/initialize-msvc-environment';
 
 function jobSource(workflow: string, startMarker: string, endMarker: string): string {
   const start = workflow.indexOf(startMarker);
@@ -16,10 +19,12 @@ function jobSource(workflow: string, startMarker: string, endMarker: string): st
   return workflow.slice(start, end);
 }
 
-test('Local Whisper keeps Linux and Windows native CI checks on their owning runners', () => {
+test('Local Whisper keeps native CI checks on their owning runners and initializes Windows packaging', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  const msvcAction = readFileSync(MSVC_ACTION_PATH, 'utf8');
   const linuxJob = jobSource(workflow, LINUX_JOB_MARKER, WINDOWS_JOB_MARKER);
   const windowsJob = jobSource(workflow, WINDOWS_JOB_MARKER, QUALITY_JOB_MARKER);
+  const windowsPackageSmokeJob = workflow.slice(workflow.indexOf(WINDOWS_PACKAGE_SMOKE_JOB_MARKER));
 
   assert.match(linuxJob, /runs-on: ubuntu-24\.04/u);
   assert.match(linuxJob, /LOCAL_WHISPER_PREPARED_LINUX_QUALITY: 'true'/u);
@@ -29,12 +34,13 @@ test('Local Whisper keeps Linux and Windows native CI checks on their owning run
   assert.match(windowsJob, /runs-on: windows-latest/u);
   assert.match(windowsJob, /repository: google\/googletest/u);
   assert.match(windowsJob, /Initialize MSVC developer environment/u);
-  assert.match(windowsJob, /vcvarsall\.bat/u);
-  assert.match(windowsJob, /\$env:PATH = \$values\['PATH'\]/u);
-  assert.match(windowsJob, /Get-Command cmake\.exe/u);
-  assert.match(windowsJob, /Get-Command ctest\.exe/u);
-  assert.match(windowsJob, /Get-Command cl\.exe/u);
-  assert.match(windowsJob, /Get-Command ninja\.exe/u);
+  assert.match(windowsJob, /uses: \.\/\.github\/actions\/initialize-msvc-environment/u);
+  assert.match(msvcAction, /vcvarsall\.bat/u);
+  assert.match(msvcAction, /\$env:PATH = \$values\['PATH'\]/u);
+  assert.match(msvcAction, /Get-Command cmake\.exe/u);
+  assert.match(msvcAction, /Get-Command ctest\.exe/u);
+  assert.match(msvcAction, /Get-Command cl\.exe/u);
+  assert.match(msvcAction, /Get-Command ninja\.exe/u);
   assert.match(windowsJob, /Run MSVC native unit and integration tests/u);
   assert.match(windowsJob, /Run MSVC launcher unit and Job Object integration tests/u);
   assert.match(windowsJob, /Run Windows AMD Vulkan static contract/u);
@@ -47,4 +53,11 @@ test('Local Whisper keeps Linux and Windows native CI checks on their owning run
   );
   assert.doesNotMatch(windowsJob, /if:\s*\$\{\{\s*false\s*\}\}/u);
   assert.doesNotMatch(windowsJob, /--platform=linux/u);
+
+  assert.notEqual(windowsPackageSmokeJob, '');
+  assert.match(windowsPackageSmokeJob, /uses: \.\/\.github\/actions\/initialize-msvc-environment/u);
+  assert.ok(
+    windowsPackageSmokeJob.indexOf(MSVC_ACTION_REFERENCE) <
+      windowsPackageSmokeJob.indexOf('Prepare disabled Local Whisper package resources'),
+  );
 });
