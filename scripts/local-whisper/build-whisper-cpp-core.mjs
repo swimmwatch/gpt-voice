@@ -12,6 +12,7 @@ try {
   const configured = configureBuild(profileId, {
     engine: true,
     preparedLinuxQuality: process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true',
+    preparedWindowsQuality: process.env.LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY === 'true',
     tests: false,
   });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);

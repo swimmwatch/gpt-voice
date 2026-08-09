@@ -29,9 +29,14 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   assert.match(linuxJob, /runs-on: ubuntu-24\.04/u);
   assert.match(linuxJob, /LOCAL_WHISPER_PREPARED_LINUX_QUALITY: 'true'/u);
   assert.match(linuxJob, /--platform=linux/u);
+  assert.match(linuxJob, /Build and verify Linux Whisper\.cpp CPU pack/u);
+  assert.match(linuxJob, /build:local-whisper:fs-guard/u);
+  assert.match(linuxJob, /build:local-whisper:launcher/u);
+  assert.match(linuxJob, /verify:local-whisper:native-hardening -- --platform=linux/u);
   assert.doesNotMatch(linuxJob, /--platform=windows|MSVC|Job Object/u);
 
   assert.match(windowsJob, /runs-on: windows-latest/u);
+  assert.match(windowsJob, /LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY: 'true'/u);
   assert.match(windowsJob, /repository: google\/googletest/u);
   assert.match(windowsJob, /Initialize MSVC developer environment/u);
   assert.match(windowsJob, /uses: \.\/\.github\/actions\/initialize-msvc-environment/u);
@@ -48,6 +53,11 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   assert.match(windowsJob, /--profile=vulkan-windows-x64/u);
   assert.match(windowsJob, /--platform=windows --contract-only/u);
   assert.match(windowsJob, /whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19\.39-v1 --contract-only/u);
+  assert.match(windowsJob, /Build and verify hardened Windows production binaries/u);
+  assert.match(windowsJob, /build:local-whisper:fs-guard/u);
+  assert.match(windowsJob, /build:local-whisper:launcher/u);
+  assert.match(windowsJob, /build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19\.39-v1/u);
+  assert.match(windowsJob, /verify:local-whisper:native-hardening -- --platform=windows/u);
   assert.match(
     windowsJob,
     /whisper-cpp-cuda -- --profile=windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1 --contract-only/u,

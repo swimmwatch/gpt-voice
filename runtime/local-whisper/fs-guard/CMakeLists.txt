@@ -7,25 +7,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+
 option(FS_GUARD_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 set(FS_GUARD_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production fs-guard executable")
 set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
     "Verified GoogleTest complete source root")
-
-function(fs_guard_apply_quality target)
-  if(MSVC)
-    target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc)
-  else()
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    if(FS_GUARD_ENABLE_SANITIZERS)
-      target_compile_options(${target} PRIVATE -fsanitize=address,undefined
-                             -fno-omit-frame-pointer)
-      target_link_options(${target} PRIVATE -fsanitize=address,undefined
-                          -fno-omit-frame-pointer)
-    endif()
-  endif()
-endfunction()
 
 add_library(fs_guard_core STATIC
   src/common/bounded_line_reader.cpp
@@ -38,18 +26,18 @@ add_library(fs_guard_core STATIC
   src/common/validation.cpp
 )
 target_include_directories(fs_guard_core PUBLIC include ../common/include)
-fs_guard_apply_quality(fs_guard_core)
+local_whisper_apply_compile_hardening(fs_guard_core FS_GUARD_ENABLE_SANITIZERS)
 
 add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
-fs_guard_apply_quality(local_whisper_common_sha256)
+local_whisper_apply_compile_hardening(local_whisper_common_sha256 FS_GUARD_ENABLE_SANITIZERS)
 
 add_library(local_whisper_authority_records STATIC
   ../common/src/model_authority.cpp
 )
 target_include_directories(local_whisper_authority_records PUBLIC ../common/include)
 target_link_libraries(local_whisper_authority_records PUBLIC local_whisper_common_sha256)
-fs_guard_apply_quality(local_whisper_authority_records)
+local_whisper_apply_compile_hardening(local_whisper_authority_records FS_GUARD_ENABLE_SANITIZERS)
 
 if(WIN32)
   target_sources(local_whisper_authority_records PRIVATE
@@ -73,12 +61,13 @@ else()
   target_link_libraries(fs_guard_platform PUBLIC fs_guard_core local_whisper_authority_records)
 endif()
 target_include_directories(fs_guard_platform PUBLIC include PRIVATE src)
-fs_guard_apply_quality(fs_guard_platform)
+local_whisper_apply_compile_hardening(fs_guard_platform FS_GUARD_ENABLE_SANITIZERS)
 
 add_executable(fs-guard src/main.cpp)
 target_include_directories(fs-guard PRIVATE src)
 target_link_libraries(fs-guard PRIVATE fs_guard_platform)
-fs_guard_apply_quality(fs-guard)
+local_whisper_apply_compile_hardening(fs-guard FS_GUARD_ENABLE_SANITIZERS)
+local_whisper_apply_executable_hardening(fs-guard)
 set_target_properties(fs-guard PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${FS_GUARD_OUTPUT_DIRECTORY}"
   RUNTIME_OUTPUT_DIRECTORY_DEBUG "${FS_GUARD_OUTPUT_DIRECTORY}"
@@ -108,7 +97,8 @@ if(BUILD_TESTING)
   )
   target_include_directories(fs_guard_unit_tests PRIVATE src)
   target_link_libraries(fs_guard_unit_tests PRIVATE fs_guard_core GTest::gtest_main)
-  fs_guard_apply_quality(fs_guard_unit_tests)
+  local_whisper_apply_compile_hardening(fs_guard_unit_tests FS_GUARD_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(fs_guard_unit_tests)
 
   add_executable(fs_guard_integration_tests
     tests/integration/backend_integration_test.cpp
@@ -117,7 +107,8 @@ if(BUILD_TESTING)
   target_include_directories(fs_guard_integration_tests PRIVATE ../common/tests)
   target_link_libraries(fs_guard_integration_tests PRIVATE fs_guard_platform
                                                             GTest::gtest_main)
-  fs_guard_apply_quality(fs_guard_integration_tests)
+  local_whisper_apply_compile_hardening(fs_guard_integration_tests FS_GUARD_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(fs_guard_integration_tests)
 
   include(GoogleTest)
   gtest_discover_tests(fs_guard_unit_tests

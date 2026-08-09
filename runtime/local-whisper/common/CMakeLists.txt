@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+
 option(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS
        "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL
@@ -25,20 +27,6 @@ if(NOT EXISTS "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include/nlohmann/json.hpp
   message(FATAL_ERROR "LOCAL_WHISPER_NLOHMANN_SOURCE must be the verified subset root")
 endif()
 
-function(local_whisper_common_apply_quality target)
-  if(MSVC)
-    target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc)
-  else()
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    if(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
-      target_compile_options(${target} PRIVATE -fsanitize=address,undefined
-                             -fno-omit-frame-pointer)
-      target_link_options(${target} PRIVATE -fsanitize=address,undefined
-                          -fno-omit-frame-pointer)
-    endif()
-  endif()
-endfunction()
-
 add_library(local_whisper_common STATIC
   src/bounded_json.cpp
   src/canonical_wav.cpp
@@ -56,7 +44,7 @@ endif()
 target_include_directories(local_whisper_common
   PUBLIC include
   PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
-local_whisper_common_apply_quality(local_whisper_common)
+local_whisper_apply_compile_hardening(local_whisper_common LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -86,7 +74,8 @@ if(BUILD_TESTING)
     LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT="${LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT}")
   target_link_libraries(local_whisper_common_tests
     PRIVATE local_whisper_common GTest::gtest_main)
-  local_whisper_common_apply_quality(local_whisper_common_tests)
+  local_whisper_apply_compile_hardening(local_whisper_common_tests LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_common_tests)
 
   include(GoogleTest)
   gtest_discover_tests(local_whisper_common_tests DISCOVERY_TIMEOUT 30)

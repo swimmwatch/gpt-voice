@@ -118,7 +118,10 @@ jobs:
 
       - name: Build and verify Linux Whisper.cpp CPU pack
         run: |
+          npm run build:local-whisper:fs-guard
+          npm run build:local-whisper:launcher
           npm run build:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+          npm run verify:local-whisper:native-hardening -- --platform=linux
           npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
           npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cpu-baseline-v1
 
@@ -141,6 +144,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     env:
+      LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY: 'true'
       NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
 
     steps:
@@ -219,6 +223,13 @@ jobs:
 
       - name: Verify Windows Whisper.cpp CPU source contract
         run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+
+      - name: Build and verify hardened Windows production binaries
+        run: |
+          npm run build:local-whisper:fs-guard
+          npm run build:local-whisper:launcher
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+          npm run verify:local-whisper:native-hardening -- --platform=windows
 
       - name: Verify Windows Whisper.cpp CUDA source contract
         run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only

@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
 set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL "Require disconnected native builds")
 if(NOT FETCHCONTENT_FULLY_DISCONNECTED)
   message(FATAL_ERROR "Local Whisper native builds must remain disconnected")
@@ -70,21 +71,6 @@ foreach(required_file
   endif()
 endforeach()
 
-function(local_whisper_apply_quality target)
-  if(MSVC)
-    target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc /Brepro)
-    target_link_options(${target} PRIVATE /Brepro)
-  else()
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    if(LOCAL_WHISPER_ENABLE_SANITIZERS)
-      target_compile_options(${target} PRIVATE -fsanitize=address,undefined
-                             -fno-omit-frame-pointer)
-      target_link_options(${target} PRIVATE -fsanitize=address,undefined
-                          -fno-omit-frame-pointer)
-    endif()
-  endif()
-endfunction()
-
 add_library(local_whisper_worker_common STATIC
   ../common/src/bounded_json.cpp
   ../common/src/canonical_wav.cpp
@@ -106,7 +92,7 @@ endif()
 target_include_directories(local_whisper_worker_common
   PUBLIC ../common/include
   PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
-local_whisper_apply_quality(local_whisper_worker_common)
+local_whisper_apply_compile_hardening(local_whisper_worker_common LOCAL_WHISPER_ENABLE_SANITIZERS)
 
 add_library(local_whisper_whisper_cpp_core STATIC
   amd/amd_preview.cpp
@@ -143,7 +129,7 @@ target_compile_definitions(local_whisper_whisper_cpp_core PUBLIC
   LOCAL_WHISPER_RUNTIME_REVISION="${LOCAL_WHISPER_RUNTIME_REVISION}"
   LOCAL_WHISPER_BACKEND_ID="${LOCAL_WHISPER_BACKEND_ID}")
 target_link_libraries(local_whisper_whisper_cpp_core PUBLIC local_whisper_worker_common)
-local_whisper_apply_quality(local_whisper_whisper_cpp_core)
+local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_core LOCAL_WHISPER_ENABLE_SANITIZERS)
 
 if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
   if(NOT EXISTS "${LOCAL_WHISPER_SOURCE_ROOT}/include/whisper.h")
@@ -165,13 +151,14 @@ if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
   target_link_libraries(local_whisper_whisper_cpp_adapter
     PUBLIC local_whisper_whisper_cpp_core
     PRIVATE whisper ggml)
-  local_whisper_apply_quality(local_whisper_whisper_cpp_adapter)
+  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_adapter LOCAL_WHISPER_ENABLE_SANITIZERS)
 
   if(LOCAL_WHISPER_BUILD_ENGINE)
     add_executable(local-whisper-whisper-cpp-worker core/main.cpp)
     target_link_libraries(local-whisper-whisper-cpp-worker
       PRIVATE local_whisper_whisper_cpp_adapter)
-    local_whisper_apply_quality(local-whisper-whisper-cpp-worker)
+    local_whisper_apply_compile_hardening(local-whisper-whisper-cpp-worker LOCAL_WHISPER_ENABLE_SANITIZERS)
+    local_whisper_apply_executable_hardening(local-whisper-whisper-cpp-worker)
     set_target_properties(local-whisper-whisper-cpp-worker PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
       RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_WORKER_OUTPUT_DIRECTORY}"
@@ -193,13 +180,14 @@ if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
       PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
     target_link_libraries(local_whisper_qualification_protocol
       PUBLIC local_whisper_whisper_cpp_core)
-    local_whisper_apply_quality(local_whisper_qualification_protocol)
+    local_whisper_apply_compile_hardening(local_whisper_qualification_protocol LOCAL_WHISPER_ENABLE_SANITIZERS)
 
     add_executable(local-whisper-whisper-cpp-direct-engine
       qualification/direct_engine_main.cpp)
     target_link_libraries(local-whisper-whisper-cpp-direct-engine
       PRIVATE local_whisper_whisper_cpp_adapter local_whisper_qualification_protocol)
-    local_whisper_apply_quality(local-whisper-whisper-cpp-direct-engine)
+    local_whisper_apply_compile_hardening(local-whisper-whisper-cpp-direct-engine LOCAL_WHISPER_ENABLE_SANITIZERS)
+    local_whisper_apply_executable_hardening(local-whisper-whisper-cpp-direct-engine)
     set_target_properties(local-whisper-whisper-cpp-direct-engine PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_DIRECT_ENGINE_OUTPUT_DIRECTORY}"
       RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_DIRECT_ENGINE_OUTPUT_DIRECTORY}"
@@ -229,7 +217,8 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   target_include_directories(local_whisper_whisper_cpp_core_tests PRIVATE tests)
   target_link_libraries(local_whisper_whisper_cpp_core_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_quality(local_whisper_whisper_cpp_core_tests)
+  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_core_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_core_tests)
 
   add_executable(local_whisper_whisper_cpp_loader_tests
     tests/loader_limits_test.cpp
@@ -238,7 +227,8 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   target_include_directories(local_whisper_whisper_cpp_loader_tests PRIVATE tests)
   target_link_libraries(local_whisper_whisper_cpp_loader_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_quality(local_whisper_whisper_cpp_loader_tests)
+  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_loader_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_loader_tests)
 
   add_executable(local_whisper_whisper_cpp_device_tests
     tests/amd_preview_test.cpp
@@ -247,21 +237,24 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   )
   target_link_libraries(local_whisper_whisper_cpp_device_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_quality(local_whisper_whisper_cpp_device_tests)
+  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_device_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_device_tests)
 
   add_executable(local_whisper_whisper_cpp_cancellation_tests
     tests/cancellation_test.cpp
   )
   target_link_libraries(local_whisper_whisper_cpp_cancellation_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_quality(local_whisper_whisper_cpp_cancellation_tests)
+  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_cancellation_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_cancellation_tests)
 
   if(LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
     add_executable(local_whisper_whisper_cpp_qualification_tests
       tests/qualification_protocol_test.cpp)
     target_link_libraries(local_whisper_whisper_cpp_qualification_tests
       PRIVATE local_whisper_qualification_protocol GTest::gtest_main)
-    local_whisper_apply_quality(local_whisper_whisper_cpp_qualification_tests)
+    local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_qualification_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+    local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_qualification_tests)
   endif()
 
   include(CTest)

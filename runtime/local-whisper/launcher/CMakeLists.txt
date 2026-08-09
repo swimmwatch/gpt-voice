@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+
 option(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS
        "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 set(LOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
@@ -16,20 +18,6 @@ set(LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fixture
 set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
     "Verified GoogleTest complete source root")
 
-function(local_whisper_launcher_apply_quality target)
-  if(MSVC)
-    target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc)
-  else()
-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    if(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
-      target_compile_options(${target} PRIVATE -fsanitize=address,undefined
-                             -fno-omit-frame-pointer)
-      target_link_options(${target} PRIVATE -fsanitize=address,undefined
-                          -fno-omit-frame-pointer)
-    endif()
-  endif()
-endfunction()
-
 add_library(local_whisper_launcher_core STATIC
   src/common/launcher_error.cpp
   src/common/launch_request.cpp
@@ -37,16 +25,16 @@ add_library(local_whisper_launcher_core STATIC
 target_include_directories(local_whisper_launcher_core PUBLIC include ../common/include)
 add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
-local_whisper_launcher_apply_quality(local_whisper_common_sha256)
+local_whisper_apply_compile_hardening(local_whisper_common_sha256 LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 target_link_libraries(local_whisper_launcher_core PUBLIC local_whisper_common_sha256)
-local_whisper_launcher_apply_quality(local_whisper_launcher_core)
+local_whisper_apply_compile_hardening(local_whisper_launcher_core LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 
 add_library(local_whisper_authority_records STATIC
   ../common/src/model_authority.cpp
 )
 target_include_directories(local_whisper_authority_records PUBLIC ../common/include)
 target_link_libraries(local_whisper_authority_records PUBLIC local_whisper_common_sha256)
-local_whisper_launcher_apply_quality(local_whisper_authority_records)
+local_whisper_apply_compile_hardening(local_whisper_authority_records LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 
 if(WIN32)
   target_sources(local_whisper_authority_records PRIVATE
@@ -67,11 +55,12 @@ endif()
 target_include_directories(local_whisper_launcher_platform PUBLIC include)
 target_link_libraries(local_whisper_launcher_platform
   PUBLIC local_whisper_launcher_core local_whisper_authority_records)
-local_whisper_launcher_apply_quality(local_whisper_launcher_platform)
+local_whisper_apply_compile_hardening(local_whisper_launcher_platform LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 
 add_executable(local-whisper-launcher src/main.cpp)
 target_link_libraries(local-whisper-launcher PRIVATE local_whisper_launcher_platform)
-local_whisper_launcher_apply_quality(local-whisper-launcher)
+local_whisper_apply_compile_hardening(local-whisper-launcher LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+local_whisper_apply_executable_hardening(local-whisper-launcher)
 set_target_properties(local-whisper-launcher PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY}"
   RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY}"
@@ -97,12 +86,14 @@ if(BUILD_TESTING)
   )
   target_link_libraries(local_whisper_launcher_unit_tests
     PRIVATE local_whisper_launcher_core GTest::gtest_main)
-  local_whisper_launcher_apply_quality(local_whisper_launcher_unit_tests)
+  local_whisper_apply_compile_hardening(local_whisper_launcher_unit_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_launcher_unit_tests)
 
   add_executable(local-whisper-launcher-fixture-worker
     tests/fixtures/process_tree_worker.cpp
   )
-  local_whisper_launcher_apply_quality(local-whisper-launcher-fixture-worker)
+  local_whisper_apply_compile_hardening(local-whisper-launcher-fixture-worker LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local-whisper-launcher-fixture-worker)
   set_target_properties(local-whisper-launcher-fixture-worker PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
@@ -112,7 +103,8 @@ if(BUILD_TESTING)
   add_executable(local-whisper-launcher-identity-fixture
     tests/fixtures/identity_probe.cpp
   )
-  local_whisper_launcher_apply_quality(local-whisper-launcher-identity-fixture)
+  local_whisper_apply_compile_hardening(local-whisper-launcher-identity-fixture LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local-whisper-launcher-identity-fixture)
   set_target_properties(local-whisper-launcher-identity-fixture PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
@@ -124,7 +116,8 @@ if(BUILD_TESTING)
   )
   target_link_libraries(local-whisper-authority-worker-fixture
     PRIVATE local_whisper_launcher_platform)
-  local_whisper_launcher_apply_quality(local-whisper-authority-worker-fixture)
+  local_whisper_apply_compile_hardening(local-whisper-authority-worker-fixture LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local-whisper-authority-worker-fixture)
   set_target_properties(local-whisper-authority-worker-fixture PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY}"
@@ -143,7 +136,8 @@ if(BUILD_TESTING)
       LOCAL_WHISPER_AUTHORITY_WORKER_FIXTURE="$<TARGET_FILE:local-whisper-authority-worker-fixture>")
     target_link_libraries(local_whisper_launcher_integration_tests
       PRIVATE local_whisper_launcher_platform GTest::gtest_main)
-    local_whisper_launcher_apply_quality(local_whisper_launcher_integration_tests)
+    local_whisper_apply_compile_hardening(local_whisper_launcher_integration_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+    local_whisper_apply_executable_hardening(local_whisper_launcher_integration_tests)
   endif()
 
   include(GoogleTest)
