@@ -88,6 +88,7 @@ if(BUILD_TESTING)
   set(GTEST_HAS_ABSL OFF CACHE BOOL "" FORCE)
   add_subdirectory("${LOCAL_WHISPER_GOOGLETEST_SOURCE}"
                    "${CMAKE_BINARY_DIR}/verified-googletest" EXCLUDE_FROM_ALL)
+  local_whisper_apply_google_test_sanitizer_policy(FS_GUARD_ENABLE_SANITIZERS)
 
   add_executable(fs_guard_unit_tests
     tests/unit/command_test.cpp

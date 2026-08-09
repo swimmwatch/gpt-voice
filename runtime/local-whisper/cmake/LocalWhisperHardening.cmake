@@ -60,6 +60,20 @@ function(local_whisper_configure_sanitizer_graph sanitizer_option)
   endif()
 endfunction()
 
+function(local_whisper_apply_google_test_sanitizer_policy sanitizer_option)
+  if(MSVC AND ${sanitizer_option})
+    # MSVC's ASan STL annotations are selected per translation unit. GoogleTest
+    # must therefore be compiled with ASan whenever it links a sanitized test,
+    # or the linker rejects its annotation contract as inconsistent.
+    foreach(local_whisper_google_test_target gtest gtest_main)
+      if(NOT TARGET ${local_whisper_google_test_target})
+        message(FATAL_ERROR "Verified GoogleTest target is unavailable")
+      endif()
+      target_compile_options(${local_whisper_google_test_target} PRIVATE /fsanitize=address)
+    endforeach()
+  endif()
+endfunction()
+
 function(local_whisper_apply_compile_hardening target sanitizer_option)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc /GS /guard:cf)

@@ -43,12 +43,22 @@ test('all native graphs use the shared Linux sanitizer and MSVC STL policies', (
   assert.match(hardeningModule, /if\(MSVC_VERSION LESS 1940\)/u);
   assert.match(hardeningModule, /_CONTAINER_DEBUG_LEVEL=0/u);
   assert.match(hardeningModule, /_MSVC_STL_HARDENING=0/u);
+  assert.match(hardeningModule, /function\(local_whisper_apply_google_test_sanitizer_policy/u);
+  assert.match(
+    hardeningModule,
+    /target_compile_options\(\$\{local_whisper_google_test_target\} PRIVATE \/fsanitize=address\)/u,
+  );
 
   for (const [project, sanitizerOption] of nativeProjects) {
     const source = readFileSync(resolve(workspaceRoot, 'runtime', 'local-whisper', project, 'CMakeLists.txt'), 'utf8');
     assert.match(source, /Enable platform-supported sanitizers \(ASan \+ UBSan on Linux; ASan on MSVC\)/u, project);
     assert.match(source, /local_whisper_configure_msvc_stl_debug_level\(\)/u, project);
     assert.match(source, new RegExp(`local_whisper_configure_sanitizer_graph\\(${sanitizerOption}\\)`, 'u'), project);
+    assert.match(
+      source,
+      new RegExp(`local_whisper_apply_google_test_sanitizer_policy\\(${sanitizerOption}\\)`, 'u'),
+      project,
+    );
   }
 });
 

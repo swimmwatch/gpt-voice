@@ -210,6 +210,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   set(GTEST_HAS_ABSL OFF CACHE BOOL "" FORCE)
   add_subdirectory("${LOCAL_WHISPER_GOOGLETEST_SOURCE}"
                    "${CMAKE_BINARY_DIR}/verified-googletest" EXCLUDE_FROM_ALL)
+  local_whisper_apply_google_test_sanitizer_policy(LOCAL_WHISPER_ENABLE_SANITIZERS)
 
   add_executable(local_whisper_whisper_cpp_core_tests
     tests/exact_model_reader_test.cpp

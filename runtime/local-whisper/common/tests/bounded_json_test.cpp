@@ -28,12 +28,12 @@ TEST(BoundedJson, RejectsRawBodyAboveProtocolLimitBeforeParsing) {
 TEST(StandardLibraryBounds, RejectsOutOfRangeVectorAccessWhenAssertionsAreEnabled) {
 #if defined(_GLIBCXX_ASSERTIONS)
   EXPECT_DEATH(
-    {
-      const std::vector<int> values{42};
-      volatile int value = values[1];
-      static_cast<void>(value);
-    },
-    ".*");
+      {
+        const std::vector<int> values{42};
+        volatile int value = values[1];
+        static_cast<void>(value);
+      },
+      ".*");
 #else
   GTEST_SKIP() << "_GLIBCXX_ASSERTIONS is enabled only for Linux sanitized graphs";
 #endif
