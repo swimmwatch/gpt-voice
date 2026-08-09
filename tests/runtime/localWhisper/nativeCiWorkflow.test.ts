@@ -22,6 +22,7 @@ test('Local Whisper keeps Linux and Windows native CI checks on their owning run
   const windowsJob = jobSource(workflow, WINDOWS_JOB_MARKER, QUALITY_JOB_MARKER);
 
   assert.match(linuxJob, /runs-on: ubuntu-24\.04/u);
+  assert.match(linuxJob, /LOCAL_WHISPER_PREPARED_LINUX_QUALITY: 'true'/u);
   assert.match(linuxJob, /--platform=linux/u);
   assert.doesNotMatch(linuxJob, /--platform=windows|MSVC|Job Object/u);
 

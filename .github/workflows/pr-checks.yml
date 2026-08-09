@@ -31,6 +31,7 @@ jobs:
       CLANG_TIDY: clang-tidy-18
       CMAKE_COMMAND: /usr/bin/cmake
       CTEST_COMMAND: /usr/bin/ctest
+      LOCAL_WHISPER_PREPARED_LINUX_QUALITY: 'true'
       NINJA_COMMAND: /usr/bin/ninja
       LOCAL_WHISPER_GCC_C_COMPILER: /usr/bin/x86_64-linux-gnu-gcc-13
       LOCAL_WHISPER_GCC_CXX_COMPILER: /usr/bin/x86_64-linux-gnu-g++-13

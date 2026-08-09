@@ -336,6 +336,26 @@ export function resolvePreparedWindowsQualityTools(environment = process.env) {
   return Object.freeze({ ...values, cudaCompiler: null, cudaHostCompiler: null, inputs: null, linker: null });
 }
 
+/** Resolves the explicit Linux tools installed by the hosted native-quality workflow. */
+export function resolvePreparedLinuxQualityTools(profile, environment = process.env) {
+  if (profile.target.os !== 'linux') throw new Error('Prepared Linux quality tools require a Linux profile');
+  const prefix = profile.profileId.includes('clang') ? 'LOCAL_WHISPER_CLANG' : 'LOCAL_WHISPER_GCC';
+  const values = {
+    ctest: environment.CTEST_COMMAND,
+    cCompiler: environment[`${prefix}_C_COMPILER`],
+    cmake: environment.CMAKE_COMMAND,
+    cxxCompiler: environment[`${prefix}_CXX_COMPILER`],
+    linker: environment[`${prefix}_LINKER`],
+    ninja: environment.NINJA_COMMAND,
+  };
+  for (const [role, path] of Object.entries(values)) {
+    if (typeof path !== 'string' || !isAbsolute(path) || !existsSync(path)) {
+      throw new Error(`Linux prepared native tool is unavailable: ${role}`);
+    }
+  }
+  return Object.freeze({ ...values, cudaCompiler: null, cudaHostCompiler: null, inputs: null });
+}
+
 function networkDeniedEnvironment(profile, tools) {
   const values = {
     ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1:strict_string_checks=1',
@@ -377,9 +397,18 @@ function runBuildCommand(configured, command, arguments_, label, environment = c
 
 export function configureBuild(
   profileId,
-  { directEngine = false, engine, networkDenied = false, preparedWindowsQuality = false, rootTag = '', tests },
+  {
+    directEngine = false,
+    engine,
+    networkDenied = false,
+    preparedLinuxQuality = false,
+    preparedWindowsQuality = false,
+    rootTag = '',
+    tests,
+  },
 ) {
   const profileTemplate = requireProfile(profileId);
+  const usePreparedLinuxQuality = profileTemplate.target.os === 'linux' && preparedLinuxQuality;
   const usePreparedWindowsQuality = profileTemplate.target.os === 'windows' && preparedWindowsQuality;
   const profile =
     profileTemplate.target.os === 'windows' && !networkDenied && !usePreparedWindowsQuality
@@ -397,7 +426,11 @@ export function configureBuild(
     allowCandidate: profile.target.os === 'windows',
     contractOnly: usePreparedWindowsQuality,
   });
-  const tools = usePreparedWindowsQuality ? resolvePreparedWindowsQualityTools() : profileTools(profile);
+  const tools = usePreparedWindowsQuality
+    ? resolvePreparedWindowsQualityTools()
+    : usePreparedLinuxQuality
+      ? resolvePreparedLinuxQualityTools(profile)
+      : profileTools(profile);
   if (rootTag !== '' && !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(rootTag)) {
     throw new Error('Native build root tag is invalid');
   }

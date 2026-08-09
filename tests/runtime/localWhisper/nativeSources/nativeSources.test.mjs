@@ -20,7 +20,10 @@ import {
   qualifyToolchainProfile,
   verifyToolchainContract,
 } from '../../../../scripts/local-whisper/native-build/native-toolchain-core.mjs';
-import { resolvePreparedWindowsQualityTools } from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
+import {
+  resolvePreparedLinuxQualityTools,
+  resolvePreparedWindowsQualityTools,
+} from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
 import {
   approveSourceCandidate,
   buildIndexManifest,
@@ -515,6 +518,53 @@ test('Windows Whisper.cpp quality uses only explicit prepared developer tools', 
     },
   );
   assert.throws(() => resolvePreparedWindowsQualityTools({}));
+});
+
+test('Linux Whisper.cpp quality selects explicit prepared tools for each compiler profile', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-linux-quality-tools-'));
+  const paths = Object.fromEntries(
+    ['cmake', 'ctest', 'ninja', 'gcc', 'g++', 'ld.bfd', 'clang', 'clang++', 'ld.lld'].map((name) => {
+      const path = resolve(root, name);
+      writeFileSync(path, 'fixture\n');
+      return [name, path];
+    }),
+  );
+  const environment = {
+    CMAKE_COMMAND: paths.cmake,
+    CTEST_COMMAND: paths.ctest,
+    LOCAL_WHISPER_CLANG_C_COMPILER: paths.clang,
+    LOCAL_WHISPER_CLANG_CXX_COMPILER: paths['clang++'],
+    LOCAL_WHISPER_CLANG_LINKER: paths['ld.lld'],
+    LOCAL_WHISPER_GCC_C_COMPILER: paths.gcc,
+    LOCAL_WHISPER_GCC_CXX_COMPILER: paths['g++'],
+    LOCAL_WHISPER_GCC_LINKER: paths['ld.bfd'],
+    NINJA_COMMAND: paths.ninja,
+  };
+  const gccProfile = { profileId: 'linux-x64-cpu-baseline-v1', target: { os: 'linux' } };
+  const clangProfile = { profileId: 'linux-x64-clang-18.1.3-asan-ubsan-v1', target: { os: 'linux' } };
+  assert.deepEqual(resolvePreparedLinuxQualityTools(gccProfile, environment), {
+    ctest: paths.ctest,
+    cCompiler: paths.gcc,
+    cmake: paths.cmake,
+    cxxCompiler: paths['g++'],
+    linker: paths['ld.bfd'],
+    ninja: paths.ninja,
+    cudaCompiler: null,
+    cudaHostCompiler: null,
+    inputs: null,
+  });
+  assert.deepEqual(resolvePreparedLinuxQualityTools(clangProfile, environment), {
+    ctest: paths.ctest,
+    cCompiler: paths.clang,
+    cmake: paths.cmake,
+    cxxCompiler: paths['clang++'],
+    linker: paths['ld.lld'],
+    ninja: paths.ninja,
+    cudaCompiler: null,
+    cudaHostCompiler: null,
+    inputs: null,
+  });
+  assert.throws(() => resolvePreparedLinuxQualityTools(gccProfile, {}));
 });
 
 test('Windows PE dependency parser is case-preserving, closed, and rejects duplicate imports', () => {

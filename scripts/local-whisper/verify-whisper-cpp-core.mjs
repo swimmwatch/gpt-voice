@@ -37,7 +37,12 @@ try {
     process.exit(0);
   }
   requireVerifiedInputs();
-  const gcc = configureBuild('linux-x64-cpu-baseline-v1', { engine: false, tests: true });
+  const preparedLinuxQuality = process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true';
+  const gcc = configureBuild('linux-x64-cpu-baseline-v1', {
+    engine: false,
+    preparedLinuxQuality,
+    tests: true,
+  });
   const targets = [
     'local_whisper_whisper_cpp_core_tests',
     'local_whisper_whisper_cpp_loader_tests',
@@ -48,6 +53,7 @@ try {
   runTests(gcc, suite);
   const clang = configureBuild('linux-x64-clang-18.1.3-asan-ubsan-v1', {
     engine: false,
+    preparedLinuxQuality,
     tests: true,
   });
   buildTargets(clang, targets);
@@ -55,6 +61,7 @@ try {
   const engine = configureBuild('linux-x64-cpu-baseline-v1', {
     directEngine: true,
     engine: true,
+    preparedLinuxQuality,
     tests: false,
   });
   await runFormattingAndTidy(clang, engine);
