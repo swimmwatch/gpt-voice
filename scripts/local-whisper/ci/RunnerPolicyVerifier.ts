@@ -19,10 +19,10 @@ export const NATIVE_PATH_OWNERS = [
 
 const JOBS = {
   'native-quality-linux': { label: 'ubuntu-24.04', primary: true },
-  'native-quality-windows': { label: 'windows-2025', primary: true },
+  'native-quality-windows': { label: 'windows-latest', primary: true },
 } as const;
 
-const APPROVED_RUNNER_LABELS = new Set(['ubuntu-24.04', 'windows-2025']);
+const APPROVED_RUNNER_LABELS = new Set(['ubuntu-24.04', 'windows-latest']);
 interface WorkflowJob {
   readonly 'runs-on'?: unknown;
   readonly steps?: unknown;

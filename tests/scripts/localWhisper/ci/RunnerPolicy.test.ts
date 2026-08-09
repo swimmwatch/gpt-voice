@@ -11,10 +11,10 @@ jobs:
       - run: npm run native-sanitizer-proof && npm run lint:local-whisper:worker-common
       - run: npm run emit:local-whisper:runner-evidence -- --runner-label=ubuntu-24.04 --toolchain=clang-18
   native-quality-windows:
-    runs-on: windows-2025
+    runs-on: windows-latest
     steps:
       - run: npm run test:local-whisper:fs-guard:msvc-asan && npm run verify:local-whisper:native-hardening
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-2025 --toolchain=msvc-19.39
+      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-19.39
 `;
 
 describe('Native CI runner policy', () => {
@@ -25,7 +25,10 @@ describe('Native CI runner policy', () => {
   it('rejects mutable, unsupported, swapped, and missing runner legs', () => {
     const verifier = new RunnerPolicyVerifier();
     assert.throws(() => verifier.verify(validWorkflow.replace('ubuntu-24.04', 'ubuntu-latest')), /unsupported runner/u);
-    assert.throws(() => verifier.verify(validWorkflow.replace('windows-2025', 'windows-2022')), /unsupported runner/u);
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('windows-latest', 'windows-2025')),
+      /unsupported runner/u,
+    );
     assert.throws(
       () => verifier.verify(validWorkflow.replace('  native-quality-linux:', '  missing-linux:')),
       /native-quality-linux/u,
@@ -46,7 +49,7 @@ describe('Native CI runner policy', () => {
       architecture: 'x64',
       nativeSourceManifest: { 'whisper-cpp.json': 'a'.repeat(64) },
       reportedImage: { imageOS: 'win25', imageVersion: '2026.08.1', runnerOS: 'Windows' },
-      runnerLabel: 'windows-2025',
+      runnerLabel: 'windows-latest',
       sourceCommit: 'b'.repeat(40),
       testedDigests: ['c'.repeat(40)],
       toolchain: { profile: 'msvc-19.39' },

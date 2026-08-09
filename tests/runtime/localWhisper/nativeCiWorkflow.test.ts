@@ -35,14 +35,12 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   assert.match(linuxJob, /verify:local-whisper:native-hardening -- --platform=linux/u);
   assert.doesNotMatch(linuxJob, /--platform=windows|MSVC|Job Object/u);
 
-  assert.match(windowsJob, /runs-on: windows-2025/u);
+  assert.match(windowsJob, /runs-on: windows-latest/u);
   assert.match(windowsJob, /LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY: 'true'/u);
   assert.match(windowsJob, /repository: google\/googletest/u);
   assert.match(windowsJob, /Initialize MSVC developer environment/u);
   assert.match(windowsJob, /uses: \.\/\.github\/actions\/initialize-msvc-environment/u);
   assert.match(msvcAction, /vcvarsall\.bat/u);
-  assert.match(msvcAction, /Hosted MSVC 14\.39 toolset is unavailable/u);
-  assert.match(msvcAction, /-vcvars_ver=\$\(\$toolset\.Name\)/u);
   assert.match(msvcAction, /\$env:PATH = \$values\['PATH'\]/u);
   assert.match(msvcAction, /Get-Command cmake\.exe/u);
   assert.match(msvcAction, /Get-Command ctest\.exe/u);

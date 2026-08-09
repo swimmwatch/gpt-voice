@@ -19,7 +19,7 @@ jobs:
   windows-consumer-package:
     name: Deferred Windows qualification fixture consumer/package
     if: ${{ inputs.windows_qualification_authorized }}
-    runs-on: windows-2025
+    runs-on: windows-latest
     timeout-minutes: 45
     env:
       CI: true
