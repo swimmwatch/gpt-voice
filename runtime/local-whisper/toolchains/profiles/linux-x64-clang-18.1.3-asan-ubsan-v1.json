@@ -129,7 +129,7 @@
   "patchLockIds": [],
   "qualificationFixture": {
     "fixtureId": "local-whisper-sanitizer-proof-v1",
-    "manifestSha256": "10c616c610107c608f00e79a1ec737f601c70fe7706341ff2998457607a4a4e7"
+    "manifestSha256": "3bb36122211ef9f9f189d0fe670690c78335ba0da4df9bd3a7e5a18587c3a4e5"
   },
   "cmakeCache": {
     "CMAKE_BUILD_TYPE": "Debug",
@@ -242,6 +242,6 @@
   ],
   "sbomComponents": ["clang-18.1.3", "lld-18.1.3", "cmake-3.31.8", "ninja-1.12.1"],
   "qualificationState": "qualified",
-  "evidenceDigest": "93b001b715b581c7b237b1bd5f8850b9f4209824f6280fb9982c1e47d3a043ca",
+  "evidenceDigest": "d9cfd5ec61762459de22aafebaab2391b90dcab80eb820d06b9b6f1341aced33",
   "minimumDriver": null
 }

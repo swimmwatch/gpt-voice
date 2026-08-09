@@ -36,7 +36,12 @@ endfunction()
 function(local_whisper_configure_msvc_stl_debug_level)
   if(MSVC)
     # Keep every project-owned and GoogleTest translation unit on one ABI-safe STL setting.
-    add_compile_definitions(_ITERATOR_DEBUG_LEVEL=0 _CONTAINER_DEBUG_LEVEL=0)
+    add_compile_definitions(_ITERATOR_DEBUG_LEVEL=0)
+    if(MSVC_VERSION LESS 1940)
+      add_compile_definitions(_CONTAINER_DEBUG_LEVEL=0)
+    else()
+      add_compile_definitions(_MSVC_STL_HARDENING=0)
+    endif()
   endif()
 endfunction()
 

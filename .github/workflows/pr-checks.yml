@@ -68,7 +68,7 @@ jobs:
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 
       - name: Prove non-recovering Linux sanitizer policy
-        run: npm run test:local-whisper:native-sanitizer-proof
+        run: npm run test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality
 
       - name: Verify Local Whisper worker vectors
         run: npm run verify:local-whisper:worker-vectors -- --check-clean

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31.8)
+cmake_minimum_required(VERSION 3.25)
 
 project(local_whisper_sanitizer_proof LANGUAGES CXX)
 
@@ -15,6 +15,7 @@ function(local_whisper_add_sanitizer_fixture target source sanitizer)
       -Wpedantic
       -Werror
       -fno-omit-frame-pointer
+      -fno-sanitize-recover=all
       -fsanitize=${sanitizer}
   )
   target_link_options(

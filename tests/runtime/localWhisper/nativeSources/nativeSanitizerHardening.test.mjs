@@ -39,7 +39,10 @@ test('all native graphs use the shared Linux sanitizer and MSVC STL policies', (
   assert.match(hardeningModule, /add_compile_definitions\(_GLIBCXX_ASSERTIONS\)/u);
   assert.match(hardeningModule, /\/fsanitize=address/u);
   assert.match(hardeningModule, /string\(REPLACE "\/RTC1" ""/u);
-  assert.match(hardeningModule, /_ITERATOR_DEBUG_LEVEL=0 _CONTAINER_DEBUG_LEVEL=0/u);
+  assert.match(hardeningModule, /_ITERATOR_DEBUG_LEVEL=0/u);
+  assert.match(hardeningModule, /if\(MSVC_VERSION LESS 1940\)/u);
+  assert.match(hardeningModule, /_CONTAINER_DEBUG_LEVEL=0/u);
+  assert.match(hardeningModule, /_MSVC_STL_HARDENING=0/u);
 
   for (const [project, sanitizerOption] of nativeProjects) {
     const source = readFileSync(resolve(workspaceRoot, 'runtime', 'local-whisper', project, 'CMakeLists.txt'), 'utf8');
@@ -79,5 +82,24 @@ test('Windows ASan configurations are explicit in native presets, drivers, packa
   assert.match(workerDriver, /windows-x64-msvc-19\.39-asan-v1/u);
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
   assert.match(workflow, /Prove non-recovering Linux sanitizer policy/u);
+  assert.match(workflow, /test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality/u);
   assert.match(workflow, /Run MSVC AddressSanitizer native suites/u);
+});
+
+test('prepared Linux sanitizer proof keeps the immutable fixture and verifies both non-recovering findings', () => {
+  const proof = readFileSync(
+    resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-build', 'test-native-sanitizer-proof.mjs'),
+    'utf8',
+  );
+  const fixture = readFileSync(
+    resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains', 'fixtures', 'sanitizer-proof', 'CMakeLists.txt'),
+    'utf8',
+  );
+  assert.match(proof, /readSanitizerFixtureIdentity/u);
+  assert.match(proof, /prepared-linux-quality/u);
+  assert.match(proof, /AddressSanitizer/u);
+  assert.match(proof, /signed integer overflow/u);
+  assert.match(proof, /libclang_rt\.asan-x86_64\.so/u);
+  assert.match(proof, /libclang_rt\.ubsan_standalone-x86_64\.so/u);
+  assert.match(fixture, /-fno-sanitize-recover=all/u);
 });

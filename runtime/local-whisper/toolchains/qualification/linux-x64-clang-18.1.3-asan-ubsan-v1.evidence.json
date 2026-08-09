@@ -2,13 +2,13 @@
   "$schema": "../schema/native-toolchain-evidence.schema.json",
   "schemaId": "local-whisper-native-toolchain-evidence-v1",
   "profileId": "linux-x64-clang-18.1.3-asan-ubsan-v1",
-  "profileInputDigest": "8a63b935b9b3b5241e989807053868976d47dda21d9f40f87cf1e91f56d8012a",
+  "profileInputDigest": "7e2d97344dfadbcd133a344d773f61db01c55a0d32cdcf1e9d96c1b74525a0fe",
   "inputs": {
     "sourceLockIds": [],
     "patchLockIds": [],
     "qualificationFixture": {
       "fixtureId": "local-whisper-sanitizer-proof-v1",
-      "manifestSha256": "10c616c610107c608f00e79a1ec737f601c70fe7706341ff2998457607a4a4e7"
+      "manifestSha256": "3bb36122211ef9f9f189d0fe670690c78335ba0da4df9bd3a7e5a18587c3a4e5"
     }
   },
   "toolIdentities": [
@@ -128,8 +128,8 @@
     }
   ],
   "configuredCacheSha256": "0e834cf298dbc3220001e3012485acf1b322bf01adaf63df87abe8d39621d9ff",
-  "effectiveCacheSha256": "1b3cc48ac1481d93da5026b87b4b7c7f18bc81c31dfa4b0d3e67ddfb7c342437",
-  "generatedBuildGraphSha256": "43bec4877f893379f264d530c17e801dd187198f795f0ff8078ba7f072194bcd",
+  "effectiveCacheSha256": "5acd644841c2c38a1448c355fcbc8603912c44fe5029b00551228e1b44242872",
+  "generatedBuildGraphSha256": "438ae82a068d526967a5d9a8ddc5eace61708a2736647f015568bcf47b227cfc",
   "generatedTargets": [
     "local-whisper-sanitizer-clean",
     "local-whisper-sanitizer-asan-trigger",
@@ -153,7 +153,7 @@
       "exitStatus": 1,
       "signal": null,
       "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "stderrSha256": "439b8a1f26f6fe13ef98f03829ef83a25065ba4e3dce7bd1f48d705d1d5c2e4d",
+      "stderrSha256": "a998ac6fb645bf818580bc4c7bd053c066f1b220fce1805a52dad86c946081b3",
       "requiredMarkers": ["AddressSanitizer", "heap-use-after-free"],
       "observedMarkers": ["AddressSanitizer", "heap-use-after-free"],
       "networkNamespace": "user-network-isolated"
@@ -164,7 +164,7 @@
       "exitStatus": 1,
       "signal": null,
       "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "stderrSha256": "d60a018c35b81204e4a3249f0942a3074edb10aa9b993d64fec0826d5ddb4230",
+      "stderrSha256": "e8d9080505a430437a1ad7acb34d53230fbe6d7367c9dc352e6f367ffc869a74",
       "requiredMarkers": ["runtime error:", "signed integer overflow"],
       "observedMarkers": ["runtime error:", "signed integer overflow"],
       "networkNamespace": "user-network-isolated"
@@ -174,19 +174,19 @@
     {
       "id": "sanitizer-clean",
       "relativePath": "bin/local-whisper-sanitizer-clean",
-      "sha256": "d909aba08d5ef1423d0e64260fa4a918ddc5fb8e0e7cd0472827c933a8e36fd9",
+      "sha256": "a054f43c975f9a4222ec3bd940ddb9ea7da10740d4500b3e82dea96668fe5977",
       "mode": "100755"
     },
     {
       "id": "sanitizer-asan-trigger",
       "relativePath": "bin/local-whisper-sanitizer-asan-trigger",
-      "sha256": "860e938cb84867a5b5b6d75b83d36aab483b6a0d47bfaed3d50d1e1f5ee18f5f",
+      "sha256": "759db1d07463d824659e7fcd3e31fb5a7faac8d09c8693d4084d67da4de0f30e",
       "mode": "100755"
     },
     {
       "id": "sanitizer-ubsan-trigger",
       "relativePath": "bin/local-whisper-sanitizer-ubsan-trigger",
-      "sha256": "04c6c2ec3bcb03ba5c3d22b55253ea9061fb375674c86b4aa82225748c4c3761",
+      "sha256": "0553f7c27d951c52c237b6d8d20af9d9b158414ba5909b7454b2a3e75b1f75a6",
       "mode": "100755"
     },
     {
@@ -229,7 +229,7 @@
       {
         "fileId": "sanitizer-clean",
         "relativePath": "bin/local-whisper-sanitizer-clean",
-        "sha256": "d909aba08d5ef1423d0e64260fa4a918ddc5fb8e0e7cd0472827c933a8e36fd9",
+        "sha256": "a054f43c975f9a4222ec3bd940ddb9ea7da10740d4500b3e82dea96668fe5977",
         "needed": [
           {
             "soname": "libclang_rt.asan-x86_64.so",
@@ -266,7 +266,7 @@
       {
         "fileId": "sanitizer-asan-trigger",
         "relativePath": "bin/local-whisper-sanitizer-asan-trigger",
-        "sha256": "860e938cb84867a5b5b6d75b83d36aab483b6a0d47bfaed3d50d1e1f5ee18f5f",
+        "sha256": "759db1d07463d824659e7fcd3e31fb5a7faac8d09c8693d4084d67da4de0f30e",
         "needed": [
           {
             "soname": "libclang_rt.asan-x86_64.so",
@@ -303,7 +303,7 @@
       {
         "fileId": "sanitizer-ubsan-trigger",
         "relativePath": "bin/local-whisper-sanitizer-ubsan-trigger",
-        "sha256": "04c6c2ec3bcb03ba5c3d22b55253ea9061fb375674c86b4aa82225748c4c3761",
+        "sha256": "0553f7c27d951c52c237b6d8d20af9d9b158414ba5909b7454b2a3e75b1f75a6",
         "needed": [
           {
             "soname": "libclang_rt.ubsan_standalone-x86_64.so",
@@ -390,9 +390,9 @@
     ]
   },
   "relocation": {
-    "rootIdentity": "88ea824f7943ad95162d8d28a80496415fd5c9316a4a3bd0385fa9866819be87",
-    "manifestSha256": "17c117ea02e2e9208703f14d1a5658012a8164ada2763dd422436e64980665d0",
-    "maliciousCwdIdentity": "9467c3eb600206dbaffd32da492d21c3228a8d20581ce8c856e562a04ef0b54a",
+    "rootIdentity": "f17d82d4064b607eafb185f3c4342d10630da28d82134194406077a4d394fd4f",
+    "manifestSha256": "aa09104dda4edf43b67dcdeb14a29e59eba6331f72e348dfa322743a28b16cb6",
+    "maliciousCwdIdentity": "0dc6906326cfc87a818eb61e86d393415418f0f1395a43d5eec5c6287cd7c9ac",
     "environmentAllowlist": ["ASAN_OPTIONS", "LANG", "LC_ALL", "PATH", "UBSAN_OPTIONS"],
     "inheritedEnvironmentKeys": [],
     "forbiddenVariablesAbsent": ["LD_LIBRARY_PATH", "LD_PRELOAD", "GGML_BACKEND_PATH"],
@@ -416,31 +416,31 @@
     "phases": [
       {
         "phase": "preflight",
-        "commandSha256": "11704421e1ac6c95b28e2f50d08564d2c3872bad46aebbe9f2706b1954eb5c08",
+        "commandSha256": "82c45a4280d591a4e301bdf9820bd064c6148efac9356e80ace8321e5599cfe2",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "configure",
-        "commandSha256": "1b327e805d0dabcc05f9ea7f370d863e60830e83b631dbe882851238e8836af1",
+        "commandSha256": "cd50aba4d629bbee108f54791c4cfae90570aff55ede3f60e2053fba8a7b0488",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "build",
-        "commandSha256": "192ad8c3abfe2bf6d32f3cbee63346f25936f110527df2bf4e0ac04d1a7f768a",
+        "commandSha256": "53f78a7fe1750c51dc17da7b53e961ca8525408fff7bfff86331b8fa06941625",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "fixture-execution",
-        "commandSha256": "259bd1503d0b8f6f68177289efce996d15709e1c55f17e293100816f1bc85a5c",
+        "commandSha256": "8805e8f26d2c3208b0e67dbf464187a06eebf565e97138a0d89fbc0362514efc",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "relocated-clean-start",
-        "commandSha256": "b74328ac4c3a1fbb846ca2e71ed115bf51d8a691246dc35aba85473a28ed7246",
+        "commandSha256": "60d0aed2d3dca8dd1273903c0b83a697860d6aa0f756b4a4abd15173c7685583",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       }
