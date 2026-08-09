@@ -65,7 +65,12 @@ const SHA_256 = /^[a-f\d]{64}$/u;
 function parseJobs(text: string): Record<string, WorkflowJob> {
   const document = parse(text) as unknown;
   if (!isRecord(document) || !isRecord(document.jobs)) throw new Error('Native CI workflow must declare jobs');
-  return document.jobs;
+  const jobs: Record<string, WorkflowJob> = {};
+  for (const [name, value] of Object.entries(document.jobs)) {
+    if (!isRecord(value)) throw new Error(`Native CI job ${name} must be an object`);
+    jobs[name] = value;
+  }
+  return jobs;
 }
 
 function jobText(job: WorkflowJob): string {
