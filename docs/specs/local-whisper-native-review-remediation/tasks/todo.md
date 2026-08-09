@@ -6,7 +6,7 @@
 - [x] [04 — Process and capability lifecycle](04_process_and_capability_lifecycle.md)
 - [x] [05 — Common crypto and frame contracts](05_common_crypto_and_frame_contracts.md)
 - [x] [06 — Typed launch failures](06_typed_launch_failures.md)
-- [ ] [07 — Native hardening and binary verifier](07_native_hardening_and_binary_verifier.md)
+- [x] [07 — Native hardening and binary verifier](07_native_hardening_and_binary_verifier.md)
 - [ ] [08 — Sanitizer and STL hardening](08_sanitizer_and_stl_hardening.md)
 - [ ] [09 — Native execution, analysis, and reporting](09_native_execution_analysis_and_reporting.md)
 - [ ] [10 — Bounded parser fuzzing](10_bounded_parser_fuzzing.md)
