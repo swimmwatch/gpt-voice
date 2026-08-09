@@ -57,6 +57,7 @@ export default {
   'error.translationConsentOrChallenge': 'The translation provider requires consent or verification. Try again later.',
   'error.translationPageChanged': 'The translation provider page has changed. Try again later.',
   'error.translationResultUnavailable': 'No translation result was available before the operation timed out.',
+  'error.translationTimedOut': 'Translation timed out. Try again.',
   'error.translationCleanupFailed': 'Translation cleanup failed. No result was copied.',
   'error.translationSettingsInvalid': 'Select a supported translation provider and language.',
   'error.translationSettingsSaveFailed':

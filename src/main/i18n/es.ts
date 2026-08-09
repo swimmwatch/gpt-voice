@@ -58,6 +58,7 @@ export default {
     'El proveedor de traducción requiere consentimiento o verificación. Inténtelo más tarde.',
   'error.translationPageChanged': 'La página del proveedor de traducción ha cambiado. Inténtelo más tarde.',
   'error.translationResultUnavailable': 'No hubo ningún resultado de traducción antes de agotarse el tiempo.',
+  'error.translationTimedOut': 'Se agotó el tiempo de traducción. Inténtelo de nuevo.',
   'error.translationCleanupFailed': 'No se pudieron limpiar los datos de traducción. No se copió ningún resultado.',
   'error.translationSettingsInvalid': 'Seleccione un proveedor y un idioma de traducción compatibles.',
   'error.translationSettingsSaveFailed':

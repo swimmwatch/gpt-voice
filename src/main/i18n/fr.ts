@@ -58,6 +58,7 @@ export default {
     'Le fournisseur de traduction exige un consentement ou une vérification. Réessayez plus tard.',
   'error.translationPageChanged': 'La page du fournisseur de traduction a changé. Réessayez plus tard.',
   'error.translationResultUnavailable': "Aucun résultat de traduction n'était disponible avant l'expiration du délai.",
+  'error.translationTimedOut': 'Le délai de traduction a expiré. Réessayez.',
   'error.translationCleanupFailed': "Le nettoyage des données de traduction a échoué. Aucun résultat n'a été copié.",
   'error.translationSettingsInvalid': 'Sélectionnez un fournisseur et une langue de traduction compatibles.',
   'error.translationSettingsSaveFailed':

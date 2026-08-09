@@ -59,6 +59,7 @@ export default {
   'error.translationConsentOrChallenge': 'Сэрвіс перакладу патрабуе згоды або праверкі. Паўтарыце спробу пазней.',
   'error.translationPageChanged': 'Старонка сэрвісу перакладу змянілася. Паўтарыце спробу пазней.',
   'error.translationResultUnavailable': 'Вынік перакладу не быў атрыманы да заканчэння часу чакання.',
+  'error.translationTimedOut': 'Час перакладу скончыўся. Паспрабуйце яшчэ раз.',
   'error.translationCleanupFailed': 'Не ўдалося ачысціць даныя перакладу. Вынік не скапіраваны.',
   'error.translationSettingsInvalid': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
   'error.translationSettingsSaveFailed': 'Не ўдалося захаваць налады перакладу. Папярэдні выбар застаецца актыўным.',

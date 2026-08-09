@@ -56,6 +56,7 @@ export default {
   'error.translationConsentOrChallenge': 'अनुवाद प्रदाता को सहमति या सत्यापन चाहिए। बाद में फिर से प्रयास करें।',
   'error.translationPageChanged': 'अनुवाद प्रदाता का पेज बदल गया है। बाद में फिर से प्रयास करें।',
   'error.translationResultUnavailable': 'समय समाप्त होने से पहले अनुवाद परिणाम उपलब्ध नहीं हुआ।',
+  'error.translationTimedOut': 'अनुवाद का समय समाप्त हो गया। फिर से कोशिश करें।',
   'error.translationCleanupFailed': 'अनुवाद डेटा साफ़ नहीं हो सका। कोई परिणाम कॉपी नहीं किया गया।',
   'error.translationSettingsInvalid': 'समर्थित अनुवाद प्रदाता और भाषा चुनें।',
   'error.translationSettingsSaveFailed': 'अनुवाद सेटिंग सहेजी नहीं जा सकीं। आपका पिछला चयन अभी भी सक्रिय है।',

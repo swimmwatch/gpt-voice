@@ -57,6 +57,7 @@ export default {
     'Der Übersetzungsanbieter verlangt eine Zustimmung oder Überprüfung. Versuchen Sie es später erneut.',
   'error.translationPageChanged': 'Die Seite des Übersetzungsanbieters wurde geändert. Versuchen Sie es später erneut.',
   'error.translationResultUnavailable': 'Vor Ablauf der Zeit war kein Übersetzungsergebnis verfügbar.',
+  'error.translationTimedOut': 'Die Übersetzung hat zu lange gedauert. Bitte versuchen Sie es erneut.',
   'error.translationCleanupFailed':
     'Die Übersetzungsdaten konnten nicht bereinigt werden. Es wurde kein Ergebnis kopiert.',
   'error.translationSettingsInvalid': 'Wählen Sie einen unterstützten Übersetzungsanbieter und eine Sprache.',

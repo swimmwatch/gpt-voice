@@ -26,7 +26,7 @@ import {
 } from './translationProviderAudit';
 import { matchTranslationResultLineEndings } from './translationResultText';
 
-export const TRANSLATION_RESULT_TIMEOUT_MS = 15_000;
+export { TRANSLATION_RESULT_TIMEOUT_MS } from './translationOperationLifecycle';
 export const TRANSLATION_RESULT_POLL_INTERVAL_MS = 100;
 export const TRANSLATION_RESULT_STABILITY_DELAY_MS = 500;
 

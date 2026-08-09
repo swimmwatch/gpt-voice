@@ -7,6 +7,7 @@ import { createTextActionCacheKey, type TextActionResultCache } from '@main/serv
 import type { TextAutomationService } from '@main/services/textAutomation';
 import {
   formatNotificationBody,
+  NotificationErrorCode,
   presentNotificationError,
   type PresentedNotificationError,
   type SystemNotificationOptions,
@@ -136,7 +137,11 @@ export class SelectedTextTranslationService {
         }
         this.restoreClipboard(previousClipboardText);
         const message = this.dependencies.runtime.getFailureMessage(outcome);
-        const presented = this.notifyTranslationFailure(message);
+        const presented = this.notifyTranslationFailure(
+          message,
+          undefined,
+          outcome.code === 'timed-out' ? message : undefined,
+        );
         return createFailureResult(presented.userMessage);
       }
       if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
@@ -181,6 +186,23 @@ export class SelectedTextTranslationService {
     });
   }
 
+  private presentKnownSafeTranslationFailure(message: string): PresentedNotificationError {
+    return {
+      code: NotificationErrorCode.HumanReadable,
+      safeLogMetadata: {
+        code: NotificationErrorCode.HumanReadable,
+        context: 'translation',
+        hasFilePath: false,
+        hasMessage: false,
+        hasStackTrace: false,
+        hasUrl: false,
+        messageLength: 0,
+        wasSanitized: false,
+      },
+      userMessage: message,
+    };
+  }
+
   private restoreClipboard(previousClipboardText: string | null): void {
     if (previousClipboardText !== null) {
       this.dependencies.clipboard.writeText(previousClipboardText);
@@ -215,8 +237,12 @@ export class SelectedTextTranslationService {
   private notifyTranslationFailure(
     error: unknown,
     fallback = this.dependencies.localization.translate('status.translationFailed'),
+    knownSafeMessage?: string,
   ): PresentedNotificationError {
-    const presented = this.presentTranslationError(error, fallback);
+    const presented =
+      knownSafeMessage === undefined
+        ? this.presentTranslationError(error, fallback)
+        : this.presentKnownSafeTranslationFailure(knownSafeMessage);
     try {
       this.dependencies.notify(
         this.dependencies.localization.translate('notification.translationFailed'),

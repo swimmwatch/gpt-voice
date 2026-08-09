@@ -218,6 +218,8 @@ export class TranslationRuntime {
         return translate('error.translationPageChanged');
       case 'resultTimeoutOrEmpty':
         return translate('error.translationResultUnavailable');
+      case 'timed-out':
+        return translate('error.translationTimedOut');
       case 'cancelledOrStaleOperation':
         return translate('status.translationCancelled');
       case 'cleanupFailure':
@@ -474,6 +476,8 @@ export class TranslationRuntime {
         return TRANSLATION_PROVIDER_CONNECTION_DETAILS.ConsentOrChallenge;
       case 'pageContractFailure':
         return TRANSLATION_PROVIDER_CONNECTION_DETAILS.PageChanged;
+      case 'timed-out':
+        return TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure;
       case 'cleanupFailure':
         return TRANSLATION_PROVIDER_CONNECTION_DETAILS.CleanupFailed;
       case 'cancelledOrStaleOperation':

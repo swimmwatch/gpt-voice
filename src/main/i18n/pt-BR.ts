@@ -59,6 +59,7 @@ export default {
     'O provedor de tradução exige consentimento ou verificação. Tente novamente mais tarde.',
   'error.translationPageChanged': 'A página do provedor de tradução mudou. Tente novamente mais tarde.',
   'error.translationResultUnavailable': 'Nenhum resultado de tradução ficou disponível antes do tempo limite.',
+  'error.translationTimedOut': 'O tempo de tradução esgotou. Tente novamente.',
   'error.translationCleanupFailed': 'Não foi possível limpar os dados da tradução. Nenhum resultado foi copiado.',
   'error.translationSettingsInvalid': 'Selecione um provedor e um idioma de tradução compatíveis.',
   'error.translationSettingsSaveFailed':

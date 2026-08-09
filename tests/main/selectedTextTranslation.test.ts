@@ -130,6 +130,8 @@ class TestTranslationRuntime implements SelectedTextTranslationRuntime {
         return localization.translate('error.translationPageChanged');
       case 'resultTimeoutOrEmpty':
         return localization.translate('error.translationResultUnavailable');
+      case 'timed-out':
+        return localization.translate('error.translationTimedOut');
       case 'cancelledOrStaleOperation':
         return localization.translate('status.translationCancelled');
       case 'cleanupFailure':
@@ -327,6 +329,31 @@ describe('selected-text translation', () => {
     assert.equal(result.success, false);
     assert.equal(result.error, 'Could not connect to the translation provider. Try again.');
     assert.equal(harness.clipboard.clipboard, 'previous clipboard');
+  });
+
+  it('restores clipboard without caching or copying a typed timeout outcome', async () => {
+    const snapshot = createSnapshot();
+    const cache = createTextActionResultCache(20);
+    const harness = createTestService({
+      cache,
+      copyText: 'selected text',
+      translateOutcome: createFailure(snapshot, 'timed-out', 13),
+    });
+
+    const result = await harness.service.translateSelectedTextToClipboard();
+
+    assert.equal(result.success, false);
+    assert.equal(result.error, 'Translation timed out. Try again.');
+    assert.equal(harness.clipboard.clipboard, 'previous clipboard');
+    assert.equal(cache.size(), 0);
+    assert.deepEqual(harness.notifications, [
+      {
+        title: 'Translation failed',
+        body: 'Translation timed out. Try again.',
+        options: { sound: 'error' },
+      },
+    ]);
+    assert.doesNotMatch(JSON.stringify(result), /selected|translated/u);
   });
 
   it('copies successful provider output only after the provider outcome is complete', async () => {

@@ -55,6 +55,7 @@ export default {
   'error.translationConsentOrChallenge': '翻译提供商需要同意或验证。请稍后重试。',
   'error.translationPageChanged': '翻译提供商页面已更改。请稍后重试。',
   'error.translationResultUnavailable': '操作超时前未获得翻译结果。',
+  'error.translationTimedOut': '翻译超时。请重试。',
   'error.translationCleanupFailed': '无法清理翻译数据。未复制任何结果。',
   'error.translationSettingsInvalid': '请选择支持的翻译提供商和语言。',
   'error.translationSettingsSaveFailed': '无法保存翻译设置。之前的选择仍然有效。',

@@ -11,6 +11,7 @@ export const TRANSLATION_PROVIDER_FAILURE_CODES = [
   'consentOrChallenge',
   'pageContractFailure',
   'resultTimeoutOrEmpty',
+  'timed-out',
   'cancelledOrStaleOperation',
   'cleanupFailure',
 ] as const;

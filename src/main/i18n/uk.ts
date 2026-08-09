@@ -60,6 +60,7 @@ export default {
   'error.translationConsentOrChallenge': 'Сервіс перекладу вимагає згоди або перевірки. Повторіть спробу пізніше.',
   'error.translationPageChanged': 'Сторінка сервісу перекладу змінилася. Повторіть спробу пізніше.',
   'error.translationResultUnavailable': 'Результат перекладу не було отримано до завершення часу очікування.',
+  'error.translationTimedOut': 'Час очікування перекладу минув. Спробуйте ще раз.',
   'error.translationCleanupFailed': 'Не вдалося очистити дані перекладу. Результат не скопійовано.',
   'error.translationSettingsInvalid': 'Виберіть підтримуваний сервіс і мову перекладу.',
   'error.translationSettingsSaveFailed':

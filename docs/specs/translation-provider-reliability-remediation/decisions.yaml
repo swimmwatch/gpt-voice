@@ -717,3 +717,211 @@ decisions:
     rationale: The persistent implementation interview separately authorized an isolated local Packet 01 commit.
     supersedes_revision: null
     requirement_ids: [OUT-004, SCOPE-003]
+
+  - id: execution.packet-02
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 01 was committed locally as e1fe686 after focused verification and a
+        separate persistent commit authorization.
+      - docs/specs/translation-provider-reliability-remediation/tasks/todo.md
+        identifies Packet 02 as the next unchecked packet.
+      - Packet 02 defines a dormant main-process lifecycle primitive, typed timeout
+        mappings, and deterministic tests; it does not activate provider behavior.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: execution-round-02
+      question_id: execution.packet-02
+      idempotency_key: execution.packet-02:v1
+      last_status: answered
+    question:
+      text: Authorize execution of Packet 02, Build the deadline and timeout contract, without committing it?
+      kind: single
+      options:
+        - id: execute-packet-02
+          label: Execute Packet 02 (Recommended)
+          description: Implement and verify only the dormant lifecycle and typed timeout contract, leaving the resulting changes uncommitted for review.
+        - id: do-not-execute
+          label: Do not execute
+          description: Leave Packet 02 unchanged and stop without implementation work.
+    answer:
+      selected_ids: [execute-packet-02]
+      text: ''
+    rationale: The persistent implementation interview separately authorized Packet 02 execution.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        TIME-005,
+        TIME-006,
+        TIME-007,
+        TIME-008,
+        ARCH-002,
+        ARCH-007,
+        ARCH-008,
+        ARCH-009,
+        CONC-003,
+        CONC-004,
+        CONC-005,
+        CONC-006,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        SEC-002,
+        SEC-003,
+        SEC-009,
+        OBS-001,
+        OBS-002,
+        OBS-003,
+        OBS-004,
+        OBS-005,
+        COMP-001,
+        COMP-002,
+        COMP-003,
+        COMP-005,
+        CONF-001,
+        CONF-002,
+        ACC-001,
+        ACC-008,
+        ACC-009,
+        ACC-010,
+      ]
+
+  - id: authorization.commit-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 02 matches its handoff and its focused tests, typecheck, test-type
+        check, lint, formatting, and whitespace verification passed on 2026-08-09.
+      - Packet 03 cannot start until the completed Packet 02 changes are isolated in
+        a local commit.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-03
+      question_id: authorization.commit-packet-02
+      idempotency_key: authorization.commit-packet-02:v1
+      last_status: answered
+    question:
+      text: Authorize one isolated local commit for completed Packet 02, containing only the Translation Provider Reliability Remediation deadline and timeout contract changes?
+      kind: single
+      options:
+        - id: commit-packet-02
+          label: Commit Packet 02 (Recommended)
+          description: Create the required local commit for Packet 02 only; do not push or begin Packet 03 until it completes.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 02 uncommitted and stop; Packet 03 cannot begin.
+    answer:
+      selected_ids: [commit-packet-02]
+      text: ''
+    rationale: The persistent implementation interview separately authorized an isolated local Packet 02 commit.
+    supersedes_revision: null
+    requirement_ids: [OUT-004, SCOPE-003]
+
+  - id: execution.packet-03
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 02 verification passed and its local commit was explicitly authorized.
+      - docs/specs/translation-provider-reliability-remediation/tasks/todo.md
+        identifies Packet 03 as the next unchecked packet.
+      - Packet 03 wires the bounded lifecycle into main-process provider dispatch and
+        browser-resource ownership without changing IPC, settings, or packaging.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-03
+      question_id: execution.packet-03
+      idempotency_key: execution.packet-03:v1
+      last_status: answered
+    question:
+      text: Authorize execution and verification of Packet 03, Integrate bounded operation and resource lifecycle, leaving its resulting changes uncommitted?
+      kind: single
+      options:
+        - id: execute-packet-03
+          label: Execute Packet 03 (Recommended)
+          description: Implement and verify only Packet 03 after Packet 02 is committed; do not push, package, or begin Packet 04.
+        - id: do-not-execute
+          label: Do not execute
+          description: Stop after the Packet 02 commit without implementation work.
+    answer:
+      selected_ids: [execute-packet-03]
+      text: ''
+    rationale: The persistent implementation interview separately authorized Packet 03 execution.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-002,
+        OUT-003,
+        TIME-001,
+        TIME-003,
+        TIME-004,
+        TIME-005,
+        TIME-006,
+        TIME-007,
+        TIME-008,
+        ARCH-001,
+        ARCH-002,
+        ARCH-003,
+        ARCH-004,
+        ARCH-005,
+        ARCH-006,
+        ARCH-007,
+        ARCH-008,
+        CONC-001,
+        CONC-002,
+        CONC-003,
+        CONC-004,
+        CONC-005,
+        CONC-006,
+        LIFE-001,
+        LIFE-002,
+        LIFE-003,
+        LIFE-004,
+        LIFE-005,
+        LIFE-006,
+        LIFE-007,
+        LIFE-008,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        FAIL-005,
+        FAIL-006,
+        FAIL-007,
+        FAIL-008,
+        SEC-001,
+        SEC-002,
+        SEC-003,
+        SEC-004,
+        SEC-005,
+        SEC-006,
+        SEC-007,
+        OBS-001,
+        OBS-002,
+        OBS-003,
+        OBS-004,
+        OBS-005,
+        OBS-006,
+        COMP-001,
+        COMP-003,
+        COMP-004,
+        COMP-005,
+        CONF-001,
+        CONF-002,
+        CONF-003,
+        ACC-001,
+        ACC-002,
+        ACC-003,
+        ACC-004,
+        ACC-005,
+        ACC-006,
+        ACC-007,
+        ACC-008,
+        ACC-009,
+        ACC-010,
+      ]

@@ -54,6 +54,7 @@ export default {
   'error.translationConsentOrChallenge': '翻訳プロバイダーで同意または確認が必要です。後でもう一度お試しください。',
   'error.translationPageChanged': '翻訳プロバイダーのページが変更されました。後でもう一度お試しください。',
   'error.translationResultUnavailable': 'タイムアウトする前に翻訳結果を取得できませんでした。',
+  'error.translationTimedOut': '翻訳がタイムアウトしました。もう一度お試しください。',
   'error.translationCleanupFailed': '翻訳データを消去できませんでした。結果はコピーされていません。',
   'error.translationSettingsInvalid': '対応している翻訳プロバイダーと言語を選択してください。',
   'error.translationSettingsSaveFailed': '翻訳設定を保存できませんでした。以前の選択が引き続き有効です。',
