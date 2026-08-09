@@ -61,6 +61,7 @@ const UNKNOWN_RUNTIME_VERSION = 'unknown';
 const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
 const LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS = 2_000;
 const LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES = 4_096;
+const TRANSLATION_PROVIDER_VISIBLE_FOR_TESTING_ENVIRONMENT_KEY = 'GPT_VOICE_TRANSLATION_PROVIDER_VISIBLE';
 // CloakBrowser is ESM while the Electron main bundle is CommonJS.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
 const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
@@ -473,7 +474,10 @@ async function bootstrapMainProcess(): Promise<void> {
       now: Date.now,
       providers: {
         createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
-        createContextOptions: createCloakBrowserTranslationContextOptions,
+        createContextOptions: (settings) =>
+          createCloakBrowserTranslationContextOptions(settings, {
+            forceVisible: process.env[TRANSLATION_PROVIDER_VISIBLE_FOR_TESTING_ENVIRONMENT_KEY] === '1',
+          }),
         createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
         createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
         sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),

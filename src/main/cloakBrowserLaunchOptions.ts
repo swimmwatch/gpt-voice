@@ -67,6 +67,10 @@ export function createCloakBrowserPersistentContextOptions(
 
 export function createCloakBrowserTranslationContextOptions(
   settings: CloakBrowserSettingsWithSecret,
+  options: { readonly forceVisible?: boolean } = {},
 ): LaunchContextOptions {
-  return buildCloakBrowserContextOptions(settings, 'translation');
+  return {
+    ...buildCloakBrowserContextOptions(settings, 'translation'),
+    ...(options.forceVisible ? { headless: false } : {}),
+  };
 }
