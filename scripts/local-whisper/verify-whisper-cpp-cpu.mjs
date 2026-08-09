@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import { cpuStageRoot } from './stage-whisper-cpp-cpu.mjs';
 import { canonicalDigest, sha256 } from './source-import/native-source-core.mjs';
@@ -150,6 +151,44 @@ function runSelfTest(binary, options = {}) {
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /LOCAL_WHISPER_CPP_CPU_SELF_TEST_OK/u);
   assert.equal(result.stderr, '');
+}
+
+export function requiresHostedNetworkFallback(result, hostEnvironment = process.env) {
+  return (
+    hostEnvironment.GITHUB_ACTIONS === 'true' &&
+    hostEnvironment.RUNNER_ENVIRONMENT === 'github-hosted' &&
+    result.status !== 0 &&
+    typeof result.stderr === 'string' &&
+    result.stderr.includes('unshare: write failed /proc/self/uid_map: Operation not permitted')
+  );
+}
+
+export function runNetworkIsolatedSelfTest(
+  harness,
+  binary,
+  cwd,
+  environment,
+  run = spawnSync,
+  hostEnvironment = process.env,
+) {
+  const options = { cwd, encoding: 'utf8', env: environment, shell: false };
+  const result = run(harness, ['--user', '--map-root-user', '--net', binary, '--self-test'], options);
+  if (!requiresHostedNetworkFallback(result, hostEnvironment)) return result;
+
+  return run(
+    '/usr/bin/sudo',
+    [
+      '-n',
+      '--',
+      '/usr/bin/env',
+      ...Object.entries(environment).map(([name, value]) => `${name}=${value}`),
+      harness,
+      '--net',
+      binary,
+      '--self-test',
+    ],
+    options,
+  );
 }
 
 function verifyDependencies(profile, binary) {
@@ -412,43 +451,40 @@ function audit(profileId) {
     GGML_BACKEND_PATH: malicious,
     LD_LIBRARY_PATH: malicious,
   };
-  const result = spawnSync(harness, ['--user', '--map-root-user', '--net', binary, '--self-test'], {
-    cwd: malicious,
-    env: environment,
-    encoding: 'utf8',
-    shell: false,
-  });
+  const result = runNetworkIsolatedSelfTest(harness, binary, malicious, environment);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(result.stdout, /LOCAL_WHISPER_CPP_CPU_SELF_TEST_OK/u);
   assert.equal(result.stderr, '');
   assert.deepEqual(allFiles(relocated), allFiles(pack.root));
 }
 
-try {
-  const arguments_ = parseArguments(process.argv.slice(2));
-  const mode = arguments_.get('mode');
-  const profileId = arguments_.get('profile');
-  const contractOnly = arguments_.has('contract-only');
-  const includeCancellation = arguments_.has('include-cancellation');
-  if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
-  if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
-    if (includeCancellation) throw new Error('Windows CPU cancellation is owned by the native integration suite');
-    if (mode !== 'verify') throw new Error('Windows CPU verification supports verify mode only');
-    if (contractOnly) verifyWindowsSourceContract(profileId);
-    else verifyWindowsPack(profileId);
-  } else if (profileId === 'linux-x64-cpu-baseline-v1') {
-    if (contractOnly) throw new Error('Linux CPU verification cannot be contract-only');
-    if (includeCancellation && mode !== 'integration')
-      throw new Error('Cancellation flag is valid only for CPU integration');
-    if (mode === 'verify') verifyLinux(profileId);
-    else if (mode === 'integration') await integration(profileId, includeCancellation);
-    else if (mode === 'audit') audit(profileId);
-    else throw new Error('Expected --mode=verify, integration, or audit');
-  } else {
-    throw new Error('Unknown Whisper.cpp CPU profile');
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    const arguments_ = parseArguments(process.argv.slice(2));
+    const mode = arguments_.get('mode');
+    const profileId = arguments_.get('profile');
+    const contractOnly = arguments_.has('contract-only');
+    const includeCancellation = arguments_.has('include-cancellation');
+    if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
+    if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
+      if (includeCancellation) throw new Error('Windows CPU cancellation is owned by the native integration suite');
+      if (mode !== 'verify') throw new Error('Windows CPU verification supports verify mode only');
+      if (contractOnly) verifyWindowsSourceContract(profileId);
+      else verifyWindowsPack(profileId);
+    } else if (profileId === 'linux-x64-cpu-baseline-v1') {
+      if (contractOnly) throw new Error('Linux CPU verification cannot be contract-only');
+      if (includeCancellation && mode !== 'integration')
+        throw new Error('Cancellation flag is valid only for CPU integration');
+      if (mode === 'verify') verifyLinux(profileId);
+      else if (mode === 'integration') await integration(profileId, includeCancellation);
+      else if (mode === 'audit') audit(profileId);
+      else throw new Error('Expected --mode=verify, integration, or audit');
+    } else {
+      throw new Error('Unknown Whisper.cpp CPU profile');
+    }
+    process.stdout.write(`Local Whisper CPU ${mode} verified for ${profileId}\n`);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : 'Whisper.cpp CPU verification failed'}\n`);
+    process.exitCode = 1;
   }
-  process.stdout.write(`Local Whisper CPU ${mode} verified for ${profileId}\n`);
-} catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : 'Whisper.cpp CPU verification failed'}\n`);
-  process.exitCode = 1;
 }

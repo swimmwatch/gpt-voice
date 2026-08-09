@@ -34,6 +34,21 @@ class FakeGuardChild extends EventEmitter {
   }
 }
 
+test('accepts a CRLF-terminated guard response', async () => {
+  const child = new FakeGuardChild();
+  const transport = new NativeManagedFilesystemGuardTransport({
+    executablePath: 'ignored-by-test',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+
+  const request = transport.request('RELEASE', ['lease-1']);
+  child.stdout.write('1\t1\tOK\tcmVsZWFzZQ\r\n');
+
+  assert.deepEqual(await request, ['release']);
+  assert.equal(child.killed, false);
+  await transport.dispose();
+});
+
 test('rejects an overlong guard response once and starts a fresh guard for the next request', async () => {
   const first = new FakeGuardChild();
   const second = new FakeGuardChild();

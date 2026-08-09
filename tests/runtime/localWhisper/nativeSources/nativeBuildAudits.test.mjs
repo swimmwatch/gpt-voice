@@ -36,6 +36,7 @@ import {
   sha256,
 } from '../../../../scripts/local-whisper/source-import/native-source-core.mjs';
 import { getSourceDefinition } from '../../../../scripts/local-whisper/source-import/source-definitions.mjs';
+import { runNetworkIsolatedSelfTest } from '../../../../scripts/local-whisper/verify-whisper-cpp-cpu.mjs';
 
 const workspaceRoot = resolve(import.meta.dirname, '..', '..', '..', '..');
 const toolchainRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains');
@@ -427,3 +428,57 @@ test(
     assert.match(result.stdout, /LOCAL_WHISPER_RELOCATED_CLEAN_OK/u);
   },
 );
+
+test('GitHub-hosted namespace mapping fallback retains a real isolated network namespace', () => {
+  const calls = [];
+  const environment = {
+    LANG: 'C',
+    LC_ALL: 'C',
+    PATH: '/malicious:/usr/bin:/bin',
+    GGML_BACKEND_PATH: '/malicious',
+    LD_LIBRARY_PATH: '/malicious',
+  };
+  const result = runNetworkIsolatedSelfTest(
+    '/usr/bin/unshare',
+    '/fixture/worker',
+    '/fixture/malicious-cwd',
+    environment,
+    (command, arguments_, options) => {
+      calls.push({ arguments_, command, options });
+      return calls.length === 1
+        ? {
+            status: 1,
+            stderr: 'unshare: write failed /proc/self/uid_map: Operation not permitted',
+          }
+        : { status: 0, stderr: '', stdout: 'LOCAL_WHISPER_CPP_CPU_SELF_TEST_OK\n' };
+    },
+    { GITHUB_ACTIONS: 'true', RUNNER_ENVIRONMENT: 'github-hosted' },
+  );
+
+  assert.equal(result.status, 0);
+  assert.deepEqual(calls, [
+    {
+      command: '/usr/bin/unshare',
+      arguments_: ['--user', '--map-root-user', '--net', '/fixture/worker', '--self-test'],
+      options: { cwd: '/fixture/malicious-cwd', encoding: 'utf8', env: environment, shell: false },
+    },
+    {
+      command: '/usr/bin/sudo',
+      arguments_: [
+        '-n',
+        '--',
+        '/usr/bin/env',
+        'LANG=C',
+        'LC_ALL=C',
+        'PATH=/malicious:/usr/bin:/bin',
+        'GGML_BACKEND_PATH=/malicious',
+        'LD_LIBRARY_PATH=/malicious',
+        '/usr/bin/unshare',
+        '--net',
+        '/fixture/worker',
+        '--self-test',
+      ],
+      options: { cwd: '/fixture/malicious-cwd', encoding: 'utf8', env: environment, shell: false },
+    },
+  ]);
+});

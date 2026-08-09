@@ -117,7 +117,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
   }
 
   private handleLine(child: ChildProcessWithoutNullStreams, line: string): void {
-    const fields = line.split('\t');
+    const fields = (line.endsWith('\r') ? line.slice(0, -1) : line).split('\t');
     const requestId = Number(fields[0]);
     const pending = this.pending.get(requestId);
     if (!pending || fields[1] !== GUARD_PROTOCOL_VERSION || (fields[2] !== 'OK' && fields[2] !== 'ERR')) {
