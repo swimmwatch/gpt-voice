@@ -39,11 +39,15 @@ add_library(fs_guard_core STATIC
 target_include_directories(fs_guard_core PUBLIC include)
 fs_guard_apply_quality(fs_guard_core)
 
+add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
+target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
+fs_guard_apply_quality(local_whisper_common_sha256)
+
 add_library(local_whisper_authority_records STATIC
   ../common/src/model_authority.cpp
-  ../common/src/sha256.cpp
 )
 target_include_directories(local_whisper_authority_records PUBLIC ../common/include)
+target_link_libraries(local_whisper_authority_records PUBLIC local_whisper_common_sha256)
 fs_guard_apply_quality(local_whisper_authority_records)
 
 if(WIN32)
@@ -51,6 +55,7 @@ if(WIN32)
     ../common/src/windows_process_identity.cpp
   )
   add_library(fs_guard_platform STATIC
+    src/platform/windows/cng_sha256.cpp
     src/platform/windows/windows_backend.cpp
     src/platform/windows/windows_model_authority_server.cpp
     src/platform/windows/windows_model_launch_application.cpp
@@ -107,6 +112,7 @@ if(BUILD_TESTING)
     tests/integration/backend_integration_test.cpp
   )
   target_include_directories(fs_guard_integration_tests PRIVATE src)
+  target_include_directories(fs_guard_integration_tests PRIVATE ../common/tests)
   target_link_libraries(fs_guard_integration_tests PRIVATE fs_guard_platform
                                                             GTest::gtest_main)
   fs_guard_apply_quality(fs_guard_integration_tests)

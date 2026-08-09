@@ -3,14 +3,29 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <string>
 
 namespace local_whisper::common {
 
+inline constexpr std::uint64_t kMaxSha256InputBytes =
+    std::numeric_limits<std::uint64_t>::max() / 8U;
+
+[[nodiscard]] constexpr bool
+can_extend_sha256_input(const std::uint64_t accumulated_bytes,
+                        const std::uint64_t additional_bytes) noexcept {
+  return accumulated_bytes <= kMaxSha256InputBytes &&
+         additional_bytes <= kMaxSha256InputBytes - accumulated_bytes;
+}
+
 class Sha256 final {
 public:
   Sha256();
+  Sha256(const Sha256&) = delete;
+  Sha256& operator=(const Sha256&) = delete;
+  Sha256(Sha256&&) noexcept = default;
+  Sha256& operator=(Sha256&&) noexcept = default;
 
   void update(std::span<const std::uint8_t> bytes);
   [[nodiscard]] std::array<std::uint8_t, 32> finish();

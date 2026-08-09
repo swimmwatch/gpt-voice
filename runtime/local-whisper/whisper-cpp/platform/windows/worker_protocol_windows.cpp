@@ -51,11 +51,15 @@ std::uint32_t big_u32(const std::uint8_t* bytes) {
 }
 
 std::vector<std::uint8_t> read_frame() {
-  std::array<std::uint8_t, 5> header{};
+  std::array<std::uint8_t, local_whisper::common::kFrameHeaderBytes> header{};
   read_exact(header);
   const auto length = big_u32(header.data());
-  if (length > local_whisper::common::kMaxAudioChunkBytes + 136U)
+  try {
+    const auto kind = local_whisper::common::frame_kind_from_byte(header[4]);
+    static_cast<void>(local_whisper::common::validate_frame_body_length(kind, length));
+  } catch (...) {
     throw CoreError(FailureCode::transcription_failed, "Windows frame exceeds limit");
+  }
   std::vector<std::uint8_t> frame(header.begin(), header.end());
   frame.resize(frame.size() + length);
   read_exact(std::span<std::uint8_t>(frame).subspan(header.size()));
@@ -126,7 +130,8 @@ public:
     const auto sequence = big_u32(view.body.data() + 2U);
     const auto request_bytes =
         static_cast<std::uint16_t>((static_cast<std::uint16_t>(view.body[6]) << 8U) | view.body[7]);
-    if (request_bytes == 0U || request_bytes > 128U || 8U + request_bytes > view.body.size())
+    if (request_bytes == 0U || request_bytes > local_whisper::common::kMaxAudioRequestIdBytes ||
+        8U + request_bytes > view.body.size())
       throw CoreError(FailureCode::audio_format_unsupported, "invalid Windows audio identity");
     const auto request = view.body.subspan(8U, request_bytes);
     const auto audio = view.body.subspan(8U + request_bytes);

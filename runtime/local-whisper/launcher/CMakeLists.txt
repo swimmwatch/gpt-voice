@@ -32,16 +32,19 @@ endfunction()
 
 add_library(local_whisper_launcher_core STATIC
   src/common/launch_request.cpp
-  src/common/sha256.cpp
 )
 target_include_directories(local_whisper_launcher_core PUBLIC include)
+add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
+target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
+local_whisper_launcher_apply_quality(local_whisper_common_sha256)
+target_link_libraries(local_whisper_launcher_core PUBLIC local_whisper_common_sha256)
 local_whisper_launcher_apply_quality(local_whisper_launcher_core)
 
 add_library(local_whisper_authority_records STATIC
   ../common/src/model_authority.cpp
-  ../common/src/sha256.cpp
 )
 target_include_directories(local_whisper_authority_records PUBLIC ../common/include)
+target_link_libraries(local_whisper_authority_records PUBLIC local_whisper_common_sha256)
 local_whisper_launcher_apply_quality(local_whisper_authority_records)
 
 if(WIN32)
@@ -89,7 +92,6 @@ if(BUILD_TESTING)
 
   add_executable(local_whisper_launcher_unit_tests
     tests/unit/launch_request_test.cpp
-    tests/unit/sha256_test.cpp
   )
   target_link_libraries(local_whisper_launcher_unit_tests
     PRIVATE local_whisper_launcher_core GTest::gtest_main)

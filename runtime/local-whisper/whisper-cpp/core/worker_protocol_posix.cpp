@@ -54,7 +54,7 @@ std::uint16_t read_big_u16(std::span<const std::uint8_t, 2> bytes) {
 }
 
 bool valid_request_id(std::span<const std::uint8_t> value) {
-  if (value.empty() || value.size() > 128U)
+  if (value.empty() || value.size() > local_whisper::common::kMaxAudioRequestIdBytes)
     return false;
   for (const auto byte : value) {
     if (byte < 0x20U || byte == 0x7fU)
@@ -67,12 +67,12 @@ std::vector<std::uint8_t> read_frame(int descriptor) {
   std::array<std::uint8_t, local_whisper::common::kFrameHeaderBytes> header{};
   read_exact(descriptor, header);
   const auto length = read_big_u32(std::span<const std::uint8_t, 4>(header.data(), 4));
-  const std::uint64_t maximum =
-      header[4] == static_cast<std::uint8_t>(local_whisper::common::FrameKind::control)
-          ? local_whisper::common::kMaxControlBodyBytes
-          : local_whisper::common::kMaxAudioChunkBytes + 136U;
-  if (length > maximum)
+  try {
+    const auto kind = local_whisper::common::frame_kind_from_byte(header[4]);
+    static_cast<void>(local_whisper::common::validate_frame_body_length(kind, length));
+  } catch (...) {
     throw CoreError(FailureCode::transcription_failed, "worker frame exceeds limit");
+  }
   std::vector<std::uint8_t> frame(header.begin(), header.end());
   frame.resize(frame.size() + length);
   read_exact(descriptor, std::span<std::uint8_t>(frame).subspan(header.size()));
@@ -151,7 +151,8 @@ public:
     const auto sequence = read_big_u32(std::span<const std::uint8_t, 4>(view.body.data() + 2, 4));
     const auto request_bytes =
         read_big_u16(std::span<const std::uint8_t, 2>(view.body.data() + 6, 2));
-    if (request_bytes == 0U || request_bytes > 128U || 8U + request_bytes > view.body.size())
+    if (request_bytes == 0U || request_bytes > local_whisper::common::kMaxAudioRequestIdBytes ||
+        8U + request_bytes > view.body.size())
       throw CoreError(FailureCode::audio_format_unsupported, "invalid audio request identity");
     const auto request = view.body.subspan(8U, request_bytes);
     const auto audio = view.body.subspan(8U + request_bytes);

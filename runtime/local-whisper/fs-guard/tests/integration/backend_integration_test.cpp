@@ -3,8 +3,11 @@
 #include "local_whisper/fs_guard/protocol.hpp"
 
 #if defined(_WIN32)
+#include "platform/windows/cng_sha256.hpp"
 #include "platform/windows/windows_backend.hpp"
+#include "sha256_test_vectors.hpp"
 
+#include "local_whisper/common/sha256.hpp"
 #include <windows.h>
 #include <winioctl.h>
 #else
@@ -15,11 +18,15 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -62,6 +69,24 @@ std::string process_id() {
   return std::to_string(getpid());
 #endif
 }
+
+#if defined(_WIN32)
+std::string cng_streamed_digest(const std::span<const std::uint8_t> bytes,
+                                const std::span<const std::size_t> chunks) {
+  windows_crypto::CngSha256 hash;
+  std::size_t offset = 0;
+  for (const std::size_t chunk : chunks) {
+    if (offset == bytes.size())
+      break;
+    const std::size_t count = std::min(chunk, bytes.size() - offset);
+    hash.update(bytes.subspan(offset, count));
+    offset += count;
+  }
+  if (offset < bytes.size())
+    hash.update(bytes.subspan(offset));
+  return hash.finish();
+}
+#endif
 
 std::size_t process_resource_count() {
 #if defined(_WIN32)
@@ -163,6 +188,18 @@ void warm_windows_handle_runtime() {
   TemporaryManagedRoot root_path;
   auto backend = make_backend();
   complete_managed_artifact_lifecycle(*backend, root_path.path());
+}
+#endif
+
+#if defined(_WIN32)
+TEST(WindowsCngSha256IntegrationTest, AgreesWithTheCommonHasherForSharedStreamingVectors) {
+  constexpr std::array<std::size_t, 4> kFirstSplit = {1U, 7U, 31U, 2U};
+  constexpr std::array<std::size_t, 5> kSecondSplit = {64U, 3U, 11U, 1U, 19U};
+  for (const auto& vector : local_whisper::common::test_support::shared_sha256_vectors()) {
+    EXPECT_EQ(local_whisper::common::hex_sha256(vector.bytes), vector.expected_hex) << vector.name;
+    EXPECT_EQ(cng_streamed_digest(vector.bytes, kFirstSplit), vector.expected_hex) << vector.name;
+    EXPECT_EQ(cng_streamed_digest(vector.bytes, kSecondSplit), vector.expected_hex) << vector.name;
+  }
 }
 #endif
 

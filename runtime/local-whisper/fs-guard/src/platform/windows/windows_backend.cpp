@@ -4,10 +4,10 @@
 #include "local_whisper/fs_guard/error.hpp"
 #include "local_whisper/fs_guard/protocol.hpp"
 #include "local_whisper/fs_guard/validation.hpp"
+#include "platform/windows/cng_sha256.hpp"
 #include "platform/windows/unique_handle.hpp"
 
 #include <aclapi.h>
-#include <bcrypt.h>
 #include <windows.h>
 #include <winternl.h>
 
@@ -19,11 +19,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <cwctype>
-#include <iomanip>
 #include <map>
 #include <memory>
 #include <optional>
-#include <sstream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -69,34 +68,6 @@ public:
                                                 ULONG, ULONG, PVOID, ULONG);
   using NtSetInformationFileFunction = NTSTATUS(NTAPI*)(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG,
                                                         FILE_INFORMATION_CLASS);
-
-  class UniqueBcryptAlgorithm final {
-  public:
-    explicit UniqueBcryptAlgorithm(BCRYPT_ALG_HANDLE value) noexcept : value_(value) {}
-    ~UniqueBcryptAlgorithm() noexcept {
-      if (value_ != nullptr)
-        BCryptCloseAlgorithmProvider(value_, 0);
-    }
-    UniqueBcryptAlgorithm(const UniqueBcryptAlgorithm&) = delete;
-    UniqueBcryptAlgorithm& operator=(const UniqueBcryptAlgorithm&) = delete;
-
-  private:
-    BCRYPT_ALG_HANDLE value_;
-  };
-
-  class UniqueBcryptHash final {
-  public:
-    explicit UniqueBcryptHash(BCRYPT_HASH_HANDLE value) noexcept : value_(value) {}
-    ~UniqueBcryptHash() noexcept {
-      if (value_ != nullptr)
-        BCryptDestroyHash(value_);
-    }
-    UniqueBcryptHash(const UniqueBcryptHash&) = delete;
-    UniqueBcryptHash& operator=(const UniqueBcryptHash&) = delete;
-
-  private:
-    BCRYPT_HASH_HANDLE value_;
-  };
 
   ~Impl() noexcept {
     for (auto& [token, lease] : leases) {
@@ -584,53 +555,23 @@ public:
 
   std::string sha256_file(HANDLE handle) {
     LARGE_INTEGER beginning{};
-    if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN)) {
+    if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
       throw GuardError("IO_FAILED");
-    }
-    BCRYPT_ALG_HANDLE algorithm = nullptr;
-    DWORD object_size = 0;
-    DWORD transferred = 0;
-    before_resource_acquisition();
-    const NTSTATUS open_status =
-        BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
-    UniqueBcryptAlgorithm owned_algorithm(algorithm);
-    if (open_status < 0 ||
-        BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&object_size),
-                          sizeof(object_size), &transferred, 0) < 0) {
-      throw GuardError("IO_FAILED");
-    }
-    std::vector<unsigned char> object(object_size);
-    std::array<unsigned char, 32> digest{};
-    BCRYPT_HASH_HANDLE hash = nullptr;
-    before_resource_acquisition();
-    const NTSTATUS create_status =
-        BCryptCreateHash(algorithm, &hash, object.data(), object_size, nullptr, 0, 0);
-    UniqueBcryptHash owned_hash(hash);
-    if (create_status < 0) {
-      throw GuardError("IO_FAILED");
-    }
-    std::array<unsigned char, 64 * 1024> buffer{};
-    while (true) {
-      DWORD count = 0;
-      if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr)) {
-        throw GuardError("IO_FAILED");
+    try {
+      windows_crypto::CngSha256 digest([this] { before_resource_acquisition(); });
+      std::array<unsigned char, 64 * 1024> buffer{};
+      while (true) {
+        DWORD count = 0;
+        if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr))
+          throw GuardError("IO_FAILED");
+        if (count == 0)
+          break;
+        digest.update(std::span<const std::uint8_t>(buffer.data(), count));
       }
-      if (count == 0)
-        break;
-      if (BCryptHashData(hash, buffer.data(), count, 0) < 0) {
-        throw GuardError("IO_FAILED");
-      }
-    }
-    const NTSTATUS finish =
-        BCryptFinishHash(hash, digest.data(), static_cast<ULONG>(digest.size()), 0);
-    if (finish < 0)
+      return digest.finish();
+    } catch (...) {
       throw GuardError("IO_FAILED");
-    std::ostringstream output;
-    output << std::hex << std::setfill('0');
-    for (const unsigned char byte : digest) {
-      output << std::setw(2) << static_cast<unsigned int>(byte);
     }
-    return output.str();
   }
 
   std::vector<std::wstring> directory_names(HANDLE directory) {

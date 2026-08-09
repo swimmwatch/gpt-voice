@@ -205,7 +205,9 @@ jobs:
       - name: Run MSVC launcher unit and Job Object integration tests
         run: npm run test:local-whisper:launcher:native
 
-      # Packet 15 owns the real Windows-host evidence and any MSVC fixes for this suite.
+      - name: Run MSVC common SHA-256 and frame codec tests
+        run: npm run test:local-whisper:worker-codec
+
       - name: Run MSVC Whisper.cpp worker-core suite
         run: npm run test:local-whisper:whisper-cpp-core
 

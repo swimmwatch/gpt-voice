@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <iomanip>
-#include <limits>
 #include <sstream>
 #include <stdexcept>
 
@@ -33,8 +32,10 @@ Sha256::Sha256()
              0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U} {}
 
 void Sha256::update(std::span<const std::uint8_t> bytes) {
-  if (finished_ || bytes.size() > std::numeric_limits<std::uint64_t>::max() - total_bytes_)
+  if (finished_ ||
+      !can_extend_sha256_input(total_bytes_, static_cast<std::uint64_t>(bytes.size()))) {
     throw std::runtime_error("invalid sha256 update");
+  }
   total_bytes_ += static_cast<std::uint64_t>(bytes.size());
   while (!bytes.empty()) {
     const std::size_t copied = std::min(bytes.size(), buffer_.size() - buffered_bytes_);

@@ -43,6 +43,7 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   assert.match(msvcAction, /Get-Command ninja\.exe/u);
   assert.match(windowsJob, /Run MSVC native unit and integration tests/u);
   assert.match(windowsJob, /Run MSVC launcher unit and Job Object integration tests/u);
+  assert.match(windowsJob, /Run MSVC common SHA-256 and frame codec tests/u);
   assert.match(windowsJob, /Run Windows AMD Vulkan static contract/u);
   assert.match(windowsJob, /--profile=vulkan-windows-x64/u);
   assert.match(windowsJob, /--platform=windows --contract-only/u);

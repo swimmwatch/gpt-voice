@@ -1,8 +1,8 @@
 #include "local_whisper/launcher/platform_launcher.hpp"
 
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/sha256.hpp"
 #include "local_whisper/common/windows_process_identity.hpp"
-#include "local_whisper/launcher/sha256.hpp"
 #include "local_whisper/launcher/windows_model_authority_client.hpp"
 
 #define NOMINMAX
@@ -328,7 +328,7 @@ std::string hash_handle(HANDLE handle) {
   LARGE_INTEGER beginning{};
   if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
     throw std::runtime_error("launcher seek failed");
-  Sha256 hash;
+  local_whisper::common::Sha256 hash;
   std::array<unsigned char, 64 * 1024> buffer{};
   while (true) {
     DWORD count = 0;
@@ -336,11 +336,11 @@ std::string hash_handle(HANDLE handle) {
       throw std::runtime_error("launcher read failed");
     if (count == 0)
       break;
-    hash.update(buffer.data(), count);
+    hash.update(std::span<const std::uint8_t>(buffer.data(), count));
   }
   if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
     throw std::runtime_error("launcher seek failed");
-  return hash.finish_hex();
+  return local_whisper::common::to_lower_hex(hash.finish());
 }
 
 UniqueHandle duplicate_inheritable_descriptor(int descriptor) {

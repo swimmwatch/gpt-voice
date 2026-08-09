@@ -3,8 +3,8 @@
 #include "local_whisper/common/authority_bootstrap.hpp"
 #include "local_whisper/common/linux_process_identity.hpp"
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/sha256.hpp"
 #include "local_whisper/launcher/model_authority_client.hpp"
-#include "local_whisper/launcher/sha256.hpp"
 
 #include <array>
 #include <cerrno>
@@ -114,7 +114,7 @@ UniqueDescriptor open_hardened_directory(const std::filesystem::path& path) {
 std::string hash_descriptor(int descriptor) {
   if (lseek(descriptor, 0, SEEK_SET) < 0)
     throw std::runtime_error("launcher seek failed");
-  Sha256 hash;
+  local_whisper::common::Sha256 hash;
   std::array<unsigned char, 64 * 1024> buffer{};
   while (true) {
     const ssize_t count = read(descriptor, buffer.data(), buffer.size());
@@ -124,11 +124,11 @@ std::string hash_descriptor(int descriptor) {
       throw std::runtime_error("launcher read failed");
     if (count == 0)
       break;
-    hash.update(buffer.data(), static_cast<std::size_t>(count));
+    hash.update(std::span<const std::uint8_t>(buffer.data(), static_cast<std::size_t>(count)));
   }
   if (lseek(descriptor, 0, SEEK_SET) < 0)
     throw std::runtime_error("launcher seek failed");
-  return hash.finish_hex();
+  return local_whisper::common::to_lower_hex(hash.finish());
 }
 
 void write_acknowledgment(int descriptor, pid_t worker_pid) {

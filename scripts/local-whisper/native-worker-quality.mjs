@@ -13,8 +13,10 @@ if (!allowedActions.has(action)) {
   process.stderr.write('Expected all, authority, codec, format, lint, or proof\n');
   process.exit(2);
 }
-if (process.platform !== 'linux') {
-  process.stderr.write('Local Whisper common native execution is qualified on Linux only in Task 09\n');
+const isLinux = process.platform === 'linux';
+const isWindows = process.platform === 'win32';
+if (!isLinux && !isWindows) {
+  process.stderr.write('Local Whisper common native execution supports Linux and Windows only\n');
   process.exit(2);
 }
 
@@ -30,24 +32,36 @@ const ctest = process.env.CTEST_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8'
 const ninja = process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja');
 const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
 
-const profiles = [
-  {
-    buildType: 'Release',
-    cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
-    cxxCompiler: process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
-    id: 'linux-x64-cpu-baseline-v1',
-    linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
-    sanitizers: false,
-  },
-  {
-    buildType: 'Debug',
-    cCompiler: process.env.LOCAL_WHISPER_CLANG_C_COMPILER || resolve(clangRoot, 'clang'),
-    cxxCompiler: process.env.LOCAL_WHISPER_CLANG_CXX_COMPILER || resolve(clangRoot, 'clang++'),
-    id: 'linux-x64-clang-18.1.3-asan-ubsan-v1',
-    linker: process.env.LOCAL_WHISPER_CLANG_LINKER || resolve(clangRoot, 'ld.lld'),
-    sanitizers: true,
-  },
-];
+const profiles = isWindows
+  ? [
+      {
+        buildType: 'Debug',
+        cCompiler: process.env.LOCAL_WHISPER_MSVC_C_COMPILER || process.env.CXX || '',
+        cxxCompiler: process.env.LOCAL_WHISPER_MSVC_CXX_COMPILER || process.env.CXX || '',
+        id: 'windows-x64-msvc-v1',
+        linker: null,
+        sanitizers: false,
+      },
+    ]
+  : [
+      {
+        buildType: 'Release',
+        cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
+        cxxCompiler:
+          process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
+        id: 'linux-x64-cpu-baseline-v1',
+        linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
+        sanitizers: false,
+      },
+      {
+        buildType: 'Debug',
+        cCompiler: process.env.LOCAL_WHISPER_CLANG_C_COMPILER || resolve(clangRoot, 'clang'),
+        cxxCompiler: process.env.LOCAL_WHISPER_CLANG_CXX_COMPILER || resolve(clangRoot, 'clang++'),
+        id: 'linux-x64-clang-18.1.3-asan-ubsan-v1',
+        linker: process.env.LOCAL_WHISPER_CLANG_LINKER || resolve(clangRoot, 'ld.lld'),
+        sanitizers: true,
+      },
+    ];
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -74,7 +88,9 @@ function requireInputs() {
     ninja,
     resolve(nlohmannSource, 'single_include', 'nlohmann', 'json.hpp'),
     resolve(googleTestSource, 'CMakeLists.txt'),
-    ...profiles.flatMap((profile) => [profile.cCompiler, profile.cxxCompiler, profile.linker]),
+    ...profiles.flatMap((profile) =>
+      [profile.cCompiler, profile.cxxCompiler, profile.linker].filter(Boolean),
+    ),
   ]) {
     if (!existsSync(path)) throw new Error(`Required verified native input is unavailable: ${path}`);
   }
@@ -98,13 +114,13 @@ function assertDisconnectedGraph(buildDirectory) {
 function testRegex() {
   if (action === 'authority') return '^ModelAuthority\\.';
   if (action === 'proof') return '^DeviceProof\\.';
-  if (action === 'codec') return '^(BoundedJson|CanonicalWav|FrameCodec)\\.';
+  if (action === 'codec') return '^(BoundedJson|CanonicalWav|FrameCodec|Sha256)\\.';
   return null;
 }
 
 function buildAndTest(profile) {
   const buildDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'worker-common', profile.id);
-  run(cmake, [
+  const configureArguments = [
     '-S',
     sourceDirectory,
     '-B',
@@ -115,31 +131,32 @@ function buildAndTest(profile) {
     `-DCMAKE_BUILD_TYPE=${profile.buildType}`,
     `-DCMAKE_C_COMPILER=${profile.cCompiler}`,
     `-DCMAKE_CXX_COMPILER=${profile.cxxCompiler}`,
-    `-DCMAKE_LINKER=${profile.linker}`,
     '-DCMAKE_SKIP_BUILD_RPATH=ON',
     '-DFETCHCONTENT_FULLY_DISCONNECTED=ON',
     `-DLOCAL_WHISPER_COMMON_ENABLE_SANITIZERS=${profile.sanitizers ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_NLOHMANN_SOURCE=${nlohmannSource}`,
     `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
     `-DLOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT=${fixtureRoot}`,
-  ]);
+  ];
+  if (profile.linker) configureArguments.push(`-DCMAKE_LINKER=${profile.linker}`);
+  run(cmake, configureArguments);
   assertDisconnectedGraph(buildDirectory);
   run(cmake, ['--build', buildDirectory, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
   const arguments_ = ['--test-dir', buildDirectory, '--output-on-failure'];
   arguments_.push('--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' })));
   const regex = testRegex();
   if (regex) arguments_.push('-R', regex);
-  run(ctest, arguments_, {
-    env: {
-      ...process.env,
-      ASAN_OPTIONS: 'detect_leaks=1:halt_on_error=1',
-      UBSAN_OPTIONS: 'halt_on_error=1:print_stacktrace=1',
-    },
-  });
+  const environment = { ...process.env };
+  if (profile.sanitizers) {
+    environment.ASAN_OPTIONS = 'detect_leaks=1:halt_on_error=1';
+    environment.UBSAN_OPTIONS = 'halt_on_error=1:print_stacktrace=1';
+  }
+  run(ctest, arguments_, { env: environment });
 }
 
 requireInputs();
 if (action === 'format') {
+  if (!isLinux) throw new Error('Local Whisper common formatting is qualified on Linux only');
   await runNativeFileToolInParallel({
     arguments_: ['--dry-run', '--Werror'],
     command: resolveClangFormat(workspaceRoot, clangRoot),
@@ -149,6 +166,7 @@ if (action === 'format') {
     label: 'worker common clang-format',
   });
 } else if (action === 'lint') {
+  if (!isLinux) throw new Error('Local Whisper common clang-tidy is qualified on Linux only');
   const profile = profiles[1];
   buildAndTest(profile);
   const buildDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'worker-common', profile.id);

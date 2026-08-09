@@ -4,6 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept>
+#include <vector>
+
 namespace local_whisper::common {
 
 TEST(FrameCodec, ConsumesEveryCheckedInValidFrame) {
@@ -30,6 +33,19 @@ TEST(FrameCodec, RejectsLengthKindAndBodyLimitMutations) {
   changed[4] = 0x7f;
   EXPECT_THROW(static_cast<void>(decode_frame(changed)), std::runtime_error);
   EXPECT_THROW(static_cast<void>(decode_frame(std::span<const std::uint8_t>(control).first(4))),
+               std::runtime_error);
+}
+
+TEST(FrameCodec, AppliesTheCanonicalAudioOverheadBeforeAllocation) {
+  EXPECT_EQ(kAudioFrameOverheadBytes, 136U);
+  EXPECT_EQ(maximum_frame_body_bytes(FrameKind::audio),
+            kMaxAudioChunkBytes + kAudioFrameOverheadBytes);
+  const std::vector<std::uint8_t> maximum_audio_body(maximum_frame_body_bytes(FrameKind::audio),
+                                                     0U);
+  const auto frame = encode_frame(FrameKind::audio, maximum_audio_body);
+  EXPECT_EQ(decode_frame(frame).body.size(), maximum_audio_body.size());
+  EXPECT_THROW(static_cast<void>(validate_frame_body_length(
+                   FrameKind::audio, maximum_frame_body_bytes(FrameKind::audio) + 1U)),
                std::runtime_error);
 }
 

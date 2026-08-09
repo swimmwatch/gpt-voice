@@ -78,6 +78,7 @@ if(BUILD_TESTING)
     tests/device_proof_test.cpp
     tests/frame_codec_test.cpp
     tests/model_authority_test.cpp
+    tests/sha256_test.cpp
   )
   target_include_directories(local_whisper_common_tests
     PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
