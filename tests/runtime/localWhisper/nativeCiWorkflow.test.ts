@@ -85,7 +85,7 @@ test('Local Whisper keeps native CI checks on their owning runners and initializ
   );
   assert.match(
     workerQuality,
-    /id: 'linux-x64-clang-18\.1\.3-compatibility-v1',\n    linker: null,\n    sanitizers: false,/u,
+    /id: 'linux-x64-clang-18\.1\.3-compatibility-v1',\n {4}linker: null,\n {4}sanitizers: false,/u,
   );
   assert.match(windowsCompatibilityJob, /runs-on: windows-2022/u);
   assert.match(windowsCompatibilityJob, /LOCAL_WHISPER_PREPARED_WINDOWS_COMPATIBILITY: 'true'/u);
