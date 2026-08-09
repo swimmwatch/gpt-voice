@@ -10,8 +10,8 @@
 
 namespace local_whisper::fs_guard::windows_crypto {
 
-CngSha256::CngSha256(ResourceAcquisitionObserver before_resource_acquisition)
-    : before_resource_acquisition_(std::move(before_resource_acquisition)) {
+CngSha256::CngSha256(ResourceAcquisitionObserver observer)
+    : before_resource_acquisition_(std::move(observer)) {
   try {
     before_resource_acquisition();
     if (BCryptOpenAlgorithmProvider(&algorithm_, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0)

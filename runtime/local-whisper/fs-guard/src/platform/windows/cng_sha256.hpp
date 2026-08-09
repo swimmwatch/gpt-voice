@@ -20,7 +20,7 @@ using ResourceAcquisitionObserver = std::function<void()>;
 
 class CngSha256 final {
 public:
-  explicit CngSha256(ResourceAcquisitionObserver before_resource_acquisition = {});
+  explicit CngSha256(ResourceAcquisitionObserver observer = {});
   ~CngSha256() noexcept;
 
   CngSha256(const CngSha256&) = delete;
