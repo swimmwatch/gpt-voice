@@ -28,13 +28,14 @@ function compilerVersion(compiler, toolchain) {
   const argument = toolchain.startsWith('msvc-') ? '/Bv' : '--version';
   const result = spawnSync(compiler, [argument], { encoding: 'utf8', shell: false });
   const output = `${result.stdout}\n${result.stderr}`;
-  if (result.error || result.status !== 0 || !output.trim()) throw new Error(`Unable to verify compiler ${compiler}`);
+  if (result.error || !output.trim()) throw new Error(`Unable to verify compiler ${compiler}`);
   if (toolchain === 'clang-18' && !/clang version 18\./u.test(output)) {
     throw new Error('Compiler does not match the required clang-18 profile');
   }
   if (toolchain === 'msvc-hosted' && !/Version 19\.\d+\./u.test(output)) {
     throw new Error('Compiler does not report a supported hosted MSVC version');
   }
+  if (toolchain !== 'msvc-hosted' && result.status !== 0) throw new Error(`Unable to verify compiler ${compiler}`);
   return (
     output
       .split(/\r?\n/u)

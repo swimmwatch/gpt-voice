@@ -103,6 +103,52 @@ test('runner evidence emitter creates its missing output directory', { skip: pro
   }
 });
 
+test(
+  'runner evidence accepts a hosted MSVC banner despite its no-input exit status',
+  { skip: process.platform !== 'linux' },
+  () => {
+    const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-runner-evidence-msvc-'));
+    const compiler = resolve(root, 'cl');
+    const output = resolve(root, 'evidence', 'runner.json');
+    try {
+      writeFileSync(
+        compiler,
+        "#!/bin/sh\nprintf 'Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36231 for x64\\n'\nexit 2\n",
+        { mode: 0o700 },
+      );
+      const result = run(
+        process.execPath,
+        [
+          RUNNER_EVIDENCE_EMITTER,
+          '--runner-label=windows-latest',
+          '--toolchain=msvc-hosted',
+          `--compiler=${compiler}`,
+          `--output=${output}`,
+          `--tested-digests=${'a'.repeat(40)}`,
+        ],
+        {
+          cwd: workspaceRoot,
+          env: {
+            GITHUB_SHA: 'b'.repeat(40),
+            ImageOS: 'win25',
+            ImageVersion: 'test-image',
+            PATH: process.env.PATH,
+            RUNNER_ARCH: 'X64',
+            RUNNER_OS: 'Windows',
+          },
+        },
+      );
+      assert.equal(result.status, 0);
+      const evidence = JSON.parse(readFileSync(output, 'utf8'));
+      assert.equal(evidence.runnerLabel, 'windows-latest');
+      assert.equal(evidence.toolchain.profile, 'msvc-hosted');
+      assert.match(evidence.toolchain.version, /Version 19\.51\./u);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  },
+);
+
 function identity(path) {
   return Object.freeze({ path: realpathSync(path), sha256: sha256(readFileSync(realpathSync(path))) });
 }
