@@ -19,10 +19,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <cwctype>
+#include <iomanip>
 #include <map>
 #include <memory>
 #include <optional>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
