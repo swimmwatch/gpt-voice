@@ -2,9 +2,9 @@
 
 ## Status
 
-Packets 01–04 are committed as `e1fe686`, `de5ec2e`, `02fbd227`, and `1ca2f81e`.
-Packet 05 is complete and remains uncommitted for review. The plan remains approved; no
-later packet is authorized.
+Packets 01–05 are committed as `e1fe686`, `de5ec2e`, `02fbd227`, `1ca2f81e`, and
+`d43fcc70`. Packet 07 is complete and intentionally uncommitted for review. Packet 06
+remains the only later packet and requires its own explicit implementation authorization.
 
 ## Completed Packets
 
@@ -47,6 +47,14 @@ later packet is authorized.
     privacy/localization/composition quality gate without live provider access.
   - Corrected only Prettier drift in Packet 04 files; no production behavior, public
     contract, dependency, IPC, settings, database, package, or workflow change was needed.
+- [07 Enable selected-text translation cancellation](07_enable_selected_text_translation_cancellation.md)
+  - Added one selected-text-owned caller abort operation, linked it to the shared
+    translation lifecycle, and made pre-dispatch cancellation settle before provider
+    lookup or source submission.
+  - Routed the existing Cancel hotkey after Voice recording and Prettify. A caller-won
+    cancellation restores the captured clipboard and emits the existing cancelled
+    renderer status without result/cache/notification/diagnostic-success or connection
+    effects; reset-first work remains silent.
 
 ## Changed Files
 
@@ -62,7 +70,10 @@ later packet is authorized.
 - Packet 05 records the durable execution decision, formats Packet 04 source and test
   files, appends the sanitized automated-acceptance evidence, and updates workstream
   completion state.
-- No dependency, IPC, renderer, settings, database, workflow, generated artifact, or release file changed.
+- Packet 07 updates the selected-text Translation workflow, translation runtime,
+  internal failure marker, Cancel shortcut, focused deterministic tests, and workstream
+  contract/plan/packet artifacts. It adds no dependency, renderer, preload, IPC,
+  settings, database, provider-adapter, generated artifact, or release change.
 
 ## Checks
 
@@ -82,6 +93,14 @@ later packet is authorized.
 - Packet 05 full gate — `npm run format:check`, `npm run lint`, `npm run typecheck`,
   `npm run test:types`, `npm test`, `npm run build:prod`, and `git diff --check` passed.
   Lint exited successfully with 88 existing unrelated warnings and no errors.
+- Packet 07 focused deterministic suite — `node --import tsx --test
+tests/main/selectedTextTranslation.test.ts tests/main/translationRuntime.test.ts
+tests/main/shortcuts.test.ts tests/main/shortcutController.test.ts`, `npm run typecheck`,
+  and `npm run test:types` passed. Scoped ESLint and Prettier checks plus `git diff --check`
+  passed cleanly.
+- Packet 07 compatibility suite — Base Provider, provider-registry, operation-lifecycle,
+  provider-audit, and renderer status-presentation tests passed without live provider
+  access.
 
 ## Exact Next Packet
 
@@ -89,9 +108,9 @@ later packet is authorized.
 
 ## Blockers
 
-- Packet 05 is intentionally uncommitted. A future implementation invocation must obtain
-  separate commit authorization through Prompt MCP, verify this handoff, and commit only
-  Packet 05 before it may open Packet 06.
+- Packet 07 is intentionally uncommitted. A future implementation invocation must
+  obtain separate commit authorization, verify this handoff, and commit only Packet 07
+  before it may open Packet 06.
 - Packet 06 requires separate execution authorization and its supported-platform manual
   gates; it must not start from this packet.
 

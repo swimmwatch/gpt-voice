@@ -76,6 +76,10 @@ class ShortcutControllerHarness {
   public readonly notifications: Array<readonly [string, string]> = [];
   public readonly sent: Array<readonly unknown[]> = [];
   public readonly trayStates: string[] = [];
+  public translationCalls = 0;
+  public translationCancelCalls = 0;
+  public translationCancelResult = false;
+  public translationResult: Promise<{ cancelled?: true; success: boolean }> = Promise.resolve({ success: true });
 
   public constructor(options: ShortcutControllerHarnessOptions = {}) {
     const settings = { ...DEFAULT_SETTINGS, ...options.settings };
@@ -121,7 +125,14 @@ class ShortcutControllerHarness {
         },
       },
       selectedTextTranslationService: {
-        translateSelectedTextToClipboard: async () => ({ success: true }),
+        cancel: () => {
+          this.translationCancelCalls += 1;
+          return this.translationCancelResult;
+        },
+        translateSelectedTextToClipboard: async () => {
+          this.translationCalls += 1;
+          return this.translationResult;
+        },
       },
       trayController: {
         updateIcon: (state: string) => this.trayStates.push(state),
@@ -333,6 +344,30 @@ describe('ShortcutController', () => {
 
     assert.deepEqual(harness.trayStates, []);
     assert.deepEqual(harness.sent, [['translation-status', { action: 'prettify', phase: 'cancelled' }]]);
+  });
+
+  it('cancels an active translation through the configured Cancel hotkey', async () => {
+    let finishTranslation!: (result: { cancelled?: true; success: boolean }) => void;
+    const harness = new ShortcutControllerHarness();
+    harness.translationCancelResult = true;
+    harness.translationResult = new Promise((resolve) => {
+      finishTranslation = resolve;
+    });
+    harness.controller.register();
+
+    harness.globalShortcuts.callbacks.get('Shift+Super+T')?.();
+    assert.equal(harness.translationCalls, 1);
+    assert.deepEqual(harness.sent, [['translation-status', { action: 'translation', phase: 'working' }]]);
+
+    harness.globalShortcuts.callbacks.get('Escape')?.();
+    finishTranslation({ cancelled: true, success: false });
+    await settleAsyncDispatch();
+
+    assert.equal(harness.translationCancelCalls, 1);
+    assert.deepEqual(harness.sent, [
+      ['translation-status', { action: 'translation', phase: 'working' }],
+      ['translation-status', { action: 'translation', phase: 'cancelled' }],
+    ]);
   });
 
   it('normalizes both Prettify targets for the current platform', () => {

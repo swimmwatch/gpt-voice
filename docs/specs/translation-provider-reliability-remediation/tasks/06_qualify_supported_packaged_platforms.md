@@ -9,7 +9,7 @@ and macOS release support remains paused.
 
 ## Prerequisites
 
-- Tasks 01–05 are complete and approved.
+- Tasks 01–05 and 07 are complete and approved.
 - Task 06 has separate execution authorization.
 - The full deterministic gate passes on the candidate revision.
 - A suitable Linux x64 host and Windows x64 host are available.
@@ -30,6 +30,7 @@ and macOS release support remains paused.
 - Platform-native production build and package verification on Linux x64 and
   Windows x64.
 - Non-sensitive synthetic stalled, suspend/resume, cold, and warm translations.
+- Non-sensitive selected-text cancellation through the configured existing Cancel hotkey.
 - Separate baseline/candidate measurements and sanitized evidence.
 - Explicit recording of provider, markup, network, proxy, packaging, or host gaps.
 
@@ -83,12 +84,17 @@ and macOS release support remains paused.
 10. Confirm timeout/cleanup behavior, boundary meanings, failure messages, and
     provider contract version are consistent across Linux and Windows. Do not rely on
     OS-localized browser errors as evidence.
-11. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
+11. During one non-sensitive pending selected-text translation per supported platform,
+    invoke the configured Cancel hotkey. Confirm the cancelled renderer status,
+    restoration of the prior clipboard, absence of result/cache/success notification,
+    bounded cleanup, and later action recovery. Do not retain selected text or
+    clipboard contents in evidence.
+12. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
     platform/architecture, app and provider contract versions, baseline/candidate
     revisions, provider ID, target code, cold/warm, elapsed safe phases, end-to-end
     duration, evaluation counts when available, pass/fail, scheduler tolerance, and
     explicit gaps. Exclude all sensitive/provider-controlled data named above.
-12. Generated packages, temporary worktrees, browser caches, and test-only process
+13. Generated packages, temporary worktrees, browser caches, and test-only process
     state are not committed. Remove them only through an explicitly reviewed,
     narrowly targeted cleanup after evidence is secured; never use a broad recursive
     deletion target.
@@ -120,8 +126,8 @@ and macOS release support remains paused.
 ## Acceptance Criteria
 
 - Linux x64 and Windows x64 each have a passing sanitized timeout/stall check,
-  real suspend/resume check, and successful Google/Bing/Yandex smoke when providers
-  are available.
+  real suspend/resume check, selected-text cancellation check, and successful
+  Google/Bing/Yandex smoke when providers are available.
 - Baseline and candidate evidence contains at least one cold and four warm results
   per provider/platform and separates safe application phases from external time.
 - No late clipboard/cache/notification effect appears after timeout or resume.

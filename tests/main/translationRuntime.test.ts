@@ -352,6 +352,46 @@ describe('TranslationRuntime', () => {
     });
   });
 
+  it('does not look up a provider when the selected-text caller has already cancelled', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const harness = createRuntimeHarness({ audit });
+    const snapshot = getSnapshot(harness.runtime);
+    const controller = new AbortController();
+    controller.abort();
+
+    const outcome = await harness.runtime.translateWithSnapshot('selected text', snapshot, controller.signal);
+
+    assert.equal(outcome.success, false);
+    if (outcome.success) return;
+    assert.equal(outcome.code, 'cancelledOrStaleOperation');
+    assert.equal(outcome.cancelledByCaller, true);
+    assert.equal(outcome.discard, true);
+    assert.deepEqual(harness.getProviderCalls, []);
+    assert.deepEqual(harness.requests, []);
+    assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+    const terminal = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.record.outcome, 'cancelled');
+    assert.equal(terminal[0]?.record.discarded, true);
+  });
+
+  it('keeps direct translation independent of a cancelled selected-text caller', async () => {
+    const harness = createRuntimeHarness();
+    const snapshot = getSnapshot(harness.runtime);
+    const controller = new AbortController();
+    controller.abort();
+
+    const cancelled = await harness.runtime.translateWithSnapshot('selected text', snapshot, controller.signal);
+    const direct = await harness.runtime.translateText('direct text', 'uk');
+
+    assert.equal(cancelled.success, false);
+    assert.deepEqual(direct, { success: true, text: 'translated' });
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.requests[0]?.sourceText, 'direct text');
+  });
+
   it('initializes the selected provider and target without dispatching translation text', async () => {
     const audit = new CapturingTranslationProviderAudit();
     const harness = createRuntimeHarness({
@@ -955,6 +995,41 @@ describe('TranslationRuntime', () => {
     assert.equal(terminal[0]?.record.outcome, 'cancelled');
     assert.equal(terminal[0]?.record.discarded, true);
     assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+  });
+
+  it('discards late provider success after caller cancellation without diagnostic or connection effects', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    let finishTranslation!: (outcome: TranslationProviderOutcome) => void;
+    const pending = new Promise<TranslationProviderOutcome>((resolve) => {
+      finishTranslation = resolve;
+    });
+    const harness = createRuntimeHarness({
+      audit,
+      translate: async () => pending,
+    });
+    const snapshot = getSnapshot(harness.runtime);
+    const connectionStateBefore = harness.runtime.getConnectionState();
+    const controller = new AbortController();
+
+    const operation = harness.runtime.translateWithSnapshot('selected text', snapshot, controller.signal);
+    await Promise.resolve();
+    controller.abort();
+    assert.equal(harness.requests[0]?.signal?.aborted, true);
+    finishTranslation(createSuccess(harness.requests[0]));
+    const outcome = await operation;
+
+    assert.equal(outcome.success, false);
+    if (outcome.success) return;
+    assert.equal(outcome.code, 'cancelledOrStaleOperation');
+    assert.equal(outcome.cancelledByCaller, true);
+    assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+    assert.deepEqual(harness.runtime.getConnectionState(), connectionStateBefore);
+    const terminal = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.record.outcome, 'cancelled');
+    assert.equal(terminal[0]?.record.discarded, true);
   });
 
   it('preserves connection listeners across reset and clears them only on final shutdown', async () => {

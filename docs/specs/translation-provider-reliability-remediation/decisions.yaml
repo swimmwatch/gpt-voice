@@ -2,6 +2,72 @@ schema_version: 1
 spec_slug: translation-provider-reliability-remediation
 interview_id: spec:translation-provider-reliability-remediation
 decisions:
+  - id: cancellation.selected-text-hotkey
+    revision: 1
+    category: cancellation
+    state: answered
+    provenance: user
+    evidence:
+      - The user requested cancellation for Translation Provider operations analogous to Voice Provider.
+      - The approved implementation plan selects the existing global Cancel hotkey, existing cancelled renderer status, and no new renderer, preload, IPC, settings, or provider-specific API.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [existing-cancel-hotkey, selected-text-only, renderer-cancelled-status]
+      text: ''
+    rationale: Reuse the established cross-platform shortcut and main-process lifecycle without widening a privileged or persisted contract.
+    supersedes_revision: null
+    requirement_ids: [CONC-008, FAIL-009, SEC-010, ACC-022]
+
+  - id: execution.packet-07
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested implementation of the approved Translation Provider Cancellation plan on 2026-08-09.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [execute-packet-07]
+      text: ''
+    rationale: The user supplied a decision-complete packet scope and explicitly authorized its implementation and verification without a commit.
+    supersedes_revision: null
+    requirement_ids: [CONC-008, FAIL-009, SEC-010, ACC-022]
+
+  - id: authorization.commit-packet-07
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 07 is complete and uncommitted; its handoff records passing focused,
+        compatibility, typecheck, test-type, lint, formatting, and whitespace checks.
+      - The approved Translation Provider Tray Activity Indicator plan requires this
+        isolated commit before Packet 08 can begin.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-08
+      question_id: authorization.commit-packet-07
+      idempotency_key: authorization.commit-packet-07:v1
+      last_status: answered
+    question:
+      text: Authorize one isolated local commit for completed Packet 07, containing only the selected-text Translation cancellation implementation, its focused tests, and its workstream contract artifacts? This is required before the Translation tray-indicator Packet 08 can start.
+      kind: single
+      options:
+        - id: commit-packet-07
+          label: Commit Packet 07 (Recommended)
+          description: Create the isolated local Packet 07 commit only; do not push or begin Packet 08 until a separate execution authorization is recorded.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 07 uncommitted and do not start the tray-indicator work.
+    answer:
+      selected_ids: [commit-packet-07]
+      text: ''
+    rationale: The persistent implementation interview separately authorized one isolated local Packet 07 commit.
+    supersedes_revision: null
+    requirement_ids: [CONC-008, FAIL-009, SEC-010, ACC-022]
+
   - id: scope.actionable-findings
     revision: 1
     category: scope
@@ -977,7 +1043,22 @@ decisions:
       text: ''
     rationale: The persistent implementation interview and the user's explicit request separately authorize an isolated local Packet 03 commit.
     supersedes_revision: null
-    requirement_ids: [OUT-002, OUT-003, SCOPE-003, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010]
+    requirement_ids:
+      [
+        OUT-002,
+        OUT-003,
+        SCOPE-003,
+        ACC-001,
+        ACC-002,
+        ACC-003,
+        ACC-004,
+        ACC-005,
+        ACC-006,
+        ACC-007,
+        ACC-008,
+        ACC-009,
+        ACC-010,
+      ]
 
   - id: execution.packet-04
     revision: 1
@@ -1009,7 +1090,45 @@ decisions:
       text: ''
     rationale: The persistent implementation interview separately authorized Packet 04 execution and verification.
     supersedes_revision: null
-    requirement_ids: [OUT-004, TIME-002, TIME-003, TIME-009, PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, PERF-006, PERF-007, QUAL-001, QUAL-002, ARCH-007, ARCH-008, ARCH-009, CONC-007, LIFE-003, LIFE-004, FAIL-004, FAIL-005, SEC-001, SEC-004, SEC-008, SEC-009, OBS-006, OBS-007, COMP-004, COMP-006, ACC-003, ACC-010, ACC-011, ACC-017, ACC-018, ACC-019, ACC-020]
+    requirement_ids:
+      [
+        OUT-004,
+        TIME-002,
+        TIME-003,
+        TIME-009,
+        PERF-001,
+        PERF-002,
+        PERF-003,
+        PERF-004,
+        PERF-005,
+        PERF-006,
+        PERF-007,
+        QUAL-001,
+        QUAL-002,
+        ARCH-007,
+        ARCH-008,
+        ARCH-009,
+        CONC-007,
+        LIFE-003,
+        LIFE-004,
+        FAIL-004,
+        FAIL-005,
+        SEC-001,
+        SEC-004,
+        SEC-008,
+        SEC-009,
+        OBS-006,
+        OBS-007,
+        COMP-004,
+        COMP-006,
+        ACC-003,
+        ACC-010,
+        ACC-011,
+        ACC-017,
+        ACC-018,
+        ACC-019,
+        ACC-020,
+      ]
 
   - id: verification.packet-04
     revision: 1
@@ -1032,7 +1151,45 @@ decisions:
     rationale: Coherent public-page observations reduce application-controlled result work
       without enabling uninspected completion signals or weakening fallback validation.
     supersedes_revision: null
-    requirement_ids: [OUT-004, TIME-002, TIME-003, TIME-009, PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, PERF-006, PERF-007, QUAL-001, QUAL-002, ARCH-007, ARCH-008, ARCH-009, CONC-007, LIFE-003, LIFE-004, FAIL-004, FAIL-005, SEC-001, SEC-004, SEC-008, SEC-009, OBS-006, OBS-007, COMP-004, COMP-006, ACC-003, ACC-010, ACC-011, ACC-017, ACC-018, ACC-019, ACC-020]
+    requirement_ids:
+      [
+        OUT-004,
+        TIME-002,
+        TIME-003,
+        TIME-009,
+        PERF-001,
+        PERF-002,
+        PERF-003,
+        PERF-004,
+        PERF-005,
+        PERF-006,
+        PERF-007,
+        QUAL-001,
+        QUAL-002,
+        ARCH-007,
+        ARCH-008,
+        ARCH-009,
+        CONC-007,
+        LIFE-003,
+        LIFE-004,
+        FAIL-004,
+        FAIL-005,
+        SEC-001,
+        SEC-004,
+        SEC-008,
+        SEC-009,
+        OBS-006,
+        OBS-007,
+        COMP-004,
+        COMP-006,
+        ACC-003,
+        ACC-010,
+        ACC-011,
+        ACC-017,
+        ACC-018,
+        ACC-019,
+        ACC-020,
+      ]
 
   - id: authorization.commit-packet-04
     revision: 1
@@ -1096,7 +1253,107 @@ decisions:
       text: ''
     rationale: The persistent implementation interview separately authorized Packet 05 execution and verification.
     supersedes_revision: null
-    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, SCOPE-001, SCOPE-002, SCOPE-003, TIME-001, TIME-002, TIME-003, TIME-004, TIME-005, TIME-006, TIME-007, TIME-008, TIME-009, PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, PERF-006, PERF-007, QUAL-001, QUAL-002, ARCH-001, ARCH-002, ARCH-003, ARCH-004, ARCH-005, ARCH-006, ARCH-007, ARCH-008, ARCH-009, CONC-001, CONC-002, CONC-003, CONC-004, CONC-005, CONC-006, CONC-007, LIFE-001, LIFE-002, LIFE-003, LIFE-004, LIFE-005, LIFE-006, LIFE-007, LIFE-008, FAIL-001, FAIL-002, FAIL-003, FAIL-004, FAIL-005, FAIL-006, FAIL-007, FAIL-008, SEC-001, SEC-002, SEC-003, SEC-004, SEC-005, SEC-006, SEC-007, SEC-008, SEC-009, OBS-001, OBS-002, OBS-003, OBS-004, OBS-005, OBS-006, OBS-007, COMP-001, COMP-002, COMP-003, COMP-004, COMP-005, COMP-006, CONF-001, CONF-002, CONF-003, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010, ACC-011, ACC-012, ACC-017, ACC-018, ACC-019, ACC-020]
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        OUT-003,
+        OUT-004,
+        SCOPE-001,
+        SCOPE-002,
+        SCOPE-003,
+        TIME-001,
+        TIME-002,
+        TIME-003,
+        TIME-004,
+        TIME-005,
+        TIME-006,
+        TIME-007,
+        TIME-008,
+        TIME-009,
+        PERF-001,
+        PERF-002,
+        PERF-003,
+        PERF-004,
+        PERF-005,
+        PERF-006,
+        PERF-007,
+        QUAL-001,
+        QUAL-002,
+        ARCH-001,
+        ARCH-002,
+        ARCH-003,
+        ARCH-004,
+        ARCH-005,
+        ARCH-006,
+        ARCH-007,
+        ARCH-008,
+        ARCH-009,
+        CONC-001,
+        CONC-002,
+        CONC-003,
+        CONC-004,
+        CONC-005,
+        CONC-006,
+        CONC-007,
+        LIFE-001,
+        LIFE-002,
+        LIFE-003,
+        LIFE-004,
+        LIFE-005,
+        LIFE-006,
+        LIFE-007,
+        LIFE-008,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        FAIL-005,
+        FAIL-006,
+        FAIL-007,
+        FAIL-008,
+        SEC-001,
+        SEC-002,
+        SEC-003,
+        SEC-004,
+        SEC-005,
+        SEC-006,
+        SEC-007,
+        SEC-008,
+        SEC-009,
+        OBS-001,
+        OBS-002,
+        OBS-003,
+        OBS-004,
+        OBS-005,
+        OBS-006,
+        OBS-007,
+        COMP-001,
+        COMP-002,
+        COMP-003,
+        COMP-004,
+        COMP-005,
+        COMP-006,
+        CONF-001,
+        CONF-002,
+        CONF-003,
+        ACC-001,
+        ACC-002,
+        ACC-003,
+        ACC-004,
+        ACC-005,
+        ACC-006,
+        ACC-007,
+        ACC-008,
+        ACC-009,
+        ACC-010,
+        ACC-011,
+        ACC-012,
+        ACC-017,
+        ACC-018,
+        ACC-019,
+        ACC-020,
+      ]
 
   - id: verification.packet-05
     revision: 1
@@ -1120,7 +1377,29 @@ decisions:
     rationale: The deterministic acceptance gate closes the automated scope while preserving
       private fixtures, quality fallback behavior, and the later supported-platform gate.
     supersedes_revision: null
-    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010, ACC-011, ACC-012, ACC-017, ACC-018, ACC-019, ACC-020]
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        OUT-003,
+        OUT-004,
+        ACC-001,
+        ACC-002,
+        ACC-003,
+        ACC-004,
+        ACC-005,
+        ACC-006,
+        ACC-007,
+        ACC-008,
+        ACC-009,
+        ACC-010,
+        ACC-011,
+        ACC-012,
+        ACC-017,
+        ACC-018,
+        ACC-019,
+        ACC-020,
+      ]
 
   - id: authorization.commit-packet-05
     revision: 1
@@ -1152,4 +1431,27 @@ decisions:
       text: ''
     rationale: The persistent implementation interview and the user's explicit request separately authorize an isolated local Packet 05 commit.
     supersedes_revision: null
-    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, SCOPE-003, ACC-001, ACC-002, ACC-003, ACC-004, ACC-005, ACC-006, ACC-007, ACC-008, ACC-009, ACC-010, ACC-011, ACC-012, ACC-017, ACC-018, ACC-019, ACC-020]
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        OUT-003,
+        OUT-004,
+        SCOPE-003,
+        ACC-001,
+        ACC-002,
+        ACC-003,
+        ACC-004,
+        ACC-005,
+        ACC-006,
+        ACC-007,
+        ACC-008,
+        ACC-009,
+        ACC-010,
+        ACC-011,
+        ACC-012,
+        ACC-017,
+        ACC-018,
+        ACC-019,
+        ACC-020,
+      ]

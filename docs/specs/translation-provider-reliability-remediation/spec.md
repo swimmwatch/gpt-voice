@@ -29,6 +29,9 @@ Success means:
   no-partial-result checks;
 - every success, failure, cancellation, and timeout receives at most five additional
   seconds for visible-state and page/context cleanup;
+- the configured existing Cancel hotkey can cancel the active selected-text translation,
+  restore its captured clipboard only when caller cancellation wins, and present the
+  existing localized cancelled status without an OS notification;
 - an overall deadline expiry produces one explicit `timed-out` failure, a localized
   retry message, safe timeout audit metadata, and no successful clipboard, cache, or
   notification effects;
@@ -79,6 +82,10 @@ arbitration, bounded cleanup, suspend behavior, and stale context detachment. Th
 optimization that the original review assessment left out; it does not reopen any
 other excluded finding. All unrelated approved provider, audit, diagnostic,
 security, UI, settings, packaging, and release requirements remain authoritative.
+
+The 2026-08-09 caller-cancellation revision adds only the requested selected-text
+Cancel-hotkey behavior. It reuses the existing main-process lifecycle and renderer
+status contract; direct `translate-text` IPC remains non-cancellable.
 
 The source review and comments-to-address assessment are evidence, not
 implementation authority. `decisions.yaml` owns the active user decisions. This
@@ -150,7 +157,8 @@ requests, packaging, or release activity.
 ### Included
 
 - **SCOPE-001:** This overlay owns only `TRANSLATE-1`, `TRANSLATE-7`, and
-  `TRANSLATE-5` from the accepted comments-to-address assessment.
+  `TRANSLATE-5` from the accepted comments-to-address assessment, plus the explicitly
+  requested selected-text caller-cancellation behavior.
 - One absolute operation deadline for cache-miss provider translation.
 - One absolute result-phase deadline preserving the existing 15-second value.
 - A uniform five-second cleanup deadline for every terminal path.
@@ -169,6 +177,8 @@ requests, packaging, or release activity.
 - Separate cold- and warm-path latency measurement for Google, Bing, and Yandex on
   Linux and Windows.
 - Deterministic automated and supported-platform manual verification.
+- Main-process-only cancellation of the active selected-text translation through the
+  existing configured Cancel hotkey.
 
 ### Non-Goals
 
@@ -188,6 +198,7 @@ requests, packaging, or release activity.
   currently selected provider retains its existing startup readiness behavior.
 - No user-configurable timeout setting, settings migration, database migration,
   preload method, IPC channel, renderer control, or connection-state payload field.
+- No cancellation endpoint or operation token for direct `translate-text` IPC.
 - No new dependency, browser binary, Electron fuse, package target, installer,
   workflow permission, or mandatory release platform.
 - No live provider assertions in automated tests and no use of credentials, private
@@ -371,6 +382,10 @@ requests, packaging, or release activity.
   clear snapshot in flight at a time. Poll timers do not overlap browser evaluations,
   and a late snapshot is identity-checked before it can schedule another poll,
   accept a result, clear state, or mutate measurement counters.
+- **CONC-008:** The configured Cancel hotkey keeps its existing priority of Voice
+  recording, then Prettify, then active selected-text Translation. Caller cancellation
+  is idempotent, owns only that selected-text operation, and retains the action gate
+  until the existing bounded provider cleanup settles.
 
 ## Provider and Browser Lifecycle
 
@@ -436,6 +451,11 @@ requests, packaging, or release activity.
 - **FAIL-008:** The provider action gate is released after the accepted terminal
   outcome and bounded cleanup settle. A later manual hotkey invocation is the only
   way to retry source text after submission ambiguity.
+- **FAIL-009:** If caller cancellation wins, the selected-text workflow restores only
+  its captured prior clipboard, returns the existing cancelled action status, and
+  performs no cache write, result copy, success notification, success diagnostic
+  capture, or connection-state update. Reset, shutdown, supersession, or staleness
+  that wins first remains silently discarded and cannot restore clipboard data.
 
 ## Security and Privacy
 
@@ -474,6 +494,10 @@ requests, packaging, or release activity.
   cold/warm classification, safe phase, elapsed duration, evaluation counts, target
   code, and source/result lengths. They never contain source text, result text, URLs,
   DOM content, cookies, sessions, screenshots, raw errors, or account data.
+- **SEC-010:** Caller cancellation introduces no renderer privilege, IPC surface,
+  operation identifier, source-bearing log entry, or provider request. The abort
+  signal remains owned by the main-process selected-text operation and is linked only
+  to its existing lifecycle.
 
 ## Audit, Diagnostics, and Localization
 
@@ -611,6 +635,12 @@ requests, packaging, or release activity.
   confirmation returns on the first valid cleared snapshot, and evaluation/timer
   counts do not increase relative to baseline. Fast-path, fallback, timeout,
   cancellation, reset, and shutdown cases all preserve these bounds.
+- **ACC-022:** Deterministic selected-text and runtime tests prove that the existing
+  Cancel hotkey cancels only an active selected-text translation; cancellation before
+  dispatch prevents provider lookup, cancellation after submission discards late
+  success, the prior clipboard is restored exactly once, no success side effects or
+  connection-state overwrite occur, reset-first work remains silent, and one
+  cancelled audit terminal and renderer status result.
 
 ### Supported-Platform Manual Acceptance
 

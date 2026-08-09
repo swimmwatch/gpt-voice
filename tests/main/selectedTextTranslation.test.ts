@@ -28,6 +28,7 @@ interface TestServiceOptions {
   cache?: TextActionResultCache;
   contractVersion?: string;
   copyFails?: boolean;
+  copyWait?: Promise<void>;
   copyText?: string;
   diagnosticCapture?: RecordingDiagnosticCapture;
   maxInputCharacters?: number;
@@ -95,7 +96,11 @@ function createSuccess(
 }
 
 class TestTranslationRuntime implements SelectedTextTranslationRuntime {
-  public readonly translations: Array<{ text: string; snapshot: TranslationExecutionSnapshot }> = [];
+  public readonly translations: Array<{
+    signal?: AbortSignal;
+    snapshot: TranslationExecutionSnapshot;
+    text: string;
+  }> = [];
   private currentGeneration: number;
 
   public constructor(
@@ -154,10 +159,20 @@ class TestTranslationRuntime implements SelectedTextTranslationRuntime {
   public async translateWithSnapshot(
     text: unknown,
     requestSnapshot: TranslationExecutionSnapshot,
+    callerSignal?: AbortSignal,
   ): Promise<TranslationProviderOutcome> {
     if (typeof text !== 'string') throw new Error('Expected test Translation source text');
-    this.translations.push({ text, snapshot: requestSnapshot });
+    this.translations.push({ signal: callerSignal, text, snapshot: requestSnapshot });
     await this.options.translateWait;
+    if (!this.isCurrent(requestSnapshot)) {
+      return createFailure(requestSnapshot, 'cancelledOrStaleOperation', text.length, true);
+    }
+    if (callerSignal?.aborted) {
+      return {
+        ...createFailure(requestSnapshot, 'cancelledOrStaleOperation', text.length, true),
+        cancelledByCaller: true,
+      };
+    }
     return this.options.translateOutcome ?? createSuccess(requestSnapshot, 'translated text', text.length);
   }
 
@@ -220,7 +235,9 @@ function createTestService(options: TestServiceOptions = {}) {
         return { args: [], command: 'test', requiredExecutable: 'test', strategy: 'linux-x11' };
       },
     },
-    wait: async () => {},
+    wait: async () => {
+      await options.copyWait;
+    },
   };
 
   return {
@@ -497,6 +514,72 @@ describe('selected-text translation', () => {
     const operation = harness.service.translateSelectedTextToClipboard();
     await waitUntil(() => harness.translations.length === 1);
     harness.invalidate();
+    finishTranslation();
+    const result = await operation;
+
+    assert.equal(result.skipped, true);
+    assert.equal(harness.clipboard.clipboard, 'selected text');
+    assert.deepEqual(harness.notifications, []);
+  });
+
+  it('cancels before provider dispatch, restores the clipboard, and releases the action gate after copy settles', async () => {
+    let finishCopy!: () => void;
+    const copyWait = new Promise<void>((resolve) => {
+      finishCopy = resolve;
+    });
+    const harness = createTestService({ copyText: 'selected text', copyWait });
+
+    const operation = harness.service.translateSelectedTextToClipboard();
+    await waitUntil(() => harness.actions.length === 1);
+
+    assert.equal(harness.service.cancel(), true);
+    assert.equal(harness.service.cancel(), false);
+    const duplicate = await harness.service.translateSelectedTextToClipboard();
+    finishCopy();
+    const result = await operation;
+
+    assert.equal(result.cancelled, true);
+    assert.equal(result.status, 'Translation cancelled');
+    assert.equal(duplicate.skipped, true);
+    assert.deepEqual(harness.translations, []);
+    assert.equal(harness.clipboard.clipboard, 'previous clipboard');
+    assert.deepEqual(harness.notifications, []);
+    assert.equal(harness.service.cancel(), false);
+  });
+
+  it('cancels submitted translation without cache, notification, or diagnostic success effects', async () => {
+    let finishTranslation!: () => void;
+    const translateWait = new Promise<void>((resolve) => {
+      finishTranslation = resolve;
+    });
+    const cache = createTextActionResultCache(20);
+    const harness = createTestService({ cache, copyText: 'selected text', translateWait });
+
+    const operation = harness.service.translateSelectedTextToClipboard();
+    await waitUntil(() => harness.translations.length === 1);
+    assert.equal(harness.service.cancel(), true);
+    assert.equal(harness.translations[0]?.signal?.aborted, true);
+    finishTranslation();
+    const result = await operation;
+
+    assert.equal(result.cancelled, true);
+    assert.equal(harness.clipboard.clipboard, 'previous clipboard');
+    assert.equal(cache.size(), 0);
+    assert.deepEqual(harness.notifications, []);
+    assert.deepEqual(harness.diagnosticCapture.translationCacheInputs, []);
+  });
+
+  it('leaves reset-owned stale work silent when Escape arrives after reset', async () => {
+    let finishTranslation!: () => void;
+    const translateWait = new Promise<void>((resolve) => {
+      finishTranslation = resolve;
+    });
+    const harness = createTestService({ copyText: 'selected text', translateWait });
+
+    const operation = harness.service.translateSelectedTextToClipboard();
+    await waitUntil(() => harness.translations.length === 1);
+    harness.invalidate();
+    assert.equal(harness.service.cancel(), true);
     finishTranslation();
     const result = await operation;
 

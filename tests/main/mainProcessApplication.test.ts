@@ -386,6 +386,7 @@ class RecordingShortcutController extends ShortcutController {
         focusExistingChooser: () => false,
       },
       selectedTextTranslationService: {
+        cancel: () => false,
         translateSelectedTextToClipboard: async () => ({ success: true }),
       },
       trayController,

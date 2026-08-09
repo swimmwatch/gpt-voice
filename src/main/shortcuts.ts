@@ -30,6 +30,7 @@ import type { AppConfigStore } from './config';
 interface CancelShortcutActions {
   cancelPrettify: () => boolean;
   cancelRecording: () => void;
+  cancelTranslation: () => boolean;
 }
 
 export interface TextActionResultForStatus {
@@ -39,6 +40,7 @@ export interface TextActionResultForStatus {
 }
 
 export interface SelectedTextTranslationShortcutService {
+  cancel(): boolean;
   translateSelectedTextToClipboard(): Promise<TextActionResultForStatus>;
 }
 
@@ -226,6 +228,11 @@ export class ShortcutController {
           this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling recording`);
           this.setRecordingLifecycleState('idle');
           window?.webContents.send('cancel-recording');
+        },
+        cancelTranslation: () => {
+          const result = this.dependencies.selectedTextTranslationService.cancel();
+          if (result) this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling translation`);
+          return result;
         },
       });
     });
@@ -441,7 +448,7 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
     actions.cancelRecording();
     return true;
   }
-  return actions.cancelPrettify();
+  return actions.cancelPrettify() || actions.cancelTranslation();
 }
 
 export function getTextActionStatus(

@@ -21,6 +21,10 @@ describe('shortcuts', () => {
       cancelRecording: () => {
         events.push('cancel-recording');
       },
+      cancelTranslation: () => {
+        events.push('cancel-translation');
+        return true;
+      },
     });
 
     assert.equal(handled, true);
@@ -38,6 +42,10 @@ describe('shortcuts', () => {
       cancelRecording: () => {
         events.push('cancel-recording');
       },
+      cancelTranslation: () => {
+        events.push('cancel-translation');
+        return true;
+      },
     });
 
     assert.equal(handled, true);
@@ -52,10 +60,32 @@ describe('shortcuts', () => {
       cancelRecording: () => {
         events.push('cancel-recording');
       },
+      cancelTranslation: () => false,
     });
 
     assert.equal(handled, false);
     assert.deepEqual(events, []);
+  });
+
+  it('uses Escape to cancel active translation after Prettify declines it', () => {
+    const events: string[] = [];
+
+    const handled = handleCancelShortcut(false, {
+      cancelPrettify: () => {
+        events.push('cancel-prettify');
+        return false;
+      },
+      cancelRecording: () => {
+        events.push('cancel-recording');
+      },
+      cancelTranslation: () => {
+        events.push('cancel-translation');
+        return true;
+      },
+    });
+
+    assert.equal(handled, true);
+    assert.deepEqual(events, ['cancel-prettify', 'cancel-translation']);
   });
 
   it('runs Translate only when enabled and not recording', () => {

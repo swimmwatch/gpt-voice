@@ -648,6 +648,7 @@ export class TranslationRuntime {
   async translateWithSnapshot(
     sourceText: unknown,
     snapshot: TranslationExecutionSnapshot,
+    callerSignal?: AbortSignal,
   ): Promise<TranslationProviderOutcome> {
     const startedAt = this.dependencies.now();
     const sourceLength = typeof sourceText === 'string' ? sourceText.length : undefined;
@@ -670,16 +671,48 @@ export class TranslationRuntime {
     }
     auditLifecycle.phaseCompleted('validation', startMetadata);
 
-    const operationLifecycle = this.dependencies.operationLifecycleFactory.create({
-      attemptCount: 1,
-      contractVersion: snapshot.contractVersion,
-      generation: snapshot.generation,
-      providerId: snapshot.providerId,
-      sourceLength: (sourceText as string).length,
-      targetLanguage: snapshot.targetLanguage,
-    });
+    const operationLifecycle = this.dependencies.operationLifecycleFactory.create(
+      {
+        attemptCount: 1,
+        contractVersion: snapshot.contractVersion,
+        generation: snapshot.generation,
+        providerId: snapshot.providerId,
+        sourceLength: (sourceText as string).length,
+        targetLanguage: snapshot.targetLanguage,
+      },
+      callerSignal,
+    );
     this.activeLifecycles.add(operationLifecycle);
     try {
+      const beforeDispatchDecision = operationLifecycle.check();
+      if (beforeDispatchDecision?.kind === 'cancelled') {
+        operationLifecycle.completeCleanup(true);
+        const failure = this.createCancelledFailure(
+          beforeDispatchDecision,
+          snapshot,
+          startedAt,
+          (sourceText as string).length,
+        );
+        this.dependencies.audit.terminalFailure(auditLifecycle, failure, {
+          signalAborted: operationLifecycle.signal.aborted,
+        });
+        return failure;
+      }
+      if (beforeDispatchDecision?.kind === 'timed-out' || beforeDispatchDecision?.kind === 'cleanup-failure') {
+        operationLifecycle.completeCleanup(true);
+        const failure = this.createLifecycleFailure(
+          beforeDispatchDecision,
+          snapshot,
+          startedAt,
+          (sourceText as string).length,
+        );
+        this.dependencies.audit.terminalFailure(auditLifecycle, failure, {
+          signalAborted: operationLifecycle.signal.aborted,
+        });
+        if (this.isConfiguredConnectionSelection(snapshot)) this.publishConnectionFailure(failure.code, snapshot);
+        return failure;
+      }
+
       auditLifecycle.phaseEntered('dispatch', startMetadata);
       const provider = this.dependencies.registry.getProvider(snapshot.providerId);
       auditLifecycle.phaseCompleted('dispatch', startMetadata);
@@ -700,22 +733,31 @@ export class TranslationRuntime {
         lifecycle: operationLifecycle,
       });
 
-      const decision = operationLifecycle.terminal;
+      const decision = operationLifecycle.check();
       if (!this.isCurrent(snapshot) || decision?.kind === 'cancelled') {
-        const failure = createFailure(
-          'cancelledOrStaleOperation',
-          'shutdown',
-          startedAt,
-          this.dependencies.now,
-          {
-            providerId: snapshot.providerId,
-            targetLanguage: snapshot.targetLanguage,
-            contractVersion: snapshot.contractVersion,
-            sourceLength: (sourceText as string).length,
-            ...(outcome.success ? { resultLength: outcome.text.length } : {}),
-          },
-          true,
-        );
+        const failure =
+          decision?.kind === 'cancelled'
+            ? this.createCancelledFailure(
+                decision,
+                snapshot,
+                startedAt,
+                (sourceText as string).length,
+                outcome.success ? outcome.text.length : undefined,
+              )
+            : createFailure(
+                'cancelledOrStaleOperation',
+                'shutdown',
+                startedAt,
+                this.dependencies.now,
+                {
+                  providerId: snapshot.providerId,
+                  targetLanguage: snapshot.targetLanguage,
+                  contractVersion: snapshot.contractVersion,
+                  sourceLength: (sourceText as string).length,
+                  ...(outcome.success ? { resultLength: outcome.text.length } : {}),
+                },
+                true,
+              );
         this.dependencies.audit.terminalFailure(auditLifecycle, failure, {
           signalAborted: operationLifecycle.signal.aborted,
         });
@@ -850,6 +892,32 @@ export class TranslationRuntime {
         status: 'failure',
       };
     }
+  }
+
+  private createCancelledFailure(
+    decision: Extract<TranslationOperationLifecycleDecision, { readonly kind: 'cancelled' }>,
+    snapshot: TranslationExecutionSnapshot,
+    startedAt: number,
+    sourceLength: number,
+    resultLength?: number,
+  ): TranslationProviderFailure {
+    return Object.freeze({
+      ...createFailure(
+        'cancelledOrStaleOperation',
+        decision.cause === 'caller' ? 'cleanup' : 'shutdown',
+        startedAt,
+        this.dependencies.now,
+        {
+          providerId: snapshot.providerId,
+          targetLanguage: snapshot.targetLanguage,
+          contractVersion: snapshot.contractVersion,
+          sourceLength,
+          ...(resultLength === undefined ? {} : { resultLength }),
+        },
+        true,
+      ),
+      ...(decision.cause === 'caller' ? { cancelledByCaller: true as const } : {}),
+    });
   }
 
   /**

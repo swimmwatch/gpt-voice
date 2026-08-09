@@ -87,6 +87,8 @@ export interface TranslationProviderInitializationSuccess {
 
 export interface TranslationProviderFailure {
   readonly success: false;
+  /** Marks the active selected-text caller as the terminal cancellation owner. */
+  readonly cancelledByCaller?: true;
   readonly code: TranslationProviderFailureCode;
   /** Stale/cancelled outcomes must not trigger clipboard, cache, or notification effects. */
   readonly discard: boolean;

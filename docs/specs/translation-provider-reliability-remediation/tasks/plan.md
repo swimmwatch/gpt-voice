@@ -19,12 +19,13 @@ packaging contracts.
 | [03 Integrate bounded operation and resource lifecycle](03_integrate_bounded_operation_and_resource_lifecycle.md) | The 60-second budget begins before registry dispatch, every terminal path receives bounded cleanup, and stale/quarantined browser ownership cannot leak, replay, or affect newer work                 | 02           | `OUT-002`–`OUT-003`; `TIME-001`, `TIME-003`–`TIME-008`; `ARCH-001`–`ARCH-008`; `CONC-001`–`CONC-006`; `LIFE-001`–`LIFE-008`; `FAIL-001`–`FAIL-008`; `SEC-001`–`SEC-007`; `OBS-001`–`OBS-006`; `COMP-001`, `COMP-003`–`COMP-005`; `CONF-001`–`CONF-003`; `ACC-001`–`ACC-010`                                                                                              |
 | [04 Accelerate provider result processing](04_accelerate_provider_result_processing.md)                           | Google, Bing, and Yandex use coherent result snapshots, evidence-gated fast acceptance, absolute result timing, efficient clear confirmation, and versioned fail-closed fallbacks                     | 03           | `OUT-004`; `TIME-002`–`TIME-003`, `TIME-009`; `PERF-001`–`PERF-007`; `QUAL-001`–`QUAL-002`; `ARCH-007`–`ARCH-009`; `CONC-007`; `LIFE-003`–`LIFE-004`; `FAIL-004`–`FAIL-005`; `SEC-001`, `SEC-004`, `SEC-008`–`SEC-009`; `OBS-006`–`OBS-007`; `COMP-004`, `COMP-006`; `ACC-003`, `ACC-010`–`ACC-011`, `ACC-017`–`ACC-020`                                                 |
 | [05 Close automated acceptance and privacy gates](05_close_automated_acceptance_and_privacy_gates.md)             | Cross-cutting races, user effects, privacy, composition, versioning, and baseline-versus-candidate performance pass the full deterministic repository gate                                            | 04           | `OUT-001`–`OUT-004`; `SCOPE-001`–`SCOPE-003`; integration coverage for `TIME-001`–`TIME-009`, `PERF-001`–`PERF-007`, `QUAL-001`–`QUAL-002`, `ARCH-001`–`ARCH-009`, `CONC-001`–`CONC-007`, `LIFE-001`–`LIFE-008`, `FAIL-001`–`FAIL-008`, `SEC-001`–`SEC-009`, `OBS-001`–`OBS-007`, `COMP-001`–`COMP-006`, `CONF-001`–`CONF-003`; `ACC-001`–`ACC-012`, `ACC-017`–`ACC-020` |
-| [06 Qualify supported packaged platforms](06_qualify_supported_packaged_platforms.md)                             | Representative Linux x64 and Windows x64 packages complete sanitized timeout, suspend, provider-success, and before/after latency evidence; all gaps remain explicit                                  | 05           | `OUT-001`–`OUT-004`; `TIME-004`–`TIME-005`; `PERF-001`, `PERF-004`–`PERF-005`; `LIFE-003`–`LIFE-008`; `SEC-001`, `SEC-006`–`SEC-009`; `COMP-001`–`COMP-002`, `COMP-006`; `ACC-013`–`ACC-016`, `ACC-021`                                                                                                                                                                  |
+| [07 Enable selected-text translation cancellation](07_enable_selected_text_translation_cancellation.md)           | The existing Cancel hotkey safely cancels only the active selected-text Translation operation and reports its established renderer status without widening privileged contracts                       | 05           | `CONC-008`; `FAIL-009`; `SEC-010`; `ACC-022`                                                                                                                                                                                                                                                                                                                             |
+| [06 Qualify supported packaged platforms](06_qualify_supported_packaged_platforms.md)                             | Representative Linux x64 and Windows x64 packages complete sanitized timeout, suspend, provider-success, and before/after latency evidence; all gaps remain explicit                                  | 07           | `OUT-001`–`OUT-004`; `TIME-004`–`TIME-005`; `PERF-001`, `PERF-004`–`PERF-005`; `LIFE-003`–`LIFE-008`; `SEC-001`, `SEC-006`–`SEC-010`; `COMP-001`–`COMP-002`, `COMP-006`; `ACC-013`–`ACC-016`, `ACC-021`–`ACC-022`                                                                                                                                                        |
 
 ## Sequencing
 
 ```text
-01 -> 02 -> 03 -> 04 -> 05 -> 06
+01 -> 02 -> 03 -> 04 -> 05 -> 07 -> 06
 ```
 
 - Task 01 must record the current controlled baseline before any production
@@ -37,6 +38,9 @@ packaging contracts.
   provider contract-version bump.
 - Task 05 is the deterministic feature gate. It may repair only defects within the
   approved implementation surface and cannot weaken an assertion to obtain a pass.
+- Task 07 adds explicit caller cancellation through the existing global Cancel hotkey
+  without changing renderer, preload, IPC, settings, provider adapters, or direct
+  translation IPC. It must complete before final supported-platform qualification.
 - Task 06 contains every external, packaged, suspend/resume, and live-provider
   `MANUAL GATE`. A missing Windows host, provider availability, or network evidence
   leaves the packet incomplete rather than weakening acceptance.
