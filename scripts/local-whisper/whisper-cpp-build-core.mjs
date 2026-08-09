@@ -154,6 +154,11 @@ export function parseArguments(arguments_) {
   return result;
 }
 
+/** Returns platform-specific CMake cache values required by the locked native build. */
+export function platformBuildCmakeArguments(profile) {
+  return profile.target.os === 'windows' ? ['-DGGML_CCACHE=OFF'] : [];
+}
+
 export function requireProfile(profileId) {
   if (!allowedProfiles.has(profileId)) throw new Error(`Unsupported Whisper.cpp profile: ${profileId}`);
   return readJson(resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains', 'profiles', `${profileId}.json`));
@@ -466,6 +471,7 @@ export function configureBuild(
     `-DLOCAL_WHISPER_SOURCE_ROOT=${engine || directEngine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId, profile)}`,
   ];
+  arguments_.push(...platformBuildCmakeArguments(profile));
   if (tools.linker !== null) arguments_.push(`-DCMAKE_LINKER=${tools.linker}`);
   if (tools.cudaCompiler !== null) {
     arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);

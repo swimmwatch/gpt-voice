@@ -21,6 +21,7 @@ import {
   verifyToolchainContract,
 } from '../../../../scripts/local-whisper/native-build/native-toolchain-core.mjs';
 import {
+  platformBuildCmakeArguments,
   resolvePreparedLinuxQualityTools,
   resolvePreparedWindowsQualityTools,
 } from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
@@ -518,6 +519,11 @@ test('Windows Whisper.cpp quality uses only explicit prepared developer tools', 
     },
   );
   assert.throws(() => resolvePreparedWindowsQualityTools({}));
+});
+
+test('Windows production worker builds disable optional ccache in the sanitized MSVC environment', () => {
+  assert.deepEqual(platformBuildCmakeArguments({ target: { os: 'windows' } }), ['-DGGML_CCACHE=OFF']);
+  assert.deepEqual(platformBuildCmakeArguments({ target: { os: 'linux' } }), []);
 });
 
 test('Linux Whisper.cpp quality selects explicit prepared tools for each compiler profile', () => {
