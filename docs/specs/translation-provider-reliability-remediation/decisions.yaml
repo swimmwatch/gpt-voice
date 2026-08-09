@@ -1,0 +1,719 @@
+schema_version: 1
+spec_slug: translation-provider-reliability-remediation
+interview_id: spec:translation-provider-reliability-remediation
+decisions:
+  - id: scope.actionable-findings
+    revision: 1
+    category: scope
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/reviews/provider-review-2026-08-08-translation-providers-comments-to-address.md selects TRANSLATE-1, TRANSLATE-7, and TRANSLATE-5.
+      - The same assessment excludes provider-origin, warm-context, polling-optimization, retry-classification, prior-result, and diagnostic-capture changes.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deadline-remediation, stale-context-remediation]
+      text: ''
+    rationale: The specification is a remediation overlay, not a redesign of the approved provider family.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCOPE-001, SCOPE-002]
+
+  - id: scope.stop-before-planning
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly stated that the plan will be described later.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [specification-only]
+      text: ''
+    rationale: Planning and implementation require later, separate authorization.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003]
+
+  - id: compatibility.supported-platforms
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - README.md and SECURITY.md identify Linux x64 and Windows x64 as supported packaged platforms.
+      - macOS distribution is paused pending signing and notarization.
+      - The affected TypeScript, AbortController, timer, and Playwright contracts are main-process and platform-neutral, but native supported-platform verification remains required.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [linux-windows, macos-paused]
+      text: ''
+    rationale: The remediation must behave consistently on supported Linux and Windows packages without expanding release scope.
+    supersedes_revision: null
+    requirement_ids: [COMP-001, COMP-002, ACC-008]
+
+  - id: compatibility.provider-contract-version
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - The approved Translation Providers specification requires contractVersion to change whenever provider behavior or code mapping can change translation results.
+      - Absolute deadlines can replace a formerly late success with a typed timeout for Google, Bing, or Yandex.
+      - Translation cache identity and diagnostic metadata include the provider contract version.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bump-all-provider-contract-versions]
+      text: ''
+    rationale: The shared base lifecycle change affects all three provider contracts and must invalidate version-keyed cache identity.
+    supersedes_revision: null
+    requirement_ids: [COMP-004, OBS-003]
+
+  - id: compatibility.suspend-time-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - Linux and Windows monotonic timers can differ in whether elapsed OS suspend time advances the clock.
+      - A timer callback cannot run while the process is suspended, so the contract must define behavior immediately after resume.
+      - Accepting a translation after a long suspend would conflict with an ordinary interpretation of an absolute wall-clock deadline unless suspended time is explicitly excluded.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: compatibility-timing-round-01
+      question_id: compatibility.suspend-time-policy
+      idempotency_key: compatibility.suspend-time-policy:v1
+      last_status: answered
+    question:
+      text: Should time spent while the computer is suspended count toward the 60-second translation deadline?
+      kind: single
+      options:
+        - id: count-suspended-time
+          label: Count suspended time (Recommended)
+          description: On resume, reject any operation whose wall-clock budget elapsed and never accept a late provider result.
+        - id: pause-during-suspend
+          label: Pause during suspend
+          description: Measure only active process time so an operation may continue with its remaining budget after resume.
+    answer:
+      selected_ids: [count-suspended-time]
+      text: ''
+    rationale: Preserve the absolute wall-clock meaning and reject late results consistently after resume.
+    supersedes_revision: null
+    requirement_ids: [TIME-005, COMP-001, CONC-004, ACC-008]
+
+  - id: architecture.privilege-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - TranslationRuntime and BaseTranslateProvider execute in Electron main.
+      - Main owns CloakBrowser, Playwright pages and contexts, selected text, clipboard effects, provider audit, and lifecycle cleanup.
+      - No renderer, preload, or IPC contract participates in provider deadline enforcement today.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [main-process-ownership]
+      text: ''
+    rationale: Deadline and cleanup authority must remain in the privileged main-process graph.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, SEC-001]
+
+  - id: concurrency.existing-model
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - SelectedTextTranslationService uses one shared selected-text action gate and silently skips duplicate concurrent hotkey actions.
+      - TranslationRuntime owns active AbortControllers and invalidates them on reset or shutdown.
+      - BaseTranslateProvider serializes initialization and translation through a promise queue and rejects stale work through generation tokens.
+      - Async browser and timer callbacks can interleave even though the affected main-process JavaScript path does not use worker threads.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-single-flight, deterministic-race-arbitration]
+      text: ''
+    rationale: The remediation must strengthen the existing ownership model rather than introduce parallel provider execution.
+    supersedes_revision: null
+    requirement_ids: [CONC-001, CONC-002, CONC-003, CONC-004]
+
+  - id: timing.result-deadline
+    revision: 1
+    category: failure
+    state: observed
+    provenance: repository
+    evidence:
+      - TRANSLATE_RESULT_TIMEOUT_MS is 15000 milliseconds.
+      - BaseTranslateProvider currently converts that value into a read-attempt count, so browser-read and stability-delay duration are not charged to the nominal budget.
+      - The accepted review assessment requires a separate absolute result-phase deadline.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [absolute-existing-15-seconds]
+      text: ''
+    rationale: Preserve the existing nominal result budget while making its meaning deterministic.
+    supersedes_revision: null
+    requirement_ids: [TIME-002, TIME-003, FAIL-004]
+
+  - id: failure.no-post-submission-replay
+    revision: 1
+    category: failure
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Translation Providers RUN-006 makes source insertion the submission boundary.
+      - After that boundary, the runtime may not reload, recreate a context, or submit source text again automatically.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-no-replay]
+      text: ''
+    rationale: Deadline recovery must never duplicate externally visible translation submission.
+    supersedes_revision: null
+    requirement_ids: [FAIL-005, SEC-004]
+
+  - id: lifecycle.stale-context-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - BaseTranslateProvider publishes a newly created BrowserContext before awaiting newPage.
+      - A generation can become stale while newPage is pending.
+      - The stale branch releases the detached context without clearing the matching owned field, allowing the next queued generation to close it again.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [identity-guarded-detachment]
+      text: ''
+    rationale: Ownership must be cleared only when the field still identifies the detached context.
+    supersedes_revision: null
+    requirement_ids: [LIFE-001, LIFE-002, CONC-003]
+
+  - id: security.sensitive-text
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - Selected source text and translation results are sensitive.
+      - Provider audits and ordinary logs carry lengths and typed metadata, not source or result content.
+      - Deadline timers, errors, cleanup paths, and tests do not require real selected text, credentials, cookies, sessions, or live provider accounts.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-private-data-boundary]
+      text: ''
+    rationale: Reliability instrumentation must not widen sensitive-data exposure.
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002, SEC-003, OBS-002]
+
+  - id: configuration.no-new-user-setting
+    revision: 1
+    category: configuration
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - The review remediation identifies an internal reliability bound, not a user preference.
+      - No settings, IPC, renderer, preload, migration, or persistence change is otherwise required.
+      - Project boundaries prohibit unrelated dependency and public-contract expansion.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [internal-policy-unless-user-overrides]
+      text: ''
+    rationale: The pending deadline-policy question may override this record if the user selects configurability.
+    supersedes_revision: null
+    requirement_ids: [CONF-001, COMP-003]
+
+  - id: scope.unrelated-surfaces
+    revision: 1
+    category: scope
+    state: not_applicable
+    provenance: authoritative-doc
+    evidence:
+      - The selected remediation does not require renderer UI, preload, IPC, settings schema, database, packaging target, release automation, provider origin, target inventory, browser profile, or diagnostic archive changes.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: These surfaces remain governed by their existing approved contracts.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-002, COMP-003]
+
+  - id: timing.operation-deadline-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Initial provider readiness already uses a fixed absolute 60000 millisecond deadline.
+      - Interactive translation can currently traverse two preparation passes and four 60000 millisecond navigation attempts per pass.
+      - A fixed internal policy avoids settings, preload, IPC, renderer, and migration changes.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: reliability-policy-round-01
+      question_id: timing.operation-deadline-policy
+      idempotency_key: timing.operation-deadline-policy:v1
+      last_status: answered
+    question:
+      text: Which absolute deadline policy should bound one provider translation, including queue wait and all provider phases before cleanup?
+      kind: single
+      options:
+        - id: fixed-60-seconds
+          label: Fixed 60 seconds (Recommended)
+          description: Match the existing readiness bound and keep the policy internal and consistent across providers and platforms.
+        - id: fixed-90-seconds
+          label: Fixed 90 seconds
+          description: Allow more time for slow providers while still replacing the current several-minute worst path.
+        - id: user-configurable
+          label: User configurable
+          description: Add a validated persisted setting and coordinated main/preload/renderer contracts for a bounded range.
+    answer:
+      selected_ids: [fixed-60-seconds]
+      text: ''
+    rationale: Match the existing provider-readiness bound while avoiding new settings and public contracts.
+    supersedes_revision: null
+    requirement_ids: [TIME-001, CONF-001, COMP-003]
+
+  - id: failure.timeout-outcome
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Existing provider failures distinguish navigation, page-contract, empty-result, cancellation/staleness, and cleanup failures.
+      - cancelledOrStaleOperation is silently discarded and therefore would hide a genuine user-visible timeout.
+      - A dedicated timeout outcome gives audits, localization, support diagnostics, and tests one stable cross-phase meaning.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: reliability-policy-round-01
+      question_id: failure.timeout-outcome
+      idempotency_key: failure.timeout-outcome:v1
+      last_status: answered
+    question:
+      text: How should an overall translation deadline expiry be represented to the user and diagnostics?
+      kind: single
+      options:
+        - id: dedicated-timeout
+          label: Dedicated timeout (Recommended)
+          description: Add one typed internal timeout outcome, a localized retry message, and timeout-class audit metadata without changing IPC payloads.
+        - id: existing-phase-failures
+          label: Existing phase failures
+          description: Reuse the current navigation, page-contract, or result failure according to the active phase and avoid a new failure code.
+        - id: silent-cancellation
+          label: Silent cancellation
+          description: Treat deadline expiry like stale work, suppress user notification, and retain only sanitized audit evidence.
+    answer:
+      selected_ids: [dedicated-timeout]
+      text: ''
+    rationale: Keep timeout behavior explicit and supportable without widening renderer or IPC payloads.
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, FAIL-002, OBS-001]
+
+  - id: failure.cleanup-settlement
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Promise.race alone can settle the caller while Playwright work and selected text remain active in the background.
+      - Waiting without a cleanup bound can recreate an unbounded user-visible operation if page or context close stalls.
+      - Existing terminal failures already prefer cleanupFailure when owned resource closure fails.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: reliability-policy-round-01
+      question_id: failure.cleanup-settlement
+      idempotency_key: failure.cleanup-settlement:v1
+      last_status: answered
+    question:
+      text: What cleanup contract should apply after the operation deadline expires?
+      kind: single
+      options:
+        - id: bounded-5-second-cleanup
+          label: Five-second cleanup bound (Recommended)
+          description: Invalidate ownership immediately, allow up to five additional seconds for page/context closure, then settle with cleanup failure if closure is not confirmed.
+        - id: wait-until-closed
+          label: Wait until closed
+          description: Do not settle until page/context closure finishes, preserving strongest cleanup confirmation but losing a strict user-visible upper bound.
+        - id: detached-background-cleanup
+          label: Background cleanup
+          description: Settle at the operation deadline after detaching ownership and continue best-effort closure asynchronously.
+    answer:
+      selected_ids: [bounded-5-second-cleanup]
+      text: ''
+    rationale: Bound user-visible settlement while giving owned Playwright resources a short fail-closed cleanup window.
+    supersedes_revision: null
+    requirement_ids: [TIME-004, LIFE-003, FAIL-003, SEC-004]
+
+  - id: failure.cleanup-bound-scope
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - Applying the cleanup grace only after overall timeout leaves ordinary success and failure cleanup outside the new absolute settlement contract.
+      - Provider visible-state clearing is already nominally bounded, but Playwright page/context closure has no independent wall-clock bound.
+      - One cleanup policy across terminal paths gives deterministic race, audit, and cross-platform behavior.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: cleanup-scope-round-01
+      question_id: failure.cleanup-bound-scope
+      idempotency_key: failure.cleanup-bound-scope:v1
+      last_status: answered
+    question:
+      text: Should the selected five-second cleanup bound apply to every terminal path or only after the overall operation deadline expires?
+      kind: single
+      options:
+        - id: all-terminal-cleanup
+          label: All terminal cleanup (Recommended)
+          description: Bound visible clearing and page/context closure after success, ordinary failure, result timeout, cancellation, and overall timeout.
+        - id: overall-timeout-only
+          label: Overall timeout only
+          description: Apply the five-second grace only after the 60-second operation deadline and preserve existing cleanup timing on other outcomes.
+    answer:
+      selected_ids: [all-terminal-cleanup]
+      text: ''
+    rationale: Apply one bounded cleanup and ownership policy to every terminal path.
+    supersedes_revision: null
+    requirement_ids: [TIME-004, LIFE-003, FAIL-003, ACC-005]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/translation-provider-reliability-remediation/spec.md is complete with Status Draft.
+      - All five material Prompt MCP decisions are committed and mapped to numbered requirements.
+      - Final user, operator, implementer, tester, security-reviewer, and maintainer gap analysis found no unresolved material choice.
+      - Prettier validation passes and every ledger requirement ID exists uniquely in the draft.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: Approve the Translation Provider Reliability Remediation draft as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve draft (Recommended)
+          description: Set Status to Approved and stop; planning remains a separate later request.
+        - id: request-changes
+          label: Request changes
+          description: Keep Status Draft, reopen affected decisions, and revise the specification.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the current specification unapproved and make no further changes.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the draft as the implementation contract.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCOPE-003]
+
+  - id: performance.objective
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested that successful results from every translation provider be accelerated so users wait less.
+      - The user explicitly required a balance between result quality and speed.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [accelerate-all-providers, balance-quality-and-speed]
+      text: ''
+    rationale: The approved reliability contract must be revised to include measurable latency work without weakening correctness or safety.
+    supersedes_revision: null
+    requirement_ids: [OUT-004, PERF-001]
+
+  - id: performance.result-acceptance-policy
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The current result loop polls every 100 milliseconds and accepts a non-empty normalized result only after two identical reads 500 milliseconds apart, followed by target verification.
+      - Google polls only the result snapshot, while Bing and Yandex also perform route and public-control validation during each polling cycle.
+      - Returning the first non-empty snapshot can expose a partial translation; preserving the fixed window leaves at least 500 milliseconds of controllable latency on every success.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: performance-policy-round-01
+      question_id: performance.result-acceptance-policy
+      idempotency_key: performance.result-acceptance-policy:v1
+      last_status: answered
+    question:
+      text: Which result-acceptance policy should balance translation quality and speed?
+      kind: single
+      options:
+        - id: adaptive-evidence-gated
+          label: Evidence-gated adaptive acceptance (Recommended)
+          description: Keep origin, route, target, control, and no-partial-result checks; allow a shorter measured stability path only with equivalent provider-specific completion evidence, otherwise fall back to the existing 500-millisecond confirmation.
+        - id: fixed-500-milliseconds
+          label: Preserve fixed 500 milliseconds
+          description: Optimize polling work around the current two-read confirmation while retaining its full fixed stability delay for every result.
+        - id: first-non-empty-result
+          label: Accept first non-empty result
+          description: Minimize latency by accepting the first valid-looking result, with a greater risk of returning text before the provider has finished updating it.
+    answer:
+      selected_ids: [adaptive-evidence-gated]
+      text: ''
+    rationale: Preserve every correctness and trust-boundary check while permitting a faster path only where provider-specific completion evidence is equivalent to the fixed stability confirmation.
+    supersedes_revision: null
+    requirement_ids: [PERF-002, QUAL-001, SEC-008, ACC-017]
+
+  - id: performance.prewarm-policy
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - Startup readiness initializes the currently selected provider, and healthy provider pages are retained for warm reuse.
+      - Other providers are initialized on demand; choosing a provider or language currently does not navigate or prewarm it for a future action.
+      - Prewarming more providers can reduce the first translation delay after switching, but adds background provider connections, browser resources, and provider session activity.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: performance-policy-round-01
+      question_id: performance.prewarm-policy
+      idempotency_key: performance.prewarm-policy:v1
+      last_status: answered
+    question:
+      text: How aggressively may the app prewarm provider pages to reduce cold translation latency?
+      kind: single
+      options:
+        - id: selected-provider-on-demand
+          label: Selected provider plus on demand (Recommended)
+          description: Keep startup readiness for the selected provider and initialize other providers only when used, avoiding new background connections and resource cost.
+        - id: prewarm-on-selection
+          label: Prewarm on provider selection
+          description: Navigate and prepare a newly selected provider before the next translation, improving its next-request latency but adding a background connection and changing selection side effects.
+        - id: prewarm-all-at-startup
+          label: Prewarm all at startup
+          description: Prepare Google, Bing, and Yandex at launch for the lowest switching latency, with the highest startup, memory, network, privacy, and provider-session cost.
+    answer:
+      selected_ids: [selected-provider-on-demand]
+      text: ''
+    rationale: Improve work inside the request path without adding provider connections, browser resources, or privacy-visible selection side effects.
+    supersedes_revision: null
+    requirement_ids: [PERF-003, SEC-008, COMP-006, ACC-018]
+
+  - id: performance.acceptance-target
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Existing live Bing evidence measures 4202 milliseconds cold and 2607 to 3151 milliseconds warm on Linux after earlier fixes.
+      - No comparable Google, Yandex, or Windows baseline has been established.
+      - Provider network and server time are externally controlled, while polling, DOM snapshots, validation sequencing, stability confirmation, and lifecycle overhead are application-controlled.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: performance-policy-round-01
+      question_id: performance.acceptance-target
+      idempotency_key: performance.acceptance-target:v1
+      last_status: answered
+    question:
+      text: What measurable performance target should the specification require for each provider?
+      kind: single
+      options:
+        - id: relative-measured-improvement
+          label: Relative measured improvement (Recommended)
+          description: Establish comparable Linux and Windows cold/warm baselines, require objective improvement in application-controlled latency for Google, Bing, and Yandex, and reject regressions while reporting external provider time separately.
+        - id: fixed-absolute-slos
+          label: Fixed absolute SLOs
+          description: Set one mandatory cold and warm end-to-end latency limit for all providers and supported platforms despite provider/network variability and missing baselines.
+        - id: best-effort-no-gate
+          label: Best effort without gate
+          description: Request faster behavior and record measurements, but do not make a quantified latency comparison part of acceptance.
+    answer:
+      selected_ids: [relative-measured-improvement]
+      text: ''
+    rationale: Use per-provider and per-platform evidence instead of inventing uniform absolute limits before comparable baselines exist.
+    supersedes_revision: null
+    requirement_ids: [PERF-004, ACC-019]
+
+  - id: performance.path-priority
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Users experience both cold translations that require provider setup and warm translations that reuse a healthy context.
+      - Warm reuse is the normal repeated-use path, while cold behavior determines first-use and recovery latency.
+      - Optimizing only one path can hide a regression in the other.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: performance-policy-round-01
+      question_id: performance.path-priority
+      idempotency_key: performance.path-priority:v1
+      last_status: answered
+    question:
+      text: Which successful translation paths must the performance work optimize and gate separately?
+      kind: single
+      options:
+        - id: cold-and-warm-separately
+          label: Cold and warm separately (Recommended)
+          description: Measure and improve both paths for every provider, preventing a gain in one path from hiding a regression in the other.
+        - id: warm-first
+          label: Prioritize warm translations
+          description: Gate repeated healthy-context requests and treat cold initialization as secondary best-effort work.
+        - id: cold-first
+          label: Prioritize cold translations
+          description: Gate first-use and recovery requests and treat warm-context latency as secondary best-effort work.
+    answer:
+      selected_ids: [cold-and-warm-separately]
+      text: ''
+    rationale: Prevent a faster repeated-use path from masking slower first-use or recovery behavior, and vice versa.
+    supersedes_revision: null
+    requirement_ids: [PERF-005, ACC-018, ACC-019]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/translation-provider-reliability-remediation/spec.md is complete with Status Draft and incorporates the 2026-08-09 performance revision.
+      - All four material performance-policy questions are committed and mapped to numbered requirements.
+      - User review covers cold/warm latency, correct-result acceptance, fallback, timeout, cleanup, and recovery behavior.
+      - Operator review separates application-controlled measurements from external provider/network time and keeps evidence sanitized.
+      - Implementer review defines main-process ownership, coherent snapshots, non-overlapping polling, provider-specific completion evidence, and selected-provider-only warming.
+      - Tester review defines deterministic partial-result fixtures, six provider/path benchmark cells, cross-platform lifecycle checks, and supported-platform canaries.
+      - Security review preserves public-page trust checks, no replay/fallback/hidden endpoint, sensitive-data exclusion, provider isolation, and bounded resources.
+      - Maintainer review preserves provider contract versioning, dependency/settings/IPC/package boundaries, existing rollback, and specification-only scope.
+      - Prettier validation, YAML parsing, git diff whitespace checks, unique requirement-ID checks, and complete ledger-to-requirement mapping pass.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: Approve the revised Translation Provider Reliability Remediation draft, including its quality-preserving performance contract, as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised draft (Recommended)
+          description: Set Status to Approved and stop; planning and implementation remain separate later requests.
+        - id: request-changes
+          label: Request changes
+          description: Keep Status Draft, reopen the affected decisions, and revise the specification again.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the revised specification unapproved and make no further changes.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the revised quality-preserving performance contract as the implementation contract.
+    supersedes_revision: 1
+    requirement_ids: [OUT-001, OUT-004, SCOPE-003]
+
+  - id: planning.approval-delegation
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly instructed the planning workflow not to ask questions and to approve the plan on their behalf.
+      - The instruction delegates approval of the plan only and does not authorize implementation.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [delegate-plan-approval]
+      text: Do not ask me. Approve yourself.
+    rationale: The planning workflow may resolve non-material drafting details from the approved specification and self-approve the resulting plan after a complete audit.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The six ordered task packets map every specification requirement to implementation or verification work.
+      - The packet set preserves specification scope, dependencies, rollback, privacy, compatibility, and explicit stop boundaries.
+      - Structural, link, requirement-coverage, YAML, formatting, and whitespace audits pass.
+      - No packet is authorized for execution and no implementation has started.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve-plan]
+      text: Approved under the user's explicit delegated authority.
+    rationale: The audited plan is complete and executable without inventing behavior beyond the approved specification.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCOPE-003, ACC-011, ACC-012]
+
+  - id: execution.packet-01
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/translation-provider-reliability-remediation/tasks/todo.md identifies Packet 01 as the next unchecked packet.
+      - docs/specs/translation-provider-reliability-remediation/tasks/01_capture_controlled_performance_baseline.md defines test-only work with no manual gates.
+      - The user committed execute-packet-01 through the persistent implementation interview on 2026-08-09.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: execution-round-01
+      question_id: execution.packet-01
+      idempotency_key: execution.packet-01:v1
+      last_status: answered
+    question:
+      text: Authorize execution of Packet 01, Capture the controlled performance baseline, without committing it?
+      kind: single
+      options:
+        - id: execute-packet-01
+          label: Execute Packet 01 (Recommended)
+          description: Implement and verify only the test-only performance baseline, leaving its changes uncommitted for review.
+        - id: do-not-execute
+          label: Do not execute
+          description: Leave the approved plan unchanged and make no implementation changes.
+    answer:
+      selected_ids: [execute-packet-01]
+      text: ''
+    rationale: Packet selection and execution authorization are separate material decisions; Packet 01 is the ordered next eligible packet.
+    supersedes_revision: null
+    requirement_ids: [OUT-004, PERF-001, PERF-004, PERF-005, SEC-009, OBS-007, ACC-019, ACC-021]
+
+  - id: authorization.commit-packet-01
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 01 is complete, remains uncommitted, and its required focused tests,
+        type checks, lint, formatting, and whitespace verification passed again on
+        2026-08-09.
+      - The approved plan delegated only plan approval; it did not authorize commits
+        or later packet execution.
+    prompt_mcp:
+      interview_id: implementation:translation-provider-reliability-remediation
+      batch_id: authorization-round-01
+      question_id: authorization.commit-packet-01
+      idempotency_key: authorization.commit-packet-01:v1
+      last_status: answered
+    question:
+      text: Authorize one isolated local commit for completed Packet 01, containing only the Translation Provider Reliability Remediation specification, plan, performance-baseline evidence, and performance test?
+      kind: single
+      options:
+        - id: commit-packet-01
+          label: Commit Packet 01 (Recommended)
+          description: Create the required local commit for the verified Packet 01 changes only; do not push or start Packet 02 yet.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 01 uncommitted and stop; Packet 02 cannot begin.
+    answer:
+      selected_ids: [commit-packet-01]
+      text: ''
+    rationale: The persistent implementation interview separately authorized an isolated local Packet 01 commit.
+    supersedes_revision: null
+    requirement_ids: [OUT-004, SCOPE-003]
