@@ -66,9 +66,13 @@ and macOS release support remains paused.
    clipboard/cache/notification effect appears. Record ordinary scheduler tolerance
    without changing the contract.
 6. For `ACC-015`, run Google, Bing, and Yandex on each platform. Confirm exact target,
-   adaptive or fallback acceptance, clear-or-close success, clipboard copy, success
-   notification, and healthy context reuse. Provider unavailability is a gap, not a
-   reason to weaken origin/route/control/target or timeout checks.
+   clipboard copy, success notification, and healthy context reuse. Bing and Yandex
+   retain adaptive/fallback acceptance and clear-or-close success. Google must replace
+   source in its reused warm page without Clear or Copy-control readiness; confirm
+   changed-result and identical-result generation behavior, clipboard delivery before
+   focused `Control+A` and `Backspace`, and no page inspection after Backspace.
+   Provider unavailability is a gap, not a reason to weaken origin/route/target,
+   generation, delivery, serialization, or timeout checks.
 7. For `ACC-021`, record at least one cold and four warm completed translations per
    provider for both baseline and candidate on each platform. Use the same host,
    build mode, target, synthetic input shape, provider state, and nearby network
@@ -94,12 +98,18 @@ and macOS release support remains paused.
     work begins, remains visible until the accepted terminal cleanup settles, and then
     returns to the recording-derived tray state. Record no selected text, result text,
     screenshot, provider page, URL, or credential in evidence.
-13. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
+13. For Google, run several synthetic warm requests, including identical-result and
+    cancellation-followed-by-reuse cases. Confirm a second request cannot prepare or
+    insert source until the prior Backspace or safe close/quarantine settles. Record
+    only result-ready, keyboard-clear, and total duration, cold/warm state, provider ID,
+    target code, and pass/fail. Do not record text, URL, cookies, account data, or page
+    screenshots.
+14. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
     platform/architecture, app and provider contract versions, baseline/candidate
     revisions, provider ID, target code, cold/warm, elapsed safe phases, end-to-end
     duration, evaluation counts when available, pass/fail, scheduler tolerance, and
     explicit gaps. Exclude all sensitive/provider-controlled data named above.
-14. Generated packages, temporary worktrees, browser caches, and test-only process
+15. Generated packages, temporary worktrees, browser caches, and test-only process
     state are not committed. Remove them only through an explicitly reviewed,
     narrowly targeted cleanup after evidence is secured; never use a broad recursive
     deletion target.

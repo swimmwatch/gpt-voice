@@ -2,9 +2,9 @@
 
 ## Status
 
-Packets 01–05 and 07 are committed as `e1fe686`, `de5ec2e`, `02fbd227`, `1ca2f81e`,
-`d43fcc70`, and `80f801a`. Packet 08 is complete and intentionally uncommitted for
-review. Packet 06 remains the only later packet and requires its own explicit
+Packets 01–05, 07, and 08 are committed as `e1fe686`, `de5ec2e`, `02fbd227`,
+`1ca2f81e`, `d43fcc70`, `80f801a`, and `71794a9`. Packet 09 is committed as
+`fe5f583`. Packet 06 is the only later packet and requires its own explicit
 implementation authorization.
 
 ## Completed Packets
@@ -62,6 +62,38 @@ implementation authorization.
   - The configured Translation hotkey now changes the existing tray to `processing` for
     that provider run, then restores the recording-derived icon only after the same
     promise settles, including failure, timeout, and bounded cancellation cleanup.
+- [09 Google Translation copy then keyboard clear](09_google_translation_overwrite_and_reuse.md)
+  - Preserved Google source overwrite and immediate changed-result or mutation-proven
+    identical-result acceptance, then acknowledged selected-text clipboard delivery
+    before any visible cleanup begins.
+  - Replaced Google Clear-button polling with focused `Control+A` and `Backspace`, made
+    the provider queue wait for keyboard settlement, and retained the warm page after
+    successful cleanup. Bing and Yandex keep their clear-before-success behavior.
+
+## Packet 09 Result
+
+- Google atomically overwrites source text and accepts current-generation results without
+  Copy-control readiness or the 500 ms fallback. Selected-text delivery now occurs before
+  source focus, `Control+A`, and `Backspace`; no Google page inspection follows Backspace
+  in that cleanup operation.
+- A page-local epoch, current source value, route/target checks, and result-region
+  mutation count distinguish changed output from renewed identical output. An
+  unchanged prior result remains unavailable, and a replacement page restarts evidence
+  at its own page-local epoch.
+- Delivery rejection or exception starts no keyboard cleanup. A confirmed close after
+  keyboard failure preserves the delivered result; unconfirmed close/quarantine remains
+  a cleanup failure. Enqueueing another request no longer invalidates the operation that
+  is still clearing, and the later request cannot prepare or insert until settlement.
+- The deterministic controlled Google measurements are 55 ms result-ready, 5 ms
+  keyboard-clear, and 60 ms total cold; 40 ms result-ready, 5 ms keyboard-clear, and
+  45 ms total warm.
+- A sanitized no-login Linux CloakBrowser smoke used synthetic text only on one reused
+  page. Three sequential samples measured 630/28/676 ms, 338/22/377 ms, and
+  448/19/482 ms for result-ready/keyboard-clear/total. A separate same-result run
+  observed mutation-backed identical generation at 326 ms and final keyboard clearing
+  at 26 ms. The smoke issued no page inspection after final Backspace. No text, URL,
+  cookie, account data, screenshot, network payload, or page content was retained in
+  workstream evidence.
 
 ## Changed Files
 
@@ -86,6 +118,13 @@ implementation authorization.
   plan, checklist, handoff, and Packet 06 manual-gate artifacts. It adds no dependency,
   renderer, preload, IPC, settings, persisted data, provider-adapter, generated asset,
   packaging, or release change.
+- Packet 09 updates the internal delivery/failure contract and audit mapping, selected-
+  text delivery bridge, Base Provider serialization/lifecycle, Google public-page
+  adapter, focused provider/runtime/selected-text/performance/audit tests, and workstream
+  artifacts. It adds no renderer, preload, public IPC, settings, persisted schema,
+  dependency, package, or release change. Existing unrelated Local Whisper, review,
+  headless-test, provider-status, and renderer worktree changes remain untouched and are
+  not owned by this packet.
 
 ## Checks
 
@@ -114,9 +153,15 @@ tests/main/shortcuts.test.ts tests/main/shortcutController.test.ts`, `npm run ty
   provider-audit, and renderer status-presentation tests passed without live provider
   access.
 - Packet 08 focused deterministic suite — `node --import tsx --test
-  tests/main/selectedTextTranslation.test.ts tests/main/shortcutController.test.ts
-  tests/main/shortcuts.test.ts` passed with 47 tests. `npm run typecheck`, `npm run
-  test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed cleanly.
+tests/main/selectedTextTranslation.test.ts tests/main/shortcutController.test.ts
+tests/main/shortcuts.test.ts` passed with 47 tests. `npm run typecheck`, `npm run
+test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed cleanly.
+- Packet 09 focused deterministic suite — Base, Google, Bing, and Yandex providers;
+  lifecycle and registry; runtime and selected text; shortcut/tray; controlled
+  performance; result text; and provider-audit mapping/privacy tests passed without
+  credentials or private data.
+- `npm run typecheck` and `npm run test:types` passed. Scoped ESLint passed with no
+  issues; scoped Prettier, YAML parsing, and `git diff --check` passed.
 
 ## Exact Next Packet
 
@@ -124,14 +169,13 @@ tests/main/shortcuts.test.ts tests/main/shortcutController.test.ts`, `npm run ty
 
 ## Blockers
 
-- Packet 08 is intentionally uncommitted. A future implementation invocation must
-  obtain separate commit authorization, verify this handoff, and commit only Packet 08
-  before it may open Packet 06.
 - Packet 06 requires separate execution authorization and its supported-platform manual
   gates; it must not start from this packet.
 
 ## Remaining Manual Gates
 
-- No browser, provider, credential, package, release, or external-system gate was
-  crossed. Packet 06 includes the later Linux and Windows packaged tray-indicator
-  confirmation alongside supported-platform qualification.
+- The no-login Google smoke passed only as sanitized Linux public-page evidence. It did
+  not drive Electron's selected-text hotkey, OS clipboard, tray, cancellation, or
+  quarantine workflow. Packet 06 retains Linux/Windows packaged copy-before-keyboard-
+  clear ordering, identical-result, cancellation-reuse, serialization, tray-indicator,
+  timeout, and suspend/resume confirmation.

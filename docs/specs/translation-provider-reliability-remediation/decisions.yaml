@@ -1256,6 +1256,168 @@ decisions:
         ACC-020,
       ]
 
+  - id: scope.google-overwrite-and-reuse
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence:
+      - The Google Translation Overwrite-and-Reuse plan explicitly limits removal of routine clearing to Google.
+      - Bing and Yandex retain their existing clear-before-success behavior.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [google-only, retain-visible-warm-result]
+      text: ''
+    rationale: Google is the measured bottleneck; extending the behavioral exception to other providers would change their independently validated contracts.
+    supersedes_revision: null
+    requirement_ids: [PERF-002, PERF-007, PERF-008, LIFE-003, ACC-024]
+
+  - id: scope.google-overwrite-and-reuse
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly replaced retained Google success state with copy-before-keyboard-clear behavior on 2026-08-10.
+      - The accepted result must reach the clipboard before Google source clearing starts.
+      - Clearing must use `Control+A` followed by `Backspace` and perform no post-Backspace page query.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [google-overwrite, copy-before-clear, control-a-backspace, no-post-clear-query]
+      text: ''
+    rationale: Preserve the measured immediate result path while serializing a minimal keyboard clear before the next provider submission.
+    supersedes_revision: 1
+    requirement_ids: [PERF-002, PERF-007, PERF-008, CONC-007, LIFE-003, LIFE-009, FAIL-010, ACC-024]
+
+  - id: failure.google-post-copy-clear
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - The user selected preservation of an already copied valid result when failed clearing can be resolved by bounded safe resource settlement.
+      - The revised plan requires cleanup failure and clipboard restoration only when safe settlement cannot be confirmed.
+    prompt_mcp:
+      interview_id: spec:translation-provider-reliability-remediation
+      batch_id: failure-round-google-async-clear-01
+      question_id: failure.google-post-copy-clear
+      idempotency_key: failure.google-post-copy-clear:v1
+      last_status: answered
+    question:
+      text: If Google has already copied a valid translation but Clear then fails, how should the operation finish?
+      kind: single
+      options:
+        - id: preserve-success-after-bounded-settlement
+          label: Preserve copied result
+          description: Keep the valid clipboard result when clearing or bounded resource settlement succeeds.
+        - id: strict-failure-and-restore
+          label: Fail and restore clipboard
+          description: Treat every clearing failure as terminal failure and restore the prior clipboard.
+    answer:
+      selected_ids: [preserve-success-after-bounded-settlement]
+      text: ''
+    rationale: A verified translation remains useful after the stale page is safely closed; uncertain cleanup still fails closed.
+    supersedes_revision: null
+    requirement_ids: [LIFE-003, LIFE-006, LIFE-009, FAIL-005, ACC-024]
+
+  - id: quality.google-identical-result-generation
+    revision: 1
+    category: quality
+    state: answered
+    provenance: user
+    evidence:
+      - The user selected generation evidence for different sources that legitimately produce an identical Google translation.
+    prompt_mcp:
+      interview_id: plan:translation-provider-reliability-remediation
+      batch_id: quality-round-01
+      question_id: quality.identical-result-generation
+      idempotency_key: quality.identical-result-generation:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids: [generation-evidence]
+      text: ''
+    rationale: A changed result is sufficient for immediate completion; identical output needs proof that it belongs to the current submission rather than the retained prior page state.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, QUAL-003, ACC-024]
+
+  - id: failure.google-dirty-resource-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - The user chose reuse after a request-level Google failure when the retained page is healthy and bounded cleanup confirms it.
+    prompt_mcp:
+      interview_id: plan:translation-provider-reliability-remediation
+      batch_id: failure-round-01
+      question_id: failure.dirty-resource-policy
+      idempotency_key: failure.dirty-resource-policy:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids: [reuse-after-failure]
+      text: ''
+    rationale: Preserve warm-path latency after a safe request failure while quarantining unresponsive or contract-ambiguous resources.
+    supersedes_revision: null
+    requirement_ids: [LIFE-009, ACC-024]
+
+  - id: failure.google-reset-resource-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - The user chose closure on provider/settings reset and application shutdown.
+    prompt_mcp:
+      interview_id: plan:translation-provider-reliability-remediation
+      batch_id: failure-round-01
+      question_id: failure.reset-resource-policy
+      idempotency_key: failure.reset-resource-policy:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids: [request-failures-only]
+      text: ''
+    rationale: Reset and shutdown must make changed proxy, fingerprint, locale, and runtime settings effective in a fresh context.
+    supersedes_revision: null
+    requirement_ids: [LIFE-009, ACC-024]
+
+  - id: execution.packet-09
+    revision: 1
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - The user explicitly supplied and requested implementation of the Google Translation Overwrite-and-Reuse plan on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [execute-packet-09]
+      text: ''
+    rationale: The supplied plan defines one bounded Google-only packet and requires Packet 09 to remain uncommitted after verification.
+    supersedes_revision: null
+    requirement_ids: [PERF-002, PERF-007, PERF-008, QUAL-003, LIFE-003, LIFE-009, ACC-024]
+
+  - id: execution.packet-09
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 09 is complete but uncommitted and can be revised without crossing a commit boundary.
+      - The user explicitly supplied and requested implementation of the Google Copy-Then-Keyboard-Clear plan on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [reopen-and-execute-packet-09]
+      text: ''
+    rationale: Revise only the uncommitted Google packet, preserve unrelated work, verify it, and leave it uncommitted before Packet 06.
+    supersedes_revision: 1
+    requirement_ids: [PERF-002, PERF-007, PERF-008, QUAL-003, CONC-007, LIFE-003, LIFE-009, FAIL-010, ACC-024]
+
   - id: performance.google-copy-ready-candidate
     revision: 1
     category: acceptance

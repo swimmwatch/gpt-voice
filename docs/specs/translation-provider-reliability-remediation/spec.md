@@ -131,9 +131,10 @@ requests, packaging, or release activity.
   Bing polls route, public controls, and result state; Yandex polls route plus a
   complex editor and destination snapshot. Bing and Yandex therefore perform more
   browser IPC and DOM work per polling cycle.
-- Successful provider completion does not return until visible source/result clearing
-  is confirmed or context closure is confirmed. Clear confirmation is bounded by
-  1,500 ms and polls at 50 ms.
+- Bing and Yandex successful provider completion does not return until visible
+  source/result clearing is confirmed or context closure is confirmed. Google keeps
+  its successful source and result visible in its reused warm page; routine clearing
+  is not a quality or privacy requirement for that provider.
 - Startup readiness initializes the currently selected provider. Other providers are
   initialized on demand, and provider/language selection itself does not navigate or
   prewarm a provider. Healthy pages and contexts are retained and reused.
@@ -267,19 +268,17 @@ requests, packaging, or release activity.
   result in both a cold path with no healthy initialized context and a warm path with
   a healthy reusable context. An improvement for one provider or path cannot
   substitute for another.
-- **PERF-002:** A provider may accept a result in less than the fixed 500-millisecond
-  stability window only when its current public page contract exposes equivalent,
-  provider-specific completion evidence. The same coherent read must show a
-  non-empty normalized result and completion evidence that is current for the active
-  source submission. If the signal is missing, unsupported, ambiguous, stale,
-  contradictory, or changes before acceptance, the provider falls back to two
-  identical normalized reads at least 500 milliseconds apart. The first non-empty
-  snapshot alone is never sufficient. The approved Google contract uses one visible,
-  enabled `Copy translation` control inside exactly one visible result region as
-  completion evidence; an `aria-disabled="true"` control is not enabled. A bounded
-  browser-frame wait may wake the first candidate observation without returning page
-  text. That candidate is still accepted early only after the coherent snapshot
-  confirms the Google completion control; otherwise it follows the same fallback.
+- **PERF-002:** Bing and Yandex may accept a result in less than the fixed
+  500-millisecond stability window only when their current public page contract
+  exposes equivalent, provider-specific completion evidence. If that signal is
+  missing, unsupported, ambiguous, stale, contradictory, or changes before
+  acceptance, they fall back to two identical normalized reads at least 500
+  milliseconds apart. Google instead accepts its first coherent current-generation
+  `changed-after-submission` or `renewed-identical` result immediately. Google's
+  Copy control is neither required nor read as a completion signal, and Google never
+  applies the two-read 500-millisecond fallback. All providers still require a
+  non-empty normalized result, exactly one coherent result region/branch, matching
+  source submission, translator origin/route, and requested target.
 - **PERF-003:** Startup readiness continues to prepare only the currently selected
   provider. Other providers initialize on the first request that uses them. Provider
   or language selection does not navigate, create a provider session, or issue a
@@ -303,16 +302,30 @@ requests, packaging, or release activity.
   sequential cross-process calls merely to reconstruct the same snapshot. Cached or
   coalesced state is invalidated on navigation, generation change, target change,
   reset, shutdown, challenge/consent transition, or any page-contract ambiguity.
-- **PERF-007:** Successful visible-state cleanup returns on the first confirmed clear
-  state and retains the existing clear-or-close-before-success rule. Optimizing clear
-  confirmation may remove redundant reads or scheduling delay, but may not report
-  success while submitted source or result state remains visible or while cleanup
-  ownership is uncertain.
+- **PERF-007:** Bing and Yandex successful visible-state cleanup returns on the first
+  confirmed clear state and retains the existing clear-or-close-before-success rule.
+  Google delivers a valid selected-text result to the clipboard first, then immediately
+  focuses the unique editable source and sends `Control+A` followed by `Backspace`.
+  Google does not wait for a Clear control or issue a post-Backspace browser query.
+  Optimizing either path may not weaken current-submission, generation, route, target,
+  delivery-acknowledgement, or resource-ownership checks.
+- **PERF-008:** The Google warm benchmark separately records result-ready and total
+  provider settlement latency plus keyboard-clear duration. Result-ready latency
+  contains no focus, keyboard, Clear-control, or clear-confirmation work. Google makes
+  no post-Backspace page query; Bing and Yandex benchmark baselines and clear phases
+  remain unchanged.
 - **QUAL-001:** Faster acceptance preserves the exact existing normalization,
   non-empty result, requested-target, origin, route, consent/challenge, public-control,
   generation, and current-submission checks. Fixtures must demonstrate that
   incremental, temporarily stable, repeated-prefix, stale previous, wrong-target,
   and post-navigation text cannot be returned as a completed translation.
+- **QUAL-003:** Google creates a page-local submission epoch before it overwrites the
+  source control and captures the previous normalized result. A coherent non-empty
+  result different from that previous result is `changed-after-submission`; the same
+  result is `renewed-identical` only after post-submission result mutation or
+  invalidation proves a new generation. An unchanged result without either proof is
+  unavailable. Late observations from an older epoch cannot be accepted or schedule
+  effects for a newer request.
 - **QUAL-002:** Provider-specific completion evidence is an additive fail-closed
   signal, not a replacement for target verification or any trust-boundary check.
   When equivalent completion cannot be proven for a provider state, the slower
@@ -384,9 +397,10 @@ requests, packaging, or release activity.
   Thread safety means safe asynchronous interleaving in Electron main plus identity-
   guarded interaction with Playwright/browser callbacks.
 - **CONC-007:** One provider generation has at most one result snapshot or visible-
-  clear snapshot in flight at a time. Poll timers do not overlap browser evaluations,
-  and a late snapshot is identity-checked before it can schedule another poll,
-  accept a result, clear state, or mutate measurement counters.
+  clear operation in flight at a time. Poll timers do not overlap browser evaluations.
+  Google clipboard delivery, `Control+A`, and `Backspace` are strictly ordered, and a
+  late callback is identity-checked before it can schedule another poll, accept a
+  result, clear state, release the provider queue, or mutate measurement counters.
 - **CONC-008:** The configured Cancel hotkey keeps its existing priority of Voice
   recording, then Prettify, then active selected-text Translation. Caller cancellation
   is idempotent, owns only that selected-text operation, and retains the action gate
@@ -402,9 +416,14 @@ requests, packaging, or release activity.
   published as active. The stale page/context pair is closed through the same
   idempotent detached-resource policy and cannot be closed again as current ownership
   by the next queued generation.
-- **LIFE-003:** Normal successful translation still clears visible source and result
-  state before success. The five-second cleanup deadline includes the existing
-  provider-specific bounded clear confirmation and any required page/context close.
+- **LIFE-003:** Bing and Yandex normal successful translation clears visible source
+  and result state before success. Google selected-text success synchronously
+  acknowledges clipboard delivery before it starts clearing, then focuses the unique
+  editable source, sends `Control+A` and `Backspace`, and releases its provider queue
+  only after Backspace completes. A direct internal translation with no delivery
+  callback clears after result acceptance and returns only after cleanup. The
+  five-second cleanup deadline still applies to every terminal path that closes,
+  clears, or quarantines resources.
 - **LIFE-004:** Timeout, cancellation, stale work, ordinary terminal failure, failed
   visible clearing, reset, and shutdown invalidate active ownership before late page
   work can become applicable. Post-submission timeout never reloads, recreates, or
@@ -423,6 +442,13 @@ requests, packaging, or release activity.
 - **LIFE-008:** A provider whose unresolved quarantined cleanup blocks new work
   returns a bounded cleanup failure rather than waiting indefinitely or constructing
   another context.
+- **LIFE-009:** On a Google request-level failure, caller cancellation, or timeout,
+  invalidate the page-local submission epoch and discard late effects. A delivery
+  rejection or exception never starts keyboard clearing. Once keyboard clearing has
+  started, a later terminal path cannot start a competing clear or reuse the page until
+  that work settles or ownership moves to the existing page-before-context
+  close/quarantine path. Provider/settings reset and application shutdown always close
+  Google resources so changed proxy, fingerprint, locale, and runtime settings apply.
 
 ## Failure and User-Visible Behavior
 
@@ -461,6 +487,12 @@ requests, packaging, or release activity.
   performs no cache write, result copy, success notification, success diagnostic
   capture, or connection-state update. Reset, shutdown, supersession, or staleness
   that wins first remains silently discarded and cannot restore clipboard data.
+- **FAIL-010:** `resultDeliveryFailure` is an internal, non-connection failure used
+  when the selected-text result-ready callback rejects delivery or throws before
+  Google cleanup begins. It emits no keyboard clearing, cache entry, success
+  notification, successful diagnostic capture, connection-state update, or success
+  audit. The selected-text workflow restores its captured clipboard and presents the
+  existing generic Translation failure message.
 
 ## Translation Activity Presentation
 
@@ -650,6 +682,16 @@ requests, packaging, or release activity.
   confirmation returns on the first valid cleared snapshot, and evaluation/timer
   counts do not increase relative to baseline. Fast-path, fallback, timeout,
   cancellation, reset, and shutdown cases all preserve these bounds.
+- **ACC-024:** Deterministic Google tests prove sequential requests atomically replace
+  rather than append source text, acknowledge clipboard delivery before source focus,
+  send exactly `Control+A` then `Backspace`, make no post-Backspace page query, and
+  reuse one page/context. A deferred Backspace blocks later source submission. Tests
+  retain immediate changed output, identical output after generation evidence,
+  unchanged output without that evidence, empty/intermediate text, wrong route or
+  target, stale previous output, and late older-generation coverage. They also cover
+  delivery rejection/exception, keyboard failure, successful close fallback,
+  cancellation, timeout, reset, shutdown, hung browser work, quarantine, and absence
+  of late clipboard/cache/notification/diagnostic/connection effects.
 - **ACC-022:** Deterministic selected-text and runtime tests prove that the existing
   Cancel hotkey cancels only an active selected-text translation; cancellation before
   dispatch prevents provider lookup, cancellation after submission discards late
