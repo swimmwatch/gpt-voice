@@ -36,7 +36,7 @@ export class WorkflowPolicyVerifier {
     if (
       consumerText.includes('generate:local-whisper:packaging:fixture') ||
       consumerText.includes('sign(') ||
-      !consumerText.includes('actions/download-artifact@v8') ||
+      !consumerText.includes('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c') ||
       !consumerText.includes('needs.fixture_producer.outputs.bundle_digest') ||
       !consumerText.includes('--mode=fixture')
     ) {
@@ -65,7 +65,7 @@ export class WorkflowPolicyVerifier {
       windowsConsumer.if !== '${{ inputs.windows_qualification_authorized }}' ||
       windowsConsumerText.includes('generate:local-whisper:packaging:fixture') ||
       windowsConsumerText.includes('sign(') ||
-      !windowsConsumerText.includes('actions/download-artifact@v8') ||
+      !windowsConsumerText.includes('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c') ||
       !windowsConsumerText.includes('local-whisper-public-fixture-v1') ||
       !windowsConsumerText.includes('inputs.bundle_digest') ||
       !windowsConsumerText.includes('--platform=win32')

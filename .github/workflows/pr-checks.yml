@@ -4,9 +4,35 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - .github/actions/initialize-msvc-environment/action.yml
+      - .github/workflows/**
+      - build/fedora-release/**
+      - package-lock.json
+      - package.json
+      - runtime/local-whisper/**
+      - scripts/build-fedora-release.mjs
+      - scripts/local-whisper/**
+      - scripts/prepare-cloakbrowser.mjs
+      - src/main/localWhisper/**
+      - src/shared/localWhisper/**
+      - webpack.config.js
   push:
     branches:
       - main
+    paths:
+      - .github/actions/initialize-msvc-environment/action.yml
+      - .github/workflows/**
+      - build/fedora-release/**
+      - package-lock.json
+      - package.json
+      - runtime/local-whisper/**
+      - scripts/build-fedora-release.mjs
+      - scripts/local-whisper/**
+      - scripts/prepare-cloakbrowser.mjs
+      - src/main/localWhisper/**
+      - src/shared/localWhisper/**
+      - webpack.config.js
   workflow_dispatch:
 
 permissions:
@@ -43,10 +69,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
@@ -142,9 +170,20 @@ jobs:
       - name: Verify Linux filesystem fixture
         run: npm run verify:local-whisper:filesystem -- --fixture
 
+      - name: Emit primary Linux runner evidence
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=ubuntu-24.04 --toolchain=clang-18 --compiler="$CXX" --output=release-artifacts/local-whisper-runner-evidence-linux-primary.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Upload primary Linux runner evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: local-whisper-runner-evidence-linux-primary
+          path: release-artifacts/local-whisper-runner-evidence-linux-primary.json
+          if-no-files-found: error
+          retention-days: 14
+
   native-quality-windows:
     name: Local Whisper Native Quality (Windows)
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 30
     env:
       LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY: 'true'
@@ -152,10 +191,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Checkout locked GoogleTest source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: google/googletest
           ref: 52eb8108c5bdec04579160ae17225d66034bd723
@@ -164,7 +205,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout locked nlohmann/json source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: nlohmann/json
           ref: 55f93686c01528224f448c19128836e7df245f72
@@ -173,7 +214,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout locked Whisper.cpp source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ggml-org/whisper.cpp
           ref: f049fff95a089aa9969deb009cdd4892b3e74916
@@ -182,7 +223,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
@@ -205,6 +246,8 @@ jobs:
 
       - name: Initialize MSVC developer environment
         uses: ./.github/actions/initialize-msvc-environment
+        with:
+          required-compiler-version: '19.39'
 
       - name: Run MSVC native unit and integration tests
         run: npm run test:local-whisper:fs-guard:native
@@ -252,9 +295,177 @@ jobs:
       - name: Run Windows Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
 
+      - name: Emit primary Windows runner evidence
+        shell: pwsh
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-2025 --toolchain=msvc-19.39 --compiler="$env:CXX" --output=release-artifacts/local-whisper-runner-evidence-windows-primary.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Upload primary Windows runner evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: local-whisper-runner-evidence-windows-primary
+          path: release-artifacts/local-whisper-runner-evidence-windows-primary.json
+          if-no-files-found: error
+          retention-days: 14
+
+  native-quality-linux-compatibility:
+    name: Local Whisper Native Compatibility (Ubuntu 22.04)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      CMAKE_COMMAND: /usr/bin/cmake
+      CTEST_COMMAND: /usr/bin/ctest
+      CXX: clang++-18
+      LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY: 'true'
+      NINJA_COMMAND: /usr/bin/ninja
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+
+      - name: Provision pinned ordinary native toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build clang-18
+          clang++-18 --version
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Provision and verify locked native sources
+        run: |
+          npm run prepare:local-whisper:native-test-sources
+          npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
+          npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
+          npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
+
+      - name: Run ordinary Linux native unit and integration manifests
+        run: |
+          npm run test:local-whisper:fs-guard:native
+          npm run test:local-whisper:launcher:native
+          npm run test:local-whisper:worker-codec
+          npm run test:local-whisper:whisper-cpp-core
+          npm run test:local-whisper:filesystem
+
+      - name: Build ordinary Linux production native manifests
+        run: |
+          npm run build:local-whisper:fs-guard
+          npm run build:local-whisper:launcher
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+          npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
+
+      - name: Emit compatibility Linux runner evidence
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=ubuntu-22.04 --toolchain=clang-18 --compiler="$CXX" --output=release-artifacts/local-whisper-runner-evidence-linux-compatibility.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Upload compatibility Linux runner evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: local-whisper-runner-evidence-linux-compatibility
+          path: release-artifacts/local-whisper-runner-evidence-linux-compatibility.json
+          if-no-files-found: error
+          retention-days: 14
+
+  native-quality-windows-compatibility:
+    name: Local Whisper Native Compatibility (Windows Server 2022)
+    runs-on: windows-2022
+    timeout-minutes: 45
+    env:
+      LOCAL_WHISPER_PREPARED_WINDOWS_COMPATIBILITY: 'true'
+      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Checkout locked GoogleTest source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          path: .cache/local-whisper/ci-source-repositories/googletest
+          persist-credentials: false
+          ref: 52eb8108c5bdec04579160ae17225d66034bd723
+          repository: google/googletest
+
+      - name: Checkout locked nlohmann/json source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          path: .cache/local-whisper/ci-source-repositories/nlohmann-json
+          persist-credentials: false
+          ref: 55f93686c01528224f448c19128836e7df245f72
+          repository: nlohmann/json
+
+      - name: Checkout locked Whisper.cpp source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          path: .cache/local-whisper/ci-source-repositories/whisper-cpp
+          persist-credentials: false
+          ref: f049fff95a089aa9969deb009cdd4892b3e74916
+          repository: ggml-org/whisper.cpp
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm run ci:install
+
+      - name: Materialize and verify locked native sources
+        shell: pwsh
+        run: |
+          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/googletest-v1.17.0-52eb810.json --repository-root=.cache/local-whisper/ci-source-repositories/googletest --store-root=.cache/local-whisper/native-sources
+          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/nlohmann-json-v3.12.0-subset.json --repository-root=.cache/local-whisper/ci-source-repositories/nlohmann-json --store-root=.cache/local-whisper/native-sources
+          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/whisper-cpp-v1.9.1-f049fff.json --repository-root=.cache/local-whisper/ci-source-repositories/whisper-cpp --store-root=.cache/local-whisper/native-sources
+          npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
+          npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
+          npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
+
+      - name: Initialize pinned MSVC developer environment
+        uses: ./.github/actions/initialize-msvc-environment
+        with:
+          required-compiler-version: '19.39'
+
+      - name: Run ordinary Windows native unit and integration manifests
+        run: |
+          npm run test:local-whisper:fs-guard:native
+          npm run test:local-whisper:launcher:native
+          npm run test:local-whisper:worker-codec
+          npm run test:local-whisper:whisper-cpp-core
+          npm run test:local-whisper:filesystem
+
+      - name: Build ordinary Windows production native manifests
+        run: |
+          npm run build:local-whisper:fs-guard
+          npm run build:local-whisper:launcher
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+          npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+
+      - name: Emit compatibility Windows runner evidence
+        shell: pwsh
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-2022 --toolchain=msvc-19.39 --compiler="$env:CXX" --output=release-artifacts/local-whisper-runner-evidence-windows-compatibility.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Upload compatibility Windows runner evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: local-whisper-runner-evidence-windows-compatibility
+          path: release-artifacts/local-whisper-runner-evidence-windows-compatibility.json
+          if-no-files-found: error
+          retention-days: 14
+
   quality:
     name: Quality Gates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
@@ -263,17 +474,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
       - name: Cache Electron binaries
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ env.NPM_CONFIG_CACHE }}
@@ -316,25 +528,27 @@ jobs:
   package-smoke-fedora:
     name: Package Smoke (Fedora Linux)
     needs: quality
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       FEDORA_RELEASE_IMAGE: gpt-voice-fedora-release:ci
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Cache Fedora release workspace
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             .cache/npm
@@ -346,7 +560,7 @@ jobs:
             ${{ runner.os }}-fedora-smoke-workspace-
 
       - name: Build Fedora release image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: build/fedora-release
           file: build/fedora-release/Dockerfile
@@ -359,7 +573,7 @@ jobs:
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=2026-05-18
 
       - name: Upload Linux measurement reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gpt-voice-linux-measurements
           path: |
@@ -371,7 +585,7 @@ jobs:
   package-smoke-windows:
     name: Package Smoke (Windows)
     needs: quality
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 45
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
@@ -380,15 +594,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
       - name: Cache Electron and CloakBrowser binaries
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ env.NPM_CONFIG_CACHE }}
@@ -404,6 +620,8 @@ jobs:
 
       - name: Initialize MSVC developer environment
         uses: ./.github/actions/initialize-msvc-environment
+        with:
+          required-compiler-version: '19.39'
 
       - name: Prepare bundled CloakBrowser
         run: npm run prepare:cloakbrowser -- --target=win32
@@ -437,7 +655,7 @@ jobs:
         run: npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
 
       - name: Upload Windows measurement reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gpt-voice-windows-measurements
           path: |

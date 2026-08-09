@@ -25,25 +25,27 @@ env:
 jobs:
   build-linux:
     name: Build Fedora Linux x64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 75
     env:
       FEDORA_RELEASE_IMAGE: gpt-voice-fedora-release:ci
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Cache Fedora release workspace
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             .cache/npm
@@ -55,7 +57,7 @@ jobs:
             ${{ runner.os }}-fedora-release-workspace-
 
       - name: Build Fedora release image
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: build/fedora-release
           file: build/fedora-release/Dockerfile
@@ -72,7 +74,7 @@ jobs:
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=release
 
       - name: Upload Linux installer artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gpt-voice-linux
           path: release-artifacts/linux/*
@@ -81,7 +83,7 @@ jobs:
 
   build-windows:
     name: Build Windows x64
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 60
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
@@ -90,17 +92,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
       - name: Cache Electron and CloakBrowser binaries
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
             ${{ env.NPM_CONFIG_CACHE }}
@@ -134,7 +137,7 @@ jobs:
 
       - name: Upload Windows v1.4 reference size report
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gpt-voice-win32-v1.4.0-baseline
           path: .size-baseline/release-artifacts/size-win32-x64.json
@@ -196,7 +199,7 @@ jobs:
         run: npm run collect:release-artifacts -- --platform=win32
 
       - name: Upload Windows installer artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gpt-voice-win32
           path: release-artifacts/win32/*
@@ -211,12 +214,12 @@ jobs:
       - build-linux
       - build-windows
     if: github.event_name == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: release-assets
           pattern: gpt-voice-*
