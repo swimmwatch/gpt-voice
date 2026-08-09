@@ -10,7 +10,11 @@ try {
   const profileId = arguments_.get('profile');
   if (!CUDA_PROFILES.has(profileId)) throw new Error(`Unsupported CUDA build profile: ${profileId}`);
   requireVerifiedInputs(profileId);
-  const configured = configureBuild(profileId, { engine: true, tests: false });
+  const configured = configureBuild(profileId, {
+    engine: true,
+    preparedLinuxQuality: process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true',
+    tests: false,
+  });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
   const stagingRoot = stageCudaPack(profileId, configured.buildRoot, configured.profile);
   process.stdout.write(`Local Whisper CUDA worker staged at ${stagingRoot}\n`);

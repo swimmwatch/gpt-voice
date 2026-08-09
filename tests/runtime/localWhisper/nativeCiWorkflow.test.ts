@@ -40,6 +40,11 @@ test('Local Whisper keeps Linux and Windows native CI checks on their owning run
   assert.match(windowsJob, /Run Windows AMD Vulkan static contract/u);
   assert.match(windowsJob, /--profile=vulkan-windows-x64/u);
   assert.match(windowsJob, /--platform=windows --contract-only/u);
+  assert.match(windowsJob, /whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19\.39-v1 --contract-only/u);
+  assert.match(
+    windowsJob,
+    /whisper-cpp-cuda -- --profile=windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1 --contract-only/u,
+  );
   assert.doesNotMatch(windowsJob, /if:\s*\$\{\{\s*false\s*\}\}/u);
   assert.doesNotMatch(windowsJob, /--platform=linux/u);
 });

@@ -6,7 +6,7 @@ import process from 'node:process';
 
 import { cpuStageRoot } from './stage-whisper-cpp-cpu.mjs';
 import { canonicalDigest, sha256 } from './source-import/native-source-core.mjs';
-import { captureToolchainInputLock, verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
 import { auditWindows } from './verify-windows-runtime-pack.mjs';
 import {
   approvedMediumModel,
@@ -29,7 +29,6 @@ import {
   requireProfile,
   sourceLockPath,
   taskCacheRoot,
-  toolchainRoot,
   whisperCppRoot,
   workspaceRoot,
 } from './whisper-cpp-build-core.mjs';
@@ -237,9 +236,9 @@ function verifyLinux(profileId) {
   runSelfTest(pack.binary);
 }
 
-function verifyWindowsPack(profileId) {
-  const profile = captureToolchainInputLock(requireProfile(profileId), toolchainRoot);
-  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false });
+function verifyWindowsSourceContract(profileId) {
+  const profile = requireProfile(profileId);
+  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: true });
   const authority = readFileSync(resolve(whisperCppRoot, 'platform', 'windows', 'model_authority_windows.cpp'), 'utf8');
   const channel = readFileSync(resolve(whisperCppRoot, 'platform', 'windows', 'worker_protocol_windows.cpp'), 'utf8');
   for (const marker of [
@@ -255,6 +254,10 @@ function verifyWindowsPack(profileId) {
   }
   for (const marker of ['ReadFile', 'WriteFile', 'decode_frame', 'validate_bounded_json'])
     assert.ok(channel.includes(marker), `Windows worker protocol contract: ${marker}`);
+}
+
+function verifyWindowsPack(profileId) {
+  verifyWindowsSourceContract(profileId);
   auditWindows(profileId);
 }
 
@@ -429,10 +432,10 @@ try {
   const includeCancellation = arguments_.has('include-cancellation');
   if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
   if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
-    if (contractOnly) throw new Error('Task 24 Windows verification requires the materialized runtime pack');
     if (includeCancellation) throw new Error('Windows CPU cancellation is owned by the native integration suite');
     if (mode !== 'verify') throw new Error('Windows CPU verification supports verify mode only');
-    verifyWindowsPack(profileId);
+    if (contractOnly) verifyWindowsSourceContract(profileId);
+    else verifyWindowsPack(profileId);
   } else if (profileId === 'linux-x64-cpu-baseline-v1') {
     if (contractOnly) throw new Error('Linux CPU verification cannot be contract-only');
     if (includeCancellation && mode !== 'integration')

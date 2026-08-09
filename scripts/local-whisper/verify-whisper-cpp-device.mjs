@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { captureToolchainInputLock, verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
+import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
 import { auditWindows } from './verify-windows-runtime-pack.mjs';
 import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
 import { cudaStageRoot } from './stage-whisper-cpp-cuda.mjs';
@@ -259,9 +259,9 @@ export function verifyLinuxCudaPack() {
   return { binary, root };
 }
 
-export function verifyWindowsCudaPack() {
-  const profile = captureToolchainInputLock(requireProfile(WINDOWS_CUDA_PROFILE), toolchainRoot);
-  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false });
+export function verifyWindowsCudaSourceContract() {
+  const profile = requireProfile(WINDOWS_CUDA_PROFILE);
+  verifyToolchainContract(profile, { allowCandidate: true, contractOnly: true });
   const authority = readFileSync(
     resolve(whisperCppRoot, 'platform', 'windows', 'device_authority_windows.cpp'),
     'utf8',
@@ -270,5 +270,9 @@ export function verifyWindowsCudaPack() {
   assert.match(authority, /STD_INPUT_HANDLE/u);
   const cmake = readFileSync(resolve(whisperCppRoot, 'CMakeLists.txt'), 'utf8');
   assert.match(cmake, /windows-x64-cuda-12\.8\.1-sm120a-v1/u);
+}
+
+export function verifyWindowsCudaPack() {
+  verifyWindowsCudaSourceContract();
   auditWindows(WINDOWS_CUDA_PROFILE);
 }

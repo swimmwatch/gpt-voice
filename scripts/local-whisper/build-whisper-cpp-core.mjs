@@ -9,7 +9,11 @@ try {
   if (!['linux-x64-cpu-baseline-v1', 'windows-x64-cpu-msvc-19.39-v1'].includes(profileId))
     throw new Error(`Unsupported CPU build profile: ${profileId}`);
   requireVerifiedInputs(profileId);
-  const configured = configureBuild(profileId, { engine: true, tests: false });
+  const configured = configureBuild(profileId, {
+    engine: true,
+    preparedLinuxQuality: process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true',
+    tests: false,
+  });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
   const stagingRoot = stageCpuPack(profileId, configured.buildRoot, configured.profile);
   process.stdout.write(`Local Whisper CPU worker staged at ${stagingRoot}\n`);
