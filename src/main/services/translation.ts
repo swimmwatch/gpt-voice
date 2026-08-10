@@ -949,6 +949,14 @@ export class TranslationRuntime {
     );
   }
 
+  /** Publishes a terminal safe state when provider initialization escapes its normal failure handling. */
+  public settleInitializationUnexpectedFailure(): TranslationProviderConnectionState {
+    return this.publishResetState(
+      TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+      TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+    );
+  }
+
   async shutdown(): Promise<TranslationProviderShutdownResult> {
     this.invalidateActiveOperations('shutdown');
 

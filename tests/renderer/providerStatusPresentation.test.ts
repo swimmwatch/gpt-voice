@@ -236,6 +236,15 @@ describe('provider status presentation', () => {
     assert.equal((translation.match(/if \(isSaving \|\| isProviderChangesLocked\) return;/gu) ?? []).length, 2);
     assert.match(translation, /loading=\{connectionPresentation\.loading\}/u);
     assert.match(app, /onTargetLanguageChange=\{\(targetLanguage\) => \{\s*if \(isProviderChangesLocked\) return;/u);
+    const translationSettingsSave = app.slice(
+      app.indexOf('const saveTranslationSettings = async'),
+      app.indexOf('if (!isI18nReady || firstLaunchStartupPresentation.isPending)'),
+    );
+    assert.match(
+      translationSettingsSave,
+      /translationSettingsRef\.current = candidate[\s\S]*?await desktopApi\.setTranslateSettings\(candidate\)[\s\S]*?const connectionRequestId = translationConnectionRequestRef\.current[\s\S]*?await desktopApi\.getTranslationProviderConnection\(\)[\s\S]*?connectionRequestId === translationConnectionRequestRef\.current[\s\S]*?translationSettingsSavePendingRef\.current = false/u,
+    );
+    assert.match(app, /doesTranslationConnectionMatchSettings\(connectionState, translationSettingsRef\.current\)/u);
     assert.match(app, /const isNewRecordingLocked =[\s\S]*activeTextAction !== null;/u);
     assert.match(app, /recordingDisabled=\{activeProviderId === null \|\| isNewRecordingLocked\}/u);
   });

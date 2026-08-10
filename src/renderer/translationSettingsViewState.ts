@@ -1,4 +1,5 @@
 import type {
+  TranslationProviderConnectionState,
   TranslationProviderId,
   TranslationSettings,
   TranslationSettingsSaveResult,
@@ -35,6 +36,18 @@ export type TranslationSettingsViewAction =
 
 export function getSelectedTranslationTarget(settings: TranslationSettings): string {
   return settings.targetLanguageByProvider[settings.providerId];
+}
+
+/** Accepts only connection state that belongs to the current Translation selection. */
+export function doesTranslationConnectionMatchSettings(
+  connectionState: TranslationProviderConnectionState,
+  settings: TranslationSettings,
+): boolean {
+  return (
+    connectionState.providerId === null ||
+    (connectionState.providerId === settings.providerId &&
+      connectionState.targetLanguage === settings.targetLanguageByProvider[settings.providerId])
+  );
 }
 
 export function createTranslationSettingsCandidate(

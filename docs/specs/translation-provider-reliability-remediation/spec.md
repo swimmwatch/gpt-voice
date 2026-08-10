@@ -180,6 +180,8 @@ requests, packaging, or release activity.
 - Deterministic automated and supported-platform manual verification.
 - Main-process-only cancellation of the active selected-text translation through the
   existing configured Cancel hotkey.
+- Serialized Translation settings persistence and readiness settlement when the
+  selected provider changes.
 
 ### Non-Goals
 
@@ -194,9 +196,10 @@ requests, packaging, or release activity.
   recovery-count, or post-submission replay change.
 - No idle context eviction and no change to the approved reuse-until-invalidation or
   app-exit policy for healthy contexts.
-- No prewarming of all providers at startup and no navigation, session creation, or
-  provider connection as a side effect of provider or language selection. The
-  currently selected provider retains its existing startup readiness behavior.
+- No prewarming of all providers at startup. Selecting a Translation provider may
+  initialize only that selected provider and must not create a voice-provider session,
+  use credentials, or prepare another Translation provider. Target-language selection
+  retains its existing scoped readiness behavior.
 - No user-configurable timeout setting, settings migration, database migration,
   preload method, IPC channel, renderer control, or connection-state payload field.
 - No cancellation endpoint or operation token for direct `translate-text` IPC.
@@ -366,6 +369,10 @@ requests, packaging, or release activity.
   sanitized phase counters owned by the existing main-process provider graph. It
   does not add production telemetry, persisted timing history, a database field, a
   renderer surface, or a mutable module-level benchmark service.
+- **ARCH-010:** The main IPC controller serializes a Translation settings mutation
+  through persistence and selected-provider readiness. The existing typed settings
+  result and connection-state contracts remain unchanged; a successful result means
+  persistence and terminal readiness settlement both completed.
 
 ## Concurrency and Terminal Arbitration
 
@@ -405,6 +412,12 @@ requests, packaging, or release activity.
   recording, then Prettify, then active selected-text Translation. Caller cancellation
   is idempotent, owns only that selected-text operation, and retains the action gate
   until the existing bounded provider cleanup settles.
+- **CONC-009:** A provider-ID selection keeps the renderer's existing optimistic
+  Translation state, inline checking indicator, provider/configuration lock, and
+  recording lock active until main readiness settles and the renderer obtains the
+  authoritative connection snapshot. Stale connection events cannot settle or
+  overwrite the current selection; target-language-only selection does not acquire the
+  cross-provider lock.
 
 ## Provider and Browser Lifecycle
 
@@ -468,6 +481,10 @@ requests, packaging, or release activity.
 - **FAIL-004:** `resultTimeoutOrEmpty` retains its current localized result-unavailable
   behavior, but is emitted only after the absolute result deadline wins. It never
   triggers source replay.
+- **FAIL-011:** If selected-provider initialization fails after settings persistence,
+  the selected provider remains persisted and the existing typed connection state
+  presents the safe failure. Only validation or persistence failure rolls the renderer
+  back to its prior confirmed settings.
 - **FAIL-005:** `cleanupFailure` continues to override success or the original
   failure whenever required cleanup throws, reports failure, or misses the cleanup
   deadline. Existing cleanup-failure localization and connection detail remain
@@ -692,6 +709,13 @@ requests, packaging, or release activity.
   delivery rejection/exception, keyboard failure, successful close fallback,
   cancellation, timeout, reset, shutdown, hung browser work, quarantine, and absence
   of late clipboard/cache/notification/diagnostic/connection effects.
+- **ACC-025:** Deferred Translation settings tests prove the provider-change spinner
+  and all existing provider/configuration locks remain active until readiness and an
+  authoritative connection query settle. They cover success, typed initialization
+  failure with persisted selection, unexpected initialization exception, rejected
+  persistence with no initialization, serialized repeated requests, stale connection
+  events, target-language isolation, disabled Translation, and a successful later
+  provider selection.
 - **ACC-022:** Deterministic selected-text and runtime tests prove that the existing
   Cancel hotkey cancels only an active selected-text translation; cancellation before
   dispatch prevents provider lookup, cancellation after submission discards late

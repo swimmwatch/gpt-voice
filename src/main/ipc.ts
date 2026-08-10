@@ -171,7 +171,7 @@ export interface MainIpcControllerDependencies {
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
   readonly translationRuntime: Pick<
     TranslationRuntime,
-    'getConnectionState' | 'initializeSelectedProvider' | 'translateText'
+    'getConnectionState' | 'initializeSelectedProvider' | 'settleInitializationUnexpectedFailure' | 'translateText'
   >;
   readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
@@ -352,6 +352,7 @@ export class MainIpcController {
   private prettifySettingsMutation: Promise<void> = Promise.resolve();
   private registered = false;
   private streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents> | null = null;
+  private translationSettingsMutation: Promise<void> = Promise.resolve();
   private readonly trustedIpc: TrustedIpcRegistrar;
 
   public constructor(private readonly dependencies: MainIpcControllerDependencies) {
@@ -1223,7 +1224,11 @@ export class MainIpcController {
     this.trustedIpc.dispose();
     this.prettifyConnectionCoordinator?.dispose();
     const streamingDisposal = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();
-    this.disposalPromise = Promise.all([streamingDisposal, this.prettifySettingsMutation]).then(() => undefined);
+    this.disposalPromise = Promise.all([
+      streamingDisposal,
+      this.prettifySettingsMutation,
+      this.translationSettingsMutation,
+    ]).then(() => undefined);
     return this.disposalPromise;
   }
 
@@ -1274,7 +1279,7 @@ export class MainIpcController {
 
   private registerTranslationSettingsSaveIpc(): void {
     const { config, localization, logger, translationRuntime } = this.dependencies;
-    this.trustedIpc.handle('set-translate-settings', (event, candidate: unknown) => {
+    this.trustedIpc.handle('set-translate-settings', async (event, candidate: unknown) => {
       if (this.isMainInteractionActionBlocked(event)) {
         return {
           success: false,
@@ -1282,28 +1287,49 @@ export class MainIpcController {
           error: this.getMainInteractionActionBlockedError(),
         };
       }
-      try {
-        const settings = config.saveTranslationSettings(candidate);
-        logger.info('Translation settings saved', { providerId: settings.providerId });
-        void translationRuntime.initializeSelectedProvider().catch(() => {
-          logger.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
-        });
-        return { success: true, settings };
-      } catch (error: unknown) {
-        const validationFailure = error instanceof TranslationSettingsValidationError;
-        logger.warn('Translation settings update rejected', {
-          errorName: error instanceof Error ? error.name : 'unknown',
-          validationFailure,
-        });
-        return {
-          success: false,
-          settings: config.getTranslationSettings(),
-          error: localization.translate(
-            validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
-          ),
-        };
-      }
+      return this.enqueueTranslationSettingsMutation(async () => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            settings: config.getTranslationSettings(),
+            error: this.getMainInteractionActionBlockedError(),
+          };
+        }
+        try {
+          const settings = config.saveTranslationSettings(candidate);
+          logger.info('Translation settings saved', { providerId: settings.providerId });
+          try {
+            await translationRuntime.initializeSelectedProvider();
+          } catch {
+            logger.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+            translationRuntime.settleInitializationUnexpectedFailure();
+          }
+          return { success: true, settings };
+        } catch (error: unknown) {
+          const validationFailure = error instanceof TranslationSettingsValidationError;
+          logger.warn('Translation settings update rejected', {
+            errorName: error instanceof Error ? error.name : 'unknown',
+            validationFailure,
+          });
+          return {
+            success: false,
+            settings: config.getTranslationSettings(),
+            error: localization.translate(
+              validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
+            ),
+          };
+        }
+      });
     });
+  }
+
+  private enqueueTranslationSettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {
+    const result = this.translationSettingsMutation.then(operation, operation);
+    this.translationSettingsMutation = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private enqueuePrettifySettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {

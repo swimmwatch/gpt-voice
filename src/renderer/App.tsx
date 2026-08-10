@@ -67,6 +67,7 @@ import {
   createTranslationProviderCandidate,
   createTranslationSettingsCandidate,
   createTranslationSettingsViewState,
+  doesTranslationConnectionMatchSettings,
   reduceTranslationSettingsViewState,
 } from './translationSettingsViewState';
 import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE } from './providerStartupState';
@@ -231,7 +232,12 @@ const App: React.FC = () => {
   const prettifyProviderChangeRequestRef = useRef(0);
   const translationSettingsRequestRef = useRef(0);
   const translationSettingsSavePendingRef = useRef(false);
+  const translationSettingsRef = useRef(translationSettings);
   const translationConnectionRequestRef = useRef(0);
+
+  useEffect(() => {
+    translationSettingsRef.current = translationSettings;
+  }, [translationSettings]);
 
   const updateRecordingState = useCallback((nextState: RecordingLifecycleState): void => {
     recordingStateRef.current = nextState;
@@ -589,6 +595,7 @@ const App: React.FC = () => {
       }),
       desktopApi.onTranslationProviderConnectionChanged((connectionState) => {
         if (disposed) return;
+        if (!doesTranslationConnectionMatchSettings(connectionState, translationSettingsRef.current)) return;
         translationConnectionRequestRef.current += 1;
         setTranslationConnectionState(connectionState);
       }),
@@ -951,7 +958,9 @@ const App: React.FC = () => {
     translationSettingsSavePendingRef.current = true;
 
     const requestId = ++translationSettingsRequestRef.current;
+    const previousSettings = translationSettingsRef.current;
     const fallbackError = t('translate.settingsSaveFailed');
+    translationSettingsRef.current = candidate;
     dispatchTranslationSettingsSelection({
       candidate,
       requestId,
@@ -961,7 +970,28 @@ const App: React.FC = () => {
     try {
       const result = await desktopApi.setTranslateSettings(candidate);
       if (requestId !== translationSettingsRequestRef.current) return;
+      if (result.success) {
+        const connectionRequestId = translationConnectionRequestRef.current;
+        try {
+          const connectionState = await desktopApi.getTranslationProviderConnection();
+          if (requestId !== translationSettingsRequestRef.current) return;
+          if (connectionRequestId === translationConnectionRequestRef.current) {
+            setTranslationConnectionState(
+              doesTranslationConnectionMatchSettings(connectionState, candidate)
+                ? connectionState
+                : FAILED_INITIAL_TRANSLATION_CONNECTION_STATE,
+            );
+          }
+        } catch {
+          if (requestId !== translationSettingsRequestRef.current) return;
+          if (connectionRequestId === translationConnectionRequestRef.current) {
+            setTranslationConnectionState(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE);
+          }
+        }
+      }
+      if (requestId !== translationSettingsRequestRef.current) return;
       translationSettingsSavePendingRef.current = false;
+      if (!result.success) translationSettingsRef.current = previousSettings;
       dispatchTranslationSettingsSelection({
         error: fallbackError,
         requestId,
@@ -971,6 +1001,7 @@ const App: React.FC = () => {
     } catch {
       if (requestId !== translationSettingsRequestRef.current) return;
       translationSettingsSavePendingRef.current = false;
+      translationSettingsRef.current = previousSettings;
       dispatchTranslationSettingsSelection({
         error: fallbackError,
         requestId,

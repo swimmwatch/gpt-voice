@@ -1256,6 +1256,38 @@ decisions:
         ACC-020,
       ]
 
+  - id: performance.prewarm-policy
+    revision: 2
+    category: performance
+    state: answered
+    provenance: user
+    evidence:
+      - The user-approved Translation Provider Switching and Startup Loader plan on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [selected-provider-on-selection]
+      text: 'Selecting a Translation provider initializes only that selected provider, and the visible switch remains pending until terminal readiness. Other providers are not prewarmed.'
+    rationale: 'The user explicitly prioritised a truthful pending status and locked provider controls over detached background readiness.'
+    supersedes_revision: 1
+    requirement_ids: [ARCH-010, CONC-009, FAIL-011, ACC-025]
+
+  - id: execution.packet-10
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested implementation of the Translation Provider Switching and Startup Loader plan on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [execute-packet-10]
+      text: 'Implement the Translation provider switching readiness packet without a commit.'
+    rationale: 'The request authorizes the self-contained provider-switching change and its verification.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-010, CONC-009, FAIL-011, ACC-025]
+
   - id: scope.google-overwrite-and-reuse
     revision: 1
     category: scope
@@ -1766,3 +1798,36 @@ decisions:
         ACC-019,
         ACC-020,
       ]
+
+  - id: authorization.commit-packet-10
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 10 matches its handoff and focused verification record; the full unit-suite
+        gate remains accurately recorded as incomplete because diagnostics-archive stayed idle.
+      - The user approved an isolated local Packet 10 commit through the persistent
+        Translation Provider Reliability Remediation authorization interview on 2026-08-10.
+    prompt_mcp:
+      interview_id: translation-provider-reliability-remediation
+      batch_id: authorization-round-03
+      question_id: authorization.commit-packet-10
+      idempotency_key: authorization.commit-packet-10:v1
+      last_status: answered
+    question:
+      text: May I create one isolated local commit for the completed Packet 10 Translation provider-switch and startup-loader changes, excluding all unrelated work? Packet 11 cannot begin until this is decided.
+      kind: single
+      options:
+        - id: approve
+          label: Approve isolated Packet 10 commit
+          description: Create one local conventional commit only for Packet 10; do not push or commit unrelated files.
+        - id: decline
+          label: Do not commit
+          description: Leave Packet 10 uncommitted; Packet 11 implementation remains blocked by the packet workflow.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user granted the required separate authorization for one local Packet 10 commit; no push, tag, or later-packet commit is authorized.
+    supersedes_revision: null
+    requirement_ids: [ARCH-010, CONC-009, FAIL-011, ACC-025]

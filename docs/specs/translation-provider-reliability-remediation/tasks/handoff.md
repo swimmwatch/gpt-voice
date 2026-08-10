@@ -7,6 +7,13 @@ Packets 01–05, 07, and 08 are committed as `e1fe686`, `de5ec2e`, `02fbd227`,
 `fe5f583`. Packet 06 is the only later packet and requires its own explicit
 implementation authorization.
 
+Packet 10 is implemented and intentionally uncommitted. It serializes a persisted
+Translation provider change through selected-provider readiness and the renderer's
+final authoritative connection read. The full unit-suite run did not complete
+because the pre-existing diagnostics-archive test remained idle for more than ten
+minutes and was stopped without a failure report; rerun that gate before making a
+full-suite verification claim.
+
 ## Completed Packets
 
 - [01 Capture the controlled performance baseline](01_capture_controlled_performance_baseline.md)
@@ -69,6 +76,18 @@ implementation authorization.
   - Replaced Google Clear-button polling with focused `Control+A` and `Backspace`, made
     the provider queue wait for keyboard settlement, and retained the warm page after
     successful cleanup. Bing and Yandex keep their clear-before-success behavior.
+- [10 Translation provider switch readiness](10_translation_provider_switch_readiness.md)
+  - `set-translate-settings` serializes persistence plus selected-provider
+    initialization and returns only after terminal readiness. Persisted provider
+    selection is retained for typed readiness failure; persistence rejection does
+    not initialize a provider.
+  - The renderer optimistically selects the candidate, keeps its inline checking
+    state and existing provider/recording locks until the authoritative connection
+    query settles, and accepts only current-selection connection events or query
+    state. Target-language changes retain their Translation-only save lock.
+  - A post-startup Translation readiness check no longer contributes to first-launch
+    presentation, so a provider switch cannot replace the main window with the
+    startup loader.
 
 ## Packet 09 Result
 
@@ -125,6 +144,10 @@ implementation authorization.
   dependency, package, or release change. Existing unrelated Local Whisper, review,
   headless-test, provider-status, and renderer worktree changes remain untouched and are
   not owned by this packet.
+- Packet 10 updates Translation settings IPC serialization and terminal fallback,
+  Translation runtime failure settlement, renderer selection/connection ownership,
+  and focused IPC/renderer state tests. It does not add IPC, preload, public API,
+  persistence, dependency, package, provider-adapter, or release changes.
 
 ## Checks
 
@@ -162,6 +185,13 @@ test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed clean
   credentials or private data.
 - `npm run typecheck` and `npm run test:types` passed. Scoped ESLint passed with no
   issues; scoped Prettier, YAML parsing, and `git diff --check` passed.
+- Packet 10 focused Translation settings IPC/runtime/status/state/section and
+  first-launch coordinator/loader/window tests passed. `npm run typecheck`,
+  `npm run test:types`, scoped ESLint, scoped Prettier, and YAML validation passed.
+- The required `npm test` full-unit run did not report a test failure, but remained
+  idle in `tests/main/diagnosticsArchive.test.ts` for over ten minutes and was
+  deliberately terminated with exit 143. It must be rerun successfully before a
+  full-suite verification claim.
 
 ## Exact Next Packet
 
@@ -170,7 +200,8 @@ test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed clean
 ## Blockers
 
 - Packet 06 requires separate execution authorization and its supported-platform manual
-  gates; it must not start from this packet.
+  gates; it must not start from this packet. Rerun the full unit suite before
+  beginning that qualification.
 
 ## Remaining Manual Gates
 
@@ -179,3 +210,6 @@ test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed clean
   quarantine workflow. Packet 06 retains Linux/Windows packaged copy-before-keyboard-
   clear ordering, identical-result, cancellation-reuse, serialization, tray-indicator,
   timeout, and suspend/resume confirmation.
+- Linux and Windows packaged confirmation of Translation provider switching: inline
+  checking, configuration/recording lock, typed retained-selection failure, and
+  target-language-only lock behavior.

@@ -10,7 +10,7 @@ function readProjectFile(relativePath: string): string {
 }
 
 describe('Translation connection IPC contract', () => {
-  it('registers the query through trusted IPC and refreshes only after successful settings mutations', () => {
+  it('registers the query through trusted IPC and settles provider readiness before successful settings mutations resolve', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const getHandler = ipc.slice(
       ipc.indexOf('this.trustedIpc.handle(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get'),
@@ -24,7 +24,8 @@ describe('Translation connection IPC contract', () => {
 
     assert.match(getHandler, /dependencies\.translationRuntime\.getConnectionState\(\)/u);
     assert.match(translationMutation, /saveTranslationSettings\(candidate\)[\s\S]*initializeSelectedProvider\(\)/u);
-    assert.doesNotMatch(translationMutation, /await dependencies\.translationRuntime\.initializeSelectedProvider/u);
+    assert.match(translationMutation, /await translationRuntime\.initializeSelectedProvider\(\)/u);
+    assert.match(translationMutation, /enqueueTranslationSettingsMutation/u);
   });
 
   it('keeps the functional preload and renderer declarations aligned on named channels', () => {

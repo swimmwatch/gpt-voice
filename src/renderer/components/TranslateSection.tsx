@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { TranslationKey } from '@main/i18n';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { TRANSLATION_PROVIDER_OPTIONS, getTranslationLanguageOptions } from '@renderer/translationLanguageOptions';
+import { doesTranslationConnectionMatchSettings } from '@renderer/translationSettingsViewState';
 import { ProviderStatusIndicator, type ProviderStatusTone } from '@renderer/components/ProviderStatusIndicator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import {
@@ -72,10 +73,8 @@ export function getTranslationProviderConnectionPresentation(
       tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider],
     };
   }
-  const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
   const connectionMatchesSelection =
-    connectionState?.providerId === null ||
-    (connectionState?.providerId === settings.providerId && connectionState.targetLanguage === targetLanguage);
+    connectionState !== null && doesTranslationConnectionMatchSettings(connectionState, settings);
   const status =
     connectionState && connectionMatchesSelection
       ? connectionState.status

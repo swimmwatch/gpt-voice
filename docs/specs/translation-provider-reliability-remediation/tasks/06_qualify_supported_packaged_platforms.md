@@ -9,7 +9,7 @@ and macOS release support remains paused.
 
 ## Prerequisites
 
-- Tasks 01–05 and 07 are complete and approved.
+- Tasks 01–05 and 07–10 are complete and approved.
 - Task 06 has separate execution authorization.
 - The full deterministic gate passes on the candidate revision.
 - A suitable Linux x64 host and Windows x64 host are available.
@@ -23,7 +23,7 @@ and macOS release support remains paused.
 - `LIFE-003`–`LIFE-008`
 - `SEC-001`, `SEC-006`–`SEC-009`
 - `COMP-001`–`COMP-002`, `COMP-006`
-- `ACC-013`–`ACC-016`, `ACC-021`
+- `ACC-013`–`ACC-016`, `ACC-021`–`ACC-025`
 
 ## In Scope
 
@@ -82,9 +82,12 @@ and macOS release support remains paused.
    provider/network time is reported separately and is not the deterministic gate.
    Any apparent regression must be explained by controlled evidence or the packet
    remains incomplete.
-9. Confirm only the selected provider is prepared at startup; switching provider or
-   language does not navigate or prewarm; first use of another provider remains
-   cold/on-demand; healthy repeated use is warm.
+9. Confirm startup prepares only the current selection. On a provider-ID change,
+   only the newly selected provider performs readiness work; its inline checking
+   status and the existing provider/configuration and recording locks remain active
+   until terminal readiness plus an authoritative connection snapshot. A typed
+   readiness failure retains the persisted selection. Target-language changes retain
+   their Translation-only save lock; healthy repeated use is warm.
 10. Confirm timeout/cleanup behavior, boundary meanings, failure messages, and
     provider contract version are consistent across Linux and Windows. Do not rely on
     OS-localized browser errors as evidence.
@@ -104,12 +107,17 @@ and macOS release support remains paused.
     only result-ready, keyboard-clear, and total duration, cold/warm state, provider ID,
     target code, and pass/fail. Do not record text, URL, cookies, account data, or page
     screenshots.
-14. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
+14. On both a normal and a first-launch path, confirm the static bootstrap shell
+    yields without a blank or double accessible status to the localized, stage-aware
+    React loader. Confirm Retry remains available only for a retryable CloakBrowser
+    preparation failure and terminal provider failures open the main window with their
+    existing typed status. Record no screenshots, page content, or sensitive data.
+15. Write `tasks/evidence/supported-platform-acceptance.md` with safe metadata only:
     platform/architecture, app and provider contract versions, baseline/candidate
     revisions, provider ID, target code, cold/warm, elapsed safe phases, end-to-end
     duration, evaluation counts when available, pass/fail, scheduler tolerance, and
     explicit gaps. Exclude all sensitive/provider-controlled data named above.
-15. Generated packages, temporary worktrees, browser caches, and test-only process
+16. Generated packages, temporary worktrees, browser caches, and test-only process
     state are not committed. Remove them only through an explicitly reviewed,
     narrowly targeted cleanup after evidence is secured; never use a broad recursive
     deletion target.
@@ -146,8 +154,10 @@ and macOS release support remains paused.
 - Baseline and candidate evidence contains at least one cold and four warm results
   per provider/platform and separates safe application phases from external time.
 - No late clipboard/cache/notification effect appears after timeout or resume.
-- Healthy contexts reuse; selection causes no prewarm; failed or uncertain contexts
-  never reuse.
+- Healthy contexts reuse; a provider-ID switch initializes only the selected provider
+  through the visible inline state; failed or uncertain contexts never reuse.
+- Provider switching and startup handoff retain their documented locks, typed failure
+  status, and accessibility behavior on both supported packaged platforms.
 - Every external limitation is recorded; no credentials, private text, challenge
   bypass, weakened check, or unsupported-platform claim substitutes for evidence.
 
