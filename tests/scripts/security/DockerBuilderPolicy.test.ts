@@ -18,7 +18,13 @@ const database = {
   UpdatedAt: '2026-08-10T11:00:00.000Z',
   Version: 2,
 };
-const cleanReport = { Results: [{ Target: 'rootfs', Vulnerabilities: [] }], SchemaVersion: 2 };
+const cleanReport = {
+  ArtifactName: SECURITY_BUILDER_TAG,
+  ArtifactType: 'container_image',
+  Metadata: {},
+  Results: [{ Target: 'rootfs', Vulnerabilities: [] }],
+  SchemaVersion: 2,
+};
 const dockerFixtureDirectory = path.join(process.cwd(), 'tests', 'fixtures', 'security', 'docker');
 
 function dockerFixture(name: string): Promise<string> {
@@ -56,6 +62,11 @@ describe('Docker builder policy', () => {
     assert.doesNotThrow(() => verifyEvidence());
   });
 
+  it('accepts a clean Trivy schema-v2 report that omits an empty results collection', () => {
+    const { Results: _results, ...emptyCleanReport } = cleanReport;
+    assert.doesNotThrow(() => verifyEvidence({ report: emptyCleanReport }));
+  });
+
   for (const [name, fixture, expected] of [
     ['a mutable base image', 'mutable-base.Dockerfile', /identity mismatch/u],
     ['a Hadolint suppression', 'hadolint-suppression.Dockerfile', /suppression/u],
@@ -80,7 +91,12 @@ describe('Docker builder policy', () => {
     ['malformed report', { report: {} }, /report malformed/u],
     [
       'unfixed critical finding',
-      { report: { Results: [{ Vulnerabilities: [{ Severity: 'CRITICAL', Status: 'not_fixed' }] }], SchemaVersion: 2 } },
+      {
+        report: {
+          ...cleanReport,
+          Results: [{ Vulnerabilities: [{ Severity: 'CRITICAL', Status: 'not_fixed' }] }],
+        },
+      },
       /high or critical/u,
     ],
   ] as const) {

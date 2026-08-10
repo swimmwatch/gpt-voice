@@ -68,7 +68,7 @@ export class DockerBuilderPolicy {
       throw new Error('Docker builder policy violation: scanner database identity malformed');
     }
     this.verifyDatabase(input.database, input.now);
-    this.verifyReport(input.report);
+    this.verifyReport(input.report, input.builderImage);
   }
 
   private verifyDatabase(value: unknown, now: Date): void {
@@ -95,10 +95,18 @@ export class DockerBuilderPolicy {
     }
   }
 
-  private verifyReport(value: unknown): void {
-    if (!isRecord(value) || value.SchemaVersion !== 2 || !Array.isArray(value.Results)) {
+  private verifyReport(value: unknown, builderImage: string): void {
+    if (
+      !isRecord(value) ||
+      value.SchemaVersion !== 2 ||
+      value.ArtifactName !== builderImage ||
+      value.ArtifactType !== 'container_image' ||
+      !isRecord(value.Metadata)
+    ) {
       throw new Error('Docker builder policy violation: scanner report malformed');
     }
+    if (value.Results === undefined) return;
+    if (!Array.isArray(value.Results)) throw new Error('Docker builder policy violation: scanner report malformed');
     for (const result of value.Results) {
       if (!isRecord(result)) throw new Error('Docker builder policy violation: scanner report malformed');
       if (result.Vulnerabilities === undefined) continue;
