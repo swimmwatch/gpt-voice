@@ -1,9 +1,9 @@
 #include "local_whisper/common/bounded_json.hpp"
+#include "local_whisper/common/nlohmann_json.hpp"
 
 #include <charconv>
 #include <cstdint>
 #include <limits>
-#include <nlohmann/json.hpp>
 #include <string_view>
 #include <unordered_set>
 #include <utility>

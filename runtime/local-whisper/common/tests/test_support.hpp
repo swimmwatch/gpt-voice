@@ -1,10 +1,11 @@
 #pragma once
 
+#include "local_whisper/common/nlohmann_json.hpp"
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
-#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <vector>

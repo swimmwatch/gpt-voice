@@ -74,8 +74,10 @@ try {
     directEngine: true,
     engine: true,
     preparedLinuxQuality: preparedLinux,
-    tests: false,
+    tests: true,
   });
+  buildTargets(engine, ['local_whisper_whisper_cpp_qualification_tests']);
+  runTests(engine, 'direct-engine');
   await runFormattingAndTidy(clang, engine);
   process.stdout.write(`Local Whisper Whisper.cpp ${suite} suite verified\n`);
 } catch (error) {

@@ -1,12 +1,11 @@
 #include "local_whisper/whisper_cpp/worker_application.hpp"
 
 #include "local_whisper/common/canonical_wav.hpp"
+#include "local_whisper/common/nlohmann_json.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
 #include "local_whisper/whisper_cpp/exact_model_reader.hpp"
 #include "local_whisper/whisper_cpp/pcm_audio.hpp"
-
-#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <array>

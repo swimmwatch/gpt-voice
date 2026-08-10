@@ -1,3 +1,4 @@
+#include "local_whisper/common/nlohmann_json.hpp"
 #include "local_whisper/whisper_cpp/cancellation.hpp"
 #include "local_whisper/whisper_cpp/cpu_probe.hpp"
 #include "local_whisper/whisper_cpp/device_authority.hpp"
@@ -5,8 +6,6 @@
 #include "local_whisper/whisper_cpp/model_authority.hpp"
 #include "local_whisper/whisper_cpp/worker_application.hpp"
 #include "local_whisper/whisper_cpp/worker_protocol.hpp"
-
-#include <nlohmann/json.hpp>
 
 #include <cstdio>
 #include <iostream>

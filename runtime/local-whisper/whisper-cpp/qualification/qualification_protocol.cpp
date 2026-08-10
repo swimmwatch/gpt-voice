@@ -1,6 +1,7 @@
 #include "local_whisper/whisper_cpp/qualification_protocol.hpp"
 
 #include "local_whisper/common/bounded_json.hpp"
+#include "local_whisper/common/nlohmann_json.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
 
@@ -14,7 +15,6 @@
 #include <utility>
 
 #include <fcntl.h>
-#include <nlohmann/json.hpp>
 #include <sys/stat.h>
 #include <unistd.h>
 

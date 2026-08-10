@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
+#include "local_whisper/common/nlohmann_json.hpp"
 
 #include <cstdint>
 #include <memory>
