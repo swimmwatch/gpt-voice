@@ -21,14 +21,16 @@ concurrency:
 env:
   CI: true
   CLOAKBROWSER_AUTO_UPDATE: 'false'
+  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+  ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+  FEDORA_RELEASE_IMAGE: ${{ vars.CI_FEDORA_RELEASE_IMAGE }}
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
 
 jobs:
   build-linux:
     name: Build Fedora Linux x64
-    runs-on: ubuntu-24.04
-    timeout-minutes: 75
-    env:
-      FEDORA_RELEASE_IMAGE: gpt-voice-fedora-release:ci
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_LINUX_TIMEOUT_MINUTES) }}
 
     steps:
       - name: Checkout
@@ -36,11 +38,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
         with:
-          node-version: 24
-          package-manager-cache: false
+          install-dependencies: 'false'
+          node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
@@ -66,16 +68,12 @@ jobs:
           name: gpt-voice-linux
           path: release-artifacts/linux/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
   build-windows:
     name: Build Windows x64
-    runs-on: windows-latest
-    timeout-minutes: 60
-    env:
-      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
-      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}
 
     steps:
       - name: Checkout
@@ -84,10 +82,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
         with:
-          node-version: 24
+          node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Cache Electron and CloakBrowser binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -119,7 +117,7 @@ jobs:
           npx electron-builder --win --publish never
           npm run verify:packaged
           npm run verify:installers -- --platform=win32
-          npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+          npm run measure:size -- --platform=win32 --arch=${{ vars.CI_ARCHITECTURE }} --output=release-artifacts/size-win32-x64.json
           Pop-Location
 
       - name: Upload Windows v1.4 reference size report
@@ -129,10 +127,7 @@ jobs:
           name: gpt-voice-win32-v1.4.0-baseline
           path: .size-baseline/release-artifacts/size-win32-x64.json
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Install dependencies
-        run: npm run ci:install
+          retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
       - name: Apply release version from tag
         if: github.event_name == 'release' || github.event.inputs.release_tag != ''
@@ -170,7 +165,7 @@ jobs:
         run: npm run verify:installers -- --platform=win32
 
       - name: Measure Windows package size
-        run: npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+        run: npm run measure:size -- --platform=win32 --arch=${{ vars.CI_ARCHITECTURE }} --output=release-artifacts/size-win32-x64.json
 
       - name: Verify Windows size budget when a reviewed baseline exists
         if: hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
@@ -191,7 +186,7 @@ jobs:
           name: gpt-voice-win32
           path: release-artifacts/win32/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
   publish:
     name: Publish GitHub Release
@@ -201,8 +196,8 @@ jobs:
       - build-linux
       - build-windows
     if: github.event_name == 'release'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_PUBLISH_TIMEOUT_MINUTES) }}
 
     steps:
       - name: Download build artifacts

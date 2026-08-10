@@ -19,6 +19,10 @@ test('Windows package jobs measure and retain current and reference size reports
   assert.match(pullRequestWorkflow, /Verify Windows size budget when a reviewed baseline exists/u);
   assert.match(pullRequestWorkflow, /Upload Windows measurement reports/u);
   assert.match(releaseWorkflow, /Measure Windows package size/u);
+  assert.match(releaseWorkflow, /runs-on: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
+  assert.match(releaseWorkflow, /node-version: \$\{\{ vars\.CI_NODE_VERSION \}\}/u);
+  assert.match(releaseWorkflow, /--arch=\$\{\{ vars\.CI_ARCHITECTURE \}\}/u);
+  assert.match(releaseWorkflow, /retention-days: \$\{\{ vars\.CI_RELEASE_ARTIFACT_RETENTION_DAYS \}\}/u);
   assert.match(releaseWorkflow, /Measure Windows cold startup/u);
   assert.match(releaseWorkflow, /Verify Windows size budget when a reviewed baseline exists/u);
   assert.doesNotMatch(releaseWorkflow, /^permissions:\n {2}contents: write$/mu);
