@@ -41,8 +41,15 @@ function parseScanReport(output: string): unknown {
   try {
     return JSON.parse(output) as unknown;
   } catch {
-    throw new Error('Docker builder policy violation: scanner report malformed');
+    throw new Error('Docker builder policy violation: scanner report malformed (non-JSON output)');
   }
+}
+
+function reportShape(value: unknown): string {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return 'non-object root';
+  const report = value as Record<string, unknown>;
+  const resultShape = Array.isArray(report.Results) ? `array(${report.Results.length})` : typeof report.Results;
+  return `schema=${typeof report.SchemaVersion},results=${resultShape}`;
 }
 
 async function scannerArguments(cacheDirectory: string): Promise<readonly string[]> {
@@ -132,14 +139,21 @@ async function main(): Promise<void> {
       throw new Error('Docker builder policy violation: scanner database evidence malformed');
     }
     const report = parseScanReport(scan.output);
-    policy.verifyScanEvidence({
-      builderImage: SECURITY_BUILDER_TAG,
-      database,
-      databaseSha256: sha256(databaseBytes),
-      now: new Date(),
-      report,
-      scannerImage: TRIVY_IMAGE,
-    });
+    try {
+      policy.verifyScanEvidence({
+        builderImage: SECURITY_BUILDER_TAG,
+        database,
+        databaseSha256: sha256(databaseBytes),
+        now: new Date(),
+        report,
+        scannerImage: TRIVY_IMAGE,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.endsWith('scanner report malformed')) {
+        throw new Error(`${error.message} (${reportShape(report)})`);
+      }
+      throw error;
+    }
     await mkdir(path.dirname(evidencePath), { recursive: true });
     await writeFile(
       evidencePath,
