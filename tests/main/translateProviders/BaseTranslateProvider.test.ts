@@ -24,6 +24,7 @@ import {
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 
 interface Deferred<T> {
@@ -242,29 +243,31 @@ function createHarness(resultTimeoutMs = 31): Harness {
   const options: LaunchContextOptions[] = [];
   const sleeps: number[] = [];
   let now = 1_000;
-  const provider = new FakeTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createContext: async (contextOptions) => {
-      options.push(contextOptions);
-      const context = new FakeContext();
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({
-      headless: true,
-      humanize: true,
-      locale: 'en-US',
-      timezone: 'Europe/Moscow',
+  const provider = new FakeTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createContext: async (contextOptions) => {
+        options.push(contextOptions);
+        const context = new FakeContext();
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({
+        headless: true,
+        humanize: true,
+        locale: 'en-US',
+        timezone: 'Europe/Moscow',
+      }),
+      now: () => now,
+      resultPollIntervalMs: 10,
+      resultStabilityDelayMs: 5,
+      resultTimeoutMs,
+      sleep: async (delayMs: number) => {
+        sleeps.push(delayMs);
+        now += delayMs;
+      },
     }),
-    now: () => now,
-    resultPollIntervalMs: 10,
-    resultStabilityDelayMs: 5,
-    resultTimeoutMs,
-    sleep: async (delayMs) => {
-      sleeps.push(delayMs);
-      now += delayMs;
-    },
-  });
+  );
   return { contexts, options, provider, sleeps };
 }
 

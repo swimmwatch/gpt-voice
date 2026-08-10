@@ -11,11 +11,10 @@ test('Windows package jobs measure and retain current and reference size reports
   const releaseWorkflow = readFileSync(path.join(projectRoot, '.github/workflows/release-builds.yml'), 'utf8');
 
   assert.match(collector, /win32: \['size-win32-x64\.json', 'startup-win32-x64\.json'\]/u);
-  assert.match(pullRequestWorkflow, /Measure Windows package size/u);
+  assert.match(pullRequestWorkflow, /Build and smoke Windows package/u);
   assert.match(pullRequestWorkflow, /--platform=win32/u);
-  assert.match(pullRequestWorkflow, /--arch=x64/u);
+  assert.match(pullRequestWorkflow, /--arch=\$\{\{ vars\.CI_ARCHITECTURE \}\}/u);
   assert.match(pullRequestWorkflow, /--output=release-artifacts\/size-win32-x64\.json/u);
-  assert.match(pullRequestWorkflow, /Measure Windows cold startup/u);
   assert.match(pullRequestWorkflow, /--output=release-artifacts\/startup-win32-x64\.json/u);
   assert.match(pullRequestWorkflow, /Verify Windows size budget when a reviewed baseline exists/u);
   assert.match(pullRequestWorkflow, /Upload Windows measurement reports/u);

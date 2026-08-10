@@ -35,6 +35,7 @@ import {
   type TranslationProviderInfo,
 } from '@shared/translationProvider';
 import { noopTranslationProviderAudit, RecordingTranslationProviderAudit } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 
 class TestTranslationProvider implements TranslationProviderInstance {
   public readonly cancelInitialization = (): void => {};
@@ -80,16 +81,18 @@ class TestTranslationProviderFactory implements TranslationProviderFactoryContra
 }
 
 function createProductionFactory(): TranslationProviderFactory {
-  return new TranslationProviderFactory({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
-    createContext: async () => ({ close: async () => undefined }) as BrowserContext,
-    createContextOptions: () => ({ headless: true }),
-    createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
-    createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
-    now: () => 1_000,
-    sleep: async () => undefined,
-  });
+  return new TranslationProviderFactory(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
+      createContext: async () => ({ close: async () => undefined }) as BrowserContext,
+      createContextOptions: () => ({ headless: true }),
+      createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
+      createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
+      now: () => 1_000,
+      sleep: async () => undefined,
+    }),
+  );
 }
 
 describe('translation provider registry', () => {

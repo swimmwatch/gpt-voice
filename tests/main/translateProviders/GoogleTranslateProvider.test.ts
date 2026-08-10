@@ -21,6 +21,7 @@ import {
 } from '@main/translateProviders/GoogleTranslateProvider';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -271,23 +272,25 @@ function createHarness(
 ): Harness {
   const contexts: FakeContext[] = [];
   const sleeps: number[] = [];
-  const provider = new GoogleTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createContext: async (_options: LaunchContextOptions) => {
-      const context = new FakeContext();
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({ headless: true }),
-    createPageAdapter: () => adapter,
-    now: () => 1_000,
-    resultPollIntervalMs,
-    resultStabilityDelayMs: 0,
-    resultTimeoutMs,
-    sleep: async (delayMs) => {
-      sleeps.push(delayMs);
-    },
-  });
+  const provider = new GoogleTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createContext: async (_options: LaunchContextOptions) => {
+        const context = new FakeContext();
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({ headless: true }),
+      createPageAdapter: () => adapter,
+      now: () => 1_000,
+      resultPollIntervalMs,
+      resultStabilityDelayMs: 0,
+      resultTimeoutMs,
+      sleep: async (delayMs: number) => {
+        sleeps.push(delayMs);
+      },
+    }),
+  );
   return { adapter, contexts, provider, sleeps };
 }
 

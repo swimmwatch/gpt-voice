@@ -31,9 +31,9 @@ import {
   type TranslationOperationLifecycleDecision,
 } from './translationOperationLifecycle';
 import { matchTranslationResultLineEndings } from './translationResultText';
-import {
+import type {
+  TranslationBrowserPageResult,
   TranslationBrowserResourceCoordinator,
-  type TranslationBrowserPageResult,
 } from './TranslationBrowserResourceCoordinator';
 
 export { TRANSLATION_RESULT_TIMEOUT_MS } from './translationOperationLifecycle';
@@ -41,7 +41,7 @@ export const TRANSLATION_RESULT_POLL_INTERVAL_MS = 100;
 export const TRANSLATION_RESULT_STABILITY_DELAY_MS = 500;
 
 export interface BaseTranslateProviderDependencies {
-  readonly browserResources?: TranslationBrowserResourceCoordinator;
+  readonly browserResources: TranslationBrowserResourceCoordinator;
   readonly cloakBrowserSettings: Pick<CloakBrowserSettingsRepository, 'getWithSecret'>;
   readonly createContext: (options: LaunchContextOptions) => Promise<BrowserContext>;
   readonly createContextOptions: (settings: CloakBrowserSettingsWithSecret) => LaunchContextOptions;
@@ -154,14 +154,7 @@ export abstract class BaseTranslateProvider {
   protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
     this.info = info;
     this.dependencies = dependencies;
-    this.browserResources =
-      dependencies.browserResources ??
-      new TranslationBrowserResourceCoordinator({
-        cloakBrowserSettings: dependencies.cloakBrowserSettings,
-        createContext: dependencies.createContext,
-        createContextOptions: dependencies.createContextOptions,
-        retainContextAfterPageClose: false,
-      });
+    this.browserResources = dependencies.browserResources;
     this.cancelInitialization = () => this.cancelInitializationNow();
     this.initialize = (request) => this.enqueueInitialization(request);
     this.translate = (request) => this.enqueueTranslation(request);

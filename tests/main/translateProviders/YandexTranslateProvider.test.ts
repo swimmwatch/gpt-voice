@@ -21,6 +21,7 @@ import {
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { YANDEX_TRANSLATION_LANGUAGES } from '@shared/translationLanguages/yandex';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 
 function createRoute(
   targetLanguage: string | null = null,
@@ -341,24 +342,26 @@ interface Harness {
 
 function createHarness(adapter = new FixtureYandexPageAdapter(), resultTimeoutMs = 4): Harness {
   const contexts: FakeContext[] = [];
-  const provider = new YandexTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    clearPollIntervalMs: 1,
-    clearTimeoutMs: 2,
-    createContext: async (_options: LaunchContextOptions) => {
-      const context = new FakeContext();
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({ headless: true }),
-    createPageAdapter: () => adapter,
-    now: () => 1_000,
-    resultPollIntervalMs: 1,
-    resultStabilityDelayMs: 0,
-    resultTimeoutMs,
-    sleep: async () => {},
-    waitForClearPoll: async () => {},
-  });
+  const provider = new YandexTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      clearPollIntervalMs: 1,
+      clearTimeoutMs: 2,
+      createContext: async (_options: LaunchContextOptions) => {
+        const context = new FakeContext();
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({ headless: true }),
+      createPageAdapter: () => adapter,
+      now: () => 1_000,
+      resultPollIntervalMs: 1,
+      resultStabilityDelayMs: 0,
+      resultTimeoutMs,
+      sleep: async () => {},
+      waitForClearPoll: async () => {},
+    }),
+  );
   return { adapter, contexts, provider };
 }
 

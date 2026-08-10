@@ -39,6 +39,7 @@ import {
   type DiagnosticsArchiveEnvironmentSnapshot,
   type DiagnosticsArchiveManifest,
 } from '@shared/diagnosticsArchive';
+import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
 const ARCHIVE_ID = '00000000-0000-4000-8000-000000000020';
@@ -90,7 +91,7 @@ function createDiagnosticRow(overrides: Partial<DiagnosticCaptureRow> = {}): Dia
   return {
     actionId: DIAGNOSTIC_ACTION_ID,
     actionType: 'translation',
-    contractVersion: '2026-07-25',
+    contractVersion: TRANSLATION_PROVIDER_INFO.google.contractVersion,
     providerId: 'google',
     providerOperationId: AUDIT_OPERATION_ID,
     recordedAt: RECORDED_AT,

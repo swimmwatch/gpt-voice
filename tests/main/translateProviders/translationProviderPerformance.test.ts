@@ -51,6 +51,7 @@ import {
   TranslationProviderRequestFixture,
   type RecordedTranslationAuditEvent,
 } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 
 const BROWSER_EVALUATION_COST_MS = 5;
 const GENERIC_SOURCE_TEXT = 'x'.repeat(16);
@@ -673,22 +674,24 @@ function createGoogleHarness(_verifiedCompletionControl = false): ScenarioHarnes
   const timeline = new ControlledTimeline();
   const adapter = new GooglePerformanceAdapter(timeline);
   const contexts: FakeContext[] = [];
-  const provider = new GoogleTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createContext: async (_options: LaunchContextOptions) => {
-      timeline.contextCreated();
-      const context = new FakeContext(timeline);
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({ headless: true }),
-    createPageAdapter: () => adapter,
-    now: () => timeline.now(),
-    resultPollIntervalMs: TRANSLATION_RESULT_POLL_INTERVAL_MS,
-    resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
-    resultTimeoutMs: TRANSLATION_RESULT_TIMEOUT_MS,
-    sleep: (delayMs) => timeline.sleep(delayMs),
-  });
+  const provider = new GoogleTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createContext: async (_options: LaunchContextOptions) => {
+        timeline.contextCreated();
+        const context = new FakeContext(timeline);
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({ headless: true }),
+      createPageAdapter: () => adapter,
+      now: () => timeline.now(),
+      resultPollIntervalMs: TRANSLATION_RESULT_POLL_INTERVAL_MS,
+      resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
+      resultTimeoutMs: TRANSLATION_RESULT_TIMEOUT_MS,
+      sleep: (delayMs: number) => timeline.sleep(delayMs),
+    }),
+  );
   return { contexts, provider, timeline };
 }
 
@@ -696,24 +699,26 @@ function createBingHarness(verifiedCompletionControl = false): ScenarioHarness {
   const timeline = new ControlledTimeline();
   const adapter = new BingPerformanceAdapter(timeline, verifiedCompletionControl);
   const contexts: FakeContext[] = [];
-  const provider = new BingTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createContext: async (_options: LaunchContextOptions) => {
-      timeline.contextCreated();
-      const context = new FakeContext(timeline);
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({ headless: true }),
-    createPageAdapter: () => adapter,
-    now: () => timeline.now(),
-    resultPollIntervalMs: TRANSLATION_RESULT_POLL_INTERVAL_MS,
-    resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
-    resultTimeoutMs: TRANSLATION_RESULT_TIMEOUT_MS,
-    sleep: (delayMs) => timeline.sleep(delayMs),
-    waitForCatalogStability: (delayMs) => timeline.sleep(delayMs),
-    waitForClearPoll: (delayMs) => timeline.sleep(delayMs),
-  });
+  const provider = new BingTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createContext: async (_options: LaunchContextOptions) => {
+        timeline.contextCreated();
+        const context = new FakeContext(timeline);
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({ headless: true }),
+      createPageAdapter: () => adapter,
+      now: () => timeline.now(),
+      resultPollIntervalMs: TRANSLATION_RESULT_POLL_INTERVAL_MS,
+      resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
+      resultTimeoutMs: TRANSLATION_RESULT_TIMEOUT_MS,
+      sleep: (delayMs: number) => timeline.sleep(delayMs),
+      waitForCatalogStability: (delayMs: number) => timeline.sleep(delayMs),
+      waitForClearPoll: (delayMs: number) => timeline.sleep(delayMs),
+    }),
+  );
   return { contexts, provider, timeline };
 }
 
@@ -721,23 +726,25 @@ function createYandexHarness(verifiedCompletionControl = false): ScenarioHarness
   const timeline = new ControlledTimeline();
   const adapter = new YandexPerformanceAdapter(timeline, verifiedCompletionControl);
   const contexts: FakeContext[] = [];
-  const provider = new YandexTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createContext: async (_options: LaunchContextOptions) => {
-      timeline.contextCreated();
-      const context = new FakeContext(timeline);
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({ headless: true }),
-    createPageAdapter: () => adapter,
-    now: () => timeline.now(),
-    resultPollIntervalMs: TRANSLATION_RESULT_POLL_INTERVAL_MS,
-    resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
-    resultTimeoutMs: TRANSLATION_RESULT_TIMEOUT_MS,
-    sleep: (delayMs) => timeline.sleep(delayMs),
-    waitForClearPoll: (delayMs) => timeline.sleep(delayMs),
-  });
+  const provider = new YandexTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createContext: async (_options: LaunchContextOptions) => {
+        timeline.contextCreated();
+        const context = new FakeContext(timeline);
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({ headless: true }),
+      createPageAdapter: () => adapter,
+      now: () => timeline.now(),
+      resultPollIntervalMs: TRANSLATION_RESULT_POLL_INTERVAL_MS,
+      resultStabilityDelayMs: TRANSLATION_RESULT_STABILITY_DELAY_MS,
+      resultTimeoutMs: TRANSLATION_RESULT_TIMEOUT_MS,
+      sleep: (delayMs: number) => timeline.sleep(delayMs),
+      waitForClearPoll: (delayMs: number) => timeline.sleep(delayMs),
+    }),
+  );
   return { contexts, provider, timeline };
 }
 
