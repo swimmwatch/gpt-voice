@@ -9,7 +9,7 @@
 - [x] [07 — Native hardening and binary verifier](07_native_hardening_and_binary_verifier.md)
 - [x] [08 — Sanitizer and STL hardening](08_sanitizer_and_stl_hardening.md)
 - [x] [09 — Workflow supply chain and runner foundation](09_workflow_supply_chain_and_runner_foundation.md)
-- [ ] [10 — Repository dependency, secret, and builder security](10_repository_dependency_secret_and_builder_security.md)
+- [x] [10 — Repository dependency, secret, and builder security](10_repository_dependency_secret_and_builder_security.md)
 - [ ] [11 — Native execution, CodeQL, analysis, and reporting](11_native_execution_codeql_and_reporting.md)
 - [ ] [12 — Bounded parser fuzzing](12_bounded_parser_fuzzing.md)
 - [ ] [13 — Worker TSan gate](13_worker_tsan_gate.md)
