@@ -78,6 +78,10 @@ test('native analysis and CodeQL use real host builds without platform over-clai
   assert.match(workflow, /LOCAL_WHISPER_MSVC_ANALYZE: 'true'/u);
   assert.match(workflow, /Run MSVC \/analyze native suites/u);
   assert.match(workflow, /Prove Linux analyzer rejects bad sources/u);
+  assert.match(
+    workflow,
+    /Prove non-recovering Linux sanitizer policy\n {8}if: matrix\.platform == 'linux'\n {8}env:\n {10}LD_PRELOAD: ''/u,
+  );
   assert.match(workflow, /emit:local-whisper:native-quality-coverage/u);
   assert.match(workflow, /schedule:\n {4}- cron: '17 3 \* \* 1'/u);
   assert.match(workflow, /- \.github\/codeql-config\.yml/u);

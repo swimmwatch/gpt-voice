@@ -138,6 +138,8 @@ jobs:
 
       - name: Prove non-recovering Linux sanitizer policy
         if: matrix.platform == 'linux'
+        env:
+          LD_PRELOAD: ''
         run: npm run test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality
 
       - name: Run Linux formatting and clang-tidy checks
