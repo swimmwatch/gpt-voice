@@ -88,7 +88,7 @@ test('native quality reports reject over-claims and expose only relative source 
   assert.ok(report.sourceSet.every((path) => !path.startsWith('/') && !path.includes('\\')));
 });
 
-test('Linux quality compiles the Linux-only qualification test and MSVC analysis suppresses only the reviewed dependency false positive', () => {
+test('Linux quality compiles the Linux-only qualification test and MSVC analysis suppresses reviewed dependency false positives', () => {
   assert.match(WHISPER_CPP_CORE_VERIFIER, /tests: true/u);
   assert.match(
     WHISPER_CPP_CORE_VERIFIER,
@@ -97,6 +97,7 @@ test('Linux quality compiles the Linux-only qualification test and MSVC analysis
   assert.match(WHISPER_CPP_CORE_VERIFIER, /runTests\(engine, 'direct-engine'\)/u);
   assert.match(NLOHMANN_JSON_WRAPPER, /#pragma warning\(disable : 6294\)/u);
   assert.match(NLOHMANN_JSON_WRAPPER, /#include <nlohmann\/json\.hpp>/u);
+  assert.match(NATIVE_HARDENING, /\/analyze:external-/u);
 });
 
 test('MSVC analysis is applied only through project-target hardening', () => {
@@ -106,7 +107,7 @@ test('MSVC analysis is applied only through project-target hardening', () => {
   );
   assert.match(
     NATIVE_HARDENING,
-    /if\(LOCAL_WHISPER_MSVC_ANALYZE\)\s+target_compile_options\(\$\{target\} PRIVATE \/analyze\)/u,
+    /if\(LOCAL_WHISPER_MSVC_ANALYZE\)\s+# GoogleTest is a reviewed external dependency\.[\s\S]+?target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external-\)/u,
   );
   for (const driver of MSVC_ANALYSIS_DRIVERS) {
     assert.match(driver, /-DLOCAL_WHISPER_MSVC_ANALYZE=ON/u);

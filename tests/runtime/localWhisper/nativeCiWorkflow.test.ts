@@ -93,7 +93,7 @@ test('native analysis and CodeQL use real host builds without platform over-clai
   assert.match(codeqlConfig, /src\/shared/u);
   assert.match(codeqlConfig, /scripts/u);
   assert.match(nativeHardening, /LOCAL_WHISPER_MSVC_ANALYZE/u);
-  assert.match(nativeHardening, /target_compile_options\(\$\{target\} PRIVATE \/analyze\)/u);
+  assert.match(nativeHardening, /target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external-\)/u);
   assert.ok(windowsBuildDrivers.every((driver) => driver.includes('LOCAL_WHISPER_MSVC_ANALYZE=ON')));
   assert.ok(windowsBuildDrivers.every((driver) => !driver.includes('CMAKE_CXX_FLAGS=/analyze')));
   assert.ok(analyzerConfigurations.every((configuration) => configuration.includes('clang-analyzer-*')));

@@ -80,7 +80,10 @@ function(local_whisper_apply_compile_hardening target sanitizer_option)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc /GS /guard:cf)
     if(LOCAL_WHISPER_MSVC_ANALYZE)
-      target_compile_options(${target} PRIVATE /analyze)
+      # GoogleTest is a reviewed external dependency. MSVC emits C6326
+      # from its headers under /analyze; keep project-owned translation units
+      # analyzed while excluding only external-header diagnostics.
+      target_compile_options(${target} PRIVATE /analyze /analyze:external-)
     endif()
     if(${sanitizer_option})
       target_compile_options(${target} PRIVATE /fsanitize=address)
