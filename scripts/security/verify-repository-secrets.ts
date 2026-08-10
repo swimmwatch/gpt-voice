@@ -52,6 +52,12 @@ function isTextRepositoryFile(filePath: string): boolean {
   );
 }
 
+function errorWithCause(message: string, cause: unknown): Error {
+  const error = new Error(message);
+  Object.defineProperty(error, 'cause', { configurable: true, value: cause });
+  return error;
+}
+
 async function trackedTextFiles(): Promise<readonly RepositoryTextFile[]> {
   let stdout: string;
   try {
@@ -74,7 +80,7 @@ async function trackedTextFiles(): Promise<readonly RepositoryTextFile[]> {
       files.push({ path: filePath, text: await readFile(absolutePath, 'utf8') });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Repository secret policy violation:')) throw error;
-      throw new Error('Repository secret policy violation: tracked text evidence unavailable', { cause: error });
+      throw errorWithCause('Repository secret policy violation: tracked text evidence unavailable', error);
     }
   }
   return files;

@@ -52,6 +52,12 @@ function reportShape(value: unknown): string {
   return `schema=${typeof report.SchemaVersion},results=${resultShape}`;
 }
 
+function errorWithCause(message: string, cause: unknown): Error {
+  const error = new Error(message);
+  Object.defineProperty(error, 'cause', { configurable: true, value: cause });
+  return error;
+}
+
 async function scannerArguments(cacheDirectory: string): Promise<readonly string[]> {
   const userId = process.getuid?.();
   const groupId = process.getgid?.();
@@ -150,7 +156,7 @@ async function main(): Promise<void> {
       });
     } catch (error) {
       if (error instanceof Error && error.message.endsWith('scanner report malformed')) {
-        throw new Error(`${error.message} (${reportShape(report)})`, { cause: error });
+        throw errorWithCause(`${error.message} (${reportShape(report)})`, error);
       }
       throw error;
     }
