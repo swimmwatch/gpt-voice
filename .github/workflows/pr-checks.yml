@@ -6,37 +6,42 @@ on:
       - main
     paths:
       - .github/actions/**
+      - .github/codeql-config.yml
       - .github/workflows/**
       - build/fedora-release/**
       - package-lock.json
       - package.json
       - runtime/local-whisper/**
-      - scripts/build-fedora-release.mjs
-      - scripts/local-whisper/**
-      - scripts/prepare-cloakbrowser.mjs
-      - src/main/localWhisper/**
-      - src/shared/localWhisper/**
+      - scripts/**
+      - src/main/**
+      - src/renderer/**
+      - src/shared/**
+      - tests/**
       - webpack.config.js
   push:
     branches:
       - main
     paths:
       - .github/actions/**
+      - .github/codeql-config.yml
       - .github/workflows/**
       - build/fedora-release/**
       - package-lock.json
       - package.json
       - runtime/local-whisper/**
-      - scripts/build-fedora-release.mjs
-      - scripts/local-whisper/**
-      - scripts/prepare-cloakbrowser.mjs
-      - src/main/localWhisper/**
-      - src/shared/localWhisper/**
+      - scripts/**
+      - src/main/**
+      - src/renderer/**
+      - src/shared/**
+      - tests/**
       - webpack.config.js
+  schedule:
+    - cron: '17 3 * * 1'
   workflow_dispatch:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.ref }}
@@ -116,6 +121,14 @@ jobs:
         shell: pwsh
         run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
 
+      - name: Initialize host-native C++ CodeQL database
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          build-mode: manual
+          db-location: ${{ github.workspace }}/.cache/codeql/cpp-${{ matrix.platform }}
+          languages: c-cpp
+          queries: security-and-quality
+
       - name: Verify Local Whisper native source objects
         if: matrix.platform == 'linux'
         run: |
@@ -153,6 +166,10 @@ jobs:
           npm run test:local-whisper:whisper-cpp-device-proof
           npm run test:local-whisper:whisper-cpp-cancellation
 
+      - name: Prove Linux analyzer rejects bad sources
+        if: matrix.platform == 'linux'
+        run: npm run test:local-whisper:native-analysis
+
       - name: Build and verify Linux Whisper.cpp CPU pack
         if: matrix.platform == 'linux'
         run: |
@@ -179,6 +196,17 @@ jobs:
           npm run test:local-whisper:launcher:native
           npm run test:local-whisper:worker-codec
           npm run test:local-whisper:whisper-cpp-core
+
+      - name: Run MSVC /analyze native suites
+        if: matrix.platform == 'windows'
+        env:
+          LOCAL_WHISPER_MSVC_ANALYZE: 'true'
+        run: |
+          npm run test:local-whisper:fs-guard:native
+          npm run test:local-whisper:launcher:native
+          npm run test:local-whisper:worker-codec
+          npm run test:local-whisper:whisper-cpp-core
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
 
       - name: Run MSVC AddressSanitizer native suites
         if: matrix.platform == 'windows'
@@ -210,6 +238,25 @@ jobs:
         if: matrix.platform == 'linux'
         run: npm run verify:local-whisper:filesystem -- --fixture
 
+      - name: Emit Linux native-quality coverage
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: >-
+          npm run emit:local-whisper:native-quality-coverage -- --platform=${{ matrix.platform }} --compiler-profile=${{ matrix.toolchain }} --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-${{ matrix.platform }} --output=release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
+
+      - name: Emit Windows native-quality coverage
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: >-
+          npm run emit:local-whisper:native-quality-coverage -- --platform=${{ matrix.platform }} --compiler-profile=${{ matrix.toolchain }} --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-${{ matrix.platform }} --output=release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
+
+      - name: Analyze host-native C++ CodeQL database
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: /language:c-cpp,host:${{ matrix.platform }}
+          output: release-artifacts/codeql-cpp-${{ matrix.platform }}
+          upload: always
+
       - name: Emit Linux runner evidence
         if: matrix.platform == 'linux'
         shell: bash
@@ -224,7 +271,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ matrix.evidenceArtifact }}
-          path: ${{ matrix.evidenceOutput }}
+          path: |
+            ${{ matrix.evidenceOutput }}
+            release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
           if-no-files-found: error
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
@@ -250,6 +299,15 @@ jobs:
         with:
           node-version: ${{ vars.CI_NODE_VERSION }}
           package-manager-cache: 'true'
+
+      - name: Initialize JavaScript and TypeScript CodeQL database
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          build-mode: none
+          config-file: ./.github/codeql-config.yml
+          db-location: ${{ github.workspace }}/.cache/codeql/javascript-typescript
+          languages: javascript-typescript
+          queries: security-and-quality
 
       - name: Cache Electron binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -288,6 +346,16 @@ jobs:
 
       - name: Build production bundles
         run: npm run build:prod
+
+      - name: Prove CodeQL policy and source inclusion contracts
+        run: npm run test:security:codeql-policy
+
+      - name: Analyze JavaScript and TypeScript CodeQL database
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: /language:javascript-typescript
+          output: release-artifacts/codeql-javascript-typescript
+          upload: always
 
   package-smoke:
     name: Package Smoke (${{ matrix.checkName }})

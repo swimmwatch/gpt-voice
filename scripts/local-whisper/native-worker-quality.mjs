@@ -171,6 +171,9 @@ function buildAndTest(profile) {
     `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
     `-DLOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT=${fixtureRoot}`,
   ];
+  if (isWindows && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
+    configureArguments.push('-DCMAKE_CXX_FLAGS=/analyze');
+  }
   if (profile.linker) configureArguments.push(`-DCMAKE_LINKER=${profile.linker}`);
   run(cmake, configureArguments);
   assertDisconnectedGraph(buildDirectory);

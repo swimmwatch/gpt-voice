@@ -41,8 +41,12 @@ function parseWorkflow(text: string, name: string): WorkflowDocument {
 
 function validatePermissions(value: Record<string, unknown>, location: string): void {
   const entries = Object.entries(value);
-  if (entries.length !== 1 || !('contents' in value) || !['read', 'write'].includes(String(value.contents))) {
-    throw new Error(`${location} permissions must contain only contents read or write`);
+  const allowed = new Map([
+    ['contents', new Set(['read', 'write'])],
+    ['security-events', new Set(['write'])],
+  ]);
+  if (!('contents' in value) || entries.some(([permission, access]) => !allowed.get(permission)?.has(String(access)))) {
+    throw new Error(`${location} permissions must use the approved least-privilege set`);
   }
 }
 

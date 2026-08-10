@@ -97,6 +97,9 @@ function nativeImplementationFiles(directory) {
 
 function configureAndBuild() {
   const arguments_ = ['--preset', preset, `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`];
+  if (process.platform === 'win32' && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
+    arguments_.push('-DCMAKE_CXX_FLAGS=/analyze');
+  }
   if (process.platform === 'linux') {
     arguments_.push(`-DCMAKE_CXX_COMPILER=${process.env.CXX || resolve(clangRoot, 'clang++')}`);
     arguments_.push(

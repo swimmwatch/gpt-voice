@@ -479,6 +479,9 @@ export function configureBuild(
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId, profile)}`,
   ];
   arguments_.push(...platformBuildCmakeArguments(profile));
+  if (profile.target.os === 'windows' && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
+    arguments_.push('-DCMAKE_CXX_FLAGS=/analyze');
+  }
   if (tools.linker !== null) arguments_.push(`-DCMAKE_LINKER=${tools.linker}`);
   if (tools.cudaCompiler !== null) {
     arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);

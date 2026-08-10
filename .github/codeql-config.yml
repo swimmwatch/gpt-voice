@@ -1,0 +1,7 @@
+name: GPT-Voice CodeQL scope
+
+paths:
+  - src/main
+  - src/renderer
+  - src/shared
+  - scripts

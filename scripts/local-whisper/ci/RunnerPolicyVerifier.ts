@@ -18,6 +18,22 @@ export const NATIVE_PATH_OWNERS = [
   'webpack.config.js',
 ] as const;
 
+const REQUIRED_WORKFLOW_PATH_FILTERS = [
+  '.github/actions/**',
+  '.github/codeql-config.yml',
+  '.github/workflows/**',
+  'build/fedora-release/**',
+  'package-lock.json',
+  'package.json',
+  'runtime/local-whisper/**',
+  'scripts/**',
+  'src/main/**',
+  'src/renderer/**',
+  'src/shared/**',
+  'tests/**',
+  'webpack.config.js',
+] as const;
+
 const PLATFORM_CONTRACTS = {
   linux: {
     runner: '${{ vars.CI_LINUX_RUNNER }}',
@@ -102,9 +118,9 @@ function matrixRows(job: WorkflowJob): readonly Record<string, unknown>[] {
 
 function verifyPathFilters(workflowText: string): void {
   if (!workflowText.includes('pull_request:')) return;
-  for (const owner of NATIVE_PATH_OWNERS) {
-    if (countOccurrences(workflowText, `- ${owner}`) !== 2) {
-      throw new Error(`Native CI workflow must select ${owner} on pull requests and pushes`);
+  for (const path of REQUIRED_WORKFLOW_PATH_FILTERS) {
+    if (countOccurrences(workflowText, `- ${path}`) !== 2) {
+      throw new Error(`Native CI workflow must select ${path} on pull requests and pushes`);
     }
   }
 }

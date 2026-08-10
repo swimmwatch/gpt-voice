@@ -1,5 +1,6 @@
 Checks: >
   -*,
+  clang-analyzer-*,
   bugprone-sizeof-expression,
   bugprone-use-after-move,
   performance-for-range-copy,
