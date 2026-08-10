@@ -5,34 +5,42 @@ import { RunnerPolicyVerifier } from '@scripts/local-whisper/ci/RunnerPolicyVeri
 
 const validWorkflow = `
 jobs:
-  native-quality-linux:
-    runs-on: ubuntu-24.04
+  native-quality:
+    runs-on: \${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: \${{ vars.CI_LINUX_RUNNER }}
+            toolchain: clang-\${{ vars.CI_LLVM_VERSION }}
+          - platform: windows
+            runner: \${{ vars.CI_WINDOWS_RUNNER }}
+            toolchain: msvc-hosted
     steps:
       - run: npm run native-sanitizer-proof && npm run lint:local-whisper:worker-common
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=ubuntu-24.04 --toolchain=clang-18
-  native-quality-windows:
-    runs-on: windows-latest
-    steps:
       - run: npm run test:local-whisper:fs-guard:msvc-asan && npm run verify:local-whisper:native-hardening
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-hosted
+      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=\${{ matrix.runner }} --toolchain=\${{ matrix.toolchain }} --expected-os=\${{ matrix.platform }}
+  quality:
+    runs-on: \${{ vars.CI_LINUX_RUNNER }}
 `;
 
 describe('Native CI runner policy', () => {
-  it('accepts the fixed primary native runner allocation', () => {
+  it('accepts the configured two-platform native matrix', () => {
     new RunnerPolicyVerifier().verify(validWorkflow);
   });
 
-  it('rejects mutable, unsupported, swapped, and missing runner legs', () => {
+  it('rejects literal, unsupported, duplicate, and incomplete runner rows', () => {
     const verifier = new RunnerPolicyVerifier();
-    assert.throws(() => verifier.verify(validWorkflow.replace('ubuntu-24.04', 'ubuntu-latest')), /unsupported runner/u);
     assert.throws(
-      () => verifier.verify(validWorkflow.replace('windows-latest', 'windows-2025')),
-      /unsupported runner/u,
+      () => verifier.verify(validWorkflow.replace('\${{ vars.CI_LINUX_RUNNER }}', 'ubuntu-24.04')),
+      /configured runner/u,
     );
     assert.throws(
-      () => verifier.verify(validWorkflow.replace('  native-quality-linux:', '  missing-linux:')),
-      /native-quality-linux/u,
+      () => verifier.verify(validWorkflow.replace('platform: windows', 'platform: darwin')),
+      /unsupported platform/u,
     );
+    assert.throws(() => verifier.verify(validWorkflow.replace('platform: windows', 'platform: linux')), /duplicates/u);
   });
 
   it('maps only native ownership paths to execution', () => {
@@ -72,14 +80,7 @@ describe('Native CI runner policy', () => {
         verifier.verifyEvidence({ ...evidence, toolchain: { profile: 'clang-18', version: 'clang version 18.1.3' } }),
       /toolchain does not match/u,
     );
-    assert.throws(
-      () =>
-        verifier.verifyEvidence({
-          ...evidence,
-          toolchain: { profile: 'msvc-hosted', version: 'Microsoft (R) C/C++ Optimizing Compiler Version 18.00' },
-        }),
-      /compiler version/u,
-    );
+    assert.throws(() => verifier.verifyEvidence({ ...evidence, runnerLabel: 'self-hosted' }), /unsupported label/u);
     assert.throws(() => verifier.verifyEvidence({ ...evidence, sourceCommit: 'unknown' }), /source commit/u);
   });
 });

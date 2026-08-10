@@ -8,22 +8,21 @@ import { WorkflowPolicyVerifier } from '@scripts/local-whisper/packaging/Workflo
 import { WORKSPACE_ROOT } from './packagingTestUtils';
 
 async function inputs() {
-  const [fixtureWorkflow, windowsWorkflow, releaseWorkflow, fedoraEntrypoint] = await Promise.all([
+  const [fixtureWorkflow, releaseWorkflow, fedoraEntrypoint] = await Promise.all([
     readFile(path.join(WORKSPACE_ROOT, '.github', 'workflows', 'local-whisper-packaging.yml'), 'utf8'),
-    readFile(path.join(WORKSPACE_ROOT, '.github', 'workflows', 'local-whisper-packaging-windows.yml'), 'utf8'),
     readFile(path.join(WORKSPACE_ROOT, '.github', 'workflows', 'release-builds.yml'), 'utf8'),
     readFile(path.join(WORKSPACE_ROOT, 'build', 'fedora-release', 'fedora-release-entrypoint.mjs'), 'utf8'),
   ]);
-  return { fixtureWorkflow, windowsWorkflow, releaseWorkflow, fedoraEntrypoint };
+  return { fixtureWorkflow, releaseWorkflow, fedoraEntrypoint };
 }
 
 describe('Local Whisper packaging workflow policy', () => {
-  it('parses the producer, Linux consumer, deferred Windows consumer, and release guards', async () => {
+  it('parses the producer, authorization-gated consumer matrix, and release guards', async () => {
     new WorkflowPolicyVerifier().verify(await inputs());
     assert.ok(true);
   });
 
-  it('rejects a second producer and an ordinary Windows trigger', async () => {
+  it('rejects a second producer and a missing Windows authorization input', async () => {
     const actual = await inputs();
     assert.throws(
       () =>
@@ -37,9 +36,12 @@ describe('Local Whisper packaging workflow policy', () => {
       () =>
         new WorkflowPolicyVerifier().verify({
           ...actual,
-          windowsWorkflow: actual.windowsWorkflow.replace('  workflow_call:', '  pull_request:\n  workflow_call:'),
+          fixtureWorkflow: actual.fixtureWorkflow.replace(
+            '      windows_qualification_authorized:',
+            '      removed_input:',
+          ),
         }),
-      /only a reusable trigger/u,
+      /authorization/u,
     );
   });
 });

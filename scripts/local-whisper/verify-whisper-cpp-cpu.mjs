@@ -256,16 +256,15 @@ function verifyLinux(profileId) {
   );
   assert.match(provisioner, /whisper-cpp-v1\.9\.1-f049fff/u);
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
-  const linuxJob = workflow.slice(
-    workflow.indexOf('  native-quality-linux:'),
-    workflow.indexOf('  native-quality-windows:'),
-  );
-  assert.match(linuxJob, /runs-on: ubuntu-24\.04/u);
-  assert.match(linuxJob, /test:local-whisper:whisper-cpp-core/u);
-  assert.match(linuxJob, /test:local-whisper:whisper-cpp-loader/u);
-  assert.match(linuxJob, /build:local-whisper:whisper-cpp-cpu/u);
-  assert.match(linuxJob, /audit:local-whisper:whisper-cpp-pack/u);
-  assert.doesNotMatch(linuxJob, /windows-x64-cpu-msvc-19\.39-v1/u);
+  const nativeQuality = workflow.slice(workflow.indexOf('  native-quality:'), workflow.indexOf('  quality:'));
+  assert.match(nativeQuality, /runs-on: \$\{\{ matrix\.runner \}\}/u);
+  assert.match(nativeQuality, /platform: linux/u);
+  assert.match(nativeQuality, /test:local-whisper:whisper-cpp-core/u);
+  assert.match(nativeQuality, /test:local-whisper:whisper-cpp-loader/u);
+  assert.match(nativeQuality, /build:local-whisper:whisper-cpp-cpu/u);
+  assert.match(nativeQuality, /audit:local-whisper:whisper-cpp-pack/u);
+  assert.match(nativeQuality, /platform: windows/u);
+  assert.match(nativeQuality, /windows-x64-cpu-msvc-19\.39-v1/u);
   const manifest = JSON.parse(readFileSync(resolve(pack.root, 'runtime-manifest.json'), 'utf8'));
   const registry = captureWorkerRegistry(pack.binary, {
     backendId: 'cpu',

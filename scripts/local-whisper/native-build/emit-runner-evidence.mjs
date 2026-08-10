@@ -5,8 +5,10 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
 const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
-const APPROVED_RUNNERS = new Set(['ubuntu-24.04', 'windows-latest']);
-const SUPPORTED_TOOLCHAINS = new Set(['clang-18', 'msvc-hosted']);
+const LINUX_RUNNER = /^ubuntu-\d+\.\d+$/u;
+const WINDOWS_RUNNER = /^windows-(?:latest|\d{4})$/u;
+const CLANG_TOOLCHAIN = /^clang-(?<major>\d+)$/u;
+const SUPPORTED_OPERATING_SYSTEMS = new Set(['linux', 'windows']);
 
 function parseArguments(argv) {
   const values = new Map();
@@ -29,8 +31,9 @@ function compilerVersion(compiler, toolchain) {
   const result = spawnSync(compiler, [argument], { encoding: 'utf8', shell: false });
   const output = `${result.stdout}\n${result.stderr}`;
   if (result.error || !output.trim()) throw new Error(`Unable to verify compiler ${compiler}`);
-  if (toolchain === 'clang-18' && !/clang version 18\./u.test(output)) {
-    throw new Error('Compiler does not match the required clang-18 profile');
+  const clang = CLANG_TOOLCHAIN.exec(toolchain);
+  if (clang && !new RegExp(`clang version ${clang.groups.major}\\.`, 'u').test(output)) {
+    throw new Error(`Compiler does not match the required ${toolchain} profile`);
   }
   if (toolchain === 'msvc-hosted' && !/Version 19\.\d+\./u.test(output)) {
     throw new Error('Compiler does not report a supported hosted MSVC version');
@@ -42,6 +45,21 @@ function compilerVersion(compiler, toolchain) {
       .find((line) => line.trim())
       ?.trim() ?? toolchain
   );
+}
+
+function expectedRunnerOperatingSystem(runnerLabel) {
+  if (LINUX_RUNNER.test(runnerLabel)) return 'linux';
+  if (WINDOWS_RUNNER.test(runnerLabel)) return 'windows';
+  throw new Error(`Unsupported runner label ${runnerLabel}`);
+}
+
+function verifyToolchain(toolchain, expectedOperatingSystem) {
+  if (expectedOperatingSystem === 'linux' && !CLANG_TOOLCHAIN.test(toolchain)) {
+    throw new Error('Linux runner evidence requires a clang-N toolchain profile');
+  }
+  if (expectedOperatingSystem === 'windows' && toolchain !== 'msvc-hosted') {
+    throw new Error('Windows runner evidence requires the hosted MSVC toolchain profile');
+  }
 }
 
 async function sourceManifest(workspaceRoot) {
@@ -60,10 +78,15 @@ async function main() {
   const values = parseArguments(process.argv.slice(2));
   const runnerLabel = required(values, 'runner-label');
   const toolchain = required(values, 'toolchain');
+  const expectedOperatingSystem = required(values, 'expected-os');
   const compiler = required(values, 'compiler');
   const output = required(values, 'output');
-  if (!APPROVED_RUNNERS.has(runnerLabel)) throw new Error(`Unsupported runner label ${runnerLabel}`);
-  if (!SUPPORTED_TOOLCHAINS.has(toolchain)) throw new Error(`Unsupported toolchain profile ${toolchain}`);
+  if (!SUPPORTED_OPERATING_SYSTEMS.has(expectedOperatingSystem))
+    throw new Error(`Unsupported expected OS ${expectedOperatingSystem}`);
+  if (expectedRunnerOperatingSystem(runnerLabel) !== expectedOperatingSystem) {
+    throw new Error('Runner label does not match the expected operating system');
+  }
+  verifyToolchain(toolchain, expectedOperatingSystem);
   if (process.arch !== 'x64' || process.env.RUNNER_ARCH !== 'X64')
     throw new Error('Runner evidence requires x64 execution');
   const sourceCommit = process.env.GITHUB_SHA;
@@ -72,6 +95,10 @@ async function main() {
   const imageOS = process.env.ImageOS;
   const imageVersion = process.env.ImageVersion;
   if (!imageOS || !imageVersion || !process.env.RUNNER_OS) throw new Error('Runner image metadata is missing');
+  const reportedOperatingSystem = process.env.RUNNER_OS.toLowerCase();
+  if (reportedOperatingSystem !== expectedOperatingSystem) {
+    throw new Error('Runner image metadata does not match the expected operating system');
+  }
 
   const workspaceRoot = path.resolve(import.meta.dirname, '..', '..', '..');
   const evidence = {

@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - .github/actions/initialize-msvc-environment/action.yml
+      - .github/actions/**
       - .github/workflows/**
       - build/fedora-release/**
       - package-lock.json
@@ -21,7 +21,7 @@ on:
     branches:
       - main
     paths:
-      - .github/actions/initialize-msvc-environment/action.yml
+      - .github/actions/**
       - .github/workflows/**
       - build/fedora-release/**
       - package-lock.json
@@ -45,27 +45,31 @@ concurrency:
 env:
   CI: true
   CLOAKBROWSER_AUTO_UPDATE: 'false'
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
 
 jobs:
-  native-quality-linux:
-    name: Local Whisper Native Quality (Linux)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CXX: clang++-18
-      CLANG_FORMAT: clang-format-18
-      CLANG_TIDY: clang-tidy-18
-      CMAKE_COMMAND: /usr/bin/cmake
-      CTEST_COMMAND: /usr/bin/ctest
-      LOCAL_WHISPER_PREPARED_LINUX_QUALITY: 'true'
-      NINJA_COMMAND: /usr/bin/ninja
-      LOCAL_WHISPER_GCC_C_COMPILER: /usr/bin/x86_64-linux-gnu-gcc-13
-      LOCAL_WHISPER_GCC_CXX_COMPILER: /usr/bin/x86_64-linux-gnu-g++-13
-      LOCAL_WHISPER_GCC_LINKER: /usr/bin/x86_64-linux-gnu-ld.bfd
-      LOCAL_WHISPER_CLANG_C_COMPILER: /usr/bin/clang-18
-      LOCAL_WHISPER_CLANG_CXX_COMPILER: /usr/bin/clang++-18
-      LOCAL_WHISPER_CLANG_LINKER: /usr/bin/ld.lld-18
-      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+  native-quality:
+    name: Local Whisper Native Quality (${{ matrix.checkName }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - checkName: Linux
+            evidenceArtifact: local-whisper-runner-evidence-linux-primary
+            evidenceOutput: release-artifacts/local-whisper-runner-evidence-linux-primary.json
+            platform: linux
+            runner: ${{ vars.CI_LINUX_RUNNER }}
+            timeoutMinutes: 60
+            toolchain: clang-${{ vars.CI_LLVM_VERSION }}
+          - checkName: Windows
+            evidenceArtifact: local-whisper-runner-evidence-windows-primary
+            evidenceOutput: release-artifacts/local-whisper-runner-evidence-windows-primary.json
+            platform: windows
+            runner: ${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: 30
+            toolchain: msvc-hosted
 
     steps:
       - name: Checkout
@@ -73,82 +77,84 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
         with:
-          node-version: 24
-          package-manager-cache: false
+          node-version: ${{ vars.CI_NODE_VERSION }}
 
-      - name: Install native toolchain
+      - name: Install and configure Linux native toolchain
+        if: matrix.platform == 'linux'
+        shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install --yes cmake ninja-build gcc-13 g++-13 clang-18 clang-format-18 clang-tidy-18 lld-18
-
-      - name: Install dependencies
-        run: npm run ci:install
+          sudo apt-get install --yes cmake ninja-build gcc-${{ vars.CI_GCC_VERSION }} g++-${{ vars.CI_GCC_VERSION }} clang-${{ vars.CI_LLVM_VERSION }} clang-format-${{ vars.CI_LLVM_VERSION }} clang-tidy-${{ vars.CI_LLVM_VERSION }} lld-${{ vars.CI_LLVM_VERSION }}
+          {
+            echo "CMAKE_COMMAND=$(command -v cmake)"
+            echo "CTEST_COMMAND=$(command -v ctest)"
+            echo "CXX=$(command -v clang++-${{ vars.CI_LLVM_VERSION }})"
+            echo "CLANG_FORMAT=$(command -v clang-format-${{ vars.CI_LLVM_VERSION }})"
+            echo "CLANG_TIDY=$(command -v clang-tidy-${{ vars.CI_LLVM_VERSION }})"
+            echo "NINJA_COMMAND=$(command -v ninja)"
+            echo "LOCAL_WHISPER_GCC_C_COMPILER=$(command -v x86_64-linux-gnu-gcc-${{ vars.CI_GCC_VERSION }})"
+            echo "LOCAL_WHISPER_GCC_CXX_COMPILER=$(command -v x86_64-linux-gnu-g++-${{ vars.CI_GCC_VERSION }})"
+            echo "LOCAL_WHISPER_GCC_LINKER=$(command -v x86_64-linux-gnu-ld.bfd)"
+            echo "LOCAL_WHISPER_CLANG_C_COMPILER=$(command -v clang-${{ vars.CI_LLVM_VERSION }})"
+            echo "LOCAL_WHISPER_CLANG_CXX_COMPILER=$(command -v clang++-${{ vars.CI_LLVM_VERSION }})"
+            echo "LOCAL_WHISPER_CLANG_LINKER=$(command -v ld.lld-${{ vars.CI_LLVM_VERSION }})"
+            echo "LOCAL_WHISPER_PREPARED_LINUX_QUALITY=true"
+          } >> "$GITHUB_ENV"
 
       - name: Provision verified Local Whisper native test sources
         run: npm run prepare:local-whisper:native-test-sources
 
+      - name: Initialize MSVC developer environment
+        if: matrix.platform == 'windows'
+        uses: ./.github/actions/initialize-msvc-environment
+
+      - name: Mark Windows native environment prepared
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
+
       - name: Verify Local Whisper native source objects
+        if: matrix.platform == 'linux'
         run: |
           npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
 
       - name: Prove non-recovering Linux sanitizer policy
+        if: matrix.platform == 'linux'
         run: npm run test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality
 
-      - name: Verify Local Whisper worker vectors
-        run: npm run verify:local-whisper:worker-vectors -- --check-clean
+      - name: Run Linux formatting and clang-tidy checks
+        if: matrix.platform == 'linux'
+        run: |
+          npm run verify:local-whisper:worker-vectors -- --check-clean
+          npm run format:check:local-whisper:worker-common
+          npm run format:check:local-whisper:fs-guard
+          npm run format:check:local-whisper:launcher
+          npm run lint:local-whisper:fs-guard
+          npm run lint:local-whisper:launcher
+          npm run lint:local-whisper:worker-common
 
-      - name: Check worker common formatting
-        run: npm run format:check:local-whisper:worker-common
-
-      - name: Check native formatting
-        run: npm run format:check:local-whisper:fs-guard
-
-      - name: Check launcher formatting
-        run: npm run format:check:local-whisper:launcher
-
-      - name: Run clang-tidy
-        run: npm run lint:local-whisper:fs-guard
-
-      - name: Run launcher clang-tidy
-        run: npm run lint:local-whisper:launcher
-
-      - name: Run worker common clang-tidy
-        run: npm run lint:local-whisper:worker-common
-
-      - name: Run worker codec, proof, and authority suites
+      - name: Run Linux worker and sanitizer suites
+        if: matrix.platform == 'linux'
         run: |
           npm run test:local-whisper:worker-codec
           npm run test:local-whisper:worker-proof-vectors
           npm run test:local-whisper:worker-authority
-
-      - name: Run sanitized native unit and integration tests
-        run: npm run test:local-whisper:fs-guard:native
-
-      - name: Run sanitized launcher unit and process-tree integration tests
-        run: npm run test:local-whisper:launcher:native
-
-      - name: Run Local Whisper supervisor conformance tests
-        run: npm run test:local-whisper:supervisor
-
-      - name: Verify Linux model-authority handoff
-        run: npm run verify:local-whisper:worker-authority -- --platform=linux
-
-      - name: Verify hardened Whisper.cpp loader limits
-        run: npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
-
-      - name: Run hardened Whisper.cpp core and loader suites
-        run: |
+          npm run test:local-whisper:fs-guard:native
+          npm run test:local-whisper:launcher:native
+          npm run verify:local-whisper:worker-authority -- --platform=linux
+          npm run verify:local-whisper:loader-limits -- --table=whisper-cpp-loader-limits-v1
           npm run test:local-whisper:whisper-cpp-core
           npm run test:local-whisper:whisper-cpp-loader
           npm run test:local-whisper:whisper-cpp-device-proof
           npm run test:local-whisper:whisper-cpp-cancellation
 
       - name: Build and verify Linux Whisper.cpp CPU pack
+        if: matrix.platform == 'linux'
         run: |
           npm run build:local-whisper:fs-guard
           npm run build:local-whisper:launcher
@@ -157,7 +163,8 @@ jobs:
           npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
           npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cpu-baseline-v1
 
-      - name: Verify AMD Preview contracts without hardware claims
+      - name: Verify Linux AMD contracts without hardware claims
+        if: matrix.platform == 'linux'
         run: |
           npm run format:check:local-whisper:amd-packs
           npm run lint:local-whisper:amd-packs
@@ -165,155 +172,69 @@ jobs:
           npm run verify:local-whisper:amd-packs -- --profile=vulkan-contract-linux
           npm run verify:local-whisper:amd-packs -- --profile=hip-no-approved-row
 
-      - name: Run Node/native filesystem compatibility tests
-        run: npm run test:local-whisper:filesystem
-
-      - name: Verify Linux filesystem fixture
-        run: npm run verify:local-whisper:filesystem -- --fixture
-
-      - name: Emit primary Linux runner evidence
-        run: npm run emit:local-whisper:runner-evidence -- --runner-label=ubuntu-24.04 --toolchain=clang-18 --compiler="$CXX" --output=release-artifacts/local-whisper-runner-evidence-linux-primary.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
-
-      - name: Upload primary Linux runner evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: local-whisper-runner-evidence-linux-primary
-          path: release-artifacts/local-whisper-runner-evidence-linux-primary.json
-          if-no-files-found: error
-          retention-days: 14
-
-  native-quality-windows:
-    name: Local Whisper Native Quality (Windows)
-    runs-on: windows-latest
-    timeout-minutes: 30
-    env:
-      LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY: 'true'
-      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Checkout locked GoogleTest source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: google/googletest
-          ref: 52eb8108c5bdec04579160ae17225d66034bd723
-          path: .cache/local-whisper/ci-source-repositories/googletest
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Checkout locked nlohmann/json source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: nlohmann/json
-          ref: 55f93686c01528224f448c19128836e7df245f72
-          path: .cache/local-whisper/ci-source-repositories/nlohmann-json
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Checkout locked Whisper.cpp source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: ggml-org/whisper.cpp
-          ref: f049fff95a089aa9969deb009cdd4892b3e74916
-          path: .cache/local-whisper/ci-source-repositories/whisper-cpp
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 24
-
-      - name: Install dependencies
-        run: npm run ci:install
-
-      - name: Materialize and verify locked GoogleTest source
-        shell: pwsh
+      - name: Run MSVC native and worker suites
+        if: matrix.platform == 'windows'
         run: |
-          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/googletest-v1.17.0-52eb810.json --repository-root=.cache/local-whisper/ci-source-repositories/googletest --store-root=.cache/local-whisper/native-sources
-          npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
-
-      - name: Materialize and verify locked Whisper.cpp worker-core sources
-        shell: pwsh
-        run: |
-          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/nlohmann-json-v3.12.0-subset.json --repository-root=.cache/local-whisper/ci-source-repositories/nlohmann-json --store-root=.cache/local-whisper/native-sources
-          node scripts/local-whisper/source-import/materialize-native-source.mjs --lock-file=runtime/local-whisper/sources/locks/whisper-cpp-v1.9.1-f049fff.json --repository-root=.cache/local-whisper/ci-source-repositories/whisper-cpp --store-root=.cache/local-whisper/native-sources
-          npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
-          npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
-
-      - name: Initialize MSVC developer environment
-        uses: ./.github/actions/initialize-msvc-environment
-
-      - name: Run MSVC native unit and integration tests
-        run: npm run test:local-whisper:fs-guard:native
-
-      - name: Run MSVC launcher unit and Job Object integration tests
-        run: npm run test:local-whisper:launcher:native
-
-      - name: Run MSVC common SHA-256 and frame codec tests
-        run: npm run test:local-whisper:worker-codec
-
-      - name: Run MSVC Whisper.cpp worker-core suite
-        run: npm run test:local-whisper:whisper-cpp-core
+          npm run test:local-whisper:fs-guard:native
+          npm run test:local-whisper:launcher:native
+          npm run test:local-whisper:worker-codec
+          npm run test:local-whisper:whisper-cpp-core
 
       - name: Run MSVC AddressSanitizer native suites
+        if: matrix.platform == 'windows'
         run: |
           npm run test:local-whisper:fs-guard:msvc-asan
           npm run test:local-whisper:launcher:msvc-asan
           npm run test:local-whisper:worker-codec:msvc-asan
           npm run test:local-whisper:whisper-cpp:msvc-asan
-
-      - name: Run Local Whisper supervisor conformance tests
-        run: npm run test:local-whisper:supervisor
-
-      - name: Verify Windows model-authority source contract
-        run: npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
-
-      - name: Verify Windows Whisper.cpp CPU source contract
-        run: npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+          npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+          npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
 
       - name: Build and verify hardened Windows production binaries
+        if: matrix.platform == 'windows'
         run: |
           npm run build:local-whisper:fs-guard
           npm run build:local-whisper:launcher
           npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
           npm run verify:local-whisper:native-hardening -- --platform=windows
+          npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
+          npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
 
-      - name: Verify Windows Whisper.cpp CUDA source contract
-        run: npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
+      - name: Run Local Whisper supervisor conformance tests
+        run: npm run test:local-whisper:supervisor
 
-      # This executes static, hardware-free contract checks only. Physical AMD
-      # qualification remains out of scope and must not acquire a driver or SDK.
-      - name: Run Windows AMD Vulkan static contract
-        run: npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
-
-      - name: Run Windows Node/native filesystem compatibility tests
+      - name: Run Node/native filesystem compatibility tests
         run: npm run test:local-whisper:filesystem
 
-      - name: Emit primary Windows runner evidence
-        shell: pwsh
-        run: npm run emit:local-whisper:runner-evidence -- --runner-label=windows-latest --toolchain=msvc-hosted --compiler="$env:CXX" --output=release-artifacts/local-whisper-runner-evidence-windows-primary.json --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+      - name: Verify Linux filesystem fixture
+        if: matrix.platform == 'linux'
+        run: npm run verify:local-whisper:filesystem -- --fixture
 
-      - name: Upload primary Windows runner evidence
+      - name: Emit Linux runner evidence
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ matrix.runner }} --toolchain=${{ matrix.toolchain }} --expected-os=${{ matrix.platform }} --compiler="$CXX" --output=${{ matrix.evidenceOutput }} --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Emit Windows runner evidence
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ matrix.runner }} --toolchain=${{ matrix.toolchain }} --expected-os=${{ matrix.platform }} --compiler="$env:CXX" --output=${{ matrix.evidenceOutput }} --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Upload runner evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: local-whisper-runner-evidence-windows-primary
-          path: release-artifacts/local-whisper-runner-evidence-windows-primary.json
+          name: ${{ matrix.evidenceArtifact }}
+          path: ${{ matrix.evidenceOutput }}
           if-no-files-found: error
-          retention-days: 14
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
   quality:
     name: Quality Gates
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: 15
     env:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
-      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
 
     steps:
       - name: Checkout
@@ -322,10 +243,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
         with:
-          node-version: 24
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
 
       - name: Cache Electron binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -338,9 +260,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-electron-
 
-      - name: Install dependencies
-        run: npm run ci:install
-
       - name: Check formatting
         run: npm run format:check
 
@@ -348,7 +267,7 @@ jobs:
         run: npm run validate:dependabot
 
       - name: Generate package metadata
-        run: npm run generate:package-metadata -- --release-date=2026-05-18
+        run: npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
 
       - name: Lint
         run: npm run lint
@@ -368,13 +287,27 @@ jobs:
       - name: Build production bundles
         run: npm run build:prod
 
-  package-smoke-fedora:
-    name: Package Smoke (Fedora Linux)
+  package-smoke:
+    name: Package Smoke (${{ matrix.checkName }})
     needs: quality
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - checkName: Fedora Linux
+            platform: linux
+            runner: ${{ vars.CI_LINUX_RUNNER }}
+            timeoutMinutes: 60
+          - checkName: Windows
+            platform: windows
+            runner: ${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: 45
     env:
-      FEDORA_RELEASE_IMAGE: gpt-voice-fedora-release:ci
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      FEDORA_RELEASE_IMAGE: ${{ vars.CI_FEDORA_RELEASE_IMAGE }}
 
     steps:
       - name: Checkout
@@ -382,16 +315,18 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
         with:
-          node-version: 24
-          package-manager-cache: false
+          install-dependencies: ${{ matrix.platform == 'windows' && 'true' || 'false' }}
+          node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Set up Docker Buildx
+        if: matrix.platform == 'linux'
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Build Fedora release image
+        if: matrix.platform == 'linux'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: build/fedora-release
@@ -399,41 +334,16 @@ jobs:
           load: true
           tags: ${{ env.FEDORA_RELEASE_IMAGE }}
 
-      - name: Smoke package app in Fedora
-        run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=2026-05-18
+      - name: Smoke package application in Fedora
+        if: matrix.platform == 'linux'
+        run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
 
-      - name: Upload Linux measurement reports
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: gpt-voice-linux-measurements
-          path: |
-            release-artifacts/size-linux-x64.json
-            release-artifacts/startup-linux-x64.json
-          if-no-files-found: error
-          retention-days: 14
+      - name: Initialize MSVC developer environment
+        if: matrix.platform == 'windows'
+        uses: ./.github/actions/initialize-msvc-environment
 
-  package-smoke-windows:
-    name: Package Smoke (Windows)
-    needs: quality
-    runs-on: windows-latest
-    timeout-minutes: 45
-    env:
-      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
-      NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: 24
-
-      - name: Cache Electron and CloakBrowser binaries
+      - name: Cache Windows Electron and CloakBrowser binaries
+        if: matrix.platform == 'windows'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: |
@@ -445,44 +355,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-electron-cloak-
 
-      - name: Install dependencies
-        run: npm run ci:install
-
-      - name: Initialize MSVC developer environment
-        uses: ./.github/actions/initialize-msvc-environment
-
-      - name: Prepare bundled CloakBrowser
-        run: npm run prepare:cloakbrowser -- --target=win32
-
-      - name: Smoke test CloakBrowser
-        run: npm run smoke:cloakbrowser
-
-      - name: Build production bundles
-        run: npm run build:prod
-
-      - name: Generate package metadata
-        run: npm run generate:package-metadata -- --release-date=2026-05-18
-
-      - name: Prepare disabled Local Whisper package resources
-        run: npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32
-
-      - name: Package unpacked app
-        run: npx electron-builder --win dir
-
-      - name: Verify packaged runtime
-        run: npm run verify:packaged
-
-      - name: Measure Windows package size
-        run: npm run measure:size -- --platform=win32 --arch=x64 --output=release-artifacts/size-win32-x64.json
+      - name: Build and smoke Windows package
+        if: matrix.platform == 'windows'
+        run: |
+          npm run prepare:cloakbrowser -- --target=win32
+          npm run smoke:cloakbrowser
+          npm run build:prod
+          npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
+          npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32
+          npx electron-builder --win dir
+          npm run verify:packaged
+          npm run measure:size -- --platform=win32 --arch=${{ vars.CI_ARCHITECTURE }} --output=release-artifacts/size-win32-x64.json
+          npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
 
       - name: Verify Windows size budget when a reviewed baseline exists
-        if: hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
+        if: matrix.platform == 'windows' && hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
         run: npm run verify:size -- --report=release-artifacts/size-win32-x64.json --baseline=build/size-baselines/v1.4.0-win32-x64.json
 
-      - name: Measure Windows cold startup
-        run: npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
+      - name: Upload Linux measurement reports
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-linux-measurements
+          path: |
+            release-artifacts/size-linux-x64.json
+            release-artifacts/startup-linux-x64.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload Windows measurement reports
+        if: matrix.platform == 'windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: gpt-voice-windows-measurements
@@ -490,4 +392,4 @@ jobs:
             release-artifacts/size-win32-x64.json
             release-artifacts/startup-win32-x64.json
           if-no-files-found: error
-          retention-days: 14
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}

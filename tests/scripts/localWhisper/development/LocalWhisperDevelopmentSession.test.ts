@@ -144,8 +144,7 @@ describe('LocalWhisperDevelopmentSession', () => {
         const descriptorPath = activationArgument?.slice('--local-whisper-development-activation='.length);
         assert.ok(userDataPath);
         assert.ok(descriptorPath);
-        const configurationRoot =
-          process.platform === 'win32' ? environment.APPDATA : environment.XDG_CONFIG_HOME;
+        const configurationRoot = process.platform === 'win32' ? environment.APPDATA : environment.XDG_CONFIG_HOME;
         assert.ok(configurationRoot);
         if (process.platform === 'win32') assert.equal(environment.LOCALAPPDATA, configurationRoot);
         assert.notEqual(path.dirname(descriptorPath), path.dirname(userDataPath));

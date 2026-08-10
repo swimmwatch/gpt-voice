@@ -94,34 +94,55 @@ function validateContainerReferences(text: string, name: string): void {
 
 function validateWorkflowSteps(workflow: WorkflowDocument, name: string): void {
   for (const [jobName, step] of stepsFor(workflow)) {
-    if (typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@')) {
-      if (!isRecord(step.with) || step.with['persist-credentials'] !== false) {
-        throw new Error(`${name} job ${jobName} checkout must set persist-credentials: false`);
-      }
+    validateStep(step, name, jobName);
+  }
+}
+
+function validateStep(step: WorkflowStep, name: string, owner: string): void {
+  if (typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@')) {
+    if (!isRecord(step.with) || step.with['persist-credentials'] !== false) {
+      throw new Error(`${name} job ${owner} checkout must set persist-credentials: false`);
     }
-    if (typeof step.run === 'string') {
-      if (EXECUTABLE_DOWNLOAD.test(step.run) && !step.run.includes('sha256sum --check --status')) {
-        throw new Error(`${name} job ${jobName} executes an unverified download`);
-      }
-      if (BROAD_ANALYZER_SUPPRESSION.test(step.run)) {
-        throw new Error(`${name} job ${jobName} applies a broad analyzer suppression`);
-      }
-      if (UNSAFE_RUN_INTERPOLATION.test(step.run)) {
-        throw new Error(`${name} job ${jobName} interpolates untrusted data into a shell command`);
-      }
+  }
+  if (typeof step.run === 'string') {
+    if (EXECUTABLE_DOWNLOAD.test(step.run) && !step.run.includes('sha256sum --check --status')) {
+      throw new Error(`${name} job ${owner} executes an unverified download`);
     }
-    if (typeof step.uses === 'string' && step.uses.startsWith('actions/cache@') && isRecord(step.with)) {
-      const cacheConfiguration = JSON.stringify(step.with);
-      if (UNTRUSTED_CACHE_INTERPOLATION.test(cacheConfiguration)) {
-        throw new Error(`${name} job ${jobName} uses untrusted cache input`);
-      }
+    if (BROAD_ANALYZER_SUPPRESSION.test(step.run)) {
+      throw new Error(`${name} job ${owner} applies a broad analyzer suppression`);
     }
+    if (UNSAFE_RUN_INTERPOLATION.test(step.run)) {
+      throw new Error(`${name} job ${owner} interpolates untrusted data into a shell command`);
+    }
+  }
+  if (typeof step.uses === 'string' && step.uses.startsWith('actions/cache@') && isRecord(step.with)) {
+    const cacheConfiguration = JSON.stringify(step.with);
+    if (UNTRUSTED_CACHE_INTERPOLATION.test(cacheConfiguration)) {
+      throw new Error(`${name} job ${owner} uses untrusted cache input`);
+    }
+  }
+}
+
+function validateCompositeAction(text: string, name: string): void {
+  const value = parse(text) as unknown;
+  if (
+    !isRecord(value) ||
+    !isRecord(value.runs) ||
+    value.runs.using !== 'composite' ||
+    !Array.isArray(value.runs.steps)
+  ) {
+    throw new Error(`${name} must declare composite action steps`);
+  }
+  for (const step of value.runs.steps) {
+    if (!isRecord(step)) throw new Error(`${name} has an invalid composite action step`);
+    validateStep(step, name, 'composite');
   }
 }
 
 /** Validates immutable workflow inputs before CI can execute a referenced tool or artifact. */
 export class WorkflowSupplyChainPolicyVerifier {
   public verify(input: {
+    readonly actions?: Readonly<Record<string, string>>;
     readonly workflows: Readonly<Record<string, string>>;
     readonly fedoraDockerfile: string;
   }): void {
@@ -131,6 +152,11 @@ export class WorkflowSupplyChainPolicyVerifier {
       validateActionReferences(text, name);
       validateContainerReferences(text, name);
       validateWorkflowSteps(workflow, name);
+    }
+    for (const [name, text] of Object.entries(input.actions ?? {})) {
+      validateActionReferences(text, name);
+      validateContainerReferences(text, name);
+      validateCompositeAction(text, name);
     }
 
     if (!input.workflows['actionlint.yml']?.includes(ACTIONLINT_IMAGE)) {

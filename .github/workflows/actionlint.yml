@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+env:
+  CI: true
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
 concurrency:
   group: actionlint-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,7 +22,7 @@ concurrency:
 jobs:
   actionlint:
     name: Actionlint
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: 10
 
     steps:
@@ -27,13 +31,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
         with:
-          node-version: 24
-
-      - name: Install dependencies
-        run: npm run ci:install
+          node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Run immutable actionlint
         shell: bash

@@ -65,4 +65,18 @@ describe('Workflow supply-chain policy', () => {
       /unreviewed image digest/u,
     );
   });
+
+  it('rejects a mutable external action in a local composite action', () => {
+    assert.throws(
+      () =>
+        new WorkflowSupplyChainPolicyVerifier().verify({
+          actions: {
+            'setup-ci-project/action.yml': `runs:\n  using: composite\n  steps:\n    - uses: actions/setup-node@v7\n`,
+          },
+          fedoraDockerfile: safeDockerfile,
+          workflows: { 'actionlint.yml': `# ${ACTIONLINT_IMAGE}\njobs: {}\npermissions:\n  contents: read\n` },
+        }),
+      /mutable or uncommented Action/u,
+    );
+  });
 });

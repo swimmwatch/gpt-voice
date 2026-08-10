@@ -3,7 +3,7 @@ import { parse } from 'yaml';
 import { isRecord } from '../packaging/contracts';
 
 export const NATIVE_PATH_OWNERS = [
-  '.github/actions/initialize-msvc-environment/action.yml',
+  '.github/actions/**',
   '.github/workflows/**',
   'build/fedora-release/**',
   'package-lock.json',
@@ -17,15 +17,32 @@ export const NATIVE_PATH_OWNERS = [
   'webpack.config.js',
 ] as const;
 
-const JOBS = {
-  'native-quality-linux': { label: 'ubuntu-24.04', primary: true },
-  'native-quality-windows': { label: 'windows-latest', primary: true },
+const PLATFORM_CONTRACTS = {
+  linux: {
+    runner: '${{ vars.CI_LINUX_RUNNER }}',
+    toolchain: 'clang-${{ vars.CI_LLVM_VERSION }}',
+  },
+  windows: {
+    runner: '${{ vars.CI_WINDOWS_RUNNER }}',
+    toolchain: 'msvc-hosted',
+  },
 } as const;
 
-const APPROVED_RUNNER_LABELS = new Set(['ubuntu-24.04', 'windows-latest']);
+const WORKFLOW_RUNNER_REFERENCES = new Set([
+  '${{ matrix.runner }}',
+  '${{ vars.CI_LINUX_RUNNER }}',
+  '${{ vars.CI_WINDOWS_RUNNER }}',
+]);
+const LINUX_RUNNER = /^ubuntu-\d+\.\d+$/u;
+const WINDOWS_RUNNER = /^windows-(?:latest|\d{4})$/u;
+const CLANG_TOOLCHAIN = /^clang-(?<major>\d+)$/u;
+const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
+const SHA_256 = /^[a-f\d]{64}$/u;
+
 interface WorkflowJob {
   readonly 'runs-on'?: unknown;
   readonly steps?: unknown;
+  readonly strategy?: unknown;
 }
 
 interface RunnerEvidence {
@@ -37,9 +54,6 @@ interface RunnerEvidence {
   readonly testedDigests?: unknown;
   readonly toolchain?: unknown;
 }
-
-const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
-const SHA_256 = /^[a-f\d]{64}$/u;
 
 function parseJobs(text: string): Record<string, WorkflowJob> {
   const document = parse(text) as unknown;
@@ -64,8 +78,15 @@ function countOccurrences(text: string, value: string): number {
   return text.split(value).length - 1;
 }
 
-function expectedToolchain(runnerLabel: string): string {
-  return runnerLabel.startsWith('windows-') ? 'msvc-hosted' : 'clang-18';
+function matrixRows(job: WorkflowJob): readonly Record<string, unknown>[] {
+  if (!isRecord(job.strategy) || !isRecord(job.strategy.matrix) || !Array.isArray(job.strategy.matrix.include)) {
+    throw new Error('native-quality must declare a matrix include list');
+  }
+  if (job.strategy['fail-fast'] !== false) throw new Error('native-quality matrix must disable fail-fast');
+  return job.strategy.matrix.include.map((entry) => {
+    if (!isRecord(entry)) throw new Error('native-quality matrix row must be an object');
+    return entry;
+  });
 }
 
 function verifyPathFilters(workflowText: string): void {
@@ -77,43 +98,70 @@ function verifyPathFilters(workflowText: string): void {
   }
 }
 
-function verifyApprovedRunners(jobs: Record<string, WorkflowJob>): void {
+function verifyConfiguredRunners(jobs: Record<string, WorkflowJob>): void {
   for (const [jobName, job] of Object.entries(jobs)) {
-    if (!isRecord(job) || typeof job['runs-on'] !== 'string') continue;
-    if (!APPROVED_RUNNER_LABELS.has(job['runs-on'])) {
-      throw new Error(`Job ${jobName} has an unsupported runner label ${job['runs-on']}`);
+    if (typeof job['runs-on'] !== 'string' || !WORKFLOW_RUNNER_REFERENCES.has(job['runs-on'])) {
+      throw new Error(`Job ${jobName} must use a configured runner reference`);
     }
   }
 }
 
-function verifyRequiredRunnerJobs(jobs: Record<string, WorkflowJob>): void {
-  for (const [jobName, contract] of Object.entries(JOBS)) {
-    const job = jobs[jobName];
-    if (!isRecord(job) || job['runs-on'] !== contract.label) {
-      throw new Error(`${jobName} must run on ${contract.label}`);
+function verifyRequiredNativeMatrix(jobs: Record<string, WorkflowJob>): void {
+  const job = jobs['native-quality'];
+  if (!job || job['runs-on'] !== '${{ matrix.runner }}') {
+    throw new Error('native-quality must run on its matrix runner');
+  }
+  const rows = matrixRows(job);
+  if (rows.length !== Object.keys(PLATFORM_CONTRACTS).length) {
+    throw new Error('native-quality must contain exactly one row for each supported platform');
+  }
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const platform = row.platform;
+    if (platform !== 'linux' && platform !== 'windows')
+      throw new Error('native-quality has an unsupported platform row');
+    if (seen.has(platform)) throw new Error(`native-quality duplicates the ${platform} platform row`);
+    seen.add(platform);
+    const contract = PLATFORM_CONTRACTS[platform];
+    if (row.runner !== contract.runner || row.toolchain !== contract.toolchain) {
+      throw new Error(`native-quality ${platform} row does not use its configured runner and toolchain`);
     }
-    const text = jobText(job);
-    if (
-      !text.includes(`--runner-label=${contract.label}`) ||
-      !text.includes(`--toolchain=${expectedToolchain(contract.label)}`)
-    ) {
-      throw new Error(`${jobName} must emit evidence for its exact runner and toolchain`);
-    }
+  }
+
+  const text = jobText(job);
+  if (
+    !text.includes('--runner-label=${{ matrix.runner }}') ||
+    !text.includes('--toolchain=${{ matrix.toolchain }}') ||
+    !text.includes('--expected-os=${{ matrix.platform }}')
+  ) {
+    throw new Error('native-quality must emit evidence for its configured matrix row');
   }
 }
 
 function verifyPrimaryEvidence(jobs: Record<string, WorkflowJob>): void {
-  const primaryLinux = jobText(jobs['native-quality-linux'] ?? {});
-  const primaryWindows = jobText(jobs['native-quality-windows'] ?? {});
-  if (!primaryLinux.includes('native-sanitizer-proof') || !primaryLinux.includes('lint:local-whisper')) {
+  const nativeQuality = jobText(jobs['native-quality'] ?? {});
+  if (!nativeQuality.includes('native-sanitizer-proof') || !nativeQuality.includes('lint:local-whisper')) {
     throw new Error('Primary Linux runner must retain sanitizer and lint evidence');
   }
-  if (!primaryWindows.includes('msvc-asan') || !primaryWindows.includes('native-hardening')) {
+  if (!nativeQuality.includes('msvc-asan') || !nativeQuality.includes('native-hardening')) {
     throw new Error('Primary Windows runner must retain ASan and PE-hardening evidence');
   }
 }
 
-/** Keeps the ordinary native matrix fixed while retaining costly analysis on primary runners only. */
+function operatingSystemForRunner(runnerLabel: string): 'Linux' | 'Windows' {
+  if (LINUX_RUNNER.test(runnerLabel)) return 'Linux';
+  if (WINDOWS_RUNNER.test(runnerLabel)) return 'Windows';
+  throw new Error('Runner evidence has an unsupported label');
+}
+
+function verifyToolchainVersion(profile: string, version: string): void {
+  const clang = CLANG_TOOLCHAIN.exec(profile);
+  if (clang && new RegExp(`clang version ${clang.groups?.major}\\.`, 'u').test(version)) return;
+  if (profile === 'msvc-hosted' && /Version 19\.\d+\./u.test(version)) return;
+  throw new Error('Runner evidence compiler version does not match its toolchain profile');
+}
+
+/** Keeps the ordinary native matrix parameterized while retaining platform-specific quality evidence. */
 export class RunnerPolicyVerifier {
   public ownsNativePath(path: string): boolean {
     return NATIVE_PATH_OWNERS.some((owner) => pathMatchesOwner(path, owner));
@@ -122,17 +170,16 @@ export class RunnerPolicyVerifier {
   public verify(workflowText: string): void {
     const jobs = parseJobs(workflowText);
     verifyPathFilters(workflowText);
-    verifyApprovedRunners(jobs);
-    verifyRequiredRunnerJobs(jobs);
+    verifyConfiguredRunners(jobs);
+    verifyRequiredNativeMatrix(jobs);
     verifyPrimaryEvidence(jobs);
   }
 
   public verifyEvidence(value: unknown): void {
     if (!isRecord(value)) throw new Error('Runner evidence must be an object');
     const evidence: RunnerEvidence = value;
-    if (typeof evidence.runnerLabel !== 'string' || !APPROVED_RUNNER_LABELS.has(evidence.runnerLabel)) {
-      throw new Error('Runner evidence has an unsupported label');
-    }
+    if (typeof evidence.runnerLabel !== 'string') throw new Error('Runner evidence has an unsupported label');
+    const expectedOperatingSystem = operatingSystemForRunner(evidence.runnerLabel);
     if (evidence.architecture !== 'x64') throw new Error('Runner evidence requires x64 architecture');
     if (typeof evidence.sourceCommit !== 'string' || !SOURCE_COMMIT.test(evidence.sourceCommit)) {
       throw new Error('Runner evidence requires an exact source commit');
@@ -141,12 +188,8 @@ export class RunnerPolicyVerifier {
       !isRecord(evidence.reportedImage) ||
       typeof evidence.reportedImage.imageOS !== 'string' ||
       typeof evidence.reportedImage.imageVersion !== 'string' ||
-      typeof evidence.reportedImage.runnerOS !== 'string'
+      evidence.reportedImage.runnerOS !== expectedOperatingSystem
     ) {
-      throw new Error('Runner evidence image metadata is missing');
-    }
-    const expectedOperatingSystem = evidence.runnerLabel.startsWith('windows-') ? 'Windows' : 'Linux';
-    if (evidence.reportedImage.runnerOS !== expectedOperatingSystem) {
       throw new Error('Runner evidence host does not match its runner label');
     }
     if (
@@ -156,16 +199,14 @@ export class RunnerPolicyVerifier {
     ) {
       throw new Error('Runner evidence toolchain is missing');
     }
-    const expectedToolchainProfile = expectedToolchain(evidence.runnerLabel);
-    if (evidence.toolchain.profile !== expectedToolchainProfile) {
+    const expectedWindowsToolchain = expectedOperatingSystem === 'Windows';
+    if (
+      (expectedWindowsToolchain && evidence.toolchain.profile !== 'msvc-hosted') ||
+      (!expectedWindowsToolchain && !CLANG_TOOLCHAIN.test(evidence.toolchain.profile))
+    ) {
       throw new Error('Runner evidence toolchain does not match its runner label');
     }
-    if (
-      (evidence.toolchain.profile === 'clang-18' && !/clang version 18\./u.test(evidence.toolchain.version)) ||
-      (evidence.toolchain.profile === 'msvc-hosted' && !/Version 19\.\d+\./u.test(evidence.toolchain.version))
-    ) {
-      throw new Error('Runner evidence compiler version does not match its toolchain profile');
-    }
+    verifyToolchainVersion(evidence.toolchain.profile, evidence.toolchain.version);
     if (
       !isRecord(evidence.nativeSourceManifest) ||
       Object.keys(evidence.nativeSourceManifest).length === 0 ||

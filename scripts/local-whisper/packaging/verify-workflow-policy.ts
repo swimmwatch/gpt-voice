@@ -7,13 +7,12 @@ import { WorkflowPolicyVerifier } from './WorkflowPolicyVerifier';
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 
 async function main(): Promise<void> {
-  const [fixtureWorkflow, windowsWorkflow, releaseWorkflow, fedoraEntrypoint] = await Promise.all([
+  const [fixtureWorkflow, releaseWorkflow, fedoraEntrypoint] = await Promise.all([
     readFile(path.join(workspaceRoot, '.github', 'workflows', 'local-whisper-packaging.yml'), 'utf8'),
-    readFile(path.join(workspaceRoot, '.github', 'workflows', 'local-whisper-packaging-windows.yml'), 'utf8'),
     readFile(path.join(workspaceRoot, '.github', 'workflows', 'release-builds.yml'), 'utf8'),
     readFile(path.join(workspaceRoot, 'build', 'fedora-release', 'fedora-release-entrypoint.mjs'), 'utf8'),
   ]);
-  new WorkflowPolicyVerifier().verify({ fixtureWorkflow, windowsWorkflow, releaseWorkflow, fedoraEntrypoint });
+  new WorkflowPolicyVerifier().verify({ fixtureWorkflow, releaseWorkflow, fedoraEntrypoint });
   process.stdout.write('Local Whisper packaging workflow policy verified\n');
 }
 
