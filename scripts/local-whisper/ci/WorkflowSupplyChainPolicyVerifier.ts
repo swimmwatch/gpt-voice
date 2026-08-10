@@ -1,5 +1,6 @@
 import { parse } from 'yaml';
 
+import { HADOLINT_IMAGE, TRIVY_IMAGE } from '../../security/dockerBuilderPolicy';
 import { isRecord } from '../packaging/contracts';
 
 const FULL_SHA_ACTION_REFERENCE = /^[\w.-]+\/[\w.-]+@[a-f\d]{40}\s+#\s+v[\w.-]+$/u;
@@ -12,6 +13,12 @@ const UNTRUSTED_CACHE_INTERPOLATION = /\$\{\{\s*github\.(?:event|head_ref|ref_na
 export const ACTIONLINT_IMAGE =
   'rhysd/actionlint:1.7.9@sha256:a0383f60d92601e2694e24b24d37df7b6a40bed7cedbc447611c50009bf02d94';
 export const FEDORA_44_IMAGE = 'fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898';
+const REVIEWED_IMAGES = new Map([
+  ['rhysd/actionlint:1.7.9', ACTIONLINT_IMAGE],
+  ['fedora:44', FEDORA_44_IMAGE],
+  ['hadolint/hadolint:v2.12.0', HADOLINT_IMAGE],
+  ['aquasec/trivy:0.68.2', TRIVY_IMAGE],
+]);
 
 interface WorkflowDocument {
   readonly jobs: Record<string, unknown>;
@@ -72,12 +79,7 @@ function validateActionReferences(text: string, name: string): void {
 function validateImage(image: string, name: string): void {
   const match = IMMUTABLE_IMAGE.exec(image);
   if (!match?.groups) throw new Error(`${name} must use a tag@sha256 image identity`);
-  const expected =
-    match.groups.name === 'rhysd/actionlint:1.7.9'
-      ? ACTIONLINT_IMAGE
-      : match.groups.name === 'fedora:44'
-        ? FEDORA_44_IMAGE
-        : null;
+  const expected = REVIEWED_IMAGES.get(match.groups.name);
   if (expected && image !== expected) throw new Error(`${name} has an unreviewed image digest`);
 }
 
@@ -87,7 +89,7 @@ function validateContainerReferences(text: string, name: string): void {
     if (!trimmed.startsWith('container:')) continue;
     validateImage(trimmed.slice('container:'.length).split('#', 1)[0]?.trim() ?? '', name);
   }
-  if (text.includes('docker run') && !text.includes(ACTIONLINT_IMAGE)) {
+  if (text.includes('docker run') && ![...REVIEWED_IMAGES.values()].some((image) => text.includes(image))) {
     throw new Error(`${name} executes an unreviewed container image`);
   }
 }
