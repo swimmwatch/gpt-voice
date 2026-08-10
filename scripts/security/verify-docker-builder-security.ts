@@ -70,6 +70,7 @@ async function scannerArguments(cacheDirectory: string): Promise<readonly string
     '/var/run/docker.sock:/var/run/docker.sock',
     TRIVY_IMAGE,
     'image',
+    '--quiet',
     '--cache-dir',
     '/cache',
     '--format',
