@@ -1831,3 +1831,70 @@ decisions:
     rationale: The user granted the required separate authorization for one local Packet 10 commit; no push, tag, or later-packet commit is authorized.
     supersedes_revision: null
     requirement_ids: [ARCH-010, CONC-009, FAIL-011, ACC-025]
+
+  - id: architecture.shared-translation-browser-context
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - The user-approved Shared Translation Browser Context plan on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [one-retained-context-one-page]
+      text: 'Translation owns one retained in-memory context and at most one page; changing provider IDs closes the page and initializes the new provider on a fresh page in that context.'
+    rationale: 'One process-owned coordinator prevents idle per-provider browser contexts while preserving same-provider warm-page latency.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-011, CONC-010, LIFE-001, LIFE-002, LIFE-010, ACC-026]
+
+  - id: lifecycle.translation-provider-switch-session-reset
+    revision: 1
+    category: lifecycle
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly chose clearing site sessions on Translation provider switches on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [clear-all-translation-session-state]
+      text: 'Provider-ID switching clears context cookies, permissions, cache, and canonical Google, Bing, and Yandex origin storage before the fresh selected-provider page is opened.'
+    rationale: 'A provider switch must load from scratch while the application still retains only one browser context.'
+    supersedes_revision: null
+    requirement_ids: [LIFE-010, FAIL-012, SEC-011, COMP-006, ACC-026]
+
+  - id: execution.packet-11
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested implementation of the Shared Translation Browser Context plan on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [execute-packet-11]
+      text: 'Implement and verify the shared Translation browser-context packet without a commit.'
+    rationale: 'The approved plan authorizes one self-contained implementation packet; commits remain separately controlled.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-011, CONC-010, LIFE-010, FAIL-012, SEC-011, ACC-026]
+
+  - id: authorization.commit-packet-11
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 11 source and deterministic verification are complete as recorded in the
+        handoff, while its workstream artifacts remained uncommitted.
+      - The user delegated approval on 2026-08-10 and requested Linux-only execution
+        of the next qualification packet without another approval prompt.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [commit-packet-11]
+      text: 'Create the isolated local Packet 11 commit before beginning Packet 06; do not push, tag, or publish.'
+    rationale: 'The delegated approval clears the required packet boundary while keeping unrelated worktree changes excluded.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-011, CONC-010, LIFE-010, FAIL-012, SEC-011, ACC-026]

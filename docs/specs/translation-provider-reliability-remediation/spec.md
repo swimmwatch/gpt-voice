@@ -14,7 +14,7 @@ identified in the translation-provider review.
 
 Success means:
 
-- provider work, including per-provider queue wait, cannot remain applicable beyond
+- provider work, including shared Translation browser-resource queue wait, cannot remain applicable beyond
   a fixed 60-second operation budget;
 - result stabilization uses the existing 15-second value as an absolute elapsed-time
   budget rather than an iteration count;
@@ -45,6 +45,9 @@ Success means:
 - all three provider contract versions reflect the shared lifecycle change; and
 - only the currently selected provider is prepared during startup and other
   providers remain on-demand; and
+- Translation owns at most one live or quarantined in-memory browser context and one
+  provider page; a provider switch starts a fresh page after clearing Translation-site
+  session state; and
 - no provider origin, language inventory, retry limit, submission strategy, renderer
   privilege, IPC payload, setting, database, dependency, package target, or release
   policy changes.
@@ -349,16 +352,16 @@ requests, packaging, or release activity.
   expiry actively aborts the request and invalidates the provider generation. It must
   also initiate closure of the exact page/context so a Playwright operation that
   ignores the signal cannot continue as applicable background work.
-- **ARCH-004:** At most one context is active for each provider. A context detached
-  for cancellation or cleanup is not active, is never reused, and remains owned by a
+- **ARCH-004:** At most one Translation context is active. A context detached for
+  cancellation or cleanup is not active, is never reused, and remains owned by a
   bounded cleanup/quarantine state until closure is confirmed or reported failed.
-- **ARCH-005:** An unresolved quarantined context blocks creation of another context
-  for that provider. This prevents repeated cleanup timeouts from accumulating
+- **ARCH-005:** An unresolved quarantined Translation context blocks creation of
+  another Translation context. This prevents repeated cleanup timeouts from accumulating
   unbounded contexts. Reset, shutdown, or a later confirmed close may clear the
   quarantine, but can never revise an already returned outcome or audit terminal.
-- **ARCH-006:** The remediation may close only isolated translation pages/contexts.
+- **ARCH-006:** The remediation may close only the shared Translation pages/context.
   It must not close, mutate, or share the persistent voice-provider browser profile,
-  another provider's healthy context, renderer state, or unrelated browser work.
+  renderer state, or unrelated browser work.
 - **ARCH-007:** Domain-significant durations, statuses, and failure codes use named,
   shared constants at their narrowest common owner. No per-provider copy of the
   operation, result, or cleanup budgets is permitted.
@@ -373,16 +376,21 @@ requests, packaging, or release activity.
   through persistence and selected-provider readiness. The existing typed settings
   result and connection-state contracts remain unchanged; a successful result means
   persistence and terminal readiness settlement both completed.
+- **ARCH-011:** The main-process composition root constructs one class-owned
+  Translation browser-resource coordinator with injected CloakBrowser settings,
+  context creation, and context options. No renderer/preload/IPC ownership, global
+  mutable runtime instance, dependency, or persisted setting is added.
 
 ## Concurrency and Terminal Arbitration
 
 - **CONC-001:** Preserve the selected-text single-flight gate. Concurrent duplicate
   hotkey presses remain silently skipped and do not create additional deadline
   objects, provider requests, or cleanup work.
-- **CONC-002:** Provider initialization and translation remain serialized per
-  provider. The 60-second translation budget includes time spent behind existing
-  provider work. Expiry while queued prevents source insertion and invalidates only
-  the translation/provider resources necessary to unblock that operation.
+- **CONC-002:** Provider initialization and translation remain serialized through one
+  shared Translation browser-resource queue. The 60-second translation budget includes
+  time spent behind existing provider work. Expiry while queued prevents source
+  insertion and invalidates only the captured page/context generation necessary to
+  unblock that operation.
 - **CONC-003:** Each operation has exactly one terminal arbiter. Provider success,
   provider failure, result timeout, operation timeout, caller abort, supersession,
   reset, shutdown, cleanup success, and cleanup failure may attempt settlement, but
@@ -418,17 +426,21 @@ requests, packaging, or release activity.
   authoritative connection snapshot. Stale connection events cannot settle or
   overwrite the current selection; target-language-only selection does not acquire the
   cross-provider lock.
+- **CONC-010:** Google, Bing, and Yandex cannot concurrently navigate, submit,
+  inspect, clear, close, or create Translation browser resources. A late operation
+  may release only the page/context lease and generation it captured; it cannot close
+  a new provider page or cause a second Translation context to be created.
 
 ## Provider and Browser Lifecycle
 
-- **LIFE-001:** Context ownership is published only under the current provider
-  generation. If `newPage()` resolves after the generation becomes stale, the
-  matching context field is cleared before detached cleanup begins, but only when it
-  still references that exact context.
-- **LIFE-002:** A page returned to the stale `newPage()` continuation is never
-  published as active. The stale page/context pair is closed through the same
-  idempotent detached-resource policy and cannot be closed again as current ownership
-  by the next queued generation.
+- **LIFE-001:** One main-process Translation browser-resource coordinator owns one
+  lazily created in-memory `BrowserContext`, at most one provider page, and one
+  global browser-operation queue. Provider instances own only their adapter and
+  operation generation state; they do not own independent contexts, pages, or queues.
+- **LIFE-002:** Context and page ownership is published only under the current shared
+  provider/page generation. If `newPage()` resolves after that generation becomes
+  stale, it is never published as active and is detached through the idempotent
+  cleanup path without affecting a newer page or context.
 - **LIFE-003:** Bing and Yandex normal successful translation clears visible source
   and result state before success. Google selected-text success synchronously
   acknowledges clipboard delivery before it starts clearing, then focuses the unique
@@ -462,6 +474,14 @@ requests, packaging, or release activity.
   that work settles or ownership moves to the existing page-before-context
   close/quarantine path. Provider/settings reset and application shutdown always close
   Google resources so changed proxy, fingerprint, locale, and runtime settings apply.
+- **LIFE-010:** A provider-ID change waits for prior shared resource work to settle,
+  closes the old provider page, clears all Translation-context cookies, permissions,
+  HTTP cache, and storage for the canonical Google, Bing, and Yandex origins through a
+  temporary blank control page, then creates and initializes one fresh page for the
+  selected provider. Repeated requests and target-language changes for the same
+  provider retain the healthy warm page. A failed page close or session clear closes
+  the full context page-before-context, quarantines unresolved cleanup, and blocks new
+  work until that exact context settles; only then may a replacement context be made.
 
 ## Failure and User-Visible Behavior
 
@@ -485,6 +505,10 @@ requests, packaging, or release activity.
   the selected provider remains persisted and the existing typed connection state
   presents the safe failure. Only validation or persistence failure rolls the renderer
   back to its prior confirmed settings.
+- **FAIL-012:** Session clearing or provider-page replacement failure is a private
+  cleanup failure. The newly selected provider remains persisted and receives the
+  existing typed failure state; no stale provider result, cache, clipboard write,
+  success notification, diagnostic success, or connection success may escape.
 - **FAIL-005:** `cleanupFailure` continues to override success or the original
   failure whenever required cleanup throws, reports failure, or misses the cleanup
   deadline. Existing cleanup-failure localization and connection detail remain
@@ -541,9 +565,9 @@ requests, packaging, or release activity.
   content is untrusted and cannot reach clipboard, cache, notification, diagnostic
   capture, connection success, or another operation even if Playwright resolves
   after abort.
-- **SEC-006:** Cleanup touches only the exact isolated translation resource captured
-  by the terminal operation. Identity guards prevent an old timeout from closing a
-  newer context or another provider's resource.
+- **SEC-006:** Cleanup touches only the exact shared Translation page/context lease
+  captured by the terminal operation. Identity guards prevent an old timeout from
+  closing a newer page, a replacement context, or a different provider's lease.
 - **SEC-007:** A cleanup timeout is not represented as confirmed deletion. Provider-
   side retention and an unconfirmed local context remain residual risks disclosed by
   `cleanupFailure`; the context is quarantined from reuse and retried only through
@@ -562,6 +586,9 @@ requests, packaging, or release activity.
   operation identifier, source-bearing log entry, or provider request. The abort
   signal remains owned by the main-process selected-text operation and is linked only
   to its existing lifecycle.
+- **SEC-011:** Browser-session clearing is main-process-only and never exposes or
+  records cookie values, site storage, page content, URLs, CDP traffic, or provider
+  account state. The temporary control page is closed before a provider page is opened.
 
 ## Audit, Diagnostics, and Localization
 
@@ -612,8 +639,9 @@ requests, packaging, or release activity.
   change the shape of `TranslationProviderConnectionState`.
 - **COMP-006:** Linux and Windows preserve identical selected-provider-only startup
   readiness, on-demand initialization, cold/warm classification, quality fallback,
-  and performance gates. Provider or language selection remains free of provider
-  network and browser-session side effects on both platforms.
+  and performance gates. A provider-ID selection may perform the explicitly selected
+  page replacement and session reset; target-language selection remains free of that
+  browser-resource side effect on both platforms.
 - **CONF-001:** Operation, result, and cleanup durations are named constants with
   complete injected clock/timer/abort dependencies. Production construction remains
   in the main-process composition root.
@@ -682,10 +710,12 @@ requests, packaging, or release activity.
   supported fast path accepts strictly before the 500-millisecond fallback boundary;
   every ambiguous case uses the full fallback and still verifies the target.
 - **ACC-018:** Lifecycle tests classify cold and warm requests independently for
-  every provider, retain startup readiness only for the selected provider, reuse a
-  healthy context, and prove provider/language selection creates no navigation,
-  session, provider request, or prewarm work. Invalidated, stale, and quarantined
-  resources can never be misclassified as warm.
+  every provider, retain startup readiness only for the selected provider, reuse one
+  healthy shared context and same-provider warm page, and prove target-language
+  selection creates no navigation, session reset, provider request, or prewarm work.
+  A provider-ID selection creates only its selected fresh page after the required
+  session reset. Invalidated, stale, and quarantined resources can never be
+  misclassified as warm.
 - **ACC-019:** A repeatable controlled benchmark records baseline and candidate
   application-controlled duration for Google, Bing, and Yandex cold and warm paths
   under the same virtual provider timeline. All six provider/path totals are
@@ -716,6 +746,14 @@ requests, packaging, or release activity.
   persistence with no initialization, serialized repeated requests, stale connection
   events, target-language isolation, disabled Translation, and a successful later
   provider selection.
+- **ACC-026:** Deterministic shared-resource tests prove Google-to-Bing-to-Yandex
+  switching creates one retained context, closes the old provider page before each
+  fresh selected-provider page, clears cookies, permissions, cache, and all canonical
+  provider-origin storage using a temporary blank control page, and never leaves two
+  Translation pages active. They cover same-provider warm reuse, global serialization,
+  cancellation, timeout, stale `newPage()`, reset, shutdown, page/session/context
+  close failure, five-second quarantine, late settlement, and recovery without
+  clipboard, cache, notification, diagnostics, connection, or audit side effects.
 - **ACC-022:** Deterministic selected-text and runtime tests prove that the existing
   Cancel hotkey cancels only an active selected-text translation; cancellation before
   dispatch prevents provider lookup, cancellation after submission discards late

@@ -4,15 +4,18 @@
 
 Packets 01–05, 07, and 08 are committed as `e1fe686`, `de5ec2e`, `02fbd227`,
 `1ca2f81e`, `d43fcc70`, `80f801a`, and `71794a9`. Packet 09 is committed as
-`fe5f583`. Packet 06 is the only later packet and requires its own explicit
-implementation authorization.
+`fe5f583`, and Packet 10 is committed as `6a918dd`. Packet 06 remains a later
+manual-gate packet and requires separate execution authorization.
 
-Packet 10 is implemented and intentionally uncommitted. It serializes a persisted
-Translation provider change through selected-provider readiness and the renderer's
-final authoritative connection read. The full unit-suite run did not complete
-because the pre-existing diagnostics-archive test remained idle for more than ten
-minutes and was stopped without a failure report; rerun that gate before making a
-full-suite verification claim.
+Packet 10 is committed as `6a918dd`. Packet 11 is implemented and intentionally
+uncommitted. It transfers Translation browser ownership to one shared coordinator,
+which retains one warm context and one provider page while safely resetting the
+provider site session on a provider change.
+
+The full unit-suite gate remains incomplete: the current run produced no test output
+for one minute and was stopped with exit 130. This is consistent with the previously
+recorded diagnostics-archive idle condition, but the current filtered run did not
+identify a specific test. Do not claim full-suite verification.
 
 ## Completed Packets
 
@@ -88,6 +91,17 @@ full-suite verification claim.
   - A post-startup Translation readiness check no longer contributes to first-launch
     presentation, so a provider switch cannot replace the main window with the
     startup loader.
+- [11 Shared Translation browser context](11_shared_translation_browser_context.md)
+  - Added one composition-root-owned `TranslationBrowserResourceCoordinator`, injected
+    into Google, Bing, and Yandex provider instances. It owns one lazy context, one
+    provider page, the shared queue, generation-safe page leases, close/quarantine
+    ownership, and idempotent shutdown.
+  - Same-provider requests and target-language changes reuse the warm page. A provider
+    change closes its old page, clears cookies, permissions, cache, and canonical
+    provider-origin storage through a temporary control page, then opens one fresh
+    provider page in the retained context.
+  - A cancelled context launch blocks replacement context creation until its stale
+    context has returned and been closed, preventing an overlapping context race.
 
 ## Packet 09 Result
 
@@ -148,6 +162,11 @@ full-suite verification claim.
   Translation runtime failure settlement, renderer selection/connection ownership,
   and focused IPC/renderer state tests. It does not add IPC, preload, public API,
   persistence, dependency, package, provider-adapter, or release changes.
+- Packet 11 updates Translation browser ownership in the composition root, provider
+  factory, and base provider; adds the coordinator and deterministic coordinator tests;
+  and updates only Translation reliability workstream artifacts. It adds no renderer,
+  preload, IPC, settings, persistence, dependency, provider contract, packaging, or
+  release change.
 
 ## Checks
 
@@ -188,6 +207,13 @@ test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed clean
 - Packet 10 focused Translation settings IPC/runtime/status/state/section and
   first-launch coordinator/loader/window tests passed. `npm run typecheck`,
   `npm run test:types`, scoped ESLint, scoped Prettier, and YAML validation passed.
+- Packet 11 focused coordinator, Base Provider, Google/Bing/Yandex providers, registry,
+  lifecycle, controlled performance, runtime, selected-text, shortcut/tray,
+  Translation settings/switching, provider-status, and composition tests passed.
+  `npm run typecheck`, `npm run test:types`, scoped ESLint, scoped Prettier, and
+  `git diff --check` passed.
+- Packet 11 `npm test` was stopped after one minute without test output (exit 130).
+  The full-suite verification gate is incomplete; no test failure is claimed.
 - The required `npm test` full-unit run did not report a test failure, but remained
   idle in `tests/main/diagnosticsArchive.test.ts` for over ten minutes and was
   deliberately terminated with exit 143. It must be rerun successfully before a

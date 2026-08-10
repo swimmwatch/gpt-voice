@@ -7,8 +7,9 @@ revision 1 on 2026-08-09.
 Packets 01–05, 07, and 08 are committed as `e1fe686`, `de5ec2e`, `02fbd227`,
 `1ca2f81e`, `d43fcc70`, `80f801a`, and `71794a9`. Packet 09 is committed as
 `fe5f583` under the approved copy-then-keyboard-clear revision. Packet 10 is
-complete but intentionally uncommitted. Packet 06 remains a later
-supported-platform manual gate and requires separate execution authorization.
+committed as `6a918dd`. Packet 11 is complete but intentionally uncommitted. Packet
+06 remains a later supported-platform manual gate and requires separate execution
+authorization.
 
 - [x] [01 Capture the controlled performance baseline](01_capture_controlled_performance_baseline.md)
 - [x] [02 Build the deadline and timeout contract](02_build_deadline_and_timeout_contract.md)
@@ -19,4 +20,5 @@ supported-platform manual gate and requires separate execution authorization.
 - [x] [08 Show Translation tray activity](08_show_translation_tray_activity.md)
 - [x] [09 Google Translation copy then keyboard clear](09_google_translation_overwrite_and_reuse.md)
 - [x] [10 Translation provider switch readiness](10_translation_provider_switch_readiness.md)
+- [x] [11 Shared Translation browser context](11_shared_translation_browser_context.md)
 - [ ] [06 Qualify supported packaged platforms](06_qualify_supported_packaged_platforms.md)

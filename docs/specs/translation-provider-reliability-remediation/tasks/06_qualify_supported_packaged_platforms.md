@@ -85,9 +85,11 @@ and macOS release support remains paused.
 9. Confirm startup prepares only the current selection. On a provider-ID change,
    only the newly selected provider performs readiness work; its inline checking
    status and the existing provider/configuration and recording locks remain active
-   until terminal readiness plus an authoritative connection snapshot. A typed
-   readiness failure retains the persisted selection. Target-language changes retain
-   their Translation-only save lock; healthy repeated use is warm.
+   until terminal readiness plus an authoritative connection snapshot. Confirm the old
+   Translation page closes, the selected provider opens on one fresh page in the same
+   context after session reset, and consent/login may reappear. Target-language changes
+   retain their Translation-only save lock and same-provider warm page. Do not inspect
+   or record cookies, storage, account state, URLs, or page content.
 10. Confirm timeout/cleanup behavior, boundary meanings, failure messages, and
     provider contract version are consistent across Linux and Windows. Do not rely on
     OS-localized browser errors as evidence.
@@ -154,8 +156,10 @@ and macOS release support remains paused.
 - Baseline and candidate evidence contains at least one cold and four warm results
   per provider/platform and separates safe application phases from external time.
 - No late clipboard/cache/notification effect appears after timeout or resume.
-- Healthy contexts reuse; a provider-ID switch initializes only the selected provider
-  through the visible inline state; failed or uncertain contexts never reuse.
+- Same-provider warm pages reuse; a provider-ID switch initializes only the selected
+  provider through the visible inline state after page replacement and session reset.
+  Failed or uncertain contexts never reuse, and no second Translation context overlaps
+  an active or quarantined one.
 - Provider switching and startup handoff retain their documented locks, typed failure
   status, and accessibility behavior on both supported packaged platforms.
 - Every external limitation is recorded; no credentials, private text, challenge
