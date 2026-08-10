@@ -31,12 +31,17 @@ import {
   type TranslationOperationLifecycleDecision,
 } from './translationOperationLifecycle';
 import { matchTranslationResultLineEndings } from './translationResultText';
+import {
+  TranslationBrowserResourceCoordinator,
+  type TranslationBrowserPageResult,
+} from './TranslationBrowserResourceCoordinator';
 
 export { TRANSLATION_RESULT_TIMEOUT_MS } from './translationOperationLifecycle';
 export const TRANSLATION_RESULT_POLL_INTERVAL_MS = 100;
 export const TRANSLATION_RESULT_STABILITY_DELAY_MS = 500;
 
 export interface BaseTranslateProviderDependencies {
+  readonly browserResources?: TranslationBrowserResourceCoordinator;
   readonly cloakBrowserSettings: Pick<CloakBrowserSettingsRepository, 'getWithSecret'>;
   readonly createContext: (options: LaunchContextOptions) => Promise<BrowserContext>;
   readonly createContextOptions: (settings: CloakBrowserSettingsWithSecret) => LaunchContextOptions;
@@ -128,13 +133,6 @@ interface FailureAuditOptions {
   readonly pageClosed?: boolean;
 }
 
-interface ProviderResourceOwner {
-  closePromise: Promise<boolean> | null;
-  readonly context: BrowserContext;
-  operationKey: string;
-  page: Page | null;
-}
-
 /** Shared main-process lifecycle; subclasses implement only public-page behavior. */
 export abstract class BaseTranslateProvider {
   public readonly cancelInitialization: () => void;
@@ -146,18 +144,24 @@ export abstract class BaseTranslateProvider {
   public readonly shutdown: () => Promise<void>;
 
   private readonly dependencies: BaseTranslateProviderDependencies;
-  private activeResource: ProviderResourceOwner | null = null;
+  private readonly browserResources: TranslationBrowserResourceCoordinator;
   private activeVisibleCleanupOperationKey: string | null = null;
   private generation = 0;
   private initializationGeneration = 0;
-  private operationQueue: Promise<void> = Promise.resolve();
-  private quarantinedResource: ProviderResourceOwner | null = null;
   private shutDown = false;
   private translationSequence = 0;
 
   protected constructor(info: TranslationProviderInfo, dependencies: BaseTranslateProviderDependencies) {
     this.info = info;
     this.dependencies = dependencies;
+    this.browserResources =
+      dependencies.browserResources ??
+      new TranslationBrowserResourceCoordinator({
+        cloakBrowserSettings: dependencies.cloakBrowserSettings,
+        createContext: dependencies.createContext,
+        createContextOptions: dependencies.createContextOptions,
+        retainContextAfterPageClose: false,
+      });
     this.cancelInitialization = () => this.cancelInitializationNow();
     this.initialize = (request) => this.enqueueInitialization(request);
     this.translate = (request) => this.enqueueTranslation(request);
@@ -234,37 +238,21 @@ export abstract class BaseTranslateProvider {
     request: TranslationProviderInitializationRequest,
   ): Promise<TranslationProviderInitializationOutcome> {
     const generation = this.initializationGeneration;
-    const operation = this.operationQueue.then(() => this.runInitialization(request, generation));
-    this.operationQueue = operation.then(
-      () => undefined,
-      () => undefined,
-    );
-    return operation;
+    return this.browserResources.enqueue(() => this.runInitialization(request, generation));
   }
 
   private enqueueTranslation(request: TranslationProviderRequest): Promise<TranslationProviderOutcome> {
     const generation = this.generation;
     const operationKey = this.createOperationKey('translation', ++this.translationSequence);
-    const operation = this.operationQueue.then(() => this.runTranslation(request, generation, operationKey));
-    if (!request.lifecycle) {
-      this.operationQueue = operation.then(
-        () => undefined,
-        () => undefined,
-      );
-      return operation;
-    }
+    const operation = this.browserResources.enqueue(() => this.runTranslation(request, generation, operationKey));
+    if (!request.lifecycle) return operation;
 
     const removeAbortListener = this.bindLifecycleCleanup(request.lifecycle, operationKey);
     const completion = operation.then((outcome) =>
       this.completeOperationLifecycle(request, generation, operationKey, outcome),
     );
     const terminalOutcome = this.awaitLifecycleFailure(request, generation, operationKey);
-    const bounded = Promise.race([completion, terminalOutcome]).finally(removeAbortListener);
-    this.operationQueue = bounded.then(
-      () => undefined,
-      () => undefined,
-    );
-    return bounded;
+    return Promise.race([completion, terminalOutcome]).finally(removeAbortListener);
   }
 
   private createOperationKey(kind: OperationState['kind'], generation: number): string {
@@ -273,6 +261,7 @@ export abstract class BaseTranslateProvider {
 
   private bindLifecycleCleanup(lifecycle: TranslationOperationLifecycle, operationKey: string): () => void {
     const onAbort = (): void => {
+      this.browserResources.interruptOperation(this.info.id, operationKey);
       void this.completeLifecycleCleanup(lifecycle, operationKey);
     };
     try {
@@ -317,14 +306,7 @@ export abstract class BaseTranslateProvider {
    * for the next selected-text request.
    */
   private hasReusableActiveResource(operationKey: string): boolean {
-    const active = this.activeResource;
-    return (
-      active !== null &&
-      active.operationKey === operationKey &&
-      active.closePromise === null &&
-      active.page !== null &&
-      !active.page.isClosed()
-    );
+    return this.browserResources.hasReusablePage(this.info.id, operationKey);
   }
 
   private async completeLifecycleCleanup(
@@ -332,17 +314,15 @@ export abstract class BaseTranslateProvider {
     operationKey: string,
   ): Promise<TranslationOperationLifecycleDecision> {
     lifecycle.startCleanupPhase();
-    const active = this.activeResource;
+    const active = this.browserResources.getActivePage(this.info.id, operationKey);
     if (
       this.activeVisibleCleanupOperationKey !== operationKey &&
       this.retainResourceOnTerminalFailure() &&
       active !== null &&
-      active.operationKey === operationKey &&
-      active.page !== null &&
-      !active.page.isClosed()
+      !active.isClosed()
     ) {
       try {
-        if (await this.isActiveResourceHealthy(active.page)) return lifecycle.completeCleanup(true);
+        if (await this.isActiveResourceHealthy(active)) return lifecycle.completeCleanup(true);
       } catch {
         // A health-check failure falls through to the established close/quarantine path.
       }
@@ -765,81 +745,29 @@ export abstract class BaseTranslateProvider {
   private async ensurePage(
     state: OperationState,
   ): Promise<{ readonly success: true; readonly page: Page } | PreparationFailure> {
-    if (!this.isOperationActive(state)) {
-      return {
-        success: false,
-        outcome: this.createStaleFailure('context', state),
-      };
-    }
+    const result = await this.browserResources.ensurePage({
+      isOperationActive: () => this.isOperationActive(state),
+      operationKey: state.operationKey,
+      providerId: this.info.id,
+    });
+    if (result.status === 'ready') return { success: true, page: result.page };
+    return this.createPageAcquisitionFailure(result, state);
+  }
 
-    if (this.quarantinedResource !== null) {
-      const quarantined = this.quarantinedResource;
-      if (quarantined.closePromise !== null) await quarantined.closePromise;
-      if (this.quarantinedResource === null) return this.ensurePage(state);
-      return {
-        success: false,
-        outcome: this.createFailure('cleanupFailure', 'cleanup', state),
-      };
-    }
-
-    const active = this.activeResource;
-    if (active !== null && active.page !== null && !active.page.isClosed()) {
-      active.operationKey = state.operationKey;
-      return { success: true, page: active.page };
-    }
-
-    if (active !== null) {
-      const closed = await this.closeOwnedResources(active.operationKey);
-      if (!closed) {
+  private async createPageAcquisitionFailure(
+    result: Exclude<TranslationBrowserPageResult, { readonly status: 'ready' }>,
+    state: OperationState,
+  ): Promise<PreparationFailure> {
+    switch (result.status) {
+      case 'stale':
+        return { success: false, outcome: this.createStaleFailure('context', state) };
+      case 'cleanup-failure':
+        return { success: false, outcome: this.createFailure('cleanupFailure', 'cleanup', state) };
+      case 'navigation-failure':
         return {
           success: false,
-          outcome: this.createFailure('cleanupFailure', 'cleanup', state),
+          outcome: await this.createTerminalFailure('navigationFailure', 'context', state),
         };
-      }
-    }
-
-    try {
-      const options = this.dependencies.createContextOptions(this.dependencies.cloakBrowserSettings.getWithSecret());
-      // eslint-disable-next-line @eslint-react/naming-convention-context-name -- this is a Playwright browser context.
-      const ownedBrowser = await this.dependencies.createContext(options);
-      if (!this.isOperationActive(state)) {
-        this.releaseDetachedResources(null, ownedBrowser);
-        return {
-          success: false,
-          outcome: this.createStaleFailure('context', state),
-        };
-      }
-      const owner: ProviderResourceOwner = {
-        closePromise: null,
-        context: ownedBrowser,
-        operationKey: state.operationKey,
-        page: null,
-      };
-      this.activeResource = owner;
-      const page = await ownedBrowser.newPage();
-      if (
-        !this.isOperationActive(state) ||
-        this.activeResource !== owner ||
-        owner.operationKey !== state.operationKey
-      ) {
-        this.releaseDetachedPage(page);
-        return {
-          success: false,
-          outcome: this.createStaleFailure('context', state),
-        };
-      }
-      owner.page = page;
-      return { success: true, page };
-    } catch (error: unknown) {
-      return {
-        success: false,
-        outcome: await this.createTerminalFailure(
-          'navigationFailure',
-          'context',
-          state,
-          normalizeProviderAuditExceptionType(error),
-        ),
-      };
     }
   }
 
@@ -1225,87 +1153,23 @@ export abstract class BaseTranslateProvider {
   }
 
   private async closeOwnedResources(operationKey?: string): Promise<boolean> {
-    const owner = this.activeResource ?? this.quarantinedResource;
-    if (owner === null || (operationKey !== undefined && owner.operationKey !== operationKey)) return true;
-    if (owner.closePromise !== null) return owner.closePromise;
-
-    if (this.activeResource === owner) this.activeResource = null;
-    this.quarantinedResource = owner;
-    const closePromise = this.performCloseOwnedResources(owner);
-    owner.closePromise = closePromise;
-    try {
-      return await closePromise;
-    } finally {
-      if (owner.closePromise === closePromise) owner.closePromise = null;
-    }
-  }
-
-  private async performCloseOwnedResources(owner: ProviderResourceOwner): Promise<boolean> {
-    const page = owner.page;
-    let pageClosed = page === null || page.isClosed();
-
-    if (page !== null && !pageClosed) {
-      try {
-        await page.close();
-        pageClosed = true;
-      } catch {
-        pageClosed = false;
-      }
-    }
-    try {
-      await owner.context.close();
-      if (owner.page === page) owner.page = null;
-      if (this.activeResource === owner) this.activeResource = null;
-      if (this.quarantinedResource === owner) this.quarantinedResource = null;
-      return true;
-    } catch {
-      if (pageClosed && owner.page === page) owner.page = null;
-      return false;
-    }
+    return this.browserResources.closePage(this.info.id, operationKey);
   }
 
   private async shutdownProvider(): Promise<void> {
     this.shutDown = true;
     this.generation += 1;
     this.initializationGeneration += 1;
-    const closed = await this.closeOwnedResources();
+    const closed = await this.browserResources.shutdown();
     if (!closed) {
       throw new Error('Translation provider cleanup failed');
     }
   }
 
   private cancelInitializationNow(): void {
+    const operationKey = this.createOperationKey('initialization', this.initializationGeneration);
     this.initializationGeneration += 1;
     this.generation += 1;
-    this.operationQueue = Promise.resolve();
-    const owner = this.activeResource ?? this.quarantinedResource;
-    if (owner !== null) void this.closeOwnedResources(owner.operationKey);
-  }
-
-  private releaseDetachedPage(page: Page): void {
-    try {
-      if (!page.isClosed()) void page.close();
-    } catch {
-      // The active owner retains context cleanup responsibility.
-    }
-  }
-
-  private releaseDetachedResources(page: Page | null, context: BrowserContext | null): void {
-    const cleanup: Promise<unknown>[] = [];
-    if (page) {
-      try {
-        if (!page.isClosed()) cleanup.push(page.close());
-      } catch {
-        // Detached provider resources remain unavailable to later generations.
-      }
-    }
-    if (context) {
-      try {
-        cleanup.push(context.close());
-      } catch {
-        // Detached provider resources remain unavailable to later generations.
-      }
-    }
-    if (cleanup.length > 0) void Promise.allSettled(cleanup);
+    this.browserResources.interruptOperation(this.info.id, operationKey);
   }
 }

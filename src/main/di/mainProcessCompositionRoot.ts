@@ -38,6 +38,7 @@ import {
   TranslationProviderRegistry,
   type TranslationProviderFactoryDependencies,
 } from '../translateProviders';
+import { TranslationBrowserResourceCoordinator } from '../translateProviders/TranslationBrowserResourceCoordinator';
 import {
   TranslationOperationLifecycleFactory,
   type TranslationOperationLifecycleDependencies,
@@ -197,7 +198,10 @@ export interface MainProcessTranslationEnvironment {
   readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
   readonly lifecycle: TranslationOperationLifecycleDependencies;
   readonly now: () => number;
-  readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'createContext' | 'now'>;
+  readonly providers: Omit<
+    TranslationProviderFactoryDependencies,
+    'browserResources' | 'cloakBrowserSettings' | 'createContext' | 'now'
+  >;
   readonly selectedText: Omit<
     SelectedTextTranslationDependencies,
     | 'actionGate'
@@ -564,8 +568,14 @@ export class MainProcessCompositionRoot {
     );
     const selectedTextActionGate = new SelectedTextActionGate();
     const textAutomation = new TextAutomationService(this.environment.textAutomation);
+    const translationBrowserResources = new TranslationBrowserResourceCoordinator({
+      cloakBrowserSettings,
+      createContext: cloakBrowserRuntime.launchContext,
+      createContextOptions: this.environment.translation.providers.createContextOptions,
+    });
     const translationProviderFactory = new TranslationProviderFactory({
       ...this.environment.translation.providers,
+      browserResources: translationBrowserResources,
       cloakBrowserSettings,
       createContext: cloakBrowserRuntime.launchContext,
       now: this.environment.translation.now,
