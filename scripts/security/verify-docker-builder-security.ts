@@ -150,7 +150,7 @@ async function main(): Promise<void> {
       });
     } catch (error) {
       if (error instanceof Error && error.message.endsWith('scanner report malformed')) {
-        throw new Error(`${error.message} (${reportShape(report)})`);
+        throw new Error(`${error.message} (${reportShape(report)})`, { cause: error });
       }
       throw error;
     }

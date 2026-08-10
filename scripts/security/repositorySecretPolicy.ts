@@ -16,8 +16,8 @@ const GENERATED_ROOT_PREFIXES = ['build/generated/', 'dist/', 'release/', 'relea
 const MAXIMUM_TEXT_FILE_BYTES = 1024 * 1024;
 const PRIVATE_KEY_BLOCK = /-{5}BEGIN (?:[A-Z]+ )?PRIVATE KEY-{5}[\s\S]*?-{5}END (?:[A-Z]+ )?PRIVATE KEY-{5}/u;
 const GITHUB_TOKEN = /\bgh[pousr]_[A-Za-z\d]{36,255}\b/u;
-const OPENAI_API_KEY = /\bsk-(?:proj-)?[A-Za-z\d_-]{20,255}\b/u;
-const ENTROPY_CANDIDATE = /\b[A-Za-z\d+/_-]{40,255}\b/gu;
+const OPENAI_API_KEY = /\bsk-(?:proj-)?[\w-]{20,255}\b/u;
+const ENTROPY_CANDIDATE = /\b[\w+/-]{40,255}\b/gu;
 const ENTROPY_THRESHOLD = 3.6;
 
 function isGeneratedPath(filePath: string, files: ReadonlyMap<string, string>): boolean {

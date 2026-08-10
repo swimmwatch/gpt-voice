@@ -12,14 +12,6 @@ interface ScannerDatabase {
   readonly Version: number;
 }
 
-interface Vulnerability {
-  readonly Severity: string;
-}
-
-interface ScanResult {
-  readonly Vulnerabilities?: readonly Vulnerability[];
-}
-
 const MAXIMUM_DATABASE_AGE_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 const HADOLINT_SUPPRESSION = /^\s*#\s*hadolint\s+ignore=/imu;
 const UNSAFE_DOCKERFILE_INSTRUCTION = /^\s*(?:ADD|USER\s+root\b)|--nogpgcheck\b|\b(?:curl|wget)\b/imu;

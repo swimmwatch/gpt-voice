@@ -74,7 +74,7 @@ async function trackedTextFiles(): Promise<readonly RepositoryTextFile[]> {
       files.push({ path: filePath, text: await readFile(absolutePath, 'utf8') });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Repository secret policy violation:')) throw error;
-      throw new Error('Repository secret policy violation: tracked text evidence unavailable');
+      throw new Error('Repository secret policy violation: tracked text evidence unavailable', { cause: error });
     }
   }
   return files;
