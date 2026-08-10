@@ -28,6 +28,16 @@ const NLOHMANN_JSON_WRAPPER = readFileSync(
   ),
   'utf8',
 );
+const NATIVE_HARDENING = readFileSync(
+  resolve(WORKSPACE_ROOT, 'runtime', 'local-whisper', 'cmake', 'LocalWhisperHardening.cmake'),
+  'utf8',
+);
+const MSVC_ANALYSIS_DRIVERS = [
+  'native-fs-guard-quality.mjs',
+  'native-launcher-quality.mjs',
+  'native-worker-quality.mjs',
+  'whisper-cpp-build-core.mjs',
+].map((fileName) => readFileSync(resolve(WORKSPACE_ROOT, 'scripts', 'local-whisper', fileName), 'utf8'));
 
 test('native quality manifest covers every owned project and separates host-specific sources', () => {
   const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
@@ -87,4 +97,19 @@ test('Linux quality compiles the Linux-only qualification test and MSVC analysis
   assert.match(WHISPER_CPP_CORE_VERIFIER, /runTests\(engine, 'direct-engine'\)/u);
   assert.match(NLOHMANN_JSON_WRAPPER, /#pragma warning\(disable : 6294\)/u);
   assert.match(NLOHMANN_JSON_WRAPPER, /#include <nlohmann\/json\.hpp>/u);
+});
+
+test('MSVC analysis is applied only through project-target hardening', () => {
+  assert.match(
+    NATIVE_HARDENING,
+    /option\(LOCAL_WHISPER_MSVC_ANALYZE "Run MSVC \/analyze for project-owned translation units" OFF\)/u,
+  );
+  assert.match(
+    NATIVE_HARDENING,
+    /if\(LOCAL_WHISPER_MSVC_ANALYZE\)\s+target_compile_options\(\$\{target\} PRIVATE \/analyze\)/u,
+  );
+  for (const driver of MSVC_ANALYSIS_DRIVERS) {
+    assert.match(driver, /-DLOCAL_WHISPER_MSVC_ANALYZE=ON/u);
+    assert.doesNotMatch(driver, /CMAKE_CXX_FLAGS=\/analyze/u);
+  }
 });

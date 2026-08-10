@@ -67,6 +67,7 @@ test('native analysis and CodeQL use real host builds without platform over-clai
     'runtime/local-whisper/launcher/.clang-tidy',
     'runtime/local-whisper/whisper-cpp/.clang-tidy',
   ].map((path) => readFileSync(path, 'utf8'));
+  const nativeHardening = readFileSync('runtime/local-whisper/cmake/LocalWhisperHardening.cmake', 'utf8');
 
   assert.match(workflow, /security-events: write/u);
   assert.match(workflow, /github\/codeql-action\/init@[a-f0-9]{40}\s+# v4\.37\.6/u);
@@ -91,6 +92,9 @@ test('native analysis and CodeQL use real host builds without platform over-clai
   assert.match(codeqlConfig, /src\/renderer/u);
   assert.match(codeqlConfig, /src\/shared/u);
   assert.match(codeqlConfig, /scripts/u);
-  assert.ok(windowsBuildDrivers.every((driver) => driver.includes('CMAKE_CXX_FLAGS=/analyze')));
+  assert.match(nativeHardening, /LOCAL_WHISPER_MSVC_ANALYZE/u);
+  assert.match(nativeHardening, /target_compile_options\(\$\{target\} PRIVATE \/analyze\)/u);
+  assert.ok(windowsBuildDrivers.every((driver) => driver.includes('LOCAL_WHISPER_MSVC_ANALYZE=ON')));
+  assert.ok(windowsBuildDrivers.every((driver) => !driver.includes('CMAKE_CXX_FLAGS=/analyze')));
   assert.ok(analyzerConfigurations.every((configuration) => configuration.includes('clang-analyzer-*')));
 });

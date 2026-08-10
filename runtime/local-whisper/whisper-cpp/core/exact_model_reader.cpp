@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <array>
+#include <new>
+#include <vector>
 
 namespace local_whisper::whisper_cpp {
 
@@ -43,7 +45,12 @@ bool ExactModelReader::read_optional_record_prefix(std::span<std::uint8_t> desti
 }
 
 void ExactModelReader::skip_exact(std::uint64_t bytes) {
-  std::array<std::uint8_t, 64U * 1024U> buffer{};
+  std::vector<std::uint8_t> buffer;
+  try {
+    buffer.resize(64U * 1024U);
+  } catch (const std::bad_alloc&) {
+    throw CoreError(FailureCode::allocation_failed, "model skip buffer allocation failed");
+  }
   while (bytes > 0U) {
     const auto count = std::min<std::uint64_t>(bytes, buffer.size());
     read_exact(std::span<std::uint8_t>(buffer.data(), static_cast<std::size_t>(count)));

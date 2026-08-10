@@ -1,5 +1,7 @@
 include(CheckCXXSourceCompiles)
 
+option(LOCAL_WHISPER_MSVC_ANALYZE "Run MSVC /analyze for project-owned translation units" OFF)
+
 function(local_whisper_resolve_fortify_level output_variable)
   if(DEFINED LOCAL_WHISPER_FORTIFY_LEVEL)
     set(${output_variable} "${LOCAL_WHISPER_FORTIFY_LEVEL}" PARENT_SCOPE)
@@ -77,6 +79,9 @@ endfunction()
 function(local_whisper_apply_compile_hardening target sanitizer_option)
   if(MSVC)
     target_compile_options(${target} PRIVATE /W4 /WX /permissive- /EHsc /GS /guard:cf)
+    if(LOCAL_WHISPER_MSVC_ANALYZE)
+      target_compile_options(${target} PRIVATE /analyze)
+    endif()
     if(${sanitizer_option})
       target_compile_options(${target} PRIVATE /fsanitize=address)
       target_link_options(${target} PRIVATE /fsanitize=address)

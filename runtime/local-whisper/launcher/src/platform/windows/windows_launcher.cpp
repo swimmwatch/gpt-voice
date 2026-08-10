@@ -37,11 +37,20 @@ namespace {
 constexpr auto kPollInterval = std::chrono::milliseconds(50);
 constexpr DWORD kDirectoryAccess = FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE;
 constexpr DWORD kWorkerAccess = GENERIC_READ | FILE_READ_ATTRIBUTES | SYNCHRONIZE;
+constexpr std::size_t kIoBufferBytes = 64U * 1024U;
 // The native guard retains DELETE-capable identity handles for quarantine while
 // a runtime lease is active. The launcher must coexist with that authority;
 // stable identities and digests are revalidated from its own handles before
 // the suspended worker is created.
 constexpr DWORD kGuardCompatibleShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+
+std::vector<std::uint8_t> allocate_io_buffer(LauncherErrorCode code) {
+  try {
+    return std::vector<std::uint8_t>(kIoBufferBytes);
+  } catch (...) {
+    throw LauncherError(code, "launcher buffer allocation failed");
+  }
+}
 
 class UniqueHandle final {
 public:
@@ -250,7 +259,7 @@ std::string file_id_hex(const FILE_ID_128& value) {
 }
 
 void reject_alternate_streams(HANDLE handle) {
-  std::array<unsigned char, 64 * 1024> storage{};
+  auto storage = allocate_io_buffer(LauncherErrorCode::kIdentityRejected);
   if (!GetFileInformationByHandleEx(handle, FileStreamInfo, storage.data(),
                                     static_cast<DWORD>(storage.size()))) {
     throw LauncherError(LauncherErrorCode::kIdentityRejected, "launcher stream identity failed");
@@ -336,7 +345,7 @@ std::string hash_handle(HANDLE handle) {
   if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
     throw LauncherError(LauncherErrorCode::kDigestRejected, "launcher seek failed");
   local_whisper::common::Sha256 hash;
-  std::array<unsigned char, 64 * 1024> buffer{};
+  auto buffer = allocate_io_buffer(LauncherErrorCode::kDigestRejected);
   while (true) {
     DWORD count = 0;
     if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr))
@@ -479,7 +488,7 @@ std::optional<DWORD> available_pipe_bytes(HANDLE pipe) {
 }
 
 void transfer_available(HANDLE source, HANDLE destination, DWORD available) {
-  std::array<std::uint8_t, 64U * 1024U> buffer{};
+  auto buffer = allocate_io_buffer(LauncherErrorCode::kPipeIoFailed);
   const DWORD requested = std::min<DWORD>(available, static_cast<DWORD>(buffer.size()));
   DWORD count = 0;
   if (!ReadFile(source, buffer.data(), requested, &count, nullptr) || count == 0U)

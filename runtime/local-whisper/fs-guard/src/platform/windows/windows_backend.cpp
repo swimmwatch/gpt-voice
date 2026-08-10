@@ -62,6 +62,7 @@ public:
   static constexpr NTSTATUS kStatusNameCollision = static_cast<NTSTATUS>(0xC0000035L);
   static constexpr NTSTATUS kStatusNameNotFound = static_cast<NTSTATUS>(0xC0000034L);
   static constexpr NTSTATUS kStatusPathNotFound = static_cast<NTSTATUS>(0xC000003AL);
+  static constexpr std::size_t kIoBufferBytes = 64U * 1024U;
   static constexpr FILE_INFORMATION_CLASS kFileRenameInformation =
       static_cast<FILE_INFORMATION_CLASS>(10);
 
@@ -106,6 +107,14 @@ public:
   void before_resource_acquisition() const {
     if (failure_injector_ != nullptr)
       failure_injector_->before_resource_acquisition();
+  }
+
+  [[nodiscard]] std::vector<unsigned char> allocate_io_buffer() const {
+    try {
+      return std::vector<unsigned char>(kIoBufferBytes);
+    } catch (...) {
+      throw GuardError("IO_FAILED");
+    }
   }
 
   UniqueHandle open_volume(const std::wstring& volume_path) {
@@ -204,7 +213,7 @@ public:
       throw GuardError("UNSAFE_ENTRY");
     }
     if (standard.Directory == FALSE) {
-      std::array<unsigned char, 64 * 1024> stream_buffer{};
+      auto stream_buffer = allocate_io_buffer();
       if (!GetFileInformationByHandleEx(handle, FileStreamInfo, stream_buffer.data(),
                                         static_cast<DWORD>(stream_buffer.size()))) {
         throw GuardError("UNSAFE_ENTRY");
@@ -561,7 +570,7 @@ public:
       throw GuardError("IO_FAILED");
     try {
       windows_crypto::CngSha256 digest([this] { before_resource_acquisition(); });
-      std::array<unsigned char, 64 * 1024> buffer{};
+      auto buffer = allocate_io_buffer();
       while (true) {
         DWORD count = 0;
         if (!ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &count, nullptr))
@@ -578,7 +587,7 @@ public:
 
   std::vector<std::wstring> directory_names(HANDLE directory) {
     std::vector<std::wstring> result;
-    std::array<unsigned char, 64 * 1024> buffer{};
+    auto buffer = allocate_io_buffer();
     bool restart = true;
     while (true) {
       const FILE_INFO_BY_HANDLE_CLASS information_class =

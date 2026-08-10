@@ -41,6 +41,15 @@ constexpr DWORD kFileAccess = GENERIC_READ | FILE_READ_ATTRIBUTES | SYNCHRONIZE;
 constexpr DWORD kGuardCompatibleShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
 constexpr auto kPollInterval = std::chrono::milliseconds(50);
 constexpr std::size_t kMaximumBootstrapBytes = 64U * 1024U;
+constexpr std::size_t kIoBufferBytes = 64U * 1024U;
+
+std::vector<std::uint8_t> allocate_io_buffer(ModelLaunchErrorCode code) {
+  try {
+    return std::vector<std::uint8_t>(kIoBufferBytes);
+  } catch (...) {
+    throw ModelLaunchError(code, "model launch buffer allocation failed");
+  }
+}
 
 class UniqueHandle final {
 public:
@@ -223,7 +232,7 @@ std::string file_id_hex(const FILE_ID_128& value) {
 }
 
 void reject_alternate_streams(HANDLE handle) {
-  std::array<unsigned char, 64U * 1024U> storage{};
+  auto storage = allocate_io_buffer(ModelLaunchErrorCode::kIdentityRejected);
   if (!GetFileInformationByHandleEx(handle, FileStreamInfo, storage.data(),
                                     static_cast<DWORD>(storage.size()))) {
     throw ModelLaunchError(ModelLaunchErrorCode::kIdentityRejected,
@@ -304,7 +313,7 @@ std::string hash_handle(HANDLE handle, std::uint64_t expected_bytes) {
   if (!SetFilePointerEx(handle, beginning, nullptr, FILE_BEGIN))
     throw ModelLaunchError(ModelLaunchErrorCode::kDigestRejected, "model launch seek failed");
   local_whisper::common::Sha256 digest;
-  std::array<std::uint8_t, 64U * 1024U> buffer{};
+  auto buffer = allocate_io_buffer(ModelLaunchErrorCode::kDigestRejected);
   std::uint64_t consumed = 0;
   while (consumed < expected_bytes) {
     const DWORD requested =
