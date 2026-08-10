@@ -9,11 +9,11 @@ test('Local Whisper keeps native CI checks on configured platform matrix rows', 
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const msvcAction = readFileSync(MSVC_ACTION_PATH, 'utf8');
 
-  assert.match(workflow, /native-quality:\n    name: Local Whisper Native Quality \(\$\{\{ matrix\.checkName \}\}\)/u);
+  assert.match(workflow, /native-quality:\n {4}name: Local Whisper Native Quality \(\$\{\{ matrix\.checkName \}\}\)/u);
   assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/u);
   assert.match(workflow, /fail-fast: false/u);
-  assert.match(workflow, /platform: linux\n            runner: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u);
-  assert.match(workflow, /platform: windows\n            runner: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
+  assert.match(workflow, /platform: linux\n {12}runner: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u);
+  assert.match(workflow, /platform: windows\n {12}runner: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
   assert.match(workflow, /toolchain: clang-\$\{\{ vars\.CI_LLVM_VERSION \}\}/u);
   assert.match(workflow, /toolchain: msvc-hosted/u);
 
@@ -43,9 +43,9 @@ test('Local Whisper keeps native CI checks on configured platform matrix rows', 
 test('package smoke keeps Linux and Windows commands inside one platform matrix', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 
-  assert.match(workflow, /package-smoke:\n    name: Package Smoke \(\$\{\{ matrix\.checkName \}\}\)/u);
-  assert.match(workflow, /checkName: Fedora Linux\n            platform: linux/u);
-  assert.match(workflow, /checkName: Windows\n            platform: windows/u);
+  assert.match(workflow, /package-smoke:\n {4}name: Package Smoke \(\$\{\{ matrix\.checkName \}\}\)/u);
+  assert.match(workflow, /checkName: Fedora Linux\n {12}platform: linux/u);
+  assert.match(workflow, /checkName: Windows\n {12}platform: windows/u);
   assert.match(workflow, /Smoke package application in Fedora/u);
   assert.match(workflow, /Build and smoke Windows package/u);
   assert.match(workflow, /CI_FEDORA_RELEASE_IMAGE/u);

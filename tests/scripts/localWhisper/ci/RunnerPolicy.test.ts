@@ -33,7 +33,7 @@ describe('Native CI runner policy', () => {
   it('rejects literal, unsupported, duplicate, and incomplete runner rows', () => {
     const verifier = new RunnerPolicyVerifier();
     assert.throws(
-      () => verifier.verify(validWorkflow.replace('\${{ vars.CI_LINUX_RUNNER }}', 'ubuntu-24.04')),
+      () => verifier.verify(validWorkflow.replace('${{ vars.CI_LINUX_RUNNER }}', 'ubuntu-24.04')),
       /configured runner/u,
     );
     assert.throws(
