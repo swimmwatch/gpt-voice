@@ -33,8 +33,8 @@ describe('window startup state', () => {
 
     assert.match(source, /getFirstLaunchStartupPresentation\(firstLaunchStartupState, \{/u);
     assert.match(source, /prettifyPending: isInitialPrettifyProviderLoading/u);
-    assert.match(source, /translationConnection: translationConnectionState/u);
     assert.match(source, /translationSettingsPending: !hasLoadedInitialTranslationSettings/u);
+    assert.doesNotMatch(source, /translationConnection: translationConnectionState/u);
     assert.match(source, /voicePending: isInitialVoiceProviderLoading/u);
     assert.doesNotMatch(source, /voicePending: isLoading[,\s]/u);
     assert.match(source, /onFirstLaunchStartupSnapshot\(acceptSnapshot\)/u);
@@ -43,7 +43,8 @@ describe('window startup state', () => {
       source.indexOf('onFirstLaunchStartupSnapshot(acceptSnapshot)') <
         source.indexOf('getFirstLaunchStartupSnapshot()'),
     );
-    assert.match(source, /useWindowStartupReady\(isI18nReady && !firstLaunchStartupPresentation\.isPending\)/u);
+    assert.match(source, /useWindowStartupReady\(isI18nReady\)/u);
+    assert.doesNotMatch(source, /useWindowStartupReady\(isI18nReady && !firstLaunchStartupPresentation\.isPending\)/u);
     assert.match(source, /if \(!isI18nReady \|\| firstLaunchStartupPresentation\.isPending\)/u);
     assert.match(source, /retryFirstLaunchStartup\(\)/u);
     assert.match(source, /setTranslationConnectionState\(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE\)/u);
@@ -53,6 +54,10 @@ describe('window startup state', () => {
     const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/WindowStartupGate.tsx'), 'utf8');
 
     assert.match(source, /document\.body\.dataset\.windowStartup = startupState/u);
+    assert.match(
+      source,
+      /loader\?\.setAttribute\('aria-hidden', String\(startupState === WindowStartupState\.Ready\)\)/u,
+    );
   });
 
   it('subscribes to the main interaction lock before querying and makes the app root inert', () => {

@@ -61,6 +61,7 @@ interface ShortcutControllerHarnessOptions {
 
 class ShortcutControllerHarness {
   public actionGateActive: SelectedTextAction | null = null;
+  private readonly actionGateListeners = new Set<(action: SelectedTextAction | null) => void>();
   public cancelCalls = 0;
   public chooserCalls = 0;
   public chooserFocusCalls = 0;
@@ -105,7 +106,15 @@ class ShortcutControllerHarness {
           return options.prettifyConnected ?? true;
         },
       },
-      selectedTextActionGate: { getActive: () => this.actionGateActive },
+      selectedTextActionGate: {
+        getActive: () => this.actionGateActive,
+        subscribe: (listener) => {
+          this.actionGateListeners.add(listener);
+          return (): void => {
+            this.actionGateListeners.delete(listener);
+          };
+        },
+      },
       selectedTextPrettifyService: {
         cancel: () => {
           this.cancelCalls += 1;
@@ -160,6 +169,11 @@ class ShortcutControllerHarness {
     assert.ok(this.translationObserver);
     this.translationObserver.onTranslationStarted();
   }
+
+  public setActionGateActive(action: SelectedTextAction | null): void {
+    this.actionGateActive = action;
+    for (const listener of [...this.actionGateListeners]) listener(action);
+  }
 }
 
 describe('ShortcutController', () => {
@@ -192,6 +206,23 @@ describe('ShortcutController', () => {
 
     assert.equal(harness.controller.getRecordingState().lifecycleState, 'idle');
     assert.deepEqual(harness.sent, []);
+  });
+
+  it('forwards Prettify and Translation gate activity to the main window without changing presentation timing', () => {
+    const harness = new ShortcutControllerHarness();
+
+    harness.setActionGateActive('prettify');
+    harness.setActionGateActive(null);
+    harness.setActionGateActive('translate');
+    harness.setActionGateActive(null);
+
+    assert.deepEqual(harness.sent, [
+      ['text-action-activity-changed', true],
+      ['text-action-activity-changed', false],
+      ['text-action-activity-changed', true],
+      ['text-action-activity-changed', false],
+    ]);
+    assert.deepEqual(harness.trayStates, []);
   });
 
   it('registers F12 chooser and Ctrl+F12 quick apply together', () => {
@@ -482,9 +513,11 @@ describe('ShortcutController', () => {
 
     harness.controller.dispose();
     harness.controller.dispose();
+    harness.setActionGateActive('translate');
     const unregisterCount = harness.globalShortcuts.unregisterAllCount;
     harness.controller.register();
     assert.equal(harness.globalShortcuts.unregisterAllCount, unregisterCount);
+    assert.deepEqual(harness.sent, []);
   });
 
   it('keeps hotkey capture suspended after the settings lock is released', () => {

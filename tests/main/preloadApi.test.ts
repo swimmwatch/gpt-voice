@@ -18,6 +18,7 @@ import {
 } from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS } from '@shared/mainInteractionLock';
+import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
@@ -206,6 +207,26 @@ describe('preload API factory', () => {
 
     renderer.respond(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, 'forged');
     assert.equal(await api.getMainInteractionLocked(), false);
+  });
+
+  it('decodes selected-text activity and ignores malformed activity events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query, false);
+    const api = createElectronApi(renderer);
+    const activity: boolean[] = [];
+    const unsubscribe = api.onTextActionActivityChanged((active) => activity.push(active));
+
+    assert.equal(await api.getTextActionActivity(), false);
+    renderer.emit(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, true);
+    renderer.emit(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, 'forged');
+    unsubscribe();
+    renderer.emit(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, false);
+
+    assert.deepEqual(activity, [true]);
+    assert.deepEqual(renderer.invocations.slice(-1), [{ args: [], channel: TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query }]);
+
+    renderer.respond(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query, 'forged');
+    assert.equal(await api.getTextActionActivity(), true);
   });
 
   it('sanitizes Translation connection queries and ignores malformed events', async () => {

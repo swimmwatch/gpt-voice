@@ -16,7 +16,11 @@ import {
   type RecordingLifecycleState,
 } from '@shared/recordingLifecycle';
 import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
-import type { TextActionStatus, TextActionStatusAction } from '@shared/textActionStatus';
+import {
+  TEXT_ACTION_ACTIVITY_IPC_CHANNELS,
+  type TextActionStatus,
+  type TextActionStatusAction,
+} from '@shared/textActionStatus';
 import type { I18nService } from './i18n';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
 import type { SelectedTextActionGate } from './services/selectedTextActionState';
@@ -74,7 +78,7 @@ export interface ShortcutControllerDependencies {
   };
   readonly platform: NodeJS.Platform;
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'isProviderConnected'>;
-  readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive'>;
+  readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive' | 'subscribe'>;
   readonly selectedTextPrettifyService: Pick<
     SelectedTextPrettifyService,
     'applyDefaultProfileToSelectedText' | 'cancel' | 'chooseProfileForSelectedText' | 'focusExistingChooser'
@@ -91,6 +95,7 @@ export class ShortcutController {
   private conflictingHotkeyTargets = new Set<HotkeyTarget>();
   private disposed = false;
   private readonly mainInteractionLockUnsubscribe: () => void;
+  private readonly selectedTextActionGateUnsubscribe: () => void;
   private recordingLifecycleState: RecordingLifecycleState = 'idle';
   private registeredRetryTranscriptionHotkey: string | null = null;
   private retryTranscriptionAvailable = false;
@@ -100,6 +105,9 @@ export class ShortcutController {
   public constructor(private readonly dependencies: ShortcutControllerDependencies) {
     this.mainInteractionLockUnsubscribe = dependencies.mainInteractionLock.subscribe((locked) => {
       this.setSuspension('settings-window', locked);
+    });
+    this.selectedTextActionGateUnsubscribe = dependencies.selectedTextActionGate.subscribe((action) => {
+      this.sendTextActionActivity(action !== null);
     });
   }
 
@@ -293,6 +301,7 @@ export class ShortcutController {
     if (this.disposed) return;
     this.disposed = true;
     this.mainInteractionLockUnsubscribe();
+    this.selectedTextActionGateUnsubscribe();
     this.dependencies.globalShortcut.unregisterAll();
     this.registeredRetryTranscriptionHotkey = null;
     this.conflictingHotkeyTargets.clear();
@@ -426,6 +435,12 @@ export class ShortcutController {
 
   private sendTextActionStatus(status: TextActionStatus): void {
     this.dependencies.windowManager.getMainWindow()?.webContents.send('translation-status', status);
+  }
+
+  private sendTextActionActivity(active: boolean): void {
+    this.dependencies.windowManager
+      .getMainWindow()
+      ?.webContents.send(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, active);
   }
 
   private reportTextActionFailure(failureLogMetadata: TextActionStatusResolution['failureLogMetadata']): void {

@@ -16,19 +16,6 @@ import {
   type FirstLaunchStartupJob,
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
-import {
-  TRANSLATION_PROVIDER_CONNECTION_DETAILS,
-  TRANSLATION_PROVIDER_CONNECTION_STATUSES,
-  type TranslationProviderConnectionState,
-} from '@shared/translationProvider';
-
-const READY_TRANSLATION_CONNECTION: TranslationProviderConnectionState = Object.freeze({
-  detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
-  providerId: 'google',
-  status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
-  targetLanguage: 'uk',
-});
-
 function job(
   id: FirstLaunchStartupJob['id'],
   state: FirstLaunchStartupJob['state'],
@@ -84,14 +71,19 @@ describe('first-launch startup state', () => {
 
     const presentation = getFirstLaunchStartupPresentation(state, {
       prettifyPending: true,
-      translationConnection: READY_TRANSLATION_CONNECTION,
       translationSettingsPending: false,
       voicePending: false,
     });
 
     assert.deepEqual(STARTUP_LOADER_JOB_ORDER, ['cloakbrowser', 'voice-provider', 'translation', 'prettify']);
     assert.deepEqual(presentation.activeJobIds, ['cloakbrowser', 'prettify']);
-    assert.equal(presentation.progress, 50);
+    assert.deepEqual(presentation.stages, [
+      { id: 'cloakbrowser', progress: 25, state: 'active' },
+      { id: 'voice-provider', progress: 100, state: 'completed' },
+      { id: 'translation', progress: 100, state: 'completed' },
+      { id: 'prettify', progress: 0, state: 'active' },
+    ]);
+    assert.equal(presentation.progress, 46);
     assert.equal(presentation.isPending, true);
   });
 
@@ -133,7 +125,6 @@ describe('first-launch startup state', () => {
 
     const presentation = getFirstLaunchStartupPresentation(state, {
       prettifyPending: false,
-      translationConnection: READY_TRANSLATION_CONNECTION,
       translationSettingsPending: false,
       voicePending: false,
     });
@@ -153,7 +144,6 @@ describe('first-launch startup state', () => {
     );
     const failedPresentation = getFirstLaunchStartupPresentation(failedState, {
       prettifyPending: false,
-      translationConnection: READY_TRANSLATION_CONNECTION,
       translationSettingsPending: false,
       voicePending: false,
     });
@@ -167,7 +157,6 @@ describe('first-launch startup state', () => {
     );
     const unselectedPresentation = getFirstLaunchStartupPresentation(unselectedState, {
       prettifyPending: false,
-      translationConnection: READY_TRANSLATION_CONNECTION,
       translationSettingsPending: false,
       voicePending: false,
     });
@@ -176,5 +165,35 @@ describe('first-launch startup state', () => {
     assert.equal(failedPresentation.isPending, true);
     assert.equal(unselectedPresentation.hasRetryableFailure, false);
     assert.equal(unselectedPresentation.isPending, false);
+  });
+
+  it('does not reopen the startup loader after Translation startup is complete', () => {
+    const state = receive(
+      createFirstLaunchStartupState(),
+      snapshot(5, [
+        job(FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser, FIRST_LAUNCH_STARTUP_JOB_STATES.Succeeded),
+        job(FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider, FIRST_LAUNCH_STARTUP_JOB_STATES.Succeeded),
+        job(FIRST_LAUNCH_STARTUP_JOB_IDS.Translation, FIRST_LAUNCH_STARTUP_JOB_STATES.Succeeded),
+      ]),
+    );
+
+    const presentation = getFirstLaunchStartupPresentation(state, {
+      prettifyPending: false,
+      translationSettingsPending: false,
+      voicePending: false,
+    });
+
+    assert.deepEqual(presentation.activeJobIds, []);
+    assert.deepEqual(
+      presentation.stages.map(({ id, state }) => ({ id, state })),
+      [
+        { id: 'cloakbrowser', state: 'completed' },
+        { id: 'voice-provider', state: 'completed' },
+        { id: 'translation', state: 'completed' },
+        { id: 'prettify', state: 'completed' },
+      ],
+    );
+    assert.equal(presentation.isPending, false);
+    assert.equal(presentation.progress, 100);
   });
 });

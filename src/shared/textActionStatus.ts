@@ -1,5 +1,9 @@
 export const TEXT_ACTION_STATUS_ACTIONS = ['translation', 'prettify'] as const;
 export const TEXT_ACTION_STATUS_PHASES = ['working', 'completed', 'failed', 'cancelled', 'skipped'] as const;
+export const TEXT_ACTION_ACTIVITY_IPC_CHANNELS = Object.freeze({
+  changed: 'text-action-activity-changed',
+  query: 'get-text-action-activity',
+});
 
 export type TextActionStatusAction = (typeof TEXT_ACTION_STATUS_ACTIONS)[number];
 export type TextActionStatusPhase = (typeof TEXT_ACTION_STATUS_PHASES)[number];
@@ -35,4 +39,9 @@ export function isTextActionStatus(value: unknown): value is TextActionStatus {
 /** Converts an untrusted IPC payload to the only status shape the renderer may present. */
 export function sanitizeTextActionStatus(value: unknown): TextActionStatus | null {
   return isTextActionStatus(value) ? value : null;
+}
+
+/** Accepts only the non-sensitive selected-text activity state exposed to the renderer. */
+export function isTextActionActivityState(value: unknown): value is boolean {
+  return typeof value === 'boolean';
 }

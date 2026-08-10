@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -10,6 +12,7 @@ import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
 import type { ElectronAPI } from '@renderer/types';
 
 const EMPTY_DESKTOP_API = {} as ElectronAPI;
+const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 function renderWithDesktopApi(element: ReactElement): string {
   return renderToStaticMarkup(
@@ -72,6 +75,15 @@ describe('unselected provider controls', () => {
     );
 
     assert.match(markup, /command-dock-record-button[^>]*disabled=""/u);
+  });
+
+  it('keeps the disabled recording button visibly and behaviorally distinct', () => {
+    const controls = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/components/RecordingControls.tsx'), 'utf8');
+    const styles = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/styles/globals.css'), 'utf8');
+
+    assert.match(controls, /disabled=\{recordingDisabled \|\| viewState\.primary\.disabled\}/u);
+    assert.match(styles, /\.command-dock \.command-dock-record-button:not\(:disabled\):hover \{/u);
+    assert.match(styles, /\.command-dock \.command-dock-record-button:disabled \{[\s\S]*?opacity: 0\.55;/u);
   });
 
   it('renders the Voice Provider settings control as a native disabled button while work is active', () => {

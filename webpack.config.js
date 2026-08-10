@@ -154,6 +154,7 @@ module.exports = [
         filename: 'index.html',
         title: 'GPT-Voice',
         chunks: ['main'],
+        startupShell: 'main',
       }),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',

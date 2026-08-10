@@ -136,6 +136,8 @@ export interface ElectronAPI {
   getRecordingStatus: () => Promise<boolean>;
   getMainInteractionLocked: () => Promise<boolean>;
   onMainInteractionLockChanged: (callback: (locked: boolean) => void) => () => void;
+  getTextActionActivity: () => Promise<boolean>;
+  onTextActionActivityChanged: (callback: (active: boolean) => void) => () => void;
   providerLogin: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;

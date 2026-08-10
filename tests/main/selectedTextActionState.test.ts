@@ -25,4 +25,38 @@ describe('selectedTextActionState', () => {
 
     assert.equal(gate.getActive(), 'translate');
   });
+
+  it('publishes only matching acquisition, completion, and reset transitions', () => {
+    const gate = new SelectedTextActionGate();
+    const activity: Array<'translate' | 'prettify' | null> = [];
+    gate.subscribe((action) => activity.push(action));
+
+    assert.equal(gate.tryBegin('translate'), true);
+    assert.equal(gate.tryBegin('prettify'), false);
+    gate.finish('prettify');
+    gate.finish('translate');
+    gate.reset();
+    assert.equal(gate.tryBegin('prettify'), true);
+    gate.reset();
+
+    assert.deepEqual(activity, ['translate', null, 'prettify', null]);
+  });
+
+  it('isolates throwing listeners and allows subscription cleanup', () => {
+    const gate = new SelectedTextActionGate();
+    const activity: Array<'translate' | 'prettify' | null> = [];
+    const unsubscribe = gate.subscribe((action) => activity.push(action));
+    gate.subscribe(() => {
+      throw new Error('presentation failure');
+    });
+
+    assert.equal(gate.tryBegin('translate'), true);
+    gate.finish('translate');
+    unsubscribe();
+    assert.equal(gate.tryBegin('prettify'), true);
+    gate.reset();
+
+    assert.deepEqual(activity, ['translate', null]);
+    assert.equal(gate.getActive(), null);
+  });
 });

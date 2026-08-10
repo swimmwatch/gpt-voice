@@ -17,6 +17,7 @@ import {
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
+import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
 
 type IpcHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 
@@ -150,13 +151,14 @@ function createEvent(): IpcMainInvokeEvent {
 function createHarness(
   options: {
     readonly coordinator?: StartupCoordinatorDouble;
+    readonly operationActive?: boolean;
     readonly trusted?: boolean;
     readonly snapshot?: FirstLaunchStartupSnapshot;
   } = {},
 ) {
   const transport = new RecordingTransport();
   const coordinator = options.coordinator ?? new StartupCoordinatorDouble(options.snapshot ?? createPendingSnapshot());
-  const mainInteractionLock = new MainInteractionLock(() => false);
+  const mainInteractionLock = new MainInteractionLock(() => options.operationActive ?? false);
   const registrar = new TrustedIpcRegistrar(
     transport,
     { error: () => undefined, info: () => undefined, warn: () => undefined },
@@ -189,6 +191,27 @@ describe('first-launch startup IPC', () => {
     const untrusted = createHarness({ trusted: false }).transport.handlers.get(
       MAIN_INTERACTION_LOCK_IPC_CHANNELS.query,
     );
+    assert.ok(untrusted);
+    assert.throws(() => untrusted(createEvent()));
+  });
+
+  it('exposes selected-text activity only through a trusted zero-argument query', () => {
+    const { mainInteractionLock, transport } = createHarness();
+    const handler = transport.handlers.get(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query);
+    assert.ok(handler);
+
+    assert.equal(handler(createEvent()), false);
+    const acquisition = mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+    assert.equal(handler(createEvent()), false);
+    assert.throws(() => handler(createEvent(), 'forged'), /Unexpected IPC arguments/u);
+
+    const activeHarness = createHarness({ operationActive: true });
+    const activeHandler = activeHarness.transport.handlers.get(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query);
+    assert.ok(activeHandler);
+    assert.equal(activeHandler(createEvent()), true);
+
+    const untrusted = createHarness({ trusted: false }).transport.handlers.get(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query);
     assert.ok(untrusted);
     assert.throws(() => untrusted(createEvent()));
   });

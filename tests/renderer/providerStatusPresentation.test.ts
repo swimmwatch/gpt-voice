@@ -245,8 +245,15 @@ describe('provider status presentation', () => {
       /translationSettingsRef\.current = candidate[\s\S]*?await desktopApi\.setTranslateSettings\(candidate\)[\s\S]*?const connectionRequestId = translationConnectionRequestRef\.current[\s\S]*?await desktopApi\.getTranslationProviderConnection\(\)[\s\S]*?connectionRequestId === translationConnectionRequestRef\.current[\s\S]*?translationSettingsSavePendingRef\.current = false/u,
     );
     assert.match(app, /doesTranslationConnectionMatchSettings\(connectionState, translationSettingsRef\.current\)/u);
-    assert.match(app, /const isNewRecordingLocked =[\s\S]*activeTextAction !== null;/u);
+    assert.match(
+      app,
+      /const isNewRecordingLocked =[\s\S]*activeTextAction !== null \|\|\s*isTextActionActivityActive !== false;/u,
+    );
     assert.match(app, /recordingDisabled=\{activeProviderId === null \|\| isNewRecordingLocked\}/u);
+    assert.match(
+      app,
+      /onTextActionActivityChanged\(\(active\) => \{[\s\S]*?getTextActionActivity\(\)[\s\S]*?activityEventVersion === queryEventVersion/u,
+    );
   });
 
   it('uses an icon-only disconnected-provider action for every authentication type', () => {

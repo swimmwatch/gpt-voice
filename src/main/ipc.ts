@@ -79,6 +79,7 @@ import {
 import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
 import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
+import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
 import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
@@ -1274,6 +1275,10 @@ export class MainIpcController {
     this.trustedIpc.handle(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, (_event, ...args: unknown[]) => {
       assertEmptyIpcArguments(args);
       return this.dependencies.mainInteractionLock.locked;
+    });
+    this.trustedIpc.handle(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.mainInteractionLock.operationActive;
     });
   }
 

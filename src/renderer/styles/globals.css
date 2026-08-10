@@ -690,13 +690,13 @@
   grid-template-columns: minmax(0, 1fr) 48px;
 }
 
-.command-dock .command-dock-record-button:hover {
+.command-dock .command-dock-record-button:not(:disabled):hover {
   background-image: linear-gradient(180deg, #326bdc, #2b60cb);
 }
 
 .command-dock .command-dock-record-button:disabled {
   background-image: linear-gradient(180deg, var(--dock-primary-top), var(--dock-primary-bottom));
-  opacity: 1;
+  opacity: 0.55;
 }
 
 .command-dock .command-dock-record-button.bg-destructive {

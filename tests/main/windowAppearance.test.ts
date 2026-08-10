@@ -6,11 +6,13 @@ import * as path from 'node:path';
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 const WINDOW_SOURCE_PATH = path.join(PROJECT_ROOT, 'src/main/window.ts');
 const RENDERER_TEMPLATE_PATH = path.join(PROJECT_ROOT, 'src/renderer/index.html');
+const WEBPACK_CONFIG_PATH = path.join(PROJECT_ROOT, 'webpack.config.js');
 
 describe('window appearance', () => {
   it('shows every renderer window immediately with a graphite startup shell', () => {
     const windowSource = readFileSync(WINDOW_SOURCE_PATH, 'utf8');
     const rendererTemplate = readFileSync(RENDERER_TEMPLATE_PATH, 'utf8');
+    const webpackConfig = readFileSync(WEBPACK_CONFIG_PATH, 'utf8');
 
     assert.match(windowSource, /const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';/u);
     assert.equal((windowSource.match(/backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,/gu) || []).length, 5);
@@ -21,9 +23,15 @@ describe('window appearance', () => {
     assert.match(rendererTemplate, /id="window-startup-loader"/u);
     assert.match(
       rendererTemplate,
-      /#window-startup-spinner \{[\s\S]*?width: 48px;[\s\S]*?height: 48px;[\s\S]*?border: 4px solid #737679;/u,
+      /#window-startup-spinner \{[\s\S]*?width: 24px;[\s\S]*?height: 24px;[\s\S]*?border: 2px solid #737679;/u,
     );
     assert.match(rendererTemplate, /cursor: progress;/u);
+    assert.match(webpackConfig, /filename: 'index\.html',[\s\S]*?startupShell: 'main',/u);
+    assert.match(rendererTemplate, /htmlWebpackPlugin\.options\.startupShell === 'main'/u);
+    assert.match(rendererTemplate, /class="window-startup-main-shell"/u);
+    assert.match(rendererTemplate, /class="window-startup-stage-grid"/u);
+    assert.match(rendererTemplate, /index < 4/u);
+    assert.doesNotMatch(rendererTemplate, />Voice provider<|>Translation<|>Prettify</u);
   });
 
   it('creates provider-bound resizable settings windows and includes them in trusted senders', () => {

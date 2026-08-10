@@ -378,6 +378,7 @@ class RecordingShortcutController extends ShortcutController {
       prettifyRuntime: { isProviderConnected: () => true },
       selectedTextActionGate: {
         getActive: () => null,
+        subscribe: () => () => undefined,
       },
       selectedTextPrettifyService: {
         cancel: () => null,

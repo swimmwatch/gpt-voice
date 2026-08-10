@@ -90,6 +90,7 @@ const App: React.FC = () => {
   const [didFirstLaunchRetryFail, setDidFirstLaunchRetryFail] = useState(false);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [isMainInteractionLocked, setIsMainInteractionLocked] = useState(false);
+  const [isTextActionActivityActive, setIsTextActionActivityActive] = useState<boolean | null>(null);
   const [status, setStatus] = useState<RendererStatus | null>(null);
   const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -143,7 +144,8 @@ const App: React.FC = () => {
     isPrettifyProviderSwitching ||
     isTranslationProviderSwitching ||
     isPrettifyModelActionRunning ||
-    activeTextAction !== null;
+    activeTextAction !== null ||
+    isTextActionActivityActive !== false;
   const [prettifyCliConnectionCoordinator] = useState(() =>
     createMainPrettifyCliConnectionCoordinator({
       check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
@@ -163,12 +165,11 @@ const App: React.FC = () => {
   const activeProviderTranscriptionMode = activeProvider?.transcriptionMode || 'batch';
   const firstLaunchStartupPresentation = getFirstLaunchStartupPresentation(firstLaunchStartupState, {
     prettifyPending: isInitialPrettifyProviderLoading,
-    translationConnection: translationConnectionState,
     translationSettingsPending: !hasLoadedInitialTranslationSettings,
     voicePending: isInitialVoiceProviderLoading,
   });
 
-  useWindowStartupReady(isI18nReady && !firstLaunchStartupPresentation.isPending);
+  useWindowStartupReady(isI18nReady);
 
   useEffect(() => {
     let disposed = false;
@@ -183,6 +184,31 @@ const App: React.FC = () => {
       .getFirstLaunchStartupSnapshot()
       .then(acceptSnapshot)
       .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+
+  useEffect(() => {
+    let disposed = false;
+    let activityEventVersion = 0;
+    const unsubscribe = desktopApi.onTextActionActivityChanged((active) => {
+      if (disposed) return;
+      activityEventVersion += 1;
+      setIsTextActionActivityActive(active);
+    });
+    const queryEventVersion = activityEventVersion;
+
+    void desktopApi
+      .getTextActionActivity()
+      .then((active) => {
+        if (!disposed && activityEventVersion === queryEventVersion) setIsTextActionActivityActive(active);
+      })
+      .catch(() => {
+        if (!disposed && activityEventVersion === queryEventVersion) setIsTextActionActivityActive(true);
+      });
 
     return () => {
       disposed = true;
@@ -1013,13 +1039,13 @@ const App: React.FC = () => {
   if (!isI18nReady || firstLaunchStartupPresentation.isPending) {
     return (
       <LoadingScreen
-        activeJobIds={firstLaunchStartupPresentation.activeJobIds}
         hasRetryableFailure={firstLaunchStartupPresentation.hasRetryableFailure}
         isRetryPending={isFirstLaunchRetryPending}
         mode="startup"
         onRetry={() => void retryFirstLaunchStartup()}
         progress={firstLaunchStartupPresentation.progress}
         retryFailed={didFirstLaunchRetryFail}
+        stages={firstLaunchStartupPresentation.stages}
       />
     );
   }
