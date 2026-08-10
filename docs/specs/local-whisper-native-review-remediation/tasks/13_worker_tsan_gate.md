@@ -1,4 +1,4 @@
-# 11 Worker TSan Gate
+# 13 Worker TSan Gate
 
 ## Outcome
 
@@ -6,7 +6,7 @@ A separate Linux Clang ThreadSanitizer configuration detects a synthetic race an
 
 ## Prerequisites
 
-- Packets 01, 08, and 09 are complete so worker ownership, profile policy, and source manifests are stable.
+- Packets 01, 08, 09, and 11 are complete so worker ownership, workflow/profile policy, and source manifests are stable.
 - This packet has separate execution authorization and no other packet is in progress.
 - The pinned Linux Clang profile and project-owned worker test sources are available.
 
@@ -63,12 +63,11 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Remote Completion Gate
 
-1. After local verification passes, leave Packet 11 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 11 candidate commit.
-2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
-3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and the worker TSan job introduced by this packet.
-4. The Linux TSan proof/suite and the ordinary Windows worker/native jobs must execute and pass. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable even though TSan instrumentation remains Linux-only.
-5. Fix packet-caused in-scope failures, add focused deterministic regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
-6. After the candidate SHA passes, check Packet 11, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+1. Before the candidate or any fix commit, run every applicable local check. Leave Packet 13 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force.
+2. Confirm CI launched for the exact candidate SHA. Require all selected checks to succeed, including Quality Gates, workflow/security policy, fixture/package jobs, the worker TSan proof/suite, and both selected native runner jobs.
+3. Linux TSan must pass its proof and complete concurrency matrix. The Windows Server 2025 native job must execute its complete selected ordinary worker/native surface and conclude `success`; no required Windows skip is acceptable even though TSan is Linux-only.
+4. Fix packet-caused failures with focused deterministic regressions, rerun all applicable local checks before committing, push, and repeat the exact-SHA gate. Record unrelated/out-of-scope failures as blockers.
+5. After the candidate SHA passes, check Packet 13 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
 
 ## Failure And Rollback
 
@@ -78,16 +77,16 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Manual Gates
 
-- No Windows TSan instrumentation or supported-host manual Windows smoke applies, but the required Windows worker/native jobs must execute and pass without claiming TSan coverage. Packet 15 retains the final supported-host Windows matrix.
+- No Windows TSan instrumentation or supported-host manual Windows smoke applies, but the required Windows Server 2025 jobs must execute and pass without claiming TSan coverage. Packet 19 retains final supported-host Windows testing.
 - The packet's non-force PR-head pushes are required; manual workflow dispatch and artifact publication remain unauthorized.
 
 ## References
 
 - Specification Sections 5, 10.5, and 12; AC-AUT-022.
-- Packet 01 is the behavior owner and Packet 09 owns source-coverage reporting.
+- Packet 01 is the behavior owner and Packet 11 owns source-coverage reporting.
 
 ## Completion And Handoff
 
-- Record profile, proof classification, concurrency cases, TSan result, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
-- Check Packet 11 only after the proof/remediated suite and both exact-SHA remote phases pass with no skipped Windows job.
-- Set the exact next packet to Packet 12 and stop.
+- Record profile, proof classification, concurrency cases, TSan result, candidate SHA, and successful two-runner evidence in `handoff.md`.
+- Check Packet 13 only after the proof/remediated suite and code-bearing exact-SHA remote gate pass with no required Windows skip.
+- Set the exact next packet to Packet 14 and stop.

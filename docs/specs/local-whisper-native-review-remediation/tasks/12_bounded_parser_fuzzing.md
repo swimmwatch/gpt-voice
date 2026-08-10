@@ -1,4 +1,4 @@
-# 10 Bounded Parser Fuzzing
+# 12 Bounded Parser Fuzzing
 
 ## Outcome
 
@@ -6,7 +6,7 @@ Exactly seven shared attacker-influenced parsers run deterministic corpus checks
 
 ## Prerequisites
 
-- Packets 03, 05, 08, and 09 are complete so parser boundaries, frame contracts, sanitizer policy, and source reporting are stable.
+- Packets 03, 05, 08, 09, and 11 are complete so parser boundaries, frame contracts, sanitizer policy, immutable runner wiring, and source reporting are stable.
 - This packet has separate execution authorization and no other packet is in progress.
 - The pinned Linux Clang profile and verified native inputs are available.
 
@@ -71,12 +71,11 @@ Run the full 60-second mutation budget only as this packet's completion gate, no
 
 ## Remote Completion Gate
 
-1. After local verification passes, leave Packet 10 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 10 candidate commit.
-2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
-3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and the bounded fuzz job introduced by this packet.
-4. The Linux fuzz job must run all seven targets and budgets, while the required Windows native jobs must still execute and pass the ordinary packet regression surface. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable even though libFuzzer instrumentation remains Linux-only.
-5. Fix packet-caused in-scope failures, retain minimized synthetic regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
-6. After the candidate SHA passes, check Packet 10, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+1. Before the candidate or any fix commit, run every applicable local check. Leave Packet 12 unchecked, update `handoff.md` with pending remote evidence, stage only packet-owned paths, commit conventionally, and push without force.
+2. Confirm CI launched for the exact candidate SHA. Require all selected checks to succeed, including Quality Gates, workflow/security policy, fixture/package jobs, the bounded fuzz job, and the Ubuntu 24.04 and Windows Server 2025 native runner jobs.
+3. The Ubuntu 24.04 fuzz job must run all seven targets and budgets. The required Windows Server 2025 jobs must still execute their complete selected ordinary native surfaces and conclude `success`; a required Windows skip is never acceptable even though libFuzzer remains Linux-only.
+4. Fix packet-caused failures and retain minimized synthetic regressions, rerun all applicable local checks before committing, push, and repeat the exact-SHA gate. Record unrelated/out-of-scope failures as blockers.
+5. After the candidate SHA passes, check Packet 12 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
 
 ## Failure And Rollback
 
@@ -87,7 +86,7 @@ Run the full 60-second mutation budget only as this packet's completion gate, no
 ## Manual Gates
 
 - Inspect corpus/report additions for sensitive data before completion. No private input collection or artifact publication is authorized.
-- No Windows-specific fuzz instrumentation or supported-host manual Windows smoke applies, but every required ordinary Windows CI job must execute and succeed; a skipped Windows job is not evidence.
+- No Windows-specific fuzz instrumentation or supported-host manual Windows smoke applies, but both required Windows runner jobs must execute and succeed; a skipped Windows job is not evidence. Packet 19 retains supported-host Windows testing.
 
 ## References
 
@@ -96,6 +95,6 @@ Run the full 60-second mutation budget only as this packet's completion gate, no
 
 ## Completion And Handoff
 
-- Record target inventory, limits, budgets, corpus changes, proof result, discovered reproducers, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
-- Check Packet 10 only after the bounded Linux fuzz gate and both exact-SHA remote phases pass with no skipped Windows job.
-- Set the exact next packet to Packet 11 and stop.
+- Record target inventory, limits, budgets, corpus changes, proof result, discovered reproducers, candidate SHA, and successful two-runner CI evidence in `handoff.md`.
+- Check Packet 12 only after the bounded Linux fuzz gate and code-bearing exact-SHA remote gate pass with no required Windows skip.
+- Set the exact next packet to Packet 13 and stop.

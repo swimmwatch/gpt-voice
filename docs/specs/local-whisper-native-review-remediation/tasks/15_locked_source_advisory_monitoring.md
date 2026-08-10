@@ -1,4 +1,4 @@
-# 13 Locked-Source Advisory Monitoring
+# 15 Locked-Source Advisory Monitoring
 
 ## Outcome
 
@@ -6,7 +6,7 @@ A credential-free scheduled workflow maps the exact locked Whisper.cpp, nlohmann
 
 ## Prerequisites
 
-- Packet 09 is complete so native quality reporting conventions are available.
+- Packets 09–11 are complete so immutable scheduled workflows, repository security policy, native source manifests, and reporting conventions are available.
 - This packet has separate execution authorization and no other packet is in progress.
 - The three existing lock records and their schemas are present and unchanged.
 
@@ -69,12 +69,11 @@ If public sources are temporarily unavailable, fixture tests may complete the pa
 
 ## Remote Completion Gate
 
-1. After local verification passes, leave Packet 13 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 13 candidate commit.
-2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA; do not manually dispatch the scheduled advisory workflow.
-3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, deterministic advisory fixture checks, and every workflow-policy check introduced by this packet.
-4. The required Linux and Windows native jobs must still execute and pass the complete applicable C++ surface. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable. Live advisory-service availability remains outside pull-request reproducibility and is handled by the separate freshness contract.
-5. Fix packet-caused in-scope failures, add focused synthetic regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
-6. After the candidate SHA passes, check Packet 13, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+1. Before the candidate or any fix commit, run every applicable local check. Leave Packet 15 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force; do not manually dispatch the scheduled workflow.
+2. Confirm CI launched for the exact candidate SHA. Require all selected checks to succeed, including Quality Gates, workflow/repository security policy, fixture/package jobs, deterministic advisory fixtures, and both selected native runner jobs.
+3. Windows Server 2025 must execute and pass its complete selected native surface with no required skip. Live advisory-service availability remains outside pull-request reproducibility and is governed by the separate freshness contract.
+4. Fix packet-caused failures with focused synthetic regressions, rerun all applicable local checks before committing, push, and repeat the exact-SHA gate. Record unrelated/out-of-scope failures as blockers.
+5. After the candidate SHA passes, check Packet 15 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
 
 ## Failure And Rollback
 
@@ -94,5 +93,5 @@ If public sources are temporarily unavailable, fixture tests may complete the pa
 ## Completion And Handoff
 
 - Record sources, exact lock mappings, fixture results, live status/freshness, workflow cadence, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
-- Check Packet 13 only after deterministic implementation checks and both exact-SHA remote phases pass with no skipped Windows job; stale or unavailable live evidence remains an explicit qualification blocker, not a PR failure.
-- Set the exact next packet to Packet 14 and stop.
+- Check Packet 15 only after deterministic implementation checks and the code-bearing exact-SHA remote gate pass with no required Windows skip; stale or unavailable live evidence remains an explicit qualification blocker, not a PR failure.
+- Set the exact next packet to Packet 16 and stop.

@@ -1,4 +1,4 @@
-# 12 Focused GCC Quality
+# 14 Focused GCC Quality
 
 ## Outcome
 
@@ -6,7 +6,7 @@ The Linux pull-request workflow builds and tests the filesystem guard and launch
 
 ## Prerequisites
 
-- Packets 02–06, 08, and 09 are complete so guard/launcher behavior and native manifests are stable.
+- Packets 02–06, 08–11 are complete so guard/launcher behavior, fixed runner policy, repository gates, and native manifests are stable.
 - This packet has separate execution authorization and no other packet is in progress.
 - The pinned GCC 13 profile and verified native inputs are available.
 
@@ -27,7 +27,7 @@ The Linux pull-request workflow builds and tests the filesystem guard and launch
 
 ## Task Contract
 
-1. Add focused pinned-GCC execution for the filesystem guard and launcher using the canonical manifests from Packet 09.
+1. Add focused pinned-GCC execution for the filesystem guard and launcher using the canonical manifests from Packet 11.
 2. Run applicable unit/integration suites with warnings as errors and disconnected verified inputs.
 3. Keep common and project-owned worker suites out of this new slice unless a concrete uncovered dependency requires them.
 4. Report compile and execution evidence separately from Clang sanitizer/analysis evidence; fail on missing sources, tool crashes, or test failures.
@@ -60,12 +60,11 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Remote Completion Gate
 
-1. After local verification passes, leave Packet 12 unchecked, update `handoff.md` with candidate state and pending remote evidence, stage only packet-owned paths, and create a conventional Packet 12 candidate commit.
-2. Push the candidate commit without force to the verified head of pull request 58 (or its verified successor) and record the exact SHA. Confirm that the push launches CI for that SHA.
-3. Require all checks selected for that SHA to finish successfully. At minimum inspect **Local Whisper Native Quality (Linux)**, **Local Whisper Native Quality (Windows)**, **Quality Gates**, **Package Smoke (Fedora Linux)**, **Package Smoke (Windows)**, **Actionlint**, every selected `Local Whisper Fixture Packaging` job, and the focused GCC job introduced by this packet.
-4. The GCC 13 job and the ordinary Clang/MSVC native jobs must execute and pass their applicable C++ checks. Every required Windows job must run and conclude `success`; a skipped Windows job is never acceptable even though GCC evidence remains Linux-only.
-5. Fix packet-caused in-scope failures, add focused regressions where applicable, commit and push the fix, and repeat the exact-SHA gate. Record an unrelated or out-of-scope failure as a blocker and leave the packet unchecked.
-6. After the candidate SHA passes, check Packet 12, record the remote run/job evidence in `handoff.md`, create and push a separate completion-record commit, and require all workflows for that final SHA to pass again. That final external check result closes the gate without another self-referential documentation commit.
+1. Before the candidate or any fix commit, run every applicable local check. Leave Packet 14 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force.
+2. Confirm CI launched for the exact candidate SHA. Require all selected checks to succeed, including Quality Gates, workflow/security policy, fixture/package jobs, the focused GCC job, and both selected native runner jobs.
+3. GCC 13 and the Ubuntu 24.04 Clang/Windows Server 2025 MSVC jobs must execute and pass their applicable C++ checks. The required Windows jobs must conclude `success`; no required Windows skip is acceptable even though GCC remains Linux-only.
+4. Fix packet-caused portability failures with focused regressions, rerun all applicable local checks before committing, push, and repeat the exact-SHA gate. Record unrelated/out-of-scope failures as blockers.
+5. After the candidate SHA passes, check Packet 14 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
 
 ## Failure And Rollback
 
@@ -84,6 +83,6 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Completion And Handoff
 
-- Record GCC profile, source manifests, commands/results, exact candidate/completion commits, and successful Linux/Windows CI jobs in `handoff.md`.
-- Check Packet 12 only after both focused GCC suites and both exact-SHA remote phases pass with no skipped Windows job.
-- Set the exact next packet to Packet 13 and stop.
+- Record GCC profile, source manifests, commands/results, candidate SHA, and successful two-runner CI evidence in `handoff.md`.
+- Check Packet 14 only after both focused GCC suites and the code-bearing exact-SHA remote gate pass with no required Windows skip.
+- Set the exact next packet to Packet 15 and stop.

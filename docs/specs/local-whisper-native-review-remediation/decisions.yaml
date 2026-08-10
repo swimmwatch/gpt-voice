@@ -206,7 +206,7 @@ decisions:
   - id: operations.dependencies-and-release
     revision: 1
     category: operations
-    state: observed
+    state: superseded
     provenance: repository
     evidence:
       - AGENTS.md
@@ -1250,7 +1250,7 @@ decisions:
   - id: operations.existing-plan-revision
     revision: 1
     category: operations
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
@@ -1314,7 +1314,7 @@ decisions:
   - id: acceptance.final-gap-analysis
     revision: 1
     category: acceptance
-    state: observed
+    state: superseded
     provenance: repository
     evidence:
       - docs/specs/local-whisper-native-review-remediation/spec.md
@@ -1337,7 +1337,7 @@ decisions:
   - id: approval.spec
     revision: 2
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-native-review-remediation/spec.md
@@ -1521,7 +1521,7 @@ decisions:
     state: answered
     provenance: user
     evidence:
-      - User instruction: "No skip windows jobs"
+      - User instruction: 'No skip windows jobs'
       - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
       - .github/workflows/pr-checks.yml
     prompt_mcp: null
@@ -1660,7 +1660,8 @@ decisions:
       idempotency_key: authorization.packet-04-ci-remediation:v1
       last_status: answered
     question:
-      text: May I expand Packet 04 to repair the candidate SHA's pre-existing CI blockers: Actionlint rejects the permanently false Windows AMD placeholder at .github/workflows/pr-checks.yml:223, and the Linux native job fails while provisioning its locked test sources before any Packet 04 code runs? The repair would be limited to CI/workflow or locked-source provisioning and their regressions, then would repeat both exact-SHA Linux and Windows gates. It excludes Packet 05, releases, and manual Windows testing.
+      text: >-
+        May I expand Packet 04 to repair the candidate SHA's pre-existing CI blockers: Actionlint rejects the permanently false Windows AMD placeholder at .github/workflows/pr-checks.yml:223, and the Linux native job fails while provisioning its locked test sources before any Packet 04 code runs? The repair would be limited to CI/workflow or locked-source provisioning and their regressions, then would repeat both exact-SHA Linux and Windows gates. It excludes Packet 05, releases, and manual Windows testing.
       kind: single
       options:
         - id: authorize-packet-04-ci-remediation
@@ -1675,3 +1676,1185 @@ decisions:
     rationale: The user authorized the focused CI repair needed to complete Packet 04 and standing scoped commits for approved packet work; releases, publishing outside the packet's required non-force PR pushes, and unrelated work remain excluded.
     supersedes_revision: null
     requirement_ids: [CMP-004, TST-001, TST-002, OPS-004, EXEC-AUTH-001]
+
+  - id: scope.security-research-controls
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - https://github.com/swimmwatch/cloakbrowser-mcp/tree/3479090cef9a36cfe38a0fced4c4bc09993ddac4
+      - .github/workflows/
+      - .github/dependabot.yml
+      - build/fedora-release/Dockerfile
+      - User requested that the specification be updated to take the comparative security-check research into account.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: scope.security-research-controls
+      idempotency_key: scope.security-research-controls:v1
+      last_status: answered
+    question:
+      text: How broadly should the comparative security-control research expand this specification?
+      kind: single
+      options:
+        - id: full-recommended-stack
+          label: Full recommended stack (Recommended)
+          description: Require repository/workflow controls plus whole-application Linux and Windows artifact scanning, SBOM, provenance, and attestation while keeping OpenSSF Scorecard advisory.
+        - id: repository-controls-only
+          label: Repository controls only
+          description: Require workflow, dependency, source, secret, and Docker-build controls but leave installer SBOM, artifact scanning, provenance, and attestation outside this contract.
+        - id: native-contract-only
+          label: Native contract only
+          description: Preserve the existing native advisory and C++ quality contract without adding broader repository or release-artifact controls.
+    answer:
+      selected_ids: [full-recommended-stack]
+      text: ''
+    rationale: The user selected the complete repository, workflow, dependency, source, secret, Docker-build, installer-artifact, SBOM, provenance, and attestation control set; OpenSSF Scorecard remains advisory.
+    supersedes_revision: null
+    requirement_ids: [SUP-001, ART-001]
+
+  - id: security.hosted-scanner-policy
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/docs/security.md
+      - Comparative analysis found that Cloakbrowser MCP does not use Snyk and instead uses GitHub-native and credential-free open-source controls.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: security.hosted-scanner-policy
+      idempotency_key: security.hosted-scanner-policy:v1
+      last_status: answered
+    question:
+      text: What role, if any, should Snyk or another third-party hosted scanner have in the amended contract?
+      kind: single
+      options:
+        - id: no-third-party-scanner
+          label: No hosted scanner (Recommended)
+          description: Use GitHub-native and credential-free local tools; do not require Snyk or another hosted security vendor.
+        - id: optional-nonblocking-pilot
+          label: Optional pilot
+          description: Permit a separately approved, non-blocking hosted-service evaluation without making it qualification or release evidence.
+        - id: mandatory-hosted-gate
+          label: Mandatory hosted gate
+          description: Require Snyk or an equivalent hosted service as a blocking check and define its credentials, data handling, availability, and licensing contract.
+    answer:
+      selected_ids: [no-third-party-scanner]
+      text: ''
+    rationale: Snyk and equivalent hosted security vendors are excluded; required checks use GitHub-native or credential-free local tooling.
+    supersedes_revision: null
+    requirement_ids: [SRV-001]
+
+  - id: security.codeql-coverage
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/codeql.yml
+      - .github/workflows/pr-checks.yml
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: security.codeql-coverage
+      idempotency_key: security.codeql-coverage:v1
+      last_status: answered
+    question:
+      text: Which CodeQL coverage should the amended specification require?
+      kind: single
+      options:
+        - id: javascript-typescript-only
+          label: JS/TS CodeQL only (Recommended)
+          description: Add blocking JavaScript/TypeScript CodeQL for Electron and scripts while retaining Clang and MSVC as the authoritative cross-platform C++ analyzers.
+        - id: js-ts-and-cross-platform-cpp
+          label: JS/TS and C++
+          description: Add JavaScript/TypeScript CodeQL plus supplemental C++ CodeQL backed by real Linux and Windows builds; it may not substitute for existing native gates.
+        - id: no-codeql
+          label: No CodeQL
+          description: Keep the current lint and native-analysis tools without adding GitHub CodeQL.
+    answer:
+      selected_ids: [js-ts-and-cross-platform-cpp]
+      text: ''
+    rationale: CodeQL covers JavaScript and TypeScript plus supplemental C++ databases produced by real Linux and Windows builds; existing platform-native analyzers and execution remain independently authoritative.
+    supersedes_revision: null
+    requirement_ids: [SAST-001]
+
+  - id: security.vulnerability-enforcement
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - SECURITY.md
+      - package.json
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/ci.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: security.vulnerability-enforcement
+      idempotency_key: security.vulnerability-enforcement:v1
+      last_status: answered
+    question:
+      text: How should confirmed high or critical dependency and packaged-artifact vulnerabilities affect delivery?
+      kind: single
+      options:
+        - id: fail-closed-no-exceptions
+          label: Fail closed (Recommended)
+          description: Block the applicable merge, freeze, qualification, or release gate whether or not a fix exists; missing or malformed evidence is not a clean result and no standing exceptions are permitted.
+        - id: time-bounded-waiver
+          label: Time-bounded waiver
+          description: Block by default but permit a separately reviewed, owner-assigned, expiring risk acceptance with documented exposure and mitigation.
+        - id: advisory-only
+          label: Advisory only
+          description: Report high and critical findings without preventing merge, qualification, or release.
+    answer:
+      selected_ids: [fail-closed-no-exceptions]
+      text: ''
+    rationale: Confirmed high or critical findings block the applicable gate regardless of fix availability; missing or malformed evidence is not clean and no standing exception is permitted.
+    supersedes_revision: null
+    requirement_ids: [VUL-001]
+
+  - id: operations.security-reporting-boundary
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - SECURITY.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/scorecard.yml
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/ci.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: operations.security-reporting-boundary
+      idempotency_key: operations.security-reporting-boundary:v1
+      last_status: answered
+    question:
+      text: Where may the new security checks publish sanitized evidence?
+      kind: single
+      options:
+        - id: github-native-only
+          label: GitHub-native only (Recommended)
+          description: Permit bounded SARIF, SBOM, provenance, and attestations in the existing GitHub repository while keeping native advisory collection read-only and forbidding third-party uploads.
+        - id: workflow-local-only
+          label: Workflow-local only
+          description: Retain only pass/fail logs and short-lived private workflow artifacts; do not publish SARIF, attestations, or public security results.
+        - id: hosted-reporting-allowed
+          label: Hosted reporting allowed
+          description: Permit approved third-party dashboards and uploads after explicit data-retention, credential, privacy, and availability requirements are defined.
+    answer:
+      selected_ids: [github-native-only]
+      text: ''
+    rationale: Sanitized SARIF, SBOM, provenance, and attestations may use the existing GitHub repository and workflow authority; native advisory collection remains read-only and third-party uploads remain forbidden.
+    supersedes_revision: null
+    requirement_ids: [REP-001]
+
+  - id: security.comparative-control-baseline
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - https://github.com/swimmwatch/cloakbrowser-mcp/tree/3479090cef9a36cfe38a0fced4c4bc09993ddac4
+      - .github/workflows/
+      - .github/dependabot.yml
+      - package.json
+      - build/fedora-release/Dockerfile
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - codeql-missing
+        - dependency-review-missing
+        - zizmor-missing
+        - artifact-vulnerability-scan-missing
+        - scorecard-missing
+        - hadolint-missing
+        - npm-signature-audit-missing
+        - secret-gate-missing
+        - action-sha-pins-missing
+        - container-digest-pins-missing
+        - whole-app-attestation-missing
+      text: ''
+    rationale: GPT-Voice has strong native execution and source-lock evidence but lacks the listed repository and whole-application supply-chain controls used or implied by the comparative source.
+    supersedes_revision: null
+    requirement_ids: [SUP-001, WF-001, DEP-001, SEC-005, DCK-001, SAST-001, ART-001, VUL-001, ATT-001, REP-002]
+
+  - id: operations.existing-plan-revision
+    revision: 2
+    category: operations
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - User requested specification revision; planning was explicitly deferred to a later workflow.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-completed-evidence
+        - new-controls-unowned
+        - plan-revision-required-after-approval
+        - no-plan-edit-this-turn
+      text: ''
+    rationale: The current approved 15-packet plan postdates revision 1 but predates this security-control amendment. Existing completed or authorized evidence remains recorded; new requirements require a later planning revision and are not authorized now.
+    supersedes_revision: 1
+    requirement_ids: [OPS-004]
+
+  - id: operations.dependencies-and-release
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - User selected the full recommended repository and artifact security-control stack.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: scope.security-research-controls
+      idempotency_key: scope.security-research-controls:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids:
+        - allow-development-security-tools
+        - allow-ci-security-metadata
+        - no-product-runtime-dependency
+        - no-package-target-or-signing-change
+        - no-publication-or-release-authorization
+      text: ''
+    rationale: The new contract may add pinned CI actions, development-only tools, SBOMs, provenance, and attestations, but it does not change product runtime dependencies, package targets, signing authority, or authorization to publish or release.
+    supersedes_revision: 1
+    requirement_ids: [OPS-001, SCP-001, SCP-002]
+
+  - id: acceptance.final-gap-analysis
+    revision: 2
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - SECURITY.md
+      - .github/workflows/
+      - package.json
+      - build/fedora-release/Dockerfile
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-no-ui-or-runtime-behavior-change
+        - operator-gates-outages-artifact-identities-and-rollback-covered
+        - implementer-tool-boundaries-platform-builds-and-reporting-covered
+        - tester-positive-negative-malformed-stale-and-cross-platform-cases-covered
+        - security-privacy-least-privilege-fail-closed-and-no-hosted-upload-covered
+        - maintainer-pinning-update-scorecard-and-plan-handoff-covered
+      text: ''
+    rationale: The reopened draft was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The five material choices are committed, every new control has an owning gate and evidence boundary, and no unresolved material behavior remains before draft approval.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        OUT-003,
+        GAT-003,
+        CMP-007,
+        CMP-008,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        OPS-001,
+        OPS-004,
+        TST-008,
+        TST-009,
+      ]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - https://github.com/swimmwatch/cloakbrowser-mcp/tree/3479090cef9a36cfe38a0fced4c4bc09993ddac4
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      last_status: answered
+    question:
+      text: What should happen to the reopened Local Whisper native and repository security-controls specification draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amended draft (Recommended)
+          description: Approve this draft as the authoritative contract and stop before revising the plan or implementing any new control.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and reopen the affected requirements or decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current files without approval, planning, or implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the inspectable repository and packaged-artifact security-control amendment as the authoritative contract and retained the separate later planning gate.
+    supersedes_revision: 2
+    requirement_ids: [APPROVAL-003]
+
+  - id: compatibility.runner-version-matrix
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - .github/workflows/actionlint.yml
+      - .github/workflows/local-whisper-packaging-windows.yml
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - Linux x64 and Windows x64 are the supported packaged targets; macOS distribution remains paused and no ARM product target is declared.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: compatibility-round-04
+      question_id: compatibility.runner-version-matrix
+      idempotency_key: compatibility.runner-version-matrix:v1
+      last_status: answered
+    question:
+      text: Which fixed GitHub-hosted runner matrix should the amended specification require?
+      kind: single
+      options:
+        - id: two-generation-x64
+          label: Two x64 generations (Recommended)
+          description: Use Ubuntu 24.04 and 22.04 plus Windows Server 2025 and 2022, with no macOS, ARM, preview, or third Linux-host runner.
+        - id: every-available-x64
+          label: Every available x64
+          description: Add every currently advertised x64 Ubuntu and Windows Server image, increasing cost and churn beyond the declared product support boundary.
+        - id: one-fixed-version
+          label: One fixed version
+          description: Replace latest aliases with Ubuntu 24.04 and Windows Server 2025 only, avoiding drift but adding no older compatibility evidence.
+    answer:
+      selected_ids: [two-generation-x64]
+      text: ''
+    rationale: The required GitHub-hosted matrix is limited to the two established x64 generations that cover the supported Linux and Windows product families without adding macOS, ARM, preview, or a third Linux host.
+    supersedes_revision: null
+    requirement_ids: [RUN-001, RUN-002, RUN-003]
+
+  - id: compatibility.runner-version-matrix
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - Repository variables currently select `ubuntu-24.04` and `windows-latest`; no compatibility-runner variables or compatibility matrix rows exist.
+      - Exact-SHA run 31386616990 passed primary Linux and Windows native quality plus Fedora and Windows package smoke, but it did not execute Ubuntu 22.04 or Windows Server 2022 compatibility lanes.
+      - User requested that duplicated CI jobs be consolidated and reusable operating-system, environment, and build parameters be extracted to matrix, environment, or repository configuration.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: compatibility-round-05
+      question_id: compatibility.runner-version-matrix
+      idempotency_key: compatibility.runner-version-matrix:v2
+      last_status: answered
+    question:
+      text: Which native runner matrix should replace the previously approved four-runner contract after the CI consolidation?
+      kind: single
+      options:
+        - id: two-primary-explicit
+          label: Two explicit primary runners (Recommended)
+          description: Require Ubuntu 24.04 and Windows Server 2025 only, remove Ubuntu 22.04 and Windows Server 2022 compatibility tasks, and continue rejecting latest aliases.
+        - id: retain-four-runner
+          label: Retain four runners
+          description: Keep Ubuntu 24.04/22.04 and Windows Server 2025/2022, adding lean compatibility rows to the consolidated native matrix.
+        - id: configured-primary-runners
+          label: Configured primary runners
+          description: Require one repository-configured explicit x64 runner per supported OS without fixing the permitted versions in the specification.
+    answer:
+      selected_ids: [two-primary-explicit]
+      text: ''
+    rationale: The consolidated matrix keeps one explicit, current x64 runner per supported operating-system family. Ubuntu 22.04 and Windows Server 2022 compatibility lanes and their deferred package-smoke obligations are removed; mutable latest aliases remain prohibited.
+    supersedes_revision: 1
+    requirement_ids: [OUT-004, GAT-004, CMP-009, CMP-010, RUN-001, RUN-002, RUN-003, RUN-004, RUN-005, RUN-006, TST-010]
+
+  - id: compatibility.runner-check-allocation
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/local-whisper-packaging-windows.yml
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/release-builds.yml
+      - build/fedora-release/Dockerfile
+      - Existing native, sanitizer, analysis, CodeQL, packaging, SBOM, vulnerability, and attestation requirements have distinct evidence purposes and need not all be duplicated across host-image generations.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: compatibility-round-04
+      question_id: compatibility.runner-check-allocation
+      idempotency_key: compatibility.runner-check-allocation:v1
+      last_status: answered
+    question:
+      text: How should checks be divided between the current and older runner versions?
+      kind: single
+      options:
+        - id: exhaustive-primary-lean-compatibility
+          label: Tiered matrix (Recommended)
+          description: Run exhaustive analysis, sanitizers, CodeQL, packaging, and artifact security on current runners; use older runners for ordinary native build/tests and smoke of the exact candidate artifacts.
+        - id: exhaustive-on-every-runner
+          label: Full duplication
+          description: Repeat every analyzer, sanitizer, CodeQL, package build, and security check on all four runners for maximum evidence at substantially higher cost.
+        - id: artifact-smoke-only
+          label: Smoke only
+          description: Use older runners only to smoke current-runner artifacts, without rebuilding or executing the ordinary native unit and integration suites there.
+    answer:
+      selected_ids: [exhaustive-primary-lean-compatibility]
+      text: ''
+    rationale: Current runners own exhaustive analysis and artifact production while older runners prove ordinary native execution and exact-candidate runtime compatibility; expensive host-independent or defect-oriented checks are not duplicated without a distinct evidence purpose.
+    supersedes_revision: null
+    requirement_ids: [RUN-004, RUN-005, TST-010]
+
+  - id: compatibility.runner-check-allocation
+    revision: 2
+    category: compatibility
+    state: not_applicable
+    provenance: user
+    evidence:
+      - compatibility.runner-version-matrix revision 2 selects exactly one primary runner per supported operating-system family.
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-older-compatibility-tier
+        - required-platform-checks-run-on-primary
+        - no-duplicate-host-independent-gates
+      text: ''
+    rationale: With no older compatibility generation, the previous primary-versus-compatibility allocation no longer applies. Linux-only, Windows-only, and host-independent checks retain distinct ownership in the consolidated workflow.
+    supersedes_revision: 1
+    requirement_ids: [RUN-004, RUN-005, TST-010]
+
+  - id: operations.workflow-parameterization
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - User requested duplicate operating-system workflows, jobs, and steps to be consolidated where conditions or matrices can express the differences.
+      - User requested reusable constants—including runner labels, versions, architectures, timeouts, retention, images, and tool versions—to be extracted to matrix, environment, repository variables, or shared local actions.
+      - .github/actions/setup-ci-project/action.yml
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - consolidate-duplicate-jobs
+        - matrix-or-conditions-for-platform-differences
+        - shared-local-actions-for-common-setup
+        - reusable-configuration-values
+        - separate-jobs-only-for-distinct-build-mechanisms
+        - locally-and-remotely-validated-runner-values
+      text: ''
+    rationale: CI configuration has one authoritative owner for each reusable value and one shared path for equivalent setup or verification. Platform-specific jobs remain separate only where Fedora-container and native-Windows packaging mechanisms cannot safely share a job.
+    supersedes_revision: null
+    requirement_ids: [SUP-001, WF-001, RUN-001, RUN-004, OPS-004]
+
+  - id: compatibility.runner-hosted-image-baseline
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: authoritative-doc
+    evidence:
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - GitHub documents `ubuntu-24.04`, `ubuntu-22.04`, `windows-2025`, and `windows-2022` as explicit x64 hosted-runner labels and documents that `*-latest` aliases migrate between OS generations.
+      - GitHub documents in-place weekly runner-image updates and deprecation of older images when generation support changes.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - ubuntu-24.04-primary
+        - ubuntu-22.04-compatibility
+        - windows-2025-primary
+        - windows-2022-compatibility
+        - reject-latest-aliases
+        - reviewed-generation-replacement
+      text: ''
+    rationale: Explicit labels prevent unreviewed operating-system migration; lifecycle changes still require a reviewed matrix update because the label's installed software changes in place and old generations are eventually deprecated.
+    supersedes_revision: null
+    requirement_ids: [CMP-009, RUN-001, RUN-006]
+
+  - id: compatibility.runner-hosted-image-baseline
+    revision: 2
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - GitHub documents `ubuntu-24.04` and `windows-2025` as explicit x64 hosted-runner labels and documents that `*-latest` aliases migrate between operating-system generations.
+      - GitHub documents in-place runner-image updates and label deprecation independently of repository workflow configuration.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - ubuntu-24.04-primary
+        - windows-2025-primary
+        - reject-latest-aliases
+        - no-required-older-generation
+        - reviewed-generation-replacement
+      text: ''
+    rationale: Explicit labels prevent unreviewed operating-system migration. The selected baseline now has one current primary runner per supported operating-system family; any later compatibility expansion or generation replacement requires review.
+    supersedes_revision: 1
+    requirement_ids: [CMP-009, RUN-001, RUN-006]
+
+  - id: compatibility.runner-evidence-boundary
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - README.md
+      - AGENTS.md
+      - build/fedora-release/Dockerfile
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/local-whisper-packaging-windows.yml
+      - .github/workflows/release-builds.yml
+      - The product artifacts are Linux x64 AppImage/DEB/RPM and Windows x64 NSIS; macOS release work is paused and no ARM product target is declared.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - hosted-windows-server-is-not-client-qualification
+        - ubuntu-is-not-all-linux-distributions
+        - fedora-44-is-builder-not-runner
+        - package-smoke-follows-format-applicability
+        - no-macos-or-arm-matrix
+      text: ''
+    rationale: The selected hosted runners provide bounded CI compatibility evidence, while Fedora package construction and supported desktop verification retain their own environments and claims.
+    supersedes_revision: null
+    requirement_ids: [CMP-011, CMP-012, RUN-002, RUN-007]
+
+  - id: operations.existing-plan-revision
+    revision: 3
+    category: operations
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - User requested another specification revision; planning remains a separate later workflow.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-completed-evidence
+        - runner-matrix-unowned
+        - plan-revision-required-after-approval
+        - no-plan-edit-this-turn
+      text: ''
+    rationale: The current 15-packet plan predates both the repository-security amendment and the new runner-version contract. Existing completed evidence remains recorded, but the fixed matrix and its acceptance gates require later `/plan` revision before implementation.
+    supersedes_revision: 2
+    requirement_ids: [OPS-004]
+
+  - id: operations.existing-plan-revision
+    revision: 4
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - The current 19-packet plan assigns the former four-runner foundation and compatibility evidence to Packets 09, 18, and 19.
+      - User explicitly requested both specification and plan revision for the consolidated two-runner workflow contract.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-completed-packets-01-08
+        - revise-uncompleted-runner-scopes
+        - preserve-one-packet-per-execution
+        - no-implementation-during-document-revision
+      text: ''
+    rationale: Completed native remediation evidence remains unchanged. Uncompleted packet contracts must remove the older-runner obligations and add consolidated workflow-configuration acceptance after this draft is approved.
+    supersedes_revision: 3
+    requirement_ids: [OPS-004]
+
+  - id: compatibility.runner-toolchain-independence
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - .github/actions/initialize-msvc-environment/action.yml
+      - .github/workflows/pr-checks.yml
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - Existing contract CMP-005 pins MSVC 19.39 while GitHub runner images update installed software independently of their OS-generation labels.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - runner-version-is-not-compiler-version
+        - provision-and-verify-pinned-toolchains
+        - no-ambient-compiler-fallback
+        - same-ordinary-source-manifest-per-platform
+      text: ''
+    rationale: Adding runner generations must not change the accepted compiler profile or allow image-default toolchains to produce misleading compatibility evidence.
+    supersedes_revision: null
+    requirement_ids: [CMP-010, RUN-005]
+
+  - id: acceptance.final-gap-analysis
+    revision: 3
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - .github/workflows/
+      - build/fedora-release/Dockerfile
+      - https://github.com/actions/runner-images/blob/main/README.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-no-runtime-or-support-tier-change
+        - operator-explicit-labels-gates-artifact-identities-and-image-lifecycle-covered
+        - implementer-primary-compatibility-allocation-toolchains-and-path-owners-covered
+        - tester-positive-negative-mismatch-cancelled-and-cross-generation-cases-covered
+        - security-no-gate-weakening-cross-environment-substitution-or-hosted-upload
+        - maintainer-minimal-runner-cost-deprecation-boundary-and-plan-handoff-covered
+      text: ''
+    rationale: The runner amendment was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The two material decisions are committed; exact versions, check allocation, triggers, package applicability, evidence identity, failure behavior, claim boundaries, and lifecycle replacement are objective; and no unresolved material behavior remains before draft approval.
+    supersedes_revision: 2
+    requirement_ids:
+      [
+        OUT-004,
+        GAT-004,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-010,
+        OPS-004,
+      ]
+
+  - id: acceptance.final-gap-analysis
+    revision: 4
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - .github/actions/setup-ci-project/action.yml
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - Exact-SHA workflow runs 31386616990, 31386617480, and 31386617497
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-no-runtime-platform-or-public-contract-change
+        - operator-two-explicit-primary-labels-and-reusable-configuration-defined
+        - implementer-matrix-conditions-shared-actions-and-platform-job-exceptions-defined
+        - tester-latest-invalid-variable-missing-platform-and-duplicate-owner-proofs-defined
+        - security-no-permission-identity-toolchain-or-evidence-weakening
+        - maintainer-former-compatibility-obligations-and-plan-impact-explicit
+      text: ''
+    rationale: The revision was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The runner choice and CI parameterization contract are committed; exact labels, configuration ownership, platform exceptions, failure behavior, acceptance, historical evidence, and plan impact are objective; and no unresolved material behavior remains before draft approval.
+    supersedes_revision: 3
+    requirement_ids:
+      [OUT-004, GAT-004, CMP-009, CMP-010, CMP-011, CMP-012, RUN-001, RUN-002, RUN-003, RUN-004, RUN-005, RUN-006, RUN-007, TST-010, OPS-004]
+
+  - id: approval.spec
+    revision: 4
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - https://github.com/actions/runner-images/blob/main/README.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: runner-approval-round-04
+      question_id: approval.spec
+      idempotency_key: approval.spec:v4
+      last_status: answered
+    question:
+      text: What should happen to the Local Whisper native specification draft amended with the fixed runner-version matrix?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amended draft (Recommended)
+          description: Approve the four-runner tiered contract as authoritative and stop before revising the plan or implementing workflow changes.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and reopen the affected runner requirements or decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current files without approval, planning, or implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the fixed four-runner x64 and tiered compatibility-check amendment as the authoritative contract and retained the separate later planning gate.
+    supersedes_revision: 3
+    requirement_ids: [APPROVAL-004]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - compatibility.runner-version-matrix revision 2
+      - operations.workflow-parameterization revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: runner-approval-round-05
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+    question:
+      text: What should happen to the Local Whisper native specification draft revised for two explicit primary runners and consolidated parameterized CI workflows?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised draft (Recommended)
+          description: Approve Ubuntu 24.04 and Windows Server 2025 as the exact required runners, remove the older compatibility lanes, and make consolidated reusable CI configuration authoritative.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and reopen the affected runner or workflow-configuration decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current files without approval or plan revision.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved Ubuntu 24.04 and Windows Server 2025 as the exact required runner matrix, removal of the former Ubuntu 22.04 and Windows Server 2022 compatibility lanes, and consolidated reusable CI configuration as the authoritative contract.
+    supersedes_revision: 4
+    requirement_ids: [APPROVAL-005]
+
+  - id: plan.amendment-packet-sequencing
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_native_execution_analysis_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_linux_shared_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+      - Packets 01–08 are complete; Packets 09–15 are unchecked and may be revised without changing completed evidence.
+      - The approved amendment makes immutable workflow inputs and the fixed runner policy foundational merge blockers, while C++ CodeQL depends on the native source manifests currently assigned to Packet 09.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: allocation-round-01
+      question_id: plan.amendment-packet-sequencing
+      idempotency_key: plan.amendment-packet-sequencing:v1
+      last_status: answered
+    question:
+      text: How should the approved security and fixed-runner amendments be integrated with the unstarted Packets 09–15?
+      kind: single
+      options:
+        - id: renumber-unstarted-focused
+          label: Renumber focused packets
+          description: Preserve completed Packets 01–08, put workflow/runner foundations first, shift and retain the valid native packets, add focused repository/artifact security packets, and keep Linux then Windows closure last.
+        - id: preserve-unstarted-numbers
+          label: Preserve 09–13 numbers
+          description: Keep the existing native Packet 09–13 identities, append the amendment packets after them, and move only the two closure packets later.
+        - id: fold-into-existing-packets
+          label: Fold into existing packets
+          description: Broaden Packets 09–15 to absorb all new controls without adding focused packet identities, producing substantially larger execution units.
+    answer:
+      selected_ids: [renumber-unstarted-focused]
+      text: ''
+    rationale: The user selected focused renumbering so completed Packets 01–08 retain their evidence, foundational workflow and runner controls precede later CI work, valid unstarted native scopes remain distinct, and integrated Linux then supported-host Windows closure stays last.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        GAT-003,
+        GAT-004,
+        CMP-007,
+        CMP-008,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-008,
+        TST-009,
+        TST-010,
+      ]
+
+  - id: plan.amendment-packet-map
+    revision: 1
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - packets-01-08-preserved
+        - packet-09-workflow-runner-foundation
+        - packet-10-repository-builder-controls
+        - packet-11-native-analysis-codeql
+        - packets-12-15-retained-native-gates
+        - packet-16-application-sbom-vulnerability
+        - packet-17-attestation-reporting
+        - packet-18-linux-shared-security-closure
+        - packet-19-final-windows-closure
+      text: ''
+    rationale: The selected focused-renumbering option is implemented as eleven unstarted packets. Workflow and runner prerequisites come first; CodeQL shares the canonical real-build source manifests; the valid fuzz, TSan, GCC, and advisory scopes remain independent; artifact inventory/scanning precedes attestation; and all integrated testing/fixing closes in Linux then the final supported-host Windows packet.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        GAT-003,
+        GAT-004,
+        CMP-007,
+        CMP-008,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-008,
+        TST-009,
+        TST-010,
+      ]
+
+  - id: approval.plan
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - Completed Packets 01–08 and their evidence remain unchanged.
+      - Coverage audit maps 151 active requirement and acceptance identifiers; section, link, numbering, YAML, Markdown-format, and diff-whitespace audits pass.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-04
+      question_id: approval.plan
+      idempotency_key: approval.plan:v4
+      last_status: answered
+    question:
+      text: What should happen to the revised 19-packet Local Whisper remediation plan that preserves completed Packets 01–08, integrates the approved security and fixed-runner amendments, and keeps Linux/shared/security then real Windows testing/fixing in Packets 18–19?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan
+          description: Make this 19-packet plan authoritative while keeping implementation subject to a separate execution-authorization decision.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise its allocation, dependencies, verification, or completion rules.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the planning files without approving or authorizing implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the revised 19-packet plan as authoritative. Completed Packets 01–08 remain unchanged; Packets 09–17 own the approved amendment and retained native scopes; Packet 18 owns integrated Linux/shared/security closure; Packet 19 owns final supported-host Windows closure. Implementation still requires the separate execution-authorization gate.
+    supersedes_revision: 3
+    requirement_ids: [PLAN-APPROVAL-004, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - PLAN-APPROVAL-004 approves planning only and does not start implementation.
+      - User standing instruction authorizes packet/fix commits and non-force pushes after all applicable local checks, followed by exact-SHA CI with required Linux and Windows jobs and no skipped required Windows stage.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-04
+      question_id: authorization.plan-execution
+      idempotency_key: authorization.plan-execution:v1
+      last_status: answered
+    question:
+      text: How should execution of approved Packets 09–19 be authorized after this planning turn?
+      kind: single
+      options:
+        - id: authorize-revised-sequence
+          label: Authorize revised sequence
+          description: Authorize Packets 09–19 one at a time on later explicit incremental-implementation invocations, including local-first checks, scoped commits/fixes, non-force pushes, and exact-SHA CI gates.
+        - id: authorize-packet-09-only
+          label: Authorize Packet 09 only
+          description: Authorize only Packet 09 on a later explicit incremental-implementation invocation; later packets need another execution decision.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep the plan approved but permit no implementation, commit, or push from it.
+    answer:
+      selected_ids: [authorize-revised-sequence]
+      text: ''
+    rationale: The user authorized approved Packets 09–19 for later execution one packet per explicit incremental-implementation invocation. Authorization includes all applicable local-first checks, packet/fix conventional commits, non-force pushes, and exact-SHA CI gates with every required Linux and Windows job executed successfully; it does not start implementation in this planning turn or authorize force-push, PR mutation, manual dispatch, signing, publication, qualification, or release.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-002, OPS-004]
+
+  - id: plan.amendment-packet-map
+    revision: 2
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - APPROVAL-005 changes the required runner matrix and workflow-parameterization contract without reopening completed Packets 01–08 or adding a new independently executable scope.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-packets-01-08
+        - preserve-packet-identities-09-19
+        - revise-only-unchecked-scopes
+        - packet-09-workflow-runner-foundation
+        - packet-10-repository-builder-controls
+        - packet-11-native-analysis-codeql
+        - packets-12-15-retained-native-gates
+        - packet-16-application-sbom-vulnerability
+        - packet-17-attestation-reporting
+        - packet-18-linux-shared-security-closure
+        - packet-19-final-windows-closure
+      text: ''
+    rationale: The approved amendment changes only runner and workflow-ownership obligations already assigned to unchecked Packets 09–19. Their existing identities, dependencies, and focused scopes remain executable, so renumbering or reopening completed work would add churn without improving coverage.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        GAT-003,
+        GAT-004,
+        CMP-007,
+        CMP-008,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-008,
+        TST-009,
+        TST-010,
+        OPS-004,
+      ]
+
+  - id: approval.plan
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - Completed Packets 01–08 and their recorded evidence remain unchanged.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-05
+      question_id: approval.plan
+      idempotency_key: approval.plan:v5
+      last_status: answered
+    question:
+      text: What should happen to the revised 19-packet plan that now requires exactly Ubuntu 24.04 and Windows Server 2025, rejects latest aliases, consolidates reusable CI configuration, preserves completed Packets 01–08, and updates only unchecked Packets 09–19?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan
+          description: Make this two-runner, parameterized-workflow revision authoritative while keeping execution authorization separate.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise packet scope, dependencies, verification, or completion gates.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current planning files without approving or authorizing implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the revised 19-packet plan as authoritative. Completed Packets 01–08 remain unchanged; unchecked Packets 09–19 retain their identities while adopting the exact Ubuntu 24.04 and Windows Server 2025 matrix, latest-alias rejection, and consolidated reusable CI configuration. Implementation remains subject to the separate execution-authorization gate.
+    supersedes_revision: 4
+    requirement_ids: [PLAN-APPROVAL-005, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 2
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - Plan approval revision 5 is a separate gate and does not itself start implementation.
+      - User standing instruction authorizes packet/fix commits and non-force pushes after all applicable local checks, followed by exact-SHA CI with required Ubuntu 24.04 and Windows Server 2025 jobs and no skipped required Windows stage.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-05
+      question_id: authorization.plan-execution
+      idempotency_key: authorization.plan-execution:v2
+      last_status: answered
+    question:
+      text: How should execution of the revised approved Packets 09–19 be authorized after this planning turn?
+      kind: single
+      options:
+        - id: authorize-revised-sequence
+          label: Authorize revised sequence
+          description: Authorize Packets 09–19 one at a time on later explicit incremental-implementation invocations, including local-first checks, scoped commits/fixes, non-force pushes, and exact-SHA CI gates on Ubuntu 24.04 and Windows Server 2025.
+        - id: authorize-packet-09-only
+          label: Authorize Packet 09 only
+          description: Authorize only Packet 09 on a later explicit incremental-implementation invocation; later packets require another execution decision.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep the plan approved but permit no implementation, commit, or push from it.
+    answer:
+      selected_ids: [authorize-revised-sequence]
+      text: ''
+    rationale: The user authorized revised Packets 09–19 for later execution one packet per explicit incremental-implementation invocation. Authorization includes all applicable local-first checks, packet/fix conventional commits, non-force pushes, and exact-SHA CI gates with the required Ubuntu 24.04 and Windows Server 2025 jobs executed successfully; it does not start implementation in this planning turn or authorize force-push, PR mutation, manual dispatch, signing, publication, qualification, or release.
+    supersedes_revision: 1
+    requirement_ids: [EXEC-AUTH-003, OPS-004]
