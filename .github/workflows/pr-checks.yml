@@ -342,19 +342,6 @@ jobs:
         if: matrix.platform == 'windows'
         uses: ./.github/actions/initialize-msvc-environment
 
-      - name: Cache Windows Electron and CloakBrowser binaries
-        if: matrix.platform == 'windows'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: |
-            ${{ env.NPM_CONFIG_CACHE }}
-            ${{ env.ELECTRON_CACHE }}
-            ${{ env.ELECTRON_BUILDER_CACHE }}
-            ~/.cloakbrowser
-          key: ${{ runner.os }}-electron-cloak-${{ hashFiles('package-lock.json', 'package.json', 'scripts/prepare-cloakbrowser.mjs') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-cloak-
-
       - name: Build and smoke Windows package
         if: matrix.platform == 'windows'
         run: |
