@@ -1,6 +1,7 @@
 import { parse } from 'yaml';
 
 import { isRecord } from '../packaging/contracts';
+import runnerPolicy from './runner-policy.json';
 
 export const NATIVE_PATH_OWNERS = [
   '.github/actions/**',
@@ -28,13 +29,23 @@ const PLATFORM_CONTRACTS = {
   },
 } as const;
 
+export const REQUIRED_RUNNER_LABELS = {
+  linux: runnerPolicy.linux,
+  windows: runnerPolicy.windows,
+} as const;
+
+type NativePlatform = keyof typeof PLATFORM_CONTRACTS;
+
+interface ConfiguredRunnerLabels {
+  readonly linux: string;
+  readonly windows: string;
+}
+
 const WORKFLOW_RUNNER_REFERENCES = new Set([
   '${{ matrix.runner }}',
   '${{ vars.CI_LINUX_RUNNER }}',
   '${{ vars.CI_WINDOWS_RUNNER }}',
 ]);
-const LINUX_RUNNER = /^ubuntu-\d+\.\d+$/u;
-const WINDOWS_RUNNER = /^windows-(?:latest|\d{4})$/u;
 const CLANG_TOOLCHAIN = /^clang-(?<major>\d+)$/u;
 const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
 const SHA_256 = /^[a-f\d]{64}$/u;
@@ -106,6 +117,14 @@ function verifyConfiguredRunners(jobs: Record<string, WorkflowJob>): void {
   }
 }
 
+function verifyConfiguredRunnerLabels(labels: ConfiguredRunnerLabels): void {
+  for (const platform of Object.keys(REQUIRED_RUNNER_LABELS) as NativePlatform[]) {
+    if (labels[platform] !== REQUIRED_RUNNER_LABELS[platform]) {
+      throw new Error(`Configured ${platform} runner must be ${REQUIRED_RUNNER_LABELS[platform]}`);
+    }
+  }
+}
+
 function verifyRequiredNativeMatrix(jobs: Record<string, WorkflowJob>): void {
   const job = jobs['native-quality'];
   if (!job || job['runs-on'] !== '${{ matrix.runner }}') {
@@ -149,8 +168,8 @@ function verifyPrimaryEvidence(jobs: Record<string, WorkflowJob>): void {
 }
 
 function operatingSystemForRunner(runnerLabel: string): 'Linux' | 'Windows' {
-  if (LINUX_RUNNER.test(runnerLabel)) return 'Linux';
-  if (WINDOWS_RUNNER.test(runnerLabel)) return 'Windows';
+  if (runnerLabel === REQUIRED_RUNNER_LABELS.linux) return 'Linux';
+  if (runnerLabel === REQUIRED_RUNNER_LABELS.windows) return 'Windows';
   throw new Error('Runner evidence has an unsupported label');
 }
 
@@ -167,10 +186,11 @@ export class RunnerPolicyVerifier {
     return NATIVE_PATH_OWNERS.some((owner) => pathMatchesOwner(path, owner));
   }
 
-  public verify(workflowText: string): void {
+  public verify(workflowText: string, configuredRunnerLabels: ConfiguredRunnerLabels = REQUIRED_RUNNER_LABELS): void {
     const jobs = parseJobs(workflowText);
     verifyPathFilters(workflowText);
     verifyConfiguredRunners(jobs);
+    verifyConfiguredRunnerLabels(configuredRunnerLabels);
     verifyRequiredNativeMatrix(jobs);
     verifyPrimaryEvidence(jobs);
   }

@@ -43,6 +43,18 @@ describe('Native CI runner policy', () => {
     assert.throws(() => verifier.verify(validWorkflow.replace('platform: windows', 'platform: linux')), /duplicates/u);
   });
 
+  it('rejects configured runner values outside the approved pair', () => {
+    const verifier = new RunnerPolicyVerifier();
+    assert.throws(
+      () => verifier.verify(validWorkflow, { linux: 'ubuntu-26.04', windows: 'windows-2025' }),
+      /Configured linux runner/u,
+    );
+    assert.throws(
+      () => verifier.verify(validWorkflow, { linux: 'ubuntu-24.04', windows: 'windows-latest' }),
+      /Configured windows runner/u,
+    );
+  });
+
   it('maps only native ownership paths to execution', () => {
     const verifier = new RunnerPolicyVerifier();
     assert.equal(verifier.ownsNativePath('runtime/local-whisper/worker/main.cpp'), true);
@@ -57,7 +69,7 @@ describe('Native CI runner policy', () => {
       architecture: 'x64',
       nativeSourceManifest: { 'whisper-cpp.json': 'a'.repeat(64) },
       reportedImage: { imageOS: 'win25', imageVersion: '2026.08.1', runnerOS: 'Windows' },
-      runnerLabel: 'windows-latest',
+      runnerLabel: 'windows-2025',
       sourceCommit: 'b'.repeat(40),
       testedDigests: ['c'.repeat(40)],
       toolchain: {
@@ -81,6 +93,7 @@ describe('Native CI runner policy', () => {
       /toolchain does not match/u,
     );
     assert.throws(() => verifier.verifyEvidence({ ...evidence, runnerLabel: 'self-hosted' }), /unsupported label/u);
+    assert.throws(() => verifier.verifyEvidence({ ...evidence, runnerLabel: 'windows-latest' }), /unsupported label/u);
     assert.throws(() => verifier.verifyEvidence({ ...evidence, sourceCommit: 'unknown' }), /source commit/u);
   });
 });

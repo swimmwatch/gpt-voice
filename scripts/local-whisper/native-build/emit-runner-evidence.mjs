@@ -3,10 +3,9 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
+import runnerPolicy from '../ci/runner-policy.json' with { type: 'json' };
 
 const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
-const LINUX_RUNNER = /^ubuntu-\d+\.\d+$/u;
-const WINDOWS_RUNNER = /^windows-(?:latest|\d{4})$/u;
 const CLANG_TOOLCHAIN = /^clang-(?<major>\d+)$/u;
 const SUPPORTED_OPERATING_SYSTEMS = new Set(['linux', 'windows']);
 
@@ -48,8 +47,8 @@ function compilerVersion(compiler, toolchain) {
 }
 
 function expectedRunnerOperatingSystem(runnerLabel) {
-  if (LINUX_RUNNER.test(runnerLabel)) return 'linux';
-  if (WINDOWS_RUNNER.test(runnerLabel)) return 'windows';
+  if (runnerLabel === runnerPolicy.linux) return 'linux';
+  if (runnerLabel === runnerPolicy.windows) return 'windows';
   throw new Error(`Unsupported runner label ${runnerLabel}`);
 }
 

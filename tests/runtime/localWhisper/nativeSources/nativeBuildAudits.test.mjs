@@ -121,7 +121,7 @@ test(
         process.execPath,
         [
           RUNNER_EVIDENCE_EMITTER,
-          '--runner-label=windows-latest',
+          '--runner-label=windows-2025',
           '--toolchain=msvc-hosted',
           '--expected-os=windows',
           `--compiler=${compiler}`,
@@ -142,7 +142,7 @@ test(
       );
       assert.equal(result.status, 0);
       const evidence = JSON.parse(readFileSync(output, 'utf8'));
-      assert.equal(evidence.runnerLabel, 'windows-latest');
+      assert.equal(evidence.runnerLabel, 'windows-2025');
       assert.equal(evidence.toolchain.profile, 'msvc-hosted');
       assert.match(evidence.toolchain.version, /Version 19\.51\./u);
     } finally {
@@ -150,6 +150,39 @@ test(
     }
   },
 );
+
+test('runner evidence rejects mutable Windows runner aliases', { skip: process.platform !== 'linux' }, () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-runner-evidence-alias-'));
+  try {
+    const result = run(
+      process.execPath,
+      [
+        RUNNER_EVIDENCE_EMITTER,
+        '--runner-label=windows-latest',
+        '--toolchain=msvc-hosted',
+        '--expected-os=windows',
+        '--compiler=cl',
+        `--output=${resolve(root, 'runner.json')}`,
+      ],
+      {
+        allowFailure: true,
+        cwd: workspaceRoot,
+        env: {
+          GITHUB_SHA: 'b'.repeat(40),
+          ImageOS: 'win25',
+          ImageVersion: 'test-image',
+          PATH: process.env.PATH,
+          RUNNER_ARCH: 'X64',
+          RUNNER_OS: 'Windows',
+        },
+      },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Unsupported runner label/u);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
 
 function identity(path) {
   return Object.freeze({ path: realpathSync(path), sha256: sha256(readFileSync(realpathSync(path))) });

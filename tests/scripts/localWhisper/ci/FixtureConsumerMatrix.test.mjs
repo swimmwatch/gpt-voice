@@ -19,7 +19,7 @@ function emit(overrides = {}) {
         ...process.env,
         CI_ARCHITECTURE: 'x64',
         CI_LINUX_RUNNER: 'ubuntu-24.04',
-        CI_WINDOWS_RUNNER: 'windows-latest',
+        CI_WINDOWS_RUNNER: 'windows-2025',
         GITHUB_EVENT_NAME: 'pull_request',
         GITHUB_OUTPUT: output,
         WINDOWS_QUALIFICATION_AUTHORIZED: 'false',
@@ -56,6 +56,12 @@ test('fixture packaging adds Windows only for an authorized reusable invocation'
 
 test('fixture packaging rejects invalid configured runner values', () => {
   const { result } = emit({ CI_WINDOWS_RUNNER: 'self-hosted' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Unsupported windows runner/u);
+});
+
+test('fixture packaging rejects mutable runner aliases', () => {
+  const { result } = emit({ CI_WINDOWS_RUNNER: 'windows-latest' });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unsupported windows runner/u);
 });

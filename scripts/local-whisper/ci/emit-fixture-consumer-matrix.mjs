@@ -1,5 +1,6 @@
 import process from 'node:process';
 import { appendFileSync } from 'node:fs';
+import runnerPolicy from './runner-policy.json' with { type: 'json' };
 
 const SUPPORTED_ARCHITECTURE = 'x64';
 const SUPPORTED_PLATFORMS = new Set(['linux', 'windows']);
@@ -11,10 +12,8 @@ function required(name) {
 }
 
 function assertRunner(platform, runner) {
-  const matches =
-    (platform === 'linux' && /^ubuntu-\d+\.\d+$/u.test(runner)) ||
-    (platform === 'windows' && /^windows-(?:latest|\d{4})$/u.test(runner));
-  if (!matches) throw new Error(`Unsupported ${platform} runner: ${runner}`);
+  const expected = SUPPORTED_PLATFORMS.has(platform) ? runnerPolicy[platform] : null;
+  if (runner !== expected) throw new Error(`Unsupported ${platform} runner: ${runner}`);
 }
 
 function entry(platform, runner) {

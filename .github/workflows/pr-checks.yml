@@ -233,6 +233,8 @@ jobs:
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: 15
     env:
+      CI_LINUX_RUNNER: ${{ vars.CI_LINUX_RUNNER }}
+      CI_WINDOWS_RUNNER: ${{ vars.CI_WINDOWS_RUNNER }}
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 

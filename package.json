@@ -141,7 +141,7 @@
     "test:local-whisper:native-sources": "node --test \"tests/runtime/localWhisper/nativeSources/*.test.mjs\"",
     "test:local-whisper:native-build-audits": "node --test \"tests/runtime/localWhisper/nativeSources/nativeBuildAudits.test.mjs\"",
     "test:local-whisper:native-ci-workflow": "node --import tsx --test tests/runtime/localWhisper/nativeCiWorkflow.test.ts",
-    "test:local-whisper:runner-policy": "node --import tsx --test tests/scripts/localWhisper/ci/RunnerPolicy.test.ts",
+    "test:local-whisper:runner-policy": "node --import tsx --test tests/scripts/localWhisper/ci/RunnerPolicy.test.ts tests/scripts/localWhisper/ci/FixtureConsumerMatrix.test.mjs",
     "test:security:workflow-policy": "node --import tsx --test tests/scripts/localWhisper/ci/WorkflowSupplyChainPolicy.test.ts",
     "test:local-whisper:native-hardening": "node --test tests/runtime/localWhisper/nativeSources/nativeHardening.test.mjs",
     "test:local-whisper:hosted-toolchains": "node --test \"tests/runtime/localWhisper/hostedToolchains/*.test.mjs\"",
