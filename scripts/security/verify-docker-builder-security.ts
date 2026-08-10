@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
@@ -45,10 +45,25 @@ function parseScanReport(output: string): unknown {
   }
 }
 
-function scannerArguments(cacheDirectory: string): readonly string[] {
+async function scannerArguments(cacheDirectory: string): Promise<readonly string[]> {
+  const userId = process.getuid?.();
+  const groupId = process.getgid?.();
+  let dockerSocketGroupId: number;
+  try {
+    dockerSocketGroupId = (await stat('/var/run/docker.sock')).gid;
+  } catch {
+    throw new Error('Docker builder policy violation: Docker socket identity unavailable');
+  }
+  if (!Number.isSafeInteger(userId) || !Number.isSafeInteger(groupId) || !Number.isSafeInteger(dockerSocketGroupId)) {
+    throw new Error('Docker builder policy violation: Docker socket identity unavailable');
+  }
   return [
     'run',
     '--rm',
+    '--user',
+    `${userId}:${groupId}`,
+    '--group-add',
+    String(dockerSocketGroupId),
     '--volume',
     `${cacheDirectory}:/cache`,
     '--volume',
@@ -100,7 +115,7 @@ async function main(): Promise<void> {
 
   const cacheDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-trivy-'));
   try {
-    const scan = await runDocker(scannerArguments(cacheDirectory));
+    const scan = await runDocker(await scannerArguments(cacheDirectory));
     if (scan.exitCode !== 0) throw new Error('Docker builder policy violation: scanner evidence unavailable');
     const databasePath = path.join(cacheDirectory, 'db', 'metadata.json');
     let databaseBytes: Buffer;
