@@ -7,6 +7,8 @@
 
 namespace local_whisper::common {
 
+constexpr std::size_t kBoundedJsonMaxRawBytes = 1'048'576;
+
 struct JsonValidationResult {
   bool valid;
   std::size_t event_count;

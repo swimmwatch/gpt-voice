@@ -1,10 +1,13 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace local_whisper::launcher {
+
+constexpr std::size_t kMaximumLaunchRequestBytes = 64U * 1024U;
 
 enum class WorkerLaunchMode { full_load, probe, registry };
 

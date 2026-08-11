@@ -8,9 +8,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperFuzzing.cmake")
 
 option(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS
        "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
+option(LOCAL_WHISPER_COMMON_ENABLE_FUZZING
+       "Build Linux-only libFuzzer targets for attacker-influenced common parsers" OFF)
 set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL
     "Require a disconnected dependency graph")
 if(NOT FETCHCONTENT_FULLY_DISCONNECTED)
@@ -47,6 +50,32 @@ target_include_directories(local_whisper_common
   PUBLIC include
   PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
 local_whisper_apply_compile_hardening(local_whisper_common LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+
+if(LOCAL_WHISPER_COMMON_ENABLE_FUZZING)
+  local_whisper_configure_linux_libfuzzer(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+  add_executable(local_whisper_common_fuzz_contracts fuzz/fuzz_contracts.cpp)
+  target_link_libraries(local_whisper_common_fuzz_contracts PRIVATE local_whisper_common)
+  local_whisper_apply_compile_hardening(
+    local_whisper_common_fuzz_contracts LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+  foreach(local_whisper_common_fuzz_target
+      frame_codec
+      bounded_json
+      canonical_wav
+      model_authority
+      device_proof)
+    add_executable(local_whisper_common_fuzz_${local_whisper_common_fuzz_target}
+      fuzz/${local_whisper_common_fuzz_target}_fuzz.cpp)
+    target_link_libraries(local_whisper_common_fuzz_${local_whisper_common_fuzz_target}
+      PRIVATE local_whisper_common)
+    local_whisper_add_linux_libfuzzer_target(
+      local_whisper_common_fuzz_${local_whisper_common_fuzz_target}
+      LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+  endforeach()
+
+  add_executable(local_whisper_common_fuzz_proof fuzz/fuzz_proof.cpp)
+  local_whisper_add_linux_libfuzzer_target(
+    local_whisper_common_fuzz_proof LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+endif()
 
 include(CTest)
 if(BUILD_TESTING)

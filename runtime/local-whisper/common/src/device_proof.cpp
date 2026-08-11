@@ -92,7 +92,7 @@ public:
   }
 
   void field(const std::string& value) {
-    if (value.empty() || value.size() > 256U)
+    if (value.empty() || value.size() > kDeviceProofMaxCanonicalFieldBytes)
       throw std::runtime_error("field length");
     u16(static_cast<std::uint16_t>(value.size()));
     raw(std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(value.data()),
@@ -108,7 +108,7 @@ private:
 } // namespace
 
 std::string registry_fingerprint(const DeviceRegistry& registry) {
-  if (registry.entries.size() > 256U)
+  if (registry.entries.size() > kDeviceRegistryMaxEntries)
     throw std::runtime_error("registry count");
   DigestWriter writer;
   writer.raw(kRegistryDomain);

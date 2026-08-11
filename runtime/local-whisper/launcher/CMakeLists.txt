@@ -8,9 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperFuzzing.cmake")
 
 option(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS
        "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
+option(LOCAL_WHISPER_LAUNCHER_ENABLE_FUZZING "Build Linux-only libFuzzer request parsing targets" OFF)
 set(LOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production launcher executable")
 set(LOCAL_WHISPER_LAUNCHER_FIXTURE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/fixtures" CACHE PATH
@@ -30,6 +32,18 @@ target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
 local_whisper_apply_compile_hardening(local_whisper_common_sha256 LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 target_link_libraries(local_whisper_launcher_core PUBLIC local_whisper_common_sha256)
 local_whisper_apply_compile_hardening(local_whisper_launcher_core LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+
+if(LOCAL_WHISPER_LAUNCHER_ENABLE_FUZZING)
+  local_whisper_configure_linux_libfuzzer(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  add_executable(local_whisper_launcher_fuzz_contracts fuzz/fuzz_contracts.cpp)
+  target_link_libraries(local_whisper_launcher_fuzz_contracts PRIVATE local_whisper_launcher_core)
+  local_whisper_apply_compile_hardening(
+    local_whisper_launcher_fuzz_contracts LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  add_executable(local_whisper_launcher_request_fuzz fuzz/launch_request_fuzz.cpp)
+  target_link_libraries(local_whisper_launcher_request_fuzz PRIVATE local_whisper_launcher_core)
+  local_whisper_add_linux_libfuzzer_target(
+    local_whisper_launcher_request_fuzz LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+endif()
 
 add_library(local_whisper_authority_records STATIC
   ../common/src/model_authority.cpp

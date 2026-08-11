@@ -76,6 +76,12 @@ TEST(LaunchRequestParserTest, ParsesCompleteVersionTwoBootstrap) {
   EXPECT_EQ(request.directory_identity.mode, 0700U);
 }
 
+TEST(LaunchRequestParserTest, RejectsParserInputBeyondTheCanonicalBootstrapLimit) {
+  EXPECT_THROW(static_cast<void>(
+                   LaunchRequestParser{}.parse(std::string(kMaximumLaunchRequestBytes + 1U, 'a'))),
+               std::runtime_error);
+}
+
 TEST(LaunchRequestParserTest, RejectsUnknownVersionUnsafeNonceAndWrongIdentityKind) {
   std::string wrong_version = valid_line();
   wrong_version.replace(0, 5, "LWLP1");

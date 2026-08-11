@@ -1,0 +1,1 @@
+LWLP2	fixture_nonce_1234	probe	L21hbmFnZWQvcnVudGltZS93b3JrZXI	L21hbmFnZWQvcnVudGltZQ	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa	Nw	MTE	1	320	OQ	4096	regular	Nw	OQ	1	448	NQ	8192	directory

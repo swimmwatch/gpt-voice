@@ -45,6 +45,15 @@ test('Local Whisper keeps native CI checks on configured platform matrix rows', 
   );
 });
 
+test('Local Whisper runs bounded parser fuzzing only on the prepared Linux native row', () => {
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  assert.match(
+    workflow,
+    /- name: Run bounded Linux parser fuzzing\n {8}if: matrix\.platform == 'linux'\n {8}run: \|\n {10}npm run test:local-whisper:native-fuzz\n {10}npm run test:local-whisper:native-fuzz-proof/u,
+  );
+  assert.doesNotMatch(workflow, /if: matrix\.platform == 'windows'\n {8}run: [\s\S]*?native-fuzz/u);
+});
+
 test('package smoke keeps Linux and Windows commands inside one platform matrix', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 

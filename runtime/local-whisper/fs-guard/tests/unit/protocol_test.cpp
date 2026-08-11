@@ -43,6 +43,12 @@ TEST(ProtocolTest, ParsesRequestsAndSerializesResponsesByteForByte) {
   EXPECT_EQ(serialize_response("7", false, {"INVALID_INPUT"}), "7\t1\tERR\tSU5WQUxJRF9JTlBVVA\n");
 }
 
+TEST(ProtocolTest, RejectsParserInputBeyondTheCanonicalLineLimit) {
+  std::string request_id;
+  EXPECT_THROW(static_cast<void>(parse_request(std::string(kMaxLineBytes + 1U, 'a'), request_id)),
+               GuardError);
+}
+
 TEST(GuardApplicationTest, UsesStreamsAndInjectedBackend) {
   test::RecordingBackend backend;
   GuardApplication application(backend);

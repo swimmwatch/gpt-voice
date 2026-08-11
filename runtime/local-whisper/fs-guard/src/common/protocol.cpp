@@ -63,6 +63,8 @@ std::string base64url_decode(const std::string_view input) {
 }
 
 Request parse_request(const std::string_view line, std::string& request_id) {
+  if (line.size() > kMaxLineBytes)
+    throw GuardError(ErrorCode::kInvalidInput);
   const auto fields = split(line, '\t');
   if (fields.size() < 3 || fields[1] != kProtocolVersion || !is_safe_token(fields[0], 1, 20) ||
       !is_safe_token(fields[2], 1, 32)) {

@@ -20,8 +20,6 @@ namespace {
 constexpr std::size_t kBaseFieldCount = 20;
 constexpr std::size_t kFullLoadFieldCount = 22;
 constexpr std::size_t kAuthorityRequestBytes = 234;
-constexpr std::size_t kMaximumBootstrapBytes = 64 * 1024;
-
 std::vector<std::string> split_fields(const std::string& line) {
   std::vector<std::string> fields;
   std::size_t start = 0;
@@ -150,6 +148,8 @@ WorkerLaunchMode parse_launch_mode(const std::string& value) {
 } // namespace
 
 LaunchRequest LaunchRequestParser::parse(const std::string& line) const {
+  if (line.size() > kMaximumLaunchRequestBytes)
+    throw std::runtime_error("launcher request exceeded");
   const std::vector<std::string> fields = split_fields(line);
   if (fields.at(0) != "LWLP2" || !is_safe_nonce(fields.at(1)) || !is_sha256(fields.at(5)))
     throw std::runtime_error("invalid launcher header");
@@ -182,7 +182,7 @@ std::string read_bootstrap_line(int descriptor) {
   std::string line;
   line.reserve(1024);
   std::array<char, 1024> buffer{};
-  while (line.size() <= kMaximumBootstrapBytes) {
+  while (line.size() <= kMaximumLaunchRequestBytes) {
 #ifdef _WIN32
     const int count = _read(descriptor, buffer.data(), static_cast<unsigned int>(buffer.size()));
 #else

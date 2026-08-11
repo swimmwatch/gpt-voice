@@ -12,7 +12,6 @@
 namespace local_whisper::common {
 namespace {
 
-constexpr std::size_t kMaxRawBytes = 1'048'576;
 constexpr std::size_t kMaxEvents = 4'096;
 constexpr std::size_t kMaxDepth = 16;
 constexpr std::size_t kMaxMembers = 128;
@@ -178,7 +177,7 @@ private:
 } // namespace
 
 JsonValidationResult validate_bounded_json(std::span<const std::uint8_t> bytes) {
-  if (bytes.size() > kMaxRawBytes)
+  if (bytes.size() > kBoundedJsonMaxRawBytes)
     return {false, 0, "raw byte limit"};
   const std::string source(reinterpret_cast<const char*>(bytes.data()), bytes.size());
   if (!validate_number_lexemes(source))

@@ -1,10 +1,14 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace local_whisper::common {
+
+constexpr std::size_t kDeviceProofMaxCanonicalFieldBytes = 256;
+constexpr std::size_t kDeviceRegistryMaxEntries = 256;
 
 enum class RegistryDeviceType : std::uint8_t { gpu = 1, integrated_gpu = 2 };
 

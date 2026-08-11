@@ -8,8 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperFuzzing.cmake")
 
 option(FS_GUARD_ENABLE_SANITIZERS "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
+option(FS_GUARD_ENABLE_FUZZING "Build Linux-only libFuzzer request parsing targets" OFF)
 set(FS_GUARD_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" CACHE PATH
     "Directory containing the production fs-guard executable")
 set(LOCAL_WHISPER_GOOGLETEST_SOURCE "" CACHE PATH
@@ -29,6 +31,16 @@ add_library(fs_guard_core STATIC
 )
 target_include_directories(fs_guard_core PUBLIC include ../common/include)
 local_whisper_apply_compile_hardening(fs_guard_core FS_GUARD_ENABLE_SANITIZERS)
+
+if(FS_GUARD_ENABLE_FUZZING)
+  local_whisper_configure_linux_libfuzzer(FS_GUARD_ENABLE_SANITIZERS)
+  add_executable(fs_guard_fuzz_contracts fuzz/fuzz_contracts.cpp)
+  target_link_libraries(fs_guard_fuzz_contracts PRIVATE fs_guard_core)
+  local_whisper_apply_compile_hardening(fs_guard_fuzz_contracts FS_GUARD_ENABLE_SANITIZERS)
+  add_executable(fs_guard_request_fuzz fuzz/request_fuzz.cpp)
+  target_link_libraries(fs_guard_request_fuzz PRIVATE fs_guard_core)
+  local_whisper_add_linux_libfuzzer_target(fs_guard_request_fuzz FS_GUARD_ENABLE_SANITIZERS)
+endif()
 
 add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
