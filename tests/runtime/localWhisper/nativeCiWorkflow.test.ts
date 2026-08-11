@@ -31,6 +31,7 @@ test('Local Whisper keeps native CI checks on configured platform matrix rows', 
   assert.match(msvcAction, /Get-Command ninja\.exe/u);
   assert.match(workflow, /msvc-asan/u);
   assert.match(workflow, /whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19\.39-v1/u);
+  assert.match(workflow, /whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19\.39-v1 --skip-runtime-pack/u);
   assert.match(workflow, /whisper-cpp-cuda -- --profile=windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1/u);
   assert.match(workflow, /verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64/u);
   assert.match(workflow, /--expected-os=\$\{\{ matrix\.platform \}\}/u);

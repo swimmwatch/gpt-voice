@@ -16,6 +16,7 @@ import {
 import { resolveNativeBuildToolPaths } from '../../../../scripts/local-whisper/native-build/native-build-tool-paths.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from '../../../../scripts/local-whisper/native-build/windows-msvc-build-environment.mjs';
 import { parseDumpbinDependencies } from '../../../../scripts/local-whisper/native-build/windows-pe-dependency-core.mjs';
+import { resolveWindowsRuntimeDependencyIdentities } from '../../../../scripts/local-whisper/native-build/windows-runtime-materializer-core.mjs';
 import {
   qualifyToolchainProfile,
   verifyToolchainContract,
@@ -46,6 +47,35 @@ import {
 const workspaceRoot = resolve(import.meta.dirname, '..', '..', '..', '..');
 const sourceRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'sources');
 const toolchainRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains');
+const CPU_BUILD_SCRIPT = readFileSync(
+  resolve(workspaceRoot, 'scripts', 'local-whisper', 'build-whisper-cpp-core.mjs'),
+  'utf8',
+);
+
+test('Windows runtime pack resolves static profile DLL identities only from the approved 14.51 lock', () => {
+  const profile = readJson(resolve(toolchainRoot, 'profiles', 'windows-x64-cpu-msvc-19.39-v1.json'));
+  const lock = readJson(resolve(toolchainRoot, 'locks', 'microsoft-vc-runtime-14.51.36247.0-x64-v1.json'));
+  const dependencies = resolveWindowsRuntimeDependencyIdentities({ dependencies: profile.dynamicDependencies, lock });
+
+  assert.deepEqual(
+    dependencies.map(({ id, sha256: digest }) => [id, digest]),
+    lock.materialization.dllAllowlist
+      .filter(({ name }) => ['msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'].includes(name))
+      .map(({ fileVersion, name, sha256: digest }) => [
+        `microsoft-vc-runtime-${fileVersion}-${name.slice(0, -'.dll'.length).replaceAll('_', '-')}`,
+        digest,
+      ]),
+  );
+
+  const conflicting = globalThis.structuredClone(profile.dynamicDependencies);
+  conflicting[0].sha256 = '0'.repeat(64);
+  assert.throws(() => resolveWindowsRuntimeDependencyIdentities({ dependencies: conflicting, lock }), /conflicts/u);
+});
+
+test('only the Windows quality build can omit runtime-pack staging', () => {
+  assert.match(CPU_BUILD_SCRIPT, /skipRuntimePack && profileId !== 'windows-x64-cpu-msvc-19\.39-v1'/u);
+  assert.match(CPU_BUILD_SCRIPT, /Skipping runtime-pack staging is reserved for Windows native quality builds/u);
+});
 
 test('native source importer identity is invariant across checkout line endings', () => {
   assert.deepEqual(

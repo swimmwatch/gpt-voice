@@ -16,6 +16,19 @@ import {
 } from '../whisper-cpp-build-core.mjs';
 import { resolveProfileTool } from './native-toolchain-core.mjs';
 import { verifyWindowsPeDependencyClosure } from './windows-pe-dependency-core.mjs';
+import { resolveWindowsRuntimeDependencyIdentities } from './windows-runtime-materializer-core.mjs';
+
+const WINDOWS_RUNTIME_LOCK_PATH = resolve(
+  import.meta.dirname,
+  '..',
+  '..',
+  '..',
+  'runtime',
+  'local-whisper',
+  'toolchains',
+  'locks',
+  'microsoft-vc-runtime-14.51.36247.0-x64-v1.json',
+);
 
 const WINDOWS_SYSTEM_DEPENDENCIES = Object.freeze(
   [
@@ -144,10 +157,11 @@ export function stageWindowsRuntimePack({ backend, buildRoot, profile }) {
 
   const stagedRuntimeEvidence = [];
   const stagedDependencies = [];
-  for (const dependency of profile.dynamicDependencies) {
-    if (typeof dependency.sha256 !== 'string') {
-      throw new Error(`Windows runtime identity was not captured: ${dependency.id}`);
-    }
+  const runtimeDependencies = resolveWindowsRuntimeDependencyIdentities({
+    dependencies: profile.dynamicDependencies,
+    lock: readJson(WINDOWS_RUNTIME_LOCK_PATH),
+  });
+  for (const dependency of runtimeDependencies) {
     const name = basename(dependency.path);
     const target = resolve(stagingRoot, 'bin', name);
     copyFileSync(componentPath(dependency), target);

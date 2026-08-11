@@ -208,7 +208,7 @@ jobs:
           npm run test:local-whisper:launcher:native
           npm run test:local-whisper:worker-codec
           npm run test:local-whisper:whisper-cpp-core
-          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
 
       - name: Run MSVC AddressSanitizer native suites
         if: matrix.platform == 'windows'
@@ -225,7 +225,7 @@ jobs:
         run: |
           npm run build:local-whisper:fs-guard
           npm run build:local-whisper:launcher
-          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
           npm run verify:local-whisper:native-hardening -- --platform=windows
           npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
           npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64

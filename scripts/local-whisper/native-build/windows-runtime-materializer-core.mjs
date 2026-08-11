@@ -9,7 +9,7 @@ import {
   rmSync,
   statSync,
 } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import process from 'node:process';
 
 import { canonicalJson, sha256, validateRelativePath, writeJsonAtomic } from '../source-import/native-source-core.mjs';
@@ -90,6 +90,54 @@ export function verifyWindowsRuntimeAcquisitionLock(lock) {
     'Windows runtime license identity changed',
   );
   return true;
+}
+
+/**
+ * Resolves the runtime identities used by a staged pack from the reviewed
+ * acquisition lock. Static Windows profile templates intentionally leave
+ * acquired file digests empty; a pack must never treat that as an unverified
+ * runtime or substitute an ambient DLL.
+ */
+export function resolveWindowsRuntimeDependencyIdentities({ dependencies, lock }) {
+  verifyWindowsRuntimeAcquisitionLock(lock);
+  assert(Array.isArray(dependencies) && dependencies.length > 0, 'Windows runtime dependencies are missing');
+  const lockedComponents = new Map(lock.materialization.dllAllowlist.map((component) => [component.name, component]));
+  const expectedRoot = `${lock.materialization.relativeDestination}/bin/`;
+  const resolvedIds = new Set();
+  const resolvedNames = new Set();
+  return Object.freeze(
+    dependencies.map((dependency) => {
+      assert(
+        dependency && typeof dependency === 'object' && !Array.isArray(dependency),
+        'Windows runtime dependency is invalid',
+      );
+      assert(
+        typeof dependency.id === 'string' && !resolvedIds.has(dependency.id),
+        'Windows runtime dependency ID is invalid',
+      );
+      assert(
+        dependency.pathKind === 'toolchainRootRelative' && typeof dependency.path === 'string',
+        `Windows runtime dependency path is invalid: ${dependency.id}`,
+      );
+      const name = basename(dependency.path);
+      const component = lockedComponents.get(name);
+      assert(component, `Windows runtime dependency is not in the approved lock: ${dependency.id}`);
+      assert(!resolvedNames.has(name), `Windows runtime dependency is duplicated: ${dependency.id}`);
+      assert(
+        dependency.id ===
+          `microsoft-vc-runtime-${component.fileVersion}-${name.slice(0, -'.dll'.length).replaceAll('_', '-')}` &&
+          dependency.path === `${expectedRoot}${name}`,
+        `Windows runtime dependency identity changed: ${dependency.id}`,
+      );
+      assert(
+        dependency.sha256 === null || dependency.sha256 === component.sha256,
+        `Windows runtime dependency digest conflicts with the approved lock: ${dependency.id}`,
+      );
+      resolvedIds.add(dependency.id);
+      resolvedNames.add(name);
+      return Object.freeze({ ...dependency, sha256: component.sha256 });
+    }),
+  );
 }
 
 function quotePowerShellLiteral(value) {

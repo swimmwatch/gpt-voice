@@ -6,8 +6,12 @@ import { buildTargets, configureBuild, parseArguments, requireVerifiedInputs } f
 try {
   const arguments_ = parseArguments(process.argv.slice(2));
   const profileId = arguments_.get('profile');
+  const skipRuntimePack = arguments_.get('skip-runtime-pack') === true;
   if (!['linux-x64-cpu-baseline-v1', 'windows-x64-cpu-msvc-19.39-v1'].includes(profileId))
     throw new Error(`Unsupported CPU build profile: ${profileId}`);
+  if (skipRuntimePack && profileId !== 'windows-x64-cpu-msvc-19.39-v1') {
+    throw new Error('Skipping runtime-pack staging is reserved for Windows native quality builds');
+  }
   requireVerifiedInputs(profileId);
   const configured = configureBuild(profileId, {
     engine: true,
@@ -18,8 +22,12 @@ try {
     tests: false,
   });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
-  const stagingRoot = stageCpuPack(profileId, configured.buildRoot, configured.profile);
-  process.stdout.write(`Local Whisper CPU worker staged at ${stagingRoot}\n`);
+  if (skipRuntimePack) {
+    process.stdout.write(`Local Whisper CPU worker built at ${configured.buildRoot}\n`);
+  } else {
+    const stagingRoot = stageCpuPack(profileId, configured.buildRoot, configured.profile);
+    process.stdout.write(`Local Whisper CPU worker staged at ${stagingRoot}\n`);
+  }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Whisper.cpp CPU build failed'}\n`);
   process.exitCode = 1;
