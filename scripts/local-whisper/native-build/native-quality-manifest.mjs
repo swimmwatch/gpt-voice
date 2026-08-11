@@ -33,6 +33,7 @@ const LINUX_ONLY_BASENAMES = new Set([
   'model_authority_linux.cpp',
   'model_authority_server.cpp',
   'model_launch_application.cpp',
+  'qualification_protocol_test.cpp',
   'worker_protocol_posix.cpp',
 ]);
 
