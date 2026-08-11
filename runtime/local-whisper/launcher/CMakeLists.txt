@@ -89,7 +89,7 @@ if(BUILD_TESTING)
   )
   target_link_libraries(local_whisper_launcher_unit_tests
     PRIVATE local_whisper_launcher_core GTest::gtest_main)
-  local_whisper_apply_compile_hardening(local_whisper_launcher_unit_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(local_whisper_launcher_unit_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_launcher_unit_tests)
 
   add_executable(local-whisper-launcher-fixture-worker
@@ -139,7 +139,7 @@ if(BUILD_TESTING)
       LOCAL_WHISPER_AUTHORITY_WORKER_FIXTURE="$<TARGET_FILE:local-whisper-authority-worker-fixture>")
     target_link_libraries(local_whisper_launcher_integration_tests
       PRIVATE local_whisper_launcher_platform GTest::gtest_main)
-    local_whisper_apply_compile_hardening(local_whisper_launcher_integration_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+    local_whisper_apply_test_compile_hardening(local_whisper_launcher_integration_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
     local_whisper_apply_executable_hardening(local_whisper_launcher_integration_tests)
   endif()
 

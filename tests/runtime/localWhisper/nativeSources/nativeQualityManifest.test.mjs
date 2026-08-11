@@ -38,6 +38,12 @@ const MSVC_ANALYSIS_DRIVERS = [
   'native-worker-quality.mjs',
   'whisper-cpp-build-core.mjs',
 ].map((fileName) => readFileSync(resolve(WORKSPACE_ROOT, 'scripts', 'local-whisper', fileName), 'utf8'));
+const NATIVE_TEST_CMAKE_FILES = [
+  'common/CMakeLists.txt',
+  'fs-guard/CMakeLists.txt',
+  'launcher/CMakeLists.txt',
+  'whisper-cpp/CMakeLists.txt',
+].map((relativePath) => readFileSync(resolve(WORKSPACE_ROOT, 'runtime', 'local-whisper', relativePath), 'utf8'));
 
 test('native quality manifest covers every owned project and separates host-specific sources', () => {
   const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
@@ -109,6 +115,14 @@ test('MSVC analysis is applied only through project-target hardening', () => {
     NATIVE_HARDENING,
     /if\(LOCAL_WHISPER_MSVC_ANALYZE\)\s+# GoogleTest is a reviewed external dependency\.[\s\S]+?target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external-\)/u,
   );
+  assert.match(
+    NATIVE_HARDENING,
+    /function\(local_whisper_apply_test_compile_hardening target sanitizer_option\)[\s\S]+?target_compile_options\(\$\{target\} PRIVATE \/wd6326\)/u,
+  );
+  for (const cmakeFile of NATIVE_TEST_CMAKE_FILES) {
+    assert.match(cmakeFile, /local_whisper_apply_test_compile_hardening/u);
+    assert.doesNotMatch(cmakeFile, /local_whisper_apply_compile_hardening\([^)]*tests/u);
+  }
   for (const driver of MSVC_ANALYSIS_DRIVERS) {
     assert.match(driver, /-DLOCAL_WHISPER_MSVC_ANALYZE=ON/u);
     assert.doesNotMatch(driver, /CMAKE_CXX_FLAGS=\/analyze/u);

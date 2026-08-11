@@ -100,7 +100,7 @@ if(BUILD_TESTING)
   )
   target_include_directories(fs_guard_unit_tests PRIVATE src)
   target_link_libraries(fs_guard_unit_tests PRIVATE fs_guard_core GTest::gtest_main)
-  local_whisper_apply_compile_hardening(fs_guard_unit_tests FS_GUARD_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(fs_guard_unit_tests FS_GUARD_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(fs_guard_unit_tests)
 
   add_executable(fs_guard_integration_tests
@@ -110,7 +110,7 @@ if(BUILD_TESTING)
   target_include_directories(fs_guard_integration_tests PRIVATE ../common/tests)
   target_link_libraries(fs_guard_integration_tests PRIVATE fs_guard_platform
                                                             GTest::gtest_main)
-  local_whisper_apply_compile_hardening(fs_guard_integration_tests FS_GUARD_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(fs_guard_integration_tests FS_GUARD_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(fs_guard_integration_tests)
 
   include(GoogleTest)

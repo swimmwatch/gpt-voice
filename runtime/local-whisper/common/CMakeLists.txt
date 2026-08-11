@@ -77,7 +77,7 @@ if(BUILD_TESTING)
     LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT="${LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT}")
   target_link_libraries(local_whisper_common_tests
     PRIVATE local_whisper_common GTest::gtest_main)
-  local_whisper_apply_compile_hardening(local_whisper_common_tests LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(local_whisper_common_tests LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_common_tests)
 
   include(GoogleTest)

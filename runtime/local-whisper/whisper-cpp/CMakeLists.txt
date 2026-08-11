@@ -220,7 +220,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   target_include_directories(local_whisper_whisper_cpp_core_tests PRIVATE tests)
   target_link_libraries(local_whisper_whisper_cpp_core_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_core_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(local_whisper_whisper_cpp_core_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_core_tests)
 
   add_executable(local_whisper_whisper_cpp_loader_tests
@@ -230,7 +230,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   target_include_directories(local_whisper_whisper_cpp_loader_tests PRIVATE tests)
   target_link_libraries(local_whisper_whisper_cpp_loader_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_loader_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(local_whisper_whisper_cpp_loader_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_loader_tests)
 
   add_executable(local_whisper_whisper_cpp_device_tests
@@ -240,7 +240,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   )
   target_link_libraries(local_whisper_whisper_cpp_device_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_device_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(local_whisper_whisper_cpp_device_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_device_tests)
 
   add_executable(local_whisper_whisper_cpp_cancellation_tests
@@ -248,7 +248,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   )
   target_link_libraries(local_whisper_whisper_cpp_cancellation_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)
-  local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_cancellation_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_test_compile_hardening(local_whisper_whisper_cpp_cancellation_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_cancellation_tests)
 
   if(LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
@@ -256,7 +256,7 @@ if(LOCAL_WHISPER_BUILD_TESTS)
       tests/qualification_protocol_test.cpp)
     target_link_libraries(local_whisper_whisper_cpp_qualification_tests
       PRIVATE local_whisper_qualification_protocol GTest::gtest_main)
-    local_whisper_apply_compile_hardening(local_whisper_whisper_cpp_qualification_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
+    local_whisper_apply_test_compile_hardening(local_whisper_whisper_cpp_qualification_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
     local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_qualification_tests)
   endif()
 

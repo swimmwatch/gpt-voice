@@ -110,6 +110,16 @@ function(local_whisper_apply_compile_hardening target sanitizer_option)
   endif()
 endfunction()
 
+function(local_whisper_apply_test_compile_hardening target sanitizer_option)
+  local_whisper_apply_compile_hardening(${target} ${sanitizer_option})
+  if(MSVC AND LOCAL_WHISPER_MSVC_ANALYZE)
+    # Test assertions intentionally compare fixture constants. C6326 cannot
+    # distinguish those assertions from production logic, so disable it only
+    # for project-owned test translation units after ordinary hardening.
+    target_compile_options(${target} PRIVATE /wd6326)
+  endif()
+endfunction()
+
 function(local_whisper_apply_executable_hardening target)
   if(MSVC)
     target_link_options(${target} PRIVATE /guard:cf /DYNAMICBASE /NXCOMPAT /Brepro)
