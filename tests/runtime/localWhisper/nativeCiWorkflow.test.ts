@@ -14,6 +14,10 @@ test('Local Whisper keeps native CI checks on configured platform matrix rows', 
   assert.match(workflow, /fail-fast: false/u);
   assert.match(workflow, /platform: linux\n {12}runner: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u);
   assert.match(workflow, /platform: windows\n {12}runner: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
+  assert.match(
+    workflow,
+    /platform: windows\n {12}runner: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}\n {12}timeoutMinutes: 60/u,
+  );
   assert.match(workflow, /toolchain: clang-\$\{\{ vars\.CI_LLVM_VERSION \}\}/u);
   assert.match(workflow, /toolchain: msvc-hosted/u);
 

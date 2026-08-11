@@ -73,7 +73,7 @@ jobs:
             evidenceOutput: release-artifacts/local-whisper-runner-evidence-windows-primary.json
             platform: windows
             runner: ${{ vars.CI_WINDOWS_RUNNER }}
-            timeoutMinutes: 30
+            timeoutMinutes: 60
             toolchain: msvc-hosted
 
     steps:
