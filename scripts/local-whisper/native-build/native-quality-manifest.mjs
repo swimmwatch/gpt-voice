@@ -88,6 +88,7 @@ function collectProjectFiles(workspaceRoot, project) {
 
 function platformsForPath(path) {
   const basename = path.slice(path.lastIndexOf('/') + 1);
+  if (path.includes('/fuzz/')) return ['linux'];
   if (path.includes('/launcher/tests/integration/') || path.includes('/whisper-cpp/qualification/')) return ['linux'];
   if (path.includes('/platform/linux/') || LINUX_ONLY_BASENAMES.has(basename)) return ['linux'];
   if (path.includes('/platform/windows/') || WINDOWS_ONLY_BASENAMES.has(basename)) return ['windows'];

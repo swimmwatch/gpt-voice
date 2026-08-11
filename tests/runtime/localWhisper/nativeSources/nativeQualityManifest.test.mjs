@@ -55,6 +55,10 @@ test('native quality manifest covers every owned project and separates host-spec
   assert.ok(manifestEntriesForPlatform(manifest, 'windows', { translationUnitsOnly: true }).length > 0);
   assert.ok(!manifestEntriesForPlatform(manifest, 'linux').some((entry) => entry.path.includes('/platform/windows/')));
   assert.ok(!manifestEntriesForPlatform(manifest, 'windows').some((entry) => entry.path.includes('/platform/linux/')));
+  const fuzzEntries = manifest.filter((entry) => entry.path.includes('/fuzz/'));
+  assert.ok(fuzzEntries.length > 0);
+  assert.ok(fuzzEntries.every((entry) => entry.platforms.length === 1 && entry.platforms[0] === 'linux'));
+  assert.ok(!manifestEntriesForPlatform(manifest, 'windows').some((entry) => entry.path.includes('/fuzz/')));
   assert.deepEqual(
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/qualification_protocol_test.cpp'))?.platforms,
     ['linux'],
