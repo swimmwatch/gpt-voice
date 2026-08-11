@@ -8,6 +8,9 @@
 - Revised plan approval `PLAN-APPROVAL-005` and execution authorization `EXEC-AUTH-003` are recorded. Packets 10–19 may run later, exactly one per explicit `incremental-implementation` invocation.
 - Packet 09 is complete. `scripts/local-whisper/ci/runner-policy.json` owns the exact approved labels; CI validates injected repository values, rejects latest aliases, and the GitHub repository variable `CI_WINDOWS_RUNNER` is set to `windows-2025`.
 - Packet 10 is complete. It adds a pinned pull-request Dependency Review, Linux-only repository security controls, synthetic secret/Docker policy proofs, signature-evidence verification, digest-pinned Hadolint/Trivy builder scanning, and Docker Dependabot monitoring. The prototype advisory remediation resolves `nanoid@3.3.18`, `postcss@8.5.26`, and `vite@6.4.3`.
+- Packet 11 is complete. Canonical source coverage now classifies `qualification_protocol_test.cpp` as Linux-only, matching its real qualification build. The Windows native-quality row has a 60-minute matrix budget so it can complete `/analyze`, ASan, hardened production builds, coverage emission, and C++ CodeQL without a false cancellation.
+- Packet 11 exact-SHA gate passed on `4ea061d2269b88996b8ecc91ff78b1380341e138`: [Pull Request Checks `31480473949`](https://github.com/swimmwatch/gpt-voice/actions/runs/31480473949), [Repository Security `31480474018`](https://github.com/swimmwatch/gpt-voice/actions/runs/31480474018), [Actionlint `31480474005`](https://github.com/swimmwatch/gpt-voice/actions/runs/31480474005), [Fixture Packaging `31480473973`](https://github.com/swimmwatch/gpt-voice/actions/runs/31480473973), and [Dependency Review `31480473987`](https://github.com/swimmwatch/gpt-voice/actions/runs/31480473987). The Linux and Windows native-quality jobs, JavaScript/TypeScript CodeQL, both C++ CodeQL databases, and Fedora/Windows package smokes all succeeded; no required Windows stage was skipped.
+- The first Packet 11 candidate (`43fa7e19`) exposed a 30-minute Windows job cancellation. The timeout correction (`d47834f1`) exposed a coverage-manifest mismatch, and the final candidate (`4ea061d2`) fixed it with a deterministic regression test.
 - Exact-SHA CI for `de85d71bcb419e2e23550184920d36df9d352e76` passed [Pull Request Checks `31428883525`](https://github.com/swimmwatch/gpt-voice/actions/runs/31428883525), [Repository Security `31428883545`](https://github.com/swimmwatch/gpt-voice/actions/runs/31428883545), [Actionlint `31428883572`](https://github.com/swimmwatch/gpt-voice/actions/runs/31428883572), [Fixture Packaging `31428883631`](https://github.com/swimmwatch/gpt-voice/actions/runs/31428883631), and [Dependency Review `31428883616`](https://github.com/swimmwatch/gpt-voice/actions/runs/31428883616). Linux native quality, Windows Server 2025 native quality, Fedora package smoke, and Windows Server 2025 package smoke all executed and succeeded; no required Windows job was skipped.
 - Exact-SHA CI for `3834796459b9c653f65c674b5794242696429a83` passed [Pull Request Checks `31391882393`](https://github.com/swimmwatch/gpt-voice/actions/runs/31391882393), [Actionlint `31391882375`](https://github.com/swimmwatch/gpt-voice/actions/runs/31391882375), and [Fixture Packaging `31391882316`](https://github.com/swimmwatch/gpt-voice/actions/runs/31391882316). Ubuntu 24.04 native quality, Windows Server 2025 native quality, Fedora package smoke, and Windows Server 2025 package smoke all executed and succeeded; no required Windows job was skipped.
 - Equivalent setup/configuration must have one reusable owner. Fedora 44 remains the digest-pinned Linux package builder on Ubuntu 24.04; Windows-native/package execution remains on Windows Server 2025. No required Windows job may be skipped.
@@ -27,6 +30,13 @@
 - `scripts/security/` dependency-review, signature, secret, Docker-builder, and repository-gate policies/verifiers, plus the focused supply-chain verifier update.
 - Synthetic Docker/secret fixtures and `tests/scripts/security/` policy and workflow tests.
 
+## Packet 11 Files
+
+- `.github/workflows/pr-checks.yml` and `tests/runtime/localWhisper/nativeCiWorkflow.test.ts`
+- `scripts/local-whisper/native-build/native-quality-manifest.mjs` and `tests/runtime/localWhisper/nativeSources/nativeQualityManifest.test.mjs`
+- `scripts/local-whisper/build-whisper-cpp-core.mjs`, `scripts/local-whisper/native-build/windows-runtime-materializer-core.mjs`, and `scripts/local-whisper/native-build/windows-runtime-pack-core.mjs`
+- `tests/runtime/localWhisper/nativeSources/nativeSources.test.mjs`
+
 ## Checks
 
 - Passed: `npm run validate:workflows`, `npm run test:security:workflow-policy`, `npm run test:local-whisper:runner-policy`, `npm run test:local-whisper:native-ci-workflow`, `npm run test:local-whisper:native-build-audits`, `npm run test:local-whisper:packaging`, `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test:types`, `npm run validate:dependabot`, `npm run audit:prod`, `npm test`, and `npm run build:prod`.
@@ -34,10 +44,12 @@
 - Repository-wide Prettier and `git diff --check` passed for candidate `3834796459b9c653f65c674b5794242696429a83`.
 - Local native evidence execution is unavailable because this host has no `clang++-18`; deterministic evidence, wrong-host, wrong-toolchain, source-commit, and job-allocation tests pass. Hosted Windows Server 2025 execution passed in CI; final supported-host manual Windows validation remains Packet 19.
 - Packet 10 passed locally: `npm run audit:prod`, all five `test:security:*` policy suites, `npm run validate:workflows`, `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test:types`, `npm test`, and `npm run build:prod`. The prototype passed isolated script-disabled install, typecheck, build, site tests, and high-severity audit.
+- Packet 11 passed locally: worker/common, filesystem-guard, and launcher native lint suites; native analyzer negative proofs; native source/build-audit, workflow, and CodeQL-policy tests; `npm run validate:workflows`; `npm run format:check`; `npm run lint` (95 pre-existing warnings, zero errors); `npm run typecheck`; `npm run test:types`; `npm run audit:prod`; `npm test` (2,030 passed, one expected skip); and `npm run build:prod` (existing bundle-size warnings only).
+- Packet 11 remote evidence: Linux completed real Clang worker/sanitizer/analyzer execution, Linux coverage and runner evidence, and the C++ CodeQL database/query. Windows Server 2025 completed ordinary MSVC tests, `/analyze`, MSVC ASan, hardened production binaries, supervisor/filesystem conformance, Windows coverage and runner evidence, and the C++ CodeQL database/query. JavaScript/TypeScript CodeQL also completed successfully in Quality Gates.
 
 ## Exact Next Packet
 
-- On the next explicit `incremental-implementation` invocation, begin Packet 11 — Native Execution, CodeQL, Analysis, And Reporting.
+- On the next explicit `incremental-implementation` invocation, begin Packet 12 — Bounded Parser Fuzzing.
 
 ## Blockers
 
