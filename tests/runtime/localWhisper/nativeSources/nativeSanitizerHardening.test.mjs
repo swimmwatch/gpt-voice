@@ -47,6 +47,12 @@ test('ThreadSanitizer policy is isolated to the Linux worker graph', () => {
     TSAN_OPTIONS: 'halt_on_error=1:second_deadlock_stack=1',
   });
   assert.throws(() => threadSanitizerRuntimeOptions('windows'));
+
+  const workerTsanRunner = readFileSync(
+    resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-build', 'native-worker-tsan.mjs'),
+    'utf8',
+  );
+  assert.match(workerTsanRunner, /requireVerifiedInputs\(profile\.baseToolchainProfile\)/u);
 });
 
 test('all native graphs use the shared Linux sanitizer and MSVC STL policies', () => {

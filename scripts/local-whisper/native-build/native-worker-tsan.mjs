@@ -5,7 +5,7 @@ import process from 'node:process';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { buildTargets, configureBuild, workspaceRoot } from '../whisper-cpp-build-core.mjs';
+import { buildTargets, configureBuild, requireVerifiedInputs, workspaceRoot } from '../whisper-cpp-build-core.mjs';
 import { resolveNativeBuildJobs } from './native-build-parallelism.mjs';
 import { threadSanitizerRuntimeEnvironment } from './tsan-runtime-policy.mjs';
 
@@ -114,10 +114,11 @@ function configureWorkerTsan(profile) {
   const asanUbsanEnabled = profile.cmakeCache.LOCAL_WHISPER_ENABLE_SANITIZERS === 'ON';
   const threadSanitizer = profile.cmakeCache.LOCAL_WHISPER_ENABLE_THREAD_SANITIZER === 'ON';
   if (asanUbsanEnabled || !threadSanitizer) throw new Error('Worker TSan profile mixes incompatible instrumentation');
+  requireVerifiedInputs(profile.baseToolchainProfile);
   const configured = configureBuild(profile.baseToolchainProfile, {
     engine: false,
     preparedLinuxQuality: process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true',
-    quiet: false,
+    quiet: true,
     rootTag: 'tsan',
     sanitizers: false,
     tests: true,
