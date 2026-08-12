@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { posix, win32 } from 'node:path';
 import type { Readable, Writable } from 'node:stream';
 
@@ -12,6 +12,10 @@ import type {
 } from './WorkerProcessOwnership';
 import { NativeOwnedWorkerProcess } from './NativeOwnedWorkerProcess';
 import { LOCAL_WHISPER_LOAD_TIMEOUT_MS } from './LocalWhisperSupervisorConstants';
+import {
+  createNativeRuntimeLogLaunchEnvironment,
+  isNativeRuntimeProcessInstanceId,
+} from './NativeRuntimeLogLaunchEnvironment';
 
 const LAUNCHER_ARGUMENT = '--local-whisper-launcher-v2';
 const MODEL_GUARD_ARGUMENT = '--local-whisper-model-launch-v1';
@@ -26,6 +30,7 @@ export function getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch:
 export interface NativeLauncherProcessOwnerDependencies {
   readonly environment: Readonly<NodeJS.ProcessEnv>;
   readonly getProcessStartIdentity: (pid: number) => Promise<string>;
+  readonly generateProcessInstanceId?: () => string;
   readonly launcherExecutablePath: string;
   readonly launcherExecutableSha256?: string;
   readonly modelGuardExecutablePath?: string;
@@ -116,16 +121,6 @@ function modelGuardBootstrapLine(
   return line;
 }
 
-function sanitizedEnvironment(platform: 'linux' | 'win32', source: Readonly<NodeJS.ProcessEnv>): NodeJS.ProcessEnv {
-  if (platform === 'linux') return { LANG: 'C', LC_ALL: 'C' };
-  const result: NodeJS.ProcessEnv = {};
-  for (const key of ['SystemRoot', 'WINDIR'] as const) {
-    const value = source[key];
-    if (typeof value === 'string' && value.length > 0) result[key] = value;
-  }
-  return result;
-}
-
 function requireStream<T>(value: T | null | undefined, label: string): T {
   if (!value) throw new Error(`Local Whisper launcher ${label} unavailable`);
   return value;
@@ -148,6 +143,10 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
       throw new Error('Local Whisper launcher paths must be absolute');
     }
     const spawnProcess = this.dependencies.spawnProcess ?? spawn;
+    const processInstanceId = (this.dependencies.generateProcessInstanceId ?? randomUUID)();
+    if (!isNativeRuntimeProcessInstanceId(processInstanceId)) {
+      throw new Error('Invalid Local Whisper native process instance ID');
+    }
     const modelGuardLaunch = authority.modelGuardAuthority !== undefined;
     const executablePath = modelGuardLaunch
       ? this.dependencies.modelGuardExecutablePath
@@ -161,7 +160,11 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
     const child = spawnProcess(executablePath, [modelGuardLaunch ? MODEL_GUARD_ARGUMENT : LAUNCHER_ARGUMENT], {
       cwd: authority.workingDirectoryPath,
       detached: false,
-      env: sanitizedEnvironment(this.dependencies.platform, this.dependencies.environment),
+      env: createNativeRuntimeLogLaunchEnvironment(
+        this.dependencies.platform,
+        this.dependencies.environment,
+        processInstanceId,
+      ),
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       windowsHide: true,
@@ -196,6 +199,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         child,
         control,
         input,
+        nativeRuntimeProcessInstanceId: processInstanceId,
         output,
         platform: this.dependencies.platform,
         processStartIdentity,

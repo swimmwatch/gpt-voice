@@ -56,6 +56,7 @@ import {
   ProviderAuditLogExtractor,
   type DiagnosticsArchiveFileSystem,
 } from '../services/diagnosticsArchive';
+import { NativeRuntimeLogArchiveExtractor } from '../services/nativeRuntimeLogArchive';
 import {
   ArchiverDiagnosticsArchiveWriterFactory,
   DiagnosticsArchiveFormatAdapter,
@@ -106,6 +107,7 @@ import {
 } from '../cloakBrowserSettings';
 import { PrettifySettingsStorage, type PrettifySettingsStorageDependencies } from '../services/prettifySettingsStorage';
 import { LoggerFactory, type LoggerFactoryDependencies } from '../logger';
+import { NativeRuntimeLogForwarder } from '../localWhisper/supervisor/NativeRuntimeLogStreamDecoder';
 import { ElectronRuntimeLoader, type ElectronRuntimeLoaderDependencies } from '../electronRuntime';
 import { CloakBrowserRuntimeLoader, type CloakBrowserRuntimeLoaderDependencies } from '../cloakbrowser';
 import { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
@@ -189,6 +191,7 @@ export interface MainProcessLocalWhisperEnvironment {
   readonly facts: LocalWhisperSnapshotFactsPort;
   readonly artifacts: LocalWhisperArtifactCommandPort;
   readonly managedFolder: LocalWhisperManagedFolderPort;
+  readonly nativeRuntimeLogRelay?: import('../localWhisper/supervisor/NativeRuntimeLogStreamDecoder').NativeRuntimeLogRelay;
   readonly references: LocalWhisperArtifactReferencePort;
   readonly refreshDevices: (configurationEpoch: number) => Promise<void>;
   readonly dispose: () => Promise<void>;
@@ -396,6 +399,12 @@ export class MainProcessCompositionRoot {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
     const assetPaths = new AssetPathResolver(this.environment.assetPaths);
     const loggerFactory = new LoggerFactory(this.environment.logger);
+    this.environment.localWhisper.nativeRuntimeLogRelay?.attach(
+      new NativeRuntimeLogForwarder({
+        logger: loggerFactory.getLogger('local-whisper-native-runtime'),
+        now: this.environment.now,
+      }),
+    );
     const electronRuntime = new ElectronRuntimeLoader({
       ...this.environment.electronRuntime,
       logger: loggerFactory.getLogger('electron-runtime'),
@@ -542,6 +551,7 @@ export class MainProcessCompositionRoot {
       }),
       jsonl: new DiagnosticsArchiveJsonlSerializer(),
       logs: new ProviderAuditLogExtractor(loggerFactory.getMainLogFileAccessor()),
+      nativeLogs: new NativeRuntimeLogArchiveExtractor(loggerFactory.getMainLogFileAccessor()),
       localWhisperSnapshot: new LocalWhisperDiagnosticsSnapshotProvider({
         now: this.environment.now,
         snapshots: localWhisperSnapshots,

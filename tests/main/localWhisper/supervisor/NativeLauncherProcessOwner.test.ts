@@ -29,6 +29,7 @@ describe('NativeOwnedWorkerProcess exit confirmation', () => {
       child,
       control,
       input,
+      nativeRuntimeProcessInstanceId: '11111111-1111-1111-8111-111111111111',
       output,
       platform: 'win32',
       processStartIdentity: 'fixture-process-start',

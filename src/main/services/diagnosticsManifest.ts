@@ -7,13 +7,13 @@ import { DIAGNOSTIC_REDACTOR_VERSION } from './diagnosticTextRedactor';
 import {
   DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_ARCHITECTURES,
-  DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
   DIAGNOSTICS_ARCHIVE_PLATFORM_FAMILIES,
   DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_SENSITIVITY_WARNING,
   DIAGNOSTICS_ARCHIVE_VOICE_PROVIDER_IDS,
   LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION,
+  NATIVE_RUNTIME_DIAGNOSTICS_SCHEMA_VERSION,
   isDiagnosticArchiveTextActionRow,
   isDiagnosticsArchiveEnvironmentSnapshot,
   isDiagnosticsArchiveManifest,
@@ -24,6 +24,7 @@ import {
   type DiagnosticsArchiveEnvironmentSnapshot,
   type DiagnosticsArchiveManifest,
   type DiagnosticsArchiveMemberSummary,
+  type DiagnosticsArchiveNativeRuntimeSummary,
   type DiagnosticsArchivePlatformFamily,
   type DiagnosticsArchivePayloadMemberName,
 } from '@shared/diagnosticsArchive';
@@ -150,10 +151,11 @@ export interface DiagnosticsManifestBuildInput {
   readonly createdAt: string;
   readonly diagnosticRows: readonly DiagnosticArchiveTextActionRow[];
   readonly environment: DiagnosticsArchiveEnvironmentSnapshot;
+  readonly nativeRuntime?: DiagnosticsArchiveNativeRuntimeSummary;
   readonly payloads: ReadonlyMap<DiagnosticsArchivePayloadMemberName, Buffer>;
 }
 
-/** Owns legacy schema-v1 and additive Local Whisper schema-v2 manifest assembly. */
+/** Owns legacy schema-v1, Local Whisper schema-v2, and native-runtime schema-v3 manifest assembly. */
 export class DiagnosticsManifestBuilder {
   public constructor(private readonly dependencies: DiagnosticsManifestBuilderDependencies) {}
 
@@ -162,6 +164,18 @@ export class DiagnosticsManifestBuilder {
     const members = this.summarizeMembers(input.payloads);
     const containsDiagnosticText = diagnostics.recordCount > 0;
     const includesLocalWhisperSnapshot = input.payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);
+    const nativeRuntime: DiagnosticsArchiveNativeRuntimeSummary =
+      input.nativeRuntime ??
+      Object.freeze({
+        byteLength: 0,
+        duplicateRecordCount: 0,
+        firstObservedAt: null,
+        includedRecordCount: 0,
+        invalidRecordCount: 0,
+        lastObservedAt: null,
+        truncated: false,
+        validRecordCount: 0,
+      });
     const manifest: DiagnosticsArchiveManifest = {
       appVersion: input.environment.appVersion,
       archiveId: input.archiveId,
@@ -169,6 +183,7 @@ export class DiagnosticsManifestBuilder {
       captureSettings: input.captureSettings,
       createdAt: input.createdAt,
       diagnostics,
+      nativeRuntime,
       members,
       platform: {
         architecture: input.environment.architecture,
@@ -181,15 +196,14 @@ export class DiagnosticsManifestBuilder {
         node: input.environment.nodeVersion,
         playwright: input.environment.playwrightVersion,
       },
-      schemaVersion: includesLocalWhisperSnapshot
-        ? DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION
-        : DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION,
+      schemaVersion: DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
       schemaVersions: {
         database: this.dependencies.databaseSchemaVersion,
         diagnosticRow: this.dependencies.diagnosticRowSchemaVersion,
         ...(includesLocalWhisperSnapshot
           ? { localWhisperSnapshot: LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION }
           : {}),
+        nativeRuntime: NATIVE_RUNTIME_DIAGNOSTICS_SCHEMA_VERSION,
         providerAudit: this.dependencies.providerAuditSchemaVersion,
         redactor: this.dependencies.redactorVersion,
       },
@@ -240,6 +254,9 @@ export class DiagnosticsManifestBuilder {
     const memberNames: DiagnosticsArchivePayloadMemberName[] = [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents];
     if (payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions)) {
       memberNames.push(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions);
+    }
+    if (payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime)) {
+      memberNames.push(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime);
     }
     if (payloads.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot)) {
       memberNames.push(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);

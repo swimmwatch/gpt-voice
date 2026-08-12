@@ -1,5 +1,6 @@
 import {
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
+  DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
   LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION,
   isDiagnosticsArchiveManifest,
@@ -29,7 +30,8 @@ export class LocalWhisperDiagnosticsArchiveReader {
     const snapshotSummaries = manifestValue.members.filter((member) => member.name === snapshotName);
     if (snapshotMembers.length === 0 && snapshotSummaries.length === 0) return 'absent';
     if (
-      manifestValue.schemaVersion !== DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION ||
+      (manifestValue.schemaVersion !== DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION &&
+        manifestValue.schemaVersion !== DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION) ||
       manifestValue.schemaVersions.localWhisperSnapshot !== LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION ||
       snapshotMembers.length !== 1 ||
       snapshotSummaries.length !== 1

@@ -37,13 +37,18 @@ import {
 import { LOCAL_WHISPER_MODEL_VARIANTS, type LocalWhisperModelVariant } from './localWhisper/catalog';
 
 export const DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION = 1 as const;
-export const DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION = 2 as const;
+export const DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION = 2 as const;
+export const DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION = 3 as const;
 export const DIAGNOSTICS_ARCHIVE_SCHEMA_VERSIONS = [
   DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION,
+  DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION,
 ] as const;
 export const DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION = 1 as const;
 export const LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION = 1 as const;
+export const NATIVE_RUNTIME_DIAGNOSTICS_SCHEMA_VERSION = 1 as const;
+export const NATIVE_RUNTIME_DIAGNOSTICS_MAXIMUM_BYTES = 4 * 1024 * 1024;
+export const NATIVE_RUNTIME_DIAGNOSTICS_MAXIMUM_RECORDS = 10_000;
 export const LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES = 65_536 as const;
 export const DIAGNOSTICS_EXPORT_IPC_CHANNEL = 'export-diagnostics' as const;
 
@@ -69,6 +74,7 @@ export const DIAGNOSTICS_ARCHIVE_ARCHITECTURES = [
 export const DIAGNOSTICS_ARCHIVE_MEMBER_NAMES = Object.freeze({
   AuditEvents: 'provider-audit/events.jsonl',
   DiagnosticTextActions: 'diagnostics/text-actions.jsonl',
+  NativeRuntime: 'diagnostics/native-runtime.jsonl',
   LocalWhisperSnapshot: 'local-whisper/snapshot.json',
   Manifest: 'manifest.json',
 } as const);
@@ -76,6 +82,7 @@ export const DIAGNOSTICS_ARCHIVE_MEMBER_NAMES = Object.freeze({
 export const DIAGNOSTICS_ARCHIVE_PAYLOAD_MEMBER_NAMES = [
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
+  DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
 ] as const;
 
@@ -161,6 +168,17 @@ export interface DiagnosticsArchiveDiagnosticSummary {
   readonly retainedBytes: number;
 }
 
+export interface DiagnosticsArchiveNativeRuntimeSummary {
+  readonly byteLength: number;
+  readonly duplicateRecordCount: number;
+  readonly firstObservedAt: string | null;
+  readonly includedRecordCount: number;
+  readonly invalidRecordCount: number;
+  readonly lastObservedAt: string | null;
+  readonly truncated: boolean;
+  readonly validRecordCount: number;
+}
+
 export interface DiagnosticsArchiveMemberSummary {
   readonly byteLength: number;
   readonly name: DiagnosticsArchivePayloadMemberName;
@@ -201,6 +219,7 @@ export interface DiagnosticsArchiveManifest {
   readonly captureSettings: DiagnosticCaptureSettings;
   readonly createdAt: string;
   readonly diagnostics: DiagnosticsArchiveDiagnosticSummary;
+  readonly nativeRuntime?: DiagnosticsArchiveNativeRuntimeSummary;
   readonly members: readonly DiagnosticsArchiveMemberSummary[];
   readonly platform: {
     readonly architecture: DiagnosticsArchiveArchitecture;
@@ -218,6 +237,7 @@ export interface DiagnosticsArchiveManifest {
     readonly database: number;
     readonly diagnosticRow: typeof DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION;
     readonly localWhisperSnapshot?: typeof LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION;
+    readonly nativeRuntime?: typeof NATIVE_RUNTIME_DIAGNOSTICS_SCHEMA_VERSION;
     readonly providerAudit: number;
     readonly redactor: number;
   };
@@ -449,6 +469,42 @@ function isDiagnosticSummary(value: unknown): value is DiagnosticsArchiveDiagnos
     : isRecordedAtRange(value.recordedAtRange) && includedCategories.length > 0 && value.retainedBytes > 0;
 }
 
+function isNativeRuntimeSummary(value: unknown): value is DiagnosticsArchiveNativeRuntimeSummary {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      'byteLength',
+      'duplicateRecordCount',
+      'firstObservedAt',
+      'includedRecordCount',
+      'invalidRecordCount',
+      'lastObservedAt',
+      'truncated',
+      'validRecordCount',
+    ]) ||
+    !isSafeCount(value.byteLength) ||
+    !isSafeCount(value.duplicateRecordCount) ||
+    !isSafeCount(value.includedRecordCount) ||
+    !isSafeCount(value.invalidRecordCount) ||
+    !isSafeCount(value.validRecordCount) ||
+    value.byteLength > NATIVE_RUNTIME_DIAGNOSTICS_MAXIMUM_BYTES ||
+    value.includedRecordCount > NATIVE_RUNTIME_DIAGNOSTICS_MAXIMUM_RECORDS ||
+    typeof value.truncated !== 'boolean'
+  ) {
+    return false;
+  }
+  if (value.includedRecordCount === 0) {
+    return value.byteLength === 0 && value.firstObservedAt === null && value.lastObservedAt === null;
+  }
+  return (
+    value.byteLength > 0 &&
+    isCanonicalTimestamp(value.firstObservedAt) &&
+    isCanonicalTimestamp(value.lastObservedAt) &&
+    value.firstObservedAt <= value.lastObservedAt &&
+    value.validRecordCount >= value.includedRecordCount
+  );
+}
+
 function isMemberSummary(value: unknown): value is DiagnosticsArchiveMemberSummary {
   if (!(
     isRecord(value) &&
@@ -471,7 +527,12 @@ function isMemberInventory(
   value: unknown,
   schemaVersion: DiagnosticsArchiveSchemaVersion,
 ): value is readonly DiagnosticsArchiveMemberSummary[] {
-  const maximumMembers = schemaVersion === DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION ? 2 : 3;
+  const maximumMembers =
+    schemaVersion === DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION
+      ? 2
+      : schemaVersion === DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION
+        ? 3
+        : 4;
   if (!Array.isArray(value) || value.length < 1 || value.length > maximumMembers || !value.every(isMemberSummary)) {
     return false;
   }
@@ -482,7 +543,17 @@ function isMemberInventory(
   if (!value.every((member, index) => member.name === expectedOrder[index])) return false;
   if (
     schemaVersion === DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION &&
-    value.some((member) => member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot)
+    value.some(
+      (member) =>
+        member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot ||
+        member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime,
+    )
+  ) {
+    return false;
+  }
+  if (
+    schemaVersion === DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION &&
+    value.some((member) => member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime)
   ) {
     return false;
   }
@@ -493,10 +564,21 @@ function isSchemaVersions(
   value: unknown,
   schemaVersion: DiagnosticsArchiveSchemaVersion,
 ): value is DiagnosticsArchiveManifest['schemaVersions'] {
+  const hasLocalWhisperSnapshot =
+    isRecord(value) && Object.prototype.hasOwnProperty.call(value, 'localWhisperSnapshot');
   const expectedKeys =
     schemaVersion === DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION
-      ? ['database', 'diagnosticRow', 'localWhisperSnapshot', 'providerAudit', 'redactor']
-      : ['database', 'diagnosticRow', 'providerAudit', 'redactor'];
+      ? [
+          'database',
+          'diagnosticRow',
+          ...(hasLocalWhisperSnapshot ? ['localWhisperSnapshot'] : []),
+          'nativeRuntime',
+          'providerAudit',
+          'redactor',
+        ]
+      : schemaVersion === DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION
+        ? ['database', 'diagnosticRow', 'localWhisperSnapshot', 'providerAudit', 'redactor']
+        : ['database', 'diagnosticRow', 'providerAudit', 'redactor'];
   return (
     isRecord(value) &&
     hasExactKeys(value, expectedKeys) &&
@@ -505,6 +587,8 @@ function isSchemaVersions(
     value.diagnosticRow === DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION &&
     (schemaVersion === DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION ||
       value.localWhisperSnapshot === LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION) &&
+    (schemaVersion !== DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION ||
+      value.nativeRuntime === NATIVE_RUNTIME_DIAGNOSTICS_SCHEMA_VERSION) &&
     isSafeCount(value.providerAudit) &&
     value.providerAudit > 0 &&
     isSafeCount(value.redactor) &&
@@ -514,6 +598,7 @@ function isSchemaVersions(
 
 /** Validates the complete closed schema-v1 diagnostics manifest contract. */
 export function isDiagnosticsArchiveManifest(value: unknown): value is DiagnosticsArchiveManifest {
+  const hasNativeRuntime = isRecord(value) && value.schemaVersion === DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION;
   if (
     !isRecord(value) ||
     !hasExactKeys(value, [
@@ -523,6 +608,7 @@ export function isDiagnosticsArchiveManifest(value: unknown): value is Diagnosti
       'captureSettings',
       'createdAt',
       'diagnostics',
+      ...(hasNativeRuntime ? ['nativeRuntime'] : []),
       'members',
       'platform',
       'providers',
@@ -539,6 +625,7 @@ export function isDiagnosticsArchiveManifest(value: unknown): value is Diagnosti
     !isAuditSummary(value.audit) ||
     !isCaptureSettings(value.captureSettings) ||
     !isDiagnosticSummary(value.diagnostics) ||
+    (hasNativeRuntime && !isNativeRuntimeSummary(value.nativeRuntime)) ||
     !isMemberInventory(value.members, value.schemaVersion) ||
     !isProvidersManifest(value.providers) ||
     !isSchemaVersions(value.schemaVersions, value.schemaVersion)
@@ -582,6 +669,17 @@ export function isDiagnosticsArchiveManifest(value: unknown): value is Diagnosti
     Boolean(diagnosticMember) !== includesDiagnosticRows
   ) {
     return false;
+  }
+  if (value.schemaVersion === DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION) {
+    const nativeRuntime = value.nativeRuntime as DiagnosticsArchiveNativeRuntimeSummary;
+    const nativeMember = value.members.find((member) => member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime);
+    if (
+      !nativeRuntime ||
+      Boolean(nativeMember) !== nativeRuntime.includedRecordCount > 0 ||
+      (nativeMember !== undefined && nativeMember.byteLength !== nativeRuntime.byteLength)
+    ) {
+      return false;
+    }
   }
   if (
     value.diagnostics.includedCategories.includes('translation') &&

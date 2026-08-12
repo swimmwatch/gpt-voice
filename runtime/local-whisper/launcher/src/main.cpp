@@ -1,3 +1,4 @@
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/launcher/launch_request.hpp"
 #include "local_whisper/launcher/launcher_error.hpp"
@@ -53,8 +54,20 @@ void write_failure_acknowledgment(const int descriptor, const std::string_view c
 } // namespace
 
 int main(int argc, char** argv) {
-  if ((argc != 2 && argc != 5) || std::string_view(argv[1]) != "--local-whisper-launcher-v2")
-    return local_whisper::common::kInvalidInvocationExitCode;
+  auto logger = local_whisper::common::make_native_logger_from_environment();
+  if (logger)
+    logger->emit(local_whisper::common::NativeLogComponent::launcher,
+                 local_whisper::common::NativeLogEvent::process_started);
+  int result = local_whisper::common::kInvalidInvocationExitCode;
+  if ((argc != 2 && argc != 5) || std::string_view(argv[1]) != "--local-whisper-launcher-v2") {
+    if (logger) {
+      logger->emit(local_whisper::common::NativeLogComponent::launcher,
+                   local_whisper::common::NativeLogEvent::protocol_rejected,
+                   {local_whisper::common::NativeLogErrorCode::invalid_input, std::nullopt});
+      logger->shutdown();
+    }
+    return result;
+  }
 #ifdef _WIN32
   int acknowledgment_descriptor = kAcknowledgmentDescriptor;
 #endif
@@ -76,7 +89,7 @@ int main(int argc, char** argv) {
     const local_whisper::launcher::LaunchRequest request =
         local_whisper::launcher::LaunchRequestParser{}.parse(
             local_whisper::launcher::read_bootstrap_line(control_descriptor));
-    return local_whisper::launcher::make_platform_launcher()->run(
+    result = local_whisper::launcher::make_platform_launcher()->run(
         request, control_descriptor, acknowledgment_descriptor, authority_descriptor);
   } catch (...) {
     const auto policy =
@@ -84,6 +97,17 @@ int main(int argc, char** argv) {
 #ifdef _WIN32
     write_failure_acknowledgment(acknowledgment_descriptor, policy.acknowledgment);
 #endif
-    return policy.exit_code;
+    result = policy.exit_code;
   }
+  if (logger) {
+    logger->emit(local_whisper::common::NativeLogComponent::launcher,
+                 result == 0 ? local_whisper::common::NativeLogEvent::process_stopped
+                             : local_whisper::common::NativeLogEvent::native_failure,
+                 result == 0 ? local_whisper::common::NativeLogFields{}
+                             : local_whisper::common::NativeLogFields{
+                                   local_whisper::common::NativeLogErrorCode::runtime_failure,
+                                   std::nullopt});
+    logger->shutdown();
+  }
+  return result;
 }

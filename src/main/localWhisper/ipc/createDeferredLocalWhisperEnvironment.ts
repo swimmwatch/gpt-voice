@@ -21,12 +21,14 @@ import type {
 } from './LocalWhisperIpcController';
 import type { LocalWhisperSnapshotFactsPort } from './LocalWhisperSnapshotService';
 import { StaticLocalWhisperSnapshotFacts } from './StaticLocalWhisperSnapshotFacts';
+import type { NativeRuntimeLogRelay } from '../supervisor/NativeRuntimeLogStreamDecoder';
 
 export interface DeferredLocalWhisperEnvironment {
   readonly coordinator: LocalWhisperCoordinatorDependencies;
   readonly facts: LocalWhisperSnapshotFactsPort;
   readonly artifacts: LocalWhisperArtifactCommandPort;
   readonly managedFolder: LocalWhisperManagedFolderPort;
+  readonly nativeRuntimeLogRelay?: NativeRuntimeLogRelay;
   readonly references: LocalWhisperArtifactReferencePort;
   readonly refreshDevices: (configurationEpoch: number) => Promise<void>;
   readonly dispose: () => Promise<void>;

@@ -27,7 +27,10 @@ add_library(local_whisper_launcher_core STATIC
   src/common/launch_request.cpp
 )
 target_include_directories(local_whisper_launcher_core PUBLIC include ../common/include)
-add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
+add_library(local_whisper_common_sha256 STATIC
+  ../common/src/native_logger.cpp
+  ../common/src/sha256.cpp
+)
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
 local_whisper_apply_compile_hardening(local_whisper_common_sha256 LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 target_link_libraries(local_whisper_launcher_core PUBLIC local_whisper_common_sha256)

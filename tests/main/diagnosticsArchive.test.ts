@@ -27,6 +27,7 @@ import {
 import { DIAGNOSTIC_CAPTURE_ROW_LIMIT_BYTES } from '@main/services/diagnosticCaptureStorage';
 import { DIAGNOSTIC_REDACTOR_VERSION } from '@main/services/diagnosticTextRedactor';
 import { DiagnosticsManifestBuilder } from '@main/services/diagnosticsManifest';
+import { NativeRuntimeLogArchiveReader } from '@main/services/nativeRuntimeLogArchiveReader';
 import {
   DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
   DIAGNOSTICS_ARCHIVE_LIMITS,
@@ -39,6 +40,7 @@ import {
   type DiagnosticsArchiveEnvironmentSnapshot,
   type DiagnosticsArchiveManifest,
 } from '@shared/diagnosticsArchive';
+import { serializeCanonicalNativeRuntimeArchiveRecord, type NativeRuntimeArchiveRecord } from '@shared/localWhisper';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
@@ -49,6 +51,17 @@ const RECORDED_AT = '2026-07-27T12:00:00.000Z';
 const PRIVATE_LOG_CANARY = 'private-unrelated-log-canary';
 const PRIVATE_PATH_CANARY = 'private-destination-canary';
 const RAW_SECRET_CANARY = 'sk-private-secret-canary-1234567890';
+const NATIVE_RUNTIME_RECORD: NativeRuntimeArchiveRecord = Object.freeze({
+  native: Object.freeze({
+    component: 'whisperWorker',
+    event: 'requestCompleted',
+    level: 'info',
+    processInstanceId: '11111111-1111-1111-8111-111111111111',
+    schemaVersion: 1,
+    sequence: 1,
+  }),
+  observedAt: RECORDED_AT,
+});
 const temporaryDirectories: string[] = [];
 
 function createTemporaryDirectory(): string {
@@ -59,6 +72,38 @@ function createTemporaryDirectory(): string {
 
 function hash(payload: Buffer): string {
   return createHash('sha256').update(payload).digest('hex');
+}
+
+function withRecomputedNativeRuntimeIntegrity(
+  manifest: DiagnosticsArchiveManifest,
+  archiveMembers: readonly { readonly name: string; readonly payload: Buffer }[],
+  payload: Buffer,
+  includedRecordCount: number,
+): {
+  readonly archiveMembers: readonly { readonly name: string; readonly payload: Buffer }[];
+  readonly manifest: DiagnosticsArchiveManifest;
+} {
+  const nativeRuntime = manifest.nativeRuntime;
+  if (!nativeRuntime) throw new Error('Native runtime manifest summary is required');
+  return {
+    archiveMembers: archiveMembers.map((member) =>
+      member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime ? { ...member, payload } : member,
+    ),
+    manifest: {
+      ...manifest,
+      members: manifest.members.map((member) =>
+        member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime
+          ? { ...member, byteLength: payload.byteLength, sha256: hash(payload) }
+          : member,
+      ),
+      nativeRuntime: {
+        ...nativeRuntime,
+        byteLength: payload.byteLength,
+        includedRecordCount,
+        validRecordCount: includedRecordCount,
+      },
+    },
+  };
 }
 
 function createAuditRecord(overrides: Partial<ProviderAuditRecord> = {}): ProviderAuditRecord {
@@ -381,6 +426,16 @@ describe('diagnostics archive service', () => {
       invalidRecordCount: 1,
       validRecordCount: 1,
     });
+    assert.deepEqual((manifest as DiagnosticsArchiveManifest).nativeRuntime, {
+      byteLength: 0,
+      duplicateRecordCount: 0,
+      firstObservedAt: null,
+      includedRecordCount: 0,
+      invalidRecordCount: 0,
+      lastObservedAt: null,
+      truncated: false,
+      validRecordCount: 0,
+    });
     assert.equal(auditPayload.toString('utf8'), `${serializeProviderAuditRecord(createAuditRecord())}\n`);
     assert.equal(diagnosticPayload.toString('utf8').endsWith('\n'), true);
 
@@ -391,6 +446,58 @@ describe('diagnostics archive service', () => {
       fs.readdirSync(harness.directory).some((name) => name.endsWith('.tmp')),
       false,
     );
+  });
+
+  it('exports one canonical native-runtime member and rejects malformed UTF-8 or duplicate records during inspection', async () => {
+    const serialized = serializeCanonicalNativeRuntimeArchiveRecord(NATIVE_RUNTIME_RECORD);
+    assert.ok(serialized);
+    const payload = Buffer.from(`${serialized}\n`, 'utf8');
+    const harness = new DiagnosticsArchiveHarness({
+      nativeLogs: {
+        extract: () => ({
+          records: [NATIVE_RUNTIME_RECORD],
+          summary: {
+            byteLength: payload.byteLength,
+            duplicateRecordCount: 0,
+            firstObservedAt: RECORDED_AT,
+            includedRecordCount: 1,
+            invalidRecordCount: 0,
+            lastObservedAt: RECORDED_AT,
+            truncated: false,
+            validRecordCount: 1,
+          },
+        }),
+      },
+    });
+    assert.deepEqual(await harness.service.createArchive(harness.destinationPath), { status: 'success' });
+    const members = inspectDiagnosticsArchiveForVerification(
+      'tar-gzip',
+      await fs.promises.readFile(harness.destinationPath),
+    );
+    const manifestPayload = members.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest);
+    const nativePayload = members.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime);
+    assert.ok(manifestPayload);
+    assert.ok(nativePayload);
+    const manifestValue: unknown = JSON.parse(manifestPayload.toString('utf8'));
+    assert.equal(isDiagnosticsArchiveManifest(manifestValue), true);
+    const manifest = manifestValue as DiagnosticsArchiveManifest;
+    const reader = new NativeRuntimeLogArchiveReader({ hash });
+    const archiveMembers = [...members.entries()].map(([name, memberPayload]) => ({ name, payload: memberPayload }));
+    assert.equal(reader.inspect(manifest, archiveMembers), 'valid');
+    const malformedUtf8 = withRecomputedNativeRuntimeIntegrity(
+      manifest,
+      archiveMembers,
+      Buffer.concat([nativePayload, Buffer.from([0xc3])]),
+      1,
+    );
+    assert.equal(reader.inspect(malformedUtf8.manifest, malformedUtf8.archiveMembers), 'invalid');
+    const duplicateRecords = withRecomputedNativeRuntimeIntegrity(
+      manifest,
+      archiveMembers,
+      Buffer.concat([nativePayload, nativePayload]),
+      2,
+    );
+    assert.equal(reader.inspect(duplicateRecords.manifest, duplicateRecords.archiveMembers), 'invalid');
   });
 
   it('writes one manifest-bound Local Whisper snapshot as additive schema v2', async () => {
@@ -479,6 +586,7 @@ describe('diagnostics archive service', () => {
               throw new Error(`${RAW_SECRET_CANARY}-serializer-error`);
             },
             serializeDiagnosticRows: () => Buffer.alloc(0),
+            serializeNativeRuntime: () => Buffer.alloc(0),
           },
         },
       },

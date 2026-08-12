@@ -11,6 +11,7 @@ import type {
   WorkerProcessOwnership,
 } from '../supervisor/WorkerProcessOwnership';
 import { LocalWhisperRuntimeRegistryDiscoveryError } from './LocalWhisperRuntimeRegistryDiscoveryError';
+import { NativeRuntimeLogStreamDecoder, type NativeRuntimeLogRelay } from '../supervisor/NativeRuntimeLogStreamDecoder';
 
 export { LocalWhisperRuntimeRegistryDiscoveryError } from './LocalWhisperRuntimeRegistryDiscoveryError';
 
@@ -133,7 +134,10 @@ export class LocalWhisperRuntimeRegistryDiscovery {
   private active = false;
   private disposed = false;
 
-  public constructor(private readonly ownership: WorkerProcessOwnership) {}
+  public constructor(
+    private readonly ownership: WorkerProcessOwnership,
+    private readonly nativeRuntimeLogRelay?: NativeRuntimeLogRelay,
+  ) {}
 
   public async discover(
     authority: LocalWhisperWorkerLaunchAuthority,
@@ -152,7 +156,18 @@ export class LocalWhisperRuntimeRegistryDiscovery {
     let exited = false;
     try {
       process = await this.ownership.launch(authority);
-      process.stderr.resume();
+      const nativeLogDecoder = this.nativeRuntimeLogRelay
+        ? new NativeRuntimeLogStreamDecoder({
+            expectedProcessInstanceId: process.nativeRuntimeProcessInstanceId,
+            onRecord: (record) => this.nativeRuntimeLogRelay?.accept(record),
+          })
+        : null;
+      if (nativeLogDecoder) {
+        process.stderr.on('data', (chunk: Buffer) => nativeLogDecoder.append(chunk));
+        process.stderr.once('end', () => nativeLogDecoder.finish());
+      } else {
+        process.stderr.resume();
+      }
       const output = collectOutput(process).then(
         (value) => Object.freeze({ success: true as const, value }),
         (error: unknown) => Object.freeze({ success: false as const, error }),

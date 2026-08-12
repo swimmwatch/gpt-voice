@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, statfsSync } from 'node:fs';
 import { arch, platform, release, tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -49,12 +50,15 @@ async function main(): Promise<void> {
     }).resolve();
     if (resolution.availability !== 'available') throw new Error('Managed storage unavailable');
     const transport = new NativeManagedFilesystemGuardTransport({
+      environment: process.env,
       executablePath: path.resolve(
         '.cache',
         'local-whisper',
         'fs-guard',
         hostPlatform === 'win32' ? 'fs-guard.exe' : 'fs-guard',
       ),
+      generateProcessInstanceId: randomUUID,
+      platform: hostPlatform,
       spawnProcess: spawn,
     });
     adapter =

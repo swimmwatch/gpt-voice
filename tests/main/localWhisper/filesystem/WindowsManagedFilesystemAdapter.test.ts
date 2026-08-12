@@ -77,7 +77,13 @@ async function createHarness(instance: string, sharedRoot?: string): Promise<Win
   assert.equal(resolution.availability, 'available');
   if (resolution.availability !== 'available') throw new Error('Windows resolution unavailable');
   const adapter = new WindowsManagedFilesystemAdapter(
-    new NativeManagedFilesystemGuardTransport({ executablePath: GUARD_PATH, spawnProcess: spawn }),
+    new NativeManagedFilesystemGuardTransport({
+      environment: {},
+      executablePath: GUARD_PATH,
+      generateProcessInstanceId: () => '11111111-1111-1111-8111-111111111111',
+      platform: 'win32',
+      spawnProcess: spawn,
+    }),
   );
   const processIdentity = await adapter.getProcessStartIdentity(process.pid);
   let nonce = 0;

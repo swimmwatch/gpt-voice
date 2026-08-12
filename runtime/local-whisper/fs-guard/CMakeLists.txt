@@ -42,7 +42,10 @@ if(FS_GUARD_ENABLE_FUZZING)
   local_whisper_add_linux_libfuzzer_target(fs_guard_request_fuzz FS_GUARD_ENABLE_SANITIZERS)
 endif()
 
-add_library(local_whisper_common_sha256 STATIC ../common/src/sha256.cpp)
+add_library(local_whisper_common_sha256 STATIC
+  ../common/src/native_logger.cpp
+  ../common/src/sha256.cpp
+)
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
 local_whisper_apply_compile_hardening(local_whisper_common_sha256 FS_GUARD_ENABLE_SANITIZERS)
 

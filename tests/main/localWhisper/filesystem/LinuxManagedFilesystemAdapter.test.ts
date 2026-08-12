@@ -150,7 +150,10 @@ function createHarness(
   assert.equal(resolution.availability, 'available');
   if (resolution.availability !== 'available') throw new Error('Linux resolution unavailable');
   const transport = new NativeManagedFilesystemGuardTransport({
+    environment: {},
     executablePath: GUARD_PATH,
+    generateProcessInstanceId: () => '11111111-1111-1111-8111-111111111111',
+    platform: 'linux',
     spawnProcess: spawn,
   });
   const adapter = new LinuxManagedFilesystemAdapter(transport);
@@ -390,7 +393,13 @@ describe(
       const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-fs-'));
       temporaryRoots.push(temporaryRoot);
       const adapter = new LinuxManagedFilesystemAdapter(
-        new NativeManagedFilesystemGuardTransport({ executablePath: GUARD_PATH, spawnProcess: spawn }),
+        new NativeManagedFilesystemGuardTransport({
+          environment: {},
+          executablePath: GUARD_PATH,
+          generateProcessInstanceId: () => '11111111-1111-1111-8111-111111111111',
+          platform: 'linux',
+          spawnProcess: spawn,
+        }),
       );
       const root = await adapter.initialize(
         path.join(temporaryRoot, 'data with spaces', 'com.swimmwatch.gptvoice', 'local-whisper'),

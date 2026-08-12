@@ -1,3 +1,4 @@
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/nlohmann_json.hpp"
 #include "local_whisper/whisper_cpp/cancellation.hpp"
 #include "local_whisper/whisper_cpp/cpu_probe.hpp"
@@ -18,11 +19,28 @@
 #endif
 
 int main(int argc, char** argv) {
+  auto logger = local_whisper::common::make_native_logger_from_environment();
+  if (logger)
+    logger->emit(local_whisper::common::NativeLogComponent::whisper_worker,
+                 local_whisper::common::NativeLogEvent::process_started);
+  const auto finish = [&logger](const int result) {
+    if (logger) {
+      logger->emit(local_whisper::common::NativeLogComponent::whisper_worker,
+                   result == 0 ? local_whisper::common::NativeLogEvent::process_stopped
+                               : local_whisper::common::NativeLogEvent::native_failure,
+                   result == 0 ? local_whisper::common::NativeLogFields{}
+                               : local_whisper::common::NativeLogFields{
+                                     local_whisper::common::NativeLogErrorCode::runtime_failure,
+                                     std::nullopt});
+      logger->shutdown();
+    }
+    return result;
+  };
   if (argc != 2)
-    return 2;
+    return finish(2);
 #ifdef _WIN32
   if (_setmode(_fileno(stdin), _O_BINARY) == -1 || _setmode(_fileno(stdout), _O_BINARY) == -1)
-    return 20;
+    return finish(20);
 #endif
   const std::string_view mode(argv[1]);
   try {
@@ -30,12 +48,12 @@ int main(int argc, char** argv) {
     if (mode == "--self-test") {
       const auto evidence = probe.run(1U);
       if (evidence.compute_digest == 0U)
-        return 3;
+        return finish(3);
       std::fputs("LOCAL_WHISPER_CPP_CPU_SELF_TEST_OK\n", stdout);
-      return 0;
+      return finish(0);
     }
     if (mode != "--probe" && mode != "--load" && mode != "--registry")
-      return 2;
+      return finish(2);
     local_whisper::whisper_cpp::WhisperCppEngine engine;
     if (mode == "--registry") {
       const auto registry = engine.capture_device_registry();
@@ -54,7 +72,7 @@ int main(int argc, char** argv) {
                                        {"backendId", registry.backend_id},
                                        {"entries", std::move(entries)}};
       std::cout << document.dump() << '\n';
-      return std::cout ? 0 : 21;
+      return finish(std::cout ? 0 : 21);
     }
     std::optional<local_whisper::whisper_cpp::DeviceAuthority> device_authority;
     if constexpr (std::string_view(LOCAL_WHISPER_BACKEND_ID) != "cpu")
@@ -72,9 +90,9 @@ int main(int argc, char** argv) {
                           : local_whisper::whisper_cpp::WorkerRunMode::load,
         channel, engine, probe, clock, cancellation,
         authority.has_value() ? &authority.value() : nullptr,
-        device_authority.has_value() ? &device_authority->proof() : nullptr);
-    return application.run();
+        device_authority.has_value() ? &device_authority->proof() : nullptr, logger.get());
+    return finish(application.run());
   } catch (...) {
-    return 20;
+    return finish(20);
   }
 }

@@ -87,6 +87,7 @@ add_library(local_whisper_worker_common STATIC
   ../common/src/device_proof.cpp
   ../common/src/frame_codec.cpp
   ../common/src/model_authority.cpp
+  ../common/src/native_logger.cpp
   ../common/src/sha256.cpp
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")

@@ -1,3 +1,4 @@
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/fs_guard/guard_application.hpp"
 #include "local_whisper/fs_guard/model_launch_error.hpp"
@@ -27,12 +28,19 @@ void write_model_launch_failure(const std::string_view code) noexcept {
 
 int main(int argc, char** argv) {
   std::ios::sync_with_stdio(false);
+  auto logger = local_whisper::common::make_native_logger_from_environment();
+  const auto component = argc == 2 && std::string_view(argv[1]) == "--local-whisper-model-launch-v1"
+                             ? local_whisper::common::NativeLogComponent::model_launcher
+                             : local_whisper::common::NativeLogComponent::filesystem_guard;
+  if (logger)
+    logger->emit(component, local_whisper::common::NativeLogEvent::process_started);
+  int result = local_whisper::common::kInvalidInvocationExitCode;
   if (argc == 2 && std::string_view(argv[1]) == "--local-whisper-model-launch-v1") {
     try {
 #if defined(_WIN32)
-      return local_whisper::fs_guard::run_windows_model_launch(3, 4);
+      result = local_whisper::fs_guard::run_windows_model_launch(3, 4);
 #else
-      return local_whisper::fs_guard::run_linux_model_launch(3, 4);
+      result = local_whisper::fs_guard::run_linux_model_launch(3, 4);
 #endif
     } catch (...) {
       const auto policy =
@@ -40,16 +48,26 @@ int main(int argc, char** argv) {
 #if defined(_WIN32)
       write_model_launch_failure(policy.acknowledgment);
 #endif
-      return policy.exit_code;
+      result = policy.exit_code;
     }
-  }
-  if (argc != 1)
-    return local_whisper::common::kInvalidInvocationExitCode;
+  } else if (argc == 1) {
 #if defined(_WIN32)
-  local_whisper::fs_guard::WindowsBackend backend;
+    local_whisper::fs_guard::WindowsBackend backend;
 #else
-  local_whisper::fs_guard::LinuxBackend backend;
+    local_whisper::fs_guard::LinuxBackend backend;
 #endif
-  local_whisper::fs_guard::GuardApplication application(backend);
-  return application.run(std::cin, std::cout);
+    local_whisper::fs_guard::GuardApplication application(backend);
+    result = application.run(std::cin, std::cout);
+  }
+  if (logger) {
+    logger->emit(component,
+                 result == 0 ? local_whisper::common::NativeLogEvent::process_stopped
+                             : local_whisper::common::NativeLogEvent::native_failure,
+                 result == 0 ? local_whisper::common::NativeLogFields{}
+                             : local_whisper::common::NativeLogFields{
+                                   local_whisper::common::NativeLogErrorCode::runtime_failure,
+                                   std::nullopt});
+    logger->shutdown();
+  }
+  return result;
 }

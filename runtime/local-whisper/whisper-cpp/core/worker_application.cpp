@@ -178,6 +178,39 @@ std::string protocol_failure(FailureCode code) {
   return "TRANSCRIPTION_FAILED";
 }
 
+common::NativeLogErrorCode native_log_error_code(const FailureCode code) noexcept {
+  switch (code) {
+  case FailureCode::cancelled:
+    return common::NativeLogErrorCode::cancel_conflict;
+  case FailureCode::invalid_settings:
+  case FailureCode::audio_format_unsupported:
+    return common::NativeLogErrorCode::invalid_input;
+  case FailureCode::model_authority_invalid:
+  case FailureCode::model_corrupt:
+  case FailureCode::model_load_failed:
+    return common::NativeLogErrorCode::model_load_failure;
+  case FailureCode::allocation_failed:
+    return common::NativeLogErrorCode::resource_limit;
+  case FailureCode::backend_unsupported:
+  case FailureCode::target_unsupported:
+    return common::NativeLogErrorCode::unsupported;
+  case FailureCode::device_not_allowlisted:
+  case FailureCode::device_not_found:
+  case FailureCode::device_feature_missing:
+  case FailureCode::device_proof_failed:
+  case FailureCode::driver_incompatible:
+  case FailureCode::gpu_permission_denied:
+    return common::NativeLogErrorCode::protocol_mismatch;
+  case FailureCode::runtime_prerequisite_missing:
+  case FailureCode::backend_init_failed:
+  case FailureCode::transcription_failed:
+  case FailureCode::not_ready:
+  case FailureCode::cleanup_failed:
+    return common::NativeLogErrorCode::runtime_failure;
+  }
+  return common::NativeLogErrorCode::runtime_failure;
+}
+
 void require_cpu_binding(const nlohmann::json& value) {
   if (!value.is_object() || value.size() != 1U || value.value("kind", "") != "cpu")
     throw CoreError(FailureCode::invalid_settings, "CPU worker received non-CPU binding");
@@ -347,18 +380,53 @@ WorkerApplication::WorkerApplication(WorkerRunMode mode, WorkerChannel& channel,
                                      SpeechEngine& engine, CpuProbe& probe, WorkerClock& clock,
                                      CancellationController& cancellation,
                                      ModelAuthorityView* model_authority,
-                                     const DeviceProofAuthority* device_authority)
+                                     const DeviceProofAuthority* device_authority,
+                                     common::NativeLogger* native_logger)
     : mode_(mode), channel_(channel), engine_(engine), probe_(probe), clock_(clock),
       cancellation_(cancellation), model_authority_(model_authority),
-      device_authority_(device_authority) {}
+      device_authority_(device_authority), native_logger_(native_logger) {}
 
 void WorkerApplication::require_not_cancelled() const { cancellation_.checkpoint(); }
+
+void WorkerApplication::log(const common::NativeLogEvent event,
+                            const common::NativeLogFields fields) const noexcept {
+  if (native_logger_ != nullptr)
+    native_logger_->emit(common::NativeLogComponent::whisper_worker, event, fields);
+}
+
+void WorkerApplication::cleanup_engine() noexcept {
+  log(common::NativeLogEvent::resource_cleanup_started);
+  try {
+    engine_.unload();
+  } catch (...) {
+    // Native cleanup must not expose a raw engine error or terminate error reporting.
+  }
+  log(common::NativeLogEvent::resource_cleanup_completed);
+}
 
 int WorkerApplication::run() noexcept {
   try {
     return run_checked();
   } catch (const CoreError& error) {
-    engine_.unload();
+    const auto error_code = native_log_error_code(error.code());
+    const common::NativeLogFields fields{error_code,
+                                         current_request_id_.has_value()
+                                             ? std::optional<std::string_view>(*current_request_id_)
+                                             : std::nullopt};
+    if (error.code() == FailureCode::invalid_settings)
+      log(common::NativeLogEvent::protocol_rejected, fields);
+    if (error.code() == FailureCode::model_authority_invalid ||
+        error.code() == FailureCode::model_corrupt ||
+        error.code() == FailureCode::model_load_failed)
+      log(common::NativeLogEvent::model_load_failed, fields);
+    if (error.code() == FailureCode::audio_format_unsupported ||
+        error.code() == FailureCode::transcription_failed)
+      log(common::NativeLogEvent::inference_failed, fields);
+    log(common::NativeLogEvent::native_failure,
+        {error_code, current_request_id_.has_value()
+                         ? std::optional<std::string_view>(*current_request_id_)
+                         : std::nullopt});
+    cleanup_engine();
     try {
       channel_.send_control(
           {{"type", "failure"},
@@ -370,12 +438,15 @@ int WorkerApplication::run() noexcept {
     }
     return 10;
   } catch (...) {
-    engine_.unload();
+    log(common::NativeLogEvent::native_failure,
+        {common::NativeLogErrorCode::runtime_failure, std::nullopt});
+    cleanup_engine();
     return 11;
   }
 }
 
 int WorkerApplication::run_checked() {
+  log(common::NativeLogEvent::state_cold);
   const auto hello = channel_.read_control();
   require_exact_keys(hello, {"type", "protocolVersion"});
   require_protocol(hello, "hello");
@@ -388,6 +459,8 @@ int WorkerApplication::run_checked() {
                          {"capabilities", backend_capabilities(engine_.backend())},
                          {"maxControlFrameBytes", 1'048'576},
                          {"maxAudioChunkBytes", 1'048'576}});
+  log(common::NativeLogEvent::handshake_accepted);
+  log(common::NativeLogEvent::process_ready);
 
   if (mode_ == WorkerRunMode::probe) {
     const auto message = channel_.read_control();
@@ -436,6 +509,8 @@ int WorkerApplication::run_checked() {
     throw CoreError(FailureCode::model_authority_invalid, "load worker lacks model authority");
   const auto load = parse_load(channel_.read_control(), engine_.backend(), device_authority_);
   current_request_id_ = load.request_id;
+  log(common::NativeLogEvent::model_load_started, {std::nullopt, *current_request_id_});
+  log(common::NativeLogEvent::state_warming);
   if (load.authority_id != base64url(model_authority_->binding().operation_nonce))
     throw CoreError(FailureCode::model_authority_invalid, "model authority ID mismatch");
   require_not_cancelled();
@@ -472,6 +547,8 @@ int WorkerApplication::run_checked() {
     loaded["loadProof"] = evidence.load_proof;
   }
   channel_.send_control(loaded);
+  log(common::NativeLogEvent::model_load_completed, {std::nullopt, *current_request_id_});
+  log(common::NativeLogEvent::state_warmed);
 
   std::optional<nlohmann::json> prefetched_control;
   while (true) {
@@ -502,6 +579,7 @@ int WorkerApplication::run_checked() {
       if (declared_bytes > local_whisper::common::kCanonicalWavMaxTotalBytes)
         throw CoreError(FailureCode::audio_format_unsupported, "audio declaration exceeds limit");
       const auto options = parse_options(message.at("options"), probe_evidence.resolved_threads);
+      log(common::NativeLogEvent::request_accepted, {std::nullopt, *current_request_id_});
       std::vector<std::uint8_t> wav;
       try {
         local_whisper::common::WavAccumulator accumulator(*current_request_id_, declared_bytes);
@@ -533,8 +611,12 @@ int WorkerApplication::run_checked() {
         channel_.notify_inference_complete();
       });
       InferenceStopGuard inference_stop(inference, cancellation_);
+      log(common::NativeLogEvent::inference_started, {std::nullopt, transcription_request_id});
+      log(common::NativeLogEvent::state_busy);
       const auto wait_result = channel_.wait_for_control_or_inference();
       if (wait_result == WorkerChannelWaitResult::control_closed) {
+        log(common::NativeLogEvent::control_eof,
+            {common::NativeLogErrorCode::control_closed, transcription_request_id});
         cancellation_.request();
         inference.request_stop();
         inference.join();
@@ -557,6 +639,9 @@ int WorkerApplication::run_checked() {
                                {"protocolVersion", 1},
                                {"requestId", transcription_request_id},
                                {"text", *inference_outcome.transcript}});
+        log(common::NativeLogEvent::inference_completed, {std::nullopt, transcription_request_id});
+        log(common::NativeLogEvent::request_completed, {std::nullopt, transcription_request_id});
+        log(common::NativeLogEvent::state_warmed);
         continue;
       }
 
@@ -587,6 +672,8 @@ int WorkerApplication::run_checked() {
                                {"protocolVersion", 1},
                                {"requestId", *current_request_id_},
                                {"targetRequestId", transcription_request_id}});
+        log(common::NativeLogEvent::request_cancelled, {std::nullopt, transcription_request_id});
+        log(common::NativeLogEvent::state_warmed);
         continue;
       }
       if (inference_outcome.error != nullptr)
@@ -600,17 +687,22 @@ int WorkerApplication::run_checked() {
                              {"protocolVersion", 1},
                              {"requestId", transcription_request_id},
                              {"text", *inference_outcome.transcript}});
+      log(common::NativeLogEvent::inference_completed, {std::nullopt, transcription_request_id});
+      log(common::NativeLogEvent::request_completed, {std::nullopt, transcription_request_id});
       current_request_id_ = cancel_request_id;
       channel_.send_control({{"type", "cancelTooLate"},
                              {"protocolVersion", 1},
                              {"requestId", *current_request_id_},
                              {"targetRequestId", transcription_request_id}});
+      log(common::NativeLogEvent::request_cancel_too_late,
+          {std::nullopt, transcription_request_id});
+      log(common::NativeLogEvent::state_warmed);
       continue;
     }
     if (type == "unload") {
       require_exact_keys(message, {"type", "protocolVersion", "requestId"});
       require_protocol(message, "unload");
-      engine_.unload();
+      cleanup_engine();
       channel_.send_control(
           {{"type", "unloaded"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
       continue;
@@ -619,9 +711,10 @@ int WorkerApplication::run_checked() {
       require_exact_keys(message, {"type", "protocolVersion", "requestId"});
       require_protocol(message, "shutdown");
       if (engine_.loaded())
-        engine_.unload();
+        cleanup_engine();
       channel_.send_control(
           {{"type", "shutdownAck"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
+      log(common::NativeLogEvent::state_stopping);
       return 0;
     }
     throw CoreError(FailureCode::invalid_settings, "unsupported worker state transition");

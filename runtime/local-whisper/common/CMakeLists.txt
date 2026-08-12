@@ -38,6 +38,7 @@ add_library(local_whisper_common STATIC
   src/device_proof.cpp
   src/frame_codec.cpp
   src/model_authority.cpp
+  src/native_logger.cpp
   src/sha256.cpp
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -98,6 +99,7 @@ if(BUILD_TESTING)
     tests/device_proof_test.cpp
     tests/frame_codec_test.cpp
     tests/model_authority_test.cpp
+    tests/native_logger_test.cpp
     tests/sha256_test.cpp
   )
   target_include_directories(local_whisper_common_tests

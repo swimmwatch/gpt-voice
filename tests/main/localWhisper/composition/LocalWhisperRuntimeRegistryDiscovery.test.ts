@@ -11,13 +11,20 @@ import { LocalWhisperDeviceTopologyAuthority } from '@main/localWhisper/composit
 import { LocalWhisperDeviceIdentityRepository } from '@main/localWhisper/deviceIdentity/LocalWhisperDeviceIdentityRepository';
 import type { LocalWhisperDeviceIdentityStore } from '@main/localWhisper/deviceIdentity/FileLocalWhisperDeviceIdentityStore';
 import { createLocalWhisperRegistryFingerprint } from '@main/localWhisper/supervisor/LocalWhisperDeviceAuthority';
+import {
+  NativeRuntimeLogForwarder,
+  NativeRuntimeLogRelay,
+} from '@main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder';
 import type {
   LocalWhisperOwnedWorkerProcess,
   LocalWhisperWorkerLaunchAuthority,
   WorkerProcessOwnership,
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
+import { serializeCanonicalNativeRuntimeLogRecord } from '@shared/localWhisper';
 
 const RUNTIME_DIGEST = 'a'.repeat(64);
+const PROCESS_INSTANCE_ID = '11111111-1111-4111-8111-111111111111';
+const MISMATCHED_PROCESS_INSTANCE_ID = '22222222-2222-4222-8222-222222222222';
 
 function authority(backend: 'cpu' | 'cuda' = 'cuda'): LocalWhisperWorkerLaunchAuthority {
   const runtimeLease = {
@@ -69,14 +76,19 @@ class FixtureOwnership {
   public constructor(
     private readonly outputText: string,
     private readonly exits = true,
+    private readonly stderrText = '',
   ) {}
 
   public launch(): Promise<LocalWhisperOwnedWorkerProcess> {
     const output = new PassThrough();
     const input = new PassThrough();
     const stderr = new PassThrough();
-    queueMicrotask(() => output.end(Buffer.from(this.outputText, 'utf8')));
+    queueMicrotask(() => {
+      output.end(Buffer.from(this.outputText, 'utf8'));
+      stderr.end(Buffer.from(this.stderrText, 'utf8'));
+    });
     return Promise.resolve({
+      nativeRuntimeProcessInstanceId: PROCESS_INSTANCE_ID,
       pid: 10,
       processStartIdentity: 'fixture-process',
       input,
@@ -105,8 +117,11 @@ class FixtureOwnership {
   }
 }
 
-function discovery(owner: FixtureOwnership): LocalWhisperRuntimeRegistryDiscovery {
-  return new LocalWhisperRuntimeRegistryDiscovery(owner as unknown as WorkerProcessOwnership);
+function discovery(
+  owner: FixtureOwnership,
+  nativeRuntimeLogRelay?: NativeRuntimeLogRelay,
+): LocalWhisperRuntimeRegistryDiscovery {
+  return new LocalWhisperRuntimeRegistryDiscovery(owner as unknown as WorkerProcessOwnership, nativeRuntimeLogRelay);
 }
 
 class MemoryIdentityStore implements LocalWhisperDeviceIdentityStore {
@@ -163,6 +178,37 @@ describe('production Local Whisper runtime registry discovery', () => {
     assert.equal(owner.retained, 1);
     assert.equal(owner.released, 0);
     assert.equal(owner.terminated, 2);
+  });
+
+  it('rejects native diagnostics from a different private process instance', async () => {
+    const serialized = serializeCanonicalNativeRuntimeLogRecord({
+      component: 'whisperWorker',
+      event: 'processStarted',
+      level: 'info',
+      processInstanceId: MISMATCHED_PROCESS_INSTANCE_ID,
+      schemaVersion: 1,
+      sequence: 1,
+    });
+    assert.ok(serialized);
+    const messages: unknown[][] = [];
+    const relay = new NativeRuntimeLogRelay();
+    relay.attach(
+      new NativeRuntimeLogForwarder({
+        logger: {
+          debug: (...args: unknown[]) => messages.push(args),
+          error: (...args: unknown[]) => messages.push(args),
+          info: (...args: unknown[]) => messages.push(args),
+          warn: (...args: unknown[]) => messages.push(args),
+        },
+        now: () => new Date('2026-08-12T00:00:00.000Z'),
+      }),
+    );
+    const owner = new FixtureOwnership(`${document()}\n`, true, `${serialized}\n`);
+
+    const registry = await discovery(owner, relay).discover(authority(), new AbortController().signal);
+
+    assert.equal(registry.backendId, 'cuda');
+    assert.deepEqual(messages, []);
   });
 });
 

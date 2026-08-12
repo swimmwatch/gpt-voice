@@ -5,6 +5,7 @@ export * from './domain';
 export * from './failures';
 export * from './ipc';
 export * from './languages';
+export * from './nativeRuntimeLog';
 export * from './protocol';
 export * from './settings';
 export * from './workerJson';

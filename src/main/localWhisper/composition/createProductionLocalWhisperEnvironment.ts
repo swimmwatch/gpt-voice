@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { spawn } from 'node:child_process';
 import type fs from 'node:fs';
 import { join } from 'node:path';
@@ -115,6 +115,7 @@ import {
 import { LocalWhisperWorkerLifecycle } from '../supervisor/LocalWhisperWorkerLifecycle';
 import { LocalWhisperWorkerSupervisor } from '../supervisor/LocalWhisperWorkerSupervisor';
 import { LocalWhisperWorkerTransport } from '../supervisor/LocalWhisperWorkerTransport';
+import { NativeRuntimeLogRelay, NativeRuntimeLogStreamDecoder } from '../supervisor/NativeRuntimeLogStreamDecoder';
 import { LocalWhisperProductionWorkerPort } from './LocalWhisperProductionWorkerPort';
 
 type ProductionFileSystem = Pick<
@@ -133,6 +134,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
   readonly homeDirectory: () => string;
   readonly logicalProcessorCount: number;
   readonly nextRequestId: () => string;
+  readonly nativeRuntimeLogRelay?: NativeRuntimeLogRelay;
   readonly now: () => number;
   readonly openPath: (path: string) => Promise<string>;
   readonly pid: number;
@@ -854,9 +856,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
 
   /** Authenticates immutable inputs before constructing any privileged adapter. */
   public async create(): Promise<LocalWhisperProductionEnvironment> {
+    const nativePlatform = this.dependencies.platform;
     const deferred = (): LocalWhisperProductionEnvironment =>
       createDeferredLocalWhisperEnvironment({
-        platform: this.dependencies.platform,
+        platform: nativePlatform,
         architecture: this.dependencies.architecture,
         logicalProcessorCount: this.dependencies.logicalProcessorCount,
         nextRequestId: this.dependencies.nextRequestId,
@@ -864,7 +867,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
       });
     const activationPurpose = this.catalogInput.activationPurpose ?? 'production';
     if (
-      (this.dependencies.platform !== 'linux' && this.dependencies.platform !== 'win32') ||
+      (nativePlatform !== 'linux' && nativePlatform !== 'win32') ||
       this.catalogInput.trustPolicy?.purpose !== activationPurpose ||
       (activationPurpose === 'production' && this.dependencies.qualificationHooks !== undefined)
     ) {
@@ -881,19 +884,24 @@ export class ProductionLocalWhisperEnvironmentFactory {
     let registryDiscovery: LocalWhisperRuntimeRegistryDiscovery | null = null;
     let topologyAuthority: LocalWhisperDeviceTopologyAuthority | null = null;
     let unsubscribeArtifactProgress: (() => void) | null = null;
+    const nativeRuntimeLogRelay = this.dependencies.nativeRuntimeLogRelay ?? new NativeRuntimeLogRelay();
     try {
       const resources = await new LocalWhisperPackagedResourceResolver({
-        platform: this.dependencies.platform,
+        platform: nativePlatform,
         resourcesPath: this.dependencies.resourcesPath,
         readFile: this.dependencies.readFile,
       }).resolve();
       if (resources.availability !== 'available') return deferred();
       const transport = new NativeManagedFilesystemGuardTransport({
+        environment: this.dependencies.environment,
         executablePath: resources.filesystemGuardExecutable,
+        generateProcessInstanceId: randomUUID,
+        nativeRuntimeLogRelay,
+        platform: nativePlatform,
         spawnProcess: this.dependencies.spawnProcess,
       });
       const adapter =
-        this.dependencies.platform === 'linux'
+        nativePlatform === 'linux'
           ? new LinuxManagedFilesystemAdapter(transport)
           : new WindowsManagedFilesystemAdapter(transport);
       const rootResolution = new ManagedArtifactPathResolver({
@@ -957,7 +965,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
       if (!(await registryOwnership.recoverOwnedOrphan()) || !(await sessionOwnership.recoverOwnedOrphan())) {
         throw new Error('Local Whisper worker cleanup unavailable');
       }
-      registryDiscovery = new LocalWhisperRuntimeRegistryDiscovery(registryOwnership);
+      registryDiscovery = new LocalWhisperRuntimeRegistryDiscovery(registryOwnership, nativeRuntimeLogRelay);
       const lifecycle = new LocalWhisperWorkerLifecycle({
         createSession: () =>
           new LocalWhisperWorkerSupervisor({
@@ -967,6 +975,11 @@ export class ProductionLocalWhisperEnvironmentFactory {
             },
             createTransport: (streams, callbacks) => new LocalWhisperWorkerTransport(streams, callbacks),
             nextRequestId: this.dependencies.nextRequestId,
+            createNativeRuntimeLogDecoder: (processInstanceId) =>
+              new NativeRuntimeLogStreamDecoder({
+                ...(processInstanceId ? { expectedProcessInstanceId: processInstanceId } : {}),
+                onRecord: (record) => nativeRuntimeLogRelay.accept(record),
+              }),
             ownership: sessionOwnership,
           }),
       });
@@ -1440,6 +1453,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
         references: {
           open: () => Promise.resolve({ success: false as const, code: 'INVALID_SETTINGS' as const }),
         },
+        nativeRuntimeLogRelay,
         refreshDevices: (configurationEpoch: number) =>
           disposed ? Promise.resolve() : refreshAvailableDevices(configurationEpoch),
         dispose: async () => {

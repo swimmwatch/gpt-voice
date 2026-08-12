@@ -85,6 +85,21 @@ test('native quality compilation coverage rejects a missing or host-inapplicable
   );
 });
 
+test('native logger source and tests are included in every Linux and Windows native quality graph', () => {
+  const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
+  for (const platform of ['linux', 'windows']) {
+    assert.ok(
+      manifestEntriesForPlatform(manifest, platform, { translationUnitsOnly: true }).some((entry) =>
+        entry.path.endsWith('/common/src/native_logger.cpp'),
+      ),
+    );
+  }
+  for (const cmakeFile of NATIVE_TEST_CMAKE_FILES) {
+    assert.match(cmakeFile, /native_logger\.cpp/u);
+  }
+  assert.match(NATIVE_TEST_CMAKE_FILES[0], /tests\/native_logger_test\.cpp/u);
+});
+
 test('native quality reports reject over-claims and expose only relative source identifiers', () => {
   const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
   assert.throws(

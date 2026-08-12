@@ -25,6 +25,7 @@ import {
 
 import type { ManagedArtifactLease } from '../filesystem/ManagedArtifactLease';
 import { BoundedStderrRing } from './BoundedStderrRing';
+import type { NativeRuntimeLogStreamDecoder } from './NativeRuntimeLogStreamDecoder';
 import {
   LOCAL_WHISPER_HANDSHAKE_TIMEOUT_MS,
   LOCAL_WHISPER_KILL_CONFIRMATION_TIMEOUT_MS,
@@ -89,7 +90,11 @@ export interface LocalWhisperWorkerSupervisorDependencies {
     streams: LocalWhisperWorkerTransportStreams,
     callbacks: LocalWhisperWorkerTransportCallbacks,
   ) => LocalWhisperWorkerTransport;
+  readonly createNativeRuntimeLogDecoder?: (
+    processInstanceId: string | undefined,
+  ) => Pick<NativeRuntimeLogStreamDecoder, 'append' | 'clear' | 'finish'>;
   readonly nextRequestId: () => string;
+  readonly nativeRuntimeLogDecoder?: Pick<NativeRuntimeLogStreamDecoder, 'append' | 'clear' | 'finish'>;
   readonly ownership: WorkerProcessOwnership;
 }
 
@@ -278,6 +283,7 @@ export class LocalWhisperWorkerSupervisor {
   private expectsProbeInputClosure = false;
   private expectedHandshake: LocalWhisperExpectedHandshake | null = null;
   private handshake: PendingHandshake | null = null;
+  private nativeRuntimeLogDecoder: Pick<NativeRuntimeLogStreamDecoder, 'append' | 'clear' | 'finish'> | undefined;
   private probeInputClosed = false;
   private process: LocalWhisperOwnedWorkerProcess | null = null;
   private stateValue: LocalWhisperSupervisorState = 'idle';
@@ -530,7 +536,11 @@ export class LocalWhisperWorkerSupervisor {
   }
 
   private bindProcess(process: LocalWhisperOwnedWorkerProcess): void {
+    this.nativeRuntimeLogDecoder = this.dependencies.createNativeRuntimeLogDecoder
+      ? this.dependencies.createNativeRuntimeLogDecoder(process.nativeRuntimeProcessInstanceId)
+      : this.dependencies.nativeRuntimeLogDecoder;
     process.stderr.on('data', this.onStderr);
+    process.stderr.once('end', this.onStderrEnd);
     this.transport = this.dependencies.createTransport(
       { input: process.input, output: process.output },
       { onMessage: this.onMessage, onTerminal: this.onTransportTerminal },
@@ -700,7 +710,12 @@ export class LocalWhisperWorkerSupervisor {
     );
   };
 
-  private readonly onStderr = (chunk: Buffer): void => this.stderrRing.append(chunk);
+  private readonly onStderr = (chunk: Buffer): void => {
+    this.stderrRing.append(chunk);
+    this.nativeRuntimeLogDecoder?.append(chunk);
+  };
+
+  private readonly onStderrEnd = (): void => this.nativeRuntimeLogDecoder?.finish();
 
   private async failTerminal(code: LocalWhisperFailureCode, stage: LocalWhisperFailureStage): Promise<void> {
     if (this.terminal) return;
@@ -782,6 +797,9 @@ export class LocalWhisperWorkerSupervisor {
     this.activeEpoch = null;
     this.probedDeviceBinding = null;
     this.stderrRing.clear();
+    this.nativeRuntimeLogDecoder?.finish();
+    this.nativeRuntimeLogDecoder?.clear();
+    this.nativeRuntimeLogDecoder = undefined;
     this.stateValue = 'idle';
     this.terminal = false;
     return true;

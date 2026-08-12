@@ -64,6 +64,7 @@
     "test:local-whisper:fs-guard:unit": "node scripts/local-whisper/native-fs-guard-quality.mjs unit",
     "test:local-whisper:fs-guard:integration": "node scripts/local-whisper/native-fs-guard-quality.mjs integration",
     "test:local-whisper:fs-guard:native": "node scripts/local-whisper/native-fs-guard-quality.mjs all",
+    "test:local-whisper:native-logging": "npm run test:local-whisper:worker-common:native && node --import tsx --test tests/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.test.ts tests/main/localWhisper/supervisor/NativeRuntimeLogLaunchEnvironment.test.ts tests/main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder.test.ts tests/main/nativeRuntimeLogArchive.test.ts",
     "test:local-whisper:fs-guard:msvc-asan": "node scripts/local-whisper/native-fs-guard-quality.mjs all --configuration=windows-asan",
     "test:local-whisper:launcher:unit": "node scripts/local-whisper/native-launcher-quality.mjs unit",
     "test:local-whisper:launcher:native": "node scripts/local-whisper/native-launcher-quality.mjs all",

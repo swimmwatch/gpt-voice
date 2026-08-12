@@ -151,13 +151,16 @@ export class DiagnosticsArchiveFormatAdapter {
       ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions)
         ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions]
         : []),
+      ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime)
+        ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime]
+        : []),
       ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot)
         ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot]
         : []),
     ];
     if (
       members.length < 2 ||
-      members.length > 4 ||
+      members.length > 5 ||
       !members.every((member, index) => member.name === expectedNames[index]) ||
       new Set(members.map((member) => member.name)).size !== members.length
     ) {
@@ -225,7 +228,7 @@ function readZipMembers(archiveBytes: Buffer): DiagnosticsArchiveInspection {
     diskNumber !== 0 ||
     centralDisk !== 0 ||
     diskEntries !== totalEntries ||
-    totalEntries > 3 ||
+    totalEntries > 5 ||
     centralOffset + centralSize !== endOffset ||
     endOffset + ZIP_MINIMUM_END_RECORD_BYTES + commentLength !== archiveBytes.length
   ) {
@@ -357,11 +360,12 @@ export function inspectDiagnosticsArchiveForVerification(
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
+    DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
   ]);
   if (
     members.size < 2 ||
-    members.size > 4 ||
+    members.size > 5 ||
     !members.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest) ||
     !members.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents) ||
     [...members.keys()].some((name) => !allowedNames.has(name))
