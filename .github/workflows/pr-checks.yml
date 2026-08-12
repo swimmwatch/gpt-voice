@@ -121,14 +121,6 @@ jobs:
         shell: pwsh
         run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
 
-      - name: Initialize host-native C++ CodeQL database
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
-        with:
-          build-mode: manual
-          db-location: ${{ github.workspace }}/.cache/codeql/cpp-${{ matrix.platform }}
-          languages: c-cpp
-          queries: security-and-quality
-
       - name: Verify Local Whisper native source objects
         if: matrix.platform == 'linux'
         run: |
@@ -147,24 +139,22 @@ jobs:
         env:
           LD_PRELOAD: ''
         run: |
-          env -u LD_PRELOAD \
-            -u SEMMLE_PRELOAD_libtrace \
-            -u SEMMLE_PRELOAD_libtrace32 \
-            -u SEMMLE_PRELOAD_libtrace64 \
-            -u CODEQL_RUNNER \
-            npm run test:local-whisper:worker-tsan-proof
-          env -u LD_PRELOAD \
-            -u SEMMLE_PRELOAD_libtrace \
-            -u SEMMLE_PRELOAD_libtrace32 \
-            -u SEMMLE_PRELOAD_libtrace64 \
-            -u CODEQL_RUNNER \
-            npm run test:local-whisper:worker-tsan
+          npm run test:local-whisper:worker-tsan-proof
+          npm run test:local-whisper:worker-tsan
 
       - name: Run bounded Linux parser fuzzing
         if: matrix.platform == 'linux'
         run: |
           npm run test:local-whisper:native-fuzz
           npm run test:local-whisper:native-fuzz-proof
+
+      - name: Initialize host-native C++ CodeQL database
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          build-mode: manual
+          db-location: ${{ github.workspace }}/.cache/codeql/cpp-${{ matrix.platform }}
+          languages: c-cpp
+          queries: security-and-quality
 
       - name: Run Linux formatting and clang-tidy checks
         if: matrix.platform == 'linux'

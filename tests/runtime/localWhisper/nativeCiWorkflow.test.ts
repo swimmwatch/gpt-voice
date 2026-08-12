@@ -58,16 +58,19 @@ test('Local Whisper runs the separate worker ThreadSanitizer proof and concurren
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const start = workflow.indexOf('- name: Run Linux worker ThreadSanitizer gate');
   const end = workflow.indexOf('\n      - name:', start + 1);
+  const codeqlStart = workflow.indexOf('- name: Initialize host-native C++ CodeQL database');
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
+  assert.notEqual(codeqlStart, -1);
+  assert.ok(codeqlStart > end, 'C++ CodeQL initialization must follow the Linux TSan gate');
   const step = workflow.slice(start, end);
 
   assert.match(step, /if: matrix\.platform == 'linux'/u);
   assert.match(step, /env:\n {10}LD_PRELOAD: ''/u);
   assert.match(workflow, /libclang-rt-\$\{\{ vars\.CI_LLVM_VERSION \}\}-dev/u);
-  const isolatedTsanCommand =
-    /env -u LD_PRELOAD \\\n+ {12}-u SEMMLE_PRELOAD_libtrace \\\n+ {12}-u SEMMLE_PRELOAD_libtrace32 \\\n+ {12}-u SEMMLE_PRELOAD_libtrace64 \\\n+ {12}-u CODEQL_RUNNER \\\n+ {12}npm run test:local-whisper:worker-tsan-(?:proof|tsan)/u;
-  assert.match(step, isolatedTsanCommand);
+  assert.match(step, /npm run test:local-whisper:worker-tsan-proof/u);
+  assert.match(step, /npm run test:local-whisper:worker-tsan/u);
+  assert.doesNotMatch(step, /SEMMLE_|CODEQL_RUNNER/u);
   assert.doesNotMatch(step, /windows/u);
   assert.match(workflow, /--evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection/u);
 });
