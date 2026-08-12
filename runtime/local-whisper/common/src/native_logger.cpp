@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <new>
 #include <string>
@@ -39,6 +40,24 @@ thread_local const NativeJsonLogger* active_logger = nullptr;
   }
   return value[14U] >= '1' && value[14U] <= '8' &&
          (value[19U] == '8' || value[19U] == '9' || value[19U] == 'a' || value[19U] == 'b');
+}
+
+[[nodiscard]] std::optional<std::string> environment_value(const char* const name) noexcept {
+  try {
+#if defined(_WIN32)
+    char* allocated = nullptr;
+    std::size_t length = 0U;
+    if (_dupenv_s(&allocated, &length, name) != 0 || allocated == nullptr)
+      return std::nullopt;
+    const std::unique_ptr<char, decltype(&std::free)> value(allocated, &std::free);
+    return std::string(value.get());
+#else
+    const char* const value = std::getenv(name);
+    return value == nullptr ? std::nullopt : std::optional<std::string>(value);
+#endif
+  } catch (...) {
+    return std::nullopt;
+  }
 }
 
 [[nodiscard]] bool is_valid_utf8(const std::string_view value) noexcept {
@@ -320,13 +339,13 @@ bool NativeJsonLogger::emit_locked(const NativeLogComponent component, const Nat
 
 std::optional<NativeLogConfiguration> native_log_configuration_from_environment() noexcept {
   try {
-    const char* level = std::getenv("LOCAL_WHISPER_NATIVE_LOG_LEVEL");
-    const char* process_instance_id = std::getenv("LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID");
-    if (process_instance_id == nullptr || !is_valid_uuid(process_instance_id))
+    const auto level = environment_value("LOCAL_WHISPER_NATIVE_LOG_LEVEL");
+    const auto process_instance_id = environment_value("LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID");
+    if (!process_instance_id.has_value() || !is_valid_uuid(*process_instance_id))
       return std::nullopt;
-    if (level != nullptr && std::string_view(level) == "debug")
-      return NativeLogConfiguration{NativeLogLevel::debug, process_instance_id};
-    return NativeLogConfiguration{NativeLogLevel::info, process_instance_id};
+    if (level.has_value() && *level == "debug")
+      return NativeLogConfiguration{NativeLogLevel::debug, *process_instance_id};
+    return NativeLogConfiguration{NativeLogLevel::info, *process_instance_id};
   } catch (...) {
     return std::nullopt;
   }
