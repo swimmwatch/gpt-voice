@@ -117,7 +117,7 @@ function configureWorkerTsan(profile) {
   const configured = configureBuild(profile.baseToolchainProfile, {
     engine: false,
     preparedLinuxQuality: process.env.LOCAL_WHISPER_PREPARED_LINUX_QUALITY === 'true',
-    quiet: true,
+    quiet: false,
     rootTag: 'tsan',
     sanitizers: false,
     tests: true,
