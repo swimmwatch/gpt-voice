@@ -144,6 +144,8 @@ jobs:
 
       - name: Run Linux worker ThreadSanitizer gate
         if: matrix.platform == 'linux'
+        env:
+          LD_PRELOAD: ''
         run: |
           npm run test:local-whisper:worker-tsan-proof
           npm run test:local-whisper:worker-tsan
