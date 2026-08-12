@@ -54,6 +54,21 @@ test('Local Whisper runs bounded parser fuzzing only on the prepared Linux nativ
   assert.doesNotMatch(workflow, /if: matrix\.platform == 'windows'\n {8}run: [\s\S]*?native-fuzz/u);
 });
 
+test('Local Whisper runs the separate worker ThreadSanitizer proof and concurrency matrix only on Linux', () => {
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  const start = workflow.indexOf('- name: Run Linux worker ThreadSanitizer gate');
+  const end = workflow.indexOf('\n      - name:', start + 1);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const step = workflow.slice(start, end);
+
+  assert.match(step, /if: matrix\.platform == 'linux'/u);
+  assert.match(step, /npm run test:local-whisper:worker-tsan-proof/u);
+  assert.match(step, /npm run test:local-whisper:worker-tsan\n/u);
+  assert.doesNotMatch(step, /windows/u);
+  assert.match(workflow, /--evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection/u);
+});
+
 test('package smoke keeps Linux and Windows commands inside one platform matrix', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 

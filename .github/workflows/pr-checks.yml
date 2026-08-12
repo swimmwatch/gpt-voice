@@ -142,6 +142,12 @@ jobs:
           LD_PRELOAD: ''
         run: npm run test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality
 
+      - name: Run Linux worker ThreadSanitizer gate
+        if: matrix.platform == 'linux'
+        run: |
+          npm run test:local-whisper:worker-tsan-proof
+          npm run test:local-whisper:worker-tsan
+
       - name: Run bounded Linux parser fuzzing
         if: matrix.platform == 'linux'
         run: |
@@ -250,7 +256,7 @@ jobs:
         if: matrix.platform == 'linux'
         shell: bash
         run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=${{ matrix.platform }} --compiler-profile=${{ matrix.toolchain }} --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-${{ matrix.platform }} --output=release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
+          npm run emit:local-whisper:native-quality-coverage -- --platform=${{ matrix.platform }} --compiler-profile=${{ matrix.toolchain }} --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-${{ matrix.platform }} --output=release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
 
       - name: Emit Windows native-quality coverage
         if: matrix.platform == 'windows'

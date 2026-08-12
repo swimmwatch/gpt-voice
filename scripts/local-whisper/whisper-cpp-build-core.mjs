@@ -166,13 +166,14 @@ export function requireProfile(profileId) {
 }
 
 export function run(command, arguments_, options = {}) {
+  const captureOutput = options.encoding || options.quiet;
   const result = spawnSync(command, arguments_, {
     cwd: options.cwd ?? workspaceRoot,
     env: options.env ?? process.env,
     encoding: options.encoding,
     maxBuffer: 64 * 1024 * 1024,
     shell: false,
-    stdio: options.encoding ? 'pipe' : 'inherit',
+    stdio: captureOutput ? 'pipe' : 'inherit',
   });
   if (result.error || result.status !== 0) {
     const diagnostics = options.encoding ? `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim() : '';
@@ -388,7 +389,7 @@ function networkDeniedEnvironment(profile, tools) {
 
 function runBuildCommand(configured, command, arguments_, label, environment = configured.environment) {
   if (!configured.networkDenied) {
-    run(command, arguments_, { env: environment, label });
+    run(command, arguments_, { env: environment, label, quiet: configured.quiet });
     return;
   }
   const networkDenied = resolveNetworkDeniedCommand({
@@ -402,6 +403,7 @@ function runBuildCommand(configured, command, arguments_, label, environment = c
     cwd: configured.buildRoot,
     env: environment,
     label: `${label} in ${networkDenied.strategy}`,
+    quiet: configured.quiet,
   });
 }
 
@@ -413,9 +415,11 @@ export function configureBuild(
     networkDenied = false,
     preparedLinuxQuality = false,
     preparedWindowsQuality = false,
+    quiet = false,
     rootTag = '',
     sanitizers = false,
     tests,
+    threadSanitizer = false,
   },
 ) {
   const profileTemplate = requireProfile(profileId);
@@ -425,7 +429,10 @@ export function configureBuild(
     profileTemplate.target.os === 'windows' && !networkDenied && !usePreparedWindowsQuality
       ? captureToolchainInputLock(profileTemplate, toolchainRoot)
       : profileTemplate;
-  const sanitizerEnabled = sanitizers || profileId.includes('clang-18.1.3');
+  if (threadSanitizer && profileTemplate.target.os !== 'linux') {
+    throw new Error('ThreadSanitizer requires the Linux Clang worker-test graph');
+  }
+  const sanitizerEnabled = !threadSanitizer && (sanitizers || profileId.includes('clang-18.1.3'));
   if (isAmdPreviewProfile(profileId)) {
     throw new Error('AMD Preview profiles are contract-only until the packet manual gates pass');
   }
@@ -451,8 +458,8 @@ export function configureBuild(
     profile.target.os === 'windows'
       ? `${profileId.includes('cuda') ? 'wcuda' : profileId.includes('amd') ? 'wamd' : 'wcpu'}-${
           directEngine ? 'direct' : engine ? 'engine' : 'quality'
-        }${sanitizerEnabled ? '-asan' : ''}${rootTag === '' ? '' : `-${rootTag}`}`
-      : `${profileId}-${buildKind}${rootTag === '' ? '' : `-${rootTag}`}`;
+        }${sanitizerEnabled ? '-asan' : threadSanitizer ? '-tsan' : ''}${rootTag === '' ? '' : `-${rootTag}`}`
+      : `${profileId}-${buildKind}${threadSanitizer ? '-tsan' : ''}${rootTag === '' ? '' : `-${rootTag}`}`;
   const buildRoot = resolve(taskCacheRoot, 'build', buildRootName);
   removeTaskOwnedTree(buildRoot);
   mkdirSync(buildRoot, { mode: 0o700, recursive: true });
@@ -475,6 +482,7 @@ export function configureBuild(
     `-DLOCAL_WHISPER_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_BACKEND_ID=${profileId.includes('cuda') ? 'cuda' : 'cpu'}`,
     `-DLOCAL_WHISPER_ENABLE_SANITIZERS=${sanitizerEnabled ? 'ON' : 'OFF'}`,
+    `-DLOCAL_WHISPER_ENABLE_THREAD_SANITIZER=${threadSanitizer ? 'ON' : 'OFF'}`,
     `-DLOCAL_WHISPER_SOURCE_ROOT=${engine || directEngine ? preparePatchedSource(profileId) : patchedSourceRoot}`,
     `-DLOCAL_WHISPER_RUNTIME_BUILD_DIGEST=${buildIdentity(profileId, profile)}`,
   ];
@@ -500,7 +508,7 @@ export function configureBuild(
       arguments_.push(`-D${key}=${configuredValue}`);
     }
   } else {
-    arguments_.push(`-DCMAKE_BUILD_TYPE=${sanitizerEnabled ? 'Debug' : 'Release'}`);
+    arguments_.push(`-DCMAKE_BUILD_TYPE=${sanitizerEnabled || threadSanitizer ? 'Debug' : 'Release'}`);
     arguments_.push('-DCMAKE_SKIP_BUILD_RPATH=ON', '-DCMAKE_CXX_SCAN_FOR_MODULES=OFF');
   }
   const configured = {
@@ -523,7 +531,9 @@ export function configureBuild(
           : process.env,
     networkDenied,
     profile,
+    quiet,
     sanitizers: sanitizerEnabled,
+    threadSanitizer,
     tools,
   };
   runBuildCommand(configured, tools.cmake, arguments_, `configure ${profileId}`);

@@ -63,6 +63,10 @@ test('native quality manifest covers every owned project and separates host-spec
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/qualification_protocol_test.cpp'))?.platforms,
     ['linux'],
   );
+  assert.deepEqual(
+    manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_tsan_race_proof.cpp'))?.platforms,
+    ['linux'],
+  );
 });
 
 test('native quality compilation coverage rejects a missing or host-inapplicable translation unit', () => {

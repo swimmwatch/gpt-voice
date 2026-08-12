@@ -48,7 +48,7 @@ function(local_whisper_configure_msvc_stl_debug_level)
 endfunction()
 
 function(local_whisper_configure_sanitizer_graph sanitizer_option)
-  if(NOT ${sanitizer_option})
+  if(NOT ${sanitizer_option} AND NOT LOCAL_WHISPER_ENABLE_THREAD_SANITIZER)
     return()
   endif()
 
@@ -100,7 +100,12 @@ function(local_whisper_apply_compile_hardening target sanitizer_option)
       -fPIE)
     target_compile_definitions(${target} PRIVATE
       "$<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>:_FORTIFY_SOURCE=${local_whisper_fortify_level}>")
-    if(${sanitizer_option})
+    if(LOCAL_WHISPER_ENABLE_THREAD_SANITIZER)
+      target_compile_options(${target} PRIVATE
+        -fsanitize=thread
+        -fno-omit-frame-pointer)
+      target_link_options(${target} PRIVATE -fsanitize=thread -fno-omit-frame-pointer)
+    elseif(${sanitizer_option})
       target_compile_options(${target} PRIVATE
         -fsanitize=address,undefined
         -fno-omit-frame-pointer

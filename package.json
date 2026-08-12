@@ -157,6 +157,8 @@
     "test:local-whisper:hosted-toolchains": "node --test \"tests/runtime/localWhisper/hostedToolchains/*.test.mjs\"",
     "verify:local-whisper:hosted-toolchains": "npm run test:local-whisper:hosted-toolchains && node scripts/local-whisper/native-build/verify-hosted-toolchains.mjs",
     "test:local-whisper:native-sanitizer-proof": "node scripts/local-whisper/native-build/test-native-sanitizer-proof.mjs --profile=linux-x64-clang-18.1.3-asan-ubsan-v1",
+    "test:local-whisper:worker-tsan-proof": "node scripts/local-whisper/native-build/native-worker-tsan.mjs --mode=proof",
+    "test:local-whisper:worker-tsan": "node scripts/local-whisper/native-build/native-worker-tsan.mjs --mode=suite",
     "verify:local-whisper:native-source": "node scripts/local-whisper/source-import/verify-native-source.mjs",
     "validate:workflows": "node --import tsx scripts/local-whisper/ci/verify-workflow-supply-chain-policy.ts && node --import tsx scripts/local-whisper/ci/verify-runner-policy.ts",
     "verify:local-whisper:native-hardening": "node scripts/local-whisper/verify-native-hardening.mjs",

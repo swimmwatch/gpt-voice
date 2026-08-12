@@ -7,6 +7,10 @@ import {
   sanitizerRuntimeEnvironment,
   sanitizerRuntimeOptions,
 } from '../../../../scripts/local-whisper/native-build/sanitizer-runtime-policy.mjs';
+import {
+  threadSanitizerRuntimeEnvironment,
+  threadSanitizerRuntimeOptions,
+} from '../../../../scripts/local-whisper/native-build/tsan-runtime-policy.mjs';
 
 const workspaceRoot = resolve(import.meta.dirname, '..', '..', '..', '..');
 const hardeningModule = readFileSync(
@@ -32,6 +36,17 @@ test('sanitizer runtime policy is non-recovering and never claims unsupported Wi
     ASAN_OPTIONS: 'halt_on_error=1',
     PATH: 'safe',
   });
+});
+
+test('ThreadSanitizer policy is isolated to the Linux worker graph', () => {
+  assert.deepEqual(threadSanitizerRuntimeOptions('linux'), {
+    TSAN_OPTIONS: 'halt_on_error=1:second_deadlock_stack=1',
+  });
+  assert.deepEqual(threadSanitizerRuntimeEnvironment({ PATH: 'safe' }, 'linux'), {
+    PATH: 'safe',
+    TSAN_OPTIONS: 'halt_on_error=1:second_deadlock_stack=1',
+  });
+  assert.throws(() => threadSanitizerRuntimeOptions('windows'));
 });
 
 test('all native graphs use the shared Linux sanitizer and MSVC STL policies', () => {
@@ -93,6 +108,9 @@ test('Windows ASan configurations are explicit in native presets, drivers, packa
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
   assert.match(workflow, /Prove non-recovering Linux sanitizer policy/u);
   assert.match(workflow, /test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality/u);
+  assert.match(workflow, /Run Linux worker ThreadSanitizer gate/u);
+  assert.match(workflow, /test:local-whisper:worker-tsan-proof/u);
+  assert.match(workflow, /test:local-whisper:worker-tsan/u);
   assert.match(workflow, /Run MSVC AddressSanitizer native suites/u);
 });
 
