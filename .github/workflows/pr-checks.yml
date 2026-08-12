@@ -186,6 +186,13 @@ jobs:
         if: matrix.platform == 'linux'
         run: npm run test:local-whisper:native-analysis
 
+      - name: Run focused Linux GCC 13 guard and launcher quality
+        if: matrix.platform == 'linux'
+        run: |
+          npm run test:local-whisper:fs-guard:gcc
+          npm run test:local-whisper:launcher:gcc
+          npm run emit:local-whisper:focused-gcc-quality-coverage -- --output=release-artifacts/focused-gcc-quality-coverage-linux.json
+
       - name: Build and verify Linux Whisper.cpp CPU pack
         if: matrix.platform == 'linux'
         run: |
@@ -282,6 +289,15 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ matrix.runner }} --toolchain=${{ matrix.toolchain }} --expected-os=${{ matrix.platform }} --compiler="$env:CXX" --output=${{ matrix.evidenceOutput }} --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+
+      - name: Upload focused GCC coverage
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: local-whisper-focused-gcc-quality-coverage-linux
+          path: release-artifacts/focused-gcc-quality-coverage-linux.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload runner evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

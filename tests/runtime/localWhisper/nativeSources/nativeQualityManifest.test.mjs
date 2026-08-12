@@ -5,6 +5,7 @@ import { test } from 'node:test';
 
 import {
   assertPlatformCompilationCoverage,
+  createFocusedGccQualityCoverageReport,
   createNativeQualityCoverageReport,
   createNativeQualityManifest,
   manifestEntriesForPlatform,
@@ -119,6 +120,48 @@ test('native quality reports reject over-claims and expose only relative source 
     platform: 'linux',
   });
   assert.ok(report.sourceSet.every((path) => !path.startsWith('/') && !path.includes('\\')));
+});
+
+test('focused GCC quality reports only the compiled Linux guard, launcher, and shared dependency sources', () => {
+  const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
+  const compiledPaths = manifest
+    .filter(
+      (entry) =>
+        entry.kind === 'translation-unit' &&
+        entry.platforms.includes('linux') &&
+        ['common', 'fs-guard', 'launcher'].includes(entry.project),
+    )
+    .map((entry) => entry.path);
+  const report = createFocusedGccQualityCoverageReport({
+    compilerProfile: 'linux-x64-cpu-baseline-v1',
+    compiledPaths,
+    evidence: ['execute', 'compile'],
+    manifest,
+  });
+  assert.equal(report.schemaId, 'local-whisper-focused-gcc-quality-coverage-v1');
+  assert.deepEqual(report.evidenceKinds, ['compile', 'execute']);
+  assert.deepEqual(report.projects, ['fs-guard', 'launcher']);
+  assert.ok(report.sourceSet.every((path) => !path.includes('/whisper-cpp/')));
+  assert.throws(
+    () =>
+      createFocusedGccQualityCoverageReport({
+        compilerProfile: 'linux-x64-cpu-baseline-v1',
+        compiledPaths: compiledPaths.filter((path) => !path.includes('/fs-guard/')),
+        evidence: ['compile', 'execute'],
+        manifest,
+      }),
+    /missing fs-guard/u,
+  );
+  assert.throws(
+    () =>
+      createFocusedGccQualityCoverageReport({
+        compilerProfile: 'linux-x64-cpu-baseline-v1',
+        compiledPaths: [...compiledPaths, 'runtime/local-whisper/whisper-cpp/core/main.cpp'],
+        evidence: ['compile', 'execute'],
+        manifest,
+      }),
+    /out-of-scope/u,
+  );
 });
 
 test('Linux quality compiles the Linux-only qualification test and MSVC analysis suppresses reviewed dependency false positives', () => {

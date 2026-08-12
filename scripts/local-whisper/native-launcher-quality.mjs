@@ -28,17 +28,22 @@ const fixtureDirectory = resolve(outputDirectory, 'fixtures');
 const platformName = process.platform === 'win32' ? 'windows' : 'linux';
 const configurationArgument = process.argv[3] ?? 'default';
 const windowsAsan = configurationArgument === '--configuration=windows-asan';
-if (!['default', '--configuration=windows-asan'].includes(configurationArgument)) {
-  process.stderr.write('Expected no configuration or --configuration=windows-asan\n');
+const linuxGcc = configurationArgument === '--configuration=linux-gcc';
+if (!['default', '--configuration=linux-gcc', '--configuration=windows-asan'].includes(configurationArgument)) {
+  process.stderr.write('Expected no configuration, --configuration=linux-gcc, or --configuration=windows-asan\n');
   process.exit(2);
 }
 if (process.platform !== 'win32' && windowsAsan) {
   process.stderr.write('The Windows ASan configuration is available only on Windows\n');
   process.exit(2);
 }
-const preset = windowsAsan ? 'windows-asan' : `${platformName}-test`;
-const testPresetPrefix = windowsAsan ? 'windows-asan' : platformName;
-const sanitizers = process.platform === 'linux' || windowsAsan;
+if (process.platform !== 'linux' && linuxGcc) {
+  process.stderr.write('The Linux GCC configuration is available only on Linux\n');
+  process.exit(2);
+}
+const preset = windowsAsan ? 'windows-asan' : linuxGcc ? 'linux-gcc-test' : `${platformName}-test`;
+const testPresetPrefix = windowsAsan ? 'windows-asan' : linuxGcc ? 'linux-gcc' : platformName;
+const sanitizers = (process.platform === 'linux' && !linuxGcc) || windowsAsan;
 const buildDirectory = resolve(outputDirectory, windowsAsan ? 'build-windows-asan' : `build-${platformName}-test`);
 const googleTestSource = resolve(
   workspaceRoot,
@@ -56,6 +61,13 @@ const nativeBuildTools = resolveNativeBuildToolPaths({
   workspaceRoot,
 });
 const { cmake, ctest } = nativeBuildTools;
+const gccTools = linuxGcc
+  ? Object.freeze({
+      cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
+      cxxCompiler: process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
+      linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
+    })
+  : null;
 const buildEnvironment =
   process.platform === 'win32'
     ? resolveWindowsMsvcBuildEnvironment({
@@ -93,6 +105,7 @@ function nativeImplementationFiles(directory) {
 
 function configureAndBuild() {
   const arguments_ = [
+    ...(linuxGcc ? [`-DCMAKE_MAKE_PROGRAM=${nativeBuildTools.ninja}`, '--fresh'] : []),
     '--preset',
     preset,
     `-DLOCAL_WHISPER_LAUNCHER_OUTPUT_DIRECTORY=${outputDirectory}`,
@@ -102,7 +115,13 @@ function configureAndBuild() {
   if (process.platform === 'win32' && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
     arguments_.push('-DLOCAL_WHISPER_MSVC_ANALYZE=ON');
   }
-  if (process.platform === 'linux') {
+  if (linuxGcc) {
+    arguments_.push(
+      `-DCMAKE_C_COMPILER=${gccTools.cCompiler}`,
+      `-DCMAKE_CXX_COMPILER=${gccTools.cxxCompiler}`,
+      `-DCMAKE_LINKER=${gccTools.linker}`,
+    );
+  } else if (process.platform === 'linux') {
     arguments_.push(`-DCMAKE_CXX_COMPILER=${process.env.CXX || resolve(clangRoot, 'clang++')}`);
     arguments_.push(
       `-DCMAKE_MAKE_PROGRAM=${process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja')}`,
@@ -113,10 +132,11 @@ function configureAndBuild() {
 }
 
 function runExecutableIntegration(environment) {
-  run(process.execPath, ['scripts/local-whisper/build-fs-guard.mjs'], { cwd: workspaceRoot, env: environment });
+  const fixtureEnvironment = linuxGcc ? { ...environment, LOCAL_WHISPER_NATIVE_QUALITY_GCC: 'true' } : environment;
+  run(process.execPath, ['scripts/local-whisper/build-fs-guard.mjs'], { cwd: workspaceRoot, env: fixtureEnvironment });
   run(process.execPath, ['--import', 'tsx', 'scripts/local-whisper/verify-launcher.ts', '--fixture'], {
     cwd: workspaceRoot,
-    env: environment,
+    env: fixtureEnvironment,
   });
 }
 
@@ -148,16 +168,24 @@ if (action === 'format') {
   const testEnvironment = sanitizerRuntimeEnvironment(buildEnvironment, platformName, sanitizers);
   process.stdout.write(`Local Whisper launcher ${sanitizers ? 'sanitized' : 'ordinary'} coverage\n`);
   if (action === 'unit' || action === 'all') {
-    run(ctest, ['--preset', `${testPresetPrefix}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))], {
-      env: testEnvironment,
-    });
-  }
-  if (action === 'integration' || action === 'all') {
-    if (process.platform === 'linux') {
-      run(ctest, ['--preset', 'linux-integration', '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))], {
+    run(
+      ctest,
+      ['--preset', `${testPresetPrefix}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))],
+      {
         env: testEnvironment,
-      });
+      },
+    );
     }
-    runExecutableIntegration(testEnvironment);
-  }
+    if (action === 'integration' || action === 'all') {
+      if (process.platform === 'linux') {
+        run(
+          ctest,
+          ['--preset', `${testPresetPrefix}-integration`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))],
+          {
+            env: testEnvironment,
+          },
+        );
+      }
+      runExecutableIntegration(testEnvironment);
+    }
 }

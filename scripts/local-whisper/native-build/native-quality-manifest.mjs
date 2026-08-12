@@ -21,6 +21,8 @@ const PROJECTS = Object.freeze([
   Object.freeze({ id: 'launcher', root: ['runtime', 'local-whisper', 'launcher'] }),
   Object.freeze({ id: 'worker', root: ['runtime', 'local-whisper', 'whisper-cpp'] }),
 ]);
+const FOCUSED_GCC_PROJECTS = Object.freeze(['fs-guard', 'launcher']);
+const FOCUSED_GCC_DEPENDENCY_PROJECTS = new Set(['common', ...FOCUSED_GCC_PROJECTS]);
 
 const LINUX_ONLY_BASENAMES = new Set([
   'authority_bootstrap.cpp',
@@ -184,6 +186,47 @@ export function createNativeQualityCoverageReport({ compilerProfile, evidence, m
     evidenceKinds: Object.freeze(evidenceKinds),
     host: platform,
     schemaId: 'local-whisper-native-quality-coverage-v1',
+    sourceSet: Object.freeze(sourceSet),
+  });
+}
+
+/** Creates a source-truthful report for the Linux GCC guard and launcher execution slice. */
+export function createFocusedGccQualityCoverageReport({ compilerProfile, evidence, manifest, compiledPaths }) {
+  if (compilerProfile !== 'linux-x64-cpu-baseline-v1') {
+    throw new Error('Focused GCC quality must use the pinned Linux CPU baseline profile');
+  }
+  if (!Array.isArray(evidence) || evidence.length === 0) {
+    throw new Error('Focused GCC quality evidence is required');
+  }
+  const evidenceKinds = [...new Set(evidence)].sort();
+  if (evidenceKinds.length !== 2 || !evidenceKinds.includes('compile') || !evidenceKinds.includes('execute')) {
+    throw new Error('Focused GCC quality evidence must be exactly compile and execute');
+  }
+  if (!Array.isArray(compiledPaths) || compiledPaths.length === 0) {
+    throw new Error('Focused GCC quality compiled sources are required');
+  }
+  const entriesByPath = new Map(manifest.map((entry) => [entry.path, entry]));
+  const sourceSet = [...new Set(compiledPaths)].sort(bytewiseStringSort);
+  const projects = new Set();
+  for (const path of sourceSet) {
+    const entry = entriesByPath.get(path);
+    if (!entry || entry.kind !== 'translation-unit' || !entry.platforms.includes('linux')) {
+      throw new Error(`Focused GCC quality source is not a Linux project translation unit: ${path}`);
+    }
+    if (!FOCUSED_GCC_DEPENDENCY_PROJECTS.has(entry.project)) {
+      throw new Error(`Focused GCC quality includes an out-of-scope project source: ${path}`);
+    }
+    projects.add(entry.project);
+  }
+  for (const project of FOCUSED_GCC_PROJECTS) {
+    if (!projects.has(project)) throw new Error(`Focused GCC quality is missing ${project} sources`);
+  }
+  return Object.freeze({
+    compilerProfile,
+    evidenceKinds: Object.freeze(evidenceKinds),
+    host: 'linux',
+    projects: FOCUSED_GCC_PROJECTS,
+    schemaId: 'local-whisper-focused-gcc-quality-coverage-v1',
     sourceSet: Object.freeze(sourceSet),
   });
 }

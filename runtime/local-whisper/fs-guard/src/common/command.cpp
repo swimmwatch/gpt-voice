@@ -255,7 +255,7 @@ Command parse_command(const std::string& name, const std::vector<std::string>& a
       const auto fields = split(entry, '|');
       if (fields.size() != 2 || !is_file_name(fields[0]) || !names.insert(fields[0]).second)
         invalid_input();
-      expected.push_back({std::move(fields[0]), FileMode(fields[1])});
+      expected.push_back({fields[0], FileMode(fields[1])});
     }
     return ListCommand{arguments[0], std::move(expected)};
   }

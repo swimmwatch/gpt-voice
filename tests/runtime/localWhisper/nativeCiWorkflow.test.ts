@@ -125,6 +125,17 @@ test('native analysis and CodeQL use real host builds without platform over-clai
   assert.match(workflow, /Prove Linux analyzer rejects bad sources/u);
   assert.match(
     workflow,
+    /Run focused Linux GCC 13 guard and launcher quality\n {8}if: matrix\.platform == 'linux'\n {8}run: \|\n {10}npm run test:local-whisper:fs-guard:gcc\n {10}npm run test:local-whisper:launcher:gcc\n {10}npm run emit:local-whisper:focused-gcc-quality-coverage -- --output=release-artifacts\/focused-gcc-quality-coverage-linux\.json/u,
+  );
+  assert.doesNotMatch(
+    workflow,
+    /if: matrix\.platform == 'windows'\n {8}run: [\s\S]*?test:local-whisper:(?:fs-guard|launcher):gcc/u,
+  );
+  assert.match(workflow, /Upload focused GCC coverage/u);
+  assert.match(workflow, /name: local-whisper-focused-gcc-quality-coverage-linux/u);
+  assert.match(workflow, /path: release-artifacts\/focused-gcc-quality-coverage-linux\.json/u);
+  assert.match(
+    workflow,
     /Prove non-recovering Linux sanitizer policy\n {8}if: matrix\.platform == 'linux'\n {8}env:\n {10}LD_PRELOAD: ''/u,
   );
   assert.match(workflow, /emit:local-whisper:native-quality-coverage/u);

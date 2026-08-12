@@ -19,11 +19,22 @@ if (process.platform !== 'linux' && process.platform !== 'win32') {
 mkdirSync(outputDirectory, { mode: 0o700, recursive: true });
 
 const tools = resolveNativeBuildToolPaths({ environment: process.env, platform: process.platform, workspaceRoot });
-const preset = process.platform === 'win32' ? 'windows-release' : 'linux-release';
+const linuxGccQuality = process.platform === 'linux' && process.env.LOCAL_WHISPER_NATIVE_QUALITY_GCC === 'true';
+const preset =
+  process.platform === 'win32' ? 'windows-release' : linuxGccQuality ? 'linux-gcc-release' : 'linux-release';
 const configureArguments = ['--fresh', '--preset', preset, `-DFS_GUARD_OUTPUT_DIRECTORY=${outputDirectory}`];
 if (process.platform === 'linux' || process.platform === 'win32') {
-  configureArguments.push(`-DCMAKE_CXX_COMPILER=${tools.compiler}`);
+  const compiler = linuxGccQuality
+    ? process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13'
+    : tools.compiler;
+  configureArguments.push(`-DCMAKE_CXX_COMPILER=${compiler}`);
   configureArguments.push(`-DCMAKE_MAKE_PROGRAM=${tools.ninja}`);
+}
+if (linuxGccQuality) {
+  configureArguments.push(
+    `-DCMAKE_C_COMPILER=${process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13'}`,
+    `-DCMAKE_LINKER=${process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd'}`,
+  );
 }
 const buildEnvironment =
   process.platform === 'win32'

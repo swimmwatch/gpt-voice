@@ -28,6 +28,17 @@
       }
     },
     {
+      "name": "linux-gcc-test",
+      "displayName": "Linux GCC 13 Local Whisper launcher tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/launcher/build-linux-gcc-test",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS": "OFF"
+      }
+    },
+    {
       "name": "windows-release",
       "displayName": "Windows production Local Whisper launcher",
       "generator": "Ninja",
@@ -69,6 +80,10 @@
       "configurePreset": "linux-test"
     },
     {
+      "name": "linux-gcc-test",
+      "configurePreset": "linux-gcc-test"
+    },
+    {
       "name": "windows-release",
       "configurePreset": "windows-release"
     },
@@ -103,6 +118,18 @@
     {
       "name": "linux-integration",
       "configurePreset": "linux-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "integration" } }
+    },
+    {
+      "name": "linux-gcc-unit",
+      "configurePreset": "linux-gcc-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } }
+    },
+    {
+      "name": "linux-gcc-integration",
+      "configurePreset": "linux-gcc-test",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "integration" } }
     }

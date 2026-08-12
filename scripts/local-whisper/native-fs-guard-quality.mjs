@@ -26,17 +26,22 @@ const sourceDirectory = resolve(workspaceRoot, 'runtime', 'local-whisper', 'fs-g
 const platformName = process.platform === 'win32' ? 'windows' : 'linux';
 const configurationArgument = process.argv[3] ?? 'default';
 const windowsAsan = configurationArgument === '--configuration=windows-asan';
-if (!['default', '--configuration=windows-asan'].includes(configurationArgument)) {
-  process.stderr.write('Expected no configuration or --configuration=windows-asan\n');
+const linuxGcc = configurationArgument === '--configuration=linux-gcc';
+if (!['default', '--configuration=linux-gcc', '--configuration=windows-asan'].includes(configurationArgument)) {
+  process.stderr.write('Expected no configuration, --configuration=linux-gcc, or --configuration=windows-asan\n');
   process.exit(2);
 }
 if (process.platform !== 'win32' && windowsAsan) {
   process.stderr.write('The Windows ASan configuration is available only on Windows\n');
   process.exit(2);
 }
-const preset = windowsAsan ? 'windows-asan' : `${platformName}-test`;
-const testPresetPrefix = windowsAsan ? 'windows-asan' : platformName;
-const sanitizers = process.platform === 'linux' || windowsAsan;
+if (process.platform !== 'linux' && linuxGcc) {
+  process.stderr.write('The Linux GCC configuration is available only on Linux\n');
+  process.exit(2);
+}
+const preset = windowsAsan ? 'windows-asan' : linuxGcc ? 'linux-gcc-test' : `${platformName}-test`;
+const testPresetPrefix = windowsAsan ? 'windows-asan' : linuxGcc ? 'linux-gcc' : platformName;
+const sanitizers = (process.platform === 'linux' && !linuxGcc) || windowsAsan;
 const buildDirectory = resolve(
   workspaceRoot,
   '.cache',
@@ -60,6 +65,13 @@ const nativeBuildTools = resolveNativeBuildToolPaths({
   workspaceRoot,
 });
 const { cmake, ctest } = nativeBuildTools;
+const gccTools = linuxGcc
+  ? Object.freeze({
+      cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
+      cxxCompiler: process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
+      linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
+    })
+  : null;
 const buildEnvironment =
   process.platform === 'win32'
     ? resolveWindowsMsvcBuildEnvironment({
@@ -96,11 +108,22 @@ function nativeImplementationFiles(directory) {
 }
 
 function configureAndBuild() {
-  const arguments_ = ['--preset', preset, `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`];
+  const arguments_ = [
+    ...(linuxGcc ? [`-DCMAKE_MAKE_PROGRAM=${nativeBuildTools.ninja}`, '--fresh'] : []),
+    '--preset',
+    preset,
+    `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
+  ];
   if (process.platform === 'win32' && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
     arguments_.push('-DLOCAL_WHISPER_MSVC_ANALYZE=ON');
   }
-  if (process.platform === 'linux') {
+  if (linuxGcc) {
+    arguments_.push(
+      `-DCMAKE_C_COMPILER=${gccTools.cCompiler}`,
+      `-DCMAKE_CXX_COMPILER=${gccTools.cxxCompiler}`,
+      `-DCMAKE_LINKER=${gccTools.linker}`,
+    );
+  } else if (process.platform === 'linux') {
     arguments_.push(`-DCMAKE_CXX_COMPILER=${process.env.CXX || resolve(clangRoot, 'clang++')}`);
     arguments_.push(
       `-DCMAKE_MAKE_PROGRAM=${process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja')}`,
@@ -138,14 +161,17 @@ if (action === 'format') {
   const testEnvironment = sanitizerRuntimeEnvironment(buildEnvironment, platformName, sanitizers);
   process.stdout.write(`Local Whisper fs-guard ${sanitizers ? 'sanitized' : 'ordinary'} coverage\n`);
   if (action === 'unit' || action === 'all') {
-    run(ctest, ['--preset', `${testPresetPrefix}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))], testEnvironment);
+    run(
+      ctest,
+      ['--preset', `${testPresetPrefix}-unit`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))],
+      testEnvironment,
+    );
   }
   if (action === 'integration' || action === 'all') {
-    run(ctest, [
-      '--preset',
-      `${testPresetPrefix}-integration`,
-      '--parallel',
-      String(resolveNativeBuildJobs({ backend: 'cpu' })),
-    ], testEnvironment);
+    run(
+      ctest,
+      ['--preset', `${testPresetPrefix}-integration`, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))],
+      testEnvironment,
+    );
   }
 }

@@ -28,6 +28,27 @@
       }
     },
     {
+      "name": "linux-gcc-test",
+      "displayName": "Linux GCC 13 native tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/fs-guard/build-linux-gcc-test",
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FS_GUARD_ENABLE_SANITIZERS": "OFF"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux GCC 13 production guard",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../../.cache/local-whisper/fs-guard/build-linux-gcc-release",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "windows-release",
       "displayName": "Windows production guard",
       "generator": "Ninja",
@@ -69,6 +90,14 @@
       "configurePreset": "linux-test"
     },
     {
+      "name": "linux-gcc-test",
+      "configurePreset": "linux-gcc-test"
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release"
+    },
+    {
       "name": "windows-release",
       "configurePreset": "windows-release"
     },
@@ -91,6 +120,18 @@
     {
       "name": "linux-integration",
       "configurePreset": "linux-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "integration" } }
+    },
+    {
+      "name": "linux-gcc-unit",
+      "configurePreset": "linux-gcc-test",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "label": "unit" } }
+    },
+    {
+      "name": "linux-gcc-integration",
+      "configurePreset": "linux-gcc-test",
       "output": { "outputOnFailure": true },
       "filter": { "include": { "label": "integration" } }
     },
