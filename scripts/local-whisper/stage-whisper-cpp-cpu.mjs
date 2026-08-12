@@ -1,7 +1,8 @@
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import { canonicalCatalogJson, canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
 import {
   buildIdentity,
   limitTablePath,
@@ -27,13 +28,13 @@ function writeJson(path, value) {
 
 function fileEvidence(root, relativePath, id) {
   const path = resolve(root, ...relativePath.split('/'));
-  const metadata = statSync(path);
+  const { bytes, stat: metadata } = readVerifiedRegularFileSync(path);
   return Object.freeze({
     id,
     relativePath,
     mode: metadata.mode & 0o777,
     sizeBytes: metadata.size,
-    sha256: sha256(readFileSync(path)),
+    sha256: sha256(bytes),
   });
 }
 

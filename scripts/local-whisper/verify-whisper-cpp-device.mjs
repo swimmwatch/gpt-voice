@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
 import { auditWindows } from './verify-windows-runtime-pack.mjs';
 import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
 import { cudaStageRoot } from './stage-whisper-cpp-cuda.mjs';
 import {
   buildIdentity,
@@ -55,11 +56,11 @@ function verifyExpectedFiles(root) {
     assert.equal(file.relativePath.startsWith('/'), false);
     assert.equal(file.relativePath.split('/').includes('..'), false);
     const path = resolve(root, ...file.relativePath.split('/'));
-    const metadata = statSync(path);
+    const { bytes, stat: metadata } = readVerifiedRegularFileSync(path);
     assert.equal(metadata.isFile(), true, file.relativePath);
     assert.equal(metadata.size, file.sizeBytes, file.relativePath);
     assert.equal(metadata.mode & 0o777, file.mode, file.relativePath);
-    assert.equal(sha256(readFileSync(path)), file.sha256, file.relativePath);
+    assert.equal(sha256(bytes), file.sha256, file.relativePath);
   }
   return expected;
 }
@@ -233,13 +234,13 @@ export function verifyLinuxCudaPack() {
   assert.equal(manifest.signed, false);
   assert.equal(manifest.productionOrigin, false);
   const expectedFilesPath = resolve(root, 'expected-files.json');
-  const expectedFilesMetadata = statSync(expectedFilesPath);
+  const { bytes: expectedFilesBytes, stat: expectedFilesMetadata } = readVerifiedRegularFileSync(expectedFilesPath);
   assert.deepEqual(manifest.expectedFiles, {
     id: 'expected-files',
     relativePath: 'expected-files.json',
     mode: expectedFilesMetadata.mode & 0o777,
     sizeBytes: expectedFilesMetadata.size,
-    sha256: sha256(readFileSync(expectedFilesPath)),
+    sha256: sha256(expectedFilesBytes),
   });
   const actualPaths = allFiles(root);
   const expectedPaths = [

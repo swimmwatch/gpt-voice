@@ -1,7 +1,8 @@
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { canonicalDigest, sha256, validateRelativePath } from '../source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 
 export const SANITIZER_FIXTURE_ID = 'local-whisper-sanitizer-proof-v1';
 export const SANITIZER_FIXTURE_FILES = Object.freeze([
@@ -30,11 +31,10 @@ export function readQualificationFixtureIdentity(workspaceRoot, fixtureId) {
   const files = definition.files.map((relativePath) => {
     validateRelativePath(relativePath);
     const path = resolve(root, relativePath);
-    const stat = lstatSync(path);
+    const { bytes, stat } = readVerifiedRegularFileSync(path);
     if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) {
       throw new Error(`Sanitizer fixture entry is not an owned regular file: ${relativePath}`);
     }
-    const bytes = readFileSync(path);
     const text = bytes.toString('utf8');
     if (Buffer.from(text, 'utf8').compare(bytes) !== 0 || /\r(?!\n)/u.test(text)) {
       throw new Error(`Qualification fixture entry is not canonical UTF-8 text: ${relativePath}`);

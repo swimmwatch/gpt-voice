@@ -1,8 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { sha256, validateRelativePath } from '../source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 
 const FORBIDDEN_LOADER_ENVIRONMENT = new Set(['GGML_BACKEND_PATH', 'LD_LIBRARY_PATH', 'LD_PRELOAD']);
 const NEEDED_PATTERN = /\(NEEDED\).*Shared library: \[([^\]]+)\]/u;
@@ -17,9 +18,9 @@ function assertOwnedDescendant(root, candidate) {
 
 function verifyRegularFileIdentity(path, expectedSha256, label) {
   const canonicalPath = realpathSync(path);
-  const stat = lstatSync(canonicalPath);
+  const { bytes, stat } = readVerifiedRegularFileSync(canonicalPath);
   if (!stat.isFile()) throw new Error(`${label} is not a regular file: ${path}`);
-  const actualSha256 = sha256(readFileSync(canonicalPath));
+  const actualSha256 = sha256(bytes);
   if (actualSha256 !== expectedSha256) throw new Error(`${label} identity changed: ${path}`);
   return Object.freeze({ path: canonicalPath, sha256: actualSha256 });
 }

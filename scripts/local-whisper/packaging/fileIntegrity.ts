@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { lstat, readFile, readdir, writeFile } from 'node:fs/promises';
+import { readdir, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
 
 import { isSafeRelativePath, isSha256, type LocalWhisperBundleFile } from './contracts';
+import { readVerifiedRegularFile } from '../../SecureFileReader';
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
 
@@ -14,18 +14,15 @@ export function sha256Bytes(value: Uint8Array | string): string {
 }
 
 export async function sha256File(filePath: string): Promise<string> {
-  const digest = createHash('sha256');
-  const stream = createReadStream(filePath);
-  for await (const chunk of stream) digest.update(chunk as Buffer);
-  return digest.digest('hex');
+  return sha256Bytes((await readVerifiedRegularFile(filePath)).bytes);
 }
 
 export async function readCanonicalJson(filePath: string): Promise<unknown> {
-  const file = await lstat(filePath);
-  if (!file.isFile() || file.isSymbolicLink() || file.size <= 0 || file.size > MAX_JSON_BYTES) {
+  const { bytes, sizeBytes } = await readVerifiedRegularFile(filePath);
+  if (sizeBytes <= 0 || sizeBytes > MAX_JSON_BYTES) {
     throw new Error(`Invalid bounded JSON file: ${path.basename(filePath)}`);
   }
-  const text = await readFile(filePath, 'utf8');
+  const text = bytes.toString('utf8');
   const value = JSON.parse(text) as unknown;
   if (serializeCanonicalLocalWhisperCatalogJson(value) !== text) {
     throw new Error(`Noncanonical JSON file: ${path.basename(filePath)}`);
@@ -50,11 +47,11 @@ export async function inspectFlatDirectory(
       throw new Error(`Unsafe Local Whisper bundle entry: ${entry.name}`);
     }
     const filePath = path.join(directory, entry.name);
-    const file = await lstat(filePath);
-    if (!file.isFile() || file.isSymbolicLink() || file.size <= 0 || !Number.isSafeInteger(file.size)) {
+    const { bytes, sizeBytes } = await readVerifiedRegularFile(filePath);
+    if (sizeBytes <= 0 || !Number.isSafeInteger(sizeBytes)) {
       throw new Error(`Invalid Local Whisper bundle file: ${entry.name}`);
     }
-    files.push(Object.freeze({ path: entry.name, sizeBytes: file.size, sha256: await sha256File(filePath) }));
+    files.push(Object.freeze({ path: entry.name, sizeBytes, sha256: sha256Bytes(bytes) }));
   }
   return files.sort((left, right) => left.path.localeCompare(right.path, 'en'));
 }

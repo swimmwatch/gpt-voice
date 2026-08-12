@@ -1,18 +1,10 @@
 import { spawnSync } from 'node:child_process';
-import {
-  constants as fileConstants,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  statSync,
-} from 'node:fs';
+import { constants as fileConstants, copyFileSync, existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import process from 'node:process';
 
 import { canonicalJson, sha256, validateRelativePath, writeJsonAtomic } from '../source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 
 const LOCK_SCHEMA_ID = 'local-whisper-windows-runtime-acquisition-lock-v1';
 const MATERIALIZATION_SCHEMA_ID = 'local-whisper-windows-runtime-materialization-v1';
@@ -209,10 +201,9 @@ function readInstalledRuntime(systemRoot, registryKey) {
 }
 
 function verifyFileIdentity(path, expected, label) {
-  assert(existsSync(path), `${label} is missing`);
-  const stat = statSync(path);
+  const { bytes, stat } = readVerifiedRegularFileSync(path);
   assert(stat.isFile() && stat.size === expected.sizeBytes, `${label} size mismatch`);
-  assert(sha256(readFileSync(path)) === expected.sha256, `${label} digest mismatch`);
+  assert(sha256(bytes) === expected.sha256, `${label} digest mismatch`);
 }
 
 function verifySignedMetadata(metadata, expected, label, publisherSubject) {

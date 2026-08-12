@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 import { cpuStageRoot } from './stage-whisper-cpp-cpu.mjs';
 import { canonicalDigest, sha256 } from './source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
 import { verifyToolchainContract } from './native-build/native-toolchain-core.mjs';
 import { auditWindows } from './verify-windows-runtime-pack.mjs';
 import {
@@ -77,14 +78,14 @@ function verifyStage(profileId) {
     assert.equal(file.relativePath.startsWith('/'), false);
     assert.equal(file.relativePath.split('/').includes('..'), false);
     const path = resolve(root, ...file.relativePath.split('/'));
-    const metadata = statSync(path);
+    const { bytes, stat: metadata } = readVerifiedRegularFileSync(path);
     assert.equal(metadata.isFile(), true, file.relativePath);
     assert.equal(metadata.size, file.sizeBytes, file.relativePath);
     assert.equal(metadata.mode & 0o777, file.mode, file.relativePath);
-    assert.equal(sha256(readFileSync(path)), file.sha256, file.relativePath);
+    assert.equal(sha256(bytes), file.sha256, file.relativePath);
   }
   const manifestPath = resolve(root, 'runtime-manifest.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const manifest = JSON.parse(readVerifiedRegularFileSync(manifestPath).bytes.toString('utf8'));
   assert.equal(manifest.profileId, profileId);
   assert.equal(manifest.runtimeBuildDigest, buildIdentity());
   assert.equal(manifest.dynamicBackendDiscovery, false);

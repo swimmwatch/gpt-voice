@@ -31,7 +31,7 @@ function compilerVersion(compiler, toolchain) {
   const output = `${result.stdout}\n${result.stderr}`;
   if (result.error || !output.trim()) throw new Error(`Unable to verify compiler ${compiler}`);
   const clang = CLANG_TOOLCHAIN.exec(toolchain);
-  if (clang && !new RegExp(`clang version ${clang.groups.major}\\.`, 'u').test(output)) {
+  if (clang && !output.includes(`clang version ${clang.groups.major}.`)) {
     throw new Error(`Compiler does not match the required ${toolchain} profile`);
   }
   if (toolchain === 'msvc-hosted' && !/Version 19\.\d+\./u.test(output)) {

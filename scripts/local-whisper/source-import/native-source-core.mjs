@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -20,6 +19,7 @@ import process from 'node:process';
 import { TextDecoder } from 'node:util';
 
 import { getSourceDefinition } from './source-definitions.mjs';
+import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const GIT_OID_PATTERN = /^[a-f0-9]{40}$/u;
@@ -703,7 +703,7 @@ function assertOwnedDescendant(root, candidate) {
 function verifyMaterializedEntry(root, entry) {
   const destination = resolve(root, ...entry.path.split('/'));
   assertOwnedDescendant(root, destination);
-  const stat = lstatSync(destination);
+  const { bytes, stat } = readVerifiedRegularFileSync(destination);
   if (entry.entryType === 'gitlink') {
     if (!stat.isDirectory()) throw new Error(`Materialized gitlink placeholder mismatch: ${entry.path}`);
     return;
@@ -717,7 +717,7 @@ function verifyMaterializedEntry(root, entry) {
   if (!stat.isFile() || stat.nlink !== 1 || stat.size !== entry.sizeBytes) {
     throw new Error(`Materialized regular-file metadata mismatch: ${entry.path}`);
   }
-  if (sha256(readFileSync(destination)) !== entry.sha256) {
+  if (sha256(bytes) !== entry.sha256) {
     throw new Error(`Materialized regular-file hash mismatch: ${entry.path}`);
   }
 }

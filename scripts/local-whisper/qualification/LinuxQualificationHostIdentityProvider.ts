@@ -1,7 +1,8 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { sha256Bytes, sha256File } from '../packaging/fileIntegrity';
+import { readVerifiedRegularFile } from '../../SecureFileReader';
 import type { QualificationCommandPort } from './QualificationCommandRunner';
 import type { QualificationCandidateSeed, QualificationToolIdentity } from './QualificationInputProducer';
 
@@ -36,17 +37,12 @@ function record(value: unknown, code: string): Readonly<Record<string, unknown>>
 }
 
 async function readTrackedSourceLock(filePath: string): Promise<Readonly<Record<string, unknown>>> {
-  const metadata = await lstat(filePath);
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size <= 0 ||
-    metadata.size > SOURCE_LOCK_MAXIMUM_BYTES
-  ) {
+  const { bytes, sizeBytes } = await readVerifiedRegularFile(filePath);
+  if (sizeBytes <= 0 || sizeBytes > SOURCE_LOCK_MAXIMUM_BYTES) {
     throw new Error('Qualification source lock invalid');
   }
   try {
-    return record(JSON.parse(await readFile(filePath, 'utf8')) as unknown, 'Qualification source lock invalid');
+    return record(JSON.parse(bytes.toString('utf8')) as unknown, 'Qualification source lock invalid');
   } catch {
     throw new Error('Qualification source lock invalid');
   }

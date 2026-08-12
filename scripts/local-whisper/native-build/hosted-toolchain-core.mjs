@@ -22,6 +22,7 @@ import { createGunzip, inflateRawSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 
 import { canonicalDigest, canonicalJson, sha256, validateRelativePath } from '../source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 
 export const HOSTED_TOOLCHAIN_ACQUISITION_SCHEMA_ID = 'local-whisper-hosted-toolchain-acquisition-lock-v1';
 export const HOSTED_TOOLCHAIN_MATERIALIZATION_DIRECTORY = 'materialized-toolchain';
@@ -894,8 +895,7 @@ function tarReadable(record, source, materializedRoot, recordsById) {
   const decoderEntry = decoderRecord.materialization.entries.find((entry) => entry.path === decoder.modulePath);
   const decoderPath = destinationForEntry(materializedRoot, decoderRecord, decoderEntry);
   assertNoSymlinkPathComponent(materializedRoot, decoderPath, `record ${record.id} XZ decoder`);
-  const metadata = lstatSync(decoderPath);
-  const decoderBytes = readFileSync(decoderPath);
+  const { bytes: decoderBytes, stat: metadata } = readVerifiedRegularFileSync(decoderPath);
   if (
     !metadata.isFile() ||
     metadata.isSymbolicLink() ||
@@ -982,8 +982,7 @@ function appendVerifiedTarEntries(files, materializedRoot, record) {
     const destination = destinationForEntry(materializedRoot, record, entry);
     if (entry.entryType === 'regular') {
       assertNoSymlinkPathComponent(materializedRoot, destination, `record ${record.id} materialization destination`);
-      const metadata = lstatSync(destination);
-      const written = readFileSync(destination);
+      const { bytes: written, stat: metadata } = readVerifiedRegularFileSync(destination);
       if (
         !metadata.isFile() ||
         metadata.isSymbolicLink() ||
@@ -1104,16 +1103,14 @@ export function verifyHostedToolchainMaterialization({ manifest, materializedRoo
         entry.entryType === 'symbolic-link' ? dirname(destination) : destination,
         `record ${record.id} materialization destination`,
       );
-      if (!existsSync(destination) && entry.entryType !== 'symbolic-link')
-        fail(`record ${record.id} materialized file is missing`);
-      const metadata = lstatSync(destination);
       if (entry.entryType === 'symbolic-link') {
+        const metadata = lstatSync(destination);
         if (!metadata.isSymbolicLink() || readlinkSync(destination) !== entry.linkTarget) {
           fail(`record ${record.id} materialized symbolic link is unsafe`);
         }
       } else {
+        const { bytes, stat: metadata } = readVerifiedRegularFileSync(destination);
         if (!metadata.isFile() || metadata.isSymbolicLink()) fail(`record ${record.id} materialized file is unsafe`);
-        const bytes = readFileSync(destination);
         if (bytes.byteLength !== entry.byteLength || sha256(bytes) !== entry.sha256) {
           fail(`record ${record.id} materialized file identity changed`);
         }

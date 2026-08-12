@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import process from 'node:process';
 
 import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
+import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
 import { removeTaskOwnedTree, taskCacheRoot } from './whisper-cpp-build-core.mjs';
 
 export const WINDOWS_CPU_PROFILE = 'windows-x64-cpu-msvc-19.39-v1';
@@ -44,11 +45,11 @@ export function auditWindows(profileId) {
   assert.deepEqual(allFiles(root), expectedPaths);
   for (const file of expected.files) {
     const path = resolve(root, ...file.relativePath.split('/'));
-    const metadata = statSync(path);
+    const { bytes, stat: metadata } = readVerifiedRegularFileSync(path);
     assert.equal(metadata.isFile(), true);
     assert.equal(file.mode, 0);
     assert.equal(metadata.size, file.sizeBytes);
-    assert.equal(sha256(readFileSync(path)), file.sha256);
+    assert.equal(sha256(bytes), file.sha256);
   }
   const dlls = allFiles(resolve(root, 'bin'))
     .filter((path) => path.toLowerCase().endsWith('.dll'))

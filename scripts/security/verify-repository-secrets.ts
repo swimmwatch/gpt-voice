@@ -1,9 +1,9 @@
 import { execFile } from 'node:child_process';
-import { lstat, readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
 import { RepositorySecretPolicy, type RepositoryTextFile } from './repositorySecretPolicy';
+import { readVerifiedRegularFile } from '../SecureFileReader';
 
 const execFileAsync = promisify(execFile);
 const workspaceRoot = path.resolve(__dirname, '..', '..');
@@ -73,11 +73,8 @@ async function trackedTextFiles(): Promise<readonly RepositoryTextFile[]> {
       throw new Error(`Repository secret policy violation: tracked path is outside the workspace: ${filePath}`);
     }
     try {
-      const stat = await lstat(absolutePath);
-      if (!stat.isFile() || stat.isSymbolicLink()) {
-        throw new Error('Repository secret policy violation: unsafe tracked file');
-      }
-      files.push({ path: filePath, text: await readFile(absolutePath, 'utf8') });
+      const { bytes } = await readVerifiedRegularFile(absolutePath);
+      files.push({ path: filePath, text: bytes.toString('utf8') });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Repository secret policy violation:')) throw error;
       throw errorWithCause('Repository secret policy violation: tracked text evidence unavailable', error);

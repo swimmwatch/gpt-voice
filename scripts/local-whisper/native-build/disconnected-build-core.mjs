@@ -1,14 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  copyFileSync,
-  lstatSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  writeFileSync,
-} from 'node:fs';
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
 import {
@@ -23,6 +14,7 @@ import { resolveNativeBuildJobs } from './native-build-parallelism.mjs';
 import { qualificationInputDigest } from './native-toolchain-evidence-core.mjs';
 import { readQualificationFixtureIdentity } from './qualification-fixture-core.mjs';
 import { sanitizerRuntimeOptions } from './sanitizer-runtime-policy.mjs';
+import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 import {
   auditGeneratedBuildGraph,
   resolveProfileComponent,
@@ -213,14 +205,14 @@ function configureAndBuild(workspaceRoot, profile, sourceStoreRoot, toolchainRoo
 function copyWithIdentity(source, destination, id, relativePath) {
   validateRelativePath(relativePath);
   const canonicalSource = realpathSync(source);
-  const sourceStat = lstatSync(canonicalSource);
+  const { bytes: sourceBytes, stat: sourceStat } = readVerifiedRegularFileSync(canonicalSource);
   if (!sourceStat.isFile()) throw new Error(`Native staged source is not a regular file: ${id}`);
   mkdirSync(dirname(destination), { mode: 0o700, recursive: true });
   copyFileSync(canonicalSource, destination);
   const mode = sourceStat.mode & 0o111 ? '100755' : '100644';
   chmodSync(destination, mode === '100755' ? 0o755 : 0o644);
-  const sourceSha256 = sha256(readFileSync(canonicalSource));
-  if (sha256(readFileSync(destination)) !== sourceSha256) {
+  const sourceSha256 = sha256(sourceBytes);
+  if (sha256(readVerifiedRegularFileSync(destination).bytes) !== sourceSha256) {
     throw new Error(`Native staged file identity changed: ${id}`);
   }
   return Object.freeze({ id, relativePath, sha256: sourceSha256, mode });

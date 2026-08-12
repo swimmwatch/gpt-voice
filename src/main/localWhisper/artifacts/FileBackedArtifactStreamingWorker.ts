@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { chmod, mkdir, open, readdir, rmdir, stat, unlink, type FileHandle } from 'node:fs/promises';
+import { type Stats } from 'node:fs';
+import { chmod, lstat, mkdir, open, readdir, rmdir, stat, unlink, type FileHandle } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 import { createInflateRaw } from 'node:zlib';
 
@@ -29,6 +30,13 @@ const CRC32_TABLE = Object.freeze(
     return crc >>> 0;
   }),
 );
+
+function isSameFileIdentity(left: Stats, right: Stats): boolean {
+  if (left.dev !== 0 && left.ino !== 0 && right.dev !== 0 && right.ino !== 0) {
+    return left.dev === right.dev && left.ino === right.ino;
+  }
+  return left.size === right.size && left.ctimeMs === right.ctimeMs && left.mtimeMs === right.mtimeMs;
+}
 
 class Crc32 {
   private value = 0xffffffff;
@@ -368,14 +376,21 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
     spoolPath: string,
     signal: AbortSignal,
   ): Promise<readonly StreamingArtifactEntry[]> {
-    const identity = await stat(spoolPath);
-    if (!identity.isFile() || identity.size !== input.expectedTransferSizeBytes || identity.size < 18) {
-      throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
-    }
     const source = await open(spoolPath, 'r');
     const header = Buffer.alloc(GZIP_HEADER_BYTES);
     const trailer = Buffer.alloc(GZIP_TRAILER_BYTES);
     try {
+      const [identity, linked] = await Promise.all([source.stat(), lstat(spoolPath)]);
+      if (
+        !identity.isFile() ||
+        !linked.isFile() ||
+        linked.isSymbolicLink() ||
+        !isSameFileIdentity(identity, linked) ||
+        identity.size !== input.expectedTransferSizeBytes ||
+        identity.size < 18
+      ) {
+        throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+      }
       if ((await source.read(header, 0, header.byteLength, 0)).bytesRead !== header.byteLength) {
         throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
       }
@@ -385,65 +400,75 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
       ) {
         throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
       }
+      assertGzipHeader(header);
+      const compressedLength = identity.size - GZIP_HEADER_BYTES - GZIP_TRAILER_BYTES;
+      const inflater = createInflateRaw();
+      const compressed = createReadStream(spoolPath, {
+        autoClose: false,
+        fd: source.fd,
+        start: GZIP_HEADER_BYTES,
+        end: identity.size - GZIP_TRAILER_BYTES - 1,
+        highWaterMark: STREAM_CHUNK_BYTES,
+      });
+      compressed.on('error', (error) => inflater.destroy(error));
+      compressed.pipe(inflater);
+      const crc = new Crc32();
+      const maximumTarBytes = safeTotalTarBytes(input.expectedFiles);
+      const reader = new BoundedAsyncReader(inflater, maximumTarBytes, (bytes) => crc.update(bytes), signal);
+      const entriesRoot = `${spoolPath}.entries`;
+      await mkdir(entriesRoot, { mode: 0o700 });
+      const entries: StreamingArtifactEntry[] = [];
+      for (const [index, expected] of input.expectedFiles.entries()) {
+        validateTarHeader(await reader.readExact(TAR_RECORD_BYTES), expected);
+        const entryPath = resolve(entriesRoot, `entry-${index}`);
+        const destination = await open(entryPath, 'wx', 0o600);
+        const hash = createHash('sha256');
+        try {
+          await reader.copyExact(expected.sizeBytes, destination, hash);
+          await destination.sync();
+        } finally {
+          await destination.close();
+        }
+        if (hash.digest('hex') !== expected.sha256) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+        const padding = (TAR_RECORD_BYTES - (expected.sizeBytes % TAR_RECORD_BYTES)) % TAR_RECORD_BYTES;
+        if (padding > 0 && !allZero(await reader.readExact(padding))) {
+          throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+        }
+        entries.push(
+          Object.freeze({
+            chunks: this.fileChunks(entryPath, signal),
+            mode: expected.mode,
+            name: expected.fileId,
+            sha256: expected.sha256,
+            sizeBytes: expected.sizeBytes,
+            type: 'regular' as const,
+          }),
+        );
+      }
+      if (!allZero(await reader.readExact(TAR_RECORD_BYTES)) || !allZero(await reader.readExact(TAR_RECORD_BYTES))) {
+        throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+      }
+      await reader.assertEnd();
+      if (
+        reader.totalBytes !== maximumTarBytes ||
+        inflater.bytesWritten !== compressedLength ||
+        trailer.readUInt32LE(0) !== crc.digest() ||
+        trailer.readUInt32LE(4) !== reader.totalBytes % 0x1_0000_0000
+      ) {
+        throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+      }
+      const completed = await source.stat();
+      if (
+        completed.size !== identity.size ||
+        completed.ctimeMs !== identity.ctimeMs ||
+        completed.mtimeMs !== identity.mtimeMs
+      ) {
+        throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+      }
+      return Object.freeze(entries);
     } finally {
       await source.close();
     }
-    assertGzipHeader(header);
-    const compressedLength = identity.size - GZIP_HEADER_BYTES - GZIP_TRAILER_BYTES;
-    const inflater = createInflateRaw();
-    const compressed = createReadStream(spoolPath, {
-      start: GZIP_HEADER_BYTES,
-      end: identity.size - GZIP_TRAILER_BYTES - 1,
-      highWaterMark: STREAM_CHUNK_BYTES,
-    });
-    compressed.on('error', (error) => inflater.destroy(error));
-    compressed.pipe(inflater);
-    const crc = new Crc32();
-    const maximumTarBytes = safeTotalTarBytes(input.expectedFiles);
-    const reader = new BoundedAsyncReader(inflater, maximumTarBytes, (bytes) => crc.update(bytes), signal);
-    const entriesRoot = `${spoolPath}.entries`;
-    await mkdir(entriesRoot, { mode: 0o700 });
-    const entries: StreamingArtifactEntry[] = [];
-    for (const [index, expected] of input.expectedFiles.entries()) {
-      validateTarHeader(await reader.readExact(TAR_RECORD_BYTES), expected);
-      const entryPath = resolve(entriesRoot, `entry-${index}`);
-      const destination = await open(entryPath, 'wx', 0o600);
-      const hash = createHash('sha256');
-      try {
-        await reader.copyExact(expected.sizeBytes, destination, hash);
-        await destination.sync();
-      } finally {
-        await destination.close();
-      }
-      if (hash.digest('hex') !== expected.sha256) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
-      const padding = (TAR_RECORD_BYTES - (expected.sizeBytes % TAR_RECORD_BYTES)) % TAR_RECORD_BYTES;
-      if (padding > 0 && !allZero(await reader.readExact(padding))) {
-        throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
-      }
-      entries.push(
-        Object.freeze({
-          chunks: this.fileChunks(entryPath, signal),
-          mode: expected.mode,
-          name: expected.fileId,
-          sha256: expected.sha256,
-          sizeBytes: expected.sizeBytes,
-          type: 'regular' as const,
-        }),
-      );
-    }
-    if (!allZero(await reader.readExact(TAR_RECORD_BYTES)) || !allZero(await reader.readExact(TAR_RECORD_BYTES))) {
-      throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
-    }
-    await reader.assertEnd();
-    if (
-      reader.totalBytes !== maximumTarBytes ||
-      inflater.bytesWritten !== compressedLength ||
-      trailer.readUInt32LE(0) !== crc.digest() ||
-      trailer.readUInt32LE(4) !== reader.totalBytes % 0x1_0000_0000
-    ) {
-      throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
-    }
-    return Object.freeze(entries);
   }
 
   private async *fileChunks(filePath: string, signal: AbortSignal): AsyncIterable<Uint8Array> {

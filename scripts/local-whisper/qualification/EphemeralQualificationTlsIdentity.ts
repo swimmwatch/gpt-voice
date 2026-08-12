@@ -1,7 +1,8 @@
-import { chmod, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { sha256Bytes } from '../packaging/fileIntegrity';
+import { readVerifiedRegularFile } from '../../SecureFileReader';
 import { QualificationCommandRunner, type QualificationCommandPort } from './LinuxQualificationPackageBuilder';
 
 const CERTIFICATE_NAME = 'qualification-certificate.pem';
@@ -70,20 +71,13 @@ export class EphemeralQualificationTlsIdentityFactory {
             : { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
       });
       await Promise.all([chmod(certificatePath, 0o400), chmod(privateKeyPath, 0o400)]);
-      const [certificateMetadata, privateMetadata, certificatePem, privateKeyPem] = await Promise.all([
-        lstat(certificatePath),
-        lstat(privateKeyPath),
-        readFile(certificatePath, 'utf8'),
-        readFile(privateKeyPath, 'utf8'),
+      const [certificate, privateKey] = await Promise.all([
+        readVerifiedRegularFile(certificatePath),
+        readVerifiedRegularFile(privateKeyPath),
       ]);
-      if (
-        !certificateMetadata.isFile() ||
-        certificateMetadata.isSymbolicLink() ||
-        !privateMetadata.isFile() ||
-        privateMetadata.isSymbolicLink() ||
-        !certificatePem.includes('BEGIN CERTIFICATE') ||
-        !privateKeyPem.includes('BEGIN PRIVATE KEY')
-      ) {
+      const certificatePem = certificate.bytes.toString('utf8');
+      const privateKeyPem = privateKey.bytes.toString('utf8');
+      if (!certificatePem.includes('BEGIN CERTIFICATE') || !privateKeyPem.includes('BEGIN PRIVATE KEY')) {
         throw new Error('Qualification TLS identity invalid');
       }
       let destroyed = false;
@@ -95,7 +89,7 @@ export class EphemeralQualificationTlsIdentityFactory {
           if (destroyed) return;
           destroyed = true;
           await chmod(privateKeyPath, 0o600).catch(() => undefined);
-          await writeFile(privateKeyPath, Buffer.alloc(privateMetadata.size), { flag: 'r+' }).catch(() => undefined);
+          await writeFile(privateKeyPath, Buffer.alloc(privateKey.sizeBytes), { flag: 'r+' }).catch(() => undefined);
           await rm(root, { recursive: true, force: true });
         },
       });
