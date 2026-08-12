@@ -63,7 +63,8 @@ test('Local Whisper runs the separate worker ThreadSanitizer proof and concurren
   const step = workflow.slice(start, end);
 
   assert.match(step, /if: matrix\.platform == 'linux'/u);
-  assert.match(step, /env:\n          LD_PRELOAD: ''/u);
+  assert.match(step, /env:\n {10}LD_PRELOAD: ''/u);
+  assert.match(workflow, /libclang-rt-\$\{\{ vars\.CI_LLVM_VERSION \}\}-dev/u);
   assert.match(step, /npm run test:local-whisper:worker-tsan-proof/u);
   assert.match(step, /npm run test:local-whisper:worker-tsan\n/u);
   assert.doesNotMatch(step, /windows/u);

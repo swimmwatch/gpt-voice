@@ -92,7 +92,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install --yes cmake ninja-build gcc-${{ vars.CI_GCC_VERSION }} g++-${{ vars.CI_GCC_VERSION }} clang-${{ vars.CI_LLVM_VERSION }} clang-format-${{ vars.CI_LLVM_VERSION }} clang-tidy-${{ vars.CI_LLVM_VERSION }} lld-${{ vars.CI_LLVM_VERSION }}
+          sudo apt-get install --yes cmake ninja-build gcc-${{ vars.CI_GCC_VERSION }} g++-${{ vars.CI_GCC_VERSION }} clang-${{ vars.CI_LLVM_VERSION }} clang-format-${{ vars.CI_LLVM_VERSION }} clang-tidy-${{ vars.CI_LLVM_VERSION }} libclang-rt-${{ vars.CI_LLVM_VERSION }}-dev lld-${{ vars.CI_LLVM_VERSION }}
           {
             echo "CMAKE_COMMAND=$(command -v cmake)"
             echo "CTEST_COMMAND=$(command -v ctest)"
