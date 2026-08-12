@@ -12,7 +12,7 @@
 - [x] [10 — Repository dependency, secret, and builder security](10_repository_dependency_secret_and_builder_security.md)
 - [x] [11 — Native execution, CodeQL, analysis, and reporting](11_native_execution_codeql_and_reporting.md)
 - [x] [12 — Bounded parser fuzzing](12_bounded_parser_fuzzing.md)
-- [ ] [13 — Worker TSan gate](13_worker_tsan_gate.md)
+- [x] [13 — Worker TSan gate](13_worker_tsan_gate.md)
 - [ ] [14 — Focused GCC quality](14_focused_gcc_quality.md)
 - [ ] [15 — Locked-source advisory monitoring](15_locked_source_advisory_monitoring.md)
 - [ ] [16 — Application SBOM and vulnerability evidence](16_application_sbom_and_vulnerability_evidence.md)
