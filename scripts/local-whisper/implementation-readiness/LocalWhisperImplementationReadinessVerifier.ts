@@ -70,7 +70,7 @@ const SOURCE_CONTRACTS: readonly SourceContract[] = Object.freeze([
     path: 'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts',
     markers: Object.freeze([
       'export class ProductionLocalWhisperEnvironmentFactory',
-      "this.dependencies.platform !== 'linux' && this.dependencies.platform !== 'win32'",
+      "nativePlatform !== 'linux' && nativePlatform !== 'win32'",
       'this.catalogInput.trustPolicy?.purpose !== activationPurpose',
       "activationPurpose === 'production' && this.dependencies.qualificationHooks !== undefined",
       'new LinuxManagedFilesystemAdapter(transport)',

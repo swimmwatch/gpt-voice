@@ -296,7 +296,7 @@ jobs:
   quality:
     name: Quality Gates
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
-    timeout-minutes: 15
+    timeout-minutes: ${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}
     env:
       CI_LINUX_RUNNER: ${{ vars.CI_LINUX_RUNNER }}
       CI_WINDOWS_RUNNER: ${{ vars.CI_WINDOWS_RUNNER }}

@@ -87,6 +87,15 @@ test('package smoke keeps Linux and Windows commands inside one platform matrix'
   assert.match(workflow, /CI_ARCHITECTURE/u);
 });
 
+test('Quality Gates uses the configured full-suite timeout', () => {
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+
+  assert.match(
+    workflow,
+    /quality:\n {4}name: Quality Gates\n {4}runs-on: \$\{\{ vars\.CI_LINUX_RUNNER \}\}\n {4}timeout-minutes: \$\{\{ fromJSON\(vars\.CI_QUALITY_TIMEOUT_MINUTES\) \}\}/u,
+  );
+});
+
 test('native analysis and CodeQL use real host builds without platform over-claims', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const codeqlConfig = readFileSync('.github/codeql-config.yml', 'utf8');

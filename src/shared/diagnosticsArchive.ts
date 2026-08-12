@@ -585,7 +585,7 @@ function isSchemaVersions(
     isSafeCount(value.database) &&
     value.database > 0 &&
     value.diagnosticRow === DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION &&
-    (schemaVersion === DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION ||
+    (schemaVersion !== DIAGNOSTICS_ARCHIVE_LOCAL_WHISPER_SCHEMA_VERSION ||
       value.localWhisperSnapshot === LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_SCHEMA_VERSION) &&
     (schemaVersion !== DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION ||
       value.nativeRuntime === NATIVE_RUNTIME_DIAGNOSTICS_SCHEMA_VERSION) &&

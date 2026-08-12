@@ -92,6 +92,20 @@ function manifestFor(snapshotPayload: Buffer | null): DiagnosticsArchiveManifest
   });
 }
 
+function legacyManifest(): DiagnosticsArchiveManifest {
+  const { nativeRuntime: _nativeRuntime, ...currentManifest } = manifestFor(null);
+  return {
+    ...currentManifest,
+    schemaVersion: DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION,
+    schemaVersions: {
+      database: 2,
+      diagnosticRow: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
+      providerAudit: 1,
+      redactor: 1,
+    },
+  };
+}
+
 describe('Local Whisper diagnostics schema v2', () => {
   it('projects a canonical bounded snapshot without private prompt, opaque device, path, or prerequisite data', () => {
     const baseline = createSnapshotService(new FakeCoordinator()).snapshot;
@@ -121,19 +135,22 @@ describe('Local Whisper diagnostics schema v2', () => {
     assert.equal('selectedDeviceId' in parsed, false);
   });
 
-  it('keeps schema v1 readable and classifies schema v2 as absent, valid, or invalid only', () => {
+  it('keeps schema v1 readable and classifies current snapshot members as absent, valid, or invalid only', () => {
     const reader = new LocalWhisperDiagnosticsArchiveReader({ hash });
     const payload = new LocalWhisperDiagnosticsSnapshotProvider({
       now: () => new Date(CREATED_AT),
       snapshots: { snapshot: createSnapshotService(new FakeCoordinator()).snapshot },
     }).capture();
     assert.ok(payload);
-    const legacyManifest = manifestFor(null);
+    const legacy = legacyManifest();
+    const currentWithoutSnapshot = manifestFor(null);
     const currentManifest = manifestFor(payload);
 
-    assert.equal(legacyManifest.schemaVersion, DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION);
+    assert.equal(legacy.schemaVersion, DIAGNOSTICS_ARCHIVE_LEGACY_SCHEMA_VERSION);
+    assert.equal(currentWithoutSnapshot.schemaVersion, DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION);
     assert.equal(currentManifest.schemaVersion, DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION);
-    assert.equal(reader.inspect(legacyManifest, []), 'absent');
+    assert.equal(reader.inspect(legacy, []), 'absent');
+    assert.equal(reader.inspect(currentWithoutSnapshot, []), 'absent');
     assert.equal(
       reader.inspect(currentManifest, [{ name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot, payload }]),
       'valid',
