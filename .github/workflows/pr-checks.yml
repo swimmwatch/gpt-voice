@@ -147,8 +147,18 @@ jobs:
         env:
           LD_PRELOAD: ''
         run: |
-          npm run test:local-whisper:worker-tsan-proof
-          npm run test:local-whisper:worker-tsan
+          env -u LD_PRELOAD \
+            -u SEMMLE_PRELOAD_libtrace \
+            -u SEMMLE_PRELOAD_libtrace32 \
+            -u SEMMLE_PRELOAD_libtrace64 \
+            -u CODEQL_RUNNER \
+            npm run test:local-whisper:worker-tsan-proof
+          env -u LD_PRELOAD \
+            -u SEMMLE_PRELOAD_libtrace \
+            -u SEMMLE_PRELOAD_libtrace32 \
+            -u SEMMLE_PRELOAD_libtrace64 \
+            -u CODEQL_RUNNER \
+            npm run test:local-whisper:worker-tsan
 
       - name: Run bounded Linux parser fuzzing
         if: matrix.platform == 'linux'

@@ -65,8 +65,9 @@ test('Local Whisper runs the separate worker ThreadSanitizer proof and concurren
   assert.match(step, /if: matrix\.platform == 'linux'/u);
   assert.match(step, /env:\n {10}LD_PRELOAD: ''/u);
   assert.match(workflow, /libclang-rt-\$\{\{ vars\.CI_LLVM_VERSION \}\}-dev/u);
-  assert.match(step, /npm run test:local-whisper:worker-tsan-proof/u);
-  assert.match(step, /npm run test:local-whisper:worker-tsan\n/u);
+  const isolatedTsanCommand =
+    /env -u LD_PRELOAD \\\n+ {12}-u SEMMLE_PRELOAD_libtrace \\\n+ {12}-u SEMMLE_PRELOAD_libtrace32 \\\n+ {12}-u SEMMLE_PRELOAD_libtrace64 \\\n+ {12}-u CODEQL_RUNNER \\\n+ {12}npm run test:local-whisper:worker-tsan-(?:proof|tsan)/u;
+  assert.match(step, isolatedTsanCommand);
   assert.doesNotMatch(step, /windows/u);
   assert.match(workflow, /--evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection/u);
 });
