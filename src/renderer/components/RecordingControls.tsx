@@ -3,13 +3,14 @@ import { useEffect, useRef } from 'react';
 import ContextualActionTile from '@renderer/components/ContextualActionTile';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { RecordingWorkspaceStatus, getRecordingWorkspaceViewState } from '@renderer/mainWindowViewState';
-import { useCapturedAudioElapsedTime } from '@renderer/recordingElapsedTime';
+import { useCapturedAudioElapsedTime, type CapturedAudioClock } from '@renderer/recordingElapsedTime';
 import { cn } from '@renderer/lib/cn';
 import { getRendererStatusDetail, renderRendererStatus, type RendererStatus } from '@renderer/statusPresentation';
 import type { ProviderHotkeyContextualAction } from '@renderer/useProviderHotkeyHomeIntegration';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 interface RecordingControlsProps {
+  readonly elapsedClock?: CapturedAudioClock;
   readonly contextualActions: readonly ProviderHotkeyContextualAction[];
   readonly state: RecordingLifecycleState;
   readonly status: RendererStatus | null;
@@ -46,11 +47,16 @@ function getContextualActionId(action: ProviderHotkeyContextualAction): string {
 }
 
 /** Presents lifecycle status and the provider-neutral actions currently available to the user. */
-function RecordingControls({ contextualActions, state, status }: RecordingControlsProps): React.JSX.Element {
+function RecordingControls({
+  elapsedClock,
+  contextualActions,
+  state,
+  status,
+}: RecordingControlsProps): React.JSX.Element {
   const { t } = useI18n();
   const footerRef = useRef<HTMLElement | null>(null);
   const previouslyFocusedActionRef = useRef<string | null>(null);
-  const capturedDuration = useCapturedAudioElapsedTime(state);
+  const capturedDuration = useCapturedAudioElapsedTime(state, elapsedClock);
   const viewState = getRecordingWorkspaceViewState(state);
   const translatedState = t(viewState.status.labelKey);
   const statusDetail = getRendererStatusDetail(status, state);

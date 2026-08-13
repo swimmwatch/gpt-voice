@@ -58,17 +58,19 @@
 
 .command-dock-hotkey-action__face {
   z-index: 2;
-  inset: 0 0 var(--hotkey-action-bevel-depth);
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 4px var(--hotkey-action-bevel-depth);
   overflow: hidden;
   border-radius: 6px;
   background: #3a3d3f;
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 7%),
-    inset -1px 0 0 rgb(0 0 0 / 18%);
+    inset 1px -3px 0 2px #292c2d,
+    inset -1px -3px 0 2px #292c2d,
+    inset 1px -3px 0 3px #111314,
+    inset -1px -3px 0 3px #111314;
   transition:
     background-color 60ms ease-in,
     box-shadow 60ms ease-in,
@@ -108,12 +110,14 @@
 .command-dock-hotkey-action[data-visual-state='active'] .command-dock-hotkey-action__face,
 .command-dock-hotkey-action[data-visual-state='busy'] .command-dock-hotkey-action__face,
 .command-dock-hotkey-action:disabled[data-visual-state='disabled'] .command-dock-hotkey-action__face {
-  inset: var(--hotkey-press-travel) 1px var(--hotkey-action-pressed-bevel-depth);
-  padding: 0 4px;
+  inset: var(--hotkey-press-travel) 1px 0;
+  padding: 0 4px var(--hotkey-action-pressed-bevel-depth);
   background: #343738;
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 4%),
-    inset -1px 0 0 rgb(0 0 0 / 22%);
+    inset 1px -1px 0 2px #292c2d,
+    inset -1px -1px 0 2px #292c2d,
+    inset 1px -1px 0 3px #111314,
+    inset -1px -1px 0 3px #111314;
 }
 
 .command-dock-hotkey-action:not(:disabled):active .command-dock-hotkey-action__bevel,
@@ -188,8 +192,10 @@
 .command-dock-hotkey-action:disabled[data-visual-state='disabled'] .command-dock-hotkey-action__face {
   background: #282b2c;
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 3%),
-    inset -1px 0 0 rgb(0 0 0 / 24%);
+    inset 1px -1px 0 2px #202324,
+    inset -1px -1px 0 2px #202324,
+    inset 1px -1px 0 3px #121415,
+    inset -1px -1px 0 3px #121415;
 }
 
 .command-dock-hotkey-action:disabled[data-visual-state='disabled'] .command-dock-hotkey-action__bevel {
@@ -219,7 +225,7 @@
   .command-dock-hotkey-action[data-visual-state='active'] .command-dock-hotkey-action__face,
   .command-dock-hotkey-action[data-visual-state='busy'] .command-dock-hotkey-action__face,
   .command-dock-hotkey-action:disabled[data-visual-state='disabled'] .command-dock-hotkey-action__face {
-    inset: 0 0 var(--hotkey-action-bevel-depth);
+    inset: 0;
   }
 
   .command-dock-hotkey-action:not(:disabled):active .command-dock-hotkey-action__bevel,

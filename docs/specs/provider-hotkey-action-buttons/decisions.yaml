@@ -1697,3 +1697,71 @@ decisions:
     rationale: ''
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution
+    revision: 10
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 was committed as 8c33a25 before the next incomplete packet was considered.'
+      - 'Packet 07 Deterministic Browser Demo is the exact next checklist item and has a self-contained implementation contract.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-07-execution-authorization-round-01
+      question_id: authorization.execution-packet-07
+      idempotency_key: authorization.execution-packet-07:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 07, Deterministic Browser Demo, during this incremental-implementation invocation? It will update only the development-only demo fixture/style/tests, run its automated checks, and leave a synthetic 620 × 292 demo open for review; it will not invoke Electron APIs, real providers, recordings, network requests, or persistent state.'
+      kind: single
+      options:
+        - id: authorize-packet-07
+          label: Authorize Packet 07 (Recommended)
+          description: Implement and verify the isolated 620 × 292 browser demo, then stop uncommitted for review.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after committing Packet 06 without changing the demo.
+        - id: request-plan-changes
+          label: Revise Packet 07
+          description: Do not implement; return the packet to planning for a contract change.
+    answer:
+      selected_ids: [authorize-packet-07]
+      text: ''
+    rationale: ''
+    supersedes_revision: 9
+    requirement_ids: []
+
+  - id: authorization.commit-packet-07
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 focused tests, TypeScript checks, scoped lint, formatting, production build, and browser manual gates passed.'
+      - 'The user authorized a commit before the next incremental-implementation invocation can consider new work.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-07-commit-authorization-round-01
+      question_id: authorization.commit-packet-07
+      idempotency_key: authorization.commit-packet-07:v1
+      last_status: answered
+    question:
+      text: 'May I commit the completed Packet 07? The commit will include only the verified deterministic 620 × 292 demo, restored approved Hotkey presentation, scoped tests, and Packet 07 checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-07
+          label: Commit Packet 07 (Recommended)
+          description: Create one focused commit for the verified demo, then return the visual transfer request to planning.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or opening the next packet.
+        - id: request-changes
+          label: Request changes
+          description: Keep Packet 07 open for revision instead of committing.
+    answer:
+      selected_ids: [commit-packet-07]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []

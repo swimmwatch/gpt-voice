@@ -1,45 +1,25 @@
-.command-dock-hotkey-demo {
-  --dock-action-key-width: 114px;
-  --dock-provider-controls-width: 125px;
-  --dock-provider-status-inset: calc(var(--dock-provider-controls-width) - 37px + 11px);
-  --dock-translation-target-width: 153px;
+html:has(body[data-provider-hotkey-demo='true']),
+body[data-provider-hotkey-demo='true'],
+body[data-provider-hotkey-demo='true'] #root,
+.provider-hotkey-demo-root {
   width: 620px;
   height: 292px;
   min-width: 620px;
   min-height: 292px;
-  flex: none;
   overflow: hidden;
 }
 
-.command-dock-hotkey-demo .command-dock-provider-band {
-  display: grid;
-  column-gap: 8px;
-  grid-template-columns: 22px 147px minmax(0, 1fr) var(--dock-action-key-width) var(--dock-provider-controls-width);
+body[data-provider-hotkey-demo='true'] {
+  margin: 0;
 }
 
-.command-dock-hotkey-demo .command-dock-provider-field {
-  margin-left: 8px;
+.provider-hotkey-demo-root {
+  position: relative;
 }
 
-.command-dock-hotkey-demo .command-dock-provider-controls {
-  grid-column: 5;
-  margin-left: 0;
-}
-
-.command-dock-hotkey-demo .command-dock-prettify-layout {
-  grid-template-columns:
-    22px 147px minmax(0, 1fr) var(--dock-action-key-width)
-    var(--dock-provider-controls-width);
-}
-
-.command-dock-hotkey-demo .command-dock-language-band {
-  grid-template-columns:
-    22px 147px minmax(0, 1fr) var(--dock-action-key-width)
-    var(--dock-provider-controls-width);
-}
-
-.command-dock-hotkey-demo .command-dock-translation-connection {
-  grid-column: 5;
+.command-dock-hotkey-demo {
+  width: 620px;
+  height: 292px;
 }
 
 .command-dock-hotkey-demo .command-dock-translation-settings-shortcut {
@@ -49,15 +29,48 @@
   transform: translateY(-50%);
 }
 
-.command-dock-hotkey-demo .command-dock-recording {
-  min-height: 54px;
-  flex: 0 0 54px;
+.provider-hotkey-demo-controls {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
-.command-dock-hotkey-demo .command-dock-status-band {
-  height: 54px;
+.provider-hotkey-demo-controls:focus-within {
+  z-index: 2;
+  top: 4px;
+  right: 4px;
+  width: 192px;
+  height: auto;
+  clip-path: none;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 11px;
 }
 
-.command-dock-hotkey-demo .command-dock-provider-band > .command-dock-hotkey-action {
-  grid-column: 4;
+.provider-hotkey-demo-controls:focus-within label {
+  display: grid;
+  gap: 2px;
+}
+
+.provider-hotkey-demo-controls:focus-within select,
+.provider-hotkey-demo-controls:focus-within button {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-muted);
+  color: var(--foreground);
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .provider-hotkey-demo-controls:focus-within {
+    transition: none;
+  }
 }

@@ -47,10 +47,7 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.match(styles, /not\(:disabled\):active \.command-dock-hotkey-action__face/u);
     assert.match(styles, /data-keyboard-pressed='true'\] \.command-dock-hotkey-action__face/u);
     assert.match(styles, /data-pointer-pressed='true'\] \.command-dock-hotkey-action__face/u);
-    assert.match(
-      styles,
-      /command-dock-hotkey-action__face \{[\s\S]*?inset: var\(--hotkey-press-travel\) 1px var\(--hotkey-action-pressed-bevel-depth\);/u,
-    );
+    assert.match(styles, /command-dock-hotkey-action__face \{[\s\S]*?inset: var\(--hotkey-press-travel\) 1px 0;/u);
     assert.match(styles, /command-dock-hotkey-action__bevel \{[\s\S]*?inset: var\(--hotkey-press-travel\) 1px 0;/u);
     assert.match(
       styles,
@@ -94,7 +91,8 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.doesNotMatch(demoStyles, /command-dock-hotkey-action:active/u);
     assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/u);
     assert.match(styles, /data-keyboard-pressed='true'\] \.command-dock-hotkey-action__face/u);
-    assert.match(styles, /inset: 0 0 var\(--hotkey-action-bevel-depth\);/u);
+    assert.match(styles, /padding: 0 4px var\(--hotkey-action-bevel-depth\);/u);
+    assert.match(styles, /inset: 0;/u);
     assert.match(styles, /data-keyboard-pressed='true'\] \.command-dock-hotkey-action__legend/u);
     assert.match(styles, /transform: none;/u);
   });
