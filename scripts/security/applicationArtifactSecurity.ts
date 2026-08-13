@@ -446,22 +446,16 @@ export class ApplicationSbomGenerator {
     const visit = async (directory: string, prefix: string): Promise<void> => {
       const entries = await readdir(directory, { withFileTypes: true }).catch(() => fail('UNPACKED_ROOT_INVALID'));
       for (const entry of [...entries].sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
-        if (!SAFE_COMPONENT.test(entry.name) || entry.isSymbolicLink() || (!entry.isDirectory() && !entry.isFile())) {
-          fail('UNPACKED_ROOT_INVALID');
-        }
+        if (!SAFE_COMPONENT.test(entry.name)) fail('UNPACKED_ROOT_INVALID');
         const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
         const candidate = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
+        const metadata = await lstat(candidate).catch(() => fail('UNPACKED_ROOT_INVALID'));
+        if (metadata.isSymbolicLink()) fail('UNPACKED_ROOT_INVALID');
+        if (metadata.isDirectory()) {
           await visit(candidate, relative);
           continue;
         }
-        const metadata = await lstat(candidate).catch(() => fail('UNPACKED_ROOT_INVALID'));
-        if (
-          !metadata.isFile() ||
-          metadata.isSymbolicLink() ||
-          metadata.size < 0 ||
-          metadata.size > MAXIMUM_FILE_BYTES
-        ) {
+        if (!metadata.isFile() || metadata.size < 0 || metadata.size > MAXIMUM_FILE_BYTES) {
           fail('UNPACKED_ROOT_INVALID');
         }
         result.push(
