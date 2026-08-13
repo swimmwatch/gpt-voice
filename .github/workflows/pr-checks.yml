@@ -596,6 +596,8 @@ jobs:
             attestation-subjects/subject/smoke
 
       - name: Verify GitHub-native attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: >-
           npm run verify:security:package-attestation --
           --input=attestation-subjects/attestation-input.json

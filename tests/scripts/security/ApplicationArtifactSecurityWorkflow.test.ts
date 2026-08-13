@@ -81,6 +81,7 @@ describe('Application artifact security workflow', () => {
     assert.match(attestation, /artifactPlatform: win32[\s\S]*?runner: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
     assert.match(attestation, /actions\/attest-build-provenance@[a-f\d]{40} # v3/u);
     assert.match(attestation, /attestation-subjects\/subject\/(?:package|checksum|sbom|scanner|smoke)/u);
+    assert.match(attestation, /Verify GitHub-native attestations\n {8}env:\n {10}GH_TOKEN: \$\{\{ github\.token \}\}/u);
     assert.match(attestation, /--verify-github/u);
   });
 });
