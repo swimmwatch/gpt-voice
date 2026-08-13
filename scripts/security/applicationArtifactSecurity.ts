@@ -21,6 +21,8 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const SAFE_COMPONENT = /^[\w@.+/-]{1,160}$/u;
+const SAFE_COMPONENT_NAME = /^[\w@.+/ -]{1,160}$/u;
+const SAFE_PATH_COMPONENT = /^[\w@.+ -]{1,160}$/u;
 const TRIVY_REPORT_SCHEMA_VERSION = 2;
 
 const PLATFORM_FORMATS = Object.freeze({
@@ -278,7 +280,7 @@ export class ApplicationSbomGenerator {
   }): Promise<CycloneDxComponent[]> {
     const components = new Map<string, CycloneDxComponent>();
     const add = (component: CycloneDxComponent): void => {
-      if (!SAFE_COMPONENT.test(component.name) || !SAFE_COMPONENT.test(component.version)) {
+      if (!SAFE_COMPONENT_NAME.test(component.name) || !SAFE_COMPONENT.test(component.version)) {
         fail('COMPONENT_INVALID');
       }
       if (components.has(component['bom-ref'])) return;
@@ -446,7 +448,7 @@ export class ApplicationSbomGenerator {
     const visit = async (directory: string, prefix: string): Promise<void> => {
       const entries = await readdir(directory, { withFileTypes: true }).catch(() => fail('UNPACKED_ROOT_READ_INVALID'));
       for (const entry of [...entries].sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
-        if (!SAFE_COMPONENT.test(entry.name)) fail('UNPACKED_ROOT_NAME_INVALID');
+        if (!SAFE_PATH_COMPONENT.test(entry.name)) fail('UNPACKED_ROOT_NAME_INVALID');
         const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
         const candidate = path.join(directory, entry.name);
         const metadata = await lstat(candidate).catch(() => fail('UNPACKED_ROOT_ENTRY_UNAVAILABLE'));

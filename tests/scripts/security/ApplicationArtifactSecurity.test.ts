@@ -23,6 +23,7 @@ const DATABASE = {
   UpdatedAt: '2026-08-13T11:00:00.000Z',
   Version: 2,
 };
+const WINDOWS_APPLICATION_EXECUTABLE = 'GPT Voice.exe';
 
 const EXPECTED_LOCKS = [
   [
@@ -48,10 +49,17 @@ function cleanReport(artifactName: string): object {
 }
 
 async function createWorkspace(
-  input: { readonly packageLockPaddingBytes?: number } = {},
+  input: { readonly packageLockPaddingBytes?: number; readonly platform?: 'linux' | 'win32' } = {},
 ): Promise<{ readonly root: string; readonly unpackedRoot: string }> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-artifact-security-'));
   const unpackedRoot = path.join(root, 'unpacked');
+  const platform = input.platform ?? 'linux';
+  const applicationName = platform === 'win32' ? WINDOWS_APPLICATION_EXECUTABLE : 'gpt-voice';
+  const helperNames =
+    platform === 'win32'
+      ? { guard: 'fs-guard.exe', launcher: 'local-whisper-launcher.exe' }
+      : { guard: 'fs-guard', launcher: 'local-whisper-launcher' };
+  const runtimeName = platform === 'win32' ? 'runtime.dll' : 'runtime.so';
   await Promise.all([
     mkdir(path.join(root, 'node_modules', 'electron'), { recursive: true }),
     mkdir(path.join(root, 'node_modules', 'cloakbrowser'), { recursive: true }),
@@ -88,18 +96,18 @@ async function createWorkspace(
       path.join(root, 'node_modules', 'playwright-core', 'package.json'),
       JSON.stringify({ name: 'playwright-core', version: '1.62.1' }),
     ),
-    writeFile(path.join(unpackedRoot, 'gpt-voice'), 'CANARY_APPLICATION_BYTES'),
-    writeFile(path.join(unpackedRoot, 'resources', 'runtime.so'), 'CANARY_RUNTIME_BYTES'),
-    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'fs-guard'), 'guard'),
-    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'local-whisper-launcher'), 'launcher'),
+    writeFile(path.join(unpackedRoot, applicationName), 'CANARY_APPLICATION_BYTES'),
+    writeFile(path.join(unpackedRoot, 'resources', runtimeName), 'CANARY_RUNTIME_BYTES'),
+    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.guard), 'guard'),
+    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.launcher), 'launcher'),
     writeFile(
       path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json'),
       JSON.stringify({
         helpers: [
-          { name: 'fs-guard', sha256: '5'.repeat(64) },
-          { name: 'local-whisper-launcher', sha256: '6'.repeat(64) },
+          { name: helperNames.guard, sha256: '5'.repeat(64) },
+          { name: helperNames.launcher, sha256: '6'.repeat(64) },
         ],
-        platform: 'linux',
+        platform,
       }),
     ),
   ]);
@@ -164,6 +172,24 @@ describe('Application artifact SBOM', () => {
     }
   });
 
+  it('allows a bounded Windows product executable name containing spaces', async () => {
+    const fixture = await createWorkspace({ platform: 'win32' });
+    try {
+      const generated = await new ApplicationSbomGenerator().generate({
+        packageFormat: 'nsis',
+        packageSha256: PACKAGE_SHA256,
+        platform: 'win32',
+        sourceCommit: SOURCE_COMMIT,
+        unpackedRoot: fixture.unpackedRoot,
+        workspaceRoot: fixture.root,
+      });
+
+      assert.ok(generated.document.components.some((component) => component.name === WINDOWS_APPLICATION_EXECUTABLE));
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
   it('rejects a missing expected native lock before producing a partial SBOM', async () => {
     const fixture = await createWorkspace();
     try {
@@ -205,7 +231,7 @@ describe('Application artifact SBOM', () => {
   it('returns a sanitized structural class for an invalid unpacked entry name', async () => {
     const fixture = await createWorkspace();
     try {
-      await writeFile(path.join(fixture.unpackedRoot, 'unsafe name'), 'CANARY_UNSAFE_ENTRY_BYTES');
+      await writeFile(path.join(fixture.unpackedRoot, 'unsafe\tname'), 'CANARY_UNSAFE_ENTRY_BYTES');
       await assert.rejects(
         () =>
           new ApplicationSbomGenerator().generate({
@@ -219,7 +245,7 @@ describe('Application artifact SBOM', () => {
         (error: unknown) => {
           assert.ok(error instanceof Error);
           assert.equal(error.message, 'APPLICATION_ARTIFACT_SECURITY_UNPACKED_ROOT_NAME_INVALID');
-          assert.doesNotMatch(error.message, /unsafe name/u);
+          assert.doesNotMatch(error.message, /unsafe/u);
           return true;
         },
       );
