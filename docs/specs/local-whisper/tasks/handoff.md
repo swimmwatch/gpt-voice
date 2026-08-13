@@ -162,11 +162,10 @@ Prettier for revised planning files, and `rtk git diff --check`.
   `redistrib_12.8.1.json` catalog and the exact `xz-decompress@0.2.3` npm
   object match their recorded SHA-256 values. The decoder's five-entry npm
   inventory, upstream commit, `xz-embedded` public-domain `COPYING`, and
-  `walloc` MIT-style `LICENSE.md` were also reviewed. However, the exact
-  `httptoolkit/xz-decompress` upstream tree has no license file and the GitHub
-  repository API reports no repository license. Its npm `license: MIT` metadata
-  is explicitly insufficient under Task 27, so the selected decoder remains
-  `Pending`; do not create its production record or substitute a decoder.
+  `walloc` MIT-style `LICENSE.md` were also reviewed. Decision
+  `planning.hosted-tar-xz-materializer` revision 2 accepts the exact npm
+  package's declared `MIT` license for this acquisition-only use; the missing
+  standalone upstream license file no longer blocks its production record.
 - Research and review the complete official Linux/Windows compiler, SDK, CUDA
   12.8.1, packaging, Node/Electron, inspection, network-probe, license, and
   signature inputs; then create verified production locks and close all active
@@ -177,8 +176,9 @@ Prettier for revised planning files, and `rtk git diff --check`.
   CUDART component contains the build-only `lib/stubs/libcuda.so`; it confirms
   the required separation from the real host `libcuda.so.1`. Linux CUDA inputs
   are `.tar.xz`; revision 28 selects `xz-decompress@0.2.3` plus a project-owned
-  bounded GZIP/XZ/TAR path, but its own missing upstream license text blocks
-  production provenance closure.
+  bounded GZIP/XZ/TAR path. The exact npm package's declared MIT license is
+  accepted under decision revision 2; it no longer blocks production provenance
+  closure.
 - Complete the CUDA toolkit driver-stub versus physical `libcuda.so.1`
   contract and verify that runtime outputs exclude the stub.
 - Review exact commit pins for a read-only public preparation workflow, commit

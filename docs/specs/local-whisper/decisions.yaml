@@ -9846,7 +9846,7 @@ decisions:
   - id: planning.hosted-tar-xz-materializer
     revision: 1
     category: planning
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - The official NVIDIA CUDA 12.8.1 Linux redistribution records for `cuda_nvcc`, `cuda_cudart`, `cuda_cccl`, and `libcublas` provide `.tar.xz` inputs with vendor SHA-256 digests; the corresponding Windows inputs are ZIP archives.
@@ -9880,6 +9880,33 @@ decisions:
       text: ''
     rationale: Task 27 will acquire one reviewed XZ WebAssembly decoder through the same immutable acquisition lock as every other hosted input, verify it before use, and execute it only from the verified provisioning root. Project-owned streaming TAR parsing will enforce declared entries, normalized paths, file types, bounded safe relative links, sizes, collisions, and hashes. Ambient `tar`/`xz`, package-manager installation, mutable dependency resolution, and native decoder bindings remain forbidden. The decoder is acquisition-only and cannot enter application or runtime-pack outputs.
     supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
+
+  - id: planning.hosted-tar-xz-materializer
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The exact `xz-decompress@0.2.3` npm registry object is immutable and is already bound by its 14,444-byte size, SHA-256, npm SRI, and upstream `gitHead` in the Task 27 contract.
+      - Its published package metadata declares `MIT`; the package is acquisition-only, runs only from the verified provisioning root, and is never added to the application, runtime pack, candidate, or release asset.
+      - The user explicitly confirmed that the package's declared MIT license is sufficient despite the absence of a standalone license file in the upstream repository.
+    prompt_mcp: null
+    question:
+      text: Can the exact published npm package's MIT declaration establish the licensing basis for the acquisition-only XZ decoder?
+      kind: single
+      options:
+        - id: npm-declared-mit-sufficient
+          label: Accept the declared MIT license
+          description: Treat the exact package's immutable metadata declaration as sufficient for this build-only use.
+        - id: standalone-license-required
+          label: Require standalone license text
+          description: Keep the decoder blocked until an additional upstream license file is available.
+    answer:
+      selected_ids: [npm-declared-mit-sufficient]
+      text: ''
+    rationale: The exact, checksum-pinned npm package's declared MIT license is accepted for the build-only decoder. The missing standalone upstream license file is not a blocker. Integrity, provenance, isolation, and non-shipping constraints remain unchanged.
+    supersedes_revision: 1
     requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
 
   - id: planning.revision-28-coverage-audit

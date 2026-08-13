@@ -13,7 +13,7 @@ candidate, hardware proof, or release artifact in this packet.
 ## Prerequisites
 
 - Specification revision 20 and plan revision 28 are approved.
-- Decision `planning.hosted-tar-xz-materializer` revision 1 selects one
+- Decision `planning.hosted-tar-xz-materializer` revision 2 selects one
   checksum/provenance-locked WASM XZ decoder plus project-owned TAR parsing;
   ambient archive commands and package-manager installation remain forbidden.
 - Task 25 is complete, reviewed, and committed; its exact RTX 50 profiles and
@@ -106,9 +106,12 @@ and upstream `gitHead` `02e7ec3ee164de24cd3d1baf76911dd0be68a7c0`.
 Its package signature, five-entry inventory, bundled JS/WASM bytes, upstream
 source tree, `xz-embedded` commit
 `6f0e0c41e3682254c2e0be245f275f77df821ffe`, `walloc` commit
-`a93409f5ebd49c875514c5fee30d3b151f7b0882`, and all applicable license
-texts/digests require review before the production record can leave `Pending`;
-package metadata saying `MIT` is not sufficient by itself.
+`a93409f5ebd49c875514c5fee30d3b151f7b0882`, and their applicable license
+records remain bound provenance. Decision
+`planning.hosted-tar-xz-materializer` revision 2 accepts the exact published
+package's declared `MIT` license for this acquisition-only use; the absence of
+a standalone upstream license file does not keep its production record
+`Pending`.
 The package is not added as an application dependency, cannot resolve another
 package, cannot access the network while executing, and is never shipped in an
 application, runtime pack, candidate, or release asset.
@@ -295,10 +298,11 @@ rtk npm run verify:local-whisper:hosted-toolchains
   the remaining compiler/SDK/Ninja/packaging/license/provenance review are still
   gated. No credential, private repository, mirror, upload, or publication is
   implied.
-- The decoder package omits a standalone license file. Review and lock the
-  package, upstream source, `xz-embedded`, `walloc`, and corresponding license
-  provenance before use; unresolved license or npm-to-source correspondence
-  keeps its record `Pending` rather than authorizing substitution.
+- The exact decoder package's declared MIT license is accepted under decision
+  `planning.hosted-tar-xz-materializer` revision 2. Its immutable package,
+  source, and component provenance remains locked and reviewed; a failed
+  identity or integrity check keeps its record `Pending` rather than
+  authorizing substitution.
 - Actual GitHub-hosted Linux and Windows preparation workflow execution is
   required before Task 27 completion. It requires a separately authorized
   commit/push/PR or other reviewed immutable workflow source, but no physical
@@ -315,7 +319,7 @@ rtk npm run verify:local-whisper:hosted-toolchains
   (`AC-AUTO-080`, `AC-AUTO-083`, `AC-AUTO-084`), and 22.
 - Decisions `planning.hosted-toolchain-provisioning` and
   `planning.hosted-toolchain-packet-decomposition` revision 2, and
-  `planning.hosted-tar-xz-materializer` revision 1.
+  `planning.hosted-tar-xz-materializer` revision 2.
 - NVIDIA CUDA 12.8.1 redistribution catalog and the pinned
   `xz-decompress@0.2.3` npm/upstream records named in this packet.
 - Existing toolchain profiles, native source/build audits, runtime-pack
