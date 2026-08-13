@@ -231,7 +231,9 @@ export class ApplicationSbomGenerator {
     const workspaceRoot = path.resolve(input.workspaceRoot);
     const manifest = await this.fileManifest(unpackedRoot);
     const unpackedRootSha256 = sha256(canonicalBytes(manifest));
-    const packageJson = this.packageJson(await this.readBounded(path.join(workspaceRoot, 'package.json')));
+    const packageJson = this.packageJson(
+      await this.readBounded(path.join(workspaceRoot, 'package.json'), undefined, 'PACKAGE_JSON'),
+    );
     const components = await this.components({
       manifest,
       packageFormat: format,
@@ -327,7 +329,7 @@ export class ApplicationSbomGenerator {
 
   private async productionNodeComponents(workspaceRoot: string): Promise<CycloneDxComponent[]> {
     const value = parseJson(
-      await this.readBounded(path.join(workspaceRoot, 'package-lock.json'), MAXIMUM_PACKAGE_LOCK_BYTES),
+      await this.readBounded(path.join(workspaceRoot, 'package-lock.json'), MAXIMUM_PACKAGE_LOCK_BYTES, 'LOCKFILE'),
       'LOCKFILE_INVALID',
     );
     if (!isRecord(value) || !isRecord(value.packages)) fail('LOCKFILE_INVALID');
@@ -348,7 +350,7 @@ export class ApplicationSbomGenerator {
     const components: CycloneDxComponent[] = [];
     for (const expected of EXPECTED_NATIVE_LOCKS) {
       const value = parseJson(
-        await this.readBounded(path.join(root, `${expected.lockId}.json`)),
+        await this.readBounded(path.join(root, `${expected.lockId}.json`), undefined, 'SOURCE_LOCK'),
         'SOURCE_LOCK_INVALID',
       );
       if (
@@ -405,7 +407,10 @@ export class ApplicationSbomGenerator {
 
   private async packageVersion(workspaceRoot: string, name: string): Promise<string> {
     const packagePath = path.join(workspaceRoot, 'node_modules', ...name.split('/'), 'package.json');
-    const value = parseJson(await this.readBounded(packagePath), 'RUNTIME_COMPONENT_MISSING');
+    const value = parseJson(
+      await this.readBounded(packagePath, undefined, 'RUNTIME_COMPONENT'),
+      'RUNTIME_COMPONENT_MISSING',
+    );
     if (
       !isRecord(value) ||
       value.name !== name ||
@@ -422,7 +427,10 @@ export class ApplicationSbomGenerator {
     platform: ApplicationSecurityPlatform,
   ): Promise<readonly { readonly name: string; readonly sha256: string }[]> {
     const manifestPath = path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json');
-    const value = parseJson(await this.readBounded(manifestPath), 'HELPER_MANIFEST_INVALID');
+    const value = parseJson(
+      await this.readBounded(manifestPath, undefined, 'HELPER_MANIFEST'),
+      'HELPER_MANIFEST_INVALID',
+    );
     if (
       !isRecord(value) ||
       value.platform !== platform ||
@@ -501,18 +509,22 @@ export class ApplicationSbomGenerator {
     );
   }
 
-  private async readBounded(filePath: string, maximumBytes = APPLICATION_SBOM_MAXIMUM_BYTES): Promise<Buffer> {
+  private async readBounded(
+    filePath: string,
+    maximumBytes = APPLICATION_SBOM_MAXIMUM_BYTES,
+    failureClass = 'INPUT',
+  ): Promise<Buffer> {
     return await withVerifiedRegularFile(
       {
         filePath,
-        invalid: () => fail('INPUT_INVALID'),
+        invalid: () => fail(`${failureClass}_INVALID`),
         maximumBytes,
         minimumBytes: 1,
-        unavailable: () => fail('INPUT_UNAVAILABLE'),
+        unavailable: () => fail(`${failureClass}_UNAVAILABLE`),
       },
       async (file, expectedSize) => {
-        const bytes = await file.readFile().catch(() => fail('INPUT_UNAVAILABLE'));
-        if (bytes.byteLength !== expectedSize) fail('INPUT_INVALID');
+        const bytes = await file.readFile().catch(() => fail(`${failureClass}_UNAVAILABLE`));
+        if (bytes.byteLength !== expectedSize) fail(`${failureClass}_INVALID`);
         return bytes;
       },
     );

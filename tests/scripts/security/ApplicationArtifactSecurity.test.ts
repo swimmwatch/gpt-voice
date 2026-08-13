@@ -204,7 +204,7 @@ describe('Application artifact SBOM', () => {
             unpackedRoot: fixture.unpackedRoot,
             workspaceRoot: fixture.root,
           }),
-        /INPUT_UNAVAILABLE/u,
+        /SOURCE_LOCK_UNAVAILABLE/u,
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
