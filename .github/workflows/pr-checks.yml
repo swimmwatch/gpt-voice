@@ -382,6 +382,13 @@ jobs:
       - name: Prove CodeQL policy and source inclusion contracts
         run: npm run test:security:codeql-policy
 
+      - name: Prove security evidence and aggregate gate policies
+        run: |
+          npm run test:security:attestation-policy
+          npm run test:security:evidence-policy
+          npm run test:security:aggregate-gates
+          npm run test:security:scorecard-policy
+
       - name: Analyze JavaScript and TypeScript CodeQL database
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
@@ -394,6 +401,8 @@ jobs:
     needs: quality
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeoutMinutes }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -475,6 +484,15 @@ jobs:
           --source-commit=${{ github.sha }}
           --output-directory=release-artifacts/application-security-${{ matrix.artifactPlatform }}
 
+      - name: Prepare digest-bound attestation subjects
+        run: >-
+          npm run prepare:security:package-attestation --
+          --platform=${{ matrix.artifactPlatform }}
+          --source-commit=${{ github.sha }}
+          --repository=${{ github.repository }}
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-package-smoke-${{ matrix.artifactPlatform }}
+          --output-directory=release-artifacts/attestation-subjects-${{ matrix.artifactPlatform }}
+
       - name: Verify Windows size budget when a reviewed baseline exists
         if: matrix.platform == 'windows' && hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
         run: npm run verify:size -- --report=release-artifacts/size-win32-x64.json --baseline=build/size-baselines/v1.4.0-win32-x64.json
@@ -508,3 +526,81 @@ jobs:
           path: release-artifacts/application-security-${{ matrix.artifactPlatform }}
           if-no-files-found: error
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+      - name: Upload exact attestation subjects
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
+          path: release-artifacts/attestation-subjects-${{ matrix.artifactPlatform }}
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+  package-attestation:
+    name: Package Attestation (${{ matrix.checkName }})
+    needs: package-smoke
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifactPlatform: linux
+            checkName: Fedora Linux
+            platform: linux
+            runner: ${{ vars.CI_LINUX_RUNNER }}
+          - artifactPlatform: win32
+            checkName: Windows
+            platform: windows
+            runner: ${{ vars.CI_WINDOWS_RUNNER }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
+
+      - name: Download exact attestation subjects
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
+          path: attestation-subjects
+
+      - name: Verify package, checksum, SBOM, scan, smoke, and source bindings
+        run: >-
+          npm run verify:security:package-attestation --
+          --input=attestation-subjects/attestation-input.json
+          --platform=${{ matrix.artifactPlatform }}
+          --repository=${{ github.repository }}
+          --source-commit=${{ github.sha }}
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-package-smoke-${{ matrix.artifactPlatform }}
+
+      - name: Attest exact package chain
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: |
+            attestation-subjects/attestation-input.json
+            attestation-subjects/subject/package
+            attestation-subjects/subject/checksum
+            attestation-subjects/subject/sbom
+            attestation-subjects/subject/scanner
+            attestation-subjects/subject/smoke
+
+      - name: Verify GitHub-native attestations
+        run: >-
+          npm run verify:security:package-attestation --
+          --input=attestation-subjects/attestation-input.json
+          --platform=${{ matrix.artifactPlatform }}
+          --repository=${{ github.repository }}
+          --source-commit=${{ github.sha }}
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-package-smoke-${{ matrix.artifactPlatform }}
+          --verify-github

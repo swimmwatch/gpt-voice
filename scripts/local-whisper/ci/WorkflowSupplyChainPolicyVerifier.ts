@@ -39,24 +39,32 @@ function parseWorkflow(text: string, name: string): WorkflowDocument {
   return { jobs: value.jobs, permissions: value.permissions };
 }
 
-function validatePermissions(value: Record<string, unknown>, location: string): void {
+function validatePermissions(value: Record<string, unknown>, location: string, allowAttestation = false): void {
   const entries = Object.entries(value);
   const allowed = new Map([
     ['contents', new Set(['read', 'write'])],
     ['security-events', new Set(['write'])],
   ]);
+  if (allowAttestation) {
+    allowed.set('attestations', new Set(['write']));
+    allowed.set('id-token', new Set(['write']));
+  }
   if (!('contents' in value) || entries.some(([permission, access]) => !allowed.get(permission)?.has(String(access)))) {
     throw new Error(`${location} permissions must use the approved least-privilege set`);
   }
 }
 
-function stepsFor(workflow: WorkflowDocument): readonly [string, WorkflowStep][] {
+function stepsFor(workflow: WorkflowDocument, workflowName: string): readonly [string, WorkflowStep][] {
   const result: [string, WorkflowStep][] = [];
   for (const [jobName, job] of Object.entries(workflow.jobs)) {
     if (!isRecord(job)) throw new Error(`Job ${jobName} must be an object`);
     if (job.permissions !== undefined) {
       if (!isRecord(job.permissions)) throw new Error(`Job ${jobName} permissions must be an object`);
-      validatePermissions(job.permissions, `Job ${jobName}`);
+      validatePermissions(
+        job.permissions,
+        `Job ${jobName}`,
+        workflowName === 'pr-checks.yml' && jobName === 'package-attestation',
+      );
     }
     if (job.steps === undefined) continue;
     if (!Array.isArray(job.steps)) throw new Error(`Job ${jobName} steps must be an array`);
@@ -99,7 +107,7 @@ function validateContainerReferences(text: string, name: string): void {
 }
 
 function validateWorkflowSteps(workflow: WorkflowDocument, name: string): void {
-  for (const [jobName, step] of stepsFor(workflow)) {
+  for (const [jobName, step] of stepsFor(workflow, name)) {
     validateStep(step, name, jobName);
   }
 }
@@ -145,6 +153,44 @@ function validateCompositeAction(text: string, name: string): void {
   }
 }
 
+function hasExactPermissions(value: unknown, expected: Readonly<Record<string, string>>): boolean {
+  if (!isRecord(value)) return false;
+  const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right, 'en'));
+  const wanted = Object.entries(expected).sort(([left], [right]) => left.localeCompare(right, 'en'));
+  return JSON.stringify(entries) === JSON.stringify(wanted);
+}
+
+function validatePackageAttestationWorkflow(workflow: WorkflowDocument, name: string): void {
+  if (name !== 'pr-checks.yml') return;
+  const attestation = workflow.jobs['package-attestation'];
+  const packageSmoke = workflow.jobs['package-smoke'];
+  if (
+    !isRecord(attestation) ||
+    !isRecord(packageSmoke) ||
+    attestation.needs !== 'package-smoke' ||
+    !hasExactPermissions(attestation.permissions, { attestations: 'write', contents: 'read', 'id-token': 'write' }) ||
+    !hasExactPermissions(packageSmoke.permissions, { contents: 'read' }) ||
+    !Array.isArray(attestation.steps)
+  ) {
+    throw new Error('pr-checks package attestation permissions are not least-privilege');
+  }
+  for (const [jobName, job] of Object.entries(workflow.jobs)) {
+    if (!isRecord(job) || jobName === 'package-attestation') continue;
+    if (isRecord(job.permissions) && 'id-token' in job.permissions) {
+      throw new Error(`pr-checks job ${jobName} must not receive an identity token`);
+    }
+  }
+  const attestationSteps = attestation.steps.filter(isRecord);
+  if (
+    !attestationSteps.some(
+      (step) => step.uses === 'actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661',
+    ) ||
+    !attestationSteps.some((step) => typeof step.run === 'string' && step.run.includes('--verify-github'))
+  ) {
+    throw new Error('pr-checks package attestation must create and verify GitHub-native attestations');
+  }
+}
+
 /** Validates immutable workflow inputs before CI can execute a referenced tool or artifact. */
 export class WorkflowSupplyChainPolicyVerifier {
   public verify(input: {
@@ -158,6 +204,7 @@ export class WorkflowSupplyChainPolicyVerifier {
       validateActionReferences(text, name);
       validateContainerReferences(text, name);
       validateWorkflowSteps(workflow, name);
+      validatePackageAttestationWorkflow(workflow, name);
     }
     for (const [name, text] of Object.entries(input.actions ?? {})) {
       validateActionReferences(text, name);

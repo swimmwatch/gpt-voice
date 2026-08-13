@@ -55,6 +55,11 @@ jobs:
       - name: Prove repository-gate failure propagation
         run: npm run test:security:repository-gates
 
+      - name: Prove security evidence and aggregate gate failure propagation
+        run: |
+          npm run test:security:evidence-policy
+          npm run test:security:aggregate-gates
+
       - name: Upload builder scan identity evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

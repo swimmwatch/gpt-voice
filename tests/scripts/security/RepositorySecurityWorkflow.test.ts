@@ -22,6 +22,8 @@ describe('Repository security workflow', () => {
       'npm run test:security:secret-policy',
       'npm run test:security:docker-policy',
       'npm run test:security:repository-gates',
+      'npm run test:security:evidence-policy',
+      'npm run test:security:aggregate-gates',
     ]) {
       assert.equal(workflow.includes(command), true, command);
     }

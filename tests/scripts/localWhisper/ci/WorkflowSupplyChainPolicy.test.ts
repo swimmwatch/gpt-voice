@@ -25,6 +25,34 @@ async function verifyFixture(name: string): Promise<void> {
 }
 
 describe('Workflow supply-chain policy', () => {
+  it('keeps identity-token access exclusive to the post-smoke package attestation job', async () => {
+    const [actionlint, pullRequestChecks] = await Promise.all([
+      readFile(path.join(WORKSPACE_ROOT, '.github', 'workflows', 'actionlint.yml'), 'utf8'),
+      readFile(path.join(WORKSPACE_ROOT, '.github', 'workflows', 'pr-checks.yml'), 'utf8'),
+    ]);
+    const verifier = new WorkflowSupplyChainPolicyVerifier();
+    assert.doesNotThrow(() =>
+      verifier.verify({
+        fedoraDockerfile: safeDockerfile,
+        workflows: { 'actionlint.yml': actionlint, 'pr-checks.yml': pullRequestChecks },
+      }),
+    );
+    assert.throws(
+      () =>
+        verifier.verify({
+          fedoraDockerfile: safeDockerfile,
+          workflows: {
+            'actionlint.yml': actionlint,
+            'pr-checks.yml': pullRequestChecks.replace(
+              '    permissions:\n      contents: read\n    strategy:',
+              '    permissions:\n      contents: read\n      id-token: write\n    strategy:',
+            ),
+          },
+        }),
+      /permissions/u,
+    );
+  });
+
   it('accepts immutable actions, least privilege, nonpersistent checkout, and trusted cache inputs', async () => {
     await verifyFixture('safe.yml');
   });
