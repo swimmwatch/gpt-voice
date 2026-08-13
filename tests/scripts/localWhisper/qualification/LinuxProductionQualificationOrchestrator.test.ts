@@ -150,6 +150,9 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
     });
     const loaded = loadedEvidence(root);
     const dependencies: LinuxProductionQualificationDependencies = {
+      advisoryEvidence: {
+        verify: () => Promise.resolve({ reportDigest: DIGEST, scannedAt: '2026-08-03T12:00:00.000Z' }),
+      },
       application: {
         run: async ({ stopArtifactServer }) => {
           applicationRuns += 1;
@@ -255,6 +258,7 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
       },
     };
     const output = await new LinuxProductionQualificationOrchestrator(dependencies).run({
+      advisoryEvidenceDirectory: path.join(root, 'advisory-evidence'),
       cacheRoot: path.join(root, 'cache'),
       candidateSemVer: '2.4.0',
       candidateWorktree: path.join(root, 'candidate-worktree'),
@@ -276,6 +280,37 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
       { id: 'linux-cpu-base-full', status: 'Pass' },
     );
     assert.deepEqual(JSON.parse(await readFile(path.join(qualificationRoot, 'linux-state.json'), 'utf8')), state);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+it('blocks advisory failure before creating the private qualification root', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-advisory-preflight-test-'));
+  const privateRunRoot = path.join(root, 'private-run');
+  try {
+    const dependencies = {
+      advisoryEvidence: { verify: () => Promise.reject(new Error('NATIVE_ADVISORY_EVIDENCE_STALE')) },
+    } as unknown as LinuxProductionQualificationDependencies;
+    const orchestrator = new LinuxProductionQualificationOrchestrator(dependencies);
+
+    await assert.rejects(
+      () =>
+        orchestrator.run({
+          advisoryEvidenceDirectory: path.join(root, 'advisory-evidence'),
+          cacheRoot: path.join(root, 'cache'),
+          candidateSemVer: '2.4.0',
+          candidateWorktree: path.join(root, 'candidate-worktree'),
+          freezeTimestampUtc: '2026-08-03T12:00:00Z',
+          predecessorAppImagePath: path.join(root, 'GPT-Voice-2.3.0.AppImage'),
+          privateRunRoot,
+          qualificationRoot: path.join(root, 'qualification'),
+          sourceCommit: SOURCE_COMMIT,
+          workspaceRoot: path.join(root, 'candidate-worktree'),
+        }),
+      /NATIVE_ADVISORY_EVIDENCE_STALE/u,
+    );
+    await assert.rejects(() => readFile(privateRunRoot));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

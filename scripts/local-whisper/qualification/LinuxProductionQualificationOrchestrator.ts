@@ -13,6 +13,7 @@ import {
   LinuxQualificationPackageBuilder,
   type LinuxQualificationPackageBuildResult,
 } from './LinuxQualificationPackageBuilder';
+import { NativeSourceAdvisoryEvidenceVerifier } from './NativeSourceAdvisoryEvidence';
 import { LinuxQualificationStateProducer, type QualifiedLinuxQualificationState } from './LinuxQualificationState';
 import { QualificationCommandRunner } from './QualificationCommandRunner';
 import { LocalWhisperQualificationBundleProducer } from './QualificationBundleProducer';
@@ -43,6 +44,7 @@ const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 
 export interface LinuxProductionQualificationInput {
+  readonly advisoryEvidenceDirectory: string;
   readonly cacheRoot: string;
   readonly candidateSemVer: string;
   readonly candidateWorktree: string;
@@ -84,6 +86,7 @@ export interface QualificationRuntimeObject {
 }
 
 export interface LinuxProductionQualificationDependencies {
+  readonly advisoryEvidence: Pick<NativeSourceAdvisoryEvidenceVerifier, 'verify'>;
   readonly application: LinuxApplicationQualificationPort;
   readonly bundleProducer: Pick<LocalWhisperQualificationBundleProducer, 'produce'>;
   readonly bundleVerifier: Pick<BundleVerifier, 'verify'>;
@@ -177,6 +180,7 @@ export class LinuxProductionQualificationOrchestrator {
 
   public async run(input: LinuxProductionQualificationInput): Promise<LinuxProductionQualificationOutput> {
     this.validateInput(input);
+    await this.dependencies.advisoryEvidence.verify(input.advisoryEvidenceDirectory);
     await mkdir(input.privateRunRoot, { recursive: false, mode: 0o700 });
     const graph = this.dependencies.createGraph(input.qualificationRoot);
     const source = await this.dependencies.hostIdentity.source(input);
@@ -364,6 +368,7 @@ export class LinuxProductionQualificationOrchestrator {
 
   private validateInput(input: LinuxProductionQualificationInput): void {
     const roots = [
+      input.advisoryEvidenceDirectory,
       input.cacheRoot,
       input.candidateWorktree,
       input.predecessorAppImagePath,
@@ -390,6 +395,7 @@ export class LinuxProductionQualificationOrchestrator {
 export function createLinuxProductionQualificationOrchestrator(): LinuxProductionQualificationOrchestrator {
   const commands = new QualificationCommandRunner();
   return new LinuxProductionQualificationOrchestrator({
+    advisoryEvidence: new NativeSourceAdvisoryEvidenceVerifier(),
     application: new LinuxProductionApplicationQualificationExecutor(),
     bundleProducer: new LocalWhisperQualificationBundleProducer(),
     bundleVerifier: new BundleVerifier(),

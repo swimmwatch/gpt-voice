@@ -1,6 +1,7 @@
 import { createLinuxProductionQualificationOrchestrator } from './LinuxProductionQualificationOrchestrator';
 
 const REQUIRED_ARGUMENTS = Object.freeze([
+  'advisory-evidence-dir',
   'cache-root',
   'candidate-semver',
   'candidate-worktree',
@@ -38,6 +39,7 @@ function parseArguments(arguments_: readonly string[]): Readonly<Record<(typeof 
 async function main(): Promise<void> {
   const arguments_ = parseArguments(process.argv.slice(2));
   const output = await createLinuxProductionQualificationOrchestrator().run({
+    advisoryEvidenceDirectory: arguments_['advisory-evidence-dir'],
     cacheRoot: arguments_['cache-root'],
     candidateSemVer: arguments_['candidate-semver'],
     candidateWorktree: arguments_['candidate-worktree'],
