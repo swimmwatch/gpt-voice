@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { cn } from '@renderer/lib/cn';
 import {
   formatHotkeyLegend,
@@ -80,48 +81,56 @@ function HotkeyActionButtonInput({
     }, HOTKEY_ACTION_BUTTON_RELEASE_FEEDBACK_MS);
   };
 
+  const tooltip = `${actionLabel}: ${hotkey}`;
+
   return (
-    <button
-      aria-busy={busy || undefined}
-      aria-label={`${actionLabel}: ${hotkey}`}
-      className={cn('command-dock-hotkey-action', className)}
-      data-keyboard-pressed={keyboardPressed || undefined}
-      data-pointer-pressed={pointerPressed || undefined}
-      data-visual-state={visualState}
-      disabled={unavailable}
-      onBlur={clearPressedState}
-      onClick={() => {
-        if (!unavailable) onActivate();
-      }}
-      onKeyDown={(event) => {
-        if (!unavailable && KEYBOARD_ACTIVATION_KEYS.has(event.key) && !event.repeat) setKeyboardPressed(true);
-      }}
-      onKeyUp={(event) => {
-        if (KEYBOARD_ACTIVATION_KEYS.has(event.key)) releaseKeyboard();
-      }}
-      onLostPointerCapture={clearPressedState}
-      onPointerCancel={clearPressedState}
-      onPointerDown={(event) => {
-        if (unavailable || event.button !== 0) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        setPointerPressed(true);
-      }}
-      onPointerUp={clearPressedState}
-      title={`${actionLabel}: ${hotkey}`}
-      type="button"
-    >
-      <span aria-hidden="true" className="command-dock-hotkey-action__shadow" />
-      <span aria-hidden="true" className="command-dock-hotkey-action__bevel" />
-      <span aria-hidden="true" className="command-dock-hotkey-action__face">
-        <span className="command-dock-hotkey-action__legend">
-          {legendTokens.map((token) => (
-            <span className={`command-dock-hotkey-action__${token.kind}`} key={token.id}>
-              {token.text}
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="command-dock-hotkey-action-tooltip-trigger">
+          <button
+            aria-busy={busy || undefined}
+            aria-label={tooltip}
+            className={cn('command-dock-hotkey-action', className)}
+            data-keyboard-pressed={keyboardPressed || undefined}
+            data-pointer-pressed={pointerPressed || undefined}
+            data-visual-state={visualState}
+            disabled={unavailable}
+            onBlur={clearPressedState}
+            onClick={() => {
+              if (!unavailable) onActivate();
+            }}
+            onKeyDown={(event) => {
+              if (!unavailable && KEYBOARD_ACTIVATION_KEYS.has(event.key) && !event.repeat) setKeyboardPressed(true);
+            }}
+            onKeyUp={(event) => {
+              if (KEYBOARD_ACTIVATION_KEYS.has(event.key)) releaseKeyboard();
+            }}
+            onLostPointerCapture={clearPressedState}
+            onPointerCancel={clearPressedState}
+            onPointerDown={(event) => {
+              if (unavailable || event.button !== 0) return;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              setPointerPressed(true);
+            }}
+            onPointerUp={clearPressedState}
+            type="button"
+          >
+            <span aria-hidden="true" className="command-dock-hotkey-action__shadow" />
+            <span aria-hidden="true" className="command-dock-hotkey-action__bevel" />
+            <span aria-hidden="true" className="command-dock-hotkey-action__face">
+              <span className="command-dock-hotkey-action__legend">
+                {legendTokens.map((token) => (
+                  <span className={`command-dock-hotkey-action__${token.kind}`} key={token.id}>
+                    {token.text}
+                  </span>
+                ))}
+              </span>
             </span>
-          ))}
+          </button>
         </span>
-      </span>
-    </button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -142,7 +151,9 @@ export default function HotkeyActionButton({
   );
   const unavailable = isHotkeyActionButtonUnavailable({ active, busy, disabled, locked });
 
-  useEffect(() => {
+  // Reconcile Provider Lock ownership before paint so a physical press cannot
+  // briefly rise between pointer release and its authoritative active state.
+  useLayoutEffect(() => {
     const nextSemanticState: HotkeyActionButtonSemanticState = { active, busy, disabled, locked };
     const transition = getHotkeyActionButtonVisualTransition(semanticStateRef.current, nextSemanticState);
     semanticStateRef.current = nextSemanticState;

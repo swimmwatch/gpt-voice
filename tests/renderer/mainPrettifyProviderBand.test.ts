@@ -23,6 +23,7 @@ describe('main Prettify provider band contract', () => {
     }
     assert.match(band, /<SelectSeparator/u);
     assert.match(band, /aria-label=\{t\('prettify\.provider'\)\}/u);
+    assert.match(band, /<SelectContent avoidCollisions=\{false\} side="bottom">/u);
     assert.match(band, /aria-label=\{providerSettingsLabel\}/u);
     assert.match(band, /<Settings aria-hidden="true"/u);
     assert.match(

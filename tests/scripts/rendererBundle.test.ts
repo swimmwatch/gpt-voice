@@ -142,6 +142,7 @@ test('emits renderer bundles under a separate nested path from Electron main', a
 
     const outputFiles = await readdir(outputPath);
     assert.ok(!outputFiles.includes('main.js'));
+    assert.ok(!outputFiles.includes('provider-hotkey-demo.html'));
 
     const workletSource = await readFile(path.join(outputPath, 'renderer/assets/livePcmCapture.worklet.js'), 'utf8');
     assert.match(workletSource, /gpt-voice-live-pcm-capture/u);
@@ -150,7 +151,6 @@ test('emits renderer bundles under a separate nested path from Electron main', a
 
     const windows = [
       ['index.html', 'main'],
-      ['provider-hotkey-demo.html', 'providerHotkeyDemo'],
       ['provider-settings.html', 'providerSettings'],
       ['prettify-profile-chooser.html', 'prettifyProfileChooser'],
       ['settings.html', 'settings'],

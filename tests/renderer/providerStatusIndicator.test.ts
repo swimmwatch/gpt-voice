@@ -79,12 +79,12 @@ describe('provider status indicators', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
 
     assert.match(styles, /--dock-provider-controls-width: 125px;/u);
-    assert.match(styles, /--dock-translation-target-width: 175px;/u);
+    assert.match(styles, /--dock-action-key-width: 114px;/u);
     assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(
       styles,
-      /\.command-dock-language-band \{[\s\S]*?grid-template-columns:[\s\S]*?var\(--dock-translation-target-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
+      /\.command-dock-language-band \{[\s\S]*?grid-template-columns:[\s\S]*?var\(--dock-action-key-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
     );
     assert.match(
       styles,

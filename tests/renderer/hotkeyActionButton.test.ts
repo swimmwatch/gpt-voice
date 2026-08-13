@@ -19,12 +19,19 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.match(component, /command-dock-hotkey-action__bevel/u);
     assert.match(component, /command-dock-hotkey-action__face/u);
     assert.match(component, /command-dock-hotkey-action__legend/u);
+    assert.match(component, /<Tooltip>/u);
+    assert.match(component, /<TooltipTrigger asChild>/u);
+    assert.match(component, /className="command-dock-hotkey-action-tooltip-trigger"/u);
+    assert.match(component, /<TooltipContent>\{tooltip\}<\/TooltipContent>/u);
     assert.match(component, /data-visual-state=\{visualState\}/u);
+    assert.match(component, /useLayoutEffect\(\(\) => \{[\s\S]*?getHotkeyActionButtonVisualTransition/u);
     assert.match(component, /disabled=\{unavailable\}/u);
     assert.match(component, /aria-busy=\{busy \|\| undefined\}/u);
+    assert.doesNotMatch(component, /\btitle=/u);
     assert.doesNotMatch(component, /aria-pressed=/u);
     assert.match(styles, /width: var\(--dock-action-key-width, 114px\);/u);
     assert.match(styles, /height: 32px;/u);
+    assert.match(styles, /command-dock-hotkey-action-tooltip-trigger \{[\s\S]*?width: var\(--dock-action-key-width, 114px\);/u);
     assert.match(styles, /--hotkey-press-travel: 3px;/u);
     assert.doesNotMatch(
       styles,

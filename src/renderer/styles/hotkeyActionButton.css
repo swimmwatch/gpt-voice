@@ -24,6 +24,19 @@
   word-spacing: normal;
 }
 
+/* Keeps the custom tooltip active for native-disabled keys without changing key geometry. */
+.command-dock-hotkey-action-tooltip-trigger {
+  display: inline-flex;
+  width: var(--dock-action-key-width, 114px);
+  height: 32px;
+  min-width: var(--dock-action-key-width, 114px);
+}
+
+.command-dock-hotkey-action-tooltip-trigger > .command-dock-hotkey-action {
+  width: 100%;
+  min-width: 100%;
+}
+
 .command-dock-hotkey-action__shadow,
 .command-dock-hotkey-action__bevel,
 .command-dock-hotkey-action__face {

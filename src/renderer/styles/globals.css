@@ -290,7 +290,7 @@
   line-height: 1.2;
 }
 
-.command-dock-provider-band > .command-dock-hotkey-action {
+.command-dock-provider-band > .command-dock-hotkey-action-tooltip-trigger {
   grid-column: 4;
   grid-row: 1;
   justify-self: start;
@@ -530,7 +530,7 @@
     var(--dock-action-key-width) var(--dock-provider-controls-width);
 }
 
-.command-dock-prettify-layout > .command-dock-hotkey-action {
+.command-dock-prettify-layout > .command-dock-hotkey-action-tooltip-trigger {
   grid-column: 4;
   grid-row: 1;
   justify-self: start;
@@ -800,7 +800,7 @@
   grid-column: 3;
 }
 
-.command-dock-language-band > .command-dock-hotkey-action {
+.command-dock-language-band > .command-dock-hotkey-action-tooltip-trigger {
   grid-column: 4;
   grid-row: 1;
   justify-self: start;
