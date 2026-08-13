@@ -132,7 +132,6 @@ export function PrettifyProfileChooserWindow({ api }: PrettifyProfileChooserWind
 
   return (
     <PrettifyProfileChooser
-      initialSelectedProfileId={payload.initialProfileId}
       onApply={handleApply}
       onCancel={() => terminate(api.cancel)}
       onManageProfiles={() => terminate(api.manageProfiles)}

@@ -203,7 +203,6 @@ function createOperationSnapshot(
 export class SelectedTextPrettifyService {
   private activeRun: SelectedTextPrettifyRun | null = null;
   private disposed = false;
-  private lastAppliedProfileId: PrettifyProfileId | null = null;
 
   public constructor(private readonly dependencies: SelectedTextPrettifyDependencies) {}
 
@@ -374,12 +373,7 @@ export class SelectedTextPrettifyService {
     run.summaries = snapshot.summaries;
     run.phase = 'choosing';
 
-    const initialProfileId =
-      this.lastAppliedProfileId && snapshot.profiles.some(({ id }) => id === this.lastAppliedProfileId)
-        ? this.lastAppliedProfileId
-        : undefined;
     const request = Object.freeze({
-      ...(initialProfileId === undefined ? {} : { initialProfileId }),
       profiles: snapshot.summaries,
       sourceText: selectedText,
     });
@@ -396,7 +390,6 @@ export class SelectedTextPrettifyService {
 
     const profile = snapshot.profiles.find(({ id }) => id === outcome.profileId);
     if (!profile) throw new Error(INVALID_CHOOSER_SELECTION_ERROR);
-    this.lastAppliedProfileId = profile.id;
     return this.executeInstruction(run, selectedText, composePrettifyProfileInstruction(profile.instruction));
   }
 

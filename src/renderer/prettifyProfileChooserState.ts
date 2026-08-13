@@ -10,7 +10,7 @@ import type {
 } from '@shared/prettifyProfileChooser';
 
 const INVALID_CHOOSER_PAYLOAD_ERROR = 'invalid-prettify-profile-chooser-payload';
-const PAYLOAD_PROPERTIES = new Set(['initialProfileId', 'profiles', 'sourceText', 'token']);
+const PAYLOAD_PROPERTIES = new Set(['profiles', 'sourceText', 'token']);
 const PROFILE_PROPERTIES = new Set(['description', 'id', 'isDefault', 'kind', 'name']);
 
 type ProfileMove = 'first' | 'last' | 'next' | 'previous';
@@ -62,12 +62,9 @@ export function normalizePrettifyProfileChooserPayload(value: unknown): Prettify
     if (profileIds.has(profile.id)) failInvalidPayload();
     profileIds.add(profile.id);
   }
-  if (value.initialProfileId !== undefined && !isPrettifyProfileId(value.initialProfileId)) {
-    failInvalidPayload();
-  }
+  if (profiles.filter((profile) => profile.isDefault).length !== 1) failInvalidPayload();
 
   return Object.freeze({
-    ...(value.initialProfileId === undefined ? {} : { initialProfileId: value.initialProfileId }),
     profiles: Object.freeze(profiles),
     sourceText: value.sourceText,
     token,
@@ -81,11 +78,10 @@ export function filterPrettifyProfileChooserProfiles(
   return profiles.filter((profile) => matchesPrettifyProfileSearchQuery(profile, query));
 }
 
-export function resolveInitialPrettifyProfileChooserSelection(
+export function resolveDefaultPrettifyProfileChooserSelection(
   profiles: readonly PrettifyProfileChooserProfileSummary[],
-  initialProfileId: PrettifyProfileId | undefined,
 ): PrettifyProfileId | undefined {
-  return profiles.some((profile) => profile.id === initialProfileId) ? initialProfileId : undefined;
+  return profiles.find((profile) => profile.isDefault)?.id;
 }
 
 export function resolveVisiblePrettifyProfileChooserSelection(

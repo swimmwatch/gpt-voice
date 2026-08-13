@@ -138,7 +138,8 @@ const App: React.FC = () => {
     isTranslationProviderSwitching ||
     isRecordingLifecycleBusy(recordingState) ||
     isPrettifyModelActionRunning ||
-    activeTextAction !== null;
+    activeTextAction !== null ||
+    isTextActionActivityActive === true;
   const isNewRecordingLocked =
     isVoiceProviderSwitching ||
     isPrettifyProviderSwitching ||

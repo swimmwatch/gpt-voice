@@ -6,7 +6,7 @@ import {
   filterPrettifyProfileChooserProfiles,
   movePrettifyProfileChooserSelection,
   normalizePrettifyProfileChooserPayload,
-  resolveInitialPrettifyProfileChooserSelection,
+  resolveDefaultPrettifyProfileChooserSelection,
   resolveVisiblePrettifyProfileChooserSelection,
 } from '@renderer/prettifyProfileChooserState';
 import type { PrettifyProfileChooserProfileSummary } from '@shared/prettifyProfileChooser';
@@ -51,13 +51,11 @@ const PROFILES: readonly PrettifyProfileChooserProfileSummary[] = Object.freeze(
 describe('Prettify profile chooser state', () => {
   it('normalizes and freezes only the renderer-safe operation payload', () => {
     const payload = normalizePrettifyProfileChooserPayload({
-      initialProfileId: 'prompt-ready',
       profiles: PROFILES,
       sourceText: 'Selected source',
       token: 'operation-token',
     });
 
-    assert.equal(payload.initialProfileId, 'prompt-ready');
     assert.equal(payload.sourceText, 'Selected source');
     assert.deepEqual(
       payload.profiles.map((profile) => profile.id),
@@ -72,12 +70,22 @@ describe('Prettify profile chooser state', () => {
     const invalidPayloads = [
       null,
       { profiles: [], sourceText: 'source', token: '' },
+      { initialProfileId: 'prompt-ready', profiles: PROFILES, sourceText: 'source', token: 'token' },
       {
         profiles: [{ ...PROFILES[0], instruction: 'private instruction' }],
         sourceText: 'source',
         token: 'token',
       },
       { profiles: [PROFILES[0], PROFILES[0]], sourceText: 'source', token: 'token' },
+      { profiles: PROFILES.map((profile) => ({ ...profile, isDefault: false })), sourceText: 'source', token: 'token' },
+      {
+        profiles: PROFILES.map((profile) => ({
+          ...profile,
+          isDefault: profile.id !== 'custom:12345678-1234-1234-1234-123456789abc',
+        })),
+        sourceText: 'source',
+        token: 'token',
+      },
     ];
 
     for (const payload of invalidPayloads) {
@@ -126,9 +134,8 @@ describe('Prettify profile chooser state', () => {
     );
   });
 
-  it('keeps only valid visible selection and moves deterministically', () => {
-    assert.equal(resolveInitialPrettifyProfileChooserSelection(PROFILES, 'prompt-ready'), 'prompt-ready');
-    assert.equal(resolveInitialPrettifyProfileChooserSelection(PROFILES, 'natural'), undefined);
+  it('selects the sole configured default and moves visible selection deterministically', () => {
+    assert.equal(resolveDefaultPrettifyProfileChooserSelection(PROFILES), 'prompt-ready');
 
     const filtered = filterPrettifyProfileChooserProfiles(PROFILES, 'product');
     assert.equal(resolveVisiblePrettifyProfileChooserSelection(filtered, 'prompt-ready'), undefined);
@@ -185,7 +192,9 @@ describe('Prettify profile chooser renderer contract', () => {
     assert.match(source, /role="option"/u);
     assert.match(source, /aria-selected=\{selected\}/u);
     assert.match(source, /aria-live="polite"/u);
-    assert.match(source, /autoFocus/u);
+    assert.match(source, /autoFocus=\{selected\}/u);
+    assert.doesNotMatch(source, /<Input[\s\S]*?autoFocus/u);
+    assert.match(source, /resolveDefaultPrettifyProfileChooserSelection\(profiles\)/u);
     assert.match(source, /event\.key === 'ArrowDown'/u);
     assert.match(source, /event\.key === 'ArrowUp'/u);
     assert.match(source, /event\.key === 'Home'/u);

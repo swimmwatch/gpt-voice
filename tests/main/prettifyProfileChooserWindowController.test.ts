@@ -37,6 +37,7 @@ class RecordingChooserWindow {
   public focusCount = 0;
   public loadUrls: string[] = [];
   public minimized = false;
+  public readonly presentationCalls: string[] = [];
   public restoreCount = 0;
   public showCount = 0;
   public readonly sent: Array<readonly unknown[]> = [];
@@ -76,6 +77,7 @@ class RecordingChooserWindow {
 
   public focus(): void {
     this.focusCount += 1;
+    this.presentationCalls.push('focus');
   }
 
   public isDestroyed(): boolean {
@@ -105,16 +107,19 @@ class RecordingChooserWindow {
   public restore(): void {
     this.minimized = false;
     this.restoreCount += 1;
+    this.presentationCalls.push('restore');
   }
 
   public setMenuBarVisibility(): void {}
 
   public setContentBounds(bounds: Rectangle): void {
     this.contentBounds.push({ ...bounds });
+    this.presentationCalls.push('setContentBounds');
   }
 
   public show(): void {
     this.showCount += 1;
+    this.presentationCalls.push('show');
   }
 
   public triggerNativeReady(): void {
@@ -169,13 +174,12 @@ class RecordingChooserWindow {
   }
 }
 
-function createDisplay(workArea: Display['workArea']): Display {
-  return { bounds: workArea, workArea } as Display;
+function createDisplay(workArea: Display['workArea'], id: number): Display {
+  return { bounds: workArea, id, workArea } as Display;
 }
 
 function createRequest(): PrettifyProfileChooserRequest {
   return {
-    initialProfileId: CUSTOM_PROFILE_ID,
     profiles: [
       { id: 'prompt-ready', isDefault: true, kind: 'built-in', name: 'Prompt-ready' },
       {
@@ -192,11 +196,16 @@ function createRequest(): PrettifyProfileChooserRequest {
 
 class ChooserHarness {
   public availableDisplays: Display[];
+  public availableDisplaysError: Error | null = null;
   public readonly created: RecordingChooserWindow[] = [];
+  public cursorDisplayError: Error | null = null;
   public cursorPoint: Point;
-  public cursorWorkArea: Display['workArea'];
+  public cursorPointError: Error | null = null;
+  public cursorDisplay: Display;
   public readonly externalUrls: string[] = [];
   public primaryCalls = 0;
+  public primaryDisplay: Display;
+  public primaryDisplayError: Error | null = null;
   public readonly controller: PrettifyProfileChooserWindowController;
 
   public constructor(
@@ -205,8 +214,9 @@ class ChooserHarness {
     cursorPoint: Point = { x: 200, y: 300 },
   ) {
     this.cursorPoint = cursorPoint;
-    this.cursorWorkArea = cursorWorkArea;
-    this.availableDisplays = [createDisplay(cursorWorkArea), createDisplay(primaryWorkArea)];
+    this.cursorDisplay = createDisplay(cursorWorkArea, 2);
+    this.primaryDisplay = createDisplay(primaryWorkArea, 1);
+    this.availableDisplays = [this.cursorDisplay, this.primaryDisplay];
     this.controller = new PrettifyProfileChooserWindowController({
       createBrowserWindow: (options) => {
         const window = new RecordingChooserWindow(options, this.created.length + 41);
@@ -222,12 +232,22 @@ class ChooserHarness {
       preloadPath: '/app/prettify-profile-chooser-preload.js',
       randomUUID: () => TOKEN,
       screen: {
-        getAllDisplays: () => this.availableDisplays,
-        getCursorScreenPoint: () => this.cursorPoint,
-        getDisplayNearestPoint: () => createDisplay(this.cursorWorkArea),
+        getAllDisplays: () => {
+          if (this.availableDisplaysError) throw this.availableDisplaysError;
+          return this.availableDisplays;
+        },
+        getCursorScreenPoint: () => {
+          if (this.cursorPointError) throw this.cursorPointError;
+          return this.cursorPoint;
+        },
+        getDisplayNearestPoint: () => {
+          if (this.cursorDisplayError) throw this.cursorDisplayError;
+          return this.cursorDisplay;
+        },
         getPrimaryDisplay: () => {
           this.primaryCalls += 1;
-          return createDisplay(primaryWorkArea);
+          if (this.primaryDisplayError) throw this.primaryDisplayError;
+          return this.primaryDisplay;
         },
       },
     });
@@ -275,34 +295,92 @@ describe('PrettifyProfileChooserWindowController', () => {
     assert.equal(calculatePrettifyProfileChooserBounds({ height: 0, width: 10, x: 0, y: 0 }), null);
   });
 
-  it('uses the cursor display, falls back to primary, and cancels for an invalid primary work area', async () => {
-    const cursorHarness = new ChooserHarness({ height: 672, width: 652, x: 100, y: 200 });
-    void cursorHarness.controller.open(createRequest());
-    assert.equal(cursorHarness.primaryCalls, 0);
+  it('uses the active display containing the cursor before the nearest-display fallback', () => {
+    const rightWorkArea = { height: 900, width: 1200, x: 1920, y: 0 };
+    const leftWorkArea = { height: 1080, width: 1920, x: 0, y: 0 };
+    const harness = new ChooserHarness(rightWorkArea, leftWorkArea, { x: 2500, y: 450 });
+    harness.cursorDisplay = createDisplay(leftWorkArea, 1);
+
+    void harness.controller.open(createRequest());
+
+    assert.equal(harness.primaryCalls, 0);
+    assert.deepEqual({ x: harness.created[0]?.options.x, y: harness.created[0]?.options.y }, { x: 2210, y: 130 });
+  });
+
+  it('falls back to the active primary display, then the first active display', () => {
+    const rightWorkArea = { height: 900, width: 1200, x: 1920, y: 0 };
+    const leftWorkArea = { height: 1080, width: 1920, x: 0, y: 0 };
+    const primaryHarness = new ChooserHarness(rightWorkArea, leftWorkArea, { x: -100, y: 450 });
+    primaryHarness.cursorDisplay = createDisplay({ height: 800, width: 1000, x: -1200, y: 0 }, 99);
+
+    void primaryHarness.controller.open(createRequest());
+
+    assert.equal(primaryHarness.primaryCalls, 1);
     assert.deepEqual(
-      {
-        height: cursorHarness.created[0]?.options.height,
-        width: cursorHarness.created[0]?.options.width,
-        x: cursorHarness.created[0]?.options.x,
-        y: cursorHarness.created[0]?.options.y,
-      },
-      { height: 640, width: 620, x: 116, y: 216 },
+      { x: primaryHarness.created[0]?.options.x, y: primaryHarness.created[0]?.options.y },
+      { x: 650, y: 220 },
     );
 
-    const fallbackHarness = new ChooserHarness(
+    const firstHarness = new ChooserHarness(rightWorkArea, leftWorkArea, { x: -100, y: 450 });
+    firstHarness.cursorDisplay = createDisplay({ height: 800, width: 1000, x: -1200, y: 0 }, 99);
+    firstHarness.primaryDisplay = createDisplay({ height: 800, width: 1000, x: -1200, y: 0 }, 99);
+
+    void firstHarness.controller.open(createRequest());
+
+    assert.equal(firstHarness.primaryCalls, 1);
+    assert.deepEqual(
+      { x: firstHarness.created[0]?.options.x, y: firstHarness.created[0]?.options.y },
+      { x: 2210, y: 130 },
+    );
+  });
+
+  it('uses best-effort cursor and primary fallbacks only when active-display enumeration fails', async () => {
+    const cursorHarness = new ChooserHarness(
+      { height: 900, width: 1200, x: 1920, y: 0 },
+      { height: 1080, width: 1920, x: 0, y: 0 },
+      { x: 2500, y: 450 },
+    );
+    cursorHarness.availableDisplaysError = new Error('display enumeration failed');
+
+    void cursorHarness.controller.open(createRequest());
+
+    assert.equal(cursorHarness.primaryCalls, 0);
+    assert.deepEqual(
+      { x: cursorHarness.created[0]?.options.x, y: cursorHarness.created[0]?.options.y },
+      { x: 2210, y: 130 },
+    );
+
+    const primaryHarness = new ChooserHarness(
       { height: 0, width: 0, x: 0, y: 0 },
       { height: 536, width: 456, x: -100, y: 20 },
     );
-    void fallbackHarness.controller.open(createRequest());
-    assert.equal(fallbackHarness.primaryCalls, 0);
-    assert.equal(fallbackHarness.created[0]?.options.width, 440);
+    primaryHarness.availableDisplaysError = new Error('display enumeration failed');
 
-    const invalidHarness = new ChooserHarness(
-      { height: 0, width: 0, x: 0, y: 0 },
-      { height: Number.NaN, width: 0, x: 0, y: 0 },
+    void primaryHarness.controller.open(createRequest());
+
+    assert.equal(primaryHarness.primaryCalls, 1);
+    assert.equal(primaryHarness.created[0]?.options.width, 440);
+
+    const noActiveDisplayHarness = new ChooserHarness();
+    noActiveDisplayHarness.availableDisplays = [];
+    assert.deepEqual(await noActiveDisplayHarness.controller.open(createRequest()), { type: 'cancel' });
+    assert.equal(noActiveDisplayHarness.primaryCalls, 0);
+    assert.equal(noActiveDisplayHarness.created.length, 0);
+  });
+
+  it('falls back to the first active display when cursor and primary APIs fail', () => {
+    const harness = new ChooserHarness(
+      { height: 900, width: 1200, x: 1920, y: 0 },
+      { height: 1080, width: 1920, x: 0, y: 0 },
+      { x: 2500, y: 450 },
     );
-    assert.deepEqual(await invalidHarness.controller.open(createRequest()), { type: 'cancel' });
-    assert.equal(invalidHarness.created.length, 0);
+    harness.cursorPointError = new Error('cursor point failed');
+    harness.primaryDisplayError = new Error('primary display failed');
+
+    void harness.controller.open(createRequest());
+
+    assert.equal(harness.primaryCalls, 1);
+    assert.deepEqual({ x: harness.created[0]?.options.x, y: harness.created[0]?.options.y }, { x: 2210, y: 130 });
   });
 
   it('centers the chooser on the available display containing the cursor', () => {
@@ -327,7 +405,7 @@ describe('PrettifyProfileChooserWindowController', () => {
       { height: 800, width: 1000, x: 0, y: 0 },
       { x: 500, y: 400 },
     );
-    harness.availableDisplays = [createDisplay({ height: 1080, width: 1920, x: 1920, y: 0 })];
+    harness.availableDisplays = [createDisplay({ height: 1080, width: 1920, x: 1920, y: 0 }, 2)];
 
     void harness.controller.open(createRequest());
 
@@ -365,10 +443,17 @@ describe('PrettifyProfileChooserWindowController', () => {
     assert.equal(Object.isFrozen(payload.profiles), true);
     Reflect.set(request.profiles, 1, { ...request.profiles[1], name: 'mutated' });
     assert.equal(payload.profiles[1]?.name, 'Custom');
+    harness.cursorPoint = { x: 2500, y: 450 };
+    harness.cursorDisplay = createDisplay({ height: 900, width: 1200, x: 1920, y: 0 }, 2);
+    harness.availableDisplays = [harness.cursorDisplay, createDisplay({ height: 800, width: 1000, x: 0, y: 0 }, 1)];
     assert.equal(harness.controller.rendererReady(payload.token), true);
     assert.equal(window.showCount, 1);
     assert.equal(window.focusCount, 1);
-    assert.deepEqual(window.contentBounds, [{ height: 640, width: 620, x: 390, y: 330 }]);
+    assert.deepEqual(window.contentBounds, [
+      { height: 640, width: 620, x: 2210, y: 130 },
+      { height: 640, width: 620, x: 2210, y: 130 },
+    ]);
+    assert.deepEqual(window.presentationCalls, ['setContentBounds', 'show', 'setContentBounds', 'focus']);
     assert.equal(harness.controller.isTrustedSender(window.webContents, CHOOSER_URL), true);
     assert.equal(
       harness.controller.isTrustedSender(
@@ -390,11 +475,8 @@ describe('PrettifyProfileChooserWindowController', () => {
     assert.ok(window);
     window.minimized = true;
     harness.cursorPoint = { x: 2500, y: 450 };
-    harness.cursorWorkArea = { height: 900, width: 1200, x: 1920, y: 0 };
-    harness.availableDisplays = [
-      createDisplay(harness.cursorWorkArea),
-      createDisplay({ height: 800, width: 1000, x: 0, y: 0 }),
-    ];
+    harness.cursorDisplay = createDisplay({ height: 900, width: 1200, x: 1920, y: 0 }, 2);
+    harness.availableDisplays = [harness.cursorDisplay, createDisplay({ height: 800, width: 1000, x: 0, y: 0 }, 1)];
 
     const secondPromise = harness.controller.open({
       profiles: [{ id: 'natural', isDefault: true, kind: 'built-in', name: 'Replacement' }],
@@ -406,6 +488,13 @@ describe('PrettifyProfileChooserWindowController', () => {
     assert.equal(window.restoreCount, 1);
     assert.equal(window.showCount, 2);
     assert.equal(window.focusCount, 2);
+    assert.deepEqual(window.presentationCalls.slice(-5), [
+      'restore',
+      'setContentBounds',
+      'show',
+      'setContentBounds',
+      'focus',
+    ]);
     assert.deepEqual(window.contentBounds[window.contentBounds.length - 1], {
       height: 640,
       width: 620,

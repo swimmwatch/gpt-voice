@@ -163,7 +163,7 @@ describe('provider status presentation', () => {
     assert.equal(stalePresentation.labelKey, 'provider.connectionChecking');
   });
 
-  it('keeps reference navigation available while locking every main-window configuration control during active work', () => {
+  it('keeps reference navigation available while locking every main-window configuration control during active work and profile selection', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
     const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
@@ -180,7 +180,7 @@ describe('provider status presentation', () => {
 
     assert.match(
       app,
-      /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isPrettifyProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*isPrettifyModelActionRunning \|\|\s*activeTextAction !== null;/u,
+      /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isPrettifyProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*isPrettifyModelActionRunning \|\|\s*activeTextAction !== null \|\|\s*isTextActionActivityActive === true;/u,
     );
     assert.match(
       app,
