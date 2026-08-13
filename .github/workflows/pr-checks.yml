@@ -412,7 +412,6 @@ jobs:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
       FEDORA_RELEASE_IMAGE: ${{ vars.CI_FEDORA_RELEASE_IMAGE }}
-      TRIVY_CACHE_DIR: ${{ runner.temp }}/gpt-voice-trivy
 
     steps:
       - name: Checkout
@@ -467,6 +466,8 @@ jobs:
           version: v0.68.2
 
       - name: Generate and scan exact application security evidence
+        env:
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/gpt-voice-trivy
         run: >-
           npm run scan:security:application-artifacts --
           --platform=${{ matrix.artifactPlatform }}
