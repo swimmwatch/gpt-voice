@@ -13,18 +13,32 @@ function hasNativeFileIdentity(metadata: Stats): boolean {
   return metadata.dev !== 0 && metadata.ino !== 0;
 }
 
-function hasSameIdentity(expected: Stats, actual: Stats): boolean {
+function hasPortableFileIdentity(metadata: Stats): boolean {
+  return (
+    Number.isFinite(metadata.birthtimeMs) &&
+    metadata.birthtimeMs > 0 &&
+    Number.isFinite(metadata.mtimeMs) &&
+    metadata.mtimeMs >= 0
+  );
+}
+
+export function hasSameVerifiedFileIdentity(expected: Stats, actual: Stats): boolean {
   if (hasNativeFileIdentity(expected) && hasNativeFileIdentity(actual)) {
     return expected.dev === actual.dev && expected.ino === actual.ino;
   }
-  return expected.size === actual.size && expected.ctimeMs === actual.ctimeMs && expected.mtimeMs === actual.mtimeMs;
+  return (
+    hasPortableFileIdentity(expected) &&
+    hasPortableFileIdentity(actual) &&
+    expected.size === actual.size &&
+    expected.birthtimeMs === actual.birthtimeMs &&
+    expected.mtimeMs === actual.mtimeMs
+  );
 }
 
 function hasUnchangedMetadata(expected: Stats, actual: Stats): boolean {
   return (
-    hasSameIdentity(expected, actual) &&
+    hasSameVerifiedFileIdentity(expected, actual) &&
     expected.size === actual.size &&
-    expected.ctimeMs === actual.ctimeMs &&
     expected.mtimeMs === actual.mtimeMs
   );
 }
@@ -50,7 +64,7 @@ export async function withVerifiedRegularFile<T>(
     if (
       !isExpectedRegularFile(opened, input) ||
       !isExpectedRegularFile(expected, input) ||
-      !hasSameIdentity(expected, opened)
+      !hasSameVerifiedFileIdentity(expected, opened)
     ) {
       input.invalid();
     }
@@ -61,7 +75,7 @@ export async function withVerifiedRegularFile<T>(
     if (
       !hasUnchangedMetadata(opened, finalMetadata) ||
       !hasUnchangedMetadata(expected, finalPathMetadata) ||
-      !hasSameIdentity(finalMetadata, finalPathMetadata)
+      !hasSameVerifiedFileIdentity(finalMetadata, finalPathMetadata)
     ) {
       input.invalid();
     }
