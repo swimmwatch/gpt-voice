@@ -7,6 +7,8 @@ import {
   DockerBuilderPolicy,
   HADOLINT_IMAGE,
   SECURITY_BUILDER_TAG,
+  TRIVY_DATABASE_ARGUMENTS,
+  TRIVY_DATABASE_REPOSITORY,
   TRIVY_IMAGE,
 } from '@scripts/security/dockerBuilderPolicy';
 
@@ -53,6 +55,8 @@ describe('Docker builder policy', () => {
       TRIVY_IMAGE,
       'aquasec/trivy:0.68.2@sha256:05d0126976bdedcd0782a0336f77832dbea1c81b9cc5e4b3a5ea5d2ec863aca7',
     );
+    assert.equal(TRIVY_DATABASE_REPOSITORY, 'ghcr.io/aquasecurity/trivy-db:2');
+    assert.deepEqual(TRIVY_DATABASE_ARGUMENTS, ['--db-repository', TRIVY_DATABASE_REPOSITORY]);
   });
 
   it('accepts the reviewed immutable Fedora Dockerfile and clean current scan evidence', async () => {

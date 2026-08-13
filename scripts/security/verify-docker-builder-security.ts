@@ -4,7 +4,13 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { DockerBuilderPolicy, HADOLINT_IMAGE, SECURITY_BUILDER_TAG, TRIVY_IMAGE } from './dockerBuilderPolicy';
+import {
+  DockerBuilderPolicy,
+  HADOLINT_IMAGE,
+  SECURITY_BUILDER_TAG,
+  TRIVY_DATABASE_ARGUMENTS,
+  TRIVY_IMAGE,
+} from './dockerBuilderPolicy';
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 const builderDirectory = path.join(workspaceRoot, 'build', 'fedora-release');
@@ -95,6 +101,7 @@ async function scannerArguments(cacheDirectory: string): Promise<readonly string
     '--severity',
     'HIGH,CRITICAL',
     '--ignore-unfixed=false',
+    ...TRIVY_DATABASE_ARGUMENTS,
     SECURITY_BUILDER_TAG,
   ];
 }

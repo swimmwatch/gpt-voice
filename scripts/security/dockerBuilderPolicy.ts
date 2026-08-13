@@ -2,6 +2,8 @@ export const HADOLINT_IMAGE =
   'hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e';
 export const TRIVY_IMAGE =
   'aquasec/trivy:0.68.2@sha256:05d0126976bdedcd0782a0336f77832dbea1c81b9cc5e4b3a5ea5d2ec863aca7';
+export const TRIVY_DATABASE_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2';
+export const TRIVY_DATABASE_ARGUMENTS = Object.freeze(['--db-repository', TRIVY_DATABASE_REPOSITORY] as const);
 export const FEDORA_BUILDER_IMAGE = 'fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898';
 export const SECURITY_BUILDER_TAG = 'gpt-voice-fedora-release:security';
 
