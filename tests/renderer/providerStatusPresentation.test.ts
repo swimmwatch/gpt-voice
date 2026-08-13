@@ -165,6 +165,7 @@ describe('provider status presentation', () => {
 
   it('keeps reference navigation available while locking every main-window configuration control during active work and profile selection', () => {
     const app = readProjectFile('src/renderer/App.tsx');
+    const prettifyHome = readProjectFile('src/renderer/useMainPrettifyHomeProvider.ts');
     const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
     const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
     const translation = readProjectFile('src/renderer/components/TranslateSection.tsx');
@@ -180,7 +181,11 @@ describe('provider status presentation', () => {
 
     assert.match(
       app,
-      /const isProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isPrettifyProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*isPrettifyModelActionRunning \|\|\s*activeTextAction !== null \|\|\s*isTextActionActivityActive === true;/u,
+      /const isSharedProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*activeTextAction !== null \|\|\s*isTextActionActivityActive === true;/u,
+    );
+    assert.match(
+      prettifyHome,
+      /const isProviderChangesLocked =\s*isSharedProviderChangesLocked \|\| isProviderChangeSaving \|\| isModelActionRunning;/u,
     );
     assert.match(
       app,
@@ -416,7 +421,10 @@ describe('provider status presentation', () => {
       httpFailure?.tooltipKey,
     );
 
-    const app = readProjectFile('src/renderer/App.tsx');
-    assert.match(app, /presentNotificationError\(result\.error, \{\s*context: 'generic',\s*t,\s*\}\)\.userMessage/u);
+    const prettifyHome = readProjectFile('src/renderer/useMainPrettifyHomeProvider.ts');
+    assert.match(
+      prettifyHome,
+      /presentNotificationError\(result\.error, \{\s*context: 'generic',\s*t: translate,\s*\}\)\.userMessage/u,
+    );
   });
 });

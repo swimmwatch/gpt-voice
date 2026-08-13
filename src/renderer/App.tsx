@@ -5,22 +5,11 @@ import MainToolbar from './components/MainToolbar';
 import MainPrettifyProviderBand from './components/MainPrettifyProviderBand';
 import RecordingControls from './components/RecordingControls';
 import TranslateSection from './components/TranslateSection';
+import HotkeyActionButton from './components/HotkeyActionButton';
 import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import useLocalWhisperMainStatus from './localWhisper/useLocalWhisperMainStatus';
-import { getOllamaModelControl } from './prettifyModelControl';
-import {
-  getMainPrettifyHttpConnectionStatus,
-  MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES,
-  reduceMainPrettifyProviderSelection,
-  type MainPrettifyHttpConnectionState,
-} from './mainPrettifyProvider';
-import {
-  createMainPrettifyCliConnectionCoordinator,
-  getActivePrettifyCliProviderId,
-  type MainPrettifyCliConnectionState,
-} from './mainPrettifyCliConnection';
 import {
   PROVIDER_CONNECTION_REASONS,
   getProviderLoginState,
@@ -34,7 +23,6 @@ import {
   type ProviderSelectionCoordinator,
   type ProviderSelectionEvent,
 } from './providerSelectionCoordinator';
-import { createPrettifyProviderSettingsInput } from './appSettingsUtils';
 import {
   clearRecoveredBrowserFailureStatus,
   createBrowserProviderFailurePresentation,
@@ -45,16 +33,10 @@ import {
   translatedStatus,
   type RendererStatus,
 } from './statusPresentation';
+import { useProviderHotkeyHomeIntegration } from './useProviderHotkeyHomeIntegration';
+import { useMainPrettifyHomeProvider } from './useMainPrettifyHomeProvider';
 import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo, ProviderSettings } from './types';
 import { presentNotificationError } from '@shared/notifications';
-import {
-  DEFAULT_PRETTIFY_PROVIDER_ID,
-  DEFAULT_PRETTIFY_SETTINGS,
-  isPrettifyCliProviderId,
-  type PrettifyModelOption,
-  type PrettifyProviderId,
-  type PrettifySettings,
-} from '@shared/prettifySettings';
 import {
   DEFAULT_TRANSLATION_SETTINGS,
   type TranslationProviderConnectionState,
@@ -89,10 +71,8 @@ const App: React.FC = () => {
   const [isFirstLaunchRetryPending, setIsFirstLaunchRetryPending] = useState(false);
   const [didFirstLaunchRetryFail, setDidFirstLaunchRetryFail] = useState(false);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
-  const [isMainInteractionLocked, setIsMainInteractionLocked] = useState(false);
   const [isTextActionActivityActive, setIsTextActionActivityActive] = useState<boolean | null>(null);
   const [status, setStatus] = useState<RendererStatus | null>(null);
-  const [recordHotkey, setRecordHotkey] = useState('F9');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isVoiceProviderSwitching, setIsVoiceProviderSwitching] = useState(false);
@@ -110,56 +90,30 @@ const App: React.FC = () => {
   const [hasLoadedInitialTranslationSettings, setHasLoadedInitialTranslationSettings] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [activeProviderId, setActiveProviderId] = useState<string | null>(null);
-  const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
-    reduceMainPrettifyProviderSelection,
-    {
-      error: '',
-      pendingRequestId: null,
-      settings: DEFAULT_PRETTIFY_SETTINGS,
-    },
-  );
-  const prettifySettings = prettifyProviderSelection.settings;
-  const isPrettifyProviderSwitching = prettifyProviderSelection.pendingRequestId !== null;
   const isTranslationProviderSwitching =
     translationSettingsSelection.pendingRequestId !== null &&
     translationSettingsSelection.settings.providerId !== translationSettingsSelection.confirmedSettings.providerId;
-  const [ollamaModelOptions, setOllamaModelOptions] = useState<PrettifyModelOption[]>([]);
-  const [isPrettifyModelActionRunning, setIsPrettifyModelActionRunning] = useState(false);
   const [activeTextAction, setActiveTextAction] = useState<TextActionStatusAction | null>(null);
-  const [prettifyModelActionError, setPrettifyModelActionError] = useState('');
-  const [prettifyConnectionError, setPrettifyConnectionError] = useState('');
-  const [prettifyHttpConnection, setPrettifyHttpConnection] = useState<MainPrettifyHttpConnectionState | null>(null);
-  const [prettifyCliConnection, setPrettifyCliConnection] = useState<MainPrettifyCliConnectionState | null>(null);
-  const [hasLoadedInitialPrettifySettings, setHasLoadedInitialPrettifySettings] = useState(false);
-  const [isInitialPrettifyProviderLoading, setIsInitialPrettifyProviderLoading] = useState(true);
-  const isProviderChangesLocked =
-    isVoiceProviderSwitching ||
-    isPrettifyProviderSwitching ||
-    isTranslationProviderSwitching ||
-    isRecordingLifecycleBusy(recordingState) ||
-    isPrettifyModelActionRunning ||
-    activeTextAction !== null ||
-    isTextActionActivityActive === true;
-  const isNewRecordingLocked =
-    isVoiceProviderSwitching ||
-    isPrettifyProviderSwitching ||
-    isTranslationProviderSwitching ||
-    isPrettifyModelActionRunning ||
-    activeTextAction !== null ||
-    isTextActionActivityActive !== false;
-  const [prettifyCliConnectionCoordinator] = useState(() =>
-    createMainPrettifyCliConnectionCoordinator({
-      check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
-      update: (connection) => {
-        setPrettifyCliConnection(connection);
-        if (connection !== null && connection.status !== 'checking') {
-          setIsInitialPrettifyProviderLoading(false);
-        }
-      },
-    }),
-  );
 
   const { t, isReady: isI18nReady } = useI18n();
+  const isSharedProviderChangesLocked =
+    isVoiceProviderSwitching ||
+    isTranslationProviderSwitching ||
+    isRecordingLifecycleBusy(recordingState) ||
+    activeTextAction !== null ||
+    isTextActionActivityActive === true;
+  const mainPrettifyProvider = useMainPrettifyHomeProvider({
+    desktopApi,
+    isSharedProviderChangesLocked,
+    translate: t,
+  });
+  const {
+    isInitialLoading: isInitialPrettifyProviderLoading,
+    isModelActionRunning: isPrettifyModelActionRunning,
+    isProviderChangeSaving: isPrettifyProviderSwitching,
+    isProviderChangesLocked,
+    settings: prettifySettings,
+  } = mainPrettifyProvider;
   const activeProvider = providers.find((provider) => provider.id === activeProviderId);
   const activeProviderName = activeProvider?.name ?? '';
   const activeProviderAuthType = activeProvider?.authType ?? null;
@@ -169,7 +123,6 @@ const App: React.FC = () => {
     translationSettingsPending: !hasLoadedInitialTranslationSettings,
     voicePending: isInitialVoiceProviderLoading,
   });
-
   useWindowStartupReady(isI18nReady);
 
   useEffect(() => {
@@ -217,25 +170,6 @@ const App: React.FC = () => {
     };
   }, [desktopApi]);
 
-  useEffect(() => {
-    let disposed = false;
-    const unsubscribe = desktopApi.onMainInteractionLockChanged((locked) => {
-      if (!disposed) setIsMainInteractionLocked(locked);
-    });
-
-    void desktopApi
-      .getMainInteractionLocked()
-      .then((locked) => {
-        if (!disposed) setIsMainInteractionLocked(locked);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      disposed = true;
-      unsubscribe();
-    };
-  }, [desktopApi]);
-
   const retryFirstLaunchStartup = useCallback(async (): Promise<void> => {
     if (isFirstLaunchRetryPending) return;
     setIsFirstLaunchRetryPending(true);
@@ -255,8 +189,6 @@ const App: React.FC = () => {
   const activeProviderIdRef = useRef<string | null>(activeProviderId);
   const activeProviderAuthTypeRef = useRef<ProviderAuthType | null>(null);
   const providerSelectionCoordinatorRef = useRef<ProviderSelectionCoordinator | null>(null);
-  const prettifyModelRefreshIdRef = useRef(0);
-  const prettifyProviderChangeRequestRef = useRef(0);
   const translationSettingsRequestRef = useRef(0);
   const translationSettingsSavePendingRef = useRef(false);
   const translationSettingsRef = useRef(translationSettings);
@@ -270,29 +202,6 @@ const App: React.FC = () => {
     recordingStateRef.current = nextState;
     setRecordingState(nextState);
   }, []);
-
-  useEffect(() => {
-    if (!hasLoadedInitialPrettifySettings) return;
-    prettifyCliConnectionCoordinator.refresh(
-      getActivePrettifyCliProviderId(prettifySettings.providerId, prettifyProviderSelection.pendingRequestId !== null),
-    );
-  }, [
-    hasLoadedInitialPrettifySettings,
-    prettifySettings.providerId,
-    prettifySettings.claudeCli.executablePath,
-    prettifySettings.claudeCli.timeoutSeconds,
-    prettifySettings.codexCli.executablePath,
-    prettifySettings.codexCli.timeoutSeconds,
-    prettifyProviderSelection.pendingRequestId,
-    prettifyCliConnectionCoordinator,
-  ]);
-
-  useEffect(
-    () => () => {
-      prettifyCliConnectionCoordinator.dispose();
-    },
-    [prettifyCliConnectionCoordinator],
-  );
 
   const showStatusNotification = useCallback(
     (nextStatus: RendererStatus) => {
@@ -333,56 +242,6 @@ const App: React.FC = () => {
     [setStatusAndNotify],
   );
 
-  const refreshPrettifyProviderState = useCallback(
-    async (settings: PrettifySettings): Promise<void> => {
-      const refreshId = ++prettifyModelRefreshIdRef.current;
-      dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
-      setIsPrettifyModelActionRunning(false);
-      setPrettifyModelActionError('');
-      setPrettifyConnectionError('');
-
-      if (isPrettifyCliProviderId(settings.providerId)) {
-        setOllamaModelOptions([]);
-        setPrettifyHttpConnection(null);
-        return;
-      }
-
-      const providerId = settings.providerId;
-      setPrettifyHttpConnection({
-        providerId,
-        status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Checking,
-      });
-      try {
-        const result = await desktopApi.listPrettifyModels(providerId, createPrettifyProviderSettingsInput(settings));
-        if (refreshId === prettifyModelRefreshIdRef.current) {
-          setOllamaModelOptions(providerId === 'ollama' && result.success ? result.models : []);
-          setPrettifyHttpConnection({
-            providerId,
-            status: getMainPrettifyHttpConnectionStatus(settings, result.success),
-          });
-          setPrettifyConnectionError(
-            result.success
-              ? ''
-              : presentNotificationError(result.error, {
-                  context: 'generic',
-                  t,
-                }).userMessage,
-          );
-        }
-      } catch {
-        if (refreshId === prettifyModelRefreshIdRef.current) {
-          setOllamaModelOptions([]);
-          setPrettifyHttpConnection({
-            providerId,
-            status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
-          });
-          setPrettifyConnectionError(t('error.notificationUnknown'));
-        }
-      }
-    },
-    [desktopApi, t],
-  );
-
   const recordingActions = useRecording({
     setStatus,
     setRecordingState: updateRecordingState,
@@ -395,51 +254,38 @@ const App: React.FC = () => {
     recordingActionsRef.current = recordingActions;
   }, [recordingActions]);
   const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording } = recordingActions;
-
-  useEffect(() => {
-    let disposed = false;
-    const refresh = async (settings: PrettifySettings, initial: boolean): Promise<void> => {
-      if (disposed) return;
-      if (initial) {
-        setHasLoadedInitialPrettifySettings(true);
-      }
-      await refreshPrettifyProviderState(settings);
-      if (initial && !disposed && !isPrettifyCliProviderId(settings.providerId)) {
-        setIsInitialPrettifyProviderLoading(false);
-      }
-    };
-
-    void desktopApi
-      .getPrettifySettings()
-      .then((settings) => refresh(settings, true))
-      .catch(() => {
-        if (disposed) return;
-        setHasLoadedInitialPrettifySettings(true);
-        if (isPrettifyCliProviderId(DEFAULT_PRETTIFY_PROVIDER_ID)) {
-          setPrettifyCliConnection({
-            errorCode: 'process-failed',
-            providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
-            status: 'unavailable',
-          });
-        } else {
-          setPrettifyHttpConnection({
-            providerId: DEFAULT_PRETTIFY_PROVIDER_ID,
-            status: MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.NotConnected,
-          });
-        }
-        setPrettifyConnectionError(t('error.notificationUnknown'));
-        setIsInitialPrettifyProviderLoading(false);
-      });
-    const unsubscribe = desktopApi.onPrettifySettingsChanged((settings) => {
-      void refresh(settings, false);
-    });
-
-    return () => {
-      disposed = true;
-      prettifyProviderChangeRequestRef.current += 1;
-      unsubscribe();
-    };
-  }, [desktopApi, refreshPrettifyProviderState, t]);
+  const presentIdleRecordHotkey = useCallback((hotkey: string): void => {
+    if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
+      setStatus(translatedStatus('status.pressToRecord', { hotkey }));
+    }
+  }, []);
+  const providerHotkeyIntegration = useProviderHotkeyHomeIntegration({
+    activeProviderId,
+    activeTextAction,
+    desktopApi,
+    isInitialVoiceProviderLoading,
+    isPrettifyModelActionRunning,
+    isPrettifyProviderSwitching,
+    isTextActionActivityActive,
+    isTranslationProviderSwitching,
+    isVoiceProviderSwitching,
+    onIdleRecordHotkey: presentIdleRecordHotkey,
+    onProviderActionRejected: () => setStatus(translatedStatus('error.notificationUnknown')),
+    onVoiceCancel: cancelRecording,
+    onVoicePause: pauseRecording,
+    onVoiceResume: resumeRecording,
+    onVoiceStart: () => void startRecording(),
+    onVoiceStop: stopRecording,
+    recordingState,
+    translate: t,
+  });
+  const isNewRecordingLocked =
+    isVoiceProviderSwitching ||
+    isPrettifyProviderSwitching ||
+    isTranslationProviderSwitching ||
+    isPrettifyModelActionRunning ||
+    activeTextAction !== null ||
+    isTextActionActivityActive !== false;
 
   const applyProviderLoginState = useCallback(
     (
@@ -674,24 +520,9 @@ const App: React.FC = () => {
             }
           });
       }),
-      desktopApi.onHotkeySettingsChanged((settings) => {
-        if (disposed) return;
-        setRecordHotkey(settings.hotkey);
-        if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
-          setStatus(translatedStatus('status.pressToRecord', { hotkey: settings.hotkey }));
-        }
-      }),
     ];
 
     void providerSelectionCoordinator.bootstrap();
-
-    void desktopApi.getHotkey().then(({ hotkey: hk }) => {
-      if (disposed) return;
-      setRecordHotkey(hk);
-      if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
-        setStatus(translatedStatus('status.pressToRecord', { hotkey: hk }));
-      }
-    });
 
     const translationSettingsRequestId = ++translationSettingsRequestRef.current;
     void desktopApi
@@ -848,105 +679,6 @@ const App: React.FC = () => {
     void providerSelectionCoordinatorRef.current?.switchProvider(providerId, authType);
   };
 
-  const ollamaModelControl = getOllamaModelControl(prettifySettings, ollamaModelOptions);
-
-  const handlePrettifyProviderChange = async (providerId: PrettifyProviderId): Promise<void> => {
-    if (
-      isProviderChangesLocked ||
-      providerId === prettifySettings.providerId ||
-      prettifyProviderSelection.pendingRequestId !== null
-    ) {
-      return;
-    }
-
-    const requestId = ++prettifyProviderChangeRequestRef.current;
-    const previousSettings = prettifySettings;
-    dispatchPrettifyProviderSelection({ providerId, requestId, type: 'begin' });
-    setIsPrettifyModelActionRunning(false);
-    setPrettifyModelActionError('');
-
-    try {
-      const result = await desktopApi.setPrettifySettings({ providerId });
-      if (requestId !== prettifyProviderChangeRequestRef.current) return;
-      dispatchPrettifyProviderSelection(
-        result.success
-          ? { requestId, settings: result.settings, type: 'resolved' }
-          : {
-              error: t('mainDock.prettifySaveFailed'),
-              requestId,
-              settings: result.settings,
-              type: 'rejected',
-            },
-      );
-    } catch {
-      if (requestId !== prettifyProviderChangeRequestRef.current) return;
-      dispatchPrettifyProviderSelection({
-        error: t('mainDock.prettifySaveFailed'),
-        requestId,
-        settings: previousSettings,
-        type: 'rejected',
-      });
-    }
-  };
-
-  const handleOllamaModelAction = async (): Promise<void> => {
-    if (isProviderChangesLocked || !prettifySettings || !ollamaModelControl || isPrettifyModelActionRunning) {
-      return;
-    }
-
-    const refreshId = prettifyModelRefreshIdRef.current;
-    const { model, isLoaded } = ollamaModelControl;
-    setIsPrettifyModelActionRunning(true);
-    setPrettifyModelActionError('');
-
-    try {
-      const providerSettingsInput = createPrettifyProviderSettingsInput(prettifySettings);
-      const result = isLoaded
-        ? await desktopApi.unloadPrettifyModel('ollama', providerSettingsInput)
-        : await desktopApi.loadPrettifyModel('ollama', providerSettingsInput);
-      if (refreshId !== prettifyModelRefreshIdRef.current) {
-        return;
-      }
-
-      if (!result.success) {
-        const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
-        setPrettifyModelActionError(
-          presentNotificationError(result.error, { context: 'prettify', fallback, t }).userMessage,
-        );
-        return;
-      }
-
-      const vramSizeBytes =
-        !isLoaded && 'vramSizeBytes' in result && typeof result.vramSizeBytes === 'number'
-          ? result.vramSizeBytes
-          : undefined;
-      setOllamaModelOptions((current) => {
-        const hasSelectedModel = current.some((option) => option.id === model);
-        if (isLoaded) {
-          return current.map((option) => (option.id === model ? { ...option, isLoaded: false } : option));
-        }
-
-        const nextOptions = current.map((option) => ({
-          ...option,
-          isLoaded: option.id === model,
-          ...(option.id === model && vramSizeBytes !== undefined ? { vramSizeBytes } : {}),
-        }));
-        return hasSelectedModel
-          ? nextOptions
-          : [...nextOptions, { id: model, isLoaded: true, name: model, vramSizeBytes }];
-      });
-    } catch (error: unknown) {
-      if (refreshId === prettifyModelRefreshIdRef.current) {
-        const fallback = t(isLoaded ? 'prettify.modelUnloadFailed' : 'prettify.modelLoadFailed');
-        setPrettifyModelActionError(presentNotificationError(error, { context: 'prettify', fallback, t }).userMessage);
-      }
-    } finally {
-      if (refreshId === prettifyModelRefreshIdRef.current) {
-        setIsPrettifyModelActionRunning(false);
-      }
-    }
-  };
-
   const openAppSettingsWindow = useCallback(
     (section?: 'prettify'): void => {
       if (isProviderChangesLocked) return;
@@ -1053,12 +785,21 @@ const App: React.FC = () => {
 
   return (
     <main
-      aria-disabled={isMainInteractionLocked}
+      aria-disabled={providerHotkeyIntegration.isMainInteractionLocked}
       className="command-dock"
       data-slot="main-window"
-      inert={isMainInteractionLocked}
+      inert={providerHotkeyIntegration.isMainInteractionLocked}
     >
       <MainToolbar
+        actionControl={
+          <HotkeyActionButton
+            actionLabel={providerHotkeyIntegration.voiceActionLabel}
+            active={providerHotkeyIntegration.presentation.activeOwner === 'voice'}
+            hotkey={providerHotkeyIntegration.recordHotkey}
+            locked={providerHotkeyIntegration.presentation.eligibility.voice.locked}
+            onActivate={providerHotkeyIntegration.activateVoice}
+          />
+        }
         activeProviderAuthType={activeProviderAuthType}
         activeProviderId={activeProviderId}
         activeProviderHasSettings={Boolean(activeProvider?.hasSettings)}
@@ -1089,20 +830,40 @@ const App: React.FC = () => {
         providers={providers}
       />
       <MainPrettifyProviderBand
-        cliConnection={prettifyCliConnection}
-        connectionError={prettifyConnectionError}
-        error={prettifyProviderSelection.error || prettifyModelActionError}
-        httpConnection={prettifyHttpConnection}
-        isModelActionRunning={isPrettifyModelActionRunning}
+        actionControl={
+          <HotkeyActionButton
+            actionLabel={t('prettify.provider')}
+            active={providerHotkeyIntegration.presentation.activeOwner === 'prettify'}
+            busy={providerHotkeyIntegration.pendingProviderHomeAction === 'prettify'}
+            hotkey={providerHotkeyIntegration.prettifyHotkey}
+            locked={providerHotkeyIntegration.presentation.eligibility.prettify.locked}
+            onActivate={providerHotkeyIntegration.activatePrettify}
+          />
+        }
+        cliConnection={mainPrettifyProvider.cliConnection}
+        connectionError={mainPrettifyProvider.connectionError}
+        error={mainPrettifyProvider.error}
+        httpConnection={mainPrettifyProvider.httpConnection}
+        isModelActionRunning={mainPrettifyProvider.isModelActionRunning}
         isProviderChangesLocked={isProviderChangesLocked}
         isProviderChangeSaving={isPrettifyProviderSwitching}
-        ollamaModels={ollamaModelOptions}
-        onModelAction={() => void handleOllamaModelAction()}
+        ollamaModels={mainPrettifyProvider.ollamaModels}
+        onModelAction={() => void mainPrettifyProvider.onModelAction()}
         onOpenSettings={() => openAppSettingsWindow('prettify')}
-        onProviderChange={(providerId) => void handlePrettifyProviderChange(providerId)}
+        onProviderChange={(providerId) => void mainPrettifyProvider.onProviderChange(providerId)}
         settings={prettifySettings}
       />
       <TranslateSection
+        actionControl={
+          <HotkeyActionButton
+            actionLabel={t('translate.provider')}
+            active={providerHotkeyIntegration.presentation.activeOwner === 'translation'}
+            busy={providerHotkeyIntegration.pendingProviderHomeAction === 'translation'}
+            hotkey={providerHotkeyIntegration.translateHotkey}
+            locked={providerHotkeyIntegration.presentation.eligibility.translation.locked}
+            onActivate={providerHotkeyIntegration.activateTranslation}
+          />
+        }
         connectionState={translationConnectionState}
         error={translationSettingsSelection.error}
         isProviderChangesLocked={isProviderChangesLocked}
@@ -1133,7 +894,7 @@ const App: React.FC = () => {
         onStart={startRecording}
         onStop={stopRecording}
         recordingDisabled={activeProviderId === null || isNewRecordingLocked}
-        recordHotkey={recordHotkey}
+        recordHotkey={providerHotkeyIntegration.recordHotkey}
         state={recordingState}
         status={status}
       />

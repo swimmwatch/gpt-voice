@@ -33,38 +33,48 @@ describe('main Prettify provider band contract', () => {
     assert.match(styles, /\.command-dock \{[\s\S]*?overflow-y: auto;/u);
   });
 
+  it('keeps the reusable provider action-control seam ahead of unchanged status and settings controls', () => {
+    const band = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
+
+    assert.match(band, /actionControl\?: ReactNode/u);
+    assert.match(band, /\{actionControl\}[\s\S]*?command-dock-prettify-controls/u);
+  });
+
   it('persists only the provider ID before checking the authoritative active provider', () => {
-    const app = readProjectFile('src/renderer/App.tsx');
-    const refresh = app.slice(
-      app.indexOf('const refreshPrettifyProviderState'),
-      app.indexOf('const {', app.indexOf('const refreshPrettifyProviderState')),
+    const providerHome = readProjectFile('src/renderer/useMainPrettifyHomeProvider.ts');
+    const refresh = providerHome.slice(
+      providerHome.indexOf('const refreshProviderState'),
+      providerHome.indexOf('useEffect(() => {', providerHome.indexOf('const refreshProviderState')),
     );
-    const handler = app.slice(
-      app.indexOf('const handlePrettifyProviderChange'),
-      app.indexOf('const handleOllamaModelAction'),
+    const handler = providerHome.slice(
+      providerHome.indexOf('const onProviderChange'),
+      providerHome.indexOf('const onModelAction'),
     );
 
     assert.match(handler, /setPrettifySettings\(\{ providerId \}\)/u);
-    assert.match(handler, /pendingRequestId !== null/u);
+    assert.match(handler, /isProviderChangeSaving/u);
     assert.match(handler, /type: 'begin'/u);
     assert.match(handler, /type: 'rejected'/u);
     assert.doesNotMatch(handler, /listPrettifyModels|loadPrettifyModel|prettifyText|auth/u);
     assert.match(refresh, /isPrettifyCliProviderId\(settings\.providerId\)/u);
     assert.match(refresh, /const providerId = settings\.providerId/u);
     assert.match(refresh, /listPrettifyModels\(\s*providerId,\s*createPrettifyProviderSettingsInput\(settings\)/u);
-    assert.match(refresh, /setPrettifyConnectionError/u);
+    assert.match(refresh, /setConnectionError/u);
   });
 
   it('uses the strict prompt-free provider DTO for main-window model operations', () => {
-    const app = readProjectFile('src/renderer/App.tsx');
+    const providerHome = readProjectFile('src/renderer/useMainPrettifyHomeProvider.ts');
 
-    assert.match(app, /const providerSettingsInput = createPrettifyProviderSettingsInput\(prettifySettings\)/u);
     assert.match(
-      app,
+      providerHome,
+      /const providerSettingsInput = createPrettifyProviderSettingsInput\(prettifySettings\)/u,
+    );
+    assert.match(
+      providerHome,
       /desktopApi\.listPrettifyModels\(\s*providerId,\s*createPrettifyProviderSettingsInput\(settings\)/u,
     );
-    assert.match(app, /desktopApi\.unloadPrettifyModel\('ollama', providerSettingsInput\)/u);
-    assert.match(app, /desktopApi\.loadPrettifyModel\('ollama', providerSettingsInput\)/u);
+    assert.match(providerHome, /desktopApi\.unloadPrettifyModel\('ollama', providerSettingsInput\)/u);
+    assert.match(providerHome, /desktopApi\.loadPrettifyModel\('ollama', providerSettingsInput\)/u);
   });
 
   it('opens App Settings directly on Prettify and keeps Ollama as the only main-band model action', () => {
@@ -170,12 +180,13 @@ describe('main Prettify provider band contract', () => {
 
   it('places provider connection status in the stable Voice-aligned right-side controls', () => {
     const app = readProjectFile('src/renderer/App.tsx');
+    const providerHome = readProjectFile('src/renderer/useMainPrettifyHomeProvider.ts');
     const band = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
     const styles = readProjectFile('src/renderer/styles/globals.css');
 
-    assert.match(app, /checkPrettifyCliConnection\(providerId\)/u);
+    assert.match(providerHome, /checkPrettifyCliConnection\(providerId\)/u);
     assert.match(band, /className="command-dock-prettify-controls"/u);
-    assert.match(app, /httpConnection=\{prettifyHttpConnection\}/u);
+    assert.match(app, /httpConnection=\{mainPrettifyProvider\.httpConnection\}/u);
     assert.match(band, /dataSlot="prettify-provider-connection"/u);
     assert.match(band, /command-dock-provider-state command-dock-prettify-connection/u);
     assert.match(band, /<ProviderStatusIndicator/u);

@@ -30,6 +30,13 @@ describe('main translation Select controls', () => {
     assert.doesNotMatch(section, /assets\/flags|<img|deepl|Yandex.*warning/iu);
   });
 
+  it('keeps the reusable provider action-control seam ahead of the existing connection status', () => {
+    const section = readProjectFile('src/renderer/components/TranslateSection.tsx');
+
+    assert.match(section, /actionControl\?: ReactNode/u);
+    assert.match(section, /\{actionControl\}[\s\S]*?<ProviderStatusIndicator/u);
+  });
+
   it('bounds the full inventories and preserves fixed main-window geometry', () => {
     const section = readProjectFile('src/renderer/components/TranslateSection.tsx');
     const selectPrimitive = readProjectFile('src/renderer/components/ui/select.tsx');

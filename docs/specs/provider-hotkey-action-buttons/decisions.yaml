@@ -1498,3 +1498,72 @@ decisions:
     rationale: ''
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution
+    revision: 7
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 was committed as 0fde290 before opening the next incomplete packet.'
+      - 'Packet 04 Home Screen Action Integration is the exact next checklist item.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-04-execution-authorization-round-01
+      question_id: authorization.execution-packet-04
+      idempotency_key: authorization.execution-packet-04:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 04, Home Screen Action Integration, during this incremental-implementation invocation?'
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize Packet 04 (Recommended)
+          description: Integrate the approved reusable provider hotkey controls into the production home screen, with bounded renderer-to-main action routing and focused tests.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after recording the completed Packet 03 commit; do not change production home-screen integration.
+        - id: request-plan-changes
+          label: Revise Packet 04
+          description: Stop implementation and return the packet to planning for a contract change.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: ''
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: authorization.commit-packet-04
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 source, focused tests, decision, checklist, and handoff records remain uncommitted.'
+      - 'Packet 04 focused renderer/main tests, touched-file lint and formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-04-commit-authorization-round-01
+      question_id: authorization.commit-packet-04
+      idempotency_key: authorization.commit-packet-04:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 04 before opening the next packet? The commit will include only the home-screen provider hotkey integration, focused Prettify state extraction, focused tests, and packet decision/checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-04
+          label: Commit Packet 04 (Recommended)
+          description: Create one focused conventional commit for the verified Packet 04 files, then request separate authorization for Packet 05.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or starting Packet 05.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 04 for revision.
+    answer:
+      selected_ids: [commit-packet-04]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
