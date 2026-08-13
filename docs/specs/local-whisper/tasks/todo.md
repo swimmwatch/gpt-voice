@@ -22,11 +22,11 @@ and acquisition-guard checks passed without physical-host or qualification
 evidence. Task 27's authorized local automated scope is implemented and verified in
 `429aadf3`, but its external/manual gates remain pending. Revision 28 selects a locked
 acquisition-only WASM XZ decoder plus strict project-owned TAR parsing for the
-official Linux CUDA `.tar.xz` inputs; its exact upstream tree has no license
-text, so the decoder must remain Pending rather than be substituted. Production
-locks, closed profiles, and hosted rows remain. Tasks 31, 30, 28, 29, 21, and
-22 remain unstarted. Task 26 is retained only as deferred, non-executable RTX
-30/40 future work.
+official Linux CUDA `.tar.xz` inputs. Decision
+`planning.hosted-tar-xz-materializer` revision 2 accepts the exact npm package's
+declared MIT license for its build-only use. Production locks, closed profiles,
+and hosted rows remain. Tasks 31, 30, 28, 29, 21, and 22 remain unstarted. Task
+26 is retained only as deferred, non-executable RTX 30/40 future work.
 
 - [x] [01 Shared Local Whisper Domain Contracts](01_shared_domain_contracts.md) — `d0083259`
 - [x] [02 Provider Dispatch And Cache Seam](02_provider_dispatch_and_cache.md) — `d516d034`
@@ -51,7 +51,7 @@ locks, closed profiles, and hosted rows remain. Tasks 31, 30, 28, 29, 21, and
 - [x] [20 Linux Qualification Preparation](20_linux_qualification.md) — advisory local deterministic preflight; reconciliation completed against the clean `b796c46f` checkout, with no Task 20 delta to commit
 - [x] [24 Windows Runtime Delivery Readiness](24_windows_runtime_delivery_readiness.md) — baseline pushed as `7ebb102`; provider-selection, CUDA-runtime acquisition, transfer-journal performance, recoverable-transcription state, and automatic-language native transcription follow-up included in the authorized review commit; CPU/RTX 5090 `sm_120a` readiness smoke passed, with no Production claim
 - [x] [25 RTX 50 Readiness Closure](25_rtx50_readiness_closure.md) — deterministic verification passed
-- [ ] [27 Immutable Hosted Toolchain Inputs And Disconnected Build Enforcement](27_hosted_production_equivalent_ci.md) — local raw/ZIP and fail-closed build-boundary scope implemented; revision 28 adds the selected locked WASM XZ plus strict TAR contract, while reviewed decoder/license provenance, production locks, official object acquisition, profile closure, and hosted Linux/Windows rows remain
+- [ ] [27 Immutable Hosted Toolchain Inputs And Disconnected Build Enforcement](27_hosted_production_equivalent_ci.md) — local raw/ZIP and fail-closed build-boundary scope implemented; revision 28 adds the selected locked WASM XZ plus strict TAR contract, while production locks, official object acquisition, profile closure, and hosted Linux/Windows rows remain
 - [ ] [31 Hosted Production-Equivalent CI Builders](31_hosted_production_equivalent_ci_builders.md)
 - [ ] [30 Release Branch Preparation And Pull Request Policy](30_release_branch_preparation_and_pr_policy.md)
 - [ ] [28 Protected Signed Release Candidates](28_protected_signed_release_candidates.md)

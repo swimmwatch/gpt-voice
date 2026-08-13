@@ -166,6 +166,12 @@ Prettier for revised planning files, and `rtk git diff --check`.
   `planning.hosted-tar-xz-materializer` revision 2 accepts the exact npm
   package's declared `MIT` license for this acquisition-only use; the missing
   standalone upstream license file no longer blocks its production record.
+- A read-only recheck on 2026-08-13 retrieved the official NVIDIA
+  `redistrib_12.8.1.json` catalog with SHA-256
+  `249e28a83008d711d5f72880541c8be6253f6d61608461de4fcb715554a6cf17`.
+  Its eight required Linux/Windows CUDA paths and SHA-256 values match Task 27.
+  No CUDA component was downloaded and no production lock or profile was
+  created from this catalog read.
 - Research and review the complete official Linux/Windows compiler, SDK, CUDA
   12.8.1, packaging, Node/Electron, inspection, network-probe, license, and
   signature inputs; then create verified production locks and close all active
