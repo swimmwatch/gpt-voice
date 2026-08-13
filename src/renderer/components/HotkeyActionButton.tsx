@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@renderer/lib/cn';
+import '@renderer/styles/hotkeyActionButton.css';
 
 const KEYBOARD_ACTIVATION_KEYS = new Set(['Enter', ' ']);
 const RELEASE_FEEDBACK_MS = 110;
@@ -26,8 +27,21 @@ export default function HotkeyActionButton({
   const releaseTimerRef = useRef<number | null>(null);
   const unavailable = disabled || busy;
 
+  const clearKeyboardRelease = (): void => {
+    if (releaseTimerRef.current === null) return;
+    window.clearTimeout(releaseTimerRef.current);
+    releaseTimerRef.current = null;
+  };
+
+  useEffect(
+    () => () => {
+      if (releaseTimerRef.current !== null) window.clearTimeout(releaseTimerRef.current);
+    },
+    [],
+  );
+
   const releaseKeyboard = (): void => {
-    if (releaseTimerRef.current !== null) window.clearTimeout(releaseTimerRef.current);
+    clearKeyboardRelease();
     releaseTimerRef.current = window.setTimeout(() => {
       setKeyboardPressed(false);
       releaseTimerRef.current = null;
@@ -41,7 +55,10 @@ export default function HotkeyActionButton({
       className={cn('command-dock-hotkey-action', className)}
       data-keyboard-pressed={keyboardPressed || undefined}
       disabled={unavailable}
-      onBlur={() => setKeyboardPressed(false)}
+      onBlur={() => {
+        clearKeyboardRelease();
+        setKeyboardPressed(false);
+      }}
       onClick={() => {
         if (!unavailable) onActivate();
       }}
@@ -54,7 +71,9 @@ export default function HotkeyActionButton({
       title={`${actionLabel}: ${hotkey}`}
       type="button"
     >
-      <span>{hotkey}</span>
+      <span aria-hidden="true" className="command-dock-hotkey-action__face">
+        <span className="command-dock-hotkey-action__legend">{hotkey}</span>
+      </span>
     </button>
   );
 }

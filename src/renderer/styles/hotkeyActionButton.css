@@ -1,0 +1,164 @@
+.command-dock-hotkey-action {
+  --hotkey-press-travel: 3px;
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  display: inline-flex;
+  width: var(--dock-action-key-width, 114px);
+  height: 32px;
+  min-width: var(--dock-action-key-width, 114px);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dock-foreground);
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1;
+  word-spacing: -0.22em;
+}
+
+.command-dock-hotkey-action::before {
+  position: absolute;
+  z-index: 0;
+  inset: -1px;
+  border-radius: 7px;
+  background: rgb(0 0 0 / 52%);
+  content: '';
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: transform 60ms ease-in;
+}
+
+.command-dock-hotkey-action__face {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px 3px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #3a3d3f;
+  box-shadow:
+    inset 1px -3px 0 2px #292c2d,
+    inset -1px -3px 0 2px #292c2d,
+    inset 1px -3px 0 3px #111314,
+    inset -1px -3px 0 3px #111314;
+  pointer-events: none;
+  transition:
+    background-color 60ms ease-in,
+    box-shadow 60ms ease-in,
+    inset 60ms ease-in,
+    padding 60ms ease-in;
+}
+
+.command-dock-hotkey-action__legend {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: transform 60ms ease-in;
+}
+
+.command-dock-hotkey-action:not(:disabled):hover .command-dock-hotkey-action__face {
+  background: #44484a;
+  color: #fff;
+}
+
+.command-dock-hotkey-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.command-dock-hotkey-action:not(:disabled):active .command-dock-hotkey-action__face,
+.command-dock-hotkey-action:not(:disabled)[data-keyboard-pressed='true'] .command-dock-hotkey-action__face {
+  inset: var(--hotkey-press-travel) 1px 0;
+  padding: 0 4px 1px;
+  background: #343738;
+  box-shadow:
+    inset 1px -1px 0 2px #292c2d,
+    inset -1px -1px 0 2px #292c2d,
+    inset 1px -1px 0 3px #111314,
+    inset -1px -1px 0 3px #111314;
+}
+
+.command-dock-hotkey-action:not(:disabled):active::before,
+.command-dock-hotkey-action:not(:disabled)[data-keyboard-pressed='true']::before {
+  transform: translateY(1px);
+}
+
+.command-dock-hotkey-action:not(:disabled):active .command-dock-hotkey-action__legend,
+.command-dock-hotkey-action:not(:disabled)[data-keyboard-pressed='true'] .command-dock-hotkey-action__legend {
+  transform: translateY(1.5px);
+}
+
+.command-dock-hotkey-action:not(:disabled):not(:active):not([data-keyboard-pressed='true'])
+  .command-dock-hotkey-action__face,
+.command-dock-hotkey-action:not(:disabled):not(:active):not([data-keyboard-pressed='true'])
+  .command-dock-hotkey-action__legend {
+  transition-duration: 110ms;
+  transition-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+.command-dock-hotkey-action:not(:disabled):not(:active):not([data-keyboard-pressed='true'])::before {
+  transition-duration: 110ms;
+  transition-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+.command-dock-hotkey-action:disabled {
+  color: #888c8e;
+  cursor: not-allowed;
+}
+
+.command-dock-hotkey-action:disabled .command-dock-hotkey-action__face {
+  inset: var(--hotkey-press-travel) 1px 0;
+  padding: 0 4px 1px;
+  background: #282b2c;
+  box-shadow:
+    inset 1px -1px 0 2px #202324,
+    inset -1px -1px 0 2px #202324,
+    inset 1px -1px 0 3px #121415,
+    inset -1px -1px 0 3px #121415;
+  transition: none;
+}
+
+.command-dock-hotkey-action:disabled .command-dock-hotkey-action__legend {
+  transform: translateY(1.5px);
+  transition: none;
+}
+
+.command-dock-hotkey-action:disabled::before {
+  background: rgb(0 0 0 / 44%);
+  transform: translateY(1px);
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-dock-hotkey-action__face,
+  .command-dock-hotkey-action__legend {
+    transition:
+      background-color 60ms ease-in,
+      box-shadow 60ms ease-in;
+  }
+
+  .command-dock-hotkey-action:not(:disabled):active .command-dock-hotkey-action__face,
+  .command-dock-hotkey-action:not(:disabled)[data-keyboard-pressed='true'] .command-dock-hotkey-action__face {
+    inset: 0;
+  }
+
+  .command-dock-hotkey-action:not(:disabled):active .command-dock-hotkey-action__legend,
+  .command-dock-hotkey-action:not(:disabled)[data-keyboard-pressed='true'] .command-dock-hotkey-action__legend {
+    transform: none;
+  }
+
+  .command-dock-hotkey-action:not(:disabled):active::before,
+  .command-dock-hotkey-action:not(:disabled)[data-keyboard-pressed='true']::before {
+    transform: translateY(4px);
+  }
+}
