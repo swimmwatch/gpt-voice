@@ -19,6 +19,7 @@ import {
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS } from '@shared/mainInteractionLock';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
+import { PROVIDER_HOME_ACTION_IPC_CHANNELS } from '@shared/providerHomeAction';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
@@ -58,6 +59,36 @@ class RecordingIpcRenderer implements ElectronApiIpcRenderer {
 }
 
 describe('preload API factory', () => {
+  it('exposes only decoded bounded provider-home action commands and state events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery, {
+      activeAction: null,
+      activeActionCancellable: false,
+      settings: { prettifyEnabled: true, prettifyQuickEnabled: true, translateEnabled: true },
+    });
+    renderer.respond(PROVIDER_HOME_ACTION_IPC_CHANNELS.command, { accepted: true });
+    const api = createElectronApi(renderer);
+    const states: string[] = [];
+    const unsubscribe = api.onProviderHomeActionStateChanged((state) => states.push(String(state.activeAction)));
+
+    assert.equal((await api.getProviderHomeActionState()).activeAction, null);
+    assert.deepEqual(await api.runProviderHomeAction({ action: 'start', provider: 'prettify' }), { accepted: true });
+    renderer.emit(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, {
+      activeAction: 'translation',
+      activeActionCancellable: true,
+      settings: { prettifyEnabled: true, prettifyQuickEnabled: true, translateEnabled: true },
+    });
+    renderer.emit(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, { activeAction: 'translation' });
+    unsubscribe();
+
+    assert.deepEqual(states, ['translation']);
+    assert.deepEqual(renderer.invocations.slice(-2), [
+      { args: [], channel: PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery },
+      { args: [{ action: 'start', provider: 'prettify' }], channel: PROVIDER_HOME_ACTION_IPC_CHANNELS.command },
+    ]);
+    await assert.rejects(api.runProviderHomeAction({ action: 'start', provider: 'voice' } as never));
+  });
+
   it('routes typed invocations through an injected renderer without Electron globals', async () => {
     const renderer = new RecordingIpcRenderer();
     renderer.respond('get-active-provider', null);

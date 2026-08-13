@@ -16,6 +16,7 @@ import { resolveStartupLocale } from './startupLocale';
 import { presentPendingTranslationSettingsRepairNotice } from './translationSettings';
 import { presentPendingPrettifyProfileCatalogRepairNotice } from './prettifyProfileCatalogState';
 import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
+import type { ProviderHomeActionDispatcher } from './providerHomeActionDispatcher';
 
 const STARTUP_FAILURE_LOG = 'Application startup failed';
 const STREAMING_CLEANUP_FAILURE_LOG = 'Streaming transcription cleanup incomplete during quit';
@@ -94,6 +95,7 @@ export interface MainProcessApplicationDependencies {
   readonly logger: MainProcessLogger;
   readonly notify: (title: string, body: string) => void;
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'shutdown'>;
+  readonly providerHomeActionDispatcher: Pick<ProviderHomeActionDispatcher, 'dispose'>;
   readonly prettifyProfileChooserWindow: Pick<PrettifyProfileChooserWindowController, 'dispose'>;
   readonly runtimeFactory: MainProcessRuntimeFactory;
   readonly selectedTextPrettifyService: Pick<SelectedTextPrettifyService, 'dispose'>;
@@ -256,6 +258,8 @@ export class MainProcessApplication {
     } catch {
       this.dependencies.logger.warn(QUIT_CLEANUP_FAILURE_LOG);
     }
+
+    this.dependencies.providerHomeActionDispatcher.dispose();
 
     try {
       this.dependencies.selectedTextPrettifyService.dispose();

@@ -31,6 +31,7 @@ import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
 import type { AppConfigStore } from './config';
+import type { ProviderHomeActionDispatcher } from './providerHomeActionDispatcher';
 
 interface CancelShortcutActions {
   cancelPrettify: () => boolean;
@@ -78,6 +79,7 @@ export interface ShortcutControllerDependencies {
   };
   readonly platform: NodeJS.Platform;
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'isProviderConnected'>;
+  readonly providerHomeActionDispatcher: Pick<ProviderHomeActionDispatcher, 'dispatch'>;
   readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive' | 'subscribe'>;
   readonly selectedTextPrettifyService: Pick<
     SelectedTextPrettifyService,
@@ -226,12 +228,15 @@ export class ShortcutController {
       const window = this.dependencies.windowManager.getMainWindow();
       handleCancelShortcut(canCancelRecording(this.recordingLifecycleState), {
         cancelPrettify: () => {
-          const result = this.dependencies.selectedTextPrettifyService.cancel();
+          const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+            { action: 'cancel', provider: 'prettify' },
+            'escape',
+          ).accepted;
           if (result) {
             this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling prettify`);
             this.updateTrayIconForRecordingLifecycle();
           }
-          return Boolean(result);
+          return result;
         },
         cancelRecording: () => {
           this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling recording`);
@@ -239,7 +244,10 @@ export class ShortcutController {
           window?.webContents.send('cancel-recording');
         },
         cancelTranslation: () => {
-          const result = this.dependencies.selectedTextTranslationService.cancel();
+          const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+            { action: 'cancel', provider: 'translation' },
+            'escape',
+          ).accepted;
           if (result) this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling translation`);
           return result;
         },
@@ -248,36 +256,11 @@ export class ShortcutController {
     this.dependencies.logger.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
 
     const translateRegistered = this.registerConfiguredShortcut('translate', translateHotkey, () => {
-      const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
-      const currentSettings = this.dependencies.config.getSnapshot();
-      if (!canRunTranslateShortcut(this.recordingLifecycleState, currentSettings.translateEnabled, selectedTextBusy)) {
-        if (currentSettings.translateEnabled) {
-          this.dependencies.logger.info(`${translateHotkey} pressed while translation cannot run`, {
-            recordingLifecycleState: this.recordingLifecycleState,
-            selectedTextBusy,
-          });
-        } else {
-          this.dependencies.logger.info(`${translateHotkey} pressed while translation is disabled`);
-        }
-        return;
-      }
-
-      this.dependencies.logger.info(`${translateHotkey} pressed, translating selected text`);
-      let translationPresentationStarted = false;
-      const observer: SelectedTextTranslationRunObserver = {
-        onTranslationStarted: (): void => {
-          if (translationPresentationStarted) return;
-          translationPresentationStarted = true;
-          this.dependencies.trayController.updateIcon('processing');
-        },
-      };
-      const resultPromise = this.dependencies.selectedTextTranslationService.translateSelectedTextToClipboard(observer);
-      this.sendTextActionStatus({ action: 'translation', phase: 'working' });
-      void resolveTextActionStatus('translation', resultPromise).then((resolution) => {
-        this.reportTextActionFailure(resolution.failureLogMetadata);
-        this.sendTextActionStatus(resolution.status);
-        if (translationPresentationStarted) this.updateTrayIconForRecordingLifecycle();
-      });
+      const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+        { action: 'start', provider: 'translation' },
+        'global-shortcut',
+      );
+      if (!result.accepted) this.dependencies.logger.info(`${translateHotkey} pressed while translation cannot run`);
     });
     this.dependencies.logger.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
 
@@ -323,10 +306,18 @@ export class ShortcutController {
   }
 
   private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string): void {
+    if (target === 'prettify') {
+      const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+        { action: 'start', provider: 'prettify' },
+        'global-shortcut',
+      );
+      if (!result.accepted) this.dependencies.logger.info(`${hotkey} pressed while Prettify cannot run`);
+      return;
+    }
+
     const currentSettings = this.dependencies.config.getSnapshot();
-    const targetEnabled =
-      target === 'prettify' ? currentSettings.prettifyEnabled : currentSettings.prettifyQuickEnabled;
-    if (target === 'prettifyQuick' && !targetEnabled) {
+    const targetEnabled = currentSettings.prettifyQuickEnabled;
+    if (!targetEnabled) {
       this.dependencies.logger.info(`${hotkey} pressed while prettify is disabled`, { target });
       return;
     }
@@ -361,11 +352,7 @@ export class ShortcutController {
       return;
     }
 
-    this.dependencies.logger.info(
-      target === 'prettify'
-        ? `${hotkey} pressed, starting Prettify chooser action`
-        : `${hotkey} pressed, starting quick Prettify action`,
-    );
+    this.dependencies.logger.info(`${hotkey} pressed, starting quick Prettify action`);
     let generationPresentationStarted = false;
     const observer = {
       onGenerationStarted: (): void => {
@@ -375,10 +362,7 @@ export class ShortcutController {
         this.sendTextActionStatus({ action: 'prettify', phase: 'working' });
       },
     };
-    const resultPromise =
-      target === 'prettify'
-        ? this.dependencies.selectedTextPrettifyService.chooseProfileForSelectedText(observer)
-        : this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText(observer);
+    const resultPromise = this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText(observer);
     void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {
       this.reportTextActionFailure(resolution.failureLogMetadata);
       this.sendTextActionStatus(resolution.status);

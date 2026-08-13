@@ -1,10 +1,10 @@
 # Provider Hotkey Action Buttons — Task Checklist
 
-Plan status: Approved revision v2; packet 01 complete and intentionally
-uncommitted; no later packet is authorized
+Plan status: Approved revision v2; packets 01–02 complete; no later packet is
+authorized
 
 - [x] [`01_action_eligibility_contracts.md`](./01_action_eligibility_contracts.md)
-- [ ] [`02_main_action_dispatch_and_ipc.md`](./02_main_action_dispatch_and_ipc.md)
+- [x] [`02_main_action_dispatch_and_ipc.md`](./02_main_action_dispatch_and_ipc.md)
 - [ ] [`03_hotkey_action_button.md`](./03_hotkey_action_button.md)
 - [ ] [`04_home_screen_action_integration.md`](./04_home_screen_action_integration.md)
 - [ ] [`05_recording_footer_and_cta_removal.md`](./05_recording_footer_and_cta_removal.md)

@@ -70,6 +70,7 @@ import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import type { PrettifyProfileChooserIpcRegistrar } from './prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
+import type { ProviderHomeActionDispatcher } from './providerHomeActionDispatcher';
 import {
   PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
   type PrettifyCustomProfileIdAllocationResult,
@@ -80,6 +81,7 @@ import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
 import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
+import { isProviderHomeActionCommand, PROVIDER_HOME_ACTION_IPC_CHANNELS } from '@shared/providerHomeAction';
 import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
@@ -167,6 +169,7 @@ export interface MainIpcControllerDependencies {
   readonly prettifyProfileChooserWindow: Pick<PrettifyProfileChooserWindowController, 'publishLocaleChanged'>;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly prettifySettings: MainIpcPrettifySettingsRepository;
+  readonly providerHomeActionDispatcher: Pick<ProviderHomeActionDispatcher, 'dispatch' | 'getState' | 'publishState'>;
   readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
@@ -269,6 +272,18 @@ export class TrustedIpcRegistrar {
         throw new Error('Rejected Settings-only IPC sender');
       }
       return listener(event, settingsWindow, ...(args as Args));
+    });
+  }
+
+  /** Registers a command only the current main-window primary frame may invoke. */
+  public handleMainWindow<Args extends unknown[]>(channel: string, listener: TrustedIpcListener<Args>): void {
+    this.handle(channel, (event, ...args) => {
+      const frame = event.senderFrame;
+      if (!frame || !this.windowManager.isTrustedMainFrame(event.sender, frame)) {
+        this.logger.warn('Rejected main-window-only IPC sender');
+        throw new Error('Rejected main-window-only IPC sender');
+      }
+      return listener(event, ...(args as Args));
     });
   }
 
@@ -988,6 +1003,19 @@ export class MainIpcController {
       return dependencies.config.getTextActionSettings();
     });
 
+    this.trustedIpc.handleMainWindow(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return dependencies.providerHomeActionDispatcher.getState();
+    });
+    this.trustedIpc.handleMainWindow(
+      PROVIDER_HOME_ACTION_IPC_CHANNELS.command,
+      (_event, command: unknown, ...args: unknown[]) => {
+        assertEmptyIpcArguments(args);
+        if (!isProviderHomeActionCommand(command)) throw new TypeError('Invalid provider home action command');
+        return dependencies.providerHomeActionDispatcher.dispatch(command, 'provider-home');
+      },
+    );
+
     this.trustedIpc.handle('set-text-action-settings', (event, settings: unknown) => {
       if (this.isMainInteractionActionBlocked(event)) {
         return {
@@ -1010,6 +1038,7 @@ export class MainIpcController {
         });
         dependencies.config.setTextActionSettings(normalized);
         dependencies.config.save();
+        dependencies.providerHomeActionDispatcher.publishState();
         if (previous.translateEnabled !== normalized.translateEnabled) {
           void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
             log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);

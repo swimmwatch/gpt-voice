@@ -10,6 +10,21 @@ function readProjectFile(relativePath: string): string {
 }
 
 describe('hotkey IPC contract', () => {
+  it('restricts provider-home commands to a validated main frame and bounded payload', () => {
+    const ipc = readProjectFile('src/main/ipc.ts');
+    const shared = readProjectFile('src/shared/providerHomeAction.ts');
+
+    assert.match(ipc, /handleMainWindow\(/u);
+    assert.match(ipc, /isTrustedMainFrame\(event\.sender, frame\)/u);
+    assert.match(ipc, /PROVIDER_HOME_ACTION_IPC_CHANNELS\.snapshotQuery/u);
+    assert.match(ipc, /PROVIDER_HOME_ACTION_IPC_CHANNELS\.command/u);
+    assert.match(ipc, /isProviderHomeActionCommand\(command\)/u);
+    assert.match(ipc, /providerHomeActionDispatcher\.dispatch\(command, 'provider-home'\)/u);
+    assert.match(shared, /PROVIDER_HOME_ACTIONS = \['voice', 'prettify', 'translation'\]/u);
+    assert.match(shared, /isProviderHomeTextAction/u);
+    assert.match(shared, /Object\.keys\(candidate\)\.length === 2/u);
+  });
+
   it('persists the quick Prettify target through the validated existing handler', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const handler = ipc.slice(ipc.indexOf("handle('set-hotkey'"), ipc.indexOf("handle('get-translate-settings'"));

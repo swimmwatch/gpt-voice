@@ -86,6 +86,11 @@ export class SelectedTextTranslationService {
     return this.activeOperation?.cancel() ?? false;
   }
 
+  /** Reports whether the currently owned run can still accept one Cancel request. */
+  public canCancel(): boolean {
+    return Boolean(this.activeOperation && !this.activeOperation.cancelled);
+  }
+
   /** Translates the current desktop selection and writes the accepted result to the clipboard. */
   public readonly translateSelectedTextToClipboard = async (
     observer?: SelectedTextTranslationRunObserver,

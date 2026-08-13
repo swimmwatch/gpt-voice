@@ -15,6 +15,7 @@ import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
 } from '@shared/translationProvider';
+import { PROVIDER_HOME_ACTION_IPC_CHANNELS, type ProviderHomeActionState } from '@shared/providerHomeAction';
 
 const MAIN_WINDOW_CONTENT_WIDTH = 520;
 const MAIN_WINDOW_CONTENT_HEIGHT = 420;
@@ -124,6 +125,13 @@ export class WindowManager {
   public readonly publishTranslationProviderConnectionState = (state: TranslationProviderConnectionState): void => {
     this.mainWindow?.webContents.send(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state);
   };
+
+  /** Delivers only sanitized text-provider action state to the live main window. */
+  public publishProviderHomeActionState(state: ProviderHomeActionState): void {
+    const window = this.mainWindow;
+    if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+    window.webContents.send(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, state);
+  }
 
   public publishProviderSettingsChanged(settings: unknown, source: Pick<WebContents, 'id'>): void {
     if (!this.mainWindow || this.mainWindow.webContents.id === source.id) return;

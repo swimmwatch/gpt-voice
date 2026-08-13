@@ -25,6 +25,11 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import type {
+  ProviderHomeActionCommand,
+  ProviderHomeActionResult,
+  ProviderHomeActionState,
+} from '@shared/providerHomeAction';
 import type { TextActionStatus } from '@shared/textActionStatus';
 import type {
   TranslationProviderConnectionState,
@@ -227,6 +232,9 @@ export interface ElectronAPI {
   getTranslateSettings: () => Promise<TranslationSettings>;
   getTranslationProviderConnection: () => Promise<TranslationProviderConnectionState>;
   getTextActionSettings: () => Promise<TextActionSettings>;
+  getProviderHomeActionState: () => Promise<ProviderHomeActionState>;
+  runProviderHomeAction: (command: ProviderHomeActionCommand) => Promise<ProviderHomeActionResult>;
+  onProviderHomeActionStateChanged: (callback: (state: ProviderHomeActionState) => void) => () => void;
   getDiagnosticCaptureSettings: () => Promise<DiagnosticCaptureSettings>;
   setDiagnosticCaptureSettings: (
     request: DiagnosticCaptureSettingsMutationRequest,

@@ -18,6 +18,7 @@ import { TranscriptionHistoryIpcController } from '../services/transcriptionHist
 import { createTranscriptionResultCache } from '../services/transcriptionResultCache';
 import type { DesktopRuntimeController } from '../desktopRuntimeController';
 import type { ShortcutController } from '../shortcuts';
+import type { ProviderHomeActionDispatcher } from '../providerHomeActionDispatcher';
 import type { WindowManager } from '../window';
 import type { BackgroundBrowserService } from '../browser';
 import type { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
@@ -62,6 +63,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'prettifyProfileChooserIpc'
   | 'prettifyProfileChooserWindow'
   | 'prettifyProfilePortability'
+  | 'providerHomeActionDispatcher'
   | 'prettifyRuntime'
   | 'providerSelection'
   | 'shortcutController'
@@ -113,6 +115,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly mainInteractionLock: MainInteractionLock;
   readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
+  readonly providerHomeActionDispatcher: ProviderHomeActionDispatcher;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
@@ -198,6 +201,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       prettifyProfileChooserIpc,
       prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,
       prettifyProfilePortability: this.controllers.prettifyProfilePortability,
+      providerHomeActionDispatcher: this.controllers.providerHomeActionDispatcher,
       prettifyRuntime: this.controllers.prettifyRuntime,
       providerSelection,
       shortcutController: this.controllers.shortcutController,

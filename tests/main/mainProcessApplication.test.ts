@@ -376,6 +376,7 @@ class RecordingShortcutController extends ShortcutController {
       notification: { show: () => undefined },
       platform: 'linux',
       prettifyRuntime: { isProviderConnected: () => true },
+      providerHomeActionDispatcher: { dispatch: () => ({ accepted: false }) },
       selectedTextActionGate: {
         getActive: () => null,
         subscribe: () => () => undefined,
@@ -579,6 +580,9 @@ class MainProcessApplicationHarness {
         shutdown: async () => {
           this.events.push('prettify-shutdown');
         },
+      },
+      providerHomeActionDispatcher: {
+        dispose: () => this.events.push('provider-home-action-dispose'),
       },
       prettifyProfileChooserWindow: {
         dispose: () => this.events.push('prettify-chooser-dispose'),
@@ -797,6 +801,7 @@ describe('main process application lifecycle', () => {
     assert.deepEqual(harness.events, [
       'set-quitting',
       'shortcuts-dispose',
+      'provider-home-action-dispose',
       'prettify-selection-dispose',
       'prettify-chooser-dispose',
       'ipc-dispose',

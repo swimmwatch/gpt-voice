@@ -1390,3 +1390,52 @@ decisions:
     rationale: ''
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution
+    revision: 5
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly invoked incremental-implementation after packet 01 was committed.'
+      - 'Prompt MCP authorization.execution-packet-02:v1 selected authorize-packet-02.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-02-execution-authorization-round-01
+      question_id: authorization.execution-packet-02
+      idempotency_key: authorization.execution-packet-02:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 02, Main Action Dispatch and IPC, during this incremental-implementation invocation?'
+      kind: single
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: ''
+    rationale: 'Authorization applies only to packet 02 during the current incremental-implementation invocation.'
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: authorization.commit-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 02 source, tests, decision, checklist, and handoff records remain uncommitted.'
+      - 'Packet 02 focused tests, touched-file lint and formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-02-commit-authorization-round-01
+      question_id: authorization.commit-packet-02
+      idempotency_key: authorization.commit-packet-02:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 02 before opening the next packet?'
+      kind: single
+    answer:
+      selected_ids: [commit-packet-02]
+      text: ''
+    rationale: 'Authorization covers only verified Packet 02 files and excludes unrelated worktree changes.'
+    supersedes_revision: null
+    requirement_ids: []

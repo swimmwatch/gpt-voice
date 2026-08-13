@@ -10,6 +10,7 @@ import { ShortcutController, type ShortcutControllerDependencies } from '../shor
 import { TrayController, type TrayControllerDependencies } from '../tray';
 import { WindowManager, type WindowManagerDependencies } from '../window';
 import { ProviderSettingsWindowController } from '../providerSettingsWindowController';
+import { ProviderHomeActionDispatcher } from '../providerHomeActionDispatcher';
 import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } from '../browser';
 import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
@@ -337,6 +338,7 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'logger'
     | 'mainInteractionLock'
     | 'notification'
+    | 'providerHomeActionDispatcher'
     | 'prettifyRuntime'
   >;
   readonly tray: Omit<
@@ -362,6 +364,7 @@ type ConstructedDesktopDependencyKeys =
   | 'firstLaunchStartupCoordinator'
   | 'linuxDesktopIntegrationController'
   | 'prettifyProfileChooserWindow'
+  | 'providerHomeActionDispatcher'
   | 'runtimeFactory'
   | 'selectedTextPrettifyService'
   | 'shortcutController'
@@ -384,6 +387,7 @@ interface ConstructedControllers extends MainProcessRuntimeFactoryControllers {
   readonly appProtocolController: AppProtocolController;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
   readonly selectedTextPrettifyService: SelectedTextPrettifyService;
+  readonly providerHomeActionDispatcher: ProviderHomeActionDispatcher;
   readonly trayController: TrayController;
 }
 
@@ -756,10 +760,14 @@ export class MainProcessCompositionRoot {
       mainInteractionLock,
       windowManager,
     });
-    const shortcutController = new ShortcutController({
-      ...desktopEnvironment.shortcuts,
+    const shortcutControllerReference: { current: ShortcutController | null } = { current: null };
+    const providerHomeActionDispatcher = new ProviderHomeActionDispatcher({
       config: configStore,
+      getRecordingLifecycleState: () =>
+        shortcutControllerReference.current?.getRecordingState().lifecycleState ?? 'idle',
       localization,
+      logger: loggerFactory.getLogger('provider-home-actions'),
+      mainInteractionLock,
       notification: {
         show: electronRuntime.showSystemNotification,
       },
@@ -769,9 +777,25 @@ export class MainProcessCompositionRoot {
       selectedTextTranslationService,
       trayController,
       windowManager,
+    });
+    const shortcutController = new ShortcutController({
+      ...desktopEnvironment.shortcuts,
+      config: configStore,
+      localization,
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+      prettifyRuntime,
+      providerHomeActionDispatcher,
+      selectedTextActionGate,
+      selectedTextPrettifyService,
+      selectedTextTranslationService,
+      trayController,
+      windowManager,
       logger: loggerFactory.getLogger('shortcuts'),
       mainInteractionLock,
     });
+    shortcutControllerReference.current = shortcutController;
     const firstLaunchStartupCoordinator = new FirstLaunchStartupCoordinator({
       jobRunners: [
         {
@@ -836,6 +860,7 @@ export class MainProcessCompositionRoot {
       prettifyProfileChooserWindow,
       prettifyProfilePortability,
       prettifyRuntime,
+      providerHomeActionDispatcher,
       selectedTextPrettifyService,
       shortcutController,
       translationRuntime,

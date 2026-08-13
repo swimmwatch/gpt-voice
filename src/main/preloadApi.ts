@@ -82,6 +82,15 @@ import {
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, isMainInteractionLockState } from '@shared/mainInteractionLock';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS, isTextActionActivityState } from '@shared/textActionStatus';
 import {
+  isProviderHomeActionCommand,
+  isProviderHomeActionResult,
+  isProviderHomeActionState,
+  PROVIDER_HOME_ACTION_IPC_CHANNELS,
+  type ProviderHomeActionCommand,
+  type ProviderHomeActionResult,
+  type ProviderHomeActionState,
+} from '@shared/providerHomeAction';
+import {
   LOCAL_WHISPER_IPC_CHANNELS,
   isLocalWhisperMainStatusSnapshot,
   isLocalWhisperMainResidencyCommand,
@@ -470,6 +479,20 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getTextActionSettings: (): Promise<TextActionSettings> => {
       return ipcRenderer.invoke('get-text-action-settings');
+    },
+    getProviderHomeActionState: async (): Promise<ProviderHomeActionState> => {
+      const state = await ipcRenderer.invoke<unknown>(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery);
+      if (!isProviderHomeActionState(state)) throw new Error('Invalid provider home action state');
+      return state;
+    },
+    runProviderHomeAction: async (command: ProviderHomeActionCommand): Promise<ProviderHomeActionResult> => {
+      if (!isProviderHomeActionCommand(command)) throw new Error('Invalid provider home action command');
+      const result = await ipcRenderer.invoke<unknown>(PROVIDER_HOME_ACTION_IPC_CHANNELS.command, command);
+      if (!isProviderHomeActionResult(result)) throw new Error('Invalid provider home action result');
+      return result;
+    },
+    onProviderHomeActionStateChanged: (callback: (state: ProviderHomeActionState) => void): (() => void) => {
+      return onDecodedEvent(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, isProviderHomeActionState, callback);
     },
     getDiagnosticCaptureSettings: (): Promise<DiagnosticCaptureSettings> => {
       return ipcRenderer.invoke(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get);

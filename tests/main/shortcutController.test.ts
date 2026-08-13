@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserWindow } from 'electron';
 import { ShortcutController, type ShortcutSettingsSnapshot } from '@main/shortcuts';
+import { ProviderHomeActionDispatcher } from '@main/providerHomeActionDispatcher';
 import type { SelectedTextPrettifyResult, SelectedTextPrettifyRunObserver } from '@main/services/selectedTextPrettify';
 import type { SelectedTextTranslationRunObserver } from '@main/services/selectedTextTranslation';
 import type { SelectedTextAction } from '@main/services/selectedTextActionState';
@@ -88,6 +89,69 @@ class ShortcutControllerHarness {
     const settings = { ...DEFAULT_SETTINGS, ...options.settings };
     this.config.setHotkeys(settings);
     this.config.setTextActionSettings(settings);
+    const providerHomeActionDispatcher = new ProviderHomeActionDispatcher({
+      config: this.config,
+      getRecordingLifecycleState: () => this.controller.getRecordingState().lifecycleState,
+      localization: { translate: (key) => key },
+      logger: { info: () => undefined, warn: () => undefined },
+      mainInteractionLock: this.mainInteractionLock,
+      notification: { show: (title, body) => this.notifications.push([title, body]) },
+      prettifyRuntime: {
+        isProviderConnected: (providerId) => {
+          this.connectionChecks.push(providerId);
+          return options.prettifyConnected ?? true;
+        },
+      },
+      selectedTextActionGate: {
+        getActive: () => this.actionGateActive,
+        subscribe: (listener) => {
+          this.actionGateListeners.add(listener);
+          return (): void => {
+            this.actionGateListeners.delete(listener);
+          };
+        },
+      },
+      selectedTextPrettifyService: {
+        canCancel: () => this.actionGateActive === 'prettify',
+        cancel: () => {
+          this.cancelCalls += 1;
+          return null;
+        },
+        chooseProfileForSelectedText: (observer) => {
+          this.chooserCalls += 1;
+          this.generationObserver = observer ?? null;
+          return this.chooserResult;
+        },
+        focusExistingChooser: () => {
+          this.chooserFocusCalls += 1;
+          return this.chooserFocusResult;
+        },
+      },
+      selectedTextTranslationService: {
+        canCancel: () => this.actionGateActive === 'translate',
+        cancel: () => {
+          this.translationCancelCalls += 1;
+          return this.translationCancelResult;
+        },
+        translateSelectedTextToClipboard: async (observer) => {
+          this.translationCalls += 1;
+          this.translationObserver = observer ?? null;
+          return this.translationResult;
+        },
+      },
+      trayController: {
+        updateIcon: (state: string) => this.trayStates.push(state),
+      },
+      windowManager: {
+        getMainWindow: () =>
+          ({
+            webContents: {
+              send: (...args: unknown[]) => this.sent.push(args),
+            },
+          }) as unknown as BrowserWindow,
+        publishProviderHomeActionState: () => undefined,
+      },
+    });
     this.controller = new ShortcutController({
       config: this.config,
       globalShortcut: this.globalShortcuts,
@@ -106,6 +170,7 @@ class ShortcutControllerHarness {
           return options.prettifyConnected ?? true;
         },
       },
+      providerHomeActionDispatcher,
       selectedTextActionGate: {
         getActive: () => this.actionGateActive,
         subscribe: (listener) => {
@@ -167,6 +232,7 @@ class ShortcutControllerHarness {
 
   public startTranslation(): void {
     assert.ok(this.translationObserver);
+    this.actionGateActive = 'translate';
     this.translationObserver.onTranslationStarted();
   }
 

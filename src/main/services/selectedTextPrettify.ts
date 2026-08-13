@@ -249,6 +249,12 @@ export class SelectedTextPrettifyService {
     return this.createCancelledResult();
   }
 
+  /** Reports whether the currently owned run can still accept one Cancel request. */
+  public canCancel(): boolean {
+    const run = this.activeRun;
+    return Boolean(run && !run.cancelled && !run.abortController.signal.aborted);
+  }
+
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
