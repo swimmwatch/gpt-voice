@@ -6,97 +6,66 @@
 - 02 — [Main Action Dispatch And IPC](./02_main_action_dispatch_and_ipc.md)
 - 03 — [Hotkey Action Button](./03_hotkey_action_button.md)
 - 04 — [Home Screen Action Integration](./04_home_screen_action_integration.md)
+- 05 — [Recording Footer And CTA Removal](./05_recording_footer_and_cta_removal.md)
 
 ## Changed Files
 
-- Packet 01 committed as `7194d80`.
-- `src/main/providerHomeActionDispatcher.ts` — one main-owned normal Prettify,
-  Translation, and provider-specific Cancel dispatcher.
-- `src/main/{ipc,preloadApi,window}.ts`, `src/renderer/types.d.ts`, and
-  `src/shared/providerHomeAction.ts` — bounded main-frame IPC commands plus
-  sanitized snapshot/change publication.
-- `src/main/{shortcuts,mainProcessApplication}.ts` and composition/runtime
-  roots — global Prettify/Translation/Escape adapters and disposal ownership.
-- `src/main/services/selectedText{Prettify,Translation}.ts` — cancellability
-  predicates with no sensitive-state publication.
-- `tests/main/providerHomeActionDispatcher.test.ts` and related IPC, preload,
-  shortcut, lifecycle, and service tests — exact owner/cancel, trusted input,
-  and regression coverage.
-- `decisions.yaml`, `tasks/todo.md`, and this handoff record packet-02
-  authorization and completion.
-- Packet 03 committed as `0fde290`.
-- `src/renderer/components/HotkeyActionButton.tsx` — one accessible semantic
-  button with pointer/Enter/Space feedback, remount-based interruption cleanup,
-  semantic unavailable state, and active/busy/locking presentation inputs.
-- `src/renderer/hotkeyActionButtonState.ts` — isolated 114 by 32 geometry,
-  3px travel, 110ms lock/release timing, visual-state decisions, and
-  token-aware accelerator legend formatting.
-- `src/renderer/styles/hotkeyActionButton.css` — shared graphite shadow,
-  bevel, face, legend, focus, disabled, busy, active, locking, and
-  reduced-motion styles; demo CSS remains layout-only.
-- `tests/renderer/hotkeyActionButton.test.ts` and
-  `tests/renderer/hotkeyActionButtonTransition.test.ts` — source/style and
-  deterministic state-transition coverage.
-- `src/renderer/App.tsx` — uses the common provider-key integration at the
-  existing Voice, Prettify, and Translation action-control seams; Voice keeps
-  its renderer-owned Start/Pause/Resume lifecycle.
-- `src/renderer/useProviderHotkeyHomeIntegration.ts` — reconciles renderer-safe
-  snapshots, derives fail-closed key eligibility, dispatches bounded normal
-  Prettify/Translation starts, and prepares non-rendered localized
-  Pause/Resume/Stop/Cancel descriptors for packet 05.
-- `src/renderer/useMainPrettifyHomeProvider.ts` — focused extraction of the
-  existing Prettify settings, connection, and model state needed to keep the
-  App component within lint limits without behavior changes.
-- `tests/renderer/providerHotkeyHomeIntegration.test.ts` plus updated provider
-  row/status contracts — authoritative snapshot, bounded action route,
-  contextual descriptor, and unchanged row-seam coverage.
+- Packet 05 is committed under the recorded `authorization.commit-packet-05`
+  decision.
+- `src/renderer/components/RecordingControls.tsx` — removes the primary
+  Record/Stop/Busy band, renders only supplied contextual tiles, restores focus
+  when a focused tile disappears, and gives status detail priority over the
+  captured-audio duration.
+- `src/renderer/components/ContextualActionTile.tsx` and
+  `src/renderer/styles/contextualActionTile.css` — provider-neutral native
+  icon-and-hotkey tiles, isolated from the frozen three-dimensional provider
+  key stylesheet.
+- `src/renderer/recordingElapsedTime.ts` — renderer-local injectable monotonic
+  captured-audio timer that excludes paused and processing intervals.
+- `src/main/i18n/*.ts` — localized captured-audio-duration label for every
+  supported locale, with no byte or megabyte value.
+- `src/renderer/{App,ProviderHotkeyDemo,bootstrapWindow}.tsx` and
+  `src/renderer/entries/providerHotkeyDemo.tsx` — pass Packet 04 contextual
+  descriptors to the footer and load the separate tile stylesheet without
+  changing provider-key behavior or global shortcut subscriptions.
+- `src/renderer/{mainWindowViewState.ts,hooks/useRecording.ts}` and
+  `src/shared/recordingLifecycle.ts` — remove obsolete primary presentation and
+  make batch/retry cancellation generation-scoped through transcribing/retrying.
+- `src/renderer/styles/globals.css` — removes only primary-band CSS and bounds
+  visible status text; Packet 06 still owns final window/footer geometry.
+- Focused renderer/lifecycle tests cover the action matrix, native activation
+  contract, focus recovery, elapsed duration, status priority, primary-CTA
+  removal, and late-result cancellation suppression.
+- `decisions.yaml` records Packet 05 execution authorization.
 
 ## Checks
 
-- `rtk node --import tsx --test tests/main/providerHomeActionDispatcher.test.ts
-tests/main/hotkeyIpcContract.test.ts tests/main/preloadApi.test.ts
-tests/main/shortcutController.test.ts tests/main/mainInteractionLockActionGate.test.ts
-tests/main/mainProcessApplication.test.ts tests/main/selectedTextPrettify.test.ts
-tests/main/selectedTextTranslation.test.ts tests/shared/textActionSettings.test.ts`
-  — 111 passing tests.
-- `rtk npx eslint --max-warnings 0` on touched files — passed.
-- `rtk prettier --check` on touched files — passed.
+- `rtk node --import tsx --test tests/renderer/recordingControls.test.ts tests/renderer/mainWindowViewState.test.ts tests/renderer/recordingStatusLayout.test.ts tests/renderer/contextualProviderActions.test.ts tests/renderer/recordingElapsedTime.test.ts tests/renderer/recordingCancellation.test.ts tests/renderer/recordingRetryState.test.ts tests/renderer/recordingNotifications.test.ts tests/renderer/streamingRecordingWorkflow.test.ts tests/renderer/streamingTranscriptionQueue.test.ts tests/renderer/streamingTranscriptionPresentation.test.ts tests/renderer/providerHotkeyEligibility.test.ts tests/renderer/providerHotkeyHomeIntegration.test.ts tests/renderer/providerStatusPresentation.test.ts tests/renderer/translateSection.test.ts tests/shared/recordingLifecycle.test.ts`
+  — 82 passing tests.
+- `rtk node --import tsx --test tests/main/shortcutController.test.ts tests/main/hotkeyIpcContract.test.ts tests/main/providerHomeActionDispatcher.test.ts tests/main/selectedTextPrettify.test.ts tests/main/selectedTextTranslation.test.ts`
+  — 87 passing tests.
 - `rtk npm run typecheck` — passed.
 - `rtk npm run test:types` — passed.
+- `rtk npx eslint --max-warnings 0` on all Packet 05 source and focused test
+  files — passed.
+- `rtk prettier --check` on all Packet 05 source, style, test, and decision
+  files — passed.
 - `rtk git diff --check` — passed.
-- `rtk node --import tsx --test tests/renderer/providerHotkeyHomeIntegration.test.ts
-tests/renderer/providerHotkeyEligibility.test.ts
-tests/renderer/mainPrettifyProviderBand.test.ts tests/renderer/translateSection.test.ts
-tests/renderer/providerStatusPresentation.test.ts` — 48 passing tests.
-- `rtk node --import tsx --test tests/main/providerHomeActionDispatcher.test.ts
-tests/main/hotkeyIpcContract.test.ts tests/main/preloadApi.test.ts
-tests/main/shortcutController.test.ts` — 39 passing tests.
-- `rtk npx eslint --max-warnings 0` on Packet 04 renderer source and focused
-  tests — passed.
-- `rtk npm run typecheck`, `rtk npm run test:types`, and `rtk git diff --check`
-  — passed.
-- `rtk npm run lint -- --max-warnings 0` — exits nonzero on 107 existing
-  warnings in unrelated Local Whisper/security sources; no Packet 04 lint
-  warnings were reported.
-- `rtk node --import tsx --test tests/renderer/hotkeyActionButton*.test.ts` —
-  8 passing tests.
-- `rtk npx eslint --max-warnings 0 src/renderer/components/HotkeyActionButton.tsx src/renderer/hotkeyActionButtonState.ts tests/renderer/hotkeyActionButton.test.ts tests/renderer/hotkeyActionButtonTransition.test.ts`
-  — passed.
-- `rtk prettier --check src/renderer/components/HotkeyActionButton.tsx src/renderer/hotkeyActionButtonState.ts src/renderer/styles/hotkeyActionButton.css tests/renderer/hotkeyActionButton.test.ts tests/renderer/hotkeyActionButtonTransition.test.ts`
-  — passed.
-- `rtk npm run typecheck` — passed.
-- `rtk npm run test:types` — passed.
-- `rtk git diff --check` — passed.
+- `rtk npm run lint -- --max-warnings 0` — fails only on 107 existing warnings
+  in unrelated Local Whisper/security sources; it reports no errors and no
+  Packet 05 warnings.
 
 ## Exact Next Packet
 
 On a later explicit `incremental-implementation` request, obtain separate
-execution authorization to execute
-[`05_recording_footer_and_cta_removal.md`](./05_recording_footer_and_cta_removal.md)
-only. Do not commit Packet 04 without separate commit authorization.
+commit authorization for Packet 05, commit only its scoped files, then obtain
+separate execution authorization for
+[`06_compact_window_and_layout.md`](./06_compact_window_and_layout.md). Do not
+execute Packet 06 in this handoff.
 
 ## Blockers
 
-- No Packet 04 blocker. Its work is intentionally uncommitted pending separate
-  commit authorization. Repository-wide lint has unrelated existing warnings,
-  recorded above.
+- No Packet 05 blocker. Manual Electron lifecycle and Stop-shortcut checks are
+  intentionally deferred to Packet 08.
+- The worktree contains unrelated user-owned changes and untracked assets; do
+  not stage them with Packet 05.

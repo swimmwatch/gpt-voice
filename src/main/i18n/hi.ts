@@ -207,6 +207,7 @@ export default {
   'recording.pause': 'रिकॉर्डिंग रोकें',
   'recording.resume': 'रिकॉर्डिंग पुनः शुरू करें',
   'recording.cancel': 'रिकॉर्डिंग रद्द करें',
+  'recording.capturedAudioDuration': 'रिकॉर्ड किया गया ऑडियो: {duration}',
   'modelMemory.title': 'मॉडल मेमोरी',
   'modelMemory.ollamaGpu': 'सुधार मॉडल',
   'modelMemory.vram': 'VRAM',

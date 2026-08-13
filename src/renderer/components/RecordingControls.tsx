@@ -1,53 +1,19 @@
-import { CircleDot, LoaderCircle, Mic, Pause, Play, Square, X, type LucideIcon } from 'lucide-react';
+import { CircleDot, LoaderCircle, Mic, Pause } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import ContextualActionTile from '@renderer/components/ContextualActionTile';
 import { useI18n } from '@renderer/hooks/useI18n';
-import {
-  getRecordingWorkspaceViewState,
-  RecordingWorkspacePrimaryAction,
-  RecordingWorkspaceSecondaryAction,
-  RecordingWorkspaceStatus,
-} from '@renderer/mainWindowViewState';
-import { Button } from '@renderer/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import { RecordingWorkspaceStatus, getRecordingWorkspaceViewState } from '@renderer/mainWindowViewState';
+import { useCapturedAudioElapsedTime } from '@renderer/recordingElapsedTime';
 import { cn } from '@renderer/lib/cn';
 import { getRendererStatusDetail, renderRendererStatus, type RendererStatus } from '@renderer/statusPresentation';
+import type { ProviderHotkeyContextualAction } from '@renderer/useProviderHotkeyHomeIntegration';
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 interface RecordingControlsProps {
-  hidePrimaryAction?: boolean;
-  recordingDisabled: boolean;
-  onCancel: () => void;
-  onPause: () => void;
-  onResume: () => void;
-  onStart: () => void | Promise<void>;
-  onStop: () => void;
-  recordHotkey: string;
-  state: RecordingLifecycleState;
-  status: RendererStatus | null;
+  readonly contextualActions: readonly ProviderHotkeyContextualAction[];
+  readonly state: RecordingLifecycleState;
+  readonly status: RendererStatus | null;
 }
-
-interface SecondaryActionConfig {
-  icon: LucideIcon;
-  labelKey: string;
-  variant: 'destructive' | 'outline';
-}
-
-const secondaryActionConfig: Record<RecordingWorkspaceSecondaryAction, SecondaryActionConfig> = {
-  [RecordingWorkspaceSecondaryAction.Cancel]: {
-    icon: X,
-    labelKey: 'recording.cancel',
-    variant: 'destructive',
-  },
-  [RecordingWorkspaceSecondaryAction.Pause]: {
-    icon: Pause,
-    labelKey: 'recording.pause',
-    variant: 'outline',
-  },
-  [RecordingWorkspaceSecondaryAction.Resume]: {
-    icon: Play,
-    labelKey: 'recording.resume',
-    variant: 'outline',
-  },
-};
 
 function RecordingStatusIcon({ status }: { status: RecordingWorkspaceStatus }): React.JSX.Element {
   switch (status) {
@@ -75,76 +41,40 @@ function getStatusClassName(status: RecordingWorkspaceStatus): string {
   }
 }
 
-/** Presents recording lifecycle controls and routes user actions to the active recording state. */
-function RecordingControls({
-  hidePrimaryAction = false,
-  onCancel,
-  onPause,
-  onResume,
-  onStart,
-  onStop,
-  recordingDisabled,
-  recordHotkey,
-  state,
-  status,
-}: RecordingControlsProps): React.JSX.Element {
+function getContextualActionId(action: ProviderHotkeyContextualAction): string {
+  return `${action.provider}:${action.action}`;
+}
+
+/** Presents lifecycle status and the provider-neutral actions currently available to the user. */
+function RecordingControls({ contextualActions, state, status }: RecordingControlsProps): React.JSX.Element {
   const { t } = useI18n();
+  const footerRef = useRef<HTMLElement | null>(null);
+  const previouslyFocusedActionRef = useRef<string | null>(null);
+  const capturedDuration = useCapturedAudioElapsedTime(state);
   const viewState = getRecordingWorkspaceViewState(state);
-  const isPrimaryStop = viewState.primary.action === RecordingWorkspacePrimaryAction.Stop;
   const translatedState = t(viewState.status.labelKey);
   const statusDetail = getRendererStatusDetail(status, state);
+  const showCapturedDuration = !statusDetail && (state === 'recording' || state === 'paused');
+  const capturedDurationLabel = t('recording.capturedAudioDuration', { duration: capturedDuration });
 
-  const handlePrimaryAction = (): void => {
-    if (viewState.primary.action === RecordingWorkspacePrimaryAction.Record && !recordingDisabled) {
-      void onStart();
-    } else if (viewState.primary.action === RecordingWorkspacePrimaryAction.Stop) {
-      onStop();
+  useEffect(() => {
+    const focusedActionId = previouslyFocusedActionRef.current;
+    if (focusedActionId && !contextualActions.some((action) => getContextualActionId(action) === focusedActionId)) {
+      footerRef.current?.focus();
+      previouslyFocusedActionRef.current = null;
     }
-  };
-
-  const handleSecondaryAction = (action: RecordingWorkspaceSecondaryAction): void => {
-    switch (action) {
-      case RecordingWorkspaceSecondaryAction.Cancel:
-        onCancel();
-        return;
-      case RecordingWorkspaceSecondaryAction.Pause:
-        onPause();
-        return;
-      case RecordingWorkspaceSecondaryAction.Resume:
-        onResume();
-        return;
-    }
-  };
+  }, [contextualActions]);
 
   return (
     <section
-      className={cn('command-dock-recording', hidePrimaryAction && 'command-dock-recording-without-primary')}
+      className="command-dock-recording"
       data-slot="recording-controls"
+      onFocusCapture={(event) => {
+        previouslyFocusedActionRef.current = event.target.dataset.contextualActionId ?? null;
+      }}
+      ref={footerRef}
+      tabIndex={-1}
     >
-      {!hidePrimaryAction && (
-        <div className="command-dock-record-command-band">
-          <Button
-            className="command-dock-record-button"
-            disabled={recordingDisabled || viewState.primary.disabled}
-            onClick={handlePrimaryAction}
-            size="lg"
-            variant={isPrimaryStop ? 'destructive' : 'primary'}
-          >
-            <span className="command-dock-record-button-main">
-              {viewState.primary.action === RecordingWorkspacePrimaryAction.Busy ? (
-                <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
-              ) : isPrimaryStop ? (
-                <Square aria-hidden="true" className="fill-current" />
-              ) : (
-                <Mic aria-hidden="true" strokeWidth={1.75} />
-              )}
-              <span>{t(viewState.primary.labelKey)}</span>
-            </span>
-            <kbd>{recordHotkey}</kbd>
-          </Button>
-        </div>
-      )}
-
       <div className="command-dock-status-band" data-slot="recording-state-row">
         <div
           className={cn('command-dock-recording-state', getStatusClassName(viewState.status.kind))}
@@ -154,36 +84,33 @@ function RecordingControls({
           <span>{translatedState}</span>
         </div>
 
-        {statusDetail && (
-          <p aria-live="polite" className="command-dock-status-detail" data-slot="recording-status" role="status">
+        {statusDetail ? (
+          <p
+            aria-live="polite"
+            className="command-dock-status-detail"
+            data-slot="recording-status"
+            role="status"
+            title={renderRendererStatus(statusDetail, t)}
+          >
             {renderRendererStatus(statusDetail, t)}
           </p>
+        ) : (
+          showCapturedDuration && (
+            <p
+              aria-label={capturedDurationLabel}
+              className="command-dock-status-detail command-dock-captured-duration"
+              data-slot="captured-audio-duration"
+              title={capturedDurationLabel}
+            >
+              {capturedDuration}
+            </p>
+          )
         )}
 
-        <div className="command-dock-recording-actions" data-slot="recording-secondary-actions">
-          {viewState.secondaryActions.map((action) => {
-            const config = secondaryActionConfig[action];
-            const Icon = config.icon;
-            const label = t(config.labelKey);
-
-            return (
-              <Tooltip key={action}>
-                <TooltipTrigger asChild>
-                  <Button
-                    aria-label={label}
-                    className="command-dock-recording-secondary-action"
-                    onClick={() => handleSecondaryAction(action)}
-                    size="sm"
-                    title={label}
-                    variant={config.variant}
-                  >
-                    <Icon aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            );
-          })}
+        <div className="command-dock-recording-actions" data-slot="recording-contextual-actions">
+          {contextualActions.map((action) => (
+            <ContextualActionTile action={action} key={getContextualActionId(action)} />
+          ))}
         </div>
       </div>
     </section>

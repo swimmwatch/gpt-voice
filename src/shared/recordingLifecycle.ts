@@ -31,7 +31,13 @@ export function canResumeRecording(state: RecordingLifecycleState): boolean {
 }
 
 export function canCancelRecording(state: RecordingLifecycleState): boolean {
-  return state === 'starting' || state === 'recording' || state === 'paused';
+  return (
+    state === 'starting' ||
+    state === 'recording' ||
+    state === 'paused' ||
+    state === 'transcribing' ||
+    state === 'retrying'
+  );
 }
 
 export function isRecordingLifecycleBusy(state: RecordingLifecycleState): boolean {

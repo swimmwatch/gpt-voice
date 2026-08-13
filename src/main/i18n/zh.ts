@@ -204,6 +204,7 @@ export default {
   'recording.pause': '暂停录音',
   'recording.resume': '恢复录音',
   'recording.cancel': '取消录音',
+  'recording.capturedAudioDuration': '已录制音频：{duration}',
   'modelMemory.title': '模型记忆',
   'modelMemory.ollamaGpu': '润色模型',
   'modelMemory.vram': 'VRAM',

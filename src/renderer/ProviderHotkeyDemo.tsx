@@ -177,18 +177,7 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         }
       />
 
-      <RecordingControls
-        hidePrimaryAction
-        onCancel={noAction}
-        onPause={noAction}
-        onResume={noAction}
-        onStart={noAction}
-        onStop={noAction}
-        recordingDisabled={false}
-        recordHotkey={DEMO_HOTKEYS.voice}
-        state="idle"
-        status={translatedStatus('status.copiedToClipboard')}
-      />
+      <RecordingControls contextualActions={[]} state="idle" status={translatedStatus('status.copiedToClipboard')} />
     </main>
   );
 }

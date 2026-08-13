@@ -205,6 +205,7 @@ export default {
   'recording.pause': '録音一時停止',
   'recording.resume': '録音再開',
   'recording.cancel': '録音キャンセル',
+  'recording.capturedAudioDuration': '録音済み音声: {duration}',
   'modelMemory.title': 'モデルメモリ',
   'modelMemory.ollamaGpu': '文章整形モデル',
   'modelMemory.vram': 'VRAM',

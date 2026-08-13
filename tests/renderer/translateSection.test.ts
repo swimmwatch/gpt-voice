@@ -128,8 +128,8 @@ describe('main translation Select controls', () => {
       /\.command-dock \.command-dock-language-field:last-of-type \.command-dock-translation-trigger > svg \{[^}]*right: 10px;/u,
     );
     assert.match(styles, /\.command-dock-language-state \{[^}]*position: absolute;[^}]*bottom: 1px;/u);
-    assert.match(styles, /\.command-dock-recording \{[^}]*flex: 1 0 142px;/u);
-    assert.match(styles, /\.command-dock-language-band,\n\.command-dock-record-command-band,/u);
+    assert.match(styles, /\.command-dock-recording \{[^}]*flex: 0 0 auto;/u);
+    assert.match(styles, /\.command-dock-language-band,\n\.command-dock-status-band \{/u);
     assert.doesNotMatch(styles, /\.command-dock-language-band > \.command-dock-section-icon \{[^}]*margin-top:/u);
   });
 });

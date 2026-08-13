@@ -279,14 +279,6 @@ const App: React.FC = () => {
     recordingState,
     translate: t,
   });
-  const isNewRecordingLocked =
-    isVoiceProviderSwitching ||
-    isPrettifyProviderSwitching ||
-    isTranslationProviderSwitching ||
-    isPrettifyModelActionRunning ||
-    activeTextAction !== null ||
-    isTextActionActivityActive !== false;
-
   const applyProviderLoginState = useCallback(
     (
       authType: ProviderAuthType,
@@ -888,13 +880,7 @@ const App: React.FC = () => {
         settings={translationSettings}
       />
       <RecordingControls
-        onCancel={cancelRecording}
-        onPause={pauseRecording}
-        onResume={resumeRecording}
-        onStart={startRecording}
-        onStop={stopRecording}
-        recordingDisabled={activeProviderId === null || isNewRecordingLocked}
-        recordHotkey={providerHotkeyIntegration.recordHotkey}
+        contextualActions={providerHotkeyIntegration.contextualActions}
         state={recordingState}
         status={status}
       />

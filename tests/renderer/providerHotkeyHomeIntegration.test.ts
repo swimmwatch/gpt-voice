@@ -68,7 +68,7 @@ describe('provider hotkey home integration contract', () => {
     assert.doesNotMatch(providerActivation, /stop|prettifyQuick/u);
   });
 
-  it('prepares localized, provider-specific contextual actions without rendering their footer', () => {
+  it('prepares localized, provider-specific contextual actions for the recording footer', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const integration = readProjectFile('src/renderer/useProviderHotkeyHomeIntegration.ts');
 
@@ -84,7 +84,7 @@ describe('provider hotkey home integration contract', () => {
     );
     assert.match(integration, /dispatchProviderHomeAction\('cancel', provider\)/u);
     assert.match(integration, /presentation\.contextualActions\.some\(/u);
-    assert.doesNotMatch(app, /contextualActions=|command-dock-contextual-action/u);
+    assert.match(app, /contextualActions=\{providerHotkeyIntegration\.contextualActions\}/u);
   });
 
   it('uses one unchanged HotkeyActionButton in each existing provider-row seam', () => {

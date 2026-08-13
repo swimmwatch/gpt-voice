@@ -222,6 +222,7 @@ export default {
   'recording.pause': 'Прыпыніць запіс',
   'recording.resume': 'Працягнуць запіс',
   'recording.cancel': 'Скасаваць запіс',
+  'recording.capturedAudioDuration': 'Запісанае аўдыё: {duration}',
 
   // Model memory
   'modelMemory.title': 'Памяць мадэлі',

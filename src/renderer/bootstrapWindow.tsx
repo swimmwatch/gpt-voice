@@ -8,6 +8,7 @@ import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import { I18nProvider } from '@renderer/hooks/useI18n';
 import type { ElectronAPI } from '@renderer/types';
 import type { ComponentType } from 'react';
+import './styles/contextualActionTile.css';
 import './styles/globals.css';
 import './styles/electron.scss';
 

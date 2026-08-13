@@ -1567,3 +1567,65 @@ decisions:
     rationale: ''
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution
+    revision: 8
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 was committed as ccb2864 before opening the next incomplete packet.'
+      - 'The user invoked incremental-implementation for the exact next checklist item, Packet 05 Recording Footer And CTA Removal.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-05-execution-authorization-round-01
+      question_id: authorization.execution-packet-05
+      idempotency_key: authorization.execution-packet-05:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 05, Recording Footer And CTA Removal, during this incremental-implementation invocation?'
+      kind: single
+      options:
+        - id: authorize-packet-05
+          label: Authorize Packet 05
+          description: Replace the obsolete primary recording CTA with contextual actions, duration status, and race-safe cancellation.
+    answer:
+      selected_ids: [authorize-packet-05]
+      text: ''
+    rationale: ''
+    supersedes_revision: 7
+    requirement_ids: []
+
+  - id: authorization.commit-packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 is complete and verified but intentionally uncommitted.'
+      - 'The user invoked incremental-implementation again, which requires the previous packet be committed under separate authorization before Packet 06 can start.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-05-commit-authorization-round-01
+      question_id: authorization.commit-packet-05
+      idempotency_key: authorization.commit-packet-05:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 05? The commit will include only the recording-footer replacement, contextual action tile/timer/cancellation changes, localized timer label, focused tests, and Packet 05 decision/checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-05
+          label: Commit Packet 05 (Recommended)
+          description: Create one focused commit for verified Packet 05 files, then request separate execution authorization for Packet 06.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or opening Packet 06.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 05 for revision.
+    answer:
+      selected_ids: [commit-packet-05]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []

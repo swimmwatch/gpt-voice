@@ -223,6 +223,7 @@ export default {
   'recording.pause': 'Приостановить запись',
   'recording.resume': 'Продолжить запись',
   'recording.cancel': 'Отменить запись',
+  'recording.capturedAudioDuration': 'Записанное аудио: {duration}',
 
   // Model memory
   'modelMemory.title': 'Память модели',

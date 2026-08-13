@@ -211,6 +211,7 @@ export default {
   'recording.pause': 'Pausar gravação',
   'recording.resume': 'Retomar gravação',
   'recording.cancel': 'Cancelar gravação',
+  'recording.capturedAudioDuration': 'Áudio gravado: {duration}',
   'modelMemory.title': 'Memória do modelo',
   'modelMemory.ollamaGpu': 'Modelo de aprimoramento',
   'modelMemory.vram': 'VRAM',

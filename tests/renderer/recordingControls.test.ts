@@ -5,127 +5,77 @@ import { describe, it } from 'node:test';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DesktopApiProvider } from '@renderer/DesktopApiProvider';
-import MainToolbar from '@renderer/components/MainToolbar';
 import RecordingControls from '@renderer/components/RecordingControls';
-import { TooltipProvider } from '@renderer/components/ui/tooltip';
-import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
+import type { ProviderHotkeyContextualAction } from '@renderer/useProviderHotkeyHomeIntegration';
 import type { ElectronAPI } from '@renderer/types';
 
 const EMPTY_DESKTOP_API = {} as ElectronAPI;
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
+const RECORDING_ACTIONS: readonly ProviderHotkeyContextualAction[] = [
+  {
+    action: 'pause',
+    available: true,
+    busy: false,
+    hotkey: 'F9',
+    icon: 'pause',
+    label: 'Pause recording',
+    onActivate: () => undefined,
+    provider: 'voice',
+  },
+  {
+    action: 'stop',
+    available: true,
+    busy: false,
+    hotkey: 'F10',
+    icon: 'stop',
+    label: 'Stop recording',
+    onActivate: () => undefined,
+    provider: 'voice',
+  },
+  {
+    action: 'cancel',
+    available: true,
+    busy: false,
+    hotkey: 'Escape',
+    icon: 'cancel',
+    label: 'Cancel recording',
+    onActivate: () => undefined,
+    provider: 'voice',
+  },
+];
 
 function renderWithDesktopApi(element: ReactElement): string {
-  return renderToStaticMarkup(
-    createElement(DesktopApiProvider, {
-      api: EMPTY_DESKTOP_API,
-      children: createElement(TooltipProvider, { children: element }),
-    }),
-  );
+  return renderToStaticMarkup(createElement(DesktopApiProvider, { api: EMPTY_DESKTOP_API, children: element }));
 }
 
-describe('unselected provider controls', () => {
-  it('keeps the shared provider Select unselected without connection actions', () => {
-    const markup = renderWithDesktopApi(
-      createElement(MainToolbar, {
-        activeProviderAuthType: null,
-        activeProviderHasSettings: false,
-        activeProviderId: null,
-        activeProviderName: '',
-        isLoggedIn: false,
-        isLoggingIn: false,
-        isProviderChangesLocked: false,
-        isVoiceProviderSwitching: false,
-        localWhisperPendingAction: null,
-        localWhisperResidencyFailure: null,
-        localWhisperResidencyFailureSequence: 0,
-        localWhisperStatus: null,
-        onLocalWhisperResidencyAction: () => undefined,
-        onOpenAbout: () => undefined,
-        onOpenAppSettings: () => undefined,
-        onOpenHistory: () => undefined,
-        onOpenProviderSettings: () => undefined,
-        onProviderChange: () => undefined,
-        onProviderLogin: () => undefined,
-        providerConnectionFailureTooltip: '',
-        providerConnectionReason: PROVIDER_CONNECTION_REASONS.SessionMissing,
-        providers: [],
-      }),
-    );
-
-    assert.match(markup, /command-dock-provider-trigger/u);
-    assert.match(markup, /data-placeholder=""/u);
-    assert.match(markup, /Select a provider to start recording\./u);
-    assert.match(markup, /Provider:/u);
-    assert.doesNotMatch(markup, /voice-provider-connection|command-dock-provider-action|provider-settings-shortcut/u);
-  });
-
-  it('disables recording before a provider is selected', () => {
+describe('recording controls', () => {
+  it('renders only compact contextual tiles for the supplied actions, with no primary command', () => {
     const markup = renderWithDesktopApi(
       createElement(RecordingControls, {
-        onCancel: () => undefined,
-        onPause: () => undefined,
-        onResume: () => undefined,
-        onStart: () => undefined,
-        onStop: () => undefined,
-        recordHotkey: 'F9',
-        recordingDisabled: true,
-        state: 'idle',
+        contextualActions: RECORDING_ACTIONS,
+        state: 'recording',
         status: null,
       }),
     );
 
-    assert.match(markup, /command-dock-record-button[^>]*disabled=""/u);
+    assert.match(markup, /data-slot="recording-contextual-actions"/u);
+    assert.match(markup, /aria-label="Pause recording: F9"/u);
+    assert.match(markup, /aria-label="Stop recording: F10"/u);
+    assert.match(markup, /aria-label="Cancel recording: Escape"/u);
+    assert.equal((markup.match(/type="button"/gu) ?? []).length, 3);
+    assert.doesNotMatch(markup, /command-dock-record-button|Start recording|Busy/u);
   });
 
-  it('keeps the disabled recording button visibly and behaviorally distinct', () => {
+  it('uses native button activation, compact styling, and deterministic focus recovery for disappearing tiles', () => {
     const controls = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/components/RecordingControls.tsx'), 'utf8');
-    const styles = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/styles/globals.css'), 'utf8');
+    const tile = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/components/ContextualActionTile.tsx'), 'utf8');
+    const styles = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/styles/contextualActionTile.css'), 'utf8');
 
-    assert.match(controls, /disabled=\{recordingDisabled \|\| viewState\.primary\.disabled\}/u);
-    assert.match(styles, /\.command-dock \.command-dock-record-button:not\(:disabled\):hover \{/u);
-    assert.match(styles, /\.command-dock \.command-dock-record-button:disabled \{[\s\S]*?opacity: 0\.55;/u);
-  });
-
-  it('renders the Voice Provider settings control as a native disabled button while work is active', () => {
-    const markup = renderWithDesktopApi(
-      createElement(MainToolbar, {
-        activeProviderAuthType: 'browserSession',
-        activeProviderHasSettings: true,
-        activeProviderId: 'chatgpt',
-        activeProviderName: 'ChatGPT Web',
-        isLoggedIn: true,
-        isLoggingIn: false,
-        isProviderChangesLocked: true,
-        isVoiceProviderSwitching: false,
-        localWhisperPendingAction: null,
-        localWhisperResidencyFailure: null,
-        localWhisperResidencyFailureSequence: 0,
-        localWhisperStatus: null,
-        onLocalWhisperResidencyAction: () => undefined,
-        onOpenAbout: () => undefined,
-        onOpenAppSettings: () => undefined,
-        onOpenHistory: () => undefined,
-        onOpenProviderSettings: () => undefined,
-        onProviderChange: () => undefined,
-        onProviderLogin: () => undefined,
-        providerConnectionFailureTooltip: '',
-        providerConnectionReason: PROVIDER_CONNECTION_REASONS.BrowserReady,
-        providers: [
-          {
-            authType: 'browserSession',
-            category: 'web',
-            hasSettings: true,
-            id: 'chatgpt',
-            name: 'ChatGPT Web',
-            transcriptionMode: 'batch',
-          },
-        ],
-      }),
-    );
-
-    assert.match(
-      markup,
-      /command-dock-provider-settings-shortcut[^>]*disabled=""|disabled=""[^>]*command-dock-provider-settings-shortcut/u,
-    );
+    assert.match(tile, /type="button"/u);
+    assert.match(tile, /onClick=\{action\.onActivate\}/u);
+    assert.match(tile, /data-contextual-action-id/u);
+    assert.match(controls, /footerRef\.current\?\.focus\(\)/u);
+    assert.match(styles, /\.command-dock-contextual-action:not\(:disabled\):hover/u);
+    assert.match(styles, /\.command-dock-contextual-action:disabled/u);
   });
 });

@@ -5,6 +5,7 @@ import ProviderHotkeyDemo from '@renderer/ProviderHotkeyDemo';
 import { TooltipProvider } from '@renderer/components/ui/tooltip';
 import { I18nProvider } from '@renderer/hooks/useI18n';
 import type { ElectronAPI } from '@renderer/types';
+import '@renderer/styles/contextualActionTile.css';
 import '@renderer/styles/globals.css';
 import '@renderer/styles/electron.scss';
 import '@renderer/styles/providerHotkeyDemo.css';
