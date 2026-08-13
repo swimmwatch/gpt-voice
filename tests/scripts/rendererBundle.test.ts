@@ -106,6 +106,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
     about: './src/renderer/entries/about.tsx',
     history: './src/renderer/entries/history.tsx',
     main: './src/renderer/entries/main.tsx',
+    providerHotkeyDemo: './src/renderer/entries/providerHotkeyDemo.tsx',
     prettifyProfileChooser: './src/renderer/entries/prettifyProfileChooser.tsx',
     providerSettings: './src/renderer/entries/providerSettings.tsx',
     settings: './src/renderer/entries/settings.tsx',
@@ -125,6 +126,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
     rendererConfig.plugins.map((plugin) => [plugin.userOptions?.filename, plugin.userOptions?.chunks]),
   );
   assert.deepEqual(htmlChunks.get('index.html'), ['main']);
+  assert.deepEqual(htmlChunks.get('provider-hotkey-demo.html'), ['providerHotkeyDemo']);
   assert.deepEqual(htmlChunks.get('provider-settings.html'), ['providerSettings']);
   assert.deepEqual(htmlChunks.get('prettify-profile-chooser.html'), ['prettifyProfileChooser']);
   assert.deepEqual(htmlChunks.get('settings.html'), ['settings']);
@@ -148,6 +150,7 @@ test('emits renderer bundles under a separate nested path from Electron main', a
 
     const windows = [
       ['index.html', 'main'],
+      ['provider-hotkey-demo.html', 'providerHotkeyDemo'],
       ['provider-settings.html', 'providerSettings'],
       ['prettify-profile-chooser.html', 'prettifyProfileChooser'],
       ['settings.html', 'settings'],

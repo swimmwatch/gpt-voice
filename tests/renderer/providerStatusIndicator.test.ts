@@ -79,6 +79,10 @@ describe('provider status indicators', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
 
     assert.match(styles, /--dock-provider-controls-width: 125px;/u);
+    assert.match(
+      styles,
+      /--dock-provider-status-inset: calc\(var\(--dock-provider-controls-width\) - 37px \+ 11px\);/u,
+    );
     assert.match(styles, /--dock-translation-target-width: 175px;/u);
     assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
@@ -100,6 +104,10 @@ describe('provider status indicators', () => {
     );
     assert.match(styles, /\.command-dock-prettify-connection \{[\s\S]*?justify-self: start;/u);
     assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?width: 37px;[\s\S]*?justify-self: start;/u);
+    assert.match(
+      styles,
+      /\.command-dock-provider-band > \.command-dock-provider-controls > \.command-dock-provider-state,[\s\S]*?\.command-dock-prettify-layout \.command-dock-prettify-controls > \.command-dock-provider-state,[\s\S]*?\.command-dock-language-band > \.command-dock-translation-connection \{[\s\S]*?position: absolute;[\s\S]*?top: 50%;[\s\S]*?right: var\(--dock-provider-status-inset\);[\s\S]*?transform: translateY\(-50%\);/u,
+    );
     assert.doesNotMatch(
       styles,
       /\.command-dock-translation-connection \{[\s\S]*?width: 100%;[\s\S]*?justify-self: stretch;/u,

@@ -13,6 +13,7 @@ import { getRendererStatusDetail, renderRendererStatus, type RendererStatus } fr
 import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
 
 interface RecordingControlsProps {
+  hidePrimaryAction?: boolean;
   recordingDisabled: boolean;
   onCancel: () => void;
   onPause: () => void;
@@ -76,6 +77,7 @@ function getStatusClassName(status: RecordingWorkspaceStatus): string {
 
 /** Presents recording lifecycle controls and routes user actions to the active recording state. */
 function RecordingControls({
+  hidePrimaryAction = false,
   onCancel,
   onPause,
   onResume,
@@ -115,28 +117,33 @@ function RecordingControls({
   };
 
   return (
-    <section className="command-dock-recording" data-slot="recording-controls">
-      <div className="command-dock-record-command-band">
-        <Button
-          className="command-dock-record-button"
-          disabled={recordingDisabled || viewState.primary.disabled}
-          onClick={handlePrimaryAction}
-          size="lg"
-          variant={isPrimaryStop ? 'destructive' : 'primary'}
-        >
-          <span className="command-dock-record-button-main">
-            {viewState.primary.action === RecordingWorkspacePrimaryAction.Busy ? (
-              <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
-            ) : isPrimaryStop ? (
-              <Square aria-hidden="true" className="fill-current" />
-            ) : (
-              <Mic aria-hidden="true" strokeWidth={1.75} />
-            )}
-            <span>{t(viewState.primary.labelKey)}</span>
-          </span>
-          <kbd>{recordHotkey}</kbd>
-        </Button>
-      </div>
+    <section
+      className={cn('command-dock-recording', hidePrimaryAction && 'command-dock-recording-without-primary')}
+      data-slot="recording-controls"
+    >
+      {!hidePrimaryAction && (
+        <div className="command-dock-record-command-band">
+          <Button
+            className="command-dock-record-button"
+            disabled={recordingDisabled || viewState.primary.disabled}
+            onClick={handlePrimaryAction}
+            size="lg"
+            variant={isPrimaryStop ? 'destructive' : 'primary'}
+          >
+            <span className="command-dock-record-button-main">
+              {viewState.primary.action === RecordingWorkspacePrimaryAction.Busy ? (
+                <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
+              ) : isPrimaryStop ? (
+                <Square aria-hidden="true" className="fill-current" />
+              ) : (
+                <Mic aria-hidden="true" strokeWidth={1.75} />
+              )}
+              <span>{t(viewState.primary.labelKey)}</span>
+            </span>
+            <kbd>{recordHotkey}</kbd>
+          </Button>
+        </div>
+      )}
 
       <div className="command-dock-status-band" data-slot="recording-state-row">
         <div

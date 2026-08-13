@@ -1,5 +1,5 @@
 import { AudioLines, CircleHelp, History, LogIn, Mic, Settings } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
@@ -28,6 +28,7 @@ import {
 } from '@shared/localWhisper';
 
 interface MainToolbarProps {
+  actionControl?: ReactNode;
   activeProviderAuthType: ProviderAuthType | null;
   activeProviderHasSettings: boolean;
   activeProviderId: string | null;
@@ -77,6 +78,7 @@ export function getProviderActionLabelKey(
 
 /** Coordinates main-window provider controls, session actions, and status affordances. */
 function MainToolbar({
+  actionControl,
   activeProviderAuthType,
   activeProviderHasSettings,
   activeProviderId,
@@ -203,6 +205,8 @@ function MainToolbar({
             </SelectContent>
           </Select>
         </div>
+
+        {actionControl}
 
         <div
           className="command-dock-provider-controls"

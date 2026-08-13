@@ -1,5 +1,5 @@
 import { Globe } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { TranslationKey } from '@main/i18n';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { TRANSLATION_PROVIDER_OPTIONS, getTranslationLanguageOptions } from '@renderer/translationLanguageOptions';
@@ -17,6 +17,7 @@ import {
 } from '@shared/translationProvider';
 
 interface Props {
+  actionControl?: ReactNode;
   connectionState: TranslationProviderConnectionState | null;
   error: string;
   isProviderChangesLocked: boolean;
@@ -25,6 +26,7 @@ interface Props {
   onProviderChange: (providerId: TranslationProviderId) => void;
   onTargetLanguageChange: (targetLanguage: string) => void;
   settings: TranslationSettings;
+  settingsControl?: ReactNode;
 }
 
 const TRANSLATION_CONNECTION_LABEL_KEYS: Record<TranslationProviderConnectionStatus, TranslationKey> = {
@@ -93,6 +95,7 @@ export function getTranslationProviderConnectionPresentation(
 
 /** Renders the compact main-window translation provider and target selectors. */
 const TranslateSection = ({
+  actionControl,
   connectionState,
   error,
   isProviderChangesLocked,
@@ -101,6 +104,7 @@ const TranslateSection = ({
   onProviderChange,
   onTargetLanguageChange,
   settings,
+  settingsControl,
 }: Props): React.JSX.Element => {
   const { locale, t } = useI18n();
   const languageOptions = useMemo(
@@ -176,6 +180,8 @@ const TranslateSection = ({
         </Select>
       </div>
 
+      {actionControl}
+
       <ProviderStatusIndicator
         className="command-dock-provider-state command-dock-translation-connection"
         dataSlot="translation-provider-connection"
@@ -184,6 +190,8 @@ const TranslateSection = ({
         tone={connectionPresentation.tone}
         tooltip={t(connectionPresentation.tooltipKey)}
       />
+
+      {settingsControl}
 
       {error && (
         <span className="command-dock-language-state is-error" data-slot="translation-settings-state" role="alert">

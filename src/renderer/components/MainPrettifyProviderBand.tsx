@@ -1,5 +1,5 @@
 import { BrainCircuit, HardDriveDownload, PowerOff, Settings } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
 import {
@@ -28,6 +28,7 @@ import {
 } from '@shared/prettifySettings';
 
 interface MainPrettifyProviderBandProps {
+  actionControl?: ReactNode;
   cliConnection: MainPrettifyCliConnectionState | null;
   connectionError: string;
   error: string;
@@ -49,6 +50,7 @@ const PRETTIFY_PROVIDER_GROUPS = [
 
 /** Renders the permanent, provider-specific Prettify controls in the main command dock. */
 function MainPrettifyProviderBand({
+  actionControl,
   cliConnection,
   connectionError,
   error,
@@ -122,6 +124,8 @@ function MainPrettifyProviderBand({
           <span className="command-dock-model-label">{t('mainDock.prettifyModelLabel')}</span>
           <strong title={model}>{model}</strong>
         </div>
+
+        {actionControl}
 
         <div className="command-dock-prettify-controls" data-has-model-action={hasModelAction}>
           {viewState.ollamaControl && (
