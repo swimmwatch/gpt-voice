@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { lstat, readFile, readdir } from 'node:fs/promises';
+import { lstat, readdir } from 'node:fs/promises';
 import * as path from 'node:path';
 
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
+
+import { withVerifiedRegularFile } from './verifiedRegularFile';
 
 export const APPLICATION_ARTIFACT_SECURITY_SCHEMA_VERSION = 1;
 export const APPLICATION_SBOM_FORMAT = 'CycloneDX-1.6';
@@ -479,30 +480,47 @@ export class ApplicationSbomGenerator {
   }
 
   private async sha256File(filePath: string, expectedSize: number, code: string): Promise<string> {
-    const digest = createHash('sha256');
-    let byteLength = 0;
-    try {
-      for await (const chunk of createReadStream(filePath)) {
-        const bytes = Buffer.from(chunk);
-        byteLength += bytes.byteLength;
-        if (byteLength > expectedSize) fail(code);
-        digest.update(bytes);
-      }
-    } catch {
-      fail(code);
-    }
-    if (byteLength !== expectedSize) fail(code);
-    return digest.digest('hex');
+    return await withVerifiedRegularFile(
+      {
+        filePath,
+        invalid: () => fail(code),
+        maximumBytes: expectedSize,
+        unavailable: () => fail(code),
+      },
+      async (file, sizeBytes) => {
+        const digest = createHash('sha256');
+        let byteLength = 0;
+        try {
+          for await (const chunk of file.createReadStream({ autoClose: false })) {
+            const bytes = Buffer.from(chunk);
+            byteLength += bytes.byteLength;
+            if (byteLength > sizeBytes) fail(code);
+            digest.update(bytes);
+          }
+        } catch {
+          fail(code);
+        }
+        if (byteLength !== sizeBytes) fail(code);
+        return digest.digest('hex');
+      },
+    );
   }
 
   private async readBounded(filePath: string, maximumBytes = APPLICATION_SBOM_MAXIMUM_BYTES): Promise<Buffer> {
-    const metadata = await lstat(filePath).catch(() => fail('INPUT_UNAVAILABLE'));
-    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size <= 0 || metadata.size > maximumBytes) {
-      fail('INPUT_INVALID');
-    }
-    const bytes = await readFile(filePath).catch(() => fail('INPUT_UNAVAILABLE'));
-    if (bytes.byteLength !== metadata.size) fail('INPUT_INVALID');
-    return bytes;
+    return await withVerifiedRegularFile(
+      {
+        filePath,
+        invalid: () => fail('INPUT_INVALID'),
+        maximumBytes,
+        minimumBytes: 1,
+        unavailable: () => fail('INPUT_UNAVAILABLE'),
+      },
+      async (file, expectedSize) => {
+        const bytes = await file.readFile().catch(() => fail('INPUT_UNAVAILABLE'));
+        if (bytes.byteLength !== expectedSize) fail('INPUT_INVALID');
+        return bytes;
+      },
+    );
   }
 }
 

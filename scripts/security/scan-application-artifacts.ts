@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { createReadStream } from 'node:fs';
-import { lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
@@ -14,6 +13,7 @@ import {
   type ApplicationPackageFormat,
   type ApplicationSecurityPlatform,
 } from './applicationArtifactSecurity';
+import { withVerifiedRegularFile } from './verifiedRegularFile';
 
 const workspaceRoot = path.resolve(
   process.env.APPLICATION_ARTIFACT_SECURITY_WORKSPACE ?? path.resolve(__dirname, '..', '..'),
@@ -97,25 +97,52 @@ function sha256(bytes: Buffer): string {
 }
 
 async function sha256File(filePath: string): Promise<string> {
-  const metadata = await lstat(filePath).catch(() => fail('PACKAGE_UNAVAILABLE'));
-  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size <= 0 || metadata.size > MAXIMUM_PACKAGE_BYTES) {
-    fail('PACKAGE_INVALID');
-  }
-  const digest = createHash('sha256');
-  let byteLength = 0;
-  try {
-    for await (const chunk of createReadStream(filePath)) {
-      const bytes = Buffer.from(chunk);
-      byteLength += bytes.byteLength;
-      if (byteLength > metadata.size) fail('PACKAGE_INVALID');
-      digest.update(bytes);
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message === 'APPLICATION_ARTIFACT_SECURITY_PACKAGE_INVALID') throw error;
-    fail('PACKAGE_UNAVAILABLE');
-  }
-  if (byteLength !== metadata.size) fail('PACKAGE_INVALID');
-  return digest.digest('hex');
+  return await withVerifiedRegularFile(
+    {
+      filePath,
+      invalid: () => fail('PACKAGE_INVALID'),
+      maximumBytes: MAXIMUM_PACKAGE_BYTES,
+      minimumBytes: 1,
+      unavailable: () => fail('PACKAGE_UNAVAILABLE'),
+    },
+    async (file, expectedSize) => {
+      const digest = createHash('sha256');
+      let byteLength = 0;
+      try {
+        for await (const chunk of file.createReadStream({ autoClose: false })) {
+          const bytes = Buffer.from(chunk);
+          byteLength += bytes.byteLength;
+          if (byteLength > expectedSize) fail('PACKAGE_INVALID');
+          digest.update(bytes);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message === 'APPLICATION_ARTIFACT_SECURITY_PACKAGE_INVALID') throw error;
+        fail('PACKAGE_UNAVAILABLE');
+      }
+      if (byteLength !== expectedSize) fail('PACKAGE_INVALID');
+      return digest.digest('hex');
+    },
+  );
+}
+
+async function readBoundedJsonFile(
+  filePath: string,
+  input: { readonly invalid: string; readonly maximumBytes: number; readonly unavailable: string },
+): Promise<unknown> {
+  return await withVerifiedRegularFile(
+    {
+      filePath,
+      invalid: () => fail(input.invalid),
+      maximumBytes: input.maximumBytes,
+      minimumBytes: 1,
+      unavailable: () => fail(input.unavailable),
+    },
+    async (file, expectedSize) => {
+      const bytes = await file.readFile().catch(() => fail(input.unavailable));
+      if (bytes.byteLength !== expectedSize) fail(input.invalid);
+      return parseJson(bytes, input.invalid);
+    },
+  );
 }
 
 function parseJson(bytes: Buffer, code: string): unknown {
@@ -128,18 +155,11 @@ function parseJson(bytes: Buffer, code: string): unknown {
 
 async function metadata(): Promise<PackageMetadata> {
   const packageJsonPath = path.join(workspaceRoot, 'package.json');
-  const packageMetadata = await lstat(packageJsonPath).catch(() => fail('PACKAGE_METADATA_INVALID'));
-  if (
-    !packageMetadata.isFile() ||
-    packageMetadata.isSymbolicLink() ||
-    packageMetadata.size <= 0 ||
-    packageMetadata.size > MAXIMUM_PACKAGE_METADATA_BYTES
-  ) {
-    fail('PACKAGE_METADATA_INVALID');
-  }
-  const packageBytes = await readFile(packageJsonPath).catch(() => fail('PACKAGE_METADATA_INVALID'));
-  if (packageBytes.byteLength !== packageMetadata.size) fail('PACKAGE_METADATA_INVALID');
-  const value = parseJson(packageBytes, 'PACKAGE_METADATA_INVALID');
+  const value = await readBoundedJsonFile(packageJsonPath, {
+    invalid: 'PACKAGE_METADATA_INVALID',
+    maximumBytes: MAXIMUM_PACKAGE_METADATA_BYTES,
+    unavailable: 'PACKAGE_METADATA_INVALID',
+  });
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     fail('PACKAGE_METADATA_INVALID');
   }
@@ -258,34 +278,28 @@ async function runTrivyScan(input: {
     input.target,
   ];
   await runProcess(input.scanner, arguments_, MAXIMUM_VERSION_OUTPUT_BYTES);
-  const metadata = await lstat(input.outputPath).catch(() => fail('SCANNER_UNAVAILABLE'));
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size <= 0 ||
-    metadata.size > MAXIMUM_SCANNER_OUTPUT_BYTES
-  ) {
-    fail('SCAN_MALFORMED');
-  }
-  try {
-    return parseJson(await readFile(input.outputPath), 'SCAN_MALFORMED');
-  } catch {
-    fail('SCAN_MALFORMED');
-  }
+  return await readBoundedJsonFile(input.outputPath, {
+    invalid: 'SCAN_MALFORMED',
+    maximumBytes: MAXIMUM_SCANNER_OUTPUT_BYTES,
+    unavailable: 'SCANNER_UNAVAILABLE',
+  });
 }
 
 async function databaseEvidence(databasePath: string): Promise<{ readonly bytes: Buffer; readonly value: unknown }> {
-  const metadata = await lstat(databasePath).catch(() => fail('DATABASE_UNAVAILABLE'));
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size <= 0 ||
-    metadata.size > MAXIMUM_SCANNER_OUTPUT_BYTES
-  ) {
-    fail('DATABASE_INVALID');
-  }
-  const bytes = await readFile(databasePath).catch(() => fail('DATABASE_UNAVAILABLE'));
-  return Object.freeze({ bytes, value: parseJson(bytes, 'DATABASE_INVALID') });
+  return await withVerifiedRegularFile(
+    {
+      filePath: databasePath,
+      invalid: () => fail('DATABASE_INVALID'),
+      maximumBytes: MAXIMUM_SCANNER_OUTPUT_BYTES,
+      minimumBytes: 1,
+      unavailable: () => fail('DATABASE_UNAVAILABLE'),
+    },
+    async (file, expectedSize) => {
+      const bytes = await file.readFile().catch(() => fail('DATABASE_UNAVAILABLE'));
+      if (bytes.byteLength !== expectedSize) fail('DATABASE_INVALID');
+      return Object.freeze({ bytes, value: parseJson(bytes, 'DATABASE_INVALID') });
+    },
+  );
 }
 
 function sourceCommit(value: string): string {
