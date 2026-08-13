@@ -9,11 +9,20 @@ interface VerifiedRegularFileInput {
   readonly unavailable: () => never;
 }
 
+function hasNativeFileIdentity(metadata: Stats): boolean {
+  return metadata.dev !== 0 && metadata.ino !== 0;
+}
+
 function hasSameIdentity(expected: Stats, actual: Stats): boolean {
+  if (hasNativeFileIdentity(expected) && hasNativeFileIdentity(actual)) {
+    return expected.dev === actual.dev && expected.ino === actual.ino;
+  }
+  return expected.size === actual.size && expected.ctimeMs === actual.ctimeMs && expected.mtimeMs === actual.mtimeMs;
+}
+
+function hasUnchangedMetadata(expected: Stats, actual: Stats): boolean {
   return (
-    expected.dev === actual.dev &&
-    expected.ino === actual.ino &&
-    expected.mode === actual.mode &&
+    hasSameIdentity(expected, actual) &&
     expected.size === actual.size &&
     expected.ctimeMs === actual.ctimeMs &&
     expected.mtimeMs === actual.mtimeMs
@@ -38,12 +47,24 @@ export async function withVerifiedRegularFile<T>(
   try {
     const opened = await file.stat().catch(input.unavailable);
     const expected = await lstat(input.filePath).catch(input.unavailable);
-    if (!isExpectedRegularFile(opened, input) || !hasSameIdentity(expected, opened)) input.invalid();
+    if (
+      !isExpectedRegularFile(opened, input) ||
+      !isExpectedRegularFile(expected, input) ||
+      !hasSameIdentity(expected, opened)
+    ) {
+      input.invalid();
+    }
 
     const result = await reader(file, expected.size);
     const finalMetadata = await file.stat().catch(input.unavailable);
     const finalPathMetadata = await lstat(input.filePath).catch(input.unavailable);
-    if (!hasSameIdentity(expected, finalMetadata) || !hasSameIdentity(expected, finalPathMetadata)) input.invalid();
+    if (
+      !hasUnchangedMetadata(opened, finalMetadata) ||
+      !hasUnchangedMetadata(expected, finalPathMetadata) ||
+      !hasSameIdentity(finalMetadata, finalPathMetadata)
+    ) {
+      input.invalid();
+    }
     return result;
   } finally {
     await file.close().catch(() => undefined);

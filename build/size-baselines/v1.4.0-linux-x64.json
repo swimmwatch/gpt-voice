@@ -14,7 +14,7 @@
   },
   "metrics": [
     {
-      "bytes": 54377920,
+      "bytes": 102203220,
       "id": "app.asar"
     },
     {
@@ -194,7 +194,7 @@
       "id": "installer.appimage"
     },
     {
-      "bytes": 269426860,
+      "bytes": 275573008,
       "id": "installer.deb"
     },
     {
