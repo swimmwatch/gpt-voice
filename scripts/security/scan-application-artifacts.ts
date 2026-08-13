@@ -66,6 +66,14 @@ function safeWorkspacePath(value: string): string {
   return resolved;
 }
 
+function scannerTarget(value: string): string {
+  const relative = path.relative(workspaceRoot, value);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) fail('SCAN_TARGET_INVALID');
+  const normalized = relative.split(path.sep).join('/');
+  if (!SAFE_OUTPUT_DIRECTORY.test(normalized) || normalized.includes('..')) fail('SCAN_TARGET_INVALID');
+  return normalized;
+}
+
 async function createEmptyOutputDirectory(outputDirectory: string): Promise<void> {
   const relative = path.relative(workspaceRoot, outputDirectory);
   const segments = relative.split(path.sep);
@@ -322,6 +330,7 @@ async function main(): Promise<void> {
     const databasePath = path.join(path.resolve(cacheDirectory), 'db', 'metadata.json');
     const packageMetadata = await metadata();
     const root = unpackedRoot(platform_);
+    const filesystemTarget = scannerTarget(root);
     const generator = new ApplicationSbomGenerator();
     const formats = applicationSecurityFormats(platform_);
     const first = await generator.generate({
@@ -356,7 +365,7 @@ async function main(): Promise<void> {
       const filesystemReport = await runTrivyScan({
         outputPath: path.join(temporaryRoot, 'filesystem.json'),
         scanner,
-        target: root,
+        target: filesystemTarget,
         type: 'filesystem',
       });
       const policy = new ArtifactVulnerabilityPolicy();
@@ -372,11 +381,12 @@ async function main(): Promise<void> {
           workspaceRoot,
         });
         const sbomPath = path.join(outputDirectory, `application-sbom-${platform_}-${format}.cdx.json`);
+        const sbomTarget = scannerTarget(sbomPath);
         await writeFile(sbomPath, `${canonicalArtifactSecurityJson(sbom.document)}\n`, 'utf8');
         const sbomReport = await runTrivyScan({
           outputPath: path.join(temporaryRoot, `sbom-${format}.json`),
           scanner,
-          target: sbomPath,
+          target: sbomTarget,
           type: 'sbom',
         });
         const record = policy.createRecord({
@@ -384,14 +394,14 @@ async function main(): Promise<void> {
           database: database.value,
           databaseSha256: sha256(database.bytes),
           filesystemReport,
-          filesystemTarget: root,
+          filesystemTarget,
           now: new Date(),
           packageFormat: format,
           packageSha256,
           platform: platform_,
           sbomReport,
           sbomSha256: sbom.sha256,
-          sbomTarget: sbomPath,
+          sbomTarget,
           sourceCommit: source,
           unpackedRootSha256: sbom.unpackedRootSha256,
         });

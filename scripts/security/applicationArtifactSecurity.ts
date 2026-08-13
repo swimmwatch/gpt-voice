@@ -188,12 +188,27 @@ function parseJson(bytes: Buffer, code: string): unknown {
   }
 }
 
+function canonicalTrivyArtifactName(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 1024) fail('SCAN_MALFORMED');
+  const normalized = value.replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
+  const segments = normalized.split('/');
+  if (
+    segments.length === 0 ||
+    segments.some(
+      (segment) => segment === '' || segment === '.' || segment === '..' || !SAFE_PATH_COMPONENT.test(segment),
+    )
+  ) {
+    fail('SCAN_MALFORMED');
+  }
+  return segments.join('/');
+}
+
 function normalizeTrivyReport(value: unknown, expectedArtifact: string): void {
   const report = isRecord(value) ? value : fail('SCAN_MALFORMED');
   const rawResults = report.Results;
   if (
     report.SchemaVersion !== TRIVY_REPORT_SCHEMA_VERSION ||
-    report.ArtifactName !== expectedArtifact ||
+    canonicalTrivyArtifactName(report.ArtifactName) !== expectedArtifact ||
     typeof report.ArtifactType !== 'string' ||
     (rawResults !== undefined && rawResults !== null && !Array.isArray(rawResults)) ||
     (Array.isArray(rawResults) && rawResults.length > MAXIMUM_COMPONENTS)

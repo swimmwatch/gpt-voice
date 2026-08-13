@@ -30,12 +30,21 @@ interface ArtifactSecurityFixture {
   readonly tracePath: string;
 }
 
-async function createFixture(input: { readonly databaseAgeDays?: number } = {}): Promise<ArtifactSecurityFixture> {
+async function createFixture(
+  input: { readonly databaseAgeDays?: number; readonly platform?: 'linux' | 'win32' } = {},
+): Promise<ArtifactSecurityFixture> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-artifact-security-cli-'));
   const binDirectory = path.join(root, 'bin');
   const cacheDirectory = path.join(root, 'trivy-cache');
-  const unpackedRoot = path.join(root, 'release', 'linux-unpacked');
+  const platform = input.platform ?? 'linux';
+  const unpackedRoot = path.join(root, 'release', platform === 'linux' ? 'linux-unpacked' : 'win-unpacked');
   const tracePath = path.join(root, 'trivy-trace.txt');
+  const applicationName = platform === 'linux' ? 'gpt-voice' : 'GPT Voice.exe';
+  const runtimeName = platform === 'linux' ? 'runtime.so' : 'runtime.dll';
+  const helperNames =
+    platform === 'linux'
+      ? { guard: 'fs-guard', launcher: 'local-whisper-launcher' }
+      : { guard: 'fs-guard.exe', launcher: 'local-whisper-launcher.exe' };
   await Promise.all([
     mkdir(binDirectory, { recursive: true }),
     mkdir(path.join(cacheDirectory, 'db'), { recursive: true }),
@@ -84,21 +93,25 @@ async function createFixture(input: { readonly databaseAgeDays?: number } = {}):
       path.join(root, 'node_modules', 'playwright-core', 'package.json'),
       JSON.stringify({ name: 'playwright-core', version: '1.62.1' }),
     ),
-    writeFile(path.join(root, 'release', 'GPT Voice-1.4.0.AppImage'), 'CANARY_APPIMAGE_BYTES'),
-    writeFile(path.join(root, 'release', 'gpt-voice_1.4.0_amd64.deb'), 'CANARY_DEB_BYTES'),
-    writeFile(path.join(root, 'release', 'gpt-voice-1.4.0.x86_64.rpm'), 'CANARY_RPM_BYTES'),
-    writeFile(path.join(unpackedRoot, 'gpt-voice'), 'CANARY_APPLICATION_BYTES'),
-    writeFile(path.join(unpackedRoot, 'resources', 'runtime.so'), 'CANARY_RUNTIME_BYTES'),
-    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'fs-guard'), 'guard'),
-    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'local-whisper-launcher'), 'launcher'),
+    ...(platform === 'linux'
+      ? [
+          writeFile(path.join(root, 'release', 'GPT Voice-1.4.0.AppImage'), 'CANARY_APPIMAGE_BYTES'),
+          writeFile(path.join(root, 'release', 'gpt-voice_1.4.0_amd64.deb'), 'CANARY_DEB_BYTES'),
+          writeFile(path.join(root, 'release', 'gpt-voice-1.4.0.x86_64.rpm'), 'CANARY_RPM_BYTES'),
+        ]
+      : [writeFile(path.join(root, 'release', 'GPT Voice Setup 1.4.0.exe'), 'CANARY_NSIS_BYTES')]),
+    writeFile(path.join(unpackedRoot, applicationName), 'CANARY_APPLICATION_BYTES'),
+    writeFile(path.join(unpackedRoot, 'resources', runtimeName), 'CANARY_RUNTIME_BYTES'),
+    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.guard), 'guard'),
+    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.launcher), 'launcher'),
     writeFile(
       path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json'),
       JSON.stringify({
         helpers: [
-          { name: 'fs-guard', sha256: '2'.repeat(64) },
-          { name: 'local-whisper-launcher', sha256: '3'.repeat(64) },
+          { name: helperNames.guard, sha256: '2'.repeat(64) },
+          { name: helperNames.launcher, sha256: '3'.repeat(64) },
         ],
-        platform: 'linux',
+        platform,
       }),
     ),
   ]);
@@ -131,7 +144,7 @@ if (process.env.FAKE_TRIVY_MODE === 'malformed') {
   process.exit(0);
 }
 fs.writeFileSync(output, JSON.stringify({
-  ArtifactName: args.at(-1),
+  ArtifactName: process.env.FAKE_TRIVY_MODE === 'windows-separators' ? args.at(-1).split('/').join('\\\\') : args.at(-1),
   ArtifactType: args[0] === 'sbom' ? 'cyclonedx' : 'filesystem',
   Results: null,
   SchemaVersion: 2,
@@ -149,7 +162,10 @@ fs.writeFileSync(output, JSON.stringify({
 
 async function runScanner(
   fixture: ArtifactSecurityFixture,
-  mode?: 'malformed' | 'scanner-failure',
+  input: {
+    readonly mode?: 'malformed' | 'scanner-failure' | 'windows-separators';
+    readonly platform?: 'linux' | 'win32';
+  } = {},
 ): Promise<{ readonly code: number | null; readonly stderr: string; readonly stdout: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -158,7 +174,7 @@ async function runScanner(
         '--import',
         'tsx',
         SCANNER_SCRIPT,
-        '--platform=linux',
+        `--platform=${input.platform ?? 'linux'}`,
         `--source-commit=${SOURCE_COMMIT}`,
         '--output-directory=evidence',
       ],
@@ -167,7 +183,7 @@ async function runScanner(
         env: {
           ...process.env,
           APPLICATION_ARTIFACT_SECURITY_WORKSPACE: fixture.root,
-          FAKE_TRIVY_MODE: mode,
+          FAKE_TRIVY_MODE: input.mode,
           FAKE_TRIVY_TRACE: fixture.tracePath,
           PATH: `${fixture.binDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
           TRIVY_CACHE_DIR: fixture.cacheDirectory,
@@ -228,7 +244,7 @@ describe('Application artifact security scanner CLI', () => {
     it(`fails closed and removes partial evidence for ${name}`, async () => {
       const fixture = await createFixture({ databaseAgeDays });
       try {
-        const result = await runScanner(fixture, mode);
+        const result = await runScanner(fixture, { mode });
         assert.notEqual(result.code, 0);
         assert.match(result.stderr, expected);
         await assert.rejects(access(path.join(fixture.root, 'evidence')));
@@ -237,4 +253,16 @@ describe('Application artifact security scanner CLI', () => {
       }
     });
   }
+
+  it('accepts a Windows Trivy report that uses backslash-separated workspace-relative artifact names', async () => {
+    const fixture = await createFixture({ platform: 'win32' });
+    try {
+      const result = await runScanner(fixture, { mode: 'windows-separators', platform: 'win32' });
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /Application artifact security evidence verified for win32/u);
+      assert.equal((await readdir(path.join(fixture.root, 'evidence'))).length, 5);
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
 });
