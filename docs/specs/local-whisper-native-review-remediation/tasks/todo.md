@@ -15,7 +15,7 @@
 - [x] [13 — Worker TSan gate](13_worker_tsan_gate.md)
 - [x] [14 — Native structured logging and diagnostics](14_native_structured_logging_and_diagnostics.md)
 - [x] [15 — Focused GCC quality](15_focused_gcc_quality.md)
-- [ ] [16 — Locked-source advisory monitoring](16_locked_source_advisory_monitoring.md)
+- [x] [16 — Locked-source advisory monitoring](16_locked_source_advisory_monitoring.md)
 - [ ] [17 — Application SBOM and vulnerability evidence](17_application_sbom_and_vulnerability_evidence.md)
 - [ ] [18 — Provenance, attestation, and security reporting](18_provenance_attestation_and_security_reporting.md)
 - [ ] [19 — Linux, shared, and security remediation gate](19_linux_shared_security_remediation_gate.md)
