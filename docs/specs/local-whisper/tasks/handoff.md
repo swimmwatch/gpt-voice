@@ -39,7 +39,9 @@
   exact official acquisition records, closed active profiles, CUDA driver-stub
   separation, read-only hosted workflow, and actual Linux/Windows rows remain;
   no production object, pack, installer, or qualification evidence was
-  produced. The local scope is committed and pushed as `429aadf3`.
+  produced. The local scope is committed and pushed as `429aadf3`. Follow-up
+  `1a672e61` extends the strict TAR reader only for the authenticated NVIDIA
+  layout and has passed both native-quality platform jobs.
 - Task 31 consumes Task 27 unchanged and implements the read-only hosted
   Linux/Windows application plus CPU/RTX 50 builders and reproducibility checks
   without production secrets, installable artifact upload, or hardware claims.
@@ -118,12 +120,24 @@
   its output descriptor is finalized. The active Windows profiles deliberately
   remain unclosed rather than receiving invented hashes.
 
+### Official CUDA TAR Layout Follow-up
+
+- `1a672e61` accepts one canonical leading `./` symbolic-link spelling,
+  NVIDIA's `ustar ` magic, safe empty directories, and bounded GNU `L`
+  long-path records. It continues to reject absolute, traversal, cyclic,
+  dangling, cross-component, malformed, and undeclared materialization paths.
+- The decoder package and each official Linux CUDA component (CCCL, CUDART,
+  NVCC, and CUBLAS) were materialized and re-verified from their exact public
+  bytes in separate bounded temporary roots. CUBLAS expanded 2.1 GiB without
+  retaining a production lock, profile, pack, or installer.
+
 ### Local Verification
 
 Passed:
 
 - `rtk npm run test:local-whisper:hosted-toolchains`
 - `rtk npm run verify:local-whisper:hosted-toolchains`
+- `rtk npm run test:local-whisper:native-sources`
 - `rtk npm run test:local-whisper:acceptance-ownership`
 - `rtk npm run test:local-whisper:native-build-audits`
 - `rtk npm run test:local-whisper:packaging`
@@ -134,19 +148,24 @@ Passed:
 - `rtk npm run format:check`
 - `rtk npm run audit:prod`
 - `rtk npm run build:prod` (passes with existing webpack entrypoint-size warnings)
+- `rtk npm test` (2,198 passing tests and one expected skip)
 - `rtk git diff --check`
 - Direct Prettier for the hosted materializer, test, schema, validator, and
   revised task artifacts
 - Direct ESLint for the hosted materializer, focused test, and validator
 
-Blocked / not run:
+CI evidence:
 
-- `rtk npm run test:local-whisper:native-sources` has one pre-existing failure:
-  the unchanged native source importer hashes to
-  `66ba3b34bef0df3624f5b1ff921557071e323391d798c10965e44426d9c554f1`,
-  while the committed source locks expect
-  `253a0320cb0b5960fdcdc2ec5a2eb6f7c09353351f153b37cea65c035f4f61cb`.
-  Updating a reviewed source lock is outside this packet's authorization.
+- Exact head `1a672e61c1f68fb43db2eef4de2328b12a63dcae` passed Local Whisper
+  Native Quality on Linux in 29m51s and Windows in 42m06s; the Windows job ran
+  and was not skipped.
+- The same PR's general Quality Gates job failed only because its merge ref did
+  not include unrelated, locally modified UI-test updates. It still expected a
+  removed `provider-hotkey-demo.html` and former CSS variable from
+  `tests/scripts/rendererBundle.test.ts` and
+  `tests/renderer/providerStatusIndicator.test.ts`. Do not stage, alter, or
+  bundle those other-task files with Task 27; their owner must commit them and
+  rerun PR CI before the overall PR can become green.
 - No production acquisition manifest or active-profile hash was written, no
   Windows Firewall runner was executed, and no public GitHub workflow was
   added or run.
@@ -190,8 +209,6 @@ Prettier for revised planning files, and `rtk git diff --check`.
 - Review exact commit pins for a read-only public preparation workflow, commit
   and push the reviewed source, then run both hosted preparation rows. Windows
   must prove the Firewall boundary and same-boundary probe with acquired tools.
-- Resolve the unrelated native-source importer-lock mismatch before treating
-  the full Task 27 verification set as green.
 
 ## Task 25 Completion
 
@@ -238,11 +255,13 @@ Passed:
 ## Next Packet
 
 Task 27 remains the exact next packet for its external/manual gates; its local
-XZ/TAR remediation is complete and committed as `429aadf3`. The newly
-authorized public-source review is blocked on the selected decoder's missing
-upstream license text. Do not start Task 31, release preparation, candidate
-freeze, signing, hardware qualification, or any external release action. Do
-not substitute a decoder, create a production lock, or run a hosted row unless
-the licensing blocker is resolved through a new reviewed decision. Commit,
-push, Task 30, release branch/PR, repository-setting change, merge, tag, and
-publication require separate authorization.
+XZ/TAR remediation is complete in `429aadf3` and `1a672e61`. The selected
+decoder's declared MIT license is accepted by decision revision 2. Linux and
+Windows native quality passed for `1a672e61`, but overall PR CI remains red
+until the owner commits the unrelated UI-test updates recorded above. Do not
+start Task 31, release preparation, candidate freeze, signing, hardware
+qualification, or any external release action. Do not substitute a decoder,
+create a production lock, or run a hosted row without the already-defined
+reviewed inputs and manual gates. Commit, push, Task 30, release branch/PR,
+repository-setting change, merge, tag, and publication require separate
+authorization.

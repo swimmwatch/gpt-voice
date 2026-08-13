@@ -20,7 +20,10 @@ evidence. Task 25 RTX 50 Readiness Closure is complete:
 deterministic inventory, applicability, catalog, migration, renderer-projection,
 and acquisition-guard checks passed without physical-host or qualification
 evidence. Task 27's authorized local automated scope is implemented and verified in
-`429aadf3`, but its external/manual gates remain pending. Revision 28 selects a locked
+`429aadf3`; its official-CUDA TAR compatibility follow-up is `1a672e61`, with passing
+Linux and Windows native-quality jobs. The unrelated overall PR quality-gate failure is
+owned by uncommitted UI-test work and does not complete or block the Task 27 native
+contract; its external/manual gates remain pending. Revision 28 selects a locked
 acquisition-only WASM XZ decoder plus strict project-owned TAR parsing for the
 official Linux CUDA `.tar.xz` inputs. Decision
 `planning.hosted-tar-xz-materializer` revision 2 accepts the exact npm package's
