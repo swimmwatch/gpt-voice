@@ -8,7 +8,7 @@ authorized
 - [x] [`03_hotkey_action_button.md`](./03_hotkey_action_button.md)
 - [x] [`04_home_screen_action_integration.md`](./04_home_screen_action_integration.md)
 - [x] [`05_recording_footer_and_cta_removal.md`](./05_recording_footer_and_cta_removal.md)
-- [ ] [`06_compact_window_and_layout.md`](./06_compact_window_and_layout.md)
+- [x] [`06_compact_window_and_layout.md`](./06_compact_window_and_layout.md)
 - [ ] [`07_deterministic_browser_demo.md`](./07_deterministic_browser_demo.md)
 - [ ] [`08_integration_and_desktop_qualification.md`](./08_integration_and_desktop_qualification.md)
 

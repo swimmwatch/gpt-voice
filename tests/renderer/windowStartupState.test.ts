@@ -62,13 +62,17 @@ describe('window startup state', () => {
 
   it('subscribes to the main interaction lock before querying and makes the app root inert', () => {
     const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/App.tsx'), 'utf8');
-    const subscription = source.indexOf('onMainInteractionLockChanged');
-    const query = source.indexOf('getMainInteractionLocked');
+    const integration = readFileSync(
+      path.join(PROJECT_ROOT, 'src/renderer/useProviderHotkeyHomeIntegration.ts'),
+      'utf8',
+    );
+    const subscription = integration.indexOf('onMainInteractionLockChanged');
+    const query = integration.indexOf('getMainInteractionLocked');
     const mainRoot = source.slice(source.indexOf('<main'), source.indexOf('<MainToolbar'));
 
     assert.ok(subscription >= 0);
     assert.ok(query > subscription);
-    assert.match(mainRoot, /aria-disabled=\{isMainInteractionLocked\}/u);
-    assert.match(mainRoot, /inert=\{isMainInteractionLocked\}/u);
+    assert.match(mainRoot, /aria-disabled=\{providerHotkeyIntegration\.isMainInteractionLocked\}/u);
+    assert.match(mainRoot, /inert=\{providerHotkeyIntegration\.isMainInteractionLocked\}/u);
   });
 });

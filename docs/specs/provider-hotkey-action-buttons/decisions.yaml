@@ -1629,3 +1629,71 @@ decisions:
     rationale: ''
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution
+    revision: 9
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 was committed as eac005e before the next incomplete packet was considered.'
+      - 'Packet 06 Compact Window And Layout is the exact next checklist item and has a self-contained implementation contract.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-06-execution-authorization-round-01
+      question_id: authorization.execution-packet-06
+      idempotency_key: authorization.execution-packet-06:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 06, Compact Window And Layout, during this incremental-implementation invocation?'
+      kind: single
+      options:
+        - id: authorize-packet-06
+          label: Authorize Packet 06 (Recommended)
+          description: Set the exact 620 × 292 main window and fixed Command Dock grid, with focused layout/startup verification.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after Packet 05 commit without changing main-window geometry.
+        - id: request-plan-changes
+          label: Revise Packet 06
+          description: Do not implement; return the packet to planning for a contract change.
+    answer:
+      selected_ids: [authorize-packet-06]
+      text: ''
+    rationale: ''
+    supersedes_revision: 8
+    requirement_ids: []
+
+  - id: authorization.commit-packet-06
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 is complete and its recorded focused checks passed.'
+      - 'The user invoked incremental-implementation again, requiring separate authorization before Packet 07 can begin.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-06-commit-authorization-round-01
+      question_id: authorization.commit-packet-06
+      idempotency_key: authorization.commit-packet-06:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 06? The commit will include only the verified 620 × 292 compact-window layout, compact startup screen, scoped tests, and Packet 06 checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-06
+          label: Commit Packet 06 (Recommended)
+          description: Create one focused commit for the verified compact layout, then request separate execution authorization for Packet 07.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or opening Packet 07.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 06 for revision.
+    answer:
+      selected_ids: [commit-packet-06]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []

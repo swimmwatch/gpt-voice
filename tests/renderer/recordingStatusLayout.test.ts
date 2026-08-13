@@ -21,7 +21,8 @@ describe('main recording status layout', () => {
 
     assert.match(band, /display: grid;/u);
     assert.match(band, /grid-template-columns: max-content minmax\(0, 1fr\) max-content;/u);
-    assert.match(band, /min-height: 49px;/u);
+    assert.match(band, /height: 54px;/u);
+    assert.match(band, /min-height: 0;/u);
     assert.match(detail, /grid-column: 2;/u);
     assert.match(detail, /overflow: hidden;/u);
     assert.match(detail, /text-overflow: ellipsis;/u);

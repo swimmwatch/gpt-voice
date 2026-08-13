@@ -17,8 +17,8 @@ import {
 } from '@shared/translationProvider';
 import { PROVIDER_HOME_ACTION_IPC_CHANNELS, type ProviderHomeActionState } from '@shared/providerHomeAction';
 
-const MAIN_WINDOW_CONTENT_WIDTH = 520;
-const MAIN_WINDOW_CONTENT_HEIGHT = 420;
+const MAIN_WINDOW_CONTENT_WIDTH = 620;
+const MAIN_WINDOW_CONTENT_HEIGHT = 292;
 const PROVIDER_SETTINGS_CONTENT_WIDTH = 560;
 const PROVIDER_SETTINGS_CONTENT_HEIGHT = 680;
 const LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH = 912;

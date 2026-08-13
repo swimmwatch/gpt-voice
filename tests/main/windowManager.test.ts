@@ -208,6 +208,10 @@ describe('WindowManager', () => {
 
     assert.equal(harness.created.length, 1);
     const mainWindow = harness.created[0];
+    assert.equal(mainWindow?.options.width, 620);
+    assert.equal(mainWindow?.options.height, 292);
+    assert.equal(mainWindow?.options.useContentSize, true);
+    assert.equal(mainWindow?.options.resizable, false);
     assert.equal(mainWindow?.loadUrls[0], 'app://gpt-voice/index.html');
     assert.deepEqual(mainWindow?.options.webPreferences, {
       contextIsolation: true,

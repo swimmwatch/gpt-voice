@@ -24,7 +24,7 @@ describe('startup loading screen', () => {
     assert.equal((markup.match(/role="status"/gu) ?? []).length, 1);
   });
 
-  it('renders measured progress and simultaneous stages as peer cards', () => {
+  it('renders measured progress and simultaneous stages in a compact one-row startup card', () => {
     const markup = renderToStaticMarkup(
       createElement(LoadingScreen, {
         mode: 'startup',
@@ -40,7 +40,10 @@ describe('startup loading screen', () => {
 
     assert.match(markup, /items-center justify-center/u);
     assert.match(markup, /data-slot="startup-stage-grid"/u);
-    assert.match(markup, /grid-cols-2/u);
+    assert.match(markup, /max-w-\[592px\]/u);
+    assert.match(markup, /p-3/u);
+    assert.match(markup, /grid-cols-4/u);
+    assert.match(markup, /gap-2/u);
     assert.match(markup, /data-progress-state="determinate"/u);
     assert.match(markup, /role="progressbar"/u);
     assert.match(markup, /aria-valuenow="42"/u);

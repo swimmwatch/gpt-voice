@@ -29,8 +29,8 @@ describe('main Prettify provider band contract', () => {
       styles,
       /\.command-dock \.command-dock-prettify-settings-shortcut \{[^}]*grid-column: 2;[^}]*grid-row: 1;[^}]*justify-self: end;/u,
     );
-    assert.match(styles, /\.command-dock-prettify-band \{[\s\S]*?min-height: 60px;[\s\S]*?flex: 0 0 60px;/u);
-    assert.match(styles, /\.command-dock \{[\s\S]*?overflow-y: auto;/u);
+    assert.match(styles, /\.command-dock-prettify-band \{[\s\S]*?height: 60px;/u);
+    assert.doesNotMatch(styles, /\.command-dock \{[^}]*overflow-y: auto;/u);
   });
 
   it('keeps the reusable provider action-control seam ahead of unchanged status and settings controls', () => {
@@ -108,15 +108,15 @@ describe('main Prettify provider band contract', () => {
     );
   });
 
-  it('keeps the band at 60 pixels inside the fixed 520 by 420 main window', () => {
+  it('keeps the band at 60 pixels inside the fixed 620 by 292 main window', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
     const windowSource = readProjectFile('src/main/window.ts');
 
-    assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 520/u);
-    assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 420/u);
+    assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 620/u);
+    assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 292/u);
     assert.match(windowSource, /resizable: false/u);
     assert.doesNotMatch(styles, /command-dock-prettify-band[\s\S]{0,120}(?:min-height|flex-basis): 78px/u);
-    assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?command-dock-prettify-summary[\s\S]*?display: none;/u);
+    assert.doesNotMatch(styles, /@media \(max-width: 439px\)/u);
   });
 
   it('keeps compact provider copy on one line', () => {
@@ -136,11 +136,14 @@ describe('main Prettify provider band contract', () => {
   it('aligns the Prettify icon, provider text, and selector chevron with the Voice provider row', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
 
-    assert.match(styles, /\.command-dock-provider-band \{[\s\S]*?padding: 0 11px 0 16px;/u);
-    assert.match(styles, /\.command-dock-provider-field \{[\s\S]*?margin-left: 16px;/u);
     assert.match(
       styles,
-      /\.command-dock-prettify-layout \{[\s\S]*?padding: 0 11px 0 16px;[\s\S]*?gap: 8px;[\s\S]*?grid-template-columns: 22px 147px/u,
+      /\.command-dock-provider-band \{[\s\S]*?padding: 0 11px 0 16px;[\s\S]*?grid-template-columns:/u,
+    );
+    assert.match(styles, /\.command-dock-provider-field \{[\s\S]*?width: 147px;[\s\S]*?padding-left: 8px;/u);
+    assert.match(
+      styles,
+      /\.command-dock-prettify-layout \{[\s\S]*?padding: 0 11px 0 16px;[\s\S]*?gap: 8px;[\s\S]*?grid-template-columns:[\s\S]*?22px 147px/u,
     );
     assert.match(styles, /\.command-dock-prettify-provider-field \{[\s\S]*?padding-left: 8px;/u);
     assert.match(styles, /\.command-dock \.command-dock-provider-trigger \{[\s\S]*?width: 139px;/u);
@@ -195,11 +198,17 @@ describe('main Prettify provider band contract', () => {
     assert.match(band, /tooltip=\{providerConnectionTooltip\}/u);
     assert.doesNotMatch(band, /dataSlot="prettify-provider-state"/u);
     assert.doesNotMatch(band, /connectionError\s+\?\s+t\('provider\.notConnected'\)/u);
-    assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
-    assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(
       styles,
-      /\.command-dock-prettify-layout \{[\s\S]*?grid-template-columns: 22px 147px minmax\(0, 1fr\) var\(--dock-provider-controls-width\);/u,
+      /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);[\s\S]*?grid-column: 5;/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);[\s\S]*?grid-column: 5;/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock-prettify-layout \{[\s\S]*?grid-template-columns:[\s\S]*?22px 147px minmax\(0, 1fr\)[\s\S]*?var\(--dock-action-key-width\) var\(--dock-provider-controls-width\);/u,
     );
     assert.match(styles, /\.command-dock-prettify-connection \{[^}]*white-space: nowrap;/u);
     assert.doesNotMatch(styles, /\.command-dock-prettify-connection \{[^}]*font-size:/u);

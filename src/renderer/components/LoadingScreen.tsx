@@ -94,20 +94,20 @@ function StartupStageCard({ stage }: { readonly stage: FirstLaunchStartupStage }
   return (
     <li
       className={cn(
-        'relative min-w-0 overflow-hidden rounded-xl border p-3.5 transition-colors duration-200',
+        'relative min-w-0 overflow-hidden rounded-lg border p-2 transition-colors duration-200',
         getStageCardClassName(stage.state),
       )}
       data-stage-id={stage.id}
       data-state={stage.state}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-foreground/5 text-foreground">
-          <JobIcon aria-hidden="true" className="size-[18px]" strokeWidth={1.8} />
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground/5 text-foreground">
+          <JobIcon aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
         </span>
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">{label}</span>
+        <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{label}</span>
         <StageStateIcon label={label} state={stage.state} />
       </div>
-      <div aria-hidden="true" className="mt-3 h-1 overflow-hidden rounded-full bg-foreground/10">
+      <div aria-hidden="true" className="mt-2 h-1 overflow-hidden rounded-full bg-foreground/10">
         {progress !== null && (
           <span
             className={cn(
@@ -119,7 +119,7 @@ function StartupStageCard({ stage }: { readonly stage: FirstLaunchStartupStage }
         )}
       </div>
       {progress !== null && (
-        <span className="mt-1.5 block text-right text-[11px] tabular-nums text-muted-foreground">
+        <span className="mt-1 block text-right text-[10px] tabular-nums text-muted-foreground">
           {t('startup.progressValue', { progress: String(progress) })}
         </span>
       )}
@@ -166,24 +166,24 @@ function LoadingScreen(props: LoadingScreenProps): JSX.Element {
     <main
       aria-busy={!hasRetryableFailure || isRetryPending}
       aria-labelledby="startup-loader-title"
-      className="relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-background px-5 py-6 text-sm text-muted-foreground [-webkit-app-region:no-drag]"
+      className="relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-background px-4 py-3 text-sm text-muted-foreground [-webkit-app-region:no-drag]"
       data-slot="startup-loader"
     >
       <div aria-hidden="true" className="absolute -left-20 top-[-7rem] size-72 rounded-full bg-primary/10 blur-3xl" />
       <div aria-hidden="true" className="absolute -bottom-32 -right-16 size-80 rounded-full bg-primary/10 blur-3xl" />
 
-      <section className="relative w-full max-w-[520px] rounded-3xl border border-border/70 bg-surface/90 p-5 shadow-2xl shadow-black/10 backdrop-blur-xl sm:p-6">
-        <header className="flex items-start gap-4">
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
-            <Sparkles aria-hidden="true" className="size-5" />
+      <section className="relative w-full max-w-[592px] rounded-xl border border-border/70 bg-surface/90 p-3 shadow-xl shadow-black/10 backdrop-blur-xl">
+        <header className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <Sparkles aria-hidden="true" className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold tracking-tight text-foreground" id="startup-loader-title">
+            <h1 className="text-base font-semibold tracking-tight text-foreground" id="startup-loader-title">
               GPT-Voice
             </h1>
             <p
               aria-live="polite"
-              className="mt-1 break-words text-sm leading-5"
+              className="mt-0.5 break-words text-xs leading-4"
               data-slot="startup-status"
               role="status"
             >
@@ -191,13 +191,13 @@ function LoadingScreen(props: LoadingScreenProps): JSX.Element {
             </p>
           </div>
           {measuredProgress !== null && (
-            <span className="shrink-0 text-xl font-semibold tabular-nums text-foreground" data-slot="startup-progress">
+            <span className="shrink-0 text-lg font-semibold tabular-nums text-foreground" data-slot="startup-progress">
               {t('startup.progressValue', { progress: String(measuredProgress) })}
             </span>
           )}
         </header>
 
-        <div className="mt-5">
+        <div className="mt-3">
           {measuredProgress === null ? (
             <div
               aria-hidden="true"
@@ -228,14 +228,14 @@ function LoadingScreen(props: LoadingScreenProps): JSX.Element {
           )}
         </div>
 
-        <ul aria-label={progressLabel} className="mt-5 grid grid-cols-2 gap-3" data-slot="startup-stage-grid">
+        <ul aria-label={progressLabel} className="mt-3 grid grid-cols-4 gap-2" data-slot="startup-stage-grid">
           {stages.map((stage) => (
             <StartupStageCard key={stage.id} stage={stage} />
           ))}
         </ul>
 
         {hasRetryableFailure && onRetry && (
-          <div className="mt-5 flex justify-end">
+          <div className="mt-3 flex justify-end">
             <Button disabled={isRetryPending} onClick={onRetry} size="sm" variant="outline">
               {t('startup.retry')}
             </Button>

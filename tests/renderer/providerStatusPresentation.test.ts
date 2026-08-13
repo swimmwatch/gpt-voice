@@ -288,6 +288,7 @@ describe('provider status presentation', () => {
 
   it('keeps Prettify status out of the model summary and surfaces errors through the connection indicator', () => {
     const providerBand = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
+    const styles = readProjectFile('src/renderer/styles/globals.css');
 
     assert.doesNotMatch(providerBand, /dataSlot="prettify-provider-state"/u);
     assert.doesNotMatch(providerBand, /command-dock-prettify-state/u);
@@ -296,6 +297,8 @@ describe('provider status presentation', () => {
       /const providerConnectionTooltip = isProviderChangeSaving\s*\? t\('provider\.connectionCheckingTooltip'\)\s*:\s*error/u,
     );
     assert.match(providerBand, /dataSlot="prettify-provider-connection"/u);
+    assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?grid-column: 5;/u);
+    assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?grid-column: 5;/u);
   });
 
   it('keeps browser failures sanitized while restoring main-authoritative provider state', () => {

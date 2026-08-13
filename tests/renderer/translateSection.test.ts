@@ -56,19 +56,15 @@ describe('main translation Select controls', () => {
       styles,
       /\.command-dock-translation-select-content \[data-slot='select-viewport'\] \{[\s\S]*?overflow-y: auto;[\s\S]*?scrollbar-gutter: stable;/u,
     );
-    assert.match(styles, /@media \(max-width: 439px\)[\s\S]*?\.command-dock-language-band \{/u);
-    assert.match(styles, /--dock-translation-target-width: 175px;/u);
+    assert.doesNotMatch(styles, /@media \(max-width: 439px\)[\s\S]*?\.command-dock-language-band \{/u);
+    assert.doesNotMatch(styles, /--dock-translation-target-width:/u);
     assert.match(
       styles,
-      /grid-template-columns:[\s\S]*?22px 147px var\(--dock-translation-target-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
+      /\.command-dock-language-band \{[\s\S]*?grid-template-columns:[\s\S]*?22px 147px minmax\(0, 1fr\)[\s\S]*?var\(--dock-action-key-width\) var\(--dock-provider-controls-width\);/u,
     );
-    assert.match(
-      styles,
-      /@media \(max-width: 439px\)[\s\S]*?grid-template-columns: 22px minmax\(0, 1fr\) var\(--dock-provider-controls-width\);/u,
-    );
-    assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?grid-column: 4;/u);
-    assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 520/u);
-    assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 420/u);
+    assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?grid-column: 5;/u);
+    assert.match(windowSource, /MAIN_WINDOW_CONTENT_WIDTH = 620/u);
+    assert.match(windowSource, /MAIN_WINDOW_CONTENT_HEIGHT = 292/u);
   });
 
   it('persists only complete settings candidates and suppresses stale or disposed results', () => {
@@ -118,7 +114,7 @@ describe('main translation Select controls', () => {
     assert.doesNotMatch(section, /data-has-state/u);
     assert.doesNotMatch(styles, /\.command-dock-language-band\[data-has-state/u);
     assert.doesNotMatch(section, /command-dock-language-(?:label|trigger)/u);
-    assert.match(styles, /\.command-dock-language-band \{[^}]*flex: 0 0 60px;/u);
+    assert.match(styles, /\.command-dock-language-band \{[^}]*height: 60px;/u);
     assert.match(
       styles,
       /\.command-dock-language-band > \.command-dock-language-field:first-of-type \{[^}]*padding-left: 8px;/u,
@@ -128,7 +124,7 @@ describe('main translation Select controls', () => {
       /\.command-dock \.command-dock-language-field:last-of-type \.command-dock-translation-trigger > svg \{[^}]*right: 10px;/u,
     );
     assert.match(styles, /\.command-dock-language-state \{[^}]*position: absolute;[^}]*bottom: 1px;/u);
-    assert.match(styles, /\.command-dock-recording \{[^}]*flex: 0 0 auto;/u);
+    assert.match(styles, /\.command-dock-recording \{[^}]*height: 54px;/u);
     assert.match(styles, /\.command-dock-language-band,\n\.command-dock-status-band \{/u);
     assert.doesNotMatch(styles, /\.command-dock-language-band > \.command-dock-section-icon \{[^}]*margin-top:/u);
   });
