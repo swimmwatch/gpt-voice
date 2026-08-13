@@ -1,7 +1,7 @@
 # Provider Hotkey Action Buttons — Task Checklist
 
-Plan status: Approved revision v2; packets 01–07 complete; Packet 08 has no
-execution authorization.
+Plan status: Approved revision v3; packets 01–07 and 09 are complete. Packet
+08 has no execution authorization.
 
 - [x] [`01_action_eligibility_contracts.md`](./01_action_eligibility_contracts.md)
 - [x] [`02_main_action_dispatch_and_ipc.md`](./02_main_action_dispatch_and_ipc.md)
@@ -10,6 +10,7 @@ execution authorization.
 - [x] [`05_recording_footer_and_cta_removal.md`](./05_recording_footer_and_cta_removal.md)
 - [x] [`06_compact_window_and_layout.md`](./06_compact_window_and_layout.md)
 - [x] [`07_deterministic_browser_demo.md`](./07_deterministic_browser_demo.md)
+- [x] [`09_hotkey_visual_parity.md`](./09_hotkey_visual_parity.md)
 - [ ] [`08_integration_and_desktop_qualification.md`](./08_integration_and_desktop_qualification.md)
 
 Do not check a packet until its task-local automated verification passes, its

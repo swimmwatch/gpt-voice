@@ -471,6 +471,78 @@ decisions:
     supersedes_revision: null
     requirement_ids: []
 
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The revised plan inserts self-contained Packet 09 before final qualification and maps every visual-parity requirement to the shared component/style owner.'
+      - 'The packet preserves Hotkey behavior, public interfaces, Electron boundaries, fixed 620 × 292 geometry, and the prohibition on demo-only key visual CSS.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: visual-parity-plan-approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+      sequence: 19
+      revision: 3
+    question:
+      text: 'Do you approve the revised Provider Hotkey Action Buttons plan, which adds Packet 09 to transfer the approved demo key treatment through the one shared HotkeyActionButton visual owner before final qualification?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve plan (Recommended)'
+          description: 'Approve the focused visual-parity packet with no behavior, IPC, layout, or demo-CSS fork.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan unapproved and revise the packet scope, visual baseline, or verification.'
+        - id: leave-unapproved
+          label: 'Leave unapproved'
+          description: 'Keep the draft plan available without authorizing its execution.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The user approved the focused visual-parity plan through the persistent planning interview. This approval does not authorize Packet 09 execution.'
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: authorization.execution-packet-09
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The approved Packet 09 is a self-contained, shared-style-only visual-parity increment with focused automated and deterministic browser verification.'
+      - 'The user explicitly authorized the next incremental-implementation invocation to execute only Packet 09 and stop before Packet 08 or a commit.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: visual-parity-execution-authorization-round-01
+      question_id: authorization.execution-packet-09
+      idempotency_key: authorization.execution-packet-09:v1
+      last_status: answered
+      sequence: 20
+      revision: 1
+    question:
+      text: 'Do you authorize the next incremental-implementation invocation to execute exactly Packet 09, Hotkey Visual Parity? It will change only the shared provider-key visual owner and focused tests as needed to match the approved 620 × 292 demo, verify the deterministic browser demo, update the packet checklist/handoff, and stop before Packet 08 or any commit.'
+      kind: single
+      options:
+        - id: authorize-packet-09
+          label: 'Authorize Packet 09 (Recommended)'
+          description: 'Allow only the shared visual-parity implementation and its focused verification; no behavior or Electron boundary changes.'
+        - id: leave-unauthorized
+          label: 'Leave unauthorized'
+          description: 'Keep the approved packet ready without changing implementation files.'
+        - id: request-plan-changes
+          label: 'Revise the plan'
+          description: 'Return the approved packet to planning before any visual-parity implementation.'
+    answer:
+      selected_ids: [authorize-packet-09]
+      text: ''
+    rationale: 'The user authorized only the next dedicated visual-parity implementation packet. The authorization excludes Packet 08, commits, pushes, pull requests, packaging, publishing, and release actions.'
+    supersedes_revision: null
+    requirement_ids: []
+
   - id: visual.production-content-size
     revision: 2
     category: interface
@@ -1764,4 +1836,55 @@ decisions:
       text: ''
     rationale: ''
     supersedes_revision: null
+    requirement_ids: []
+
+  - id: visual.demo-to-production-parity
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly directed that the demo design be transferred to the production Hotkey buttons.'
+      - 'The demo and production both render the shared HotkeyActionButton; demo CSS is limited to fixture and review-surface layout.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The approved deterministic demo treatment is the visual source of truth for production provider Hotkey buttons. Production and demo must use one shared visual owner; no demo-only key styling or alternate production treatment is permitted.'
+    rationale: 'The request is explicit and preserves the existing 114 × 32 component interface, action behavior, privacy boundaries, and fixed home-screen grid.'
+    supersedes_revision: null
+    requirement_ids: [UI-015, UI-016, UI-022, AC-AUTO-019, AC-AUTO-025, AC-MAN-005]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly selected the demo visual treatment as the source of truth for production Hotkey buttons.'
+      - 'The Draft adds production/demo visual-owner parity without changing Hotkey geometry, behavior, trusted boundaries, or the fixed home-screen grid.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: visual-parity-approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+    question:
+      text: 'Do you approve the revised Hotkey visual-parity specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve specification (Recommended)
+          description: Make the approved demo treatment the exact shared production Hotkey visual baseline.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and revise the visual-parity contract.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the revised specification available for later planning.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 4
     requirement_ids: []

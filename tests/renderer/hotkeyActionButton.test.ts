@@ -96,4 +96,23 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.match(styles, /data-keyboard-pressed='true'\] \.command-dock-hotkey-action__legend/u);
     assert.match(styles, /transform: none;/u);
   });
+
+  it('mounts the approved graphite key through the same visual owner in production and the demo', () => {
+    const component = readProjectFile('src/renderer/components/HotkeyActionButton.tsx');
+    const demo = readProjectFile('src/renderer/ProviderHotkeyDemo.tsx');
+    const demoStyles = readProjectFile('src/renderer/styles/providerHotkeyDemo.css');
+    const production = readProjectFile('src/renderer/App.tsx');
+    const styles = readProjectFile('src/renderer/styles/hotkeyActionButton.css');
+
+    assert.match(component, /import '@renderer\/styles\/hotkeyActionButton\.css';/u);
+    assert.match(production, /import HotkeyActionButton from '\.\/components\/HotkeyActionButton';/u);
+    assert.match(demo, /import HotkeyActionButton from '@renderer\/components\/HotkeyActionButton';/u);
+    assert.equal((production.match(/<HotkeyActionButton\b/gu) ?? []).length, 3);
+    assert.equal((demo.match(/<HotkeyActionButton\b/gu) ?? []).length, 3);
+    assert.doesNotMatch(demoStyles, /\bcommand-dock-hotkey-action\b/u);
+    assert.match(styles, /background: #3a3d3f;/u);
+    assert.match(styles, /inset 1px -3px 0 2px #292c2d,/u);
+    assert.match(styles, /inset: var\(--hotkey-press-travel\) 1px 0;/u);
+    assert.match(styles, /:disabled\[data-visual-state='disabled'\] \.command-dock-hotkey-action__face/u);
+  });
 });
