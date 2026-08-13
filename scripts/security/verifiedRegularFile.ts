@@ -34,17 +34,16 @@ export async function withVerifiedRegularFile<T>(
   input: VerifiedRegularFileInput,
   reader: (file: FileHandle, sizeBytes: number) => Promise<T>,
 ): Promise<T> {
-  const expected = await lstat(input.filePath).catch(input.unavailable);
-  if (!isExpectedRegularFile(expected, input)) input.invalid();
-
   const file = await open(input.filePath, 'r').catch(input.unavailable);
   try {
     const opened = await file.stat().catch(input.unavailable);
+    const expected = await lstat(input.filePath).catch(input.unavailable);
     if (!isExpectedRegularFile(opened, input) || !hasSameIdentity(expected, opened)) input.invalid();
 
     const result = await reader(file, expected.size);
     const finalMetadata = await file.stat().catch(input.unavailable);
-    if (!hasSameIdentity(expected, finalMetadata)) input.invalid();
+    const finalPathMetadata = await lstat(input.filePath).catch(input.unavailable);
+    if (!hasSameIdentity(expected, finalMetadata) || !hasSameIdentity(expected, finalPathMetadata)) input.invalid();
     return result;
   } finally {
     await file.close().catch(() => undefined);
