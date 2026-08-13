@@ -49,7 +49,11 @@ function cleanReport(artifactName: string): object {
 }
 
 async function createWorkspace(
-  input: { readonly packageLockPaddingBytes?: number; readonly platform?: 'linux' | 'win32' } = {},
+  input: {
+    readonly packageLockPaddingBytes?: number;
+    readonly platform?: 'linux' | 'win32';
+    readonly sourceLockPaddingBytes?: number;
+  } = {},
 ): Promise<{ readonly root: string; readonly unpackedRoot: string }> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-artifact-security-'));
   const unpackedRoot = path.join(root, 'unpacked');
@@ -114,7 +118,12 @@ async function createWorkspace(
   for (const [lockId, repository, commit] of EXPECTED_LOCKS) {
     await writeFile(
       path.join(root, 'runtime', 'local-whisper', 'sources', 'locks', `${lockId}.json`),
-      JSON.stringify({ commit, lockId, repository }),
+      JSON.stringify({
+        commit,
+        lockId,
+        padding: lockId === 'whisper-cpp-v1.9.1-f049fff' ? 'x'.repeat(input.sourceLockPaddingBytes ?? 0) : undefined,
+        repository,
+      }),
     );
   }
   return Object.freeze({ root, unpackedRoot });
@@ -223,6 +232,44 @@ describe('Application artifact SBOM', () => {
         workspaceRoot: fixture.root,
       });
       assert.equal(generated.document.bomFormat, 'CycloneDX');
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it('accepts the bounded immutable source-lock size needed by the full Whisper.cpp lock', async () => {
+    const fixture = await createWorkspace({ sourceLockPaddingBytes: 700 * 1024 });
+    try {
+      const generated = await new ApplicationSbomGenerator().generate({
+        packageFormat: 'appimage',
+        packageSha256: PACKAGE_SHA256,
+        platform: 'linux',
+        sourceCommit: SOURCE_COMMIT,
+        unpackedRoot: fixture.unpackedRoot,
+        workspaceRoot: fixture.root,
+      });
+
+      assert.equal(generated.document.bomFormat, 'CycloneDX');
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects an immutable source lock that exceeds the one-mebibyte contract ceiling', async () => {
+    const fixture = await createWorkspace({ sourceLockPaddingBytes: 1024 * 1024 });
+    try {
+      await assert.rejects(
+        () =>
+          new ApplicationSbomGenerator().generate({
+            packageFormat: 'appimage',
+            packageSha256: PACKAGE_SHA256,
+            platform: 'linux',
+            sourceCommit: SOURCE_COMMIT,
+            unpackedRoot: fixture.unpackedRoot,
+            workspaceRoot: fixture.root,
+          }),
+        /SOURCE_LOCK_INVALID/u,
+      );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
     }

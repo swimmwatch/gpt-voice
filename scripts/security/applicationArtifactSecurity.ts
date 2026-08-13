@@ -17,6 +17,7 @@ const MAXIMUM_COMPONENTS = 256;
 const MAXIMUM_FILES = 50_000;
 const MAXIMUM_FILE_BYTES = 1024 * 1024 * 1024;
 const MAXIMUM_PACKAGE_LOCK_BYTES = 2 * 1024 * 1024;
+const MAXIMUM_SOURCE_LOCK_BYTES = 1024 * 1024;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
@@ -350,7 +351,7 @@ export class ApplicationSbomGenerator {
     const components: CycloneDxComponent[] = [];
     for (const expected of EXPECTED_NATIVE_LOCKS) {
       const value = parseJson(
-        await this.readBounded(path.join(root, `${expected.lockId}.json`), undefined, 'SOURCE_LOCK'),
+        await this.readBounded(path.join(root, `${expected.lockId}.json`), MAXIMUM_SOURCE_LOCK_BYTES, 'SOURCE_LOCK'),
         'SOURCE_LOCK_INVALID',
       );
       if (
