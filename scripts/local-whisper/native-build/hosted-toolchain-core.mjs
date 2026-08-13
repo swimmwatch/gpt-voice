@@ -67,6 +67,8 @@ const ZIP_GENERAL_PURPOSE_ENCRYPTED_FLAG = 0x1;
 const ZIP_GENERAL_PURPOSE_DATA_DESCRIPTOR_FLAG = 0x8;
 const TAR_BLOCK_BYTES = 512;
 const TAR_PAX_MAXIMUM_BYTES = 64 * 1024;
+const TAR_GNU_LONG_PATH_MAXIMUM_BYTES = 64 * 1024;
+const TAR_ACCEPTED_MAGICS = new Set(['ustar', 'ustar ']);
 const CRC32_TABLE = Object.freeze(
   Array.from({ length: 256 }, (_value, index) => {
     let current = index;
@@ -176,10 +178,14 @@ function assertMaterializedEntry(entry, label) {
     fail(`${label} entry type is not permitted`);
   }
   try {
+    const targetWithoutLeadingCurrentDirectory = entry.linkTarget.startsWith('./')
+      ? entry.linkTarget.slice('./'.length)
+      : entry.linkTarget;
     if (
       entry.linkTarget.startsWith('/') ||
       entry.linkTarget.includes('\\') ||
-      entry.linkTarget.split('/').some((part) => part === '' || part === '.' || part === '..')
+      targetWithoutLeadingCurrentDirectory.length === 0 ||
+      targetWithoutLeadingCurrentDirectory.split('/').some((part) => part === '' || part === '.' || part === '..')
     ) {
       throw new Error('unsafe link target');
     }
@@ -627,7 +633,7 @@ function parseTarHeader(header) {
   const declaredChecksum = tarOctal(header, 148, 8, 'TAR header checksum');
   if (declaredChecksum !== checksum) fail(`TAR header checksum is invalid: ${declaredChecksum} !== ${checksum}`);
   const magic = tarString(header, 257, 6, 'TAR header magic');
-  if (magic !== 'ustar') fail('TAR header is not USTAR');
+  if (!TAR_ACCEPTED_MAGICS.has(magic)) fail('TAR header is not USTAR');
   const name = tarString(header, 0, 100, 'TAR header name');
   const prefix = tarString(header, 345, 155, 'TAR header prefix');
   const typeByte = header[156];
@@ -664,6 +670,18 @@ function parsePaxRecords(bytes) {
     offset = end;
   }
   return values;
+}
+
+function parseGnuLongPath(bytes) {
+  if (
+    bytes.byteLength === 0 ||
+    bytes.byteLength > TAR_GNU_LONG_PATH_MAXIMUM_BYTES ||
+    bytes.at(-1) !== 0 ||
+    bytes.subarray(0, -1).some((byte) => byte < 0x20 || byte > 0x7e)
+  ) {
+    fail('TAR GNU long path is invalid');
+  }
+  return bytes.subarray(0, -1).toString('ascii');
 }
 
 function resolvedTarPath(value, label) {
@@ -712,7 +730,29 @@ function consumeTarEntryChunk(current, chunk, record) {
     writeTarRegularChunk(current, chunk, record);
     return;
   }
-  if (current.kind === 'pax') current.chunks.push(chunk);
+  if (current.kind === 'pax' || current.kind === 'gnu-long-path') current.chunks.push(chunk);
+}
+
+function gnuLongPathEntry(header, record, overrides, currentLongPath) {
+  if (header.type !== 'L') return null;
+  if (
+    overrides !== null ||
+    currentLongPath !== null ||
+    header.path !== '././@LongLink' ||
+    header.linkTarget !== '' ||
+    header.mode !== 0o644 ||
+    header.size === 0 ||
+    header.size > TAR_GNU_LONG_PATH_MAXIMUM_BYTES
+  ) {
+    fail(`record ${record.id} TAR GNU long path entry is invalid`);
+  }
+  return {
+    chunks: [],
+    kind: 'gnu-long-path',
+    padding: (TAR_BLOCK_BYTES - (header.size % TAR_BLOCK_BYTES)) % TAR_BLOCK_BYTES,
+    remaining: header.size,
+    size: header.size,
+  };
 }
 
 async function extractTarEntries(readable, record, recordRoot) {
@@ -720,6 +760,7 @@ async function extractTarEntries(readable, record, recordRoot) {
   const extracted = new Set();
   let pending = Buffer.alloc(0);
   let current = null;
+  let gnuLongPath = null;
   let pax = null;
   let zeroBlocks = 0;
   const finishCurrent = () => {
@@ -741,12 +782,23 @@ async function extractTarEntries(readable, record, recordRoot) {
       extracted.add(current.expected.path);
     } else if (current.kind === 'pax') {
       pax = parsePaxRecords(Buffer.concat(current.chunks, current.size));
+    } else if (current.kind === 'gnu-long-path') {
+      gnuLongPath = parseGnuLongPath(Buffer.concat(current.chunks, current.size));
     }
   };
   const startEntry = (header) => {
     const overrides = pax;
     pax = null;
-    const path = resolvedTarPath(overrides?.path ?? header.path, `record ${record.id} TAR entry`);
+    const gnuEntry = gnuLongPathEntry(header, record, overrides, gnuLongPath);
+    if (gnuEntry) return gnuEntry;
+    if (header.type === 'x' && gnuLongPath !== null)
+      fail(`record ${record.id} TAR GNU long path is not followed by an entry`);
+    const rawPath = gnuLongPath ?? overrides?.path ?? header.path;
+    gnuLongPath = null;
+    const path = resolvedTarPath(
+      header.type === '5' && rawPath.endsWith('/') ? rawPath.slice(0, -1) : rawPath,
+      `record ${record.id} TAR entry`,
+    );
     const linkTarget = overrides?.linkpath ?? header.linkTarget;
     if (header.type === 'x') {
       if (header.size > TAR_PAX_MAXIMUM_BYTES || path === '') fail(`record ${record.id} TAR PAX entry is invalid`);
@@ -760,9 +812,8 @@ async function extractTarEntries(readable, record, recordRoot) {
     }
     if (!['0', '5', '2'].includes(header.type)) fail(`record ${record.id} TAR entry type is unsupported`);
     if (header.type === '5') {
-      if (header.size !== 0 || ![...expected.keys()].some((value) => value.startsWith(`${path}/`))) {
-        fail(`record ${record.id} TAR directory is undeclared`);
-      }
+      if (header.size !== 0 || header.linkTarget !== '' || header.mode !== 0o755 || expected.has(path))
+        fail(`record ${record.id} TAR directory metadata is invalid`);
       return { kind: 'skip', padding: 0, remaining: 0, size: 0 };
     }
     const expectedEntry = expected.get(path);
@@ -852,7 +903,7 @@ async function extractTarEntries(readable, record, recordRoot) {
     }
     throw error;
   }
-  if (current || pending.byteLength !== 0 || zeroBlocks < 2 || pax !== null)
+  if (current || pending.byteLength !== 0 || zeroBlocks < 2 || gnuLongPath !== null || pax !== null)
     fail(`record ${record.id} TAR is truncated`);
   if (extracted.size !== expected.size) fail(`record ${record.id} TAR is incomplete`);
   validateTarLinkGraph(record.materialization.entries);

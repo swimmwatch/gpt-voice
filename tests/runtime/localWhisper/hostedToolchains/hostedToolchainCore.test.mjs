@@ -193,7 +193,7 @@ function tar(entries) {
     header.fill(0x20, 148, 156);
     header[156] = (entry.type ?? '0').charCodeAt(0);
     if (entry.target) header.write(entry.target, 157, 'ascii');
-    header.write('ustar\0', 257, 'ascii');
+    header.write(entry.magic ?? 'ustar\0', 257, 'ascii');
     header.write('00', 263, 'ascii');
     header.write(
       octal(
@@ -357,7 +357,7 @@ test('hosted toolchain materializer streams bounded TAR.GZ entries and declared 
   const archive = gzipSync(
     tar([
       { path: 'lib/libtool.so.1', contents: 'Fixture-Shared-Library\n' },
-      { path: 'lib/libtool.so', type: '2', target: 'libtool.so.1' },
+      { path: 'lib/libtool.so', type: '2', target: './libtool.so.1' },
     ]),
   );
   const archiveRecord = manifest.records[0];
@@ -379,10 +379,10 @@ test('hosted toolchain materializer streams bounded TAR.GZ entries and declared 
       {
         path: 'lib/libtool.so',
         entryType: 'symbolic-link',
-        byteLength: Buffer.byteLength('libtool.so.1'),
-        sha256: digest('libtool.so.1'),
+        byteLength: Buffer.byteLength('./libtool.so.1'),
+        sha256: digest('./libtool.so.1'),
         mode: '120777',
-        linkTarget: 'libtool.so.1',
+        linkTarget: './libtool.so.1',
       },
     ],
     xzDecoder: null,
@@ -395,8 +395,63 @@ test('hosted toolchain materializer streams bounded TAR.GZ entries and declared 
     sourceFiles: sources,
   });
   const link = resolve(materialized.root, 'fixture-cmake', 'lib', 'libtool.so');
-  assert.equal(readlinkSync(link), 'libtool.so.1');
+  assert.equal(readlinkSync(link), './libtool.so.1');
   assert.equal(verifyHostedToolchainMaterialization({ manifest, materializedRoot: materialized.root }).files.length, 3);
+});
+
+test('hosted toolchain TAR materializer accepts the NVIDIA GNU USTAR magic variant', async () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-hosted-toolchain-'));
+  const manifest = fixtureManifest();
+  const contents = 'Fixture-GNU-USTAR\n';
+  const longPath = `bin/${'a'.repeat(101)}.exe`;
+  const archive = gzipSync(
+    tar([
+      { path: 'bin/', type: '5', magic: 'ustar ' },
+      { path: 'bin/empty/', type: '5', magic: 'ustar ' },
+      { path: '././@LongLink', type: 'L', contents: `${longPath}\0`, magic: 'ustar ', mode: 0o644 },
+      { path: 'bin/placeholder', contents, magic: 'ustar ' },
+    ]),
+  );
+  const archiveRecord = manifest.records[0];
+  archiveRecord.transport = { byteLength: archive.byteLength, sha256: sha256(archive) };
+  archiveRecord.provenance.sha256 = archiveRecord.transport.sha256;
+  archiveRecord.materialization = {
+    format: 'tar-gzip',
+    expandedRegularBytes: Buffer.byteLength(contents),
+    expandedRegularBytesCeiling: 1024,
+    entries: [
+      {
+        path: longPath,
+        entryType: 'regular',
+        byteLength: Buffer.byteLength(contents),
+        sha256: digest(contents),
+        mode: '100755',
+        linkTarget: null,
+      },
+    ],
+    xzDecoder: null,
+  };
+  const sources = fixtureSources(root, manifest);
+  writeFileSync(sources['fixture-cmake'], archive);
+  const materialized = await materializeHostedToolchain({
+    attemptRoot: resolve(root, 'attempt'),
+    manifest,
+    sourceFiles: sources,
+  });
+  assert.equal(readFileSync(resolve(materialized.root, 'fixture-cmake', longPath), 'utf8'), contents);
+
+  const unsafeArchive = gzipSync(
+    tar([
+      { path: '././@LongLink', type: 'L', contents: '../escape\0', magic: 'ustar ', mode: 0o644 },
+      { path: 'bin/placeholder', contents, magic: 'ustar ' },
+    ]),
+  );
+  archiveRecord.transport = { byteLength: unsafeArchive.byteLength, sha256: sha256(unsafeArchive) };
+  archiveRecord.provenance.sha256 = archiveRecord.transport.sha256;
+  writeFileSync(sources['fixture-cmake'], unsafeArchive);
+  await assert.rejects(() =>
+    materializeHostedToolchain({ attemptRoot: resolve(root, 'unsafe-attempt'), manifest, sourceFiles: sources }),
+  );
 });
 
 test('hosted toolchain TAR materializer rejects a truncated entry after closing its output once', async () => {
@@ -515,11 +570,22 @@ test('archive preflight rejects traversal, links, case collisions, and extractio
     linkTarget: null,
   };
   assert.equal(validateHostedArchiveEntries([entry], 4), true);
+  const canonicalCurrentDirectoryLink = {
+    path: 'lib/tool.exe',
+    entryType: 'symbolic-link',
+    byteLength: Buffer.byteLength('./tool.exe'),
+    sha256: digest('./tool.exe'),
+    mode: '120777',
+    linkTarget: './tool.exe',
+  };
+  assert.equal(validateHostedArchiveEntries([entry, canonicalCurrentDirectoryLink], 4), true);
   for (const entries of [
     [{ ...entry, path: '../escape.exe' }],
     [{ ...entry, entryType: 'symlink' }],
     [entry, { ...entry, path: 'BIN/TOOL.EXE' }],
     [entry, { ...entry, path: 'bin/second.exe' }],
+    [{ ...canonicalCurrentDirectoryLink, linkTarget: '././tool.exe' }],
+    [{ ...canonicalCurrentDirectoryLink, linkTarget: '../tool.exe' }],
   ]) {
     assert.throws(() => validateHostedArchiveEntries(entries, 4));
   }
