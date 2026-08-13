@@ -117,7 +117,7 @@ async function createFakeTrivy(binDirectory: string): Promise<void> {
 const fs = require('node:fs');
 const args = process.argv.slice(2);
 if (args[0] === 'version') {
-  process.stdout.write('Version: 0.68.2\\n');
+  process.stdout.write('Version: 0.69.3\\n');
   process.exit(0);
 }
 if (args[0] === 'image' && args.includes('--download-db-only')) process.exit(0);

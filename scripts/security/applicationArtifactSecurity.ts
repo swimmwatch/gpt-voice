@@ -10,7 +10,7 @@ export const APPLICATION_ARTIFACT_SECURITY_SCHEMA_VERSION = 1;
 export const APPLICATION_SBOM_FORMAT = 'CycloneDX-1.6';
 export const APPLICATION_ARTIFACT_SECURITY_MAXIMUM_BYTES = 16 * 1024;
 export const APPLICATION_SBOM_MAXIMUM_BYTES = 256 * 1024;
-export const APPLICATION_SECURITY_SCANNER = Object.freeze({ name: 'trivy', version: '0.68.2' });
+export const APPLICATION_SECURITY_SCANNER = Object.freeze({ name: 'trivy', version: '0.69.3' });
 
 const DATABASE_MAXIMUM_AGE_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 const MAXIMUM_COMPONENTS = 256;
@@ -82,7 +82,7 @@ export interface ArtifactSecurityRecord {
   readonly scanner: {
     readonly database: { readonly sha256: string; readonly updatedAt: string };
     readonly name: 'trivy';
-    readonly version: '0.68.2';
+    readonly version: '0.69.3';
   };
   readonly schemaVersion: typeof APPLICATION_ARTIFACT_SECURITY_SCHEMA_VERSION;
   readonly sourceCommit: string;

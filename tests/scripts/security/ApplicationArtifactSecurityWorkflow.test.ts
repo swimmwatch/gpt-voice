@@ -37,7 +37,7 @@ describe('Application artifact security workflow', () => {
 
     assert.match(
       workflow,
-      /aquasecurity\/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0\.3\.1\n {8}with:\n {10}version: v0\.68\.2/u,
+      /aquasecurity\/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0\.3\.1\n {8}with:\n {10}version: v0\.69\.3/u,
     );
     assert.match(workflow, /npm run scan:security:application-artifacts --/u);
     assert.match(workflow, /--platform=\$\{\{ matrix\.artifactPlatform \}\}/u);
