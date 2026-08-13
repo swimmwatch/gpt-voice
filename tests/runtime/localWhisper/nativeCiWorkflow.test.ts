@@ -79,9 +79,9 @@ test('package smoke keeps Linux and Windows commands inside one platform matrix'
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 
   assert.match(workflow, /package-smoke:\n {4}name: Package Smoke \(\$\{\{ matrix\.checkName \}\}\)/u);
-  assert.match(workflow, /checkName: Fedora Linux\n {12}platform: linux/u);
-  assert.match(workflow, /checkName: Windows\n {12}platform: windows/u);
-  assert.match(workflow, /Smoke package application in Fedora/u);
+  assert.match(workflow, /checkName: Fedora Linux\n {12}artifactPlatform: linux\n {12}platform: linux/u);
+  assert.match(workflow, /checkName: Windows\n {12}artifactPlatform: win32\n {12}platform: windows/u);
+  assert.match(workflow, /Build and smoke exact Linux packages in Fedora/u);
   assert.match(workflow, /Build and smoke Windows package/u);
   assert.match(workflow, /CI_FEDORA_RELEASE_IMAGE/u);
   assert.match(workflow, /CI_ARCHITECTURE/u);

@@ -399,10 +399,12 @@ jobs:
       matrix:
         include:
           - checkName: Fedora Linux
+            artifactPlatform: linux
             platform: linux
             runner: ${{ vars.CI_LINUX_RUNNER }}
             timeoutMinutes: 60
           - checkName: Windows
+            artifactPlatform: win32
             platform: windows
             runner: ${{ vars.CI_WINDOWS_RUNNER }}
             timeoutMinutes: 45
@@ -410,6 +412,7 @@ jobs:
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
       FEDORA_RELEASE_IMAGE: ${{ vars.CI_FEDORA_RELEASE_IMAGE }}
+      TRIVY_CACHE_DIR: ${{ runner.temp }}/gpt-voice-trivy
 
     steps:
       - name: Checkout
@@ -420,7 +423,7 @@ jobs:
       - name: Set up project
         uses: ./.github/actions/setup-ci-project
         with:
-          install-dependencies: ${{ matrix.platform == 'windows' && 'true' || 'false' }}
+          install-dependencies: 'true'
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Set up Docker Buildx
@@ -436,9 +439,9 @@ jobs:
           load: true
           tags: ${{ env.FEDORA_RELEASE_IMAGE }}
 
-      - name: Smoke package application in Fedora
+      - name: Build and smoke exact Linux packages in Fedora
         if: matrix.platform == 'linux'
-        run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=smoke --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
+        run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=release --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
 
       - name: Initialize MSVC developer environment
         if: matrix.platform == 'windows'
@@ -452,10 +455,23 @@ jobs:
           npm run build:prod
           npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
           npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32
-          npx electron-builder --win dir
+          npx electron-builder --win --publish never
           npm run verify:packaged
+          npm run verify:installers -- --platform=win32
           npm run measure:size -- --platform=win32 --arch=${{ vars.CI_ARCHITECTURE }} --output=release-artifacts/size-win32-x64.json
           npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
+
+      - name: Set up immutable artifact vulnerability scanner
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: v0.68.2
+
+      - name: Generate and scan exact application security evidence
+        run: >-
+          npm run scan:security:application-artifacts --
+          --platform=${{ matrix.artifactPlatform }}
+          --source-commit=${{ github.sha }}
+          --output-directory=release-artifacts/application-security-${{ matrix.artifactPlatform }}
 
       - name: Verify Windows size budget when a reviewed baseline exists
         if: matrix.platform == 'windows' && hashFiles('build/size-baselines/v1.4.0-win32-x64.json') != ''
@@ -480,5 +496,13 @@ jobs:
           path: |
             release-artifacts/size-win32-x64.json
             release-artifacts/startup-win32-x64.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+      - name: Upload bounded application security evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-application-security-${{ matrix.artifactPlatform }}
+          path: release-artifacts/application-security-${{ matrix.artifactPlatform }}
           if-no-files-found: error
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}

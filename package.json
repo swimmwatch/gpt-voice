@@ -156,6 +156,10 @@
     "test:security:secret-policy": "node --import tsx --test tests/scripts/security/RepositorySecretPolicy.test.ts && node --import tsx scripts/security/verify-repository-secrets.ts",
     "test:security:docker-policy": "node --import tsx --test tests/scripts/security/DockerBuilderPolicy.test.ts && node --import tsx scripts/security/verify-docker-builder-security.ts",
     "test:security:repository-gates": "node --import tsx --test tests/scripts/security/RepositorySecurityGatePolicy.test.ts tests/scripts/security/RepositorySecurityWorkflow.test.ts",
+    "test:security:application-sbom": "node --import tsx --test tests/scripts/security/ApplicationArtifactSecurity.test.ts tests/scripts/security/ApplicationArtifactSecurityCli.test.ts",
+    "test:security:artifact-vulnerability-policy": "node --import tsx --test tests/scripts/security/ApplicationArtifactSecurity.test.ts",
+    "test:security:artifact-identity": "node --import tsx --test tests/scripts/security/ApplicationArtifactSecurity.test.ts tests/scripts/security/ApplicationArtifactSecurityWorkflow.test.ts",
+    "scan:security:application-artifacts": "node --import tsx scripts/security/scan-application-artifacts.ts",
     "test:security:codeql-policy": "node --test tests/runtime/localWhisper/nativeSources/codeqlPolicy.test.mjs",
     "test:local-whisper:native-hardening": "node --test tests/runtime/localWhisper/nativeSources/nativeHardening.test.mjs",
     "test:local-whisper:hosted-toolchains": "node --test \"tests/runtime/localWhisper/hostedToolchains/*.test.mjs\"",
@@ -196,6 +200,7 @@
     "audit:local-whisper:disconnected-build": "node scripts/local-whisper/native-build/audit-disconnected-build.mjs",
     "validate:dependabot": "node scripts/validate-dependabot-config.mjs",
     "verify:packaged": "node scripts/verify-packaged-runtime.mjs",
+    "test:packaging:linux-smoke": "node --import tsx --test tests/scripts/security/ApplicationArtifactSecurityWorkflow.test.ts",
     "verify:installers": "node scripts/verify-installers.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build,amd-packs}/**/*.mjs\" \"scripts/local-whisper/{whisper-cpp-build-core,whisper-cpp-integration-core,build-whisper-cpp-core,verify-whisper-cpp-core,verify-whisper-cpp-cpu,stage-whisper-cpp-cpu,verify-single-engine-cleanup}.mjs\" \"scripts/local-whisper/{build-whisper-cpp-cuda,verify-whisper-cpp-cuda,verify-whisper-cpp-device,verify-whisper-cpp-cuda-integration,verify-whisper-cpp-pack,stage-whisper-cpp-cuda}.mjs\" \"tests/runtime/localWhisper/{nativeSources,amdPacks}/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\" \"runtime/local-whisper/whisper-cpp/**/*.{json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,scss,html}\" \"tests/**/*.ts\" \"scripts/**/*.ts\" \"scripts/local-whisper/{source-import,native-build,amd-packs}/**/*.mjs\" \"scripts/local-whisper/{whisper-cpp-build-core,whisper-cpp-integration-core,build-whisper-cpp-core,verify-whisper-cpp-core,verify-whisper-cpp-cpu,stage-whisper-cpp-cpu,verify-single-engine-cleanup}.mjs\" \"scripts/local-whisper/{build-whisper-cpp-cuda,verify-whisper-cpp-cuda,verify-whisper-cpp-device,verify-whisper-cpp-cuda-integration,verify-whisper-cpp-pack,stage-whisper-cpp-cuda}.mjs\" \"tests/runtime/localWhisper/{nativeSources,amdPacks}/**/*.mjs\" \"runtime/local-whisper/{sources,toolchains}/**/*.{json,md}\" \"runtime/local-whisper/whisper-cpp/**/*.{json,md}\""
