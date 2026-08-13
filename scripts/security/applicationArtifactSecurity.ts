@@ -441,27 +441,26 @@ export class ApplicationSbomGenerator {
 
   private async fileManifest(root: string): Promise<readonly FileManifestEntry[]> {
     const rootMetadata = await lstat(root).catch(() => fail('UNPACKED_ROOT_UNAVAILABLE'));
-    if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink()) fail('UNPACKED_ROOT_INVALID');
+    if (!rootMetadata.isDirectory() || rootMetadata.isSymbolicLink()) fail('UNPACKED_ROOT_KIND_INVALID');
     const result: FileManifestEntry[] = [];
     const visit = async (directory: string, prefix: string): Promise<void> => {
-      const entries = await readdir(directory, { withFileTypes: true }).catch(() => fail('UNPACKED_ROOT_INVALID'));
+      const entries = await readdir(directory, { withFileTypes: true }).catch(() => fail('UNPACKED_ROOT_READ_INVALID'));
       for (const entry of [...entries].sort((left, right) => left.name.localeCompare(right.name, 'en'))) {
-        if (!SAFE_COMPONENT.test(entry.name)) fail('UNPACKED_ROOT_INVALID');
+        if (!SAFE_COMPONENT.test(entry.name)) fail('UNPACKED_ROOT_NAME_INVALID');
         const relative = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
         const candidate = path.join(directory, entry.name);
-        const metadata = await lstat(candidate).catch(() => fail('UNPACKED_ROOT_INVALID'));
-        if (metadata.isSymbolicLink()) fail('UNPACKED_ROOT_INVALID');
+        const metadata = await lstat(candidate).catch(() => fail('UNPACKED_ROOT_ENTRY_UNAVAILABLE'));
+        if (metadata.isSymbolicLink()) fail('UNPACKED_ROOT_LINK_INVALID');
         if (metadata.isDirectory()) {
           await visit(candidate, relative);
           continue;
         }
-        if (!metadata.isFile() || metadata.size < 0 || metadata.size > MAXIMUM_FILE_BYTES) {
-          fail('UNPACKED_ROOT_INVALID');
-        }
+        if (!metadata.isFile()) fail('UNPACKED_ROOT_ENTRY_KIND_INVALID');
+        if (metadata.size < 0 || metadata.size > MAXIMUM_FILE_BYTES) fail('UNPACKED_ROOT_SIZE_INVALID');
         result.push(
           Object.freeze({
             path: relative,
-            sha256: await this.sha256File(candidate, metadata.size, 'UNPACKED_ROOT_INVALID'),
+            sha256: await this.sha256File(candidate, metadata.size, 'UNPACKED_ROOT_ENTRY_CONTENT_INVALID'),
             sizeBytes: metadata.size,
           }),
         );
@@ -469,7 +468,7 @@ export class ApplicationSbomGenerator {
       }
     };
     await visit(root, '');
-    if (result.length === 0) fail('UNPACKED_ROOT_INVALID');
+    if (result.length === 0) fail('UNPACKED_ROOT_EMPTY');
     return Object.freeze(result);
   }
 

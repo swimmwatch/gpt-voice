@@ -201,6 +201,32 @@ describe('Application artifact SBOM', () => {
       await rm(fixture.root, { force: true, recursive: true });
     }
   });
+
+  it('returns a sanitized structural class for an invalid unpacked entry name', async () => {
+    const fixture = await createWorkspace();
+    try {
+      await writeFile(path.join(fixture.unpackedRoot, 'unsafe name'), 'CANARY_UNSAFE_ENTRY_BYTES');
+      await assert.rejects(
+        () =>
+          new ApplicationSbomGenerator().generate({
+            packageFormat: 'appimage',
+            packageSha256: PACKAGE_SHA256,
+            platform: 'linux',
+            sourceCommit: SOURCE_COMMIT,
+            unpackedRoot: fixture.unpackedRoot,
+            workspaceRoot: fixture.root,
+          }),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.equal(error.message, 'APPLICATION_ARTIFACT_SECURITY_UNPACKED_ROOT_NAME_INVALID');
+          assert.doesNotMatch(error.message, /unsafe name/u);
+          return true;
+        },
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
 });
 
 describe('Application artifact vulnerability policy', () => {
