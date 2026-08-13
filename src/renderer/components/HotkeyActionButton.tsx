@@ -1,31 +1,55 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@renderer/lib/cn';
+import {
+  formatHotkeyLegend,
+  getHotkeyActionButtonVisualTransition,
+  getInitialHotkeyActionButtonVisualState,
+  HOTKEY_ACTION_BUTTON_RELEASE_FEEDBACK_MS,
+  isHotkeyActionButtonUnavailable,
+  type HotkeyActionButtonSemanticState,
+  type HotkeyActionButtonVisualState,
+} from '@renderer/hotkeyActionButtonState';
 import '@renderer/styles/hotkeyActionButton.css';
 
 const KEYBOARD_ACTIVATION_KEYS = new Set(['Enter', ' ']);
-const RELEASE_FEEDBACK_MS = 110;
 
-interface HotkeyActionButtonProps {
+export interface HotkeyActionButtonProps {
+  /** Keeps the pressed visual state while the caller owns this provider session. */
+  readonly active?: boolean;
   readonly actionLabel: string;
   readonly busy?: boolean;
   readonly className?: string;
   readonly disabled?: boolean;
   readonly hotkey: string;
+  /** Semantically disables the key while retaining its 110 ms visual lock grace. */
+  readonly locked?: boolean;
   readonly onActivate: () => void;
 }
 
-/** Presents one complete accelerator as a physically pressable action key. */
-export default function HotkeyActionButton({
+interface HotkeyActionButtonInputProps {
+  readonly actionLabel: string;
+  readonly busy: boolean;
+  readonly className?: string;
+  readonly hotkey: string;
+  readonly onActivate: () => void;
+  readonly unavailable: boolean;
+  readonly visualState: HotkeyActionButtonVisualState;
+}
+
+/** Owns transient pointer and keyboard feedback for one semantic button instance. */
+function HotkeyActionButtonInput({
   actionLabel,
-  busy = false,
+  busy,
   className,
-  disabled = false,
   hotkey,
   onActivate,
-}: HotkeyActionButtonProps): React.JSX.Element {
+  unavailable,
+  visualState,
+}: HotkeyActionButtonInputProps): React.JSX.Element {
   const [keyboardPressed, setKeyboardPressed] = useState(false);
+  const [pointerPressed, setPointerPressed] = useState(false);
   const releaseTimerRef = useRef<number | null>(null);
-  const unavailable = disabled || busy;
+  const legendTokens = formatHotkeyLegend(hotkey);
 
   const clearKeyboardRelease = (): void => {
     if (releaseTimerRef.current === null) return;
@@ -33,9 +57,17 @@ export default function HotkeyActionButton({
     releaseTimerRef.current = null;
   };
 
+  const clearPressedState = (): void => {
+    clearKeyboardRelease();
+    setKeyboardPressed(false);
+    setPointerPressed(false);
+  };
+
   useEffect(
     () => () => {
-      if (releaseTimerRef.current !== null) window.clearTimeout(releaseTimerRef.current);
+      if (releaseTimerRef.current === null) return;
+      window.clearTimeout(releaseTimerRef.current);
+      releaseTimerRef.current = null;
     },
     [],
   );
@@ -45,7 +77,7 @@ export default function HotkeyActionButton({
     releaseTimerRef.current = window.setTimeout(() => {
       setKeyboardPressed(false);
       releaseTimerRef.current = null;
-    }, RELEASE_FEEDBACK_MS);
+    }, HOTKEY_ACTION_BUTTON_RELEASE_FEEDBACK_MS);
   };
 
   return (
@@ -54,11 +86,10 @@ export default function HotkeyActionButton({
       aria-label={`${actionLabel}: ${hotkey}`}
       className={cn('command-dock-hotkey-action', className)}
       data-keyboard-pressed={keyboardPressed || undefined}
+      data-pointer-pressed={pointerPressed || undefined}
+      data-visual-state={visualState}
       disabled={unavailable}
-      onBlur={() => {
-        clearKeyboardRelease();
-        setKeyboardPressed(false);
-      }}
+      onBlur={clearPressedState}
       onClick={() => {
         if (!unavailable) onActivate();
       }}
@@ -68,12 +99,72 @@ export default function HotkeyActionButton({
       onKeyUp={(event) => {
         if (KEYBOARD_ACTIVATION_KEYS.has(event.key)) releaseKeyboard();
       }}
+      onLostPointerCapture={clearPressedState}
+      onPointerCancel={clearPressedState}
+      onPointerDown={(event) => {
+        if (unavailable || event.button !== 0) return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setPointerPressed(true);
+      }}
+      onPointerUp={clearPressedState}
       title={`${actionLabel}: ${hotkey}`}
       type="button"
     >
+      <span aria-hidden="true" className="command-dock-hotkey-action__shadow" />
+      <span aria-hidden="true" className="command-dock-hotkey-action__bevel" />
       <span aria-hidden="true" className="command-dock-hotkey-action__face">
-        <span className="command-dock-hotkey-action__legend">{hotkey}</span>
+        <span className="command-dock-hotkey-action__legend">
+          {legendTokens.map((token) => (
+            <span className={`command-dock-hotkey-action__${token.kind}`} key={token.id}>
+              {token.text}
+            </span>
+          ))}
+        </span>
       </span>
     </button>
+  );
+}
+
+/** Presents one complete accelerator as a physically pressable action key. */
+export default function HotkeyActionButton({
+  active = false,
+  actionLabel,
+  busy = false,
+  className,
+  disabled = false,
+  hotkey,
+  locked = false,
+  onActivate,
+}: HotkeyActionButtonProps): React.JSX.Element {
+  const semanticStateRef = useRef<HotkeyActionButtonSemanticState>({ active, busy, disabled, locked });
+  const [visualState, setVisualState] = useState<HotkeyActionButtonVisualState>(() =>
+    getInitialHotkeyActionButtonVisualState({ active, busy, disabled, locked }),
+  );
+  const unavailable = isHotkeyActionButtonUnavailable({ active, busy, disabled, locked });
+
+  useEffect(() => {
+    const nextSemanticState: HotkeyActionButtonSemanticState = { active, busy, disabled, locked };
+    const transition = getHotkeyActionButtonVisualTransition(semanticStateRef.current, nextSemanticState);
+    semanticStateRef.current = nextSemanticState;
+    setVisualState(transition.state);
+    if (transition.delayMs === null) return;
+
+    const lockTimer = window.setTimeout(() => {
+      setVisualState(getInitialHotkeyActionButtonVisualState(semanticStateRef.current));
+    }, transition.delayMs);
+    return () => window.clearTimeout(lockTimer);
+  }, [active, busy, disabled, locked]);
+
+  return (
+    <HotkeyActionButtonInput
+      actionLabel={actionLabel}
+      busy={busy}
+      className={className}
+      hotkey={hotkey}
+      key={String(unavailable)}
+      onActivate={onActivate}
+      unavailable={unavailable}
+      visualState={visualState}
+    />
   );
 }

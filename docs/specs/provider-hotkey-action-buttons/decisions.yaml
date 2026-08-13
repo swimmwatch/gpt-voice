@@ -1439,3 +1439,62 @@ decisions:
     rationale: 'Authorization covers only verified Packet 02 files and excludes unrelated worktree changes.'
     supersedes_revision: null
     requirement_ids: []
+
+  - id: authorization.execution
+    revision: 6
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Prompt MCP authorization.execution-packet-03:v1 selected authorize-packet-03.'
+      - 'Packet 02 was committed as ceb06f7 before packet 03 began.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-03-execution-authorization-round-01
+      question_id: authorization.execution-packet-03
+      idempotency_key: authorization.execution-packet-03:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 03, Hotkey Action Button, during this incremental-implementation invocation?'
+      kind: single
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: 'Authorization applies only to packet 03 during the current incremental-implementation invocation.'
+    supersedes_revision: 5
+    requirement_ids: []
+
+  - id: authorization.commit-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 source, tests, decision, checklist, and handoff records remain uncommitted.'
+      - 'Packet 03 focused tests, touched-file lint and formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-03-commit-authorization-round-01
+      question_id: authorization.commit-packet-03
+      idempotency_key: authorization.commit-packet-03:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 03 before opening the next packet? The commit will include only the reusable HotkeyActionButton component, its state/style contracts, focused tests, and packet decision/checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-03
+          label: Commit Packet 03 (Recommended)
+          description: Create one focused commit for the verified Packet 03 files, then request separate authorization for Packet 04.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or starting Packet 04.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 03 for revision.
+    answer:
+      selected_ids: [commit-packet-03]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
