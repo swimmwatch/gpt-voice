@@ -4,7 +4,7 @@ Status: Approved
 
 ## Outcome
 
-On a genuinely new GPT-Voice profile, the application prepares its app-owned browser runtime before exposing the main workflow, shows truthful concurrent startup progress, and leaves the voice provider unselected until the user chooses one. The result is a usable first-launch path even when CloakBrowser was not included in the installed package.
+On a genuinely new GPT-Voice profile, the application prepares its app-owned browser runtime before exposing the main workflow, shows truthful concurrent startup progress, and leaves the voice provider unselected until the user chooses one. On every launch, the localized React startup screen replaces the static bootstrap shell as soon as it can truthfully present the current stages. The result is a usable first-launch path even when CloakBrowser was not included in the installed package.
 
 ## Requirements
 
@@ -36,11 +36,13 @@ On a genuinely new GPT-Voice profile, the application prepares its app-owned bro
 - **FLR-015** The centered loading interface presents the shared loader, percentage, and concise status as one visually coherent group using the existing settings color and typography tokens. The status remains readable within the window without creating a new loader component or new color palette.
 - **FLR-016** On successful first-launch preparation, the loading view exits only after the startup work it represents is terminal and the main screen can display the unselected provider state. It does not wait for provider login, voice-model download, or provider connection that the user has not selected.
 - **FLR-017** Failure content is renderer-safe and must not expose filesystem paths, download URLs, credentials, provider sessions, or raw dependency errors. Retry is accessible by mouse and keyboard and clearly identifies the failed preparation as retryable.
+- **FLR-018** The static HTML bootstrap shell is visible only until React and localization are ready. It then yields without a blank or double-loader frame to the existing localized startup screen, which remains visible until its represented startup work is terminal. The static shell must not fabricate progress or localized stage text.
 
 ## Constraints
 
 - Renderer code accesses privileged startup state only through `window.electronAPI`; main owns filesystem, runtime installation, downloads, and process lifecycle.
 - Existing shared loading components, including the current determinate `ProgressSpinner`, are reused. No parallel Select, spinner, or color system is introduced.
+- The static bootstrap shell may visually align with the shared loader but cannot claim a stage or percentage before renderer localization and startup state are available.
 - IPC schemas validate startup snapshots at the preload boundary and retain trusted-sender validation.
 - Startup status data contains only predefined, localized user-facing messages and numeric progress; it never includes sensitive data or raw dependency logs.
 - The implementation preserves current packaged-runtime behavior and its normal build-time `prepare:cloakbrowser` path.
@@ -60,6 +62,7 @@ On a genuinely new GPT-Voice profile, the application prepares its app-owned bro
 - Coordinator tests cover: bundled runtime present; runtime missing then vendor installation succeeds; verification and network failure; retry; duplicate completion; stale update; and concurrent job ordering.
 - IPC/preload tests reject malformed startup snapshots and expose current snapshot plus subscriptions only through the typed API.
 - Renderer tests cover unselected-provider display, no automatic provider initialization, consolidated concurrent status, determinate percentage semantics, indeterminate fallback, retry presentation, and accessible loader semantics.
+- Startup-gate tests cover the static-to-React handoff, one active accessible status region, stage updates while work is pending, and main-window reveal only after represented startup work reaches a terminal state.
 - CloakBrowser runtime tests prove that a bundled executable is preferred, fallback installation is invoked only when absent, and verification failure cannot choose an unverified fallback.
 
 ### Manual
@@ -67,5 +70,6 @@ On a genuinely new GPT-Voice profile, the application prepares its app-owned bro
 - On a clean profile with no packaged CloakBrowser executable, launching the app shows concise preparation text and truthful progress, installs CloakBrowser successfully, and then presents no selected voice provider.
 - On a clean profile with the bundled runtime, launching the app does not make a runtime download and then presents no selected voice provider.
 - During intentionally overlapping startup jobs, the status remains coherent and never flips to an older or unrelated message after a newer update or Retry.
+- On both a normal launch and a first-launch preparation, the static bootstrap shell yields to the localized stage-aware loader without a blank frame; the loader closes after terminal startup work and retains Retry only for retryable preparation failure.
 - With the network disabled or a forced installer failure, the loading view shows a safe error and Retry; a subsequent successful retry completes without restarting completed work.
 - An existing configured profile opens with its previously selected provider unchanged.
