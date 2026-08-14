@@ -16,8 +16,13 @@ describe('Application artifact security workflow', () => {
 
     assert.match(
       workflow,
-      /package-smoke:\n {4}name: Package Smoke \(\$\{\{ matrix\.checkName \}\}\)\n {4}needs: quality/u,
+      /package-smoke:\n {4}name: Package Smoke \(\$\{\{ matrix\.checkName \}\}\)\n {4}runs-on: \$\{\{ matrix\.runner \}\}/u,
     );
+    const packageSmokeHeader = workflow.slice(
+      workflow.indexOf('  package-smoke:'),
+      workflow.indexOf('    steps:', workflow.indexOf('  package-smoke:')),
+    );
+    assert.doesNotMatch(packageSmokeHeader, /\n {4}needs:/u);
     assert.match(
       workflow,
       /checkName: Fedora Linux\n {12}artifactPlatform: linux\n {12}platform: linux\n {12}runner: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u,

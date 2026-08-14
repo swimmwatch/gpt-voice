@@ -36,11 +36,29 @@ const REQUIRED_WORKFLOW_PATH_FILTERS = [
 
 const PLATFORM_CONTRACTS = {
   linux: {
+    coreJob: 'native-linux-core',
+    coreTimeoutMinutes: 60,
+    gateJob: 'native-quality-linux',
+    gateName: 'Local Whisper Native Quality (Linux)',
+    lanes: [
+      { checkName: 'Static Analysis', lane: 'static-analysis', timeoutMinutes: 20 },
+      { checkName: 'GCC and Package', lane: 'gcc-package', timeoutMinutes: 30 },
+    ],
     runner: '${{ vars.CI_LINUX_RUNNER }}',
+    shardJob: 'native-linux-shards',
     toolchain: 'clang-${{ vars.CI_LLVM_VERSION }}',
   },
   windows: {
+    coreJob: 'native-windows-core',
+    coreTimeoutMinutes: 60,
+    gateJob: 'native-quality-windows',
+    gateName: 'Local Whisper Native Quality (Windows)',
+    lanes: [
+      { checkName: 'MSVC Analyze', lane: 'analyze', timeoutMinutes: 30 },
+      { checkName: 'MSVC AddressSanitizer', lane: 'asan', timeoutMinutes: 30 },
+    ],
     runner: '${{ vars.CI_WINDOWS_RUNNER }}',
+    shardJob: 'native-windows-shards',
     toolchain: 'msvc-hosted',
   },
 } as const;
@@ -67,9 +85,15 @@ const SOURCE_COMMIT = /^[a-f\d]{40}$/u;
 const SHA_256 = /^[a-f\d]{64}$/u;
 
 interface WorkflowJob {
+  readonly env?: unknown;
+  readonly if?: unknown;
+  readonly name?: unknown;
+  readonly needs?: unknown;
+  readonly permissions?: unknown;
   readonly 'runs-on'?: unknown;
   readonly steps?: unknown;
   readonly strategy?: unknown;
+  readonly 'timeout-minutes'?: unknown;
 }
 
 interface RunnerEvidence {
@@ -105,15 +129,29 @@ function countOccurrences(text: string, value: string): number {
   return text.split(value).length - 1;
 }
 
-function matrixRows(job: WorkflowJob): readonly Record<string, unknown>[] {
+function matrixRows(job: WorkflowJob, owner: string): readonly Record<string, unknown>[] {
   if (!isRecord(job.strategy) || !isRecord(job.strategy.matrix) || !Array.isArray(job.strategy.matrix.include)) {
-    throw new Error('native-quality must declare a matrix include list');
+    throw new Error(`${owner} must declare a matrix include list`);
   }
-  if (job.strategy['fail-fast'] !== false) throw new Error('native-quality matrix must disable fail-fast');
+  if (job.strategy['fail-fast'] !== false) throw new Error(`${owner} matrix must disable fail-fast`);
   return job.strategy.matrix.include.map((entry) => {
-    if (!isRecord(entry)) throw new Error('native-quality matrix row must be an object');
+    if (!isRecord(entry)) throw new Error(`${owner} matrix row must be an object`);
     return entry;
   });
+}
+
+function exactStringSet(value: unknown, expected: readonly string[], error: string): void {
+  if (!Array.isArray(value)) throw new Error(error);
+  const actual = value.map((entry) => {
+    if (typeof entry !== 'string') throw new Error(error);
+    return entry;
+  });
+  if (JSON.stringify(actual.sort()) !== JSON.stringify([...expected].sort())) throw new Error(error);
+}
+
+function exactPermissions(value: unknown, expected: Readonly<Record<string, string>>): boolean {
+  if (!isRecord(value)) return false;
+  return JSON.stringify(Object.entries(value).sort()) === JSON.stringify(Object.entries(expected).sort());
 }
 
 function verifyPathFilters(workflowText: string): void {
@@ -141,46 +179,105 @@ function verifyConfiguredRunnerLabels(labels: ConfiguredRunnerLabels): void {
   }
 }
 
-function verifyRequiredNativeMatrix(jobs: Record<string, WorkflowJob>): void {
-  const job = jobs['native-quality'];
-  if (!job || job['runs-on'] !== '${{ matrix.runner }}') {
-    throw new Error('native-quality must run on its matrix runner');
-  }
-  const rows = matrixRows(job);
-  if (rows.length !== Object.keys(PLATFORM_CONTRACTS).length) {
-    throw new Error('native-quality must contain exactly one row for each supported platform');
-  }
-  const seen = new Set<string>();
-  for (const row of rows) {
-    const platform = row.platform;
-    if (platform !== 'linux' && platform !== 'windows')
-      throw new Error('native-quality has an unsupported platform row');
-    if (seen.has(platform)) throw new Error(`native-quality duplicates the ${platform} platform row`);
-    seen.add(platform);
+function verifyRequiredNativeParallelism(jobs: Record<string, WorkflowJob>): void {
+  for (const platform of Object.keys(PLATFORM_CONTRACTS) as NativePlatform[]) {
     const contract = PLATFORM_CONTRACTS[platform];
-    if (row.runner !== contract.runner || row.toolchain !== contract.toolchain) {
-      throw new Error(`native-quality ${platform} row does not use its configured runner and toolchain`);
+    const core = jobs[contract.coreJob];
+    const shards = jobs[contract.shardJob];
+    const gate = jobs[contract.gateJob];
+    if (!core || core['runs-on'] !== contract.runner) {
+      throw new Error(`${contract.coreJob} must use its configured ${platform} runner`);
     }
-  }
-
-  const text = jobText(job);
-  if (
-    !text.includes('--runner-label=${{ matrix.runner }}') ||
-    !text.includes('--toolchain=${{ matrix.toolchain }}') ||
-    !text.includes('--expected-os=${{ matrix.platform }}')
-  ) {
-    throw new Error('native-quality must emit evidence for its configured matrix row');
+    if (core.needs !== undefined || core['timeout-minutes'] !== contract.coreTimeoutMinutes) {
+      throw new Error(`${contract.coreJob} must start independently with its approved timeout`);
+    }
+    if (!shards || shards['runs-on'] !== '${{ matrix.runner }}') {
+      throw new Error(`${contract.shardJob} must run on its matrix runner`);
+    }
+    if (shards.needs !== undefined || shards['timeout-minutes'] !== '${{ matrix.timeoutMinutes }}') {
+      throw new Error(`${contract.shardJob} must start independently with matrix-owned timeouts`);
+    }
+    const rows = matrixRows(shards, contract.shardJob);
+    if (rows.length !== contract.lanes.length) {
+      throw new Error(`${contract.shardJob} must contain the exact approved lane count`);
+    }
+    const lanes = rows.map((row) => row.lane);
+    exactStringSet(
+      lanes,
+      contract.lanes.map((lane) => lane.lane),
+      `${contract.shardJob} must contain the exact approved lanes`,
+    );
+    if (rows.some((row) => row.runner !== contract.runner)) {
+      throw new Error(`${contract.shardJob} must use its configured ${platform} runner`);
+    }
+    for (const lane of contract.lanes) {
+      const row = rows.find((candidate) => candidate.lane === lane.lane);
+      if (!row || row.checkName !== lane.checkName || row.timeoutMinutes !== lane.timeoutMinutes) {
+        throw new Error(`${contract.shardJob} ${lane.lane} metadata must remain parameterized and exact`);
+      }
+    }
+    if (
+      !gate ||
+      gate.name !== contract.gateName ||
+      gate.if !== '${{ always() }}' ||
+      gate['runs-on'] !== contract.runner
+    ) {
+      throw new Error(`${contract.gateJob} must remain an always-running configured aggregate gate`);
+    }
+    exactStringSet(
+      gate.needs,
+      [contract.coreJob, contract.shardJob],
+      `${contract.gateJob} must require every ${platform} native lane`,
+    );
+    const gateText = jobText(gate);
+    if (
+      !gateText.includes(`needs.${contract.coreJob}.result`) ||
+      !gateText.includes(`needs.${contract.shardJob}.result`) ||
+      countOccurrences(gateText, 'success') !== 2 ||
+      gateText.includes('continue-on-error')
+    ) {
+      throw new Error(`${contract.gateJob} must fail closed over every ${platform} native lane`);
+    }
+    const coreText = jobText(core);
+    if (
+      !exactPermissions(core.permissions, { contents: 'read', 'security-events': 'write' }) ||
+      !coreText.includes(`--runner-label=${contract.runner}`) ||
+      !coreText.includes(`TOOLCHAIN":"${contract.toolchain}`)
+    ) {
+      throw new Error(`${contract.coreJob} must retain least-privilege CodeQL and runner evidence`);
+    }
+    if (jobText(shards).includes('security-events') || gateText.includes('security-events')) {
+      throw new Error(`${platform} non-CodeQL native lanes must not write security events`);
+    }
   }
 }
 
 function verifyPrimaryEvidence(jobs: Record<string, WorkflowJob>): void {
-  const nativeQuality = jobText(jobs['native-quality'] ?? {});
-  if (!nativeQuality.includes('native-sanitizer-proof') || !nativeQuality.includes('lint:local-whisper')) {
+  const linuxCore = jobText(jobs['native-linux-core'] ?? {});
+  const linuxShards = jobText(jobs['native-linux-shards'] ?? {});
+  const windowsCore = jobText(jobs['native-windows-core'] ?? {});
+  const windowsShards = jobText(jobs['native-windows-shards'] ?? {});
+  if (
+    !linuxCore.includes('native-sanitizer-proof') ||
+    !linuxCore.includes('worker-tsan') ||
+    !linuxCore.includes('native-fuzz') ||
+    !linuxShards.includes('lint:local-whisper') ||
+    !linuxShards.includes('native-analysis') ||
+    !linuxShards.includes('fs-guard:gcc') ||
+    !linuxShards.includes('native-hardening')
+  ) {
     throw new Error('Primary Linux runner must retain sanitizer and lint evidence');
   }
-  if (!nativeQuality.includes('msvc-asan') || !nativeQuality.includes('native-hardening')) {
+  if (
+    !windowsCore.includes('native-hardening') ||
+    !windowsCore.includes('languages":"c-cpp') ||
+    !windowsShards.includes('msvc-asan') ||
+    !windowsShards.includes('LOCAL_WHISPER_MSVC_ANALYZE')
+  ) {
     throw new Error('Primary Windows runner must retain ASan and PE-hardening evidence');
   }
+  const nativeJobs = [linuxCore, linuxShards, windowsCore, windowsShards].join('');
+  if (nativeJobs.includes('continue-on-error')) throw new Error('Native quality lanes must fail closed');
 }
 
 function operatingSystemForRunner(runnerLabel: string): 'Linux' | 'Windows' {
@@ -196,7 +293,7 @@ function verifyToolchainVersion(profile: string, version: string): void {
   throw new Error('Runner evidence compiler version does not match its toolchain profile');
 }
 
-/** Keeps the ordinary native matrix parameterized while retaining platform-specific quality evidence. */
+/** Keeps parallel native lanes parameterized while retaining fail-closed platform evidence. */
 export class RunnerPolicyVerifier {
   public ownsNativePath(path: string): boolean {
     return NATIVE_PATH_OWNERS.some((owner) => pathMatchesOwner(path, owner));
@@ -207,7 +304,7 @@ export class RunnerPolicyVerifier {
     verifyPathFilters(workflowText);
     verifyConfiguredRunners(jobs);
     verifyConfiguredRunnerLabels(configuredRunnerLabels);
-    verifyRequiredNativeMatrix(jobs);
+    verifyRequiredNativeParallelism(jobs);
     verifyPrimaryEvidence(jobs);
   }
 
