@@ -54,6 +54,7 @@ const WINDOWS_ONLY_BASENAMES = new Set([
   'windows_process_identity.cpp',
   'windows_process_identity.hpp',
   'worker_protocol_windows.cpp',
+  'worker_protocol_windows_test.cpp',
 ]);
 
 function bytewiseStringSort(left, right) {
