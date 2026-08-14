@@ -1,4 +1,4 @@
-# 17 Provenance, Attestation, And Security Reporting
+# 18 Provenance, Attestation, And Security Reporting
 
 ## Outcome
 
@@ -6,7 +6,7 @@ GitHub-native provenance and attestations bind each representative Linux and Win
 
 ## Prerequisites
 
-- Packet 16 is complete and exposes exact machine-verifiable Linux/Windows package, checksum, SBOM, scan, and smoke identities.
+- Packet 17 is complete and exposes exact machine-verifiable Linux/Windows package, checksum, SBOM, scan, and smoke identities.
 - Packets 09–11 are complete so immutable Actions, least-privilege workflows, repository security gates, CodeQL SARIF, and fixed runner evidence are authoritative.
 - This packet has separate execution authorization and no other packet is in progress.
 
@@ -58,7 +58,7 @@ GitHub-native provenance and attestations bind each representative Linux and Win
 - AC-AUT-036 verifies both intact Linux and Windows chains and rejects every one-field mutation; only attestation jobs hold identity-token write permission.
 - AC-AUT-037 proves all retained evidence is bounded, GitHub-native, repository-relative, privacy-safe, and free of hosted third-party scanner configuration; Scorecard is advisory.
 - AC-AUT-038 intentionally fails every owning security gate on its negative or malformed/unavailable proof with no downgrade or waiver.
-- Automated evidence is sufficient for Packet 18 to perform AC-MAN-006–AC-MAN-008 review without inventing identities or rerunning production implementation.
+- Automated evidence is sufficient for Packet 19 to perform AC-MAN-006–AC-MAN-008 review without inventing identities or rerunning production implementation.
 
 ## Verification
 
@@ -81,11 +81,11 @@ Local tests use synthetic attestation/verifier fixtures. Real GitHub-native Linu
 
 ## Remote Completion Gate
 
-1. Run every applicable local test/check before the candidate commit, leave Packet 17 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force.
+1. Run every applicable local test/check before the candidate commit, leave Packet 18 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force.
 2. Confirm CI launched for the exact candidate SHA. Require all selected checks to succeed, including Quality Gates, workflow/repository security, CodeQL, the Ubuntu 24.04 and Windows Server 2025 native jobs, Linux and Windows package/SBOM/scans, both platform attestation jobs and verifier proofs, evidence/redaction/aggregate proofs, fixture packaging, and package smoke.
 3. The Windows package/security/attestation chain and required Windows Server 2025 native jobs must execute and conclude `success`; no required Windows skip is acceptable. Do not manually dispatch Scorecard merely to complete this packet.
 4. For every packet-caused failure, rerun all applicable local checks before a focused fix commit, push, and repeat the complete exact-SHA gate. Record unrelated/out-of-scope failures as blockers.
-5. After the candidate SHA passes, check Packet 17 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
+5. After the candidate SHA passes, check Packet 18 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
 
 ## Failure And Rollback
 
@@ -95,16 +95,16 @@ Local tests use synthetic attestation/verifier fixtures. Real GitHub-native Linu
 
 ## Manual Gates
 
-- Packet 18 performs AC-MAN-006–AC-MAN-008 by read-only inspection. Changing required-check/security settings, installing a GitHub App, granting new credentials, manual workflow dispatch, signing, publication, qualification, or release requires separate authorization.
+- Packet 19 performs AC-MAN-006–AC-MAN-008 by read-only inspection. Changing required-check/security settings, installing a GitHub App, granting new credentials, manual workflow dispatch, signing, publication, qualification, or release requires separate authorization.
 - Non-force packet/fix pushes are within standing scoped authorization; force-pushes are prohibited.
 
 ## References
 
 - Specification Sections 3.1, 10.11, 11, and 12; AC-AUT-036–AC-AUT-038 and AC-MAN-006–AC-MAN-008.
-- Packet 16 exact artifact-security records.
+- Packet 17 exact artifact-security records.
 
 ## Completion And Handoff
 
 - Record job permissions, attestation/verifier identities, bound Linux/Windows digests, mutation/redaction/aggregate proofs, Scorecard advisory policy, candidate SHA, and every exact CI job result.
-- Check Packet 17 only after the code-bearing exact-SHA gate passes with the complete Windows chain and no required skip.
-- Set the exact next packet to Packet 18 and stop.
+- Check Packet 18 only after the code-bearing exact-SHA gate passes with the complete Windows chain and no required skip.
+- Set the exact next packet to Packet 19 and stop.

@@ -1,4 +1,4 @@
-# 14 Focused GCC Quality
+# 15 Focused GCC Quality
 
 ## Outcome
 
@@ -60,11 +60,11 @@ npm run test:local-whisper:native-ci-workflow
 
 ## Remote Completion Gate
 
-1. Before the candidate or any fix commit, run every applicable local check. Leave Packet 14 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force.
+1. Before the candidate or any fix commit, run every applicable local check. Leave Packet 15 unchecked, update `handoff.md`, stage only packet-owned paths, commit conventionally, and push without force.
 2. Confirm CI launched for the exact candidate SHA. Require all selected checks to succeed, including Quality Gates, workflow/security policy, fixture/package jobs, the focused GCC job, and both selected native runner jobs.
 3. GCC 13 and the Ubuntu 24.04 Clang/Windows Server 2025 MSVC jobs must execute and pass their applicable C++ checks. The required Windows jobs must conclude `success`; no required Windows skip is acceptable even though GCC remains Linux-only.
 4. Fix packet-caused portability failures with focused regressions, rerun all applicable local checks before committing, push, and repeat the exact-SHA gate. Record unrelated/out-of-scope failures as blockers.
-5. After the candidate SHA passes, check Packet 14 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
+5. After the candidate SHA passes, check Packet 15 and update `handoff.md`. Push a documentation-only completion commit and confirm CI launch without waiting for that documentation-only run.
 
 ## Failure And Rollback
 
@@ -84,5 +84,5 @@ npm run test:local-whisper:native-ci-workflow
 ## Completion And Handoff
 
 - Record GCC profile, source manifests, commands/results, candidate SHA, and successful two-runner CI evidence in `handoff.md`.
-- Check Packet 14 only after both focused GCC suites and the code-bearing exact-SHA remote gate pass with no required Windows skip.
-- Set the exact next packet to Packet 15 and stop.
+- Check Packet 15 only after both focused GCC suites and the code-bearing exact-SHA remote gate pass with no required Windows skip.
+- Set the exact next packet to Packet 16 and stop.

@@ -2561,10 +2561,10 @@ decisions:
       - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
       - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
       - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/16_application_sbom_and_vulnerability_evidence.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/17_provenance_attestation_and_security_reporting.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/18_linux_shared_security_remediation_gate.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
     prompt_mcp: null
     question: null
     answer:
@@ -2634,12 +2634,12 @@ decisions:
       - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
       - docs/specs/local-whisper-native-review-remediation/tasks/12_bounded_parser_fuzzing.md
       - docs/specs/local-whisper-native-review-remediation/tasks/13_worker_tsan_gate.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/14_focused_gcc_quality.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/15_locked_source_advisory_monitoring.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/16_application_sbom_and_vulnerability_evidence.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/17_provenance_attestation_and_security_reporting.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/18_linux_shared_security_remediation_gate.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
       - Completed Packets 01–08 and their evidence remain unchanged.
       - Coverage audit maps 151 active requirement and acceptance identifiers; section, link, numbering, YAML, Markdown-format, and diff-whitespace audits pass.
     prompt_mcp:
@@ -2715,7 +2715,7 @@ decisions:
       - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
       - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
       - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
       - APPROVAL-005 changes the required runner matrix and workflow-parameterization contract without reopening completed Packets 01–08 or adding a new independently executable scope.
     prompt_mcp: null
     question: null
@@ -2789,12 +2789,12 @@ decisions:
       - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
       - docs/specs/local-whisper-native-review-remediation/tasks/12_bounded_parser_fuzzing.md
       - docs/specs/local-whisper-native-review-remediation/tasks/13_worker_tsan_gate.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/14_focused_gcc_quality.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/15_locked_source_advisory_monitoring.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/16_application_sbom_and_vulnerability_evidence.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/17_provenance_attestation_and_security_reporting.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/18_linux_shared_security_remediation_gate.md
-      - docs/specs/local-whisper-native-review-remediation/tasks/19_windows_validation_and_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
       - Completed Packets 01–08 and their recorded evidence remain unchanged.
     prompt_mcp:
       interview_id: plan:local-whisper-native-review-remediation
@@ -2858,3 +2858,388 @@ decisions:
     rationale: The user authorized revised Packets 09–19 for later execution one packet per explicit incremental-implementation invocation. Authorization includes all applicable local-first checks, packet/fix conventional commits, non-force pushes, and exact-SHA CI gates with the required Ubuntu 24.04 and Windows Server 2025 jobs executed successfully; it does not start implementation in this planning turn or authorize force-push, PR mutation, manual dispatch, signing, publication, qualification, or release.
     supersedes_revision: 1
     requirement_ids: [EXEC-AUTH-003, OPS-004]
+
+  - id: outcome.native-structured-logging
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User requested an adequate native logging system for CI, local development, moderate production logging, and diagnostics-archive collection.
+      - User requested this functionality as the next roadmap task.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - ci-development-diagnostics
+        - local-development-diagnostics
+        - moderate-production-logging
+        - diagnostics-archive-export
+        - next-roadmap-task
+      text: ''
+    rationale: The requested observable outcome and roadmap priority are explicit and must not be asked again.
+    supersedes_revision: null
+    requirement_ids: [LOG-001, LOG-002, LOG-003, LOG-006]
+
+  - id: compatibility.native-logging-platforms
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly required the logging design and implementation to be cross-platform, thread-safe, and architecturally correct.
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-x64
+        - windows-x64
+        - thread-safe
+        - injected-ownership
+        - no-mutable-global-logger
+      text: ''
+    rationale: Linux and Windows must provide equivalent logging behavior while keeping platform I/O behind native boundaries and logger ownership explicit.
+    supersedes_revision: null
+    requirement_ids: [LOG-004, LOG-005, CMP-004, ARC-002]
+
+  - id: operations.native-production-capture-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Production requires a moderate logging level and diagnostics-archive collection.
+      - Existing translation and prettify diagnostic-text capture is opt-in because it may contain user text.
+      - The existing prompt-free Local Whisper diagnostics snapshot is included independently of diagnostic-text capture settings.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: native-logging-round-01
+      question_id: operations.native-production-capture-policy
+      idempotency_key: operations.native-production-capture-policy:v1
+      last_status: answered
+    question:
+      text: How should privacy-safe native runtime events be captured in production?
+      kind: single
+      options:
+        - id: always-on-bounded-info
+          label: Always-on bounded info (Recommended)
+          description: Capture only the closed privacy-safe info/warn/error schema by default, with strict bounds and no user content.
+        - id: explicit-native-setting
+          label: Explicit native setting
+          description: Add a separate user setting that must be enabled before native production events are retained or exported.
+        - id: errors-only-default
+          label: Errors only by default
+          description: Retain errors automatically and require explicit enablement for informational native lifecycle events.
+    answer:
+      selected_ids: [always-on-bounded-info]
+      text: ''
+    rationale: A closed privacy-safe event schema can provide moderate production diagnostics without enabling the user-text diagnostic-capture categories.
+    supersedes_revision: null
+    requirement_ids: [LOG-003, LOG-006, SEC-007]
+
+  - id: architecture.native-log-retention-path
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - Native stdout is reserved for the private worker protocol.
+      - Native stderr is already captured by the TypeScript supervisor in a bounded private ring.
+      - electron-log already retains current and rotated main-process logs used as diagnostics-archive evidence.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: native-logging-round-01
+      question_id: architecture.native-log-retention-path
+      idempotency_key: architecture.native-log-retention-path:v1
+      last_status: answered
+    question:
+      text: Where should validated native production events be retained before archive export?
+      kind: single
+      options:
+        - id: scoped-main-log
+          label: Scoped main log (Recommended)
+          description: Parse and validate native stderr JSONL, forward approved records to scoped electron-log, and extract them into a separate archive member.
+        - id: dedicated-native-log
+          label: Dedicated native log
+          description: Maintain a separate bounded rotating native-event file and export it without forwarding records into the main log.
+        - id: memory-only-tail
+          label: Memory-only tail
+          description: Keep only a bounded in-memory event tail, so archives contain events only from the current application process.
+    answer:
+      selected_ids: [scoped-main-log]
+      text: ''
+    rationale: The existing main-log rotation and archive extraction path avoids a second production log store while keeping native records separately identifiable and exportable.
+    supersedes_revision: null
+    requirement_ids: [LOG-006, LOG-007, ARC-004]
+
+  - id: operations.native-log-purge-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Existing diagnostics text can be cleared per category or all at once.
+      - Current and rotated main-process logs have lifecycle retention but no Local Whisper-specific clear target.
+      - Production native records must remain bounded and private even though their schema excludes user content.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: native-logging-round-01
+      question_id: operations.native-log-purge-policy
+      idempotency_key: operations.native-log-purge-policy:v1
+      last_status: answered
+    question:
+      text: What user-facing purge behavior should apply to retained native runtime events?
+      kind: single
+      options:
+        - id: lifecycle-retention-only
+          label: Lifecycle retention only (Recommended)
+          description: Treat privacy-safe native events as ordinary app logs and rely on bounded log rotation without adding a new settings or IPC surface.
+        - id: new-native-clear-target
+          label: Native clear target
+          description: Add a Local Whisper diagnostics clear target and confirmation flow for independently deleting retained native events.
+        - id: clear-with-all-diagnostics
+          label: Clear with all diagnostics
+          description: Keep no independent target, but make the existing confirmed clear-all action also purge retained native events.
+    answer:
+      selected_ids: [lifecycle-retention-only]
+      text: ''
+    rationale: Native events follow ordinary bounded application-log lifecycle retention and do not expand settings, IPC, or diagnostic clear-category behavior.
+    supersedes_revision: null
+    requirement_ids: [LOG-007, SCP-002, SEC-007]
+
+  - id: approval.spec
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: approval-round-06
+      question_id: approval.spec
+      idempotency_key: approval.spec:v6
+      last_status: answered
+    question:
+      text: Do you approve the native structured-logging specification amendment for roadmap planning?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Approve the cross-platform logging contract and allow a later planning invocation to revise the roadmap.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification as a draft and revise its requirements before planning.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the amendment documented but do not approve it for planning.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the cross-platform, thread-safe native structured-logging amendment for subsequent roadmap planning.
+    supersedes_revision: 5
+    requirement_ids: [APPROVAL-006]
+
+  - id: plan.native-logging-sequence
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - User requested logging implementation as the next roadmap task.
+      - LOG-001–LOG-008
+      - OPS-004
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [insert-packet-14-shift-unchecked]
+      text: ''
+    rationale: Completed Packets 01–13 remain immutable; native logging becomes Packet 14 and former unchecked Packets 14–19 shift mechanically to 15–20.
+    supersedes_revision: null
+    requirement_ids: [PLAN-REVISION-006, OPS-004]
+
+  - id: planning.native-log-process-configuration
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - LOG-002 requires an opaque process-instance identifier.
+      - LOG-003 requires the parent composition root to select and propagate the native log level.
+      - Main-process composition already owns injectable UUID generation and native process launch configuration.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: native-logging-plan-round-01
+      question_id: planning.native-log-process-configuration
+      idempotency_key: planning.native-log-process-configuration:v1
+      last_status: answered
+    question:
+      text: Which private configuration owner should provide native process-instance IDs and log levels?
+      kind: single
+      options:
+        - id: parent-generated-private-config
+          label: Parent-generated config (Recommended)
+          description: Main-process composition creates each UUID and passes it with the validated level through private launch fields, updating runtime identity atomically.
+        - id: native-generated-id
+          label: Native-generated ID
+          description: Main passes only the level while every C++ executable adds platform-specific secure UUID generation for its own process identifier.
+        - id: launcher-generated-descendant-id
+          label: Split ownership
+          description: Main identifies directly launched processes while the native launcher generates identifiers for descendant workers.
+    answer:
+      selected_ids: [parent-generated-private-config]
+      text: ''
+    rationale: Reusing main-process UUID and launch-configuration ownership avoids platform-specific native randomness and keeps process identity and log-level policy at the process composition boundary.
+    supersedes_revision: null
+    requirement_ids: [LOG-002, LOG-003, ARC-004, OPS-005]
+
+  - id: planning.native-log-schema-and-rate-policy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - LOG-002 requires a closed canonical schema and stable events/error codes.
+      - LOG-005 requires a named deterministic bounded rate policy.
+      - A finite enum-key policy avoids user-controlled map growth and provides deterministic cross-platform fixtures.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: native-logging-plan-round-01
+      question_id: planning.native-log-schema-and-rate-policy
+      idempotency_key: planning.native-log-schema-and-rate-policy:v1
+      last_status: answered
+    question:
+      text: Which concrete schema and repetition policy should Packet 14 implement?
+      kind: single
+      options:
+        - id: closed-events-10-per-minute
+          label: Closed schema, 10/min (Recommended)
+          description: Use the packet's fixed components/events/error codes and emit at most 10 records per component/event/code key per 60-second monotonic window with suppression counts.
+        - id: closed-events-30-per-minute
+          label: Closed schema, 30/min
+          description: Keep the same finite schema but allow 30 records per key per 60-second window before suppression.
+        - id: severity-wide-buckets
+          label: Severity-wide buckets
+          description: Rate-limit broad component/severity buckets, reducing state but allowing one noisy event to suppress unrelated classifications.
+    answer:
+      selected_ids: [closed-events-10-per-minute]
+      text: ''
+    rationale: A finite closed-key policy prevents attacker-controlled state growth and provides useful production classifications while bounding repetitive output tightly.
+    supersedes_revision: null
+    requirement_ids: [LOG-002, LOG-004, LOG-005, TST-011]
+
+  - id: planning.native-log-archive-bounds
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - LOG-007 requires independent record and byte bounds while keeping newest complete records.
+      - Each native source record is at most 4,096 bytes and production persistence is already limited to current/rotated main logs.
+      - The general diagnostics member ceiling is much larger and should not become the effective native-runtime allowance.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: native-logging-plan-round-01
+      question_id: planning.native-log-archive-bounds
+      idempotency_key: planning.native-log-archive-bounds:v1
+      last_status: answered
+    question:
+      text: What dedicated cap should apply to diagnostics/native-runtime.jsonl?
+      kind: single
+      options:
+        - id: ten-thousand-four-mib
+          label: 10,000 / 4 MiB (Recommended)
+          description: Retain the newest complete records within 10,000 lines and 4 MiB, comfortably below the general archive-member ceiling.
+        - id: five-thousand-two-mib
+          label: 5,000 / 2 MiB
+          description: Minimize archive size with a shorter production diagnostic history.
+        - id: twenty-five-thousand-eight-mib
+          label: 25,000 / 8 MiB
+          description: Preserve more history at the cost of larger archives and validation work.
+    answer:
+      selected_ids: [ten-thousand-four-mib]
+      text: ''
+    rationale: The dedicated cap preserves useful bounded history while remaining far below the general diagnostics member ceiling and the two retained main-log generations.
+    supersedes_revision: null
+    requirement_ids: [LOG-007, LOG-008, TST-011]
+
+  - id: approval.plan
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_native_structured_logging_and_diagnostics.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-06
+      question_id: approval.plan
+      idempotency_key: approval.plan:v6
+      last_status: answered
+    question:
+      text: Do you approve the revised 20-packet roadmap with native structured logging as the next Packet 14?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan (Recommended)
+          description: Approve Packet 14 logging, the mechanical shift to Packets 15–20, and updated Linux/Windows final-gate ownership.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan as a draft and revise packet boundaries, contracts, or sequencing.
+        - id: leave-draft
+          label: Leave draft
+          description: Retain the planning artifacts without approving them for execution authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the 20-packet roadmap with native structured logging as Packet 14, the unchecked-packet shift, and updated final Linux/Windows gates.
+    supersedes_revision: 5
+    requirement_ids: [PLAN-APPROVAL-006]
+
+  - id: authorization.plan-execution
+    revision: 3
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_native_structured_logging_and_diagnostics.md
+      - PLAN-APPROVAL-006
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-06
+      question_id: authorization.plan-execution
+      idempotency_key: authorization.plan-execution:v3
+      last_status: answered
+    question:
+      text: What execution authorization should apply to the approved revised Packet 14–20 sequence?
+      kind: single
+      options:
+        - id: authorize-revised-sequence
+          label: Authorize Packets 14–20 (Recommended)
+          description: Authorize later one-packet-at-a-time implementation, local-first checks, scoped fix commits, non-force pushes, and exact-SHA Linux/Windows CI gates.
+        - id: authorize-packet-14-only
+          label: Authorize Packet 14 only
+          description: Authorize only native structured logging on a later incremental invocation; Packets 15–20 require another authorization.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep the roadmap approved but permit no packet implementation, commit, or push from this revision.
+    answer:
+      selected_ids: [authorize-revised-sequence]
+      text: ''
+    rationale: The user authorized later one-packet-at-a-time execution of Packets 14–20 with local-first verification, scoped candidate/fix commits, non-force pushes, exact-SHA CI, and mandatory successful Linux and Windows jobs. This planning turn does not start execution.
+    supersedes_revision: 2
+    requirement_ids: [EXEC-AUTH-004, OPS-004]

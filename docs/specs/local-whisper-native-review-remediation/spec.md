@@ -4,15 +4,15 @@ Status: Approved
 
 Date: 2026-08-08
 
-Last amended: 2026-08-10
+Last amended: 2026-08-12
 
 Spec slug: `local-whisper-native-review-remediation`
 
 Decision evidence: [decisions.yaml](decisions.yaml)
 
-Approval: **APPROVAL-005** — explicit `approve` recorded for the consolidated two-runner and parameterized-workflow revision in the persistent `spec:local-whisper-native-review-remediation` interview on 2026-08-10.
+Approval: **APPROVAL-006** — explicit `approve` recorded for the native structured-logging amendment in the persistent `spec:local-whisper-native-review-remediation` interview on 2026-08-12.
 
-Previous approvals: **APPROVAL-004** approved the former four-runner compatibility matrix, **APPROVAL-003** approved the repository and packaged-artifact security-control amendment, **APPROVAL-002** approved the preceding native CI-hardening revision, and **APPROVAL-001** approved the earlier 13-comment contract. All are retained as historical evidence superseded by this draft.
+Previous approvals, including **APPROVAL-005** for the consolidated two-runner and parameterized-workflow baseline, are retained as historical evidence superseded by this amendment.
 
 Source review selection: [Local Whisper Native Review Comments to Address](../../reviews/2026-08-08-local-whisper-native-comments-to-address.md)
 
@@ -45,11 +45,15 @@ The outcome is a Local Whisper native runtime that:
 
 **OUT-004:** Required GitHub-hosted jobs SHALL use exactly one explicit current x64 operating-system label for Linux and one for Windows. Equivalent jobs and steps SHALL share matrices, conditions, local actions, or reusable configuration. A `*-latest` alias, missing supported platform, unvalidated repository variable, or duplicated host-independent check SHALL NOT be described as satisfying the selected matrix.
 
+**OUT-005:** Maintainers and operators SHALL receive bounded, structured Local Whisper native runtime diagnostics that help diagnose CI, local-development, and production failures. Development execution SHALL expose debug-level events; production SHALL retain moderate info/warn/error events. Validated production events SHALL be available in the diagnostics archive without exposing user content or changing public APIs.
+
 ## 2. Stakeholders and observable outcome
 
 - **Desktop users** receive a deterministic transcription or cancellation outcome without a healthy resident worker being destroyed by an ordinary timing race.
 - **Maintainers** receive typed, centralized native contracts instead of message-text classification, duplicate parsing, or duplicate cryptographic implementations.
 - **Operators and release owners** receive bounded resource use, hardened native executables, and platform-specific verification evidence before candidate qualification.
+- **CI and local developers** receive stable native lifecycle and failure events without protocol corruption or dependence on platform-specific debugger output.
+- **Support operators** receive a bounded, privacy-safe native-runtime archive member derived from validated retained application logs.
 - **Security reviewers** receive fail-closed malformed-input handling, complete capability cleanup, exact directory validation, and explicit exploit-mitigation evidence.
 - **CI maintainers** receive bounded, reproducible, platform-truthful gates that identify the exact native sources, toolchains, and binaries covered.
 - **Release maintainers** receive whole-application dependency inventories, vulnerability results, provenance, and attestations bound to the exact Linux and Windows artifacts selected for delivery.
@@ -109,6 +113,7 @@ The following runner-version controls are also in scope:
 36. replacement of mutable `ubuntu-latest` and `windows-latest` labels in required workflows with explicit operating-system versions;
 37. primary execution on Ubuntu 24.04 x64 and Windows Server 2025 x64, with Ubuntu 22.04 and Windows Server 2022 removed from the required matrix; and
 38. parameterized, consolidated workflow ownership that reuses runner, tool, architecture, image, cache, timeout, retention, and setup values without obscuring genuine Linux/Windows build differences.
+39. cross-platform, thread-safe native structured logging, production retention, validation, and diagnostics-archive export.
 
 **GAT-001:** Items 1–8 and requirement **BLD-001** are merge blockers for the reviewed Local Whisper native change. Items 9–11 and 13 SHALL be complete before any candidate containing this native runtime is frozen or used for Linux or Windows qualification. Qualification evidence SHALL measure the final remediated native binaries, not pre-remediation binaries.
 
@@ -117,6 +122,8 @@ The following runner-version controls are also in scope:
 **GAT-003:** Subjects 24–29 are merge blockers for changes to their owned workflows, manifests, source sets, or Docker build inputs. Subject 30 and subjects 31–34 are blocking pre-freeze, qualification, and release-candidate gates for the exact Linux and Windows artifacts they cover. Subject 35 is advisory and SHALL NOT waive, replace, or downgrade any blocking result. Publishing or releasing an artifact still requires separate authorization.
 
 **GAT-004:** Subjects 36–38 are merge blockers for changes to native sources, platform build inputs, pinned toolchains, Electron/runtime dependencies, packaging inputs, or the workflows that own those paths. The applicable Ubuntu 24.04 and Windows Server 2025 jobs SHALL execute successfully before freeze, qualification, or release-candidate use. A skipped, cancelled, unavailable, latest-alias, or mismatched runner result is missing evidence at its owning gate.
+
+**GAT-005:** Subject 39 is a merge blocker for the native worker, launcher, filesystem guard, TypeScript supervisor, main logging adapter, and diagnostics archive. Linux and Windows native builds/tests and shared TypeScript validation/archive tests SHALL pass before the feature is complete. Hosted Windows CI is required code evidence; final supported-host Windows desktop validation remains owned by the final Windows remediation gate.
 
 ### 3.2 Out of scope
 
@@ -127,6 +134,7 @@ The following runner-version controls are also in scope:
 - redesign the existing Linux acknowledgment behavior to match Windows;
 - repeat the stale claim that the filesystem-guard receiver omits `MSG_CMSG_CLOEXEC`;
 - add a product runtime dependency, change package targets or signing authority, commit generated build artifacts, publish, release, or claim qualification; or
+- add a product logging dependency, public logging API, renderer/preload IPC surface, remote log upload, telemetry service, or a new diagnostic-capture setting or clear target;
 - add implementation scheduling, estimates, task packets, or release authorization.
 
 **SCP-002:** Renderer APIs, preload APIs, public IPC, provider registration, settings, history, runtime artifact schemas, browser behavior, and persisted user data are unchanged. New CI-only SARIF, whole-application SBOM, provenance, and attestation documents do not become application runtime inputs or public desktop APIs.
@@ -175,6 +183,10 @@ The following runner-version controls are also in scope:
 **ARC-002:** Native changes SHALL remain modular C++20 with RAII ownership, non-throwing deterministic cleanup, narrow dependency injection, no raw resource ownership, and no mutable global runtime state.
 
 **ARC-003:** Linux descriptors, polling, ancillary messages, and ELF policy SHALL remain behind Linux boundaries. Windows handles, wait primitives, inherited-handle policy, and PE policy SHALL remain behind Windows boundaries. Shared behavior SHALL be expressed by common contracts and shared contract tests.
+
+**ARC-004:** Native logging SHALL use a project-owned injected C++20 interface. Process composition roots SHALL own concrete logger lifetimes and pass narrow references to stateful components; no mutable global logger, raw logger ownership, static service locator, or logging side effect in destructors is permitted. The shared logger contract SHALL be platform-neutral, and any Linux/Windows write primitive SHALL remain behind the existing platform boundary.
+
+**ARC-005:** Native event emission SHALL be safe under concurrent worker, control, and inference threads; non-throwing at every call site; and deadlock-free. Logger synchronization SHALL not be held while calling model, protocol, supervisor, or platform lifecycle code. A logging write failure SHALL be contained and SHALL NOT change protocol outcomes, resource cleanup, cancellation ordering, or worker residency.
 
 ## 5. Worker concurrency and protocol behavior
 
@@ -451,6 +463,30 @@ Before freeze, qualification, or release-candidate use, each exact candidate SHA
 
 **RUN-007:** Package-format applicability SHALL remain truthful. AppImage, DEB, and unpacked-Linux smoke run under the owning Ubuntu 24.04/Fedora build path; Fedora/RPM-specific smoke remains inside the Fedora 44 builder environment; NSIS and unpacked-Windows smoke run under Windows Server 2025. Absence of a package manager or client-edition host SHALL NOT be reported as broader package or desktop coverage, and no runner result alone authorizes a support or release claim.
 
+### 10.13 Native structured runtime logging
+
+**LOG-001:** Every project-owned production native executable family—common consumers, filesystem guard/model launcher, launcher, and Whisper worker—SHALL use one project-owned structured logger contract. Production diagnostics SHALL be emitted only as newline-delimited JSON on `stderr`; `stdout` SHALL remain exclusively owned by the applicable native protocol and SHALL never contain logs.
+
+**LOG-002:** Native event schema version 1 SHALL be closed and canonical. Every record SHALL contain exactly a schema version, random opaque process-instance identifier, monotonically increasing process-local sequence, severity (`debug`, `info`, `warn`, or `error`), component, and stable event name. Approved events MAY add only schema-defined fields: a validated opaque request identifier, stable error code, process-relative elapsed milliseconds, or bounded numeric counters. Free-form messages and arbitrary metadata maps are prohibited. Each encoded record, including its newline, SHALL be at most 4,096 bytes and valid UTF-8.
+
+Approved event families SHALL cover process startup/readiness/shutdown, private handshake, lifecycle-state transition, request acceptance/completion/cancellation/cancel-too-late, control EOF, protocol rejection, model-load lifecycle, inference lifecycle/failure, resource cleanup, and unhandled native failure. Event names and error codes SHALL describe classifications, not embed raw exception text, input, paths, or platform error messages.
+
+**LOG-003:** The parent composition root SHALL explicitly select a validated native log level and propagate it through private launch configuration. Development and CI execution SHALL select `debug`; packaged production SHALL select `info`. An absent or invalid selection SHALL fail safe to `info`; runtime mutation of the level is out of scope. Level selection SHALL NOT change native protocol versions, public IPC, settings, preload, or renderer contracts.
+
+**LOG-004:** Concurrent event calls SHALL be linearizable: every accepted call receives one unique increasing sequence and produces either one complete record or no record after a contained sink failure. Records SHALL not interleave at byte level. Logger construction, filtering, serialization, synchronization, writing, and teardown SHALL be deterministic and equivalent on Linux x64 and Windows x64. A non-throwing no-op test or fallback sink MAY be injected explicitly; silent mutable global fallback is prohibited.
+
+**LOG-005:** Repetitive rejection and failure events SHALL use a named, deterministic, monotonic-clock rate policy with injected clock support. The logger SHALL bound emissions per stable `(component, event, error-code)` key and later emit a bounded schema-defined suppression counter. No polling, malformed-input, retry, or cancellation loop may produce unbounded log volume. Filtering and rate limiting SHALL remain thread-safe and SHALL not reorder protocol results.
+
+**LOG-006:** The TypeScript supervisor SHALL incrementally decode `stderr`, preserving split UTF-8 and split-line boundaries, and validate complete native JSONL records against an exact shared schema. It SHALL reject malformed UTF-8, overlong lines, duplicate or unknown keys, unknown schema versions, levels, components, events, error codes, invalid identifiers, invalid numbers, and noncanonical records without forwarding their payload. Rejection SHALL only update bounded private diagnostics and stable aggregate counters; it SHALL not terminate a healthy worker, expose rejected bytes, or reinterpret arbitrary third-party `stderr` as a native event.
+
+Validated events SHALL be forwarded through a dedicated scoped `electron-log` adapter using a stable canonical prefix that the archive extractor can recognize. The adapter SHALL map native severity to the matching main-log severity and SHALL preserve canonical event JSON without accepting caller-supplied format strings. The existing current/rotated main-log lifecycle is the only production persistence owner; no second log file, remote upload, diagnostic setting, or independent clear target is introduced.
+
+**LOG-007:** Diagnostics archive creation SHALL extract validated retained native records into the separate canonical member `diagnostics/native-runtime.jsonl`; native records SHALL NOT be mixed into `provider-audit/events.jsonl` or diagnostic text-action rows. The archive manifest SHALL identify the native-runtime schema version, valid/invalid/duplicate record counts, included record count, first/last retained event time, member bytes, and whether older matching records were truncated by archive record or byte bounds. Empty native history MAY omit the member but SHALL report zero counts consistently.
+
+Archive extraction SHALL preserve retained-log generation order and event order, deduplicate only by stable process-instance/sequence identity, keep the newest complete records when a bound is reached, and fail closed on a noncanonical record selected for inclusion. Archive format readers and producer-side inspection SHALL enforce exact member ordering, count, hash, byte, and schema limits. Ordinary application-log rotation is the approved purge and retention policy; existing diagnostic capture settings and confirmed clear actions remain unchanged.
+
+**LOG-008:** Native logging SHALL not add audio, transcripts, prompts, model contents or paths, user paths, usernames, environment variables, raw IPC, credentials, sessions, capability or lease values, native device identifiers, stack traces, raw platform errors, or unrestricted `exception.what()` text to memory tails, main logs, CI logs, test snapshots, or archives. Tests SHALL use synthetic canary values for every prohibited class and prove those values are absent from accepted records, forwarded logs, rejected-record diagnostics, and archive bytes.
+
 ## 11. Security, privacy, and operations
 
 **SEC-001:** Audio, transcripts, model contents, absolute paths, capability values, lease tokens, process credentials, and raw native exception text SHALL NOT be added to logs, protocol failures, test snapshots, or user-visible errors. Existing renderer-safe failure mapping remains authoritative.
@@ -463,13 +499,17 @@ Before freeze, qualification, or release-candidate use, each exact candidate SHA
 
 **SEC-006:** Dependency, signature, source-analysis, workflow, secret, builder-image, and packaged-artifact gates SHALL fail closed at their applicable merge, freeze, qualification, or release-candidate boundary. A confirmed high or critical dependency or artifact vulnerability has no standing exception. Missing evidence, tool failure, malformed output, stale vulnerability data, platform ambiguity, and artifact-identity mismatch SHALL NOT be normalized to clean.
 
+**SEC-007:** Production native runtime logging is always enabled at the bounded `info` level because its closed schema is privacy-safe and contains no diagnostic user text. It SHALL remain independent of opt-in translation and prettify diagnostic-text capture. Native record validation, main-log retention, archive export, and log rotation SHALL preserve existing private-file permissions and SHALL not create a network destination or consent implication.
+
 **OPS-001:** This remediation changes no user configuration, runtime download source, signing authority, package target, support tier, or publication authorization. It MAY add pinned GitHub Actions, development-only security tooling, workflow configuration, and CI-only SBOM/provenance/attestation schemas required by this contract, but SHALL add no product runtime dependency or third-party hosted security service. Rollout of the protocol-affecting worker and supervisor changes SHALL be atomic. Rollback before qualification SHALL revert the matching private peers and runtime identity together; a mixed pair remains fail-closed.
 
 **OPS-002:** Pull-request checks SHALL remain reproducible without a live advisory service. Advisory monitoring runs separately on a schedule and may fail its own workflow. Qualification consumes only the normalized, freshness-checked result defined by **ADV-001**–**ADV-003**.
 
 **OPS-003:** The seven-day advisory freshness window is measured at the start of qualification. Evidence that expires while a qualification run is already in progress MAY finish that run, but a retry or new qualification attempt SHALL obtain fresh evidence. Clock, schema, or provenance ambiguity fails closed as unavailable evidence.
 
-**OPS-004:** The current approved 15-packet plan predates the comparative security-control and runner-version amendments and does not own **OUT-003**–**OUT-004**, **GAT-003**–**GAT-004**, **CMP-009**–**CMP-012**, **SUP-001**–**SUP-002**, **WF-001**, **DEP-001**–**DEP-002**, **SEC-005**–**SEC-006**, **DCK-001**, **SAST-001**, **ART-001**, **VUL-001**, **ATT-001**, **REP-001**–**REP-002**, **SRV-001**, **RUN-001**–**RUN-007**, or **TST-010**. Previously completed or explicitly authorized packet work retains its recorded evidence under the contract active at that time, but no existing packet may claim the new requirements. This specification approval does not revise the plan; the plan SHALL be revised through a separate `/plan` invocation before implementation of the new controls is authorized. This specification turn SHALL NOT modify plan, checklist, handoff, or numbered packet content.
+**OPS-004:** The current approved 19-packet plan owns the previously approved native, CI, security, and runner requirements, but it predates **OUT-005**, **GAT-005**, **ARC-004**–**ARC-005**, **LOG-001**–**LOG-008**, **SEC-007**, **TST-011**, **AC-AUT-043**–**AC-AUT-048**, and **AC-MAN-010**–**AC-MAN-011**. Completed Packets 01–13 retain their evidence and SHALL NOT be reopened or renumbered. After this specification amendment is approved, planning SHALL insert native structured logging as the next executable Packet 14, move the current unchecked Packets 14–19 to 15–20 without changing their substance, and update final-gate coverage. New execution requires separate revised-plan approval and execution authorization.
+
+**OPS-005:** Logging rollout SHALL update the native logger, private launch configuration, TypeScript validator/supervisor, main-log adapter, archive schema/readers, fixtures, and runtime identity in one compatible set. A mixed peer or archive schema SHALL fail through the existing compatibility or exact-schema rejection paths. Rollback before qualification SHALL revert the matching set together. No implementation, commit, push, publication, or release is authorized by this specification amendment.
 
 ## 12. Verification contract
 
@@ -492,6 +532,8 @@ Before freeze, qualification, or release-candidate use, each exact candidate SHA
 **TST-009:** Artifact security evidence SHALL identify the exact source commit, platform, package format, package digest, unpacked-root digest or manifest identity, SBOM digest, scanner and database identities, scan time, result classification, checksum digest, and attestation identity. Linux and Windows records SHALL remain distinct and machine-verifiable.
 
 **TST-010:** Runner policy tests SHALL prove rejection of every mutable latest alias, unsupported label, wrong architecture, unpinned or mismatched toolchain, missing Linux or Windows leg, unvalidated repository-variable value, divergent source manifest, and candidate-artifact digest mismatch. A positive fixture SHALL prove the exact two-label matrix, consolidated ownership, and check allocation in **RUN-002**. The aggregate report SHALL distinguish runner-host evidence, Fedora-container evidence, and supported-desktop manual evidence.
+
+**TST-011:** Native logging verification SHALL include shared golden schema vectors consumed by C++ and TypeScript, deterministic injected clocks and sinks, multithreaded stress, sink-failure injection, split UTF-8 and split-line transport vectors, level and rate-policy boundaries, privacy canaries, retained-log extraction, archive producer/reader validation, and mixed old/new runtime-identity rejection. Linux Clang/GCC and Windows MSVC SHALL compile and execute the applicable native logger and integration tests with warnings as errors; sanitizers, analyzers, TSan, CodeQL, source manifests, and coverage reports SHALL include every new owned source according to their existing platform applicability.
 
 ### 12.1 Automated acceptance criteria
 
@@ -539,6 +581,12 @@ Before freeze, qualification, or release-candidate use, each exact candidate SHA
 | AC-AUT-040 | For a representative native/platform-sensitive change, run the applicable production native build, unit/integration manifests, analyzers, and sanitizers through the consolidated Ubuntu 24.04 and Windows Server 2025 matrix.                                 | Both supported operating-system families compile and execute every applicable source with the pinned compiler; platform conditions select only valid commands; required blocking results are present; and equivalent setup or host-independent checks are not duplicated.                           | GAT-004, CMP-010, RUN-002–RUN-005, TST-010          |
 | AC-AUT-041 | Build one exact Linux and Windows candidate through their owning primary lanes and run applicable package/unpacked smoke under Ubuntu 24.04, Windows Server 2025, and the pinned Fedora 44 environment.                                                     | Smoke tests use the primary-produced bytes rather than rebuilt substitutes; AppImage/DEB, NSIS, and RPM evidence remains correctly scoped; every digest matches and every applicable smoke passes.                                                                                                  | CMP-011, RUN-002, RUN-004, RUN-007, TST-009–TST-010 |
 | AC-AUT-042 | Feed runner evidence wrong image metadata, an ambient compiler, MSVC other than 19.39, divergent source manifests, a cancelled required platform job, a deprecated-label substitution, and a repository variable containing a latest alias.                   | Every case fails as missing or mismatched evidence; no fallback to an image default or latest alias occurs, and the report identifies the exact remediation boundary without claiming desktop qualification.                                                                                      | CMP-010, CMP-012, RUN-005–RUN-006, TST-010          |
+| AC-AUT-043 | Run shared golden vectors through every Linux and Windows native logger sink and the TypeScript validator, including every level/component/event/code, optional field, exact 4,096-byte boundary, one-over boundary, invalid UTF-8, unknown/duplicate keys, and noncanonical JSON. | Both platforms emit byte-equivalent canonical JSONL for valid vectors; the validator accepts exactly those vectors, rejects every invalid vector without payload disclosure, and native `stdout` remains byte-for-byte protocol-only. | LOG-001–LOG-002, LOG-006, CMP-004, TST-011 |
+| AC-AUT-044 | From many control/inference test threads, emit unique events while injecting serialization allocation failure, short/failed writes, teardown races, and a sink that attempts re-entry. | Accepted records are complete, uniquely and monotonically sequenced, noninterleaved, and deadlock-free; sink failures do not throw or alter request outcomes; TSan reports no race and the process cleans up normally. | ARC-004–ARC-005, LOG-004, TST-005, TST-011 |
+| AC-AUT-045 | Exercise debug/info/warn/error filtering in development, CI, packaged-production, missing, and invalid level configurations, then flood each rate-policy key around every window boundary with an injected monotonic clock. | Development and CI retain debug; production, missing, and invalid configurations retain info and above; volume remains within the named policy, one bounded suppression counter reports omitted repeats, and filtering/rate limiting never changes protocol behavior. | LOG-003, LOG-005, SEC-007, TST-011 |
+| AC-AUT-046 | Feed supervisor `stderr` valid records split at every byte and multibyte boundary, multiple records per chunk, EOF with and without a final newline, malformed/overlong floods, unknown versions, arbitrary third-party text, and a valid record after rejection. | Complete valid records reach only the scoped logger at matching severity in order; invalid bytes remain private and bounded, counters are stable, a healthy worker remains resident, and the later valid record is accepted. | LOG-006, ARC-005, SEC-007, TST-011 |
+| AC-AUT-047 | Place synthetic canaries representing every prohibited data class in native inputs, injected exceptions, platform failures, environment, paths, rejected records, and device fixtures while exercising every approved event family. | No canary occurs in accepted native JSONL, private rejection summaries, scoped main-log records, CI artifacts, test snapshots, or diagnostics-archive bytes; only stable enumerated classifications and approved opaque identifiers are present. | LOG-008, SEC-001, SEC-004, SEC-007, TST-011 |
+| AC-AUT-048 | Extract zero, valid, duplicate, invalid, rotated/current, out-of-order, record-bound, byte-bound, hash-mismatch, unknown-schema, and mixed old/new retained logs into both archive formats, then inspect them through producer and reader validators. | The native member is absent or present consistently; retained order, deduplication, newest-record truncation, counts, time range, bytes, hashes, schema versions, and truncation flag are exact; invalid selected evidence fails closed; provider-audit and diagnostic-text members remain unchanged. | LOG-007, OPS-005, TST-011 |
 
 ### 12.2 Manual acceptance criteria
 
@@ -553,6 +601,8 @@ Before freeze, qualification, or release-candidate use, each exact candidate SHA
 | AC-MAN-007 | Verify representative Linux and Windows candidate attestations through GitHub's supported verifier and inspect the jobs' effective permissions.                                                                                                          | Both artifact chains verify against the expected repository, commit, workflow, and digests; only the attestation jobs receive `id-token: write`, and no release or signing authority is implied.                                                                              | ATT-001, REP-001                                                            |
 | AC-MAN-008 | Inspect repository required-check and security-reporting settings after the workflows exist.                                                                                                                                                             | All blocking checks required by GAT-003 are enforced for their owning paths, GitHub-native SARIF is visible only at the intended repository boundary, Scorecard remains advisory, and no hosted third-party scanner is connected.                                             | GAT-003, REP-001–REP-002, SRV-001                                           |
 | AC-MAN-009 | Inspect one complete affected-change run and one exact-candidate run across the fixed matrix, then compare them with the supported Linux and Windows desktop manual evidence.                                                                            | Logs identify Ubuntu 24.04, Windows Server 2025, Fedora 44 container identity, exact toolchains, source manifests, and candidate digests; reviewers can distinguish hosted-server/container evidence from real desktop qualification. | CMP-009–CMP-012, RUN-001–RUN-007, TST-010                                   |
+| AC-MAN-010 | On a supported Linux x64 desktop, run one packaged production Local Whisper lifecycle containing readiness, success, cancel-first, cancel-too-late, malformed control input, inference failure, and shutdown; create and inspect a diagnostics archive. | Production emits only approved info/warn/error events, `stdout` protocol remains valid, no prohibited content appears, the worker remains usable after nonfatal cases, and the archive contains the exact validated bounded native-runtime history. | LOG-001–LOG-008, GAT-005, SEC-007 |
+| AC-MAN-011 | Repeat AC-MAN-010 on a supported Windows x64 desktop with the Windows launcher, handle, wait, and packaging paths during the final Windows validation packet. | Windows produces the same event classifications, privacy, sequencing, failure containment, retention, and archive semantics; hosted Windows CI evidence is not substituted for this supported-host validation. | CMP-004, LOG-001–LOG-008, GAT-005, SEC-007 |
 
 ## 13. Completion criteria
 
@@ -571,6 +621,7 @@ This specification is satisfied only when:
 - required workflows collectively satisfy the explicit two-runner x64 matrix, every owned job uses a fixed approved label, required checks run on Ubuntu 24.04 and Windows Server 2025, equivalent setup and configuration have one reusable owner, and exact-candidate smoke passes at the owning pre-freeze gate;
 - the Fedora 44 builder remains digest-pinned and distinct from the GitHub-hosted matrix, and no latest alias, unsupported architecture, unnecessary runner generation, ambient compiler, duplicated expensive check, or cross-environment evidence substitution remains;
 - all retained security evidence satisfies the GitHub-native privacy boundary, OpenSSF Scorecard remains advisory, and no Snyk or other hosted scanner is required or connected by this contract;
+- all project-owned native executable families use the injected thread-safe logger, keep protocol `stdout` clean, pass cross-platform schema/concurrency/privacy tests, retain production `info` events through the scoped main log, and export only validated bounded records in `diagnostics/native-runtime.jsonl`;
 - private protocol peers and runtime identity are updated as one compatible set;
 - no excluded cache, acknowledgment redesign, compiler addition, product runtime dependency, public API, package-target, signing-authority, publication, qualification-claim, or release authorization is included;
 - this specification has been explicitly approved and the existing plan has later been revised through `/plan` before implementation of the newly added controls is authorized; and
