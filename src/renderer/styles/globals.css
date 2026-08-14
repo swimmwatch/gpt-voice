@@ -144,6 +144,55 @@
   }
 }
 
+.main-startup-reveal {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-startup-reveal > [data-slot='main-window'] {
+  transition:
+    opacity var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.main-startup-loader-overlay {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  transform-origin: center;
+  transition:
+    opacity var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.main-startup-reveal[data-startup-reveal-state='prepared'] > [data-slot='main-window'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(5px) scale(0.99);
+}
+
+.main-startup-reveal[data-startup-reveal-state='revealing'] > [data-slot='main-window'],
+.main-startup-reveal[data-startup-reveal-state='revealed'] > [data-slot='main-window'] {
+  opacity: 1;
+  transform: none;
+}
+
+.main-startup-reveal[data-startup-reveal-state='revealing'] > .main-startup-loader-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-startup-reveal > [data-slot='main-window'],
+  .main-startup-loader-overlay {
+    transition: none;
+    transform: none;
+  }
+}
+
 .command-dock {
   --dock-background: var(--background);
   --dock-surface: var(--surface);

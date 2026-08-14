@@ -59,6 +59,53 @@ import {
   reduceFirstLaunchStartupState,
 } from './firstLaunchStartupState';
 
+const STARTUP_COMPLETION_HOLD_MS = 500;
+const STARTUP_REVEAL_DURATION_MS = 180;
+
+type StartupRevealPhase = 'loading' | 'complete-hold' | 'prepared' | 'revealing' | 'revealed';
+
+/** Holds completed startup feedback briefly, then coordinates the main-window reveal. */
+function useStartupReveal(isStartupPending: boolean): StartupRevealPhase {
+  const [phase, setPhase] = useState<StartupRevealPhase>('loading');
+
+  useEffect(() => {
+    if (isStartupPending) {
+      if (phase !== 'loading') setPhase('loading');
+    } else if (phase === 'loading') {
+      setPhase('complete-hold');
+    }
+  }, [isStartupPending, phase]);
+
+  useEffect(() => {
+    if (isStartupPending || phase !== 'complete-hold') return undefined;
+
+    const holdTimer = window.setTimeout(() => setPhase('prepared'), STARTUP_COMPLETION_HOLD_MS);
+    return () => window.clearTimeout(holdTimer);
+  }, [isStartupPending, phase]);
+
+  useEffect(() => {
+    if (phase !== 'prepared') return undefined;
+
+    let secondAnimationFrame: number | undefined;
+    const firstAnimationFrame = window.requestAnimationFrame(() => {
+      secondAnimationFrame = window.requestAnimationFrame(() => setPhase('revealing'));
+    });
+    return () => {
+      window.cancelAnimationFrame(firstAnimationFrame);
+      if (secondAnimationFrame !== undefined) window.cancelAnimationFrame(secondAnimationFrame);
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'revealing') return undefined;
+
+    const revealTimer = window.setTimeout(() => setPhase('revealed'), STARTUP_REVEAL_DURATION_MS);
+    return () => window.clearTimeout(revealTimer);
+  }, [phase]);
+
+  return phase;
+}
+
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const desktopApi = useDesktopApi();
@@ -123,7 +170,8 @@ const App: React.FC = () => {
     translationSettingsPending: !hasLoadedInitialTranslationSettings,
     voicePending: isInitialVoiceProviderLoading,
   });
-  useWindowStartupReady(isI18nReady);
+  const startupRevealPhase = useStartupReveal(!isI18nReady || firstLaunchStartupPresentation.isPending);
+  useWindowStartupReady(true);
 
   useEffect(() => {
     let disposed = false;
@@ -297,6 +345,7 @@ const App: React.FC = () => {
         presentBrowserProviderRequestFailure(backgroundStatus.error);
       } else if (authType === 'browserSession' && backgroundStatus?.ready) {
         preserveStatusRef.current = false;
+        setStatus(clearRecoveredBrowserFailureStatus);
       }
 
       return loginState;
@@ -761,7 +810,7 @@ const App: React.FC = () => {
     }
   };
 
-  if (!isI18nReady || firstLaunchStartupPresentation.isPending) {
+  if (!isI18nReady) {
     return (
       <LoadingScreen
         hasRetryableFailure={firstLaunchStartupPresentation.hasRetryableFailure}
@@ -775,116 +824,144 @@ const App: React.FC = () => {
     );
   }
 
+  const isMainScreenMounted = startupRevealPhase === 'prepared' || startupRevealPhase === 'revealing' || startupRevealPhase === 'revealed';
+  const isMainScreenAccessible = startupRevealPhase === 'revealing' || startupRevealPhase === 'revealed';
+  const isMainScreenInteractive = startupRevealPhase === 'revealed';
+  const isStartupLoaderVisible = startupRevealPhase !== 'revealed';
+
   return (
-    <main
-      aria-disabled={providerHotkeyIntegration.isMainInteractionLocked}
-      className="command-dock"
-      data-slot="main-window"
-      inert={providerHotkeyIntegration.isMainInteractionLocked}
-    >
-      <MainToolbar
-        actionControl={
-          <HotkeyActionButton
-            actionLabel={providerHotkeyIntegration.voiceActionLabel}
-            active={providerHotkeyIntegration.presentation.activeOwner === 'voice'}
-            hotkey={providerHotkeyIntegration.recordHotkey}
-            locked={providerHotkeyIntegration.presentation.eligibility.voice.locked}
-            onActivate={providerHotkeyIntegration.activateVoice}
+    <div className="main-startup-reveal" data-startup-reveal-state={startupRevealPhase}>
+      {isMainScreenMounted && (
+        <main
+          aria-disabled={providerHotkeyIntegration.isMainInteractionLocked}
+          aria-hidden={!isMainScreenAccessible || undefined}
+          className="command-dock"
+          data-slot="main-window"
+          inert={providerHotkeyIntegration.isMainInteractionLocked || !isMainScreenInteractive}
+        >
+          <MainToolbar
+            actionControl={
+              <HotkeyActionButton
+                actionLabel={providerHotkeyIntegration.voiceActionLabel}
+                active={providerHotkeyIntegration.presentation.activeOwner === 'voice'}
+                hotkey={providerHotkeyIntegration.recordHotkey}
+                locked={providerHotkeyIntegration.presentation.eligibility.voice.locked}
+                onActivate={providerHotkeyIntegration.activateVoice}
+              />
+            }
+            activeProviderAuthType={activeProviderAuthType}
+            activeProviderId={activeProviderId}
+            activeProviderHasSettings={Boolean(activeProvider?.hasSettings)}
+            activeProviderName={activeProviderName}
+            isLoggedIn={isLoggedIn}
+            isLoggingIn={isLoggingIn}
+            isProviderChangesLocked={isProviderChangesLocked}
+            isVoiceProviderSwitching={isVoiceProviderSwitching}
+            localWhisperStatus={localWhisperMain.snapshot}
+            localWhisperPendingAction={localWhisperMain.pendingAction}
+            localWhisperResidencyFailure={localWhisperMain.failure}
+            localWhisperResidencyFailureSequence={localWhisperMain.failureSequence}
+            providerConnectionFailureTooltip={
+              providerConnectionFailureStatus ? renderRendererStatus(providerConnectionFailureStatus, t) : ''
+            }
+            providerConnectionReason={providerConnectionReason}
+            onOpenAbout={openAboutWindow}
+            onOpenAppSettings={() => openAppSettingsWindow()}
+            onOpenHistory={openHistoryWindow}
+            onOpenProviderSettings={() => {
+              if (activeProviderId) void openProviderSettings(activeProviderId);
+            }}
+            onLocalWhisperResidencyAction={(action) => {
+              if (!isProviderChangesLocked) void localWhisperMain.runResidencyAction(action);
+            }}
+            onProviderChange={(providerId) => void handleProviderChange(providerId)}
+            onProviderLogin={() => void handleLogin()}
+            providers={providers}
           />
-        }
-        activeProviderAuthType={activeProviderAuthType}
-        activeProviderId={activeProviderId}
-        activeProviderHasSettings={Boolean(activeProvider?.hasSettings)}
-        activeProviderName={activeProviderName}
-        isLoggedIn={isLoggedIn}
-        isLoggingIn={isLoggingIn}
-        isProviderChangesLocked={isProviderChangesLocked}
-        isVoiceProviderSwitching={isVoiceProviderSwitching}
-        localWhisperStatus={localWhisperMain.snapshot}
-        localWhisperPendingAction={localWhisperMain.pendingAction}
-        localWhisperResidencyFailure={localWhisperMain.failure}
-        localWhisperResidencyFailureSequence={localWhisperMain.failureSequence}
-        providerConnectionFailureTooltip={
-          providerConnectionFailureStatus ? renderRendererStatus(providerConnectionFailureStatus, t) : ''
-        }
-        providerConnectionReason={providerConnectionReason}
-        onOpenAbout={openAboutWindow}
-        onOpenAppSettings={() => openAppSettingsWindow()}
-        onOpenHistory={openHistoryWindow}
-        onOpenProviderSettings={() => {
-          if (activeProviderId) void openProviderSettings(activeProviderId);
-        }}
-        onLocalWhisperResidencyAction={(action) => {
-          if (!isProviderChangesLocked) void localWhisperMain.runResidencyAction(action);
-        }}
-        onProviderChange={(providerId) => void handleProviderChange(providerId)}
-        onProviderLogin={() => void handleLogin()}
-        providers={providers}
-      />
-      <MainPrettifyProviderBand
-        actionControl={
-          <HotkeyActionButton
-            actionLabel={t('prettify.provider')}
-            active={providerHotkeyIntegration.presentation.activeOwner === 'prettify'}
-            busy={providerHotkeyIntegration.pendingProviderHomeAction === 'prettify'}
-            hotkey={providerHotkeyIntegration.prettifyHotkey}
-            locked={providerHotkeyIntegration.presentation.eligibility.prettify.locked}
-            onActivate={providerHotkeyIntegration.activatePrettify}
+          <MainPrettifyProviderBand
+            actionControl={
+              <HotkeyActionButton
+                actionLabel={t('prettify.provider')}
+                active={providerHotkeyIntegration.presentation.activeOwner === 'prettify'}
+                busy={providerHotkeyIntegration.pendingProviderHomeAction === 'prettify'}
+                hotkey={providerHotkeyIntegration.prettifyHotkey}
+                locked={providerHotkeyIntegration.presentation.eligibility.prettify.locked}
+                onActivate={providerHotkeyIntegration.activatePrettify}
+              />
+            }
+            cliConnection={mainPrettifyProvider.cliConnection}
+            connectionError={mainPrettifyProvider.connectionError}
+            error={mainPrettifyProvider.error}
+            httpConnection={mainPrettifyProvider.httpConnection}
+            isModelActionRunning={mainPrettifyProvider.isModelActionRunning}
+            isProviderChangesLocked={isProviderChangesLocked}
+            isProviderChangeSaving={isPrettifyProviderSwitching}
+            ollamaModels={mainPrettifyProvider.ollamaModels}
+            onModelAction={() => void mainPrettifyProvider.onModelAction()}
+            onOpenSettings={() => openAppSettingsWindow('prettify')}
+            onProviderChange={(providerId) => void mainPrettifyProvider.onProviderChange(providerId)}
+            settings={prettifySettings}
           />
-        }
-        cliConnection={mainPrettifyProvider.cliConnection}
-        connectionError={mainPrettifyProvider.connectionError}
-        error={mainPrettifyProvider.error}
-        httpConnection={mainPrettifyProvider.httpConnection}
-        isModelActionRunning={mainPrettifyProvider.isModelActionRunning}
-        isProviderChangesLocked={isProviderChangesLocked}
-        isProviderChangeSaving={isPrettifyProviderSwitching}
-        ollamaModels={mainPrettifyProvider.ollamaModels}
-        onModelAction={() => void mainPrettifyProvider.onModelAction()}
-        onOpenSettings={() => openAppSettingsWindow('prettify')}
-        onProviderChange={(providerId) => void mainPrettifyProvider.onProviderChange(providerId)}
-        settings={prettifySettings}
-      />
-      <TranslateSection
-        actionControl={
-          <HotkeyActionButton
-            actionLabel={t('translate.provider')}
-            active={providerHotkeyIntegration.presentation.activeOwner === 'translation'}
-            busy={providerHotkeyIntegration.pendingProviderHomeAction === 'translation'}
-            hotkey={providerHotkeyIntegration.translateHotkey}
-            locked={providerHotkeyIntegration.presentation.eligibility.translation.locked}
-            onActivate={providerHotkeyIntegration.activateTranslation}
+          <TranslateSection
+            actionControl={
+              <HotkeyActionButton
+                actionLabel={t('translate.provider')}
+                active={providerHotkeyIntegration.presentation.activeOwner === 'translation'}
+                busy={providerHotkeyIntegration.pendingProviderHomeAction === 'translation'}
+                hotkey={providerHotkeyIntegration.translateHotkey}
+                locked={providerHotkeyIntegration.presentation.eligibility.translation.locked}
+                onActivate={providerHotkeyIntegration.activateTranslation}
+              />
+            }
+            connectionState={translationConnectionState}
+            error={translationSettingsSelection.error}
+            isProviderChangesLocked={isProviderChangesLocked}
+            isProviderChangeSaving={isTranslationProviderSwitching}
+            isSaving={translationSettingsSelection.pendingRequestId !== null}
+            onProviderChange={(providerId) => {
+              if (isProviderChangesLocked) return;
+              const candidate = createTranslationProviderCandidate(
+                translationSettingsSelection.confirmedSettings,
+                providerId,
+              );
+              void saveTranslationSettings(candidate);
+            }}
+            onTargetLanguageChange={(targetLanguage) => {
+              if (isProviderChangesLocked) return;
+              const candidate = createTranslationSettingsCandidate(
+                translationSettingsSelection.confirmedSettings,
+                targetLanguage,
+              );
+              void saveTranslationSettings(candidate);
+            }}
+            settings={translationSettings}
           />
-        }
-        connectionState={translationConnectionState}
-        error={translationSettingsSelection.error}
-        isProviderChangesLocked={isProviderChangesLocked}
-        isProviderChangeSaving={isTranslationProviderSwitching}
-        isSaving={translationSettingsSelection.pendingRequestId !== null}
-        onProviderChange={(providerId) => {
-          if (isProviderChangesLocked) return;
-          const candidate = createTranslationProviderCandidate(
-            translationSettingsSelection.confirmedSettings,
-            providerId,
-          );
-          void saveTranslationSettings(candidate);
-        }}
-        onTargetLanguageChange={(targetLanguage) => {
-          if (isProviderChangesLocked) return;
-          const candidate = createTranslationSettingsCandidate(
-            translationSettingsSelection.confirmedSettings,
-            targetLanguage,
-          );
-          void saveTranslationSettings(candidate);
-        }}
-        settings={translationSettings}
-      />
-      <RecordingControls
-        contextualActions={providerHotkeyIntegration.contextualActions}
-        state={recordingState}
-        status={status}
-      />
-    </main>
+          <RecordingControls
+            contextualActions={providerHotkeyIntegration.contextualActions}
+            state={recordingState}
+            status={status}
+          />
+        </main>
+      )}
+      {isStartupLoaderVisible && (
+        <div
+          aria-hidden={startupRevealPhase === 'revealing' || undefined}
+          className="main-startup-loader-overlay"
+          data-slot="main-startup-loader-overlay"
+        >
+          <LoadingScreen
+            hasRetryableFailure={firstLaunchStartupPresentation.hasRetryableFailure}
+            isComplete={!firstLaunchStartupPresentation.isPending}
+            isRetryPending={isFirstLaunchRetryPending}
+            mode="startup"
+            onRetry={() => void retryFirstLaunchStartup()}
+            progress={firstLaunchStartupPresentation.progress}
+            retryFailed={didFirstLaunchRetryFail}
+            stages={firstLaunchStartupPresentation.stages}
+          />
+        </div>
+      )}
+    </div>
   );
 };
 

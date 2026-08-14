@@ -318,6 +318,10 @@ describe('provider status presentation', () => {
       app.indexOf('const applyBrowserProviderFailure'),
       app.indexOf('const refreshPrettifyProviderState'),
     );
+    const loginStateHandler = app.slice(
+      app.indexOf('const applyProviderLoginState'),
+      app.indexOf('const applyProviderLoginStateRef'),
+    );
     const selectionHandler = app.slice(
       app.indexOf('const handleProviderSelectionEvent'),
       app.indexOf('useEffect(() =>', app.indexOf('const handleProviderSelectionEvent')),
@@ -339,6 +343,10 @@ describe('provider status presentation', () => {
     assert.match(selectionHandler, /case 'switch-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
     assert.match(selectionHandler, /activeProviderAuthTypeRef\.current === 'localRuntime'/u);
     assert.doesNotMatch(settledCase, /setProviderConnectionReason|setProviderConnectionFailureStatus/u);
+    assert.match(
+      loginStateHandler,
+      /backgroundStatus\?\.ready\) \{\s*preserveStatusRef\.current = false;\s*setStatus\(clearRecoveredBrowserFailureStatus\);/u,
+    );
     assert.match(app, /onBgBrowserReady\([\s\S]*?setStatus\(clearRecoveredBrowserFailureStatus\)/u);
   });
 

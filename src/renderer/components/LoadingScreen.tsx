@@ -1,7 +1,6 @@
 import {
   CheckCircle2,
   Clock3,
-  Globe2,
   Languages,
   Mic2,
   MinusCircle,
@@ -11,26 +10,37 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { JSX } from 'react';
-import { FIRST_LAUNCH_STARTUP_JOB_IDS, type FirstLaunchStartupJobId } from '@shared/firstLaunchStartup';
+import { FIRST_LAUNCH_STARTUP_JOB_IDS } from '@shared/firstLaunchStartup';
 import { Button } from '@renderer/components/ui/button';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { cn } from '@renderer/lib/cn';
 import type { FirstLaunchStartupStage, FirstLaunchStartupStageState } from '@renderer/firstLaunchStartupState';
 
-const STARTUP_JOB_LABEL_KEYS: Record<FirstLaunchStartupJobId, string> = {
-  [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser]: 'startup.job.cloakBrowser',
+const VISIBLE_STARTUP_STAGE_IDS = [
+  FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+  FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+  FIRST_LAUNCH_STARTUP_JOB_IDS.Prettify,
+] as const;
+
+type VisibleStartupStageId = (typeof VISIBLE_STARTUP_STAGE_IDS)[number];
+type VisibleStartupStage = FirstLaunchStartupStage & { readonly id: VisibleStartupStageId };
+
+const STARTUP_JOB_LABEL_KEYS: Record<VisibleStartupStageId, string> = {
   [FIRST_LAUNCH_STARTUP_JOB_IDS.Prettify]: 'startup.job.prettify',
   [FIRST_LAUNCH_STARTUP_JOB_IDS.Translation]: 'startup.job.translation',
   [FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider]: 'startup.job.voiceProvider',
 };
 
-const STARTUP_JOB_ICONS: Record<FirstLaunchStartupJobId, LucideIcon> = {
-  [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser]: Globe2,
+const STARTUP_JOB_ICONS: Record<VisibleStartupStageId, LucideIcon> = {
   [FIRST_LAUNCH_STARTUP_JOB_IDS.Prettify]: WandSparkles,
   [FIRST_LAUNCH_STARTUP_JOB_IDS.Translation]: Languages,
   [FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider]: Mic2,
 };
+
+function isVisibleStartupStage(stage: FirstLaunchStartupStage): stage is VisibleStartupStage {
+  return VISIBLE_STARTUP_STAGE_IDS.includes(stage.id as VisibleStartupStageId);
+}
 
 interface InitializingLoadingScreenProps {
   readonly mode?: 'initializing';
@@ -38,6 +48,7 @@ interface InitializingLoadingScreenProps {
 
 interface StartupLoadingScreenProps {
   readonly hasRetryableFailure?: boolean;
+  readonly isComplete?: boolean;
   readonly isRetryPending?: boolean;
   readonly mode: 'startup';
   readonly onRetry?: () => void;
@@ -85,7 +96,7 @@ function StageStateIcon({ label, state }: { readonly label: string; readonly sta
   }
 }
 
-function StartupStageCard({ stage }: { readonly stage: FirstLaunchStartupStage }): JSX.Element {
+function StartupStageCard({ stage }: { readonly stage: VisibleStartupStage }): JSX.Element {
   const { t } = useI18n();
   const label = t(STARTUP_JOB_LABEL_KEYS[stage.id]);
   const JobIcon = STARTUP_JOB_ICONS[stage.id];
@@ -147,13 +158,15 @@ function LoadingScreen(props: LoadingScreenProps): JSX.Element {
 
   const {
     hasRetryableFailure = false,
+    isComplete = false,
     isRetryPending = false,
     onRetry,
     progress = null,
     retryFailed = false,
     stages,
   } = props;
-  const activeJobs = stages
+  const visibleStages = stages.filter(isVisibleStartupStage);
+  const activeJobs = visibleStages
     .filter((stage) => stage.state === 'active')
     .map((stage) => t(STARTUP_JOB_LABEL_KEYS[stage.id]));
   const activeStatus =
@@ -164,7 +177,7 @@ function LoadingScreen(props: LoadingScreenProps): JSX.Element {
 
   return (
     <main
-      aria-busy={!hasRetryableFailure || isRetryPending}
+      aria-busy={!isComplete && (!hasRetryableFailure || isRetryPending)}
       aria-labelledby="startup-loader-title"
       className="relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-background px-4 py-3 text-sm text-muted-foreground [-webkit-app-region:no-drag]"
       data-slot="startup-loader"
@@ -228,8 +241,8 @@ function LoadingScreen(props: LoadingScreenProps): JSX.Element {
           )}
         </div>
 
-        <ul aria-label={progressLabel} className="mt-3 grid grid-cols-4 gap-2" data-slot="startup-stage-grid">
-          {stages.map((stage) => (
+        <ul aria-label={progressLabel} className="mt-3 grid grid-cols-3 gap-2" data-slot="startup-stage-grid">
+          {visibleStages.map((stage) => (
             <StartupStageCard key={stage.id} stage={stage} />
           ))}
         </ul>

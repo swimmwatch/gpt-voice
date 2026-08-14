@@ -42,7 +42,7 @@ describe('startup loading screen', () => {
     assert.match(markup, /data-slot="startup-stage-grid"/u);
     assert.match(markup, /max-w-\[592px\]/u);
     assert.match(markup, /p-3/u);
-    assert.match(markup, /grid-cols-4/u);
+    assert.match(markup, /grid-cols-3/u);
     assert.match(markup, /gap-2/u);
     assert.match(markup, /data-progress-state="determinate"/u);
     assert.match(markup, /role="progressbar"/u);
@@ -50,7 +50,7 @@ describe('startup loading screen', () => {
     assert.match(markup, /Preparing Voice provider, Translation/u);
     assert.match(markup, /data-slot="startup-progress">42%/u);
     assert.equal((markup.match(/data-state="active"/gu) ?? []).length, 2);
-    assert.match(markup, /data-stage-id="cloakbrowser"/u);
+    assert.doesNotMatch(markup, /CloakBrowser|data-stage-id="cloakbrowser"/u);
     assert.match(markup, /data-stage-id="voice-provider"/u);
     assert.match(markup, /data-stage-id="translation"/u);
     assert.match(markup, /data-stage-id="prettify"/u);
@@ -67,9 +67,23 @@ describe('startup loading screen', () => {
     );
 
     assert.match(markup, /data-progress-state="indeterminate"/u);
-    assert.match(markup, /lucide-loader-circle/u);
+    assert.doesNotMatch(markup, /CloakBrowser|lucide-loader-circle/u);
     assert.doesNotMatch(markup, /role="progressbar"/u);
     assert.equal((markup.match(/role="status"/gu) ?? []).length, 1);
+  });
+
+  it('marks a held completed startup screen as no longer busy', () => {
+    const markup = renderToStaticMarkup(
+      createElement(LoadingScreen, {
+        isComplete: true,
+        mode: 'startup',
+        progress: 100,
+        stages: [stage(FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser, 'completed', 100)],
+      }),
+    );
+
+    assert.match(markup, /aria-busy="false"/u);
+    assert.match(markup, /data-slot="startup-progress">100%/u);
   });
 
   it('shows a safe, keyboard-accessible Retry action and disables it while retry is pending', () => {

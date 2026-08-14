@@ -26,12 +26,9 @@ describe('window appearance', () => {
       /#window-startup-spinner \{[\s\S]*?width: 24px;[\s\S]*?height: 24px;[\s\S]*?border: 2px solid #737679;/u,
     );
     assert.match(rendererTemplate, /cursor: progress;/u);
-    assert.match(webpackConfig, /filename: 'index\.html',[\s\S]*?startupShell: 'main',/u);
-    assert.match(rendererTemplate, /htmlWebpackPlugin\.options\.startupShell === 'main'/u);
-    assert.match(rendererTemplate, /class="window-startup-main-shell"/u);
-    assert.match(rendererTemplate, /class="window-startup-stage-grid"/u);
-    assert.match(rendererTemplate, /index < 4/u);
-    assert.doesNotMatch(rendererTemplate, />Voice provider<|>Translation<|>Prettify</u);
+    assert.doesNotMatch(webpackConfig, /startupShell/u);
+    assert.doesNotMatch(rendererTemplate, /window-startup-main-shell|window-startup-stage-grid/u);
+    assert.match(rendererTemplate, /<div id="window-startup-spinner"><\/div>/u);
   });
 
   it('creates provider-bound resizable settings windows and includes them in trusted senders', () => {

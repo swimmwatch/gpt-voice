@@ -102,7 +102,7 @@ describe('provider hotkey home layout', () => {
     const loadingScreen = readProjectFile('src/renderer/components/LoadingScreen.tsx');
 
     assert.match(loadingScreen, /max-w-\[592px\]/u);
-    assert.match(loadingScreen, /grid-cols-4 gap-2/u);
+    assert.match(loadingScreen, /grid-cols-3 gap-2/u);
     assert.match(loadingScreen, /data-slot="startup-status"/u);
     assert.match(loadingScreen, /data-slot="startup-progress"/u);
     assert.match(loadingScreen, /onClick=\{onRetry\}/u);
