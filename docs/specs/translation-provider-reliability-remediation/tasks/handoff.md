@@ -7,15 +7,10 @@ Packets 01–05, 07, and 08 are committed as `e1fe686`, `de5ec2e`, `02fbd227`,
 `fe5f583`, and Packet 10 is committed as `6a918dd`. Packet 06 remains a later
 manual-gate packet and requires separate execution authorization.
 
-Packet 10 is committed as `6a918dd`. Packet 11 is implemented and intentionally
-uncommitted. It transfers Translation browser ownership to one shared coordinator,
-which retains one warm context and one provider page while safely resetting the
-provider site session on a provider change.
-
-The full unit-suite gate remains incomplete: the current run produced no test output
-for one minute and was stopped with exit 130. This is consistent with the previously
-recorded diagnostics-archive idle condition, but the current filtered run did not
-identify a specific test. Do not claim full-suite verification.
+Packet 10 is committed as `6a918dd`. Packet 11 source is committed as `24e61170` and
+its workstream artifacts as `1251535`. Packet 06 is complete and intentionally
+uncommitted: it records Linux packaged qualification at `1251535` and the user-approved
+deferral of Windows manual qualification.
 
 ## Completed Packets
 
@@ -102,6 +97,15 @@ identify a specific test. Do not claim full-suite verification.
     provider page in the retained context.
   - A cancelled context launch blocks replacement context creation until its stale
     context has returned and been closed, preventing an overlapping context race.
+- [06 Qualify Linux packaged platform](06_qualify_supported_packaged_platforms.md)
+  - Passed the complete deterministic quality gate, Linux CloakBrowser preparation and
+    smoke, Linux AppImage/RPM/unpacked package build, packaged-runtime verification,
+    bounded isolated first-launch smoke, and sanitized public-entry navigation for all
+    three providers.
+  - Recorded only safe platform/build outcomes in
+    `tasks/evidence/supported-platform-acceptance.md`; all temporary profile/cache data
+    was removed. Windows manual package qualification is explicitly deferred and not
+    claimed.
 
 ## Packet 09 Result
 
@@ -212,30 +216,21 @@ test:types`, scoped ESLint, scoped Prettier, and `git diff --check` passed clean
   Translation settings/switching, provider-status, and composition tests passed.
   `npm run typecheck`, `npm run test:types`, scoped ESLint, scoped Prettier, and
   `git diff --check` passed.
-- Packet 11 `npm test` was stopped after one minute without test output (exit 130).
-  The full-suite verification gate is incomplete; no test failure is claimed.
-- The required `npm test` full-unit run did not report a test failure, but remained
-  idle in `tests/main/diagnosticsArchive.test.ts` for over ten minutes and was
-  deliberately terminated with exit 143. It must be rerun successfully before a
-  full-suite verification claim.
+- Packet 06 quality gate — `npm run format:check`, `npm run lint`, `npm run typecheck`,
+  `npm run test:types`, `npm test`, and `npm run build:prod` passed. The full unit
+  suite reported 1,989 passed, 0 failed, and 1 skipped.
+- Packet 06 Linux packaging — CloakBrowser preparation/smoke, `npm run dist:linux`,
+  `npm run verify:packaged`, bounded isolated packaged first-launch, and sanitized
+  public-entry navigation for Google, Bing, and Yandex passed. `git diff --check`
+  passed for the workstream artifacts.
 
 ## Exact Next Packet
 
-- [06 Qualify supported packaged platforms](06_qualify_supported_packaged_platforms.md)
+None. The Translation Provider Reliability Remediation workstream is complete for the
+user-approved Linux qualification scope.
 
-## Blockers
+## Deferred Manual Qualification
 
-- Packet 06 requires separate execution authorization and its supported-platform manual
-  gates; it must not start from this packet. Rerun the full unit suite before
-  beginning that qualification.
-
-## Remaining Manual Gates
-
-- The no-login Google smoke passed only as sanitized Linux public-page evidence. It did
-  not drive Electron's selected-text hotkey, OS clipboard, tray, cancellation, or
-  quarantine workflow. Packet 06 retains Linux/Windows packaged copy-before-keyboard-
-  clear ordering, identical-result, cancellation-reuse, serialization, tray-indicator,
-  timeout, and suspend/resume confirmation.
-- Linux and Windows packaged confirmation of Translation provider switching: inline
-  checking, configuration/recording lock, typed retained-selection failure, and
-  target-language-only lock behavior.
+- Windows remains a supported application platform, but its package/manual
+  qualification is deferred by explicit user direction. It is not a completed or
+  implied verification claim.

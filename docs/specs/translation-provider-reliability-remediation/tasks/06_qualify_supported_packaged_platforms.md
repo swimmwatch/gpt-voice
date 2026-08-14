@@ -1,18 +1,18 @@
-# 06 Qualify Supported Packaged Platforms
+# 06 Qualify Linux Packaged Platform
 
 ## Outcome
 
-Representative packaged Linux x64 and Windows x64 builds complete sanitized
+The representative packaged Linux x64 build completes sanitized
 timeout, cleanup, suspend/resume, successful-provider, warm-reuse, and before/after
-latency evidence for Google, Bing, and Yandex. External limitations remain explicit,
-and macOS release support remains paused.
+latency evidence for Google, Bing, and Yandex. Windows packaged qualification is
+deferred; macOS release support remains paused.
 
 ## Prerequisites
 
 - Tasks 01–05 and 07–10 are complete and approved.
 - Task 06 has separate execution authorization.
 - The full deterministic gate passes on the candidate revision.
-- A suitable Linux x64 host and Windows x64 host are available.
+- A suitable Linux x64 host is available.
 - The Task 01 baseline revision and current candidate revision are recorded exactly.
 
 ## Owned Requirements
@@ -27,8 +27,7 @@ and macOS release support remains paused.
 
 ## In Scope
 
-- Platform-native production build and package verification on Linux x64 and
-  Windows x64.
+- Platform-native production build and package verification on Linux x64.
 - Non-sensitive synthetic stalled, suspend/resume, cold, and warm translations.
 - Non-sensitive selected-text cancellation through the configured existing Cancel hotkey.
 - Separate baseline/candidate measurements and sanitized evidence.
@@ -46,7 +45,7 @@ and macOS release support remains paused.
    05 revision as the candidate. Build the baseline in a separate disposable
    worktree or equivalent isolated source copy; never reset or checkout over the
    user's current worktree. Record exact revisions and dirty-state qualifications.
-2. On each platform, run the normal production build, prepare the platform's
+2. On Linux, run the normal production build, prepare the platform's
    CloakBrowser runtime, build the supported package, and verify the packaged
    runtime. Use repository scripts without editing package metadata, installer
    policy, workflows, or generated artifacts into source control.
@@ -65,7 +64,7 @@ and macOS release support remains paused.
    before any provider result is accepted, cleanup remains bounded, and no stale
    clipboard/cache/notification effect appears. Record ordinary scheduler tolerance
    without changing the contract.
-6. For `ACC-015`, run Google, Bing, and Yandex on each platform. Confirm exact target,
+6. For `ACC-015`, run Google, Bing, and Yandex on Linux. Confirm exact target,
    clipboard copy, success notification, and healthy context reuse. Bing and Yandex
    retain adaptive/fallback acceptance and clear-or-close success. Google must replace
    source in its reused warm page without Clear or Copy-control readiness; confirm
@@ -74,7 +73,7 @@ and macOS release support remains paused.
    Provider unavailability is a gap, not a reason to weaken origin/route/target,
    generation, delivery, serialization, or timeout checks.
 7. For `ACC-021`, record at least one cold and four warm completed translations per
-   provider for both baseline and candidate on each platform. Use the same host,
+   provider for both baseline and candidate on Linux. Use the same host,
    build mode, target, synthetic input shape, provider state, and nearby network
    window within each comparison.
 8. Record safe phase durations separately from end-to-end time. Compare
@@ -91,15 +90,15 @@ and macOS release support remains paused.
    retain their Translation-only save lock and same-provider warm page. Do not inspect
    or record cookies, storage, account state, URLs, or page content.
 10. Confirm timeout/cleanup behavior, boundary meanings, failure messages, and
-    provider contract version are consistent across Linux and Windows. Do not rely on
+    provider contract version on Linux. Do not rely on
     OS-localized browser errors as evidence.
-11. During one non-sensitive pending selected-text translation per supported platform,
+11. During one non-sensitive pending selected-text translation on Linux,
     invoke the configured Cancel hotkey. Confirm the cancelled renderer status,
     restoration of the prior clipboard, absence of result/cache/success notification,
     bounded cleanup, and later action recovery. Do not retain selected text or
     clipboard contents in evidence.
-12. During one non-sensitive cache-miss selected-text Translation per supported
-    platform, confirm the existing `processing` tray icon appears only after provider
+12. During one non-sensitive cache-miss selected-text Translation on Linux, confirm the
+    existing `processing` tray icon appears only after provider
     work begins, remains visible until the accepted terminal cleanup settles, and then
     returns to the recording-derived tray state. Record no selected text, result text,
     screenshot, provider page, URL, or credential in evidence.
@@ -132,16 +131,18 @@ and macOS release support remains paused.
 - Process suspension/termination is destructive-risk work. Resolve the exact owned
   test process/resource read-only first, use a reversible suspend/resume where
   possible, and never target a broad process group or unrelated browser profile.
-- Linux x64 and Windows x64 are required. macOS compilation may remain compatible,
-  but no macOS package/release claim is made.
+- Linux x64 is the completed manual qualification target. Windows x64 remains a
+  supported application platform but its manual package verification is deferred and
+  is not claimed. macOS compilation may remain compatible, but no macOS
+  package/release claim is made.
 - Live canaries are operational evidence, never automated tests or a substitute for
   deterministic acceptance.
 
 ## Expected Files Or Components
 
 - Add `tasks/evidence/supported-platform-acceptance.md` during execution.
-- Update `todo.md` and `handoff.md` only after both supported platforms complete or
-  with explicit blockers.
+- Update `todo.md` and `handoff.md` only after Linux completes, recording the Windows
+  manual qualification as deferred.
 - Do not change production source or tests unless manual evidence exposes an in-scope
   defect; any such change returns to Task 05 verification before qualification
   resumes.
@@ -150,18 +151,18 @@ and macOS release support remains paused.
 
 ## Acceptance Criteria
 
-- Linux x64 and Windows x64 each have a passing sanitized timeout/stall check,
+- Linux x64 has a passing sanitized timeout/stall check,
   real suspend/resume check, selected-text cancellation check, and successful
   Google/Bing/Yandex smoke when providers are available.
 - Baseline and candidate evidence contains at least one cold and four warm results
-  per provider/platform and separates safe application phases from external time.
+  per provider and separates safe application phases from external time.
 - No late clipboard/cache/notification effect appears after timeout or resume.
 - Same-provider warm pages reuse; a provider-ID switch initializes only the selected
   provider through the visible inline state after page replacement and session reset.
   Failed or uncertain contexts never reuse, and no second Translation context overlaps
   an active or quarantined one.
 - Provider switching and startup handoff retain their documented locks, typed failure
-  status, and accessibility behavior on both supported packaged platforms.
+  status, and accessibility behavior on the Linux package.
 - Every external limitation is recorded; no credentials, private text, challenge
   bypass, weakened check, or unsupported-platform claim substitutes for evidence.
 
@@ -187,18 +188,11 @@ npm run dist:linux
 npm run verify:packaged
 ```
 
-```text
-npm run prepare:cloakbrowser -- --target=win32
-npm run smoke:cloakbrowser
-npm run dist:win
-npm run verify:packaged
-```
-
 Record exact command outcomes and artifact names in the evidence file, not full logs.
 
 ## Failure And Rollback
 
-- Missing supported-platform host/evidence, provider unavailability without a
+- Missing Linux host/evidence, provider unavailability without a
   recorded gap, unsafe process targeting, sensitive capture, late result effect,
   unexplained controlled regression, or a failed package/quality command leaves
   Task 06 incomplete.
@@ -212,7 +206,7 @@ Record exact command outcomes and artifact names in the evidence file, not full 
 ## Manual Gates
 
 - `MANUAL GATE`: create/use a disposable baseline worktree or isolated source copy.
-- `MANUAL GATE`: prepare CloakBrowser and build Linux/Windows packages.
+- `MANUAL GATE`: prepare CloakBrowser and build the Linux package.
 - `MANUAL GATE`: contact Google, Bing, and Yandex with synthetic text.
 - `MANUAL GATE`: suspend/resume the operating system and, for the controlled stall,
   suspend/resume only an exactly identified translation browser child/resource.
@@ -237,8 +231,9 @@ Record exact command outcomes and artifact names in the evidence file, not full 
 
 ## Completion And Handoff
 
-- Mark Task 06 complete only when required Linux and Windows evidence is present and
-  every gap is explicitly acceptable under the specification.
+- Mark Task 06 complete only when required Linux evidence is present and every gap is
+  explicitly acceptable under the specification. Record Windows packaged
+  qualification as deferred rather than verified.
 - Update `handoff.md` with completed packets, changed evidence files, exact checks,
   artifact cleanup state, blockers, and no next implementation packet.
 - Present supported-platform evidence and stop. Do not commit, push, publish, or

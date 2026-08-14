@@ -770,16 +770,16 @@ requests, packaging, or release activity.
 
 ### Supported-Platform Manual Acceptance
 
-- **ACC-013:** On representative packaged Linux x64 and Windows x64 builds, a
+- **ACC-013:** On a representative packaged Linux x64 build, a
   non-sensitive synthetic stalled translation demonstrates timeout presentation,
   prior-clipboard restoration, no late clipboard change, and action recovery within
   the 60-second operation plus five-second cleanup contract, allowing only ordinary
   scheduler tolerance documented with the evidence.
-- **ACC-014:** On Linux and Windows, suspend a synthetic pending translation past its
+- **ACC-014:** On Linux, suspend a synthetic pending translation past its
   deadline and resume. The action times out before any provider result can be
   accepted, cleanup remains bounded, and no stale notification/cache/clipboard
   effect appears.
-- **ACC-015:** On each supported platform, perform non-sensitive successful smoke
+- **ACC-015:** On Linux, perform non-sensitive successful smoke
   translations through Google, Bing, and Yandex to confirm that healthy warm-context
   reuse, target selection, adaptive or fallback acceptance, clearing, clipboard copy,
   and notification behavior remain intact. Live provider behavior is manual evidence
@@ -787,13 +787,17 @@ requests, packaging, or release activity.
 - **ACC-016:** Record any provider availability, external markup, network, proxy, or
   platform limitation as a verification gap. Never substitute credentials, private
   text, challenge suppression, or a weakened timeout/cleanup check.
-- **ACC-021:** Before-and-after supported-platform evidence records at least one cold
+- **ACC-021:** Before-and-after Linux qualification evidence records at least one cold
   and four warm non-sensitive synthetic translations per provider on representative
-  packaged Linux x64 and Windows x64 builds. Use the same machine, build mode, target,
+  packaged Linux x64 build. Use the same machine, build mode, target,
   input shape, provider state, and nearby network window for each comparison; report
   safe phase durations separately from end-to-end time. External variability alone
   is not a deterministic failure, but an apparent regression must be explained by
   controlled evidence or the performance work is not accepted.
+
+Windows x64 remains a supported application platform under `COMP-001` and
+`COMP-006`, but its packaged manual qualification is explicitly deferred. No Windows
+verification claim is made by this workstream completion.
 
 ## Rejection Criteria
 

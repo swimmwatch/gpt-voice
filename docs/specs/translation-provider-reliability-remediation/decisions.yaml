@@ -1898,3 +1898,37 @@ decisions:
     rationale: 'The delegated approval clears the required packet boundary while keeping unrelated worktree changes excluded.'
     supersedes_revision: null
     requirement_ids: [ARCH-011, CONC-010, LIFE-010, FAIL-012, SEC-011, ACC-026]
+
+  - id: execution.packet-06
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly authorized Linux-only execution and instructed the agent
+        not to request another approval on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [execute-packet-06-linux-only]
+      text: 'Run the Linux manual qualification and consider Packet 06 complete after its Linux evidence is recorded.'
+    rationale: 'The user authorizes the external Linux packaging and synthetic public-provider checks while excluding Windows execution.'
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, OUT-003, OUT-004, ACC-013, ACC-014, ACC-015, ACC-016, ACC-021, ACC-022, ACC-023, ACC-024, ACC-025, ACC-026]
+
+  - id: qualification.packet-06-platform-scope
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly instructed that only Linux be tested and that Windows
+        testing be excluded from this completion on 2026-08-10.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [linux-complete, windows-deferred]
+      text: 'Linux evidence completes Packet 06; Windows packaged manual qualification remains deferred without a verification claim.'
+    rationale: 'The product support declaration remains unchanged, but the manual acceptance scope is limited to the available approved Linux environment.'
+    supersedes_revision: null
+    requirement_ids: [COMP-001, COMP-006, ACC-013, ACC-014, ACC-015, ACC-021]
