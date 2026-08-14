@@ -30,10 +30,9 @@ void read_exact(std::span<std::uint8_t> bytes) {
   const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
   while (!bytes.empty()) {
     DWORD count = 0;
-    const auto requested = static_cast<DWORD>(
-        std::min<std::size_t>(bytes.size(), kWindowsPipeIoChunkBytes));
-    if (!ReadFile(input, bytes.data(), requested, &count, nullptr) ||
-        count == 0U) {
+    const auto requested =
+        static_cast<DWORD>(std::min<std::size_t>(bytes.size(), kWindowsPipeIoChunkBytes));
+    if (!ReadFile(input, bytes.data(), requested, &count, nullptr) || count == 0U) {
       throw CoreError(FailureCode::transcription_failed, "Windows protocol read failed");
     }
     bytes = bytes.subspan(count);

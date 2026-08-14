@@ -44,8 +44,7 @@ private:
 
 class StandardInputOverride final {
 public:
-  explicit StandardInputOverride(HANDLE replacement)
-      : original_(GetStdHandle(STD_INPUT_HANDLE)) {
+  explicit StandardInputOverride(HANDLE replacement) : original_(GetStdHandle(STD_INPUT_HANDLE)) {
     if (!SetStdHandle(STD_INPUT_HANDLE, replacement))
       throw std::runtime_error("test standard input override failed");
   }
@@ -110,8 +109,7 @@ TEST(WorkerProtocolWindows, ReadsAudioLargerThanAnonymousPipeBufferWithoutDeadlo
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     channel.notify_inference_complete();
   });
-  EXPECT_EQ(channel.wait_for_control_or_inference(),
-            WorkerChannelWaitResult::inference_completed);
+  EXPECT_EQ(channel.wait_for_control_or_inference(), WorkerChannelWaitResult::inference_completed);
 }
 
 } // namespace
