@@ -27,7 +27,8 @@ TEST(Base64UrlTest, EncodesAndDecodesCanonicalBoundaryVectors) {
 }
 
 TEST(Base64UrlTest, DecodesTheCompleteAlphabetThroughTheInverseTable) {
-  constexpr std::string_view encoded = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  constexpr std::string_view encoded =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
   EXPECT_EQ(base64url_encode(base64url_decode(encoded)), encoded);
 }
 
