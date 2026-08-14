@@ -1,0 +1,780 @@
+schema_version: 1
+spec_slug: prettify-provider-hardening
+interview_id: spec:prettify-provider-hardening
+decisions:
+  - id: scope.review_findings
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-prettify-providers-comments-to-address.md
+      - user request on 2026-08-09 to create the specification before planning
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - prettify-1
+        - prettify-2
+        - prettify-6
+      text: Specify the three selected review comments and stop before planning.
+    rationale: The request follows directly from the accepted-comments assessment.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001, SCOPE-002]
+
+  - id: architecture.main_process_ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - src/main/services/prettifyHttpProviders.ts:345
+      - src/main/services/textAutomation.ts:80
+      - src/main/main.ts:150
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-main-ownership]
+      text: HTTP generation and OS process execution remain owned by Electron main and use injected adapters.
+    rationale: Renderer privilege or raw-process exposure would violate the current trust boundary.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, SEC-001]
+
+  - id: architecture.async_operation_isolation
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - src/main/services/prettifyHttpReadiness.ts:78
+      - src/main/services/selectedTextPrettify.ts:116
+      - src/main/mainProcessApplication.ts:249
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [operation-owned-state]
+      text: New deadline, abort, timer, reader, and child-process state must be operation-owned, independently disposable, and exactly-once settling.
+    rationale: The main process is event-loop concurrent; operation-local ownership prevents late async completions and cross-run interference without introducing shared mutable runtime state.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, CONC-001, CONC-002]
+
+  - id: security.sensitive_data
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/specs/claude-web-voice-provider/spec.md:264
+      - src/main/services/prettifyProviderAudit.ts:161
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-private-data-contract]
+      text: Selected text, prompts, provider bodies, credentials, clipboard contents, and helper output remain absent from logs, diagnostics metadata, persistence, and renderer-visible error detail.
+    rationale: Existing provider and project privacy contracts are authoritative and this hardening does not require broader data collection.
+    supersedes_revision: null
+    requirement_ids: [SEC-002, PRIV-001]
+
+  - id: compatibility.automation_consumers
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/services/textAutomation.ts:80
+      - src/main/services/selectedTextPrettify.ts:528
+      - src/main/services/selectedTextTranslation.ts
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: scope-round-01
+      question_id: compatibility.automation_consumers
+      idempotency_key: compatibility.automation_consumers:v1
+      last_status: answered
+    question:
+      text: Which consumers must receive the selected-text automation timeout and cancellation contract?
+      kind: single
+      options:
+        - id: shared-prettify-translation
+          label: Shared Prettify and Translation (Recommended)
+          description: Harden the existing shared OS automation boundary consistently for both selected-text workflows.
+        - id: prettify-only
+          label: Prettify only
+          description: Limit changed behavior to Prettify even though Translation uses the same automation service.
+    answer:
+      selected_ids: [shared-prettify-translation]
+      text: ""
+    rationale: Apply one cancellation and timeout contract at the existing shared OS automation boundary.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003, COMP-001]
+
+  - id: compatibility.macos_policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - README.md:110
+      - package.json:41
+      - package.json:43
+      - package.json:44
+      - src/main/services/textAutomation.ts:52
+      - tests/main/textAutomation.test.ts:50
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: scope-round-01
+      question_id: compatibility.macos_policy
+      idempotency_key: compatibility.macos_policy:v1
+      last_status: answered
+    question:
+      text: What macOS compatibility level should this specification require while macOS releases are paused?
+      kind: single
+      options:
+        - id: preserve-runtime-contract
+          label: Preserve runtime compatibility (Recommended)
+          description: Keep macOS code and deterministic tests compatible, but require packaged manual verification only for shipping Linux and Windows.
+        - id: shipping-platforms-only
+          label: Linux and Windows only
+          description: Scope compatibility and acceptance exclusively to currently supported release platforms.
+        - id: full-macos-verification
+          label: Full macOS verification
+          description: Require equivalent macOS packaged and manual checks despite the paused release policy.
+    answer:
+      selected_ids: [shipping-platforms-only]
+      text: ""
+    rationale: Require compatibility and acceptance only for the currently supported Linux and Windows release targets.
+    supersedes_revision: null
+    requirement_ids: [COMP-002, ACCEPT-001]
+
+  - id: limits.http_generation_deadline
+    revision: 1
+    category: configuration
+    state: superseded
+    provenance: user
+    evidence:
+      - src/main/services/prettifyHttpProviders.ts:360
+      - src/main/services/prettifyHttpProviders.ts:724
+      - src/shared/prettifySettings.ts:272
+      - docs/specs/claude-web-voice-provider/spec.md:653
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: behavior-round-01
+      question_id: limits.http_generation_deadline
+      idempotency_key: limits.http_generation_deadline:v1
+      last_status: answered
+    question:
+      text: Which HTTP generation deadline contract should apply to Ollama and vLLM?
+      kind: single
+      options:
+        - id: fixed-120-seconds
+          label: Fixed 120 seconds (Recommended)
+          description: Use an internal deadline matching the existing CLI default without adding settings or migration.
+        - id: fixed-600-seconds
+          label: Fixed 600 seconds
+          description: Favor compatibility with slow local generation while still preventing an indefinite operation.
+        - id: configurable-15-600
+          label: Configurable 15–600 seconds
+          description: Add one shared HTTP generation timeout setting with a 120-second default.
+    answer:
+      selected_ids: [fixed-120-seconds]
+      text: ""
+    rationale: Superseded after the user explicitly rejected a 120-second wait on 2026-08-09.
+    supersedes_revision: null
+    requirement_ids: [LIMIT-001, CONFIG-001, COMP-003]
+
+  - id: limits.http_response_bytes
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/services/prettifyHttpReadiness.ts:23
+      - src/main/services/prettifyHttpReadiness.ts:407
+      - src/shared/prettifySettings.ts:525
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: behavior-round-01
+      question_id: limits.http_response_bytes
+      idempotency_key: limits.http_response_bytes:v1
+      last_status: answered
+    question:
+      text: What maximum raw HTTP generation response size should the contract permit?
+      kind: single
+      options:
+        - id: four-mib
+          label: 4 MiB (Recommended)
+          description: Match the established readiness limit and leave ample headroom above the 8192-token output ceiling.
+        - id: one-mib
+          label: 1 MiB
+          description: Enforce a tighter memory budget that still greatly exceeds expected Prettify output.
+    answer:
+      selected_ids: [four-mib]
+      text: ""
+    rationale: Reuse the established readiness budget and retain ample headroom above valid output.
+    supersedes_revision: null
+    requirement_ids: [LIMIT-002, SEC-003]
+
+  - id: failure.http_timeout_presentation
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/services/prettifyHttpProviders.ts:332
+      - src/main/services/prettifyHttpProviders.ts:695
+      - src/main/i18n/en.ts:25
+      - src/main/services/prettifyProviderAudit.ts:145
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: behavior-round-01
+      question_id: failure.http_timeout_presentation
+      idempotency_key: failure.http_timeout_presentation:v1
+      last_status: answered
+    question:
+      text: How should an HTTP generation deadline be presented to the user?
+      kind: single
+      options:
+        - id: distinct-localized-timeout
+          label: Distinct timeout (Recommended)
+          description: Return a localized timeout result and keep explicit cancellation separately identifiable.
+        - id: existing-connection-error
+          label: Existing connection error
+          description: Preserve the current generic provider connection failure for all non-cancellation transport failures.
+    answer:
+      selected_ids: [distinct-localized-timeout]
+      text: ""
+    rationale: Let users distinguish a bounded deadline from cancellation and generic connectivity failures without exposing provider detail.
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, UX-001, PRIV-002]
+
+  - id: compatibility.automation_cancellation
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/services/textAutomation.ts:11
+      - src/main/services/selectedTextPrettify.ts:232
+      - src/main/services/selectedTextPrettify.ts:531
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: behavior-round-01
+      question_id: compatibility.automation_cancellation
+      idempotency_key: compatibility.automation_cancellation:v1
+      last_status: answered
+    question:
+      text: Should selected-text cancellation actively terminate a pending OS automation helper?
+      kind: single
+      options:
+        - id: timeout-and-caller-abort
+          label: Timeout and caller abort (Recommended)
+          description: Extend the automation boundary with an AbortSignal so cancellation and shutdown terminate the owned helper promptly.
+        - id: timeout-only
+          label: Timeout only
+          description: Add a deadline but let explicit cancellation wait until the helper settles or times out.
+    answer:
+      selected_ids: [timeout-and-caller-abort]
+      text: ""
+    rationale: Cancellation and shutdown must promptly terminate the process owned by the active selected-text run.
+    supersedes_revision: null
+    requirement_ids: [PROC-001, CONC-003, COMP-004]
+
+  - id: limits.automation_timeout
+    revision: 1
+    category: configuration
+    state: superseded
+    provenance: user
+    evidence:
+      - src/main/main.ts:150
+      - src/main/services/textAutomation.ts:91
+      - src/main/services/textAutomation.ts:95
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: behavior-round-01
+      question_id: limits.automation_timeout
+      idempotency_key: limits.automation_timeout:v1
+      last_status: answered
+    question:
+      text: What fixed deadline should apply independently to executable discovery and each copy or paste helper command?
+      kind: single
+      options:
+        - id: ten-seconds
+          label: 10 seconds (Recommended)
+          description: Allow slow PowerShell or osascript startup while keeping capture failure bounded.
+        - id: five-seconds
+          label: 5 seconds
+          description: Fail faster when desktop automation is unavailable or hung.
+        - id: thirty-seconds
+          label: 30 seconds
+          description: Favor unusually slow systems at the cost of a longer blocked capture.
+    answer:
+      selected_ids: [ten-seconds]
+      text: ""
+    rationale: Superseded when the user requested shorter, user-centered timeout values on 2026-08-09.
+    supersedes_revision: null
+    requirement_ids: [LIMIT-003, CONFIG-002]
+
+  - id: architecture.translation_shutdown_abort
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - src/main/services/selectedTextTranslation.ts:67
+      - src/main/services/selectedTextTranslation.ts:71
+      - src/main/mainProcessApplication.ts:249
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [operation-abort-on-dispose]
+      text: Translation has no public user-cancel action; it must own an operation abort source for automation and abort it during service disposal and application shutdown without adding a new public cancel command.
+    rationale: This satisfies the shared automation and shutdown decisions while preserving the existing Translation interface.
+    supersedes_revision: null
+    requirement_ids: [ARCH-003, CONC-004, COMP-005]
+
+  - id: compatibility.persistence_and_interfaces
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: repository
+    evidence:
+      - fixed-120-seconds answer to limits.http_generation_deadline
+      - fixed ten-seconds answer to limits.automation_timeout
+      - src/main/services/prettifyProviderBase.ts:28
+      - src/main/services/textAutomation.ts:11
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-persisted-migration]
+      text: The hardening adds no user setting, persisted field, IPC channel, provider ID, dependency, or package target; internal injected interfaces may change only as needed for clocks, cancellation, and resource ownership.
+    rationale: Superseded when the user chose a configurable HTTP generation timeout on 2026-08-09.
+    supersedes_revision: null
+    requirement_ids: [COMP-006, CONFIG-003, SCOPE-004]
+
+  - id: failure.automation_fallback
+    revision: 1
+    category: failure
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-prettify-providers-comments-to-address.md
+      - src/main/services/selectedTextPrettify.ts:528
+      - src/main/services/selectedTextTranslation.ts:190
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-existing-fallback]
+      text: Automation timeout or abort remains a safe capture failure; Linux may still use a nonempty primary selection, while empty capture restores the prior clipboard and does not invoke a provider or write cache data.
+    rationale: The selected review comment explicitly requests the existing safe capture failure and current Linux fallback is user-visible compatibility behavior.
+    supersedes_revision: null
+    requirement_ids: [FAIL-002, COMP-007, PRIV-003]
+
+  - id: security.automation_command_boundary
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/services/textAutomation.ts:27
+      - src/main/main.ts:150
+      - docs/specs/claude-web-voice-provider/spec.md:585
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [fixed-command-vectors]
+      text: Automation continues to use fixed application-owned executable names and arguments, no selected text or settings in argv, shell false at the process boundary, and no retained or logged helper stdout or stderr.
+    rationale: Timeout and cancellation must not weaken the existing command-injection and privacy posture.
+    supersedes_revision: null
+    requirement_ids: [SEC-004, PRIV-004]
+
+  - id: scope.non_goals
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-prettify-providers-comments-to-address.md
+      - compatibility.persistence_and_interfaces
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-adjacent-redesign]
+      text: CLI Prettify preflight, Codex argv construction, hard-exit orphan mitigation, CLI stdout chunk handling, provider selection, model lifecycle outside a generation operation, redirects, releases, installers, and macOS verification are outside this specification.
+    rationale: Superseded when the user expanded the timeout policy to all automatic Prettify defaults on 2026-08-09.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-005]
+
+  - id: acceptance.windows_ci
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml:236
+      - .github/workflows/pr-checks.yml:350
+      - compatibility.macos_policy answer shipping-platforms-only
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: acceptance-round-01
+      question_id: acceptance.windows_ci
+      idempotency_key: acceptance.windows_ci:v1
+      last_status: answered
+    question:
+      text: How should Windows-specific automation lifecycle behavior be enforced in CI?
+      kind: single
+      options:
+        - id: focused-windows-ci
+          label: Focused Windows tests (Recommended)
+          description: Run the deterministic automation timeout, abort, and cleanup tests in the existing Windows package-smoke job in addition to Linux quality checks.
+        - id: simulated-and-manual
+          label: Simulated tests and manual smoke
+          description: Keep CI workflows unchanged, simulate win32 behavior in the Linux test suite, and rely on a documented Windows desktop smoke test.
+        - id: full-suite-windows
+          label: Full suite on Windows
+          description: Add the entire TypeScript test suite to Windows CI for the broadest parity at higher CI cost and risk.
+    answer:
+      selected_ids: [focused-windows-ci]
+      text: ""
+    rationale: Enforce the platform-specific process contract on an actual Windows runner without duplicating the full quality suite.
+    supersedes_revision: null
+    requirement_ids: [ACCEPT-002, OPS-001]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/prettify-provider-hardening/spec.md
+      - all eight material interview questions answered
+      - no unresolved decision-ledger entries
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: Do you approve the draft Prettify Provider Resource and Automation Hardening specification as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve draft
+          description: Set the specification to Approved and end this phase before planning.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status and reopen the affected decisions for revision.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the current draft unapproved and make no further changes.
+    answer:
+      selected_ids: [approve]
+      text: ""
+    rationale: The approval was superseded when the user reopened the timeout contract on 2026-08-09.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: ux.reject_long_default_waits
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - user statement on 2026-08-09 that a user should not wait 120 seconds for anything
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [reject-120-second-default]
+      text: Automatic timeout defaults must prevent users from waiting 120 seconds for an unresponsive operation.
+    rationale: This current explicit instruction overrides the previously approved 120-second default.
+    supersedes_revision: null
+    requirement_ids: [UX-002, LIMIT-004]
+
+  - id: scope.timeout_wait_policy
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - ux.reject_long_default_waits
+      - src/main/services/prettifyHttpReadiness.ts:22
+      - src/shared/prettifySettings.ts:19
+      - src/shared/prettifySettings.ts:20
+      - src/shared/prettifySettings.ts:272
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: timeout-revision-round-01
+      question_id: scope.timeout_wait_policy
+      idempotency_key: scope.timeout_wait_policy:v1
+      last_status: answered
+    question:
+      text: How broadly should the shorter-wait policy apply within Prettify?
+      kind: single
+      options:
+        - id: short-defaults-opt-in-longer
+          label: Short defaults with explicit opt-in (Recommended)
+          description: Shorten all automatic Prettify defaults while allowing a user to choose a longer provider timeout for unusually slow local models.
+        - id: hard-sixty-second-cap
+          label: Hard 60-second maximum
+          description: Prevent every Prettify operation from exceeding 60 seconds even when the user explicitly configures a longer value.
+        - id: current-remediation-only
+          label: Current remediation only
+          description: Shorten only the new HTTP generation and automation limits while leaving readiness and existing CLI timeout settings unchanged.
+    answer:
+      selected_ids: [short-defaults-opt-in-longer]
+      text: ""
+    rationale: Keep involuntary waits short while preserving explicit user control for unusually slow local providers.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-006, UX-003, CONFIG-004]
+
+  - id: limits.http_generation_deadline
+    revision: 2
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - ux.reject_long_default_waits
+      - limits.http_generation_deadline revision 1
+      - HTTP Prettify generation is non-streaming and provides no useful progress signal before completion
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: timeout-revision-round-01
+      question_id: limits.http_generation_deadline
+      idempotency_key: limits.http_generation_deadline:v2
+      last_status: answered
+    question:
+      text: Which replacement HTTP generation timeout contract should apply to Ollama and vLLM?
+      kind: single
+      options:
+        - id: fixed-30-seconds
+          label: Fixed 30 seconds (Recommended)
+          description: Keep the hardening internal and fail a stalled Prettify request within half a minute without adding settings or migration.
+        - id: configurable-10-60-default-30
+          label: Configurable 10–60 seconds
+          description: Default to 30 seconds but add one shared HTTP timeout setting for faster or slower local models.
+        - id: fixed-20-seconds
+          label: Fixed 20 seconds
+          description: Fail faster but increase the risk of rejecting legitimate cold or CPU-bound local generation.
+    answer:
+      selected_ids: [configurable-10-60-default-30]
+      text: ""
+    rationale: Default to a user-centered 30-second limit while allowing a bounded adjustment for local model performance.
+    supersedes_revision: 1
+    requirement_ids: [LIMIT-001, CONFIG-001, COMP-003]
+
+  - id: limits.automation_timeout
+    revision: 2
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - ux.reject_long_default_waits
+      - limits.automation_timeout revision 1
+      - executable discovery and the automation command run sequentially
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: timeout-revision-round-01
+      question_id: limits.automation_timeout
+      idempotency_key: limits.automation_timeout:v2
+      last_status: answered
+    question:
+      text: Which independent deadlines should apply to executable discovery and to the copy or paste command?
+      kind: single
+      options:
+        - id: discovery-2-command-5
+          label: 2 seconds + 5 seconds (Recommended)
+          description: Bound a complete automation attempt to at most 7 seconds while allowing slower PowerShell startup.
+        - id: discovery-1-command-3
+          label: 1 second + 3 seconds
+          description: Keep a complete attempt under 4 seconds with a higher risk of false failure on slow Windows systems.
+        - id: discovery-5-command-5
+          label: 5 seconds + 5 seconds
+          description: Allow more startup variance but permit a complete failed attempt to take up to 10 seconds.
+    answer:
+      selected_ids: [discovery-2-command-5]
+      text: ""
+    rationale: Keep command discovery fast while allowing a modest Windows process-startup budget.
+    supersedes_revision: 1
+    requirement_ids: [LIMIT-003, CONFIG-002]
+
+  - id: compatibility.persistence_and_interfaces
+    revision: 2
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - limits.http_generation_deadline revision 2
+      - src/shared/prettifySettings.ts
+      - src/renderer/components/settings/PrettifyProviderPanels.tsx
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bounded-http-timeout-setting]
+      text: Add one shared HTTP generation timeout setting with a 30-second default and a validated 10–60 second range; preserve existing settings through defaulted migration and keep the value out of result cache context.
+    rationale: The committed configurable timeout requires synchronized settings, renderer, validation, localization, and persistence contracts without changing successful generation output.
+    supersedes_revision: 1
+    requirement_ids: [COMP-006, CONFIG-003, CONFIG-005]
+
+  - id: limits.http_readiness_timeout
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - scope.timeout_wait_policy
+      - src/main/services/prettifyHttpReadiness.ts:22
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: timeout-revision-round-02
+      question_id: limits.http_readiness_timeout
+      idempotency_key: limits.http_readiness_timeout:v1
+      last_status: answered
+    question:
+      text: What fixed timeout should apply to HTTP availability and model-readiness checks?
+      kind: single
+      options:
+        - id: five-seconds
+          label: 5 seconds (Recommended)
+          description: Halve the current wait while retaining enough time for local service startup and bounded model-list parsing.
+        - id: three-seconds
+          label: 3 seconds
+          description: Fail faster but increase false-unavailable results on cold or busy local services.
+        - id: keep-ten-seconds
+          label: Keep 10 seconds
+          description: Preserve current readiness compatibility even though it remains a relatively long automatic wait.
+    answer:
+      selected_ids: [five-seconds]
+      text: ""
+    rationale: Reduce an automatic availability wait by half while preserving reasonable local startup tolerance.
+    supersedes_revision: null
+    requirement_ids: [LIMIT-005, CONFIG-006]
+
+  - id: limits.cli_operation_budget
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - scope.timeout_wait_policy
+      - src/shared/prettifySettings.ts:19
+      - src/shared/prettifySettings.ts:20
+      - src/shared/prettifySettings.ts:272
+      - Claude and Codex preparation launch multiple sequential child processes before generation
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: timeout-revision-round-02
+      question_id: limits.cli_operation_budget
+      idempotency_key: limits.cli_operation_budget:v1
+      last_status: answered
+    question:
+      text: Which timeout contract should replace the current per-process 120-second CLI default?
+      kind: single
+      options:
+        - id: overall-45-range-15-120
+          label: One 45-second overall budget (Recommended)
+          description: Apply one absolute budget across preflight, discovery, and generation; allow explicit configuration from 15 to 120 seconds.
+        - id: overall-30-range-15-60
+          label: One 30-second overall budget
+          description: Cap configured CLI operations at 60 seconds and favor responsiveness over slower remote model completion.
+        - id: per-process-45-range-15-120
+          label: 45 seconds per process
+          description: Preserve the current per-child architecture, but sequential preflight processes can still accumulate into a multi-minute wait.
+    answer:
+      selected_ids: [overall-45-range-15-120]
+      text: ""
+    rationale: Bound the complete multi-process CLI workflow while retaining explicit opt-in for slower remote inference.
+    supersedes_revision: null
+    requirement_ids: [LIMIT-006, CONFIG-007, CONC-005]
+
+  - id: compatibility.cli_timeout_migration
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - limits.cli_operation_budget
+      - existing CLI default is 120 seconds
+      - existing CLI range is 15–600 seconds
+      - persisted settings cannot otherwise distinguish the old 120-second default from an explicit 120-second choice
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: timeout-revision-round-03
+      question_id: compatibility.cli_timeout_migration
+      idempotency_key: compatibility.cli_timeout_migration:v1
+      last_status: answered
+    question:
+      text: How should existing persisted Claude CLI and Codex CLI timeout values migrate to the new 45-second default and 15–120 second range?
+      kind: single
+      options:
+        - id: migrate-old-default-preserve-custom
+          label: Migrate old default, preserve custom values (Recommended)
+          description: Convert stored 120-second old-default values to 45 seconds, preserve values from 15 to 119 seconds, and clamp values above 120 to 120.
+        - id: reset-all-to-45
+          label: Reset every value to 45 seconds
+          description: Give every existing user the new default but discard intentional custom timeout choices.
+        - id: preserve-and-clamp
+          label: Preserve and clamp existing values
+          description: Keep values from 15 to 120 and clamp larger values, leaving existing users at 120 seconds even when it came from the old default.
+    answer:
+      selected_ids: [migrate-old-default-preserve-custom]
+      text: ""
+    rationale: Remove the involuntary old default without discarding shorter intentional user values.
+    supersedes_revision: null
+    requirement_ids: [COMP-008, CONFIG-008]
+
+  - id: scope.non_goals
+    revision: 2
+    category: scope
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - scope.timeout_wait_policy
+      - limits.cli_operation_budget
+      - docs/reviews/2026-08-08-prettify-providers-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-adjacent-redesign]
+      text: CLI capability checks remain mandatory and uncached; only their shared end-to-end budget changes. Codex arguments, CLI output parsing, provider selection, redirects, unrelated model lifecycle, releases, installers, and macOS verification remain outside this specification.
+    rationale: The timeout scope expanded, but adjacent provider behavior and delivery work did not.
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-005]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/prettify-provider-hardening/spec.md
+      - previous 120-second decision superseded
+      - revised HTTP, readiness, CLI, automation, and migration decisions answered
+      - no unresolved material timeout decisions
+    prompt_mcp:
+      interview_id: spec:prettify-provider-hardening
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: Do you approve the revised timeout contract in the Prettify Provider Resource and Automation Hardening specification?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised draft
+          description: Set the revised specification to Approved and end this phase before planning.
+        - id: request-changes
+          label: Request changes
+          description: Keep Draft status and reopen the affected timeout decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the revised specification unapproved.
+    answer:
+      selected_ids: [approve]
+      text: ""
+    rationale: The user explicitly approved the revised timeout contract.
+    supersedes_revision: 1
+    requirement_ids: []

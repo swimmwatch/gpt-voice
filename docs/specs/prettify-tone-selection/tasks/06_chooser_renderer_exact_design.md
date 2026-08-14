@@ -94,17 +94,17 @@ without an explicitly approved design/spec revision.
    Lucide `Sparkles`, `Search`, `Settings2`. Use only existing global tokens.
    Add no new color, gradient, glass, shadow, SVG, raster UI asset, card
    abstraction, or dependency.
-4. Initial focus is search. Render exactly one listbox in persisted mixed order;
-   built-in/custom profiles may interleave and filtering never sorts/regroups.
+4. Initial focus is the configured default profile option. Render exactly one
+   listbox in persisted mixed order; built-in/custom profiles may interleave and
+   filtering never sorts/regroups.
    Rows expose name, optional description, identity badge, and Default badge.
 5. Search uses packet 01's shared normalized multi-term name+description
-   matcher. A valid session-only remembered ID may preselect; otherwise no
-   selection and Apply disabled. Filtering a selected profile out clears that
-   one-off selection and disables Apply.
+   matcher. The one configured default is selected on every opening; filtering
+   it out clears the selection and disables Apply.
 6. Resolve the one known blueprint ambiguity explicitly: the normative Markdown
    behavior wins. `Arrow Down` while focus is in search selects and focuses the
-   **first visible profile**, even when a different remembered selected profile
-   is visible. Do not use the blueprint's `activeTabStopId` for this transition.
+   **first visible profile**, even when a different selected profile is visible.
+   Do not use the blueprint's `activeTabStopId` for this transition.
 7. Exact keyboard behavior:
    - click selects only;
    - Arrow Up/Down moves selection and focus in list;
@@ -195,9 +195,8 @@ Do not edit or move the approved design artifacts.
 
 - Production output matches the approved PNG and blueprint hierarchy/states at
   620×640 and 440×520 with no unresolved P0–P2 fidelity difference.
-- Search, remembered/no selection, selected/unselected, filter-empty, long
-  source/metadata, 200-custom, and constrained-work-area states meet the exact
-  contract.
+- Default-focused, selected/unselected, filter-empty, long source/metadata,
+  200-custom, and constrained-work-area states meet the exact contract.
 - No check/radio/glyph appears in selected rows.
 - Keyboard/focus/listbox/live-region behavior is deterministic and fully
   localized.

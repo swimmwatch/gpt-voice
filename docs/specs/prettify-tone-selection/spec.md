@@ -107,13 +107,13 @@ Profile names, descriptions, and chooser order affect presentation only. Cache i
 ## F12 Chooser Flow
 
 - **FLOW-001:** F12 captures the current desktop selection, validates it, restores the previous clipboard, and then opens the chooser. No provider readiness check or generation request occurs before Apply.
-- **UI-001:** Open one compact, focused transient chooser on the display containing the cursor, with a primary-display fallback. Keep it within the display work area and do not move, resize, replace, or expand the fixed 520 by 420 main window.
-- **UI-002:** Single-click and keyboard navigation select a profile. Apply remains disabled until a valid profile is selected. Apply and Enter submit the selected profile; selection alone never spends provider quota.
+- **UI-001:** Open one compact, focused transient chooser on the OS-active display containing the cursor. If cursor geometry cannot resolve an active display, use the active nearest display, then the active primary display, then the first active display. Use nearest/primary best effort only when active-display enumeration is unavailable. Keep it within the display work area and do not move, resize, replace, or expand the fixed 520 by 420 main window.
+- **UI-002:** Open with the configured default profile selected and keyboard-focused. Single-click and keyboard navigation select a profile. Apply remains disabled when filtering removes the current selection. Apply and Enter submit the selected profile; selection alone never spends provider quota.
 - **UI-003:** Show the captured source in a bounded, scrollable, read-only region labeled as original text. It is not editable in this version.
 - **UI-004:** Show profile name, description, built-in/custom identity, and default marker, plus the Manage profiles action.
 - **UI-005:** Close the chooser immediately after Apply, return to the existing tray/main-window working state, and report the final generic success or failure through existing status and notification mechanisms. Do not show a transformed-result view.
 - **UI-006:** Render one list in the persisted chooser order; built-in and custom profiles may be interleaved. Search matches visible name and description and preserves the relative persisted order of the filtered results so a 200-profile catalog remains predictable and usable.
-- **UI-007:** The chooser may remember its last selected profile for selection convenience, but that state is not the default and does not affect Ctrl+F12.
+- **UI-007:** Every chooser opening selects the configured default profile. One-off chooser selections are not remembered and never affect the default or Ctrl+F12.
 - **UI-010:** Do not add profile content or controls to the main Prettify provider band.
 - **UI-011:** The chooser is selection-only and exposes no drag handle or reorder mode. App Settings > Prettify provides localized, keyboard-operable controls for moving any built-in or custom profile and previews the resulting chooser order before Save.
 - **UI-012:** App Settings > Prettify provides profile search with the same normalized multi-term name-and-description matching as the chooser while preserving persisted relative order. Any non-empty search query disables drag and keyboard/menu reorder controls until cleared so hidden profiles cannot move unexpectedly; all non-ordering profile actions remain available.
@@ -203,7 +203,7 @@ Older releases may ignore profile records and use the maintained legacy prompt p
 
 ## Accessibility And Localization
 
-- **UI-008:** Chooser, search, source preview, profile list, Apply, Manage profiles, CRUD, chooser reordering, default replacement, import preview, conflict choices, plaintext warnings, and confirmations are fully keyboard operable with logical initial focus, visible focus, focus containment, and focus restoration.
+- **UI-008:** Chooser, search, source preview, profile list, Apply, Manage profiles, CRUD, chooser reordering, default replacement, import preview, conflict choices, plaintext warnings, and confirmations are fully keyboard operable with initial focus on the configured default profile, visible focus, focus containment, and focus restoration.
 - **UI-009:** Provide screen-reader names, selection/default states, live working/error announcements where applicable, contrast-compliant states, reduced-motion behavior, and localized copy and built-in metadata for every supported application locale.
 - **QUAL-001:** Long localized built-in names, 16,000-character source previews, long valid custom metadata, 200 custom profiles, and small active-display work areas remain usable without clipped actions or inaccessible content.
 
@@ -245,10 +245,10 @@ npm run build:prod
 
 ### Manual And Packaged
 
-- **QUAL-004 / AC-MAN-001:** In representative packaged Windows and Linux builds, select text in another application, press F12, verify the chooser appears on the active display with the exact captured source, choose each built-in using mouse and keyboard, apply it, and verify generic status plus clipboard output.
+- **QUAL-004 / AC-MAN-001:** In representative packaged Windows and Linux builds, select text in another application, press F12, verify the chooser appears on the active display with the exact captured source and initial keyboard focus on the configured default profile, choose each built-in using mouse and keyboard, apply it, and verify generic status plus clipboard output.
 - **QUAL-004 / AC-MAN-002:** Press Ctrl+F12 from another application and verify the explicit default runs without any chooser; change the default in Settings and verify the next quick action uses it without changing provider settings.
 - **QUAL-004 / AC-MAN-003:** Verify Escape, window close, Manage profiles, no selection, over-limit selection, provider unavailable, timeout, cancellation, and application quit never leave captured source in the clipboard or a visible stale chooser.
-- **QUAL-004 / AC-MAN-004:** Verify chooser placement and focus on a multi-display setup and a small work area, including fallback behavior where cursor-display discovery is unavailable.
+- **QUAL-004 / AC-MAN-004:** Verify chooser placement and default-profile focus on a multi-display setup and a small work area, including an OS-unavailable display and fallback behavior where active-display enumeration is unavailable. A physical display input switch is detectable only when the OS removes that display from the desktop.
 - **QUAL-004 / AC-MAN-005:** With 200 custom profiles and long localized metadata, interleave built-in and custom profiles in Settings, save, reopen the chooser, and verify persisted order, filtered relative order, keyboard navigation, scrolling, default marking, and accessible actions remain usable.
 - **QUAL-004 / AC-MAN-006:** Export several custom profiles, inspect the plaintext warning and excluded order data, import into a second clean profile catalog, exercise Rename/Replace/Skip, and verify the local default and existing profile order are unchanged while new profiles append in file order.
 - **QUAL-004 / AC-MAN-007:** Verify the fixed main window, recording/transcription, Translation, provider selection/readiness, model actions, diagnostics capture controls, and all unrelated hotkeys remain behaviorally unchanged.

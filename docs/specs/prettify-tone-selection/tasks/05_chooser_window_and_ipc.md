@@ -70,9 +70,12 @@ with shutdown, locale changes, and App Settings navigation.
      `prettify-profile-chooser-preload.js`, never the general `preload.js`;
    - no custom title bar, duplicate close icon, Node integration, webview, or
      raw Electron exposure.
-3. Inject a narrow screen adapter for cursor point, nearest display, and primary
-   display. Resolve the display containing/nearest the cursor; if discovery
-   fails or yields no valid work area, use primary display.
+3. Inject a narrow screen adapter for active displays, cursor point, nearest
+   display, and primary display. Resolve only a valid OS-active display:
+   geometry containing the cursor first, then nearest-display identity, active
+   primary, and first active display. Use nearest/primary best effort only when
+   active-display enumeration fails; do not place a chooser on a display absent
+   from the active enumeration.
 4. Placement is deterministic:
    - preferred content size 620×640;
    - use 16 px inset on all sides when preferred size fits;
@@ -160,8 +163,8 @@ with shutdown, locale changes, and App Settings navigation.
 13. Route every terminal renderer/window event through one idempotent terminal
     method. Main-frame `did-fail-load`, `render-process-gone`, `unresponsive`,
     and `closed` are all terminal: before resolving, clear the payload, captured
-    source, operation token, profile-ID allow-list, summaries, and remembered
-    initial selection. Resolve packet 04 as cancel exactly once and ensure no
+    source, operation token, profile-ID allow-list, summaries, and derived
+    default selection. Resolve packet 04 as cancel exactly once and ensure no
     provider work can begin. For the first three events, close the window if it
     still exists; the resulting `closed` event is a no-op. If Apply, Cancel,
     Manage, dispose, or native close already won, every late terminal callback
@@ -216,7 +219,8 @@ Do not add the renderer entry or webpack HTML in this packet.
 
 ## Acceptance Criteria
 
-- Placement tests cover cursor display, primary fallback, preferred 620×640,
+- Placement tests cover OS-active cursor display, unavailable-display exclusion,
+  active primary/first fallbacks, enumeration failure, preferred 620×640,
   constrained 440×520, work areas smaller than target, centering, and insets.
 - Exactly one hidden-until-ready chooser exists; reentry focuses it without
   payload replacement.
