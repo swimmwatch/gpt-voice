@@ -63,32 +63,45 @@ const STARTUP_COMPLETION_HOLD_MS = 500;
 const STARTUP_REVEAL_DURATION_MS = 180;
 
 type StartupRevealPhase = 'loading' | 'complete-hold' | 'prepared' | 'revealing' | 'revealed';
+type StartupRevealProgressPhase = Exclude<StartupRevealPhase, 'loading'>;
+
+interface StartupRevealState {
+  isStartupPending: boolean;
+  phase: StartupRevealProgressPhase;
+}
+
+function createStartupRevealState(isStartupPending: boolean): StartupRevealState {
+  return { isStartupPending, phase: 'complete-hold' };
+}
 
 /** Holds completed startup feedback briefly, then coordinates the main-window reveal. */
 function useStartupReveal(isStartupPending: boolean): StartupRevealPhase {
-  const [phase, setPhase] = useState<StartupRevealPhase>('loading');
+  const [revealState, setRevealState] = useState<StartupRevealState>(() => createStartupRevealState(isStartupPending));
+
+  if (revealState.isStartupPending !== isStartupPending) {
+    setRevealState(createStartupRevealState(isStartupPending));
+  }
+
+  const phase: StartupRevealPhase = isStartupPending ? 'loading' : revealState.phase;
 
   useEffect(() => {
-    if (isStartupPending) {
-      if (phase !== 'loading') setPhase('loading');
-    } else if (phase === 'loading') {
-      setPhase('complete-hold');
-    }
-  }, [isStartupPending, phase]);
+    if (phase !== 'complete-hold') return undefined;
 
-  useEffect(() => {
-    if (isStartupPending || phase !== 'complete-hold') return undefined;
-
-    const holdTimer = window.setTimeout(() => setPhase('prepared'), STARTUP_COMPLETION_HOLD_MS);
+    const holdTimer = window.setTimeout(
+      () => setRevealState((current) => ({ ...current, phase: 'prepared' })),
+      STARTUP_COMPLETION_HOLD_MS,
+    );
     return () => window.clearTimeout(holdTimer);
-  }, [isStartupPending, phase]);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'prepared') return undefined;
 
     let secondAnimationFrame: number | undefined;
     const firstAnimationFrame = window.requestAnimationFrame(() => {
-      secondAnimationFrame = window.requestAnimationFrame(() => setPhase('revealing'));
+      secondAnimationFrame = window.requestAnimationFrame(() =>
+        setRevealState((current) => ({ ...current, phase: 'revealing' })),
+      );
     });
     return () => {
       window.cancelAnimationFrame(firstAnimationFrame);
@@ -99,7 +112,10 @@ function useStartupReveal(isStartupPending: boolean): StartupRevealPhase {
   useEffect(() => {
     if (phase !== 'revealing') return undefined;
 
-    const revealTimer = window.setTimeout(() => setPhase('revealed'), STARTUP_REVEAL_DURATION_MS);
+    const revealTimer = window.setTimeout(
+      () => setRevealState((current) => ({ ...current, phase: 'revealed' })),
+      STARTUP_REVEAL_DURATION_MS,
+    );
     return () => window.clearTimeout(revealTimer);
   }, [phase]);
 
@@ -824,7 +840,8 @@ const App: React.FC = () => {
     );
   }
 
-  const isMainScreenMounted = startupRevealPhase === 'prepared' || startupRevealPhase === 'revealing' || startupRevealPhase === 'revealed';
+  const isMainScreenMounted =
+    startupRevealPhase === 'prepared' || startupRevealPhase === 'revealing' || startupRevealPhase === 'revealed';
   const isMainScreenAccessible = startupRevealPhase === 'revealing' || startupRevealPhase === 'revealed';
   const isMainScreenInteractive = startupRevealPhase === 'revealed';
   const isStartupLoaderVisible = startupRevealPhase !== 'revealed';

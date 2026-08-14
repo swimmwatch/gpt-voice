@@ -49,12 +49,26 @@ describe('window startup state', () => {
     assert.match(source, /const STARTUP_REVEAL_DURATION_MS = 180/u);
     assert.match(source, /useStartupReveal\(!isI18nReady \|\| firstLaunchStartupPresentation\.isPending\)/u);
     assert.match(source, /if \(!isI18nReady\)/u);
-    assert.match(source, /if \(isStartupPending \|\| phase !== 'complete-hold'\) return undefined;/u);
-    assert.match(source, /window\.setTimeout\(\(\) => setPhase\('prepared'\), STARTUP_COMPLETION_HOLD_MS\)/u);
+    assert.match(source, /if \(phase !== 'complete-hold'\) return undefined;/u);
+    assert.match(source, /phase: 'prepared'[\s\S]*?STARTUP_COMPLETION_HOLD_MS/u);
     assert.match(source, /requestAnimationFrame\(\(\) => \{\s*secondAnimationFrame = window\.requestAnimationFrame/u);
     assert.match(source, /aria-hidden=\{startupRevealPhase === 'revealing' \|\| undefined\}/u);
     assert.match(source, /retryFirstLaunchStartup\(\)/u);
     assert.match(source, /setTranslationConnectionState\(FAILED_INITIAL_TRANSLATION_CONNECTION_STATE\)/u);
+  });
+
+  it('does not synchronously update the startup reveal state from an effect', () => {
+    const source = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/App.tsx'), 'utf8');
+    const revealHook = source.slice(
+      source.indexOf('function useStartupReveal'),
+      source.indexOf('/** Coordinates the main recording lifecycle'),
+    );
+
+    assert.match(
+      revealHook,
+      /if \(revealState\.isStartupPending !== isStartupPending\) \{\s*setRevealState\(createStartupRevealState\(isStartupPending\)\);\s*\}/u,
+    );
+    assert.doesNotMatch(revealHook, /useEffect\(\(\) => \{\s*if \(isStartupPending\)/u);
   });
 
   it('uses the compact loader-to-dock reveal and suppresses motion when requested', () => {
@@ -95,6 +109,9 @@ describe('window startup state', () => {
     assert.ok(subscription >= 0);
     assert.ok(query > subscription);
     assert.match(mainRoot, /aria-disabled=\{providerHotkeyIntegration\.isMainInteractionLocked\}/u);
-    assert.match(mainRoot, /inert=\{providerHotkeyIntegration\.isMainInteractionLocked \|\| !isMainScreenInteractive\}/u);
+    assert.match(
+      mainRoot,
+      /inert=\{providerHotkeyIntegration\.isMainInteractionLocked \|\| !isMainScreenInteractive\}/u,
+    );
   });
 });
