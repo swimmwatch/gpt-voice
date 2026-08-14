@@ -58,9 +58,9 @@ describe('provider hotkey home layout', () => {
 
     assert.match(styles, /--dock-action-key-width: 114px;/u);
     for (const selector of [
-      '.command-dock-provider-band > .command-dock-hotkey-action',
-      '.command-dock-prettify-layout > .command-dock-hotkey-action',
-      '.command-dock-language-band > .command-dock-hotkey-action',
+      '.command-dock-provider-band > .command-dock-hotkey-action-tooltip-trigger',
+      '.command-dock-prettify-layout > .command-dock-hotkey-action-tooltip-trigger',
+      '.command-dock-language-band > .command-dock-hotkey-action-tooltip-trigger',
     ]) {
       const rule = getCssRule(styles, selector);
       assert.match(rule, /grid-column: 4;/u, selector);

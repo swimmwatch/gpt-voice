@@ -31,7 +31,10 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.doesNotMatch(component, /aria-pressed=/u);
     assert.match(styles, /width: var\(--dock-action-key-width, 114px\);/u);
     assert.match(styles, /height: 32px;/u);
-    assert.match(styles, /command-dock-hotkey-action-tooltip-trigger \{[\s\S]*?width: var\(--dock-action-key-width, 114px\);/u);
+    assert.match(
+      styles,
+      /command-dock-hotkey-action-tooltip-trigger \{[\s\S]*?width: var\(--dock-action-key-width, 114px\);/u,
+    );
     assert.match(styles, /--hotkey-press-travel: 3px;/u);
     assert.doesNotMatch(
       styles,
