@@ -202,6 +202,10 @@ test('Quality Gates parallelizes static, test/build, and CodeQL work with scoped
   assert.equal(qualityStatic['timeout-minutes'], '${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}');
   assert.equal(qualityTests['timeout-minutes'], '${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}');
   assert.equal(qualityCodeql['timeout-minutes'], '${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}');
+  assert.equal(
+    record(namedStep('quality-tests', 'Checkout').with, 'quality-tests checkout inputs')['fetch-depth'],
+    0,
+  );
 
   const gate = job('quality');
   assert.equal(gate.name, 'Quality Gates');
