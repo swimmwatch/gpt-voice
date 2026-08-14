@@ -379,14 +379,14 @@ async function loadIntegration(binary, includeCancellation) {
       options: transcriptionOptions(),
     });
     worker.sendAudio('tx-task11', wav);
+    const transcript = await worker.readControl();
+    assert.equal(transcript.type, 'transcript');
+    assert.equal(typeof transcript.text, 'string');
     worker.sendControl({
       type: 'warmup',
       protocolVersion: 1,
       requestId: 'post-tx-warm-task11',
     });
-    const transcript = await worker.readControl();
-    assert.equal(transcript.type, 'transcript');
-    assert.equal(typeof transcript.text, 'string');
     assert.equal((await worker.readControl()).type, 'warmed');
     if (includeCancellation) {
       const cancellationAudio = canonicalSilence(480_000);

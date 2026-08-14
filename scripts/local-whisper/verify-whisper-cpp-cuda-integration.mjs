@@ -300,14 +300,14 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
       assert.equal(cancelled.type, 'cancelled');
       assert.equal(cancelled.targetRequestId, transcriptionId);
     } else {
+      const transcript = await worker.readControl();
+      assert.equal(transcript.type, 'transcript');
+      assert.equal(typeof transcript.text, 'string');
       worker.sendControl({
         type: 'warmup',
         protocolVersion: 1,
         requestId: `post-tx-warm-cuda-task11-${repetition}`,
       });
-      const transcript = await worker.readControl();
-      assert.equal(transcript.type, 'transcript');
-      assert.equal(typeof transcript.text, 'string');
       assert.equal((await worker.readControl()).type, 'warmed');
     }
     worker.sendControl({
