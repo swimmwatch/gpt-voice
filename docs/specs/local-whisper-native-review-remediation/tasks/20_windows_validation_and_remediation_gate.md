@@ -36,9 +36,9 @@ One final Windows x64 packet performs the separate supported-host manual validat
 ## Task Contract
 
 1. Before any Windows validation command, create the exact supported-host manual run manifest in `handoff.md` from observations made on this host. Record the candidate commit SHA, timestamp with timezone, Windows edition/build, architecture, MSVC and Windows SDK versions, Node and Git versions, native source-lock identities, selected CPU/CUDA profile, authorized synthetic fixture identifiers, and the complete Packet 20 command inventory. Record only bounded classifications, versions, identifiers, and digests: never usernames, paths, environment values, credentials, audio, transcripts, or raw command output. Reject missing, duplicate, unexpected, wrong-profile, stale-candidate, or contract-only substitutions. This setup record establishes provenance only; it is not a passing manual result.
-2. Run ordinary MSVC 19.39 builds and project-owned tests for every common, guard, launcher, and worker Windows manifest source.
-3. Run the dedicated MSVC ASan configurations for every supported target. Confirm `/RTC1` is absent, unsupported sanitizer options are absent, the injected ASan proof fails, and normal suites pass.
-4. Run MSVC analysis with warnings as errors over every Windows-owned translation unit and prove the supported bad fixture is detected.
+2. Run the ordinary MSVC 19.39 component commands recorded in **Verification** for every common, guard, launcher, and worker Windows manifest source.
+3. Run the dedicated MSVC ASan component commands recorded in **Verification** for every supported target. Confirm `/RTC1` is absent, unsupported sanitizer options are absent, the injected ASan proof fails, and normal suites pass.
+4. Run the MSVC `/analyze` component commands recorded in **Verification**, with warnings as errors over every Windows-owned translation unit, and prove the supported bad fixture is detected.
 5. Run every applicable behavior suite from Packets 01–07 on the supported Windows host, including handle-count baselines and the deliberately unwrapped-resource visibility proof in AC-AUT-024.
 6. Build optimized MSVC executables and run the dedicated hardening verifier on the exact filesystem guard/model launcher, launcher, and CPU worker outputs. Confirm CFG, stack cookie, dynamic base, NX, and high-entropy VA from live PE evidence.
 7. Perform AC-MAN-002, AC-MAN-004, and AC-MAN-011 on supported Windows x64. Perform the Windows half of AC-MAN-003 against the exact smoke-tested binaries and match their SHA-256 values. Confirm approved production native events, protocol-only `stdout`, prohibited-data absence, failure containment, and exact bounded native-runtime archive history.
@@ -86,9 +86,21 @@ npm run test:local-whisper:fs-guard:native
 npm run test:local-whisper:filesystem
 npm run test:local-whisper:launcher:native
 npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
-npm run test:local-whisper:native-windows
-npm run test:local-whisper:native-windows-asan
-npm run test:local-whisper:native-windows-analysis
+# MSVC /analyze lane (PowerShell)
+$env:LOCAL_WHISPER_MSVC_ANALYZE = 'true'
+npm run test:local-whisper:fs-guard:native
+npm run test:local-whisper:launcher:native
+npm run test:local-whisper:worker-codec
+npm run test:local-whisper:whisper-cpp-core
+npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
+Remove-Item Env:LOCAL_WHISPER_MSVC_ANALYZE
+# MSVC AddressSanitizer lane
+npm run test:local-whisper:fs-guard:msvc-asan
+npm run test:local-whisper:launcher:msvc-asan
+npm run test:local-whisper:worker-codec:msvc-asan
+npm run test:local-whisper:whisper-cpp:msvc-asan
+npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
 npm run test:local-whisper:native-hardening
 npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
 npm run verify:local-whisper:native-hardening -- --platform=windows
