@@ -18,5 +18,5 @@
 - [x] [16 — Locked-source advisory monitoring](16_locked_source_advisory_monitoring.md)
 - [x] [17 — Application SBOM and vulnerability evidence](17_application_sbom_and_vulnerability_evidence.md)
 - [x] [18 — Provenance, attestation, and security reporting](18_provenance_attestation_and_security_reporting.md)
-- [ ] [19 — Linux, shared, and security remediation gate](19_linux_shared_security_remediation_gate.md)
+- [x] [19 — Linux, shared, and security remediation gate](19_linux_shared_security_remediation_gate.md)
 - [ ] [20 — Windows validation and remediation gate](20_windows_validation_and_remediation_gate.md)

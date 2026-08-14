@@ -103,11 +103,59 @@
 - `scripts/security/applicationArtifactSecurity.ts` and `scan-application-artifacts.ts` own the bounded evidence/scan implementation; their core, CLI, and workflow tests cover strict report handling, exact artifact binding, malformed failures, and Windows path-separator normalization.
 - Local verification passed focused application-SBOM/security, identity, packaging, workflow, type, lint, production build/audit, and complete unit checks. The three Packet 17 files are Prettier-clean; repository-wide formatting is blocked only by the unrelated untracked `tests/renderer/hotkeyActionButton.test.ts`.
 
+## Packet 19 Completion
+
+- Rechecked formatting, lint, Dependabot validation, production audit, loader
+  limits, and hosted-toolchain fixtures/verification. All passed; lint retains
+  only the established warnings.
+- Full type checking, type tests, the complete unit suite (2,198 passes; one
+  expected skip), and production build now pass. The build retains only its
+  established webpack size warnings and lint retains only its established
+  warnings.
+- Qualification inputs validate but report `candidate state: Pending`; Linux
+  qualification correctly fails closed with `QUALIFICATION_LINUX_RESULT_NOT_FROZEN`.
+  No production/manual Linux qualification evidence exists or is claimed.
+- Code candidate `0329b3113599d65e0dad14ea35c38b591b766de1` has a successful
+  exact-SHA CI run: Linux/Windows native quality, Fedora/Windows package smoke,
+  and Fedora/Windows attestation jobs all succeeded. Documentation commit
+  `a1954892ef8683ab5ff67a3fcebffb5baf25d3e2` launched CI; all of its jobs,
+  including Pull Request Checks, now succeed.
+- Packet 19 gate execution found and corrected an integration-harness protocol
+  defect: the CPU and CUDA harnesses had sent `warmup` while a `transcribe`
+  request was still active. The worker correctly rejected that invalid state
+  transition with `INVALID_SETTINGS`. Both harnesses now await the committed
+  transcript before sending the warmed-worker reuse request.
+- Passed after the correction: changed-file Prettier/ESLint; Whisper.cpp
+  cancellation suite; native build audits; CPU production worker integration
+  (probe, authenticated model load, warmup, transcription, cancellation,
+  unload, shutdown); CUDA production worker integration (three lifecycle
+  iterations including two transcriptions and one cancellation); full native
+  logging, worker, filesystem, launcher, sanitizer, analysis, fuzz, TSan,
+  GCC, hardening, advisory, workflow/security, SBOM, vulnerability,
+  attestation, evidence, packaging, source, hosted-toolchain, loader-limit,
+  disconnected-build, lint, typecheck, type-test, production-build, and
+  whitespace gates listed in Packet 19.
+- The inherited renderer failures were corrected in test-only commits
+  `a486fe88` and `57411663`; the current local completion set passes with
+  2,198 tests and one expected skip. The unrelated dirty worktree remains
+  unmodified.
+- Exact candidate `574116635c7676f4b20eebd1ae489574f3eb884d` passed
+  [Pull Request Checks 31778090776](https://github.com/swimmwatch/gpt-voice/actions/runs/31778090776):
+  Quality Gates; Linux and Windows native quality; Fedora and Windows package
+  smoke; and Fedora and Windows package attestations all succeeded. Windows
+  executed MSVC, `/analyze`, MSVC AddressSanitizer, hardened binaries,
+  supervisor conformance, Node/native filesystem compatibility, coverage,
+  runner evidence, and C++ CodeQL; no required Windows job was skipped.
+
 ## Exact Next Packet
 
-- Packet 19 — Linux, shared, and security remediation gate. Do not begin it without a new explicit incremental-implementation authorization.
+- Packet 20 — Windows validation and remediation gate. Do not begin it without
+  a new explicit incremental-implementation authorization.
 
 ## Blockers
 
 - Preserve unrelated dirty worktree content under `docs/reviews/`, other specification bundles, translations, and translation-provider files/tests.
-- Packet 18 has no remaining blocker. Preserve the unrelated dirty worktree while preparing Packet 19.
+- Packet 19 is complete. Packet 20 requires supported-host manual Windows
+  validation; hosted Windows Server 2025 evidence is not a substitute.
+- Do not alter the unrelated provider-hotkey CSS/layout work or its untracked
+  renderer test merely to make Packet 19's repository-wide checks pass.
