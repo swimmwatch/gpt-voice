@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -55,7 +55,7 @@ test('bounded native fuzzing stages only committed synthetic corpus roots', () =
     assert.match(target.seed, /^[\x20-\x7e\t]+$/u);
     for (const directory of target.corpusDirectories) {
       const root = resolve(FIXTURE_ROOT, directory);
-      assert.ok(root.startsWith(`${FIXTURE_ROOT}/`));
+      assert.ok(root.startsWith(`${FIXTURE_ROOT}${sep}`));
       assert.ok(existsSync(root), `${target.id} corpus directory is absent`);
       assert.ok(readdirSync(root).length > 0, `${target.id} corpus directory is empty`);
     }

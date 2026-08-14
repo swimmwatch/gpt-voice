@@ -1197,7 +1197,7 @@ export function verifyHostedToolchainMaterialization({ manifest, materializedRoo
 /** Rejects Windows profiles whose build authority was filled from an ambient machine. */
 export function assertClosedHostedWindowsProfile(profile) {
   if (profile?.target?.os !== 'windows') fail('Windows hosted profile target is required');
-  const inputs = [...(profile.tools ?? []), ...(profile.runtime ?? []), ...(profile.licenses ?? [])].filter(
+  const inputs = [...(profile.tools ?? []), ...(profile.runtime ?? [])].filter(
     (component) => component.pathKind !== 'outputRelative',
   );
   if (

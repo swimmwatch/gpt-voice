@@ -25,8 +25,15 @@ function sha256(bytes) {
 }
 
 function assertUnsigned(filePath) {
+  const windowsRoot = process.env.SystemRoot || process.env.WINDIR;
+  assert.ok(windowsRoot && path.isAbsolute(windowsRoot), 'Windows root is unavailable');
+  const environment = { LOCAL_WHISPER_TASK24_SIGNATURE_TARGET: filePath };
+  for (const key of ['SystemRoot', 'WINDIR', 'TEMP', 'TMP']) {
+    const value = process.env[key];
+    if (value) environment[key] = value;
+  }
   const result = spawnSync(
-    'powershell.exe',
+    path.join(windowsRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
     [
       '-NoProfile',
       '-NonInteractive',
@@ -35,7 +42,7 @@ function assertUnsigned(filePath) {
     ],
     {
       encoding: 'utf8',
-      env: { ...process.env, LOCAL_WHISPER_TASK24_SIGNATURE_TARGET: filePath },
+      env: environment,
       shell: false,
       windowsHide: true,
     },

@@ -110,7 +110,7 @@ test('Windows ASan configurations are explicit in native presets, drivers, packa
     resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-worker-quality.mjs'),
     'utf8',
   );
-  assert.match(workerDriver, /windows-x64-msvc-19\.39-asan-v1/u);
+  assert.match(workerDriver, /windows-x64-msvc-19\.51-asan-v1/u);
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
   assert.match(workflow, /Prove non-recovering Linux sanitizer policy/u);
   assert.match(workflow, /test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality/u);

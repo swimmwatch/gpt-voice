@@ -42,10 +42,10 @@ export function cpuStageRoot(profileId) {
   return resolve(taskCacheRoot, 'stage', profileId);
 }
 
-export function stageCpuPack(profileId, buildRoot, executionProfile = null) {
-  if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
+export function stageCpuPack(profileId, buildRoot, executionProfile = null, executionTools = null) {
+  if (profileId === 'windows-x64-cpu-msvc-19.51-v1') {
     if (!executionProfile) throw new Error('Windows CPU staging requires the captured execution profile');
-    return stageWindowsRuntimePack({ backend: 'cpu', buildRoot, profile: executionProfile });
+    return stageWindowsRuntimePack({ backend: 'cpu', buildRoot, profile: executionProfile, tools: executionTools });
   }
   if (profileId !== 'linux-x64-cpu-baseline-v1') throw new Error('Unsupported CPU staging profile');
   const profile = executionProfile ?? requireProfile(profileId);

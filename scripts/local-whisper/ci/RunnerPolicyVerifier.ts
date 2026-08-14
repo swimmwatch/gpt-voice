@@ -59,7 +59,7 @@ const PLATFORM_CONTRACTS = {
     ],
     runner: '${{ vars.CI_WINDOWS_RUNNER }}',
     shardJob: 'native-windows-shards',
-    toolchain: 'msvc-hosted',
+    toolchain: 'windows-x64-msvc-19.51-v1',
   },
 } as const;
 
@@ -289,7 +289,7 @@ function operatingSystemForRunner(runnerLabel: string): 'Linux' | 'Windows' {
 function verifyToolchainVersion(profile: string, version: string): void {
   const clang = CLANG_TOOLCHAIN.exec(profile);
   if (clang && new RegExp(`clang version ${clang.groups?.major}\\.`, 'u').test(version)) return;
-  if (profile === 'msvc-hosted' && /Version 19\.\d+\./u.test(version)) return;
+  if (profile === 'windows-x64-msvc-19.51-v1' && /Version 19\.51\./u.test(version)) return;
   throw new Error('Runner evidence compiler version does not match its toolchain profile');
 }
 
@@ -334,7 +334,7 @@ export class RunnerPolicyVerifier {
     }
     const expectedWindowsToolchain = expectedOperatingSystem === 'Windows';
     if (
-      (expectedWindowsToolchain && evidence.toolchain.profile !== 'msvc-hosted') ||
+      (expectedWindowsToolchain && evidence.toolchain.profile !== 'windows-x64-msvc-19.51-v1') ||
       (!expectedWindowsToolchain && !CLANG_TOOLCHAIN.test(evidence.toolchain.profile))
     ) {
       throw new Error('Runner evidence toolchain does not match its runner label');

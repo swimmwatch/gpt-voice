@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { access, chmod, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { access, chmod, copyFile, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
@@ -128,36 +128,50 @@ async function createFixture(
 async function createFakeTrivy(binDirectory: string): Promise<void> {
   const program = `
 const fs = require('node:fs');
-const args = process.argv.slice(2);
-if (args[0] === 'version') {
-  process.stdout.write('Version: 0.69.3\\n');
+const path = require('node:path');
+const isWindowsExecutable =
+  process.platform === 'win32' &&
+  [process.argv0, process.execPath].some((value) => path.basename(value).toLowerCase() === 'trivy.exe');
+const isDirectScript = path.resolve(process.argv[1] ?? '') === __filename;
+if (isWindowsExecutable || isDirectScript) {
+  const args = isWindowsExecutable
+    ? [path.basename(process.argv[1] ?? ''), ...process.argv.slice(2)]
+    : process.argv.slice(2);
+  if (args[0] === 'version') {
+    fs.writeSync(1, 'Version: 0.69.3\\n');
+    process.exit(0);
+  }
+  if (args[0] === 'image' && args.includes('--download-db-only')) process.exit(0);
+  if (process.env.FAKE_TRIVY_MODE === 'scanner-failure') process.exit(2);
+  const outputIndex = args.indexOf('--output');
+  if (outputIndex < 0 || !args[outputIndex + 1]) process.exit(3);
+  const output = args[outputIndex + 1];
+  if (process.env.FAKE_TRIVY_TRACE) fs.appendFileSync(process.env.FAKE_TRIVY_TRACE, output + '\\n');
+  if (process.env.FAKE_TRIVY_MODE === 'malformed') {
+    fs.writeFileSync(output, '{}');
+    process.exit(0);
+  }
+  fs.writeFileSync(output, JSON.stringify({
+    ArtifactName: process.env.FAKE_TRIVY_MODE === 'windows-separators' ? args.at(-1).split('/').join('\\\\') : args.at(-1),
+    ArtifactType: args[0] === 'sbom' ? 'cyclonedx' : 'filesystem',
+    Results: null,
+    SchemaVersion: 2,
+  }));
   process.exit(0);
 }
-if (args[0] === 'image' && args.includes('--download-db-only')) process.exit(0);
-if (process.env.FAKE_TRIVY_MODE === 'scanner-failure') process.exit(2);
-const outputIndex = args.indexOf('--output');
-if (outputIndex < 0 || !args[outputIndex + 1]) process.exit(3);
-const output = args[outputIndex + 1];
-if (process.env.FAKE_TRIVY_TRACE) fs.appendFileSync(process.env.FAKE_TRIVY_TRACE, output + '\\n');
-if (process.env.FAKE_TRIVY_MODE === 'malformed') {
-  fs.writeFileSync(output, '{}');
-  process.exit(0);
-}
-fs.writeFileSync(output, JSON.stringify({
-  ArtifactName: process.env.FAKE_TRIVY_MODE === 'windows-separators' ? args.at(-1).split('/').join('\\\\') : args.at(-1),
-  ArtifactType: args[0] === 'sbom' ? 'cyclonedx' : 'filesystem',
-  Results: null,
-  SchemaVersion: 2,
-}));
 `;
   const unixPath = path.join(binDirectory, 'trivy');
   await writeFile(unixPath, `#!/usr/bin/env node\n${program}`);
   await chmod(unixPath, 0o755);
+  const fakeTrivyModule = path.join(binDirectory, 'fake-trivy.cjs');
   await writeFile(
     path.join(binDirectory, 'trivy.cmd'),
-    `@echo off\r\n"${process.execPath}" "%~dp0fake-trivy.js" %*\r\n`,
+    `@echo off\r\n"${process.execPath}" "%~dp0fake-trivy.cjs" %*\r\n`,
   );
-  await writeFile(path.join(binDirectory, 'fake-trivy.js'), program);
+  await writeFile(fakeTrivyModule, program);
+  if (process.platform === 'win32') {
+    await copyFile(process.execPath, path.join(binDirectory, 'trivy.exe'));
+  }
 }
 
 async function runScanner(
@@ -185,6 +199,13 @@ async function runScanner(
           APPLICATION_ARTIFACT_SECURITY_WORKSPACE: fixture.root,
           FAKE_TRIVY_MODE: input.mode,
           FAKE_TRIVY_TRACE: fixture.tracePath,
+          NODE_OPTIONS:
+            process.platform === 'win32'
+              ? `${process.env.NODE_OPTIONS ?? ''} --require="${path
+                  .join(fixture.binDirectory, 'fake-trivy.cjs')
+                  .split(path.sep)
+                  .join('/')}"`.trim()
+              : process.env.NODE_OPTIONS,
           PATH: `${fixture.binDirectory}${path.delimiter}${process.env.PATH ?? ''}`,
           TRIVY_CACHE_DIR: fixture.cacheDirectory,
         },

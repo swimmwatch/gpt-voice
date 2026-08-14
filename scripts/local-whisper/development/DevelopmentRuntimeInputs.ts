@@ -26,7 +26,7 @@ const RUNTIME_PROFILES = Object.freeze({
   }),
   win32: Object.freeze({
     cpu: Object.freeze({
-      profileId: 'windows-x64-cpu-msvc-19.39-v1',
+      profileId: 'windows-x64-cpu-msvc-19.51-v1',
       packRevision: 'whisper-cpp-windows-x64-cpu-v1',
       prerequisites: Object.freeze(['cpu-x86-64-sse2']),
     }),
@@ -167,7 +167,7 @@ export function resolveDevelopmentRuntimePlatform(
   return platform;
 }
 
-/** Authenticates the deterministic CPU/CUDA runtime-pack outputs consumed by one development session. */
+/** Authenticates the deterministic executable runtime-pack outputs admitted for one development session. */
 export class DevelopmentRuntimeInputLoader {
   public constructor(private readonly hostPlatform: NodeJS.Platform = process.platform) {}
 
@@ -180,7 +180,8 @@ export class DevelopmentRuntimeInputLoader {
       throw new Error('Local Whisper development runtime host invalid');
     }
     const inputs: DevelopmentRuntimeInput[] = [];
-    for (const backend of ['cpu', 'cuda'] as const) {
+    const executableBackends = platform === 'win32' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
+    for (const backend of executableBackends) {
       const profile = RUNTIME_PROFILES[platform][backend];
       const packRoot = path.join(
         workspaceRoot,

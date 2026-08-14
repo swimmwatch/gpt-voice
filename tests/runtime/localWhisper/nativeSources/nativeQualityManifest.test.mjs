@@ -39,6 +39,9 @@ const MSVC_ANALYSIS_DRIVERS = [
   'native-worker-quality.mjs',
   'whisper-cpp-build-core.mjs',
 ].map((fileName) => readFileSync(resolve(WORKSPACE_ROOT, 'scripts', 'local-whisper', fileName), 'utf8'));
+const NATIVE_PRESET_QUALITY_DRIVERS = ['native-fs-guard-quality.mjs', 'native-launcher-quality.mjs'].map((fileName) =>
+  readFileSync(resolve(WORKSPACE_ROOT, 'scripts', 'local-whisper', fileName), 'utf8'),
+);
 const NATIVE_TEST_CMAKE_FILES = [
   'common/CMakeLists.txt',
   'fs-guard/CMakeLists.txt',
@@ -183,7 +186,16 @@ test('MSVC analysis is applied only through project-target hardening', () => {
   );
   assert.match(
     NATIVE_HARDENING,
-    /if\(LOCAL_WHISPER_MSVC_ANALYZE\)\s+# GoogleTest is a reviewed external dependency\.[\s\S]+?target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external-\)/u,
+    /if\(LOCAL_WHISPER_MSVC_ANALYZE\)\s+# GoogleTest is a reviewed external dependency\.[\s\S]+?target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external-[^)]*\)/u,
+  );
+  assert.match(
+    NATIVE_HARDENING,
+    /target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external- \/external:W0 \/analyze:autolog-\)/u,
+  );
+  assert.match(NATIVE_TEST_CMAKE_FILES[0], /SYSTEM PRIVATE "\$\{LOCAL_WHISPER_NLOHMANN_SOURCE\}\/single_include"/u);
+  assert.match(
+    NATIVE_TEST_CMAKE_FILES[3],
+    /SYSTEM (?:PRIVATE|PUBLIC) "\$\{LOCAL_WHISPER_NLOHMANN_SOURCE\}\/single_include"/u,
   );
   assert.match(
     NATIVE_HARDENING,
@@ -196,5 +208,27 @@ test('MSVC analysis is applied only through project-target hardening', () => {
   for (const driver of MSVC_ANALYSIS_DRIVERS) {
     assert.match(driver, /-DLOCAL_WHISPER_MSVC_ANALYZE=ON/u);
     assert.doesNotMatch(driver, /CMAKE_CXX_FLAGS=\/analyze/u);
+  }
+});
+
+test('MSVC sanitizer graph removes incompatible Debug runtime checks and incremental linking', () => {
+  assert.match(
+    NATIVE_HARDENING,
+    /string\(REPLACE "\/RTC1" "" local_whisper_debug_flags "\$\{CMAKE_\$\{local_whisper_language\}_FLAGS_DEBUG\}"\)/u,
+  );
+  for (const linkerFlags of [
+    'CMAKE_EXE_LINKER_FLAGS_DEBUG',
+    'CMAKE_MODULE_LINKER_FLAGS_DEBUG',
+    'CMAKE_SHARED_LINKER_FLAGS_DEBUG',
+  ]) {
+    assert.match(NATIVE_HARDENING, new RegExp(linkerFlags, 'u'));
+  }
+  assert.match(NATIVE_HARDENING, /string\(REPLACE "\/INCREMENTAL" "" local_whisper_debug_linker_flags/u);
+});
+
+test('Windows preset native quality refreshes CMake caches before changing compiler profiles', () => {
+  for (const driver of NATIVE_PRESET_QUALITY_DRIVERS) {
+    assert.match(driver, /const refreshConfigure = linuxGcc \|\| process\.platform === 'win32';/u);
+    assert.match(driver, /\.\.\.\(refreshConfigure \? \['--fresh'\] : \[\]\)/u);
   }
 });

@@ -17,6 +17,7 @@ const PACKAGE_SHA256 = '2'.repeat(64);
 const CHECKSUM_SHA256 = '3'.repeat(64);
 const DATABASE_SHA256 = '4'.repeat(64);
 const NOW = new Date('2026-08-13T12:00:00.000Z');
+const UNSAFE_UNPACKED_ENTRY_NAME = 'unsafe-\u00e9-name';
 const DATABASE = {
   DownloadedAt: '2026-08-13T11:00:00.000Z',
   NextUpdate: '2026-08-14T11:00:00.000Z',
@@ -278,7 +279,7 @@ describe('Application artifact SBOM', () => {
   it('returns a sanitized structural class for an invalid unpacked entry name', async () => {
     const fixture = await createWorkspace();
     try {
-      await writeFile(path.join(fixture.unpackedRoot, 'unsafe\tname'), 'CANARY_UNSAFE_ENTRY_BYTES');
+      await writeFile(path.join(fixture.unpackedRoot, UNSAFE_UNPACKED_ENTRY_NAME), 'CANARY_UNSAFE_ENTRY_BYTES');
       await assert.rejects(
         () =>
           new ApplicationSbomGenerator().generate({

@@ -110,6 +110,12 @@ export interface QualificationCatalogSeed {
   readonly qualificationStatus?: 'estimateOnly' | 'planned';
 }
 
+function hasExecutableRuntimeSet(seed: QualificationCatalogSeed): boolean {
+  const backends = new Set(seed.runtimes.map(({ backend }) => backend));
+  const expectedBackends = seed.platform === 'win32' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
+  return seed.runtimes.length === expectedBackends.length && expectedBackends.every((backend) => backends.has(backend));
+}
+
 function artifactId(value: string) {
   const parsed = toLocalWhisperArtifactId(value);
   if (!parsed) throw new Error(`Invalid qualification artifact ID: ${value}`);
@@ -159,8 +165,8 @@ function memoryEstimate(
 /** Produces the closed qualification-purpose catalog payload without owning private signing material. */
 export class LocalWhisperQualificationCatalogProducer {
   public produce(seed: QualificationCatalogSeed): LocalWhisperCatalogPayload {
-    if (seed.runtimes.length !== 2 || new Set(seed.runtimes.map(({ backend }) => backend)).size !== 2) {
-      throw new Error('Qualification catalog requires one CPU and one CUDA runtime');
+    if (!hasExecutableRuntimeSet(seed)) {
+      throw new Error('Qualification catalog runtime matrix invalid');
     }
     const appRevision = revisionId(seed.appRevision ?? `app-v${seed.candidateSemVer}`);
     const catalogRevision = revisionId(seed.catalogRevision);

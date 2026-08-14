@@ -146,7 +146,7 @@ describe('Local Whisper settings contracts', () => {
     assert.equal(Object.isFrozen(settings.execution), true);
   });
 
-  it('leaves backend, device, and runtime unset for zero or multiple eligible GPU combinations', () => {
+  it('selects the recommended CPU runtime for zero or multiple eligible GPU combinations', () => {
     for (const combinations of [
       [],
       [
@@ -155,8 +155,8 @@ describe('Local Whisper settings contracts', () => {
       ],
     ]) {
       const settings = defaultSettings(createContext(combinations));
-      assert.deepEqual(settings.execution, { target: 'gpu', backend: null, deviceId: null });
-      assert.equal(settings.runtimeRevision, null);
+      assert.deepEqual(settings.execution, { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' });
+      assert.equal(settings.runtimeRevision, 'whisper-cpp-cpu-v1');
     }
   });
 

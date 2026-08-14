@@ -47,9 +47,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     src/linux_process_identity.cpp
   )
 endif()
-target_include_directories(local_whisper_common
-  PUBLIC include
-  PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
+target_include_directories(local_whisper_common PUBLIC include)
+target_include_directories(local_whisper_common SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
 local_whisper_apply_compile_hardening(local_whisper_common LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
 
 if(LOCAL_WHISPER_COMMON_ENABLE_FUZZING)
@@ -102,8 +101,8 @@ if(BUILD_TESTING)
     tests/native_logger_test.cpp
     tests/sha256_test.cpp
   )
-  target_include_directories(local_whisper_common_tests
-    PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
+target_include_directories(local_whisper_common_tests
+  SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
   target_compile_definitions(local_whisper_common_tests PRIVATE
     LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT="${LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT}")
   target_link_libraries(local_whisper_common_tests

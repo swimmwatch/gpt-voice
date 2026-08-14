@@ -144,14 +144,14 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       runtimes: [runtime('cpu'), runtime('cuda')],
     } as const;
     assert.throws(() => producer.produce({ ...seed, runtimeOrigin: 'https://example.com' }), /loopback/u);
-    assert.throws(() => producer.produce({ ...seed, runtimes: [runtime('cpu')] }), /one CPU and one CUDA/u);
+    assert.throws(() => producer.produce({ ...seed, runtimes: [runtime('cpu')] }), /runtime matrix invalid/u);
     assert.throws(
       () => producer.produce({ ...seed, runtimes: [runtime('cpu'), runtime('cuda', 'win32')] }),
       /platform contract/u,
     );
   });
 
-  it('produces only the closed Windows x64 CPU and sm_120a-real rows', () => {
+  it('produces only the executable Windows x64 CPU row', () => {
     const payload = new LocalWhisperQualificationCatalogProducer().produce({
       platform: 'win32',
       candidateSemVer: '2.4.0',
@@ -160,7 +160,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       runtimeOriginId: 'qualification-runtime-origin',
       runtimeOrigin: 'https://127.0.0.1:39443',
       sourceCommit: 'a'.repeat(40),
-      runtimes: [runtime('cuda', 'win32'), runtime('cpu', 'win32')],
+      runtimes: [runtime('cpu', 'win32')],
       qualificationStatus: 'estimateOnly',
     });
     assert.deepEqual(
@@ -179,18 +179,53 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
           packRevision: 'whisper-cpp-windows-x64-cpu-v1',
           computeTargets: ['x86-64-sse2'],
         },
-        {
-          platform: 'win32',
-          architecture: 'x64',
-          backend: 'cuda',
-          packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
-          computeTargets: ['sm_120a-real'],
-        },
       ],
     );
     assert.equal(
-      payload.models.every(({ compatibleRuntimePackRevisions }) => compatibleRuntimePackRevisions.length === 2),
+      payload.models.every(({ compatibleRuntimePackRevisions }) => compatibleRuntimePackRevisions.length === 1),
       true,
+    );
+    const keys = generateKeyPairSync('ed25519');
+    const bytes = Buffer.from(serializeCanonicalLocalWhisperCatalogJson(payload));
+    const document = Buffer.from(
+      serializeCanonicalLocalWhisperCatalogJson({
+        schemaVersion: LOCAL_WHISPER_CATALOG_ENVELOPE_SCHEMA_VERSION,
+        algorithm: LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM,
+        keyId: 'qualification-key-v1',
+        payloadBase64: bytes.toString('base64'),
+        signatureBase64: sign(null, bytes, keys.privateKey).toString('base64'),
+      }),
+    );
+    const loaded = new LocalWhisperCatalogRepository({
+      readDocument: () => document,
+      trustPolicy: {
+        purpose: 'qualification',
+        publicKeys: [
+          {
+            keyId: toLocalWhisperArtifactId('qualification-key-v1')!,
+            publicKeyPem: keys.publicKey.export({ format: 'pem', type: 'spki' }).toString(),
+          },
+        ],
+        origins: payload.origins,
+        appRevision: toLocalWhisperRevisionId('app-v2.4.0')!,
+        workerProtocolVersion: 1,
+      },
+    }).load();
+    if (!loaded.success) assert.fail(loaded.code);
+    assert.equal(loaded.catalog.payload.runtimes.length, 1);
+    assert.throws(
+      () =>
+        new LocalWhisperQualificationCatalogProducer().produce({
+          platform: 'win32',
+          candidateSemVer: '2.4.0',
+          catalogRevision: 'windows-development-catalog-v2.4.0',
+          qualificationKeyId: 'qualification-key-v1',
+          runtimeOriginId: 'qualification-runtime-origin',
+          runtimeOrigin: 'https://127.0.0.1:39443',
+          sourceCommit: 'a'.repeat(40),
+          runtimes: [runtime('cpu', 'win32'), runtime('cuda', 'win32')],
+        }),
+      /runtime matrix invalid/u,
     );
   });
 });

@@ -22,12 +22,13 @@ const MODEL_PATH = path.resolve(TASK_INPUT_ROOT, 'ggml-base.bin');
 const MODEL_SIZE_BYTES = 147_951_465;
 const MODEL_SHA256 = '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe';
 const MODEL_COMMIT = '5359861c739e955e79d9a303bcbc70fb988958b1';
-const CPU_PROFILE = 'windows-x64-cpu-msvc-19.39-v1';
+const CPU_PROFILE = 'windows-x64-cpu-msvc-19.51-v1';
 const CUDA_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
 const CONFIGURATION_EPOCH = 24;
 const TOPOLOGY_GENERATION = 1n;
 const MAX_REGISTRY_BYTES = 64 * 1024;
 const FRAME_TIMEOUT_MS = 180_000;
+const TRANSCRIPT_FIRST_FRAGMENT_DELAY_MS = 1_000;
 
 interface RuntimeManifest {
   readonly backend: 'cpu' | 'cuda';
@@ -274,11 +275,18 @@ class WorkerClient {
     await write(this.process.input, controlFrame(message));
   }
 
+  public async sendFragmentedControl(message: object): Promise<void> {
+    const frame = controlFrame(message);
+    await write(this.process.input, frame.subarray(0, 1));
+    await new Promise<void>((resolve) => setTimeout(resolve, TRANSCRIPT_FIRST_FRAGMENT_DELAY_MS));
+    await write(this.process.input, frame.subarray(1));
+  }
+
   public async sendAudio(requestId: string, wav: Buffer): Promise<void> {
     await write(this.process.input, audioFrame(requestId, wav));
   }
 
-  public async receive(): Promise<Record<string, unknown>> {
+  public async receive(stage = 'response'): Promise<Record<string, unknown>> {
     return await withTimeout(
       (async () => {
         const header = await this.#reader.exact(5);
@@ -292,7 +300,7 @@ class WorkerClient {
         }
         return value as Record<string, unknown>;
       })(),
-      'Windows integration worker response',
+      `Windows integration worker ${stage}`,
     );
   }
 }
@@ -628,6 +636,83 @@ async function verifyLoad(
     const transcript = await client.receive();
     assert.equal(transcript.type, 'transcript');
     assert.equal(typeof transcript.text, 'string');
+
+    const cancellationAudio = canonicalSilence(480_000);
+    const cancellationTarget = `cancel-first-target-windows-${manifest.backend}-24`;
+    await client.send({
+      type: 'transcribe',
+      protocolVersion: 1,
+      requestId: cancellationTarget,
+      settingsEpoch: CONFIGURATION_EPOCH,
+      audioByteLength: cancellationAudio.byteLength,
+      options: {
+        language: 'en',
+        initialPrompt: '',
+        temperatureHundredths: 0,
+        strategy: 'greedy',
+        candidateCount: null,
+      },
+    });
+    await client.sendAudio(cancellationTarget, cancellationAudio);
+    await client.send({
+      type: 'cancel',
+      protocolVersion: 1,
+      requestId: `cancel-first-windows-${manifest.backend}-24`,
+      targetRequestId: cancellationTarget,
+    });
+    const cancelled = await client.receive();
+    assert.equal(cancelled.type, 'cancelled');
+    assert.equal(cancelled.targetRequestId, cancellationTarget);
+
+    const transcriptFirstAudio = canonicalSilence(16);
+    const transcriptFirstTarget = `transcript-first-target-windows-${manifest.backend}-24`;
+    await client.send({
+      type: 'transcribe',
+      protocolVersion: 1,
+      requestId: transcriptFirstTarget,
+      settingsEpoch: CONFIGURATION_EPOCH,
+      audioByteLength: transcriptFirstAudio.byteLength,
+      options: {
+        language: 'en',
+        initialPrompt: '',
+        temperatureHundredths: 0,
+        strategy: 'greedy',
+        candidateCount: null,
+      },
+    });
+    await client.sendAudio(transcriptFirstTarget, transcriptFirstAudio);
+    await client.sendFragmentedControl({
+      type: 'cancel',
+      protocolVersion: 1,
+      requestId: `transcript-first-cancel-windows-${manifest.backend}-24`,
+      targetRequestId: transcriptFirstTarget,
+    });
+    const transcriptFirst = await client.receive('transcript first result');
+    const transcriptFirstCancellation = await client.receive('transcript first cancellation');
+    assert.equal(transcriptFirst.type, 'transcript');
+    assert.equal(typeof transcriptFirst.text, 'string');
+    assert.equal(transcriptFirstCancellation.type, 'cancelTooLate');
+    assert.equal(transcriptFirstCancellation.targetRequestId, transcriptFirstTarget);
+
+    const reuseId = `reuse-after-races-windows-${manifest.backend}-24`;
+    await client.send({
+      type: 'transcribe',
+      protocolVersion: 1,
+      requestId: reuseId,
+      settingsEpoch: CONFIGURATION_EPOCH,
+      audioByteLength: wav.byteLength,
+      options: {
+        language: 'en',
+        initialPrompt: '',
+        temperatureHundredths: 0,
+        strategy: 'greedy',
+        candidateCount: null,
+      },
+    });
+    await client.sendAudio(reuseId, wav);
+    const reuseTranscript = await client.receive();
+    assert.equal(reuseTranscript.type, 'transcript');
+    assert.equal(typeof reuseTranscript.text, 'string');
     await client.send({ type: 'unload', protocolVersion: 1, requestId: `unload-windows-${manifest.backend}-24` });
     assert.equal((await client.receive()).type, 'unloaded');
     await client.send({ type: 'shutdown', protocolVersion: 1, requestId: `shutdown-windows-${manifest.backend}-24` });

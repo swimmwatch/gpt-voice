@@ -12,6 +12,7 @@ export const DEVELOPMENT_RUNTIME_ATTESTATION_FILE_NAME = 'runtime-attestation.js
 const ATTESTATION_KIND = 'local-whisper-development-runtime-attestation';
 const ATTESTATION_SCHEMA_VERSION = 1;
 const RUNTIME_BACKENDS = Object.freeze(['cpu', 'cuda'] as const);
+type RuntimeBackend = (typeof RUNTIME_BACKENDS)[number];
 
 export interface DevelopmentRuntimeAttestationEntry {
   readonly backend: 'cpu' | 'cuda';
@@ -47,6 +48,15 @@ function expectedKeyId(publicKeyPem: string): string {
   return `qualification-development-${sha256Bytes(publicKeyPem).slice(0, 24)}`;
 }
 
+function selectedRuntimeBackends(runtimes: readonly DevelopmentRuntimeInput[]): readonly RuntimeBackend[] | null {
+  const backends = runtimes.map(({ backend }) => backend);
+  if (backends.length === 1 && backends[0] === 'cpu') return Object.freeze(['cpu'] as const);
+  if (backends.length === RUNTIME_BACKENDS.length && RUNTIME_BACKENDS.every((backend) => backends.includes(backend))) {
+    return RUNTIME_BACKENDS;
+  }
+  return null;
+}
+
 function freezeAttestation(input: DevelopmentRuntimeAttestation): DevelopmentRuntimeAttestation {
   return Object.freeze({
     keyId: input.keyId,
@@ -59,7 +69,9 @@ function parseAttestation(
   value: unknown,
   runtimes: readonly DevelopmentRuntimeInput[],
 ): DevelopmentRuntimeAttestation | null {
+  const runtimeBackends = selectedRuntimeBackends(runtimes);
   if (
+    !runtimeBackends ||
     !isRecord(value) ||
     !hasExactKeys(value, ['schemaVersion', 'kind', 'keyId', 'publicKeyPem', 'runtimes']) ||
     value.schemaVersion !== ATTESTATION_SCHEMA_VERSION ||
@@ -70,13 +82,13 @@ function parseAttestation(
     value.publicKeyPem.includes('PRIVATE KEY') ||
     value.keyId !== expectedKeyId(value.publicKeyPem) ||
     !Array.isArray(value.runtimes) ||
-    value.runtimes.length !== RUNTIME_BACKENDS.length
+    value.runtimes.length !== runtimeBackends.length
   ) {
     return null;
   }
   const runtimeCandidates: readonly unknown[] = value.runtimes;
   const entries: DevelopmentRuntimeAttestationEntry[] = [];
-  for (const backend of RUNTIME_BACKENDS) {
+  for (const backend of runtimeBackends) {
     const expectedRuntime = runtimes.find((runtime) => runtime.backend === backend);
     const candidate = runtimeCandidates.find((runtime) => isRecord(runtime) && runtime.backend === backend);
     if (
@@ -120,11 +132,11 @@ export class DevelopmentRuntimeAttestationStore {
     runtimes: readonly DevelopmentRuntimeInput[],
   ): Promise<DevelopmentRuntimeAttestation> {
     const normalizedPath = path.normalize(filePath);
+    const runtimeBackends = selectedRuntimeBackends(runtimes);
     if (
       !path.isAbsolute(filePath) ||
       normalizedPath === path.parse(normalizedPath).root ||
-      runtimes.length !== RUNTIME_BACKENDS.length ||
-      new Set(runtimes.map(({ backend }) => backend)).size !== RUNTIME_BACKENDS.length ||
+      !runtimeBackends ||
       runtimes.some(({ archiveSha256 }) => !/^[a-f\d]{64}$/u.test(archiveSha256))
     ) {
       throw new Error('Local Whisper development runtime attestation input invalid');
@@ -145,7 +157,7 @@ export class DevelopmentRuntimeAttestationStore {
     const attestation = freezeAttestation({
       keyId: expectedKeyId(publicKeyPem),
       publicKeyPem,
-      runtimes: RUNTIME_BACKENDS.map((backend) => {
+      runtimes: runtimeBackends.map((backend) => {
         const runtime = runtimes.find((candidate) => candidate.backend === backend);
         if (!runtime) throw new Error('Local Whisper development runtime attestation input invalid');
         return Object.freeze({

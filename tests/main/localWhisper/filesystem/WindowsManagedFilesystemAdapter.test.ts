@@ -134,6 +134,7 @@ describe('WindowsManagedFilesystemAdapter real handle contract', { skip: process
     const roles = [
       ['worker', 'executable', 'worker.exe'],
       ['runtime-microsoft-vc-runtime-14.51.36247.0-msvcp140', 'library', 'msvcp140.dll'],
+      ['runtime-microsoft-vc-runtime-14.51.36247.0-msvcp140-atomic-wait', 'library', 'msvcp140_atomic_wait.dll'],
       ['runtime-microsoft-vc-runtime-14.51.36247.0-vcruntime140', 'library', 'vcruntime140.dll'],
       ['runtime-microsoft-vc-runtime-14.51.36247.0-vcruntime140-1', 'library', 'vcruntime140_1.dll'],
       ['runtime-cuda-runtime-12.8.1', 'library', 'cudart64_12.dll'],

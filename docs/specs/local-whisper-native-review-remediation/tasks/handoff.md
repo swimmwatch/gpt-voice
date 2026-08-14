@@ -160,10 +160,378 @@
   and records it here before running validation. This correction neither claims
   Windows manual evidence nor changes any Packet 19 completion result.
 
-## Blockers
+## Packet 20 Superseded MSVC 19.39 Run Manifest
 
-- Preserve unrelated dirty worktree content under `docs/reviews/`, other specification bundles, translations, and translation-provider files/tests.
-- Packet 19 is complete. Packet 20 requires supported-host manual Windows
-  validation; hosted Windows Server 2025 evidence is not a substitute.
-- Do not alter the unrelated provider-hotkey CSS/layout work or its untracked
-  renderer test merely to make Packet 19's repository-wide checks pass.
+- Status: materialized before the initial Windows validation and superseded by
+  APPROVAL-007 after the supported-host ASan runtime failed before project test
+  execution. This remains historical setup provenance, not manual-pass evidence.
+- Candidate: `d7d3970645429bc329da011b2647f1f24b163ca1`; observed
+  `2026-08-14T15:04:33+03:00` on a Windows 11 desktop x64 host (build
+  `26200`).
+- Toolchain: MSVC `19.39.33523`; Windows SDK `10.0.26100.0`; CMake `3.31.8`;
+  Ninja `1.12.1`; Node `24.18.1`; npm `11.9.0`; Git `2.55.0.windows.3`; and
+  GitHub CLI `2.97.0`.
+- Native source locks: GoogleTest `52eb8108c5bdec04579160ae17225d66034bd723`;
+  nlohmann-json `55f93686c01528224f448c19128836e7df245f72`; and Whisper.cpp
+  `f049fff95a089aa9969deb009cdd4892b3e74916`.
+- Profiles: execute `windows-x64-cpu-msvc-19.39-v1`; inspect
+  `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1` only through its explicit
+  contract-only command. No CUDA execution claim is made.
+- Authorized fixture roles: checked-in synthetic protocol, native-runtime-log,
+  filesystem, launcher, worker, native-analysis, and diagnostics-archive
+  fixtures. No user audio, transcript, model content, credential, or
+  environment value is used or retained.
+- Exact command inventory (all root `package.json` scripts):
+
+  ```text
+  npm run prepare:local-whisper:native-test-sources
+  npm run test:local-whisper:native-logging
+  npm run test:local-whisper:worker-codec
+  npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.39-v1
+  npm run test:local-whisper:supervisor
+  npm run test:local-whisper:diagnostics
+  npm run test:local-whisper:coordinator
+  npm run test:local-whisper:fs-guard:native
+  npm run test:local-whisper:filesystem
+  npm run test:local-whisper:launcher:native
+  npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+  $env:LOCAL_WHISPER_MSVC_ANALYZE = 'true'
+  npm run test:local-whisper:fs-guard:native
+  npm run test:local-whisper:launcher:native
+  npm run test:local-whisper:worker-codec
+  npm run test:local-whisper:whisper-cpp-core
+  npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
+  Remove-Item Env:LOCAL_WHISPER_MSVC_ANALYZE
+  npm run test:local-whisper:fs-guard:msvc-asan
+  npm run test:local-whisper:launcher:msvc-asan
+  npm run test:local-whisper:worker-codec:msvc-asan
+  npm run test:local-whisper:whisper-cpp:msvc-asan
+  npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+  npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+  npm run test:local-whisper:native-hardening
+  npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+  npm run verify:local-whisper:native-hardening -- --platform=windows
+  npm run test:local-whisper:windows-application-smoke
+  npm run verify:local-whisper:windows-readiness
+  npm run test:local-whisper:native-build-audits
+  npm run test:local-whisper:runner-policy
+  npm run test:security:codeql-policy
+  npm run test:security:application-sbom
+  npm run test:security:artifact-vulnerability-policy
+  npm run test:security:attestation-policy
+  npm run test:security:evidence-policy
+  npm run test:security:aggregate-gates
+  npm run validate:workflows
+  npm run typecheck
+  npm run test:types
+  ```
+
+- The MSVC-analysis environment applies only from its assignment through its
+  removal; every `--contract-only` command is supplementary and has no
+  executable-coverage claim.
+
+## Packet 20 Active MSVC 19.51 Supported-Host Windows Run Manifest
+
+- Status: materialized and validated before amended Windows execution; this is
+  setup provenance only, not manual-pass evidence.
+- Candidate base: `d7d3970645429bc329da011b2647f1f24b163ca1`; observed
+  `2026-08-14T17:46:13+03:00` on the same Windows 11 desktop x64 host (build
+  `26200`) and authorized branch `feat/local-whisper-provider`.
+- Toolchain: Visual Studio 2026 Build Tools `18.6.11822.322`; MSVC
+  `19.51.36246`; toolset `14.51.36231`; Windows SDK `10.0.26100.0`; CMake
+  `3.31.8`; Ninja `1.12.1`; Node `24.18.1`; npm `11.9.0`; Git
+  `2.55.0.windows.3`; and GitHub CLI `2.97.0` with authentication classified
+  `unavailable` at manifest time.
+- Native source locks: GoogleTest `52eb8108c5bdec04579160ae17225d66034bd723`;
+  nlohmann-json `55f93686c01528224f448c19128836e7df245f72`; and Whisper.cpp
+  `f049fff95a089aa9969deb009cdd4892b3e74916`.
+- Profiles: execute `windows-x64-cpu-msvc-19.51-v1`; inspect
+  `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1` and
+  `windows-x64-amd-vulkan-preview-msvc-19.39-v1` only through explicit
+  contract-only commands. Neither accelerator profile supplies executable
+  Windows evidence and no unsupported compiler override is permitted.
+- Authorized fixture roles: checked-in synthetic protocol, native-runtime-log,
+  filesystem, launcher, worker, native-analysis, hardening, package-security,
+  and diagnostics-archive fixtures. No user audio, transcript, model content,
+  credential, or environment value is used or retained.
+- Exact command inventory (all root `package.json` scripts unless the entry is
+  the bounded compiler-profile preflight):
+
+  ```text
+  Validate MSVC 19.51 / toolset 14.51 and the approved Windows SDK without printing paths or environment contents
+  npm run prepare:local-whisper:native-test-sources
+  npm run test:local-whisper:native-logging
+  npm run test:local-whisper:worker-codec
+  npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.51-v1
+  npm run test:local-whisper:supervisor
+  npm run test:local-whisper:diagnostics
+  npm run test:local-whisper:coordinator
+  npm run test:local-whisper:fs-guard:native
+  npm run test:local-whisper:filesystem
+  npm run test:local-whisper:launcher:native
+  npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+  $env:LOCAL_WHISPER_MSVC_ANALYZE = 'true'
+  npm run test:local-whisper:fs-guard:native
+  npm run test:local-whisper:launcher:native
+  npm run test:local-whisper:worker-codec
+  npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.51-v1
+  npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1 --skip-runtime-pack
+  Remove-Item Env:LOCAL_WHISPER_MSVC_ANALYZE
+  npm run test:local-whisper:fs-guard:msvc-asan
+  npm run test:local-whisper:launcher:msvc-asan
+  npm run test:local-whisper:worker-codec:msvc-asan
+  npm run test:local-whisper:whisper-cpp:msvc-asan
+  npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
+  npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1 --contract-only
+  npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
+  npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
+  npm run test:local-whisper:native-hardening
+  npm run build:local-whisper:fs-guard
+  npm run build:local-whisper:launcher
+  npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1 --skip-runtime-pack
+  npm run verify:local-whisper:native-hardening -- --platform=windows
+  npm run test:local-whisper:windows-application-smoke
+  npm run verify:local-whisper:windows-readiness
+  npm run test:local-whisper:native-build-audits
+  npm run test:local-whisper:runner-policy
+  npm run test:security:codeql-policy
+  npm run test:security:application-sbom
+  npm run test:security:artifact-vulnerability-policy
+  npm run test:security:attestation-policy
+  npm run test:security:evidence-policy
+  npm run test:security:aggregate-gates
+  npm run validate:workflows
+  npm run typecheck
+  npm run test:types
+  ```
+
+- The MSVC-analysis environment applies only from its assignment through its
+  removal. `--contract-only` checks remain supplementary. Exact optimized PE
+  roles, smoke roles, digests, mitigations, manual lifecycle classifications,
+  privacy results, archive identity, and hosted/container comparison will be
+  appended only after their owning commands complete.
+
+## Packet 20 Superseded Incomplete Windows Evidence
+
+- Windows execution used the validated private Packet 20 temporary root and
+  the materialized supported-host manifest. No dependency, public API,
+  protocol, package target, or release surface was added or changed.
+- The amended executable profile is `windows-x64-cpu-msvc-19.51-v1` with MSVC
+  `19.51.36246`, toolset `14.51.36231`, and Windows SDK `10.0.26100.0`.
+  CUDA 12.8.1 and AMD Vulkan MSVC 19.39 profiles passed only their explicit
+  contract checks and supplied no compile, execute, package, or manual evidence.
+- Packet-owned regressions cover native JSONL LF bytes on Windows, physical-host
+  diagnostics archive modes, complete base64-url alphabet decoding, external
+  analysis includes, sanitizer `/INCREMENTAL` removal, fresh Windows CMake
+  caches, the MSVC ASan runtime sidecar, Windows directory-junction escape
+  behavior, CPU-only Windows execution policy, Windows-creatable invalid SBOM
+  names, the fake Trivy executable harness, profile-derived `_MSC_VER=1951`,
+  exact prepared Windows executable roles, embedded same-boundary firewall
+  probing, and the mutually exclusive locked-installer/installed-runtime proof
+  modes.
+- Ordinary MSVC role-log SHA-256 values are: native logging
+  `acbba2cb2ce5f963d7791ff34be1ea4121ce4423f3db92961940b4c49f8cba1c`;
+  worker codec `18e8ed4da553d90d6b6a61caaa5f0be6bb1c590e78b799decd5ff07ff2d82953`;
+  Whisper.cpp core
+  `6e2a8adc8690a6114380131fa50808c6ce1d7c80f314ff6270ea97f945c234ca`;
+  supervisor `cc31ec0b49f16bbfae72a2957658447430ff04752b13a24483e53ade08d9646b`;
+  diagnostics `706c3f085cde3977a2fc6bf955587582dcadfb9f40a6351eecf0224b84883b07`;
+  coordinator `abd9c33d7db707e32ce3a896ba1899fd87171b456e21d717f217f5ad3f0da41e`;
+  filesystem guard
+  `a80586d721c46f9484ed2dfd9cad39aeeaee7e4147d5a5596eb0ab70b9dd5460`;
+  filesystem `260a71892c4a81526560c0a65cb0ff20593eb56979c29cd0a502cb99c94a1e8e`;
+  launcher `0365166da61d85fd60dd37aca8a1c6000eb4bd7b434c3a4c126aff7aa203405e`;
+  and worker-authority contract
+  `b925f5daccb92ff4afae9f9e01edde756c4b62f8c533bf5c867a9bf13d089807`.
+- All five MSVC `/analyze` roles passed. Their role-log SHA-256 values are
+  `0c1c0b95ce09d8a6c02b785926085c9e976d100ed9e135211a2a12ecb31ad1fd`,
+  `b7addf626576dc38d6b69e1c2ab2fd22e1daeb03d18080b57bfd48defef784f4`,
+  `4bd25efe8f3d36a85ad9890a7b8697cc864b121c5cb63b9c855c708ffd10a61b`,
+  `37de5a2c320acfd18ccf51c5cdee59d258f1b5f245572dc6c94fefd5a6ad67a3`,
+  and `0eda8cc43b5e8096d0896377a105bacf3969ee44c21120f0b2d37cdcb9a937b6`.
+- All four required MSVC 19.51 ASan roles passed with no continuation
+  mitigation. The runtime SHA-256 is
+  `f05f2fb7619fb84432859b233b878f2fbd1d8fd63e6d474b995299e4508b0d29`;
+  fs-guard, launcher, worker, and Whisper role-log SHA-256 values are
+  `977de810c10e19bfb35954bda1ea0dce9491e02bf8fb8190c887a42e65742397`,
+  `ff64bafab0b248d10e575d3c52e36ca852f9a5fc6254307448eb27828c7591b9`,
+  `645418d8f26101ce29c98aa36a03f0e5714351dd74c182d64517183a493f6dfe`,
+  and `366c7bd35683890df3fdc86e48058b01bad5f32a4ecb90a6b44714d25450e33d`.
+- CPU, CUDA, and AMD contract role-log SHA-256 values are
+  `765acc5d4b611cc65f7b9a605db3a36b8ef43d9feb985a887e11a1e90ffd62c3`,
+  `22bb95d629cb3d864d53a457a2e6b8408acdf47efe7b614d087cdd908c7ee28e`,
+  and `38c90389fe8921120af1dd22e613631a33c395faab8966c764e6c5c03ee30c6e`.
+- Live optimized PE hardening passed with role-log SHA-256
+  `369d714a5e8d01fe9ea678032816d3ea5cb5b0a55db832e438821346f84b51d9`.
+  CFG, stack cookie, dynamic base, NX, and high-entropy VA were confirmed for
+  the fs-guard, launcher, and CPU-worker roles. Their binary SHA-256 values are
+  `40a2cff24cab8b603663e4460454cf8731c7b47cac1476715a1c75c3fd235b9a`,
+  `6c5d7ab52ad13d40858a0e7453946593d56df722f708084f1c7d23864e5c6146`,
+  and `19c963344411ed81c3a2c514c2b335f51435015e99d0bae9345dd02616a996af`.
+  These outputs have not been smoke-tested and therefore do not satisfy the
+  Windows AC-MAN-003 digest binding.
+- Package-security, artifact identity, application SBOM/CLI, attestation,
+  evidence, aggregate-gate, and workflow validation tests passed. Final role-log
+  SHA-256 values include application SBOM
+  `7ea887704a7ed207d58ff0c129142479b70123bbdcefd85233f7ccb88aa1dfce`,
+  vulnerability policy
+  `788bee15a3a202bcb6bf8412ac8d4f7badcf10757a22dfd8c7eeb6755da5a32e`,
+  artifact identity
+  `68f1f4e41c2f9a030956f90f51df7c8760a8d2dc456ad2a4593023637a4be302`,
+  attestation `55996255d7c236cd0d0a4cc585a8a47f957587048ecad7acf8500de134228735`,
+  evidence `74986038f123db98f6319962f71088eb4371724e3d92ee9474e03e8240e72b98`,
+  aggregate gates
+  `4e880dc71ef0a31bfd43419e1b1bf723f6bbbd1c2a63a96ffb1de56190a9d059`,
+  and workflow validation
+  `2030574a6779a7c51a7e06616c9bae73b18f8860b3ffee30b9b25fd0ea53cf16`.
+- Packet-focused ESLint and Prettier, TypeScript source/test compilation, and
+  `git diff --check` passed. Their role-log SHA-256 values are
+  `b47e4d68fcb331857e61e4783503bd3e713ad371444c7958c6931c150eb22046`,
+  `f20510a9da4717c51c4cffee6d0dd88d6c9a723d0a83711d01216f5b48961283`,
+  `8b3c33ed59f14053081412332c9724ad28b8ac68fd0bcb407c993ba206ca229e`,
+  `92d17ed2c20b9e3aa2b8b8f4a53735839c6de9926b20728b7d7236e0421d8033`,
+  and `4ba194c2814ab919080e0bb3cc326f36afc1cdb6eaaf7296f83bbb87fe1be6fd`.
+- Authorized smoke-input SHA-256 values are
+  `90a8eba6c057eb30b573922d95c303f2d276ba8f7501bbb1f64711a5f00946b6`
+  for the public WAV role and
+  `60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe`
+  for the public base-model role. No input contents were printed or retained in
+  repository evidence.
+- Packet 20 remains unchecked and uncommitted. AC-MAN-002, Windows AC-MAN-003,
+  AC-MAN-004 package binding, AC-MAN-009, and AC-MAN-011 remain incomplete.
+- The Windows input-closure remediation passed its focused native-source,
+  hosted-toolchain, network-boundary, and proof-mode regressions. The private
+  combined role-log SHA-256 is
+  `e9588914ac51310e1e83d0b768d686f6c24da84590ede92e565e5733478809f3`.
+- Post-remediation focused ESLint, Prettier, `git diff --check`, TypeScript
+  source compilation, and TypeScript test compilation passed. Their combined
+  private role-log SHA-256 is
+  `6c4eb2cbea551d4232a7b2dc62ef76f536c4cdc8c7656cd7f8a90b33e973af3f`.
+- The current reviewed VC Runtime redistribution license is 244255 bytes with
+  SHA-256
+  `3d82deb7524f289e804f40ed209b776832354096bc701dc620c819796b183db2`.
+  Installed-runtime materialization proved registry version, all nine exact DLL
+  identities, and valid Microsoft Authenticode metadata. The relative
+  materialization-manifest role has SHA-256
+  `fc5425d49710f1d6ad2aab0af46f13eb6084a32848aeb42651513a1497d5cbd7`;
+  the reviewed lock role has SHA-256
+  `5ed0c04311b5e1153fe5a691ff1a38d2092f7e653502ca6e73c3afe30de690fa`.
+
+## Packet 20 Superseded And Ambient Blockers
+
+- The canonical full Windows CPU build now derives a closed private candidate
+  and reaches exact prepared-input verification. The installed Ninja 1.12.1
+  executes successfully, but its bytes are under a user-scoped WinGet cache
+  that this managed filesystem policy may execute but may not read. The build
+  therefore fails closed as `ninja-identity-unreadable` instead of accepting a
+  version-only claim. The private failure-log SHA-256 is
+  `dfd7a0707e1dd040f9cdd810ad595f9036222144e498ac33c30c959662fc0110`.
+  A readable private copy of those exact bytes is required before runtime-pack
+  build, firewall isolation, smoke, or package evidence can continue.
+- The active PowerShell process is a standard-user process. The required
+  temporary Windows Firewall boundary cannot be created without an elevated
+  process. Firewall service state is `running`; ambient processes must not be
+  terminated.
+- With no authenticated, staged CPU runtime pack, Windows application smoke
+  fails closed as `runtime-pack-unavailable`; its role-log SHA-256 is
+  `314e2c4c08246700b1c15af33c298c4ad18bc8b574bfb113daaab9085a04056d`.
+  This prevents supported-host package smoke, exact smoke-tested PE binding,
+  native/main-log privacy inspection, diagnostics archive validation, and the
+  required manual lifecycle gates.
+- GitHub CLI `2.97.0` is installed but authentication is `unavailable`; no
+  candidate push or exact-SHA CI confirmation is currently possible.
+- No supported Linux container path is available from this desktop session.
+  Shared Linux/security revalidation therefore remains pending together with
+  the mandatory exact-SHA Linux CI lanes.
+- Repository-wide ESLint reports one error and 110 warnings at the unchanged
+  current head; the error is in the out-of-scope startup/settings work and the
+  file is worktree-clean. Repository-wide Prettier also fails on the ambient
+  Windows checkout, while all Packet 20 changed Prettier-owned files pass the
+  focused check. These unrelated failures must not be repaired or staged as
+  Packet 20 work.
+- Preserve all unrelated worktree content. Hosted Windows Server 2025 evidence
+  is not a substitute for the incomplete supported-desktop manual gates.
+
+## Packet 20 Code Candidate Evidence Awaiting Exact-SHA CI
+
+- The authorized branch and remote head both remain
+  `d7d3970645429bc329da011b2647f1f24b163ca1`. Packet 20 remains unchecked;
+  the code candidate commit and its exact-SHA hosted matrix are not yet
+  created.
+- The elevated, same-boundary Windows CPU runtime-pack build passed under the
+  validated private temporary root. Its private role-log SHA-256 is
+  `3ebdb2432dc648123ca47aea50fd3a18f5ee7ccd693411aad75bfbb608caae13`.
+  Both clean roots produced archive SHA-256
+  `7393ed12b369450f751a80761654513776e198f50b530502e9eb7c0f7d1e9189`,
+  pack-record SHA-256
+  `56a5670971fb8426b9fa8f0823c75b80657e85254b6732c55c6d6affd22eb825`,
+  and reproducibility digest
+  `c66c257a45473579450fcdde99a4422360383095fae9517df62b99c3ff2c157a`.
+  No generated pack, model, log, or evidence file is tracked.
+- AC-MAN-002 passed on the supported Windows desktop. Real oversized guard
+  rejection followed by a new successful guard has role-log SHA-256
+  `38c089096b5ec41480a7f8b3e62426670b3f402f395a779f7149c73084e17de8`.
+  The real launcher/Job Object/worker run completed success, cancel-first,
+  transcript-first `cancelTooLate`, warmed reuse, unload, shutdown, and control
+  EOF with role-log SHA-256
+  `931ef2d2558c71acadbe5d2131f287e585fa512046671a8ecf1a8f094062c7fc`.
+  No ambient process was terminated and no sensitive output was retained.
+- Windows AC-MAN-003 passed against the exact smoke inputs. The filesystem
+  guard SHA-256 is
+  `6374ef33ae34ae7164c7e66fbfa5c37284753800a9eb3e31b1ca4084ea54dd81`,
+  the launcher SHA-256 is
+  `ee0a893b9839ec13f737987530ba75002efc1bff9c781c4e0703954089938035`,
+  and the runtime-archive worker SHA-256 is
+  `7c7cb159d7be3ea0e92e4cae1bbefe7e642cb85d9b7a38928f6278365db324d4`.
+  Live PE inspection confirmed ASLR, CFG, high-entropy VA, NX, and stack cookie
+  for all three exact roles. The current optimized helper hardening report has
+  role-log SHA-256
+  `186d1fe984d5e947e6616128b1868a6da9e698d48ca632bbc1a50a977a2754d9`;
+  packaged helper digests match those inspected bytes.
+- AC-MAN-004 passed with complete ordinary MSVC 19.51, `/analyze`, and
+  dedicated MSVC ASan manifests for common, guard, launcher, and worker-owned
+  Windows sources. The final Whisper.cpp ordinary, analysis, and ASan role-log
+  SHA-256 values are
+  `3e0357cf4d57c991f0d1c38fa0823d736c0ea1d9d14e6f6089bd10aeee732bb0`,
+  `f3be45520abc9381d4d56c2a37f7b4f36d243a9f1cc4a6a5ca08ea307ffbf33b`,
+  and `5d742a6051b0792254475c5ac335be1de022b21da59727942d868bd63d98fc46`;
+  the complete remaining role hashes are retained in the preceding bounded
+  manifest record. No `/RTC1`, unsupported sanitizer, warning downgrade, or
+  contract-only substitution was accepted.
+- AC-MAN-011 passed through the production-level Windows application graph
+  using the exact helpers and runtime archive above. CPU success, offline
+  reuse, cleanup, approved production native events, prohibited-data canaries,
+  rotated/current main-log extraction, Windows ZIP creation, and independent
+  native-runtime archive reader validation passed. The role-log SHA-256 is
+  `a3f66ca895c78f4560d042f88ddde2441a15ac73d33f357517488ce6f0528260`;
+  the final private diagnostics-archive SHA-256 is
+  `91ba4ab770b52f3569f416a669d94ac26b4dc4e067f36496b05241f1704d78b2`.
+- The Windows unpacked package was built from the prepared MSVC/SDK environment
+  and verified without signing. Build, general packaged verification, and
+  Windows unpacked verification role-log SHA-256 values are
+  `30bfebb0b54c03a937dd2fca819a4b0bcc445655f09438327949991e65507fff`,
+  `be632bbac6afd10360bfb04eb0cba725d846ac0d84726ec10a7d7ef0a16445f7`,
+  and `6fb0f11baa57fe2a17914942e17c3af421e65b0289f8d324865d33280ea3c79e`.
+  The base package remains Local Whisper-disabled and contains no worker,
+  model, or accelerator payload.
+- Final focused ESLint, Prettier, native-source, TypeScript source, TypeScript
+  test, and whitespace gates passed. Security policy, SBOM, vulnerability,
+  attestation, evidence, aggregate, runner, native-build-audit, and workflow
+  validation gates also passed. Repository-wide local lint and formatting
+  retain only the previously recorded unchanged-head/ambient-checkout failures;
+  no out-of-scope file was repaired or staged.
+
+## Packet 20 Current Blockers
+
+- AC-MAN-009 and Packet 20 completion require the code candidate's exact-SHA
+  Ubuntu 24.04, Windows Server 2025, Fedora 44, package-security, attestation,
+  and aggregate records. Those records cannot exist until the candidate is
+  committed and pushed.
+- GitHub CLI `2.97.0` is installed but its authentication remains classified
+  `unavailable`. The normal Git credential path has not yet been tested for the
+  authorized push. No force-push, workflow dispatch, PR mutation, signing,
+  qualification, publication, or release is authorized.
+- No separate supported Linux desktop path is available in this session.
+  Affected Linux/shared/security coverage must therefore come from the exact
+  hosted candidate lanes and remains distinct from the completed Windows
+  desktop manual evidence.

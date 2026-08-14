@@ -15,7 +15,7 @@ import {
 const OUTPUT_ROOT = resolve(workspaceRoot, '.cache', 'local-whisper', 'qualification', 'runtime-packs');
 
 function profileFor(backend, platform) {
-  if (platform === 'win32' && backend === 'cpu') return 'windows-x64-cpu-msvc-19.39-v1';
+  if (platform === 'win32' && backend === 'cpu') return 'windows-x64-cpu-msvc-19.51-v1';
   if (platform === 'win32' && backend === 'cuda') return 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
   if (platform === 'linux' && backend === 'cpu') return 'linux-x64-cpu-baseline-v1';
   if (platform === 'linux' && backend === 'cuda') return 'linux-x64-cuda-12.8.1-sm120a-v1';
@@ -44,7 +44,7 @@ function buildAndStage(profileId, backend, platform, repetition) {
   });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
   return backend === 'cpu'
-    ? stageCpuPack(profileId, configured.buildRoot, configured.profile)
+    ? stageCpuPack(profileId, configured.buildRoot, configured.profile, configured.tools)
     : stageCudaPack(profileId, configured.buildRoot, configured.profile);
 }
 

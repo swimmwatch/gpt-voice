@@ -122,7 +122,7 @@ test(
         [
           RUNNER_EVIDENCE_EMITTER,
           '--runner-label=windows-2025',
-          '--toolchain=msvc-hosted',
+          '--toolchain=windows-x64-msvc-19.51-v1',
           '--expected-os=windows',
           `--compiler=${compiler}`,
           `--output=${output}`,
@@ -143,7 +143,7 @@ test(
       assert.equal(result.status, 0);
       const evidence = JSON.parse(readFileSync(output, 'utf8'));
       assert.equal(evidence.runnerLabel, 'windows-2025');
-      assert.equal(evidence.toolchain.profile, 'msvc-hosted');
+      assert.equal(evidence.toolchain.profile, 'windows-x64-msvc-19.51-v1');
       assert.match(evidence.toolchain.version, /Version 19\.51\./u);
     } finally {
       rmSync(root, { force: true, recursive: true });
@@ -159,7 +159,7 @@ test('runner evidence rejects mutable Windows runner aliases', { skip: process.p
       [
         RUNNER_EVIDENCE_EMITTER,
         '--runner-label=windows-latest',
-        '--toolchain=msvc-hosted',
+        '--toolchain=windows-x64-msvc-19.51-v1',
         '--expected-os=windows',
         '--compiler=cl',
         `--output=${resolve(root, 'runner.json')}`,

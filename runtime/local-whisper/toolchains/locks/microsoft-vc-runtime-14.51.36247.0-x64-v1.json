@@ -97,7 +97,7 @@
     "url": "https://visualstudio.microsoft.com/license-terms/vs2026-ga-visualcpp-v14-redist-runtime/",
     "pathKind": "toolchainRootRelative",
     "path": "licenses/visual-cpp-v14-runtime.html",
-    "sizeBytes": 243617,
-    "sha256": "f5b1ee76a201ddbd56dbea08ccc24d4cbaf597897df27f6aa76b2c7952aa4299"
+    "sizeBytes": 244255,
+    "sha256": "3d82deb7524f289e804f40ed209b776832354096bc701dc620c819796b183db2"
   }
 }

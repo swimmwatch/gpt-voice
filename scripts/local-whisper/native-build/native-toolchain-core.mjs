@@ -13,7 +13,7 @@ import {
 import { qualificationInputDigest, verifyQualificationEvidence } from './native-toolchain-evidence-core.mjs';
 
 const WINDOWS_PROFILE_IDS = new Set([
-  'windows-x64-cpu-msvc-19.39-v1',
+  'windows-x64-cpu-msvc-19.51-v1',
   'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
   'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
 ]);
@@ -158,11 +158,9 @@ function verifyAmdContract(profile, options) {
 
 function verifyWindowsToolchainContract(profile, options) {
   if (profile.target.os !== 'windows') throw new Error('Windows native profile target mismatch');
-  const inputs = [
-    ...profile.tools,
-    ...profile.runtime,
-    ...profile.licenses.filter(({ pathKind }) => pathKind !== 'outputRelative'),
-  ];
+  const executionInputs = [...profile.tools, ...profile.runtime];
+  const licenses = profile.licenses.filter(({ pathKind }) => pathKind !== 'outputRelative');
+  const inputs = [...executionInputs, ...licenses];
   if (options.contractOnly) {
     if (
       profile.qualificationState !== 'pending-windows-qualification' ||
@@ -175,7 +173,8 @@ function verifyWindowsToolchainContract(profile, options) {
     !options.allowCandidate ||
     profile.qualificationState !== 'candidate-unqualified' ||
     profile.evidenceDigest !== null ||
-    inputs.some(({ sha256: identity }) => !/^[a-f0-9]{64}$/u.test(identity ?? ''))
+    executionInputs.some(({ sha256: identity }) => !/^[a-f0-9]{64}$/u.test(identity ?? '')) ||
+    licenses.some(({ sha256: identity }) => identity !== null && !/^[a-f0-9]{64}$/u.test(identity))
   ) {
     throw new Error('Windows native inputs must be a hashed Task 24 candidate until Task 21 qualification');
   }
@@ -183,14 +182,24 @@ function verifyWindowsToolchainContract(profile, options) {
     throw new Error('Windows native profile environment allowlist changed');
   }
   if (profile.profileId.includes('-cpu-') || profile.profileId.includes('-cuda-')) {
+    const executableCpuProfile = profile.profileId === 'windows-x64-cpu-msvc-19.51-v1';
+    const expectedAbi = executableCpuProfile
+      ? 'msvc-v145-14.51-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0'
+      : 'msvc-v143-14.39-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0';
+    const expectedMsvcComponent = executableCpuProfile ? 'msvc-14.51' : 'msvc-14.39';
     if (
-      profile.target.abi !== 'msvc-v143-14.39-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0' ||
+      profile.target.abi !== expectedAbi ||
       canonicalJson(profile.sourceLockIds) !== canonicalJson(['whisper-cpp-v1.9.1-f049fff']) ||
       profile.qualificationFixture !== null ||
+      !profile.sbomComponents.includes(expectedMsvcComponent) ||
+      profile.sbomComponents.includes(executableCpuProfile ? 'msvc-14.39' : 'msvc-14.51') ||
+      profile.tools
+        .filter(({ role }) => ['archiver', 'c-compiler', 'cxx-compiler', 'linker', 'pe-inspector'].includes(role))
+        .some(({ path }) => !path.startsWith(`${expectedMsvcComponent}/`)) ||
       canonicalJson(profile.sbomComponents).includes('crt-14.39') ||
       [...profile.runtime, ...profile.dynamicDependencies].some(({ id }) => id.includes('crt-14.39'))
     ) {
-      throw new Error('Windows MSVC 14.39 and VC Runtime 14.51.36247.0 identities are not separated');
+      throw new Error('Windows compiler profile and VC Runtime 14.51.36247.0 identities are not separated');
     }
     for (const dependency of profile.dynamicDependencies) {
       const runtime = profile.runtime.find(({ id }) => id === dependency.id);
@@ -328,20 +337,26 @@ function runToolVersion(path, arguments_, environment, acceptedStatuses = [0]) {
   return `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
 }
 
+export function parseMsvcCompilerExpectation(expected) {
+  const match = /^(?<banner>.+) \(_MSC_VER=(?<mscVer>\d{4})\)$/u.exec(expected);
+  if (!match?.groups) throw new Error('Native MSVC compiler expectation is invalid');
+  return Object.freeze({ banner: match.groups.banner, mscVer: match.groups.mscVer });
+}
+
 function probeMsvcCompiler(path, expected, environment) {
+  const expectation = parseMsvcCompilerExpectation(expected);
   const versionOutput = runToolVersion(path, ['/?'], environment);
-  const banner = expected.replace(' (_MSC_VER=1939)', '');
-  if (!versionOutput.includes(banner)) throw new Error(`Native tool version mismatch: ${path}`);
+  if (!versionOutput.includes(expectation.banner)) throw new Error(`Native tool version mismatch: ${path}`);
   const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-msvc-version-'));
   try {
     const source = resolve(root, 'msc-ver.c');
     writeFileSync(
       source,
-      '#if !defined(_MSC_VER) || _MSC_VER != 1939\n#error unexpected _MSC_VER\n#endif\nLOCAL_WHISPER_MSC_VER=_MSC_VER\n',
+      `#if !defined(_MSC_VER) || _MSC_VER != ${expectation.mscVer}\n#error unexpected _MSC_VER\n#endif\nLOCAL_WHISPER_MSC_VER=_MSC_VER\n`,
       'utf8',
     );
     const probeOutput = runToolVersion(path, ['/nologo', '/EP', '/TC', source], environment);
-    if (!probeOutput.includes('LOCAL_WHISPER_MSC_VER=1939')) {
+    if (!probeOutput.includes(`LOCAL_WHISPER_MSC_VER=${expectation.mscVer}`)) {
       throw new Error(`Native MSVC _MSC_VER probe failed: ${path}`);
     }
     return `${versionOutput}\n${probeOutput}`;
@@ -364,15 +379,14 @@ function toolVersion(path, component) {
   if (process.platform === 'win32' && ['c-compiler', 'cxx-compiler'].includes(component.role)) {
     output = probeMsvcCompiler(path, component.version, environment);
   } else {
+    const windowsHelpRoles = ['archiver', 'linker', 'manifest-tool', 'pe-inspector', 'resource-compiler'];
     const arguments_ =
-      process.platform === 'win32' && ['archiver', 'linker', 'pe-inspector'].includes(component.role)
-        ? ['/?']
-        : ['--version'];
+      process.platform === 'win32' && windowsHelpRoles.includes(component.role) ? ['/?'] : ['--version'];
     output = runToolVersion(
       path,
       arguments_,
       environment,
-      process.platform === 'win32' && ['archiver', 'linker', 'pe-inspector'].includes(component.role) ? [0, 1100] : [0],
+      process.platform === 'win32' && windowsHelpRoles.includes(component.role) ? [0, 1100] : [0],
     );
     if (!output.includes(component.version)) throw new Error(`Native tool version mismatch: ${path}`);
   }
@@ -436,6 +450,73 @@ export function captureToolchainInputLock(profile, toolchainRoot) {
   }
   captured.qualificationState = 'candidate-unqualified';
   captured.evidenceDigest = null;
+  return Object.freeze(captured);
+}
+
+export function resolvePreparedWindowsSdkInputs(environment) {
+  const libraryDirectories = environment.LIB?.split(';').filter((path) => path.length > 0) ?? [];
+  const candidates = libraryDirectories
+    .map((directory) => resolve(directory, 'kernel32.lib'))
+    .filter((path) => existsSync(path));
+  if (candidates.length !== 1) throw new Error('Prepared Windows SDK library identity is ambiguous');
+  const kernelLibrary = realpathSync(candidates[0]);
+  const normalized = kernelLibrary.replaceAll('\\', '/').toLowerCase();
+  if (!normalized.endsWith('/10.0.26100.0/um/x64/kernel32.lib')) {
+    throw new Error('Prepared Windows SDK library version changed');
+  }
+  const sdkRoot = resolve(dirname(kernelLibrary), '..', '..', '..', '..');
+  const binaryRoot = resolve(sdkRoot, 'bin', '10.0.26100.0', 'x64');
+  const manifestTool = resolve(binaryRoot, 'mt.exe');
+  const resourceCompiler = resolve(binaryRoot, 'rc.exe');
+  if (![manifestTool, resourceCompiler].every((path) => existsSync(path))) {
+    throw new Error('Prepared Windows SDK executable set is incomplete');
+  }
+  return Object.freeze({ kernelLibrary, manifestTool, resourceCompiler });
+}
+
+function capturePreparedIdentity(path, label, component = null) {
+  if (typeof path !== 'string' || !isAbsolute(path) || !existsSync(path)) {
+    throw new Error(`Prepared Windows identity is missing: ${label}`);
+  }
+  try {
+    if (component) toolVersion(path, component);
+    return sha256(readFileSync(realpathSync(path)));
+  } catch {
+    throw new Error(`Prepared Windows identity could not be verified: ${label}`);
+  }
+}
+
+/** Captures a closed candidate from the exact tools and SDK used by a prepared Windows execution. */
+export function capturePreparedWindowsInputLock(profile, { environment, toolchainRoot, tools }) {
+  verifyToolchainContract(profile, { contractOnly: true });
+  const captured = globalThis.structuredClone(profile);
+  const sdkInputs = resolvePreparedWindowsSdkInputs(environment);
+  const preparedTools = new Map([
+    ['archiver', tools.archiver],
+    ['c-compiler', tools.cCompiler],
+    ['cmake', tools.cmake],
+    ['cxx-compiler', tools.cxxCompiler],
+    ['linker', tools.linker],
+    ['manifest-tool', tools.manifestTool],
+    ['ninja', tools.ninja],
+    ['pe-inspector', tools.peInspector],
+    ['resource-compiler', tools.resourceCompiler],
+  ]);
+  for (const tool of captured.tools) {
+    const path = preparedTools.get(tool.role);
+    tool.sha256 = capturePreparedIdentity(path, `tool:${tool.role}`, tool);
+  }
+  for (const component of captured.runtime) {
+    const path =
+      component.id === 'windows-sdk-10.0.26100.0' ? sdkInputs.kernelLibrary : componentPath(component, toolchainRoot);
+    component.sha256 = capturePreparedIdentity(path, `runtime:${component.id}`);
+  }
+  for (const dependency of captured.dynamicDependencies) {
+    dependency.sha256 = captured.runtime.find(({ id }) => id === dependency.id).sha256;
+  }
+  captured.qualificationState = 'candidate-unqualified';
+  captured.evidenceDigest = null;
+  verifyToolchainContract(captured, { allowCandidate: true, contractOnly: false });
   return Object.freeze(captured);
 }
 

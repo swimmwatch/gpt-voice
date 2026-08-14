@@ -9,6 +9,7 @@
 #include "local_whisper/common/frame_codec.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -20,11 +21,18 @@
 namespace local_whisper::whisper_cpp {
 namespace {
 
+constexpr std::size_t kWindowsPipeIoChunkBytes = 64U * 1024U;
+constexpr DWORD kControlPollIntervalMs = 50U;
+
+enum class ControlInputState { idle, ready, closed };
+
 void read_exact(std::span<std::uint8_t> bytes) {
   const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
   while (!bytes.empty()) {
     DWORD count = 0;
-    if (!ReadFile(input, bytes.data(), static_cast<DWORD>(bytes.size()), &count, nullptr) ||
+    const auto requested = static_cast<DWORD>(
+        std::min<std::size_t>(bytes.size(), kWindowsPipeIoChunkBytes));
+    if (!ReadFile(input, bytes.data(), requested, &count, nullptr) ||
         count == 0U) {
       throw CoreError(FailureCode::transcription_failed, "Windows protocol read failed");
     }
@@ -89,12 +97,14 @@ private:
   HANDLE handle_;
 };
 
-bool control_closed(HANDLE input) {
+ControlInputState control_input_state(HANDLE input) {
   DWORD available = 0U;
   if (PeekNamedPipe(input, nullptr, 0U, nullptr, &available, nullptr))
-    return false;
+    return available == 0U ? ControlInputState::idle : ControlInputState::ready;
   const DWORD error = GetLastError();
-  return error == ERROR_BROKEN_PIPE || error == ERROR_HANDLE_EOF;
+  if (error == ERROR_BROKEN_PIPE || error == ERROR_HANDLE_EOF)
+    return ControlInputState::closed;
+  throw CoreError(FailureCode::transcription_failed, "Windows control pipe state failed");
 }
 
 } // namespace
@@ -144,20 +154,27 @@ public:
   }
 
   [[nodiscard]] WorkerChannelWaitResult wait_for_control_or_inference() {
-    if (WaitForSingleObject(completion_event_.handle(), 0U) == WAIT_OBJECT_0)
-      return WorkerChannelWaitResult::inference_completed;
     const HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
     if (input == nullptr || input == INVALID_HANDLE_VALUE)
       throw CoreError(FailureCode::transcription_failed, "Windows control input unavailable");
-    const std::array<HANDLE, 2> handles{input, completion_event_.handle()};
-    const DWORD result =
-        WaitForMultipleObjects(static_cast<DWORD>(handles.size()), handles.data(), FALSE, INFINITE);
-    if (result == WAIT_OBJECT_0)
-      return control_closed(input) ? WorkerChannelWaitResult::control_closed
-                                   : WorkerChannelWaitResult::control_ready;
-    if (result == WAIT_OBJECT_0 + 1U)
+    while (true) {
+      const auto state = control_input_state(input);
+      if (state == ControlInputState::ready)
+        return WorkerChannelWaitResult::control_ready;
+      if (state == ControlInputState::closed)
+        return WorkerChannelWaitResult::control_closed;
+      const DWORD result = WaitForSingleObject(completion_event_.handle(), kControlPollIntervalMs);
+      if (result == WAIT_TIMEOUT)
+        continue;
+      if (result != WAIT_OBJECT_0)
+        throw CoreError(FailureCode::transcription_failed, "Windows worker wait failed");
+      const auto final_state = control_input_state(input);
+      if (final_state == ControlInputState::ready)
+        return WorkerChannelWaitResult::control_ready;
+      if (final_state == ControlInputState::closed)
+        return WorkerChannelWaitResult::control_closed;
       return WorkerChannelWaitResult::inference_completed;
-    throw CoreError(FailureCode::transcription_failed, "Windows worker wait failed");
+    }
   }
 
   void notify_inference_complete() noexcept { completion_event_.signal(); }

@@ -4,7 +4,7 @@ import process from 'node:process';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { parseArguments, readJson, requiredArgument } from '../source-import/native-source-core.mjs';
+import { parseArguments, readJson } from '../source-import/native-source-core.mjs';
 import {
   materializeWindowsRuntime,
   verifyWindowsRuntimeAcquisitionLock,
@@ -36,12 +36,19 @@ try {
     ),
   );
   const lock = readJson(lockPath);
+  const installer = arguments_.get('installer');
+  const installedRuntimeProofArgument = arguments_.get('installed-runtime-proof');
+  if (installedRuntimeProofArgument !== undefined && installedRuntimeProofArgument !== 'true') {
+    throw new Error('Windows installed-runtime proof must be exactly true');
+  }
+  const installedRuntimeProof = installedRuntimeProofArgument === 'true';
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validate = ajv.compile(schema);
   if (!validate(lock)) throw new Error(`Windows runtime acquisition schema failed: ${ajv.errorsText(validate.errors)}`);
   verifyWindowsRuntimeAcquisitionLock(lock);
   const result = materializeWindowsRuntime({
-    installerPath: resolve(requiredArgument(arguments_, 'installer')),
+    installerPath: typeof installer === 'string' ? resolve(installer) : null,
+    installedRuntimeProof,
     lock,
     toolchainRoot: resolve(
       arguments_.get('toolchain-root') ?? resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),

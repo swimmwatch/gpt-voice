@@ -8,7 +8,7 @@ One final Windows x64 packet performs the separate supported-host manual validat
 
 - Packets 01–19 are checked complete and every code-bearing Packet 04–19 required Windows Server 2025 native/package/artifact-security job executed successfully without skips.
 - This packet has separate execution authorization and no other packet is in progress.
-- A supported Windows x64 host with the pinned MSVC 19.39/SDK toolchain, verified native inputs, and authorized non-sensitive smoke fixtures is available.
+- A supported Windows x64 host with the pinned MSVC 19.51/SDK toolchain, verified native inputs, and authorized non-sensitive smoke fixtures is available.
 - A supported Linux verification path is available for any shared code changed while fixing a Windows finding.
 
 ## Owned Requirements
@@ -20,6 +20,7 @@ One final Windows x64 packet performs the separate supported-host manual validat
 ## In Scope
 
 - Real ordinary and dedicated-ASan MSVC builds/tests for common, filesystem guard, launcher, and project-owned worker targets.
+- Atomic migration of the executable Windows and CPU profile contract from MSVC 19.39 to MSVC 19.51, including hosted-toolchain validation, scripts, workflows, tests, and bounded evidence. CUDA 12.8.1 and AMD Vulkan MSVC 19.39 profiles remain contract-only.
 - Real MSVC analysis over the complete Windows source manifests.
 - The complete Windows deterministic behavior, handle/resource baseline, exact `LIST`, CNG digest-agreement, process/Job Object, worker race, typed-failure, and frame-boundary suites on the supported host.
 - Exact optimized PE inspection and supported-host Windows worker/launcher/guard smoke.
@@ -30,39 +31,42 @@ One final Windows x64 packet performs the separate supported-host manual validat
 
 ## Out Of Scope
 
-- `clang-cl`, Windows clang-tidy, Windows UBSan/LeakSanitizer/TSan claims, dependency changes, package/signing work, candidate qualification, release, publication, force-pushes, or pull-request modification.
+- `clang-cl`, Windows clang-tidy, Windows UBSan/LeakSanitizer/TSan claims, CUDA/AMD dependency or compiler-profile migration, unsupported host-compiler overrides, package/signing work, candidate qualification, release, publication, force-pushes, or pull-request modification.
 - Treating source review, cross-compilation, contract-only checks, PE fixtures, or unavailable Windows evidence as a pass.
 
 ## Task Contract
 
 1. Before any Windows validation command, create the exact supported-host manual run manifest in `handoff.md` from observations made on this host. Record the candidate commit SHA, timestamp with timezone, Windows edition/build, architecture, MSVC and Windows SDK versions, Node and Git versions, native source-lock identities, selected CPU/CUDA profile, authorized synthetic fixture identifiers, and the complete Packet 20 command inventory. Record only bounded classifications, versions, identifiers, and digests: never usernames, paths, environment values, credentials, audio, transcripts, or raw command output. Reject missing, duplicate, unexpected, wrong-profile, stale-candidate, or contract-only substitutions. This setup record establishes provenance only; it is not a passing manual result.
-2. Run the ordinary MSVC 19.39 component commands recorded in **Verification** for every common, guard, launcher, and worker Windows manifest source.
-3. Run the dedicated MSVC ASan component commands recorded in **Verification** for every supported target. Confirm `/RTC1` is absent, unsupported sanitizer options are absent, the injected ASan proof fails, and normal suites pass.
-4. Run the MSVC `/analyze` component commands recorded in **Verification**, with warnings as errors over every Windows-owned translation unit, and prove the supported bad fixture is detected.
-5. Run every applicable behavior suite from Packets 01–07 on the supported Windows host, including handle-count baselines and the deliberately unwrapped-resource visibility proof in AC-AUT-024.
-6. Build optimized MSVC executables and run the dedicated hardening verifier on the exact filesystem guard/model launcher, launcher, and CPU worker outputs. Confirm CFG, stack cookie, dynamic base, NX, and high-entropy VA from live PE evidence.
-7. Perform AC-MAN-002, AC-MAN-004, and AC-MAN-011 on supported Windows x64. Perform the Windows half of AC-MAN-003 against the exact smoke-tested binaries and match their SHA-256 values. Confirm approved production native events, protocol-only `stdout`, prohibited-data absence, failure containment, and exact bounded native-runtime archive history.
-8. Perform AC-MAN-009: compare one complete affected-change and exact-candidate run across Ubuntu 24.04, Windows Server 2025, and Fedora 44 with the supported Linux and Windows desktop manual evidence. Confirm hosted servers/containers do not broaden desktop/distribution qualification claims or substitute for AC-MAN-011.
-9. Fix every discovered Windows or shared defect within the approved contract, retain a focused regression, then rerun the failing Windows gate and all affected downstream gates. For shared-source changes, rerun the affected Linux/shared/security commands from Packet 18 before completion.
-10. Generate the final native and security coverage summaries from completed Linux and Windows evidence. Distinguish host, container, desktop, compile, execute, analyze, CodeQL, sanitize, fuzz, TSan, binary inspection, package smoke, SBOM/scan, and attestation without cross-platform or cross-environment substitution.
-11. Audit all 39 selected subjects, all requirements, exclusions, privacy controls, AC-AUT-001–AC-AUT-048, and AC-MAN-001–AC-MAN-011. Missing evidence leaves this packet unchecked.
+2. Replace the executable Windows and CPU semantic profile with MSVC 19.51 atomically across the profile lock, native-quality profile IDs, build/verification scripts, hosted-toolchain initialization, workflow commands, documentation, and focused tests. Require compiler version `19.51` before executing Windows evidence. Derive the private execution candidate by hashing the exact prepared compiler, linker, archiver, PE inspector, CMake, Ninja, Windows SDK library, and locked VC Runtime DLL inputs used by the run. Use either the exact locked VC Runtime installer or the explicit installed-runtime proof with exact registry, DLL digest, Authenticode, and current locked-license checks. Keep the CUDA 12.8.1 and AMD Vulkan MSVC 19.39 profiles unchanged and contract-only; reject either as a substitute for executable evidence.
+3. Run the ordinary MSVC 19.51 component commands recorded in **Verification** for every common, guard, launcher, and worker Windows manifest source.
+4. Run the dedicated MSVC ASan component commands recorded in **Verification** for every supported target. Confirm `/RTC1` is absent, unsupported sanitizer options are absent, the injected ASan proof fails, and normal suites pass.
+5. Run the MSVC `/analyze` component commands recorded in **Verification**, with warnings as errors over every Windows-owned translation unit, and prove the supported bad fixture is detected.
+6. Run every applicable behavior suite from Packets 01–07 on the supported Windows host, including handle-count baselines and the deliberately unwrapped-resource visibility proof in AC-AUT-024.
+7. Build optimized MSVC executables and run the dedicated hardening verifier on the exact filesystem guard/model launcher, launcher, and CPU worker outputs. Confirm CFG, stack cookie, dynamic base, NX, and high-entropy VA from live PE evidence.
+8. Perform AC-MAN-002, AC-MAN-004, and AC-MAN-011 on supported Windows x64. Perform the Windows half of AC-MAN-003 against the exact smoke-tested binaries and match their SHA-256 values. Confirm approved production native events, protocol-only `stdout`, prohibited-data absence, failure containment, and exact bounded native-runtime archive history.
+9. Perform AC-MAN-009: compare one complete affected-change and exact-candidate run across Ubuntu 24.04, Windows Server 2025, and Fedora 44 with the supported Linux and Windows desktop manual evidence. Confirm hosted servers/containers do not broaden desktop/distribution qualification claims or substitute for AC-MAN-011.
+10. Fix every discovered Windows or shared defect within the approved contract, retain a focused regression, then rerun the failing Windows gate and all affected downstream gates. For shared-source changes, rerun the affected Linux/shared/security commands from Packet 18 before completion.
+11. Generate the final native and security coverage summaries from completed Linux and Windows evidence. Distinguish host, container, desktop, compile, execute, analyze, CodeQL, sanitize, fuzz, TSan, binary inspection, package smoke, SBOM/scan, and attestation without cross-platform or cross-environment substitution.
+12. Audit all 39 selected subjects, all requirements, exclusions, privacy controls, AC-AUT-001–AC-AUT-048, and AC-MAN-001–AC-MAN-011. Missing evidence leaves this packet unchecked.
 
 ## Contracts And Boundaries
 
 - Use validated temporary roots and exact Job Object/process ownership. Never clean broad user directories or terminate ambient processes.
 - Reports contain only bounded classifications, relative roles, profiles, digests, and mitigation names; never audio, transcripts, model content, paths, handles, tokens, credentials, or raw exceptions.
 - Passing means remediation readiness only, not candidate freeze, qualification, signing, publication, or release approval.
+- A version banner without readable executable bytes is not a pinned tool identity. An unreadable prepared input fails closed; do not substitute a known archive digest, a version-only claim, another copy, or a contract-only check.
 
 ## Expected Files Or Components
 
 - Production/test/configuration/security files owned by Packets 01–19 only when a Windows-discovered fix is required.
 - Windows workflow/profile/manifest/package/security/reporting components introduced by Packets 08–19.
+- `runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.51-v1.json` and all executable-profile consumers; the superseded CPU MSVC 19.39 profile is removed only after the new ID is exact and fully referenced.
 - `docs/specs/local-whisper-native-review-remediation/tasks/todo.md` and `handoff.md`.
 - Read-only exact build outputs and reports; generated binaries/reports are not committed.
 
 ## Acceptance Criteria
 
-- Every final Windows suite executes on supported Windows x64 with pinned MSVC and passes; no contract-only, skipped remote job, or Linux result substitutes for it.
+- Every final Windows suite executes on supported Windows x64 with pinned MSVC 19.51 and passes; no contract-only accelerator profile, skipped remote job, or Linux result substitutes for it.
 - Ordinary, MSVC-analysis, and dedicated-ASan manifests cover every applicable Windows-owned source, and all injected bad fixtures fail their gates.
 - AC-MAN-002, Windows AC-MAN-003, AC-MAN-004, and AC-MAN-011 pass with no abort, hang, busy loop, orphan job/process, handle leak, sensitive output, protocol corruption, malformed retained native evidence, or lost committed transcript.
 - Live optimized PE outputs pass every BLD-001 property and report digests match the smoke-tested binaries.
@@ -78,7 +82,7 @@ Run the canonical Windows completion commands established by Packets 01–19, in
 npm run prepare:local-whisper:native-test-sources
 npm run test:local-whisper:native-logging
 npm run test:local-whisper:worker-codec
-npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.39-v1
+npm run test:local-whisper:whisper-cpp-core -- --profile=windows-x64-cpu-msvc-19.51-v1
 npm run test:local-whisper:supervisor
 npm run test:local-whisper:diagnostics
 npm run test:local-whisper:coordinator
@@ -92,7 +96,7 @@ npm run test:local-whisper:fs-guard:native
 npm run test:local-whisper:launcher:native
 npm run test:local-whisper:worker-codec
 npm run test:local-whisper:whisper-cpp-core
-npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
+npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1 --skip-runtime-pack
 Remove-Item Env:LOCAL_WHISPER_MSVC_ANALYZE
 # MSVC AddressSanitizer lane
 npm run test:local-whisper:fs-guard:msvc-asan
@@ -100,9 +104,10 @@ npm run test:local-whisper:launcher:msvc-asan
 npm run test:local-whisper:worker-codec:msvc-asan
 npm run test:local-whisper:whisper-cpp:msvc-asan
 npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
-npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1 --contract-only
+npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
 npm run test:local-whisper:native-hardening
-npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1
+npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1
 npm run verify:local-whisper:native-hardening -- --platform=windows
 npm run test:local-whisper:native-build-audits
 npm run test:local-whisper:runner-policy

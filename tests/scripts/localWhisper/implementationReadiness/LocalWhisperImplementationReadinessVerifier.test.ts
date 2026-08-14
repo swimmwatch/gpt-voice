@@ -64,10 +64,10 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
   });
 
   it('fails closed when a required Windows CPU runtime profile is absent', async () => {
-    const file = 'runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.39-v1.json';
+    const file = 'runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.51-v1.json';
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map(), new Set([file]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_MISSING', 'runtime-profile:windows-x64-cpu-msvc-19.39-v1'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_MISSING', 'runtime-profile:windows-x64-cpu-msvc-19.51-v1'),
     );
   });
 

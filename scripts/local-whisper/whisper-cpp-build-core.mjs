@@ -22,10 +22,15 @@ import { runNativeFileToolInParallel } from './native-build/native-file-tool-par
 import { sanitizerRuntimeEnvironment, sanitizerRuntimeOptions } from './native-build/sanitizer-runtime-policy.mjs';
 import { verifyLoaderLimitAuthority } from './native-build/loader-limit-core.mjs';
 import { resolveNetworkDeniedCommand } from './native-build/network-denied-build-core.mjs';
-import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
 import {
+  resolveWindowsMsvcBuildEnvironment,
+  windowsCmakePath,
+} from './native-build/windows-msvc-build-environment.mjs';
+import {
+  capturePreparedWindowsInputLock,
   captureToolchainInputLock,
   resolveProfileTool,
+  resolvePreparedWindowsSdkInputs,
   verifyToolchainContract,
   verifyToolchainInputs,
 } from './native-build/native-toolchain-core.mjs';
@@ -53,6 +58,10 @@ export const googleTestSource = resolve(
   'sha256',
   '9150f03cee9cb222456fcd0945d5285a1742b080c7ad7c47ed88b95c518afe7c',
 );
+
+export function cmakeToolPath(profile, toolPath) {
+  return profile.target.os === 'windows' ? windowsCmakePath(toolPath) : toolPath;
+}
 export const sourceLockPath = resolve(
   workspaceRoot,
   'runtime',
@@ -98,7 +107,7 @@ const allowedProfiles = new Set([
   'linux-x64-cuda-12.8.1-sm120a-v1',
   'linux-x64-amd-vulkan-preview-contract-v1',
   'linux-x64-amd-hip-no-approved-row-v1',
-  'windows-x64-cpu-msvc-19.39-v1',
+  'windows-x64-cpu-msvc-19.51-v1',
   'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
   'windows-x64-amd-vulkan-preview-msvc-19.39-v1',
 ]);
@@ -321,26 +330,39 @@ function profileTools(profile) {
       ? resolveProfileTool(profile, toolchainRoot, 'cuda-compiler')
       : null,
     linker: resolveProfileTool(profile, toolchainRoot, 'linker'),
+    manifestTool: profile.target.os === 'windows' ? resolveProfileTool(profile, toolchainRoot, 'manifest-tool') : null,
     ninja: resolveProfileTool(profile, toolchainRoot, 'ninja'),
+    archiver: profile.target.os === 'windows' ? resolveProfileTool(profile, toolchainRoot, 'archiver') : null,
+    peInspector: profile.target.os === 'windows' ? resolveProfileTool(profile, toolchainRoot, 'pe-inspector') : null,
+    resourceCompiler:
+      profile.target.os === 'windows' ? resolveProfileTool(profile, toolchainRoot, 'resource-compiler') : null,
     inputs,
   };
 }
 
 /** Resolves the explicit, already-initialized MSVC tools used by hosted Windows quality CI. */
 export function resolvePreparedWindowsQualityTools(environment = process.env) {
+  const compiler = environment.CXX;
+  const compilerDirectory = typeof compiler === 'string' && isAbsolute(compiler) ? dirname(compiler) : null;
+  const sdkInputs = resolvePreparedWindowsSdkInputs(environment);
   const values = {
+    archiver: compilerDirectory === null ? null : resolve(compilerDirectory, 'lib.exe'),
     ctest: environment.CTEST_COMMAND,
-    cCompiler: environment.CXX,
+    cCompiler: compiler,
     cmake: environment.CMAKE_COMMAND,
-    cxxCompiler: environment.CXX,
+    cxxCompiler: compiler,
+    linker: compilerDirectory === null ? null : resolve(compilerDirectory, 'link.exe'),
+    manifestTool: sdkInputs.manifestTool,
     ninja: environment.NINJA_COMMAND,
+    peInspector: compilerDirectory === null ? null : resolve(compilerDirectory, 'dumpbin.exe'),
+    resourceCompiler: sdkInputs.resourceCompiler,
   };
   for (const [role, path] of Object.entries(values)) {
     if (typeof path !== 'string' || !isAbsolute(path) || !existsSync(path)) {
       throw new Error(`Windows prepared native tool is unavailable: ${role}`);
     }
   }
-  return Object.freeze({ ...values, cudaCompiler: null, cudaHostCompiler: null, inputs: null, linker: null });
+  return Object.freeze({ ...values, cudaCompiler: null, cudaHostCompiler: null, inputs: null });
 }
 
 /** Resolves the explicit Linux tools installed by the hosted native-quality workflow. */
@@ -393,6 +415,10 @@ function runBuildCommand(configured, command, arguments_, label, environment = c
     return;
   }
   const networkDenied = resolveNetworkDeniedCommand({
+    allowedPrograms:
+      configured.profile.target.os === 'windows'
+        ? Object.values(configured.tools).filter((value) => typeof value === 'string' && isAbsolute(value))
+        : null,
     arguments_,
     buildRoot: configured.buildRoot,
     command,
@@ -411,6 +437,7 @@ export function configureBuild(
   profileId,
   {
     directEngine = false,
+    captureWindowsExecutionInputs = false,
     engine,
     networkDenied = false,
     preparedLinuxQuality = false,
@@ -425,10 +452,8 @@ export function configureBuild(
   const profileTemplate = requireProfile(profileId);
   const usePreparedLinuxQuality = profileTemplate.target.os === 'linux' && preparedLinuxQuality;
   const usePreparedWindowsQuality = profileTemplate.target.os === 'windows' && preparedWindowsQuality;
-  const profile =
-    profileTemplate.target.os === 'windows' && !networkDenied && !usePreparedWindowsQuality
-      ? captureToolchainInputLock(profileTemplate, toolchainRoot)
-      : profileTemplate;
+  const capturePreparedWindows =
+    profileTemplate.target.os === 'windows' && (captureWindowsExecutionInputs || networkDenied);
   if (threadSanitizer && profileTemplate.target.os !== 'linux') {
     throw new Error('ThreadSanitizer requires the Linux Clang worker-test graph');
   }
@@ -437,19 +462,25 @@ export function configureBuild(
     throw new Error('AMD Preview profiles are contract-only until the packet manual gates pass');
   }
   const hostOs = process.platform === 'win32' ? 'windows' : process.platform;
-  if (profile.target.os !== hostOs) {
+  if (profileTemplate.target.os !== hostOs) {
     throw new Error(`Local configure requires a ${hostOs} profile`);
   }
-  if (profile.target.os === 'windows' && networkDenied) assertClosedHostedWindowsProfile(profile);
+  const tools =
+    usePreparedWindowsQuality || capturePreparedWindows
+      ? resolvePreparedWindowsQualityTools()
+      : usePreparedLinuxQuality
+        ? resolvePreparedLinuxQualityTools(profileTemplate)
+        : profileTools(profileTemplate);
+  const profile = capturePreparedWindows
+    ? capturePreparedWindowsInputLock(profileTemplate, { environment: process.env, toolchainRoot, tools })
+    : profileTemplate.target.os === 'windows' && !usePreparedWindowsQuality
+      ? captureToolchainInputLock(profileTemplate, toolchainRoot)
+      : profileTemplate;
+  if (capturePreparedWindows) assertClosedHostedWindowsProfile(profile);
   verifyToolchainContract(profile, {
     allowCandidate: profile.target.os === 'windows',
-    contractOnly: usePreparedWindowsQuality,
+    contractOnly: usePreparedWindowsQuality && !capturePreparedWindows,
   });
-  const tools = usePreparedWindowsQuality
-    ? resolvePreparedWindowsQualityTools()
-    : usePreparedLinuxQuality
-      ? resolvePreparedLinuxQualityTools(profile)
-      : profileTools(profile);
   if (rootTag !== '' && !/^[a-z0-9][a-z0-9-]{0,63}$/u.test(rootTag)) {
     throw new Error('Native build root tag is invalid');
   }
@@ -470,9 +501,11 @@ export function configureBuild(
     buildRoot,
     '-G',
     'Ninja',
-    `-DCMAKE_MAKE_PROGRAM=${tools.ninja}`,
-    `-DCMAKE_C_COMPILER=${tools.cCompiler}`,
-    `-DCMAKE_CXX_COMPILER=${tools.cxxCompiler}`,
+    `-DCMAKE_MAKE_PROGRAM=${cmakeToolPath(profile, tools.ninja)}`,
+    `-DCMAKE_C_COMPILER=${cmakeToolPath(profile, tools.cCompiler)}`,
+    `-DCMAKE_CXX_COMPILER=${cmakeToolPath(profile, tools.cxxCompiler)}`,
+    `-DCMAKE_RC_COMPILER=${cmakeToolPath(profile, tools.resourceCompiler)}`,
+    `-DCMAKE_MT=${cmakeToolPath(profile, tools.manifestTool)}`,
     `-DLOCAL_WHISPER_GENERATED_INCLUDE_DIR=${generatedIncludeRoot}`,
     `-DLOCAL_WHISPER_NLOHMANN_SOURCE=${nlohmannSource}`,
     `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
@@ -490,11 +523,11 @@ export function configureBuild(
   if (profile.target.os === 'windows' && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
     arguments_.push('-DLOCAL_WHISPER_MSVC_ANALYZE=ON');
   }
-  if (tools.linker !== null) arguments_.push(`-DCMAKE_LINKER=${tools.linker}`);
+  if (tools.linker !== null) arguments_.push(`-DCMAKE_LINKER=${cmakeToolPath(profile, tools.linker)}`);
   if (tools.cudaCompiler !== null) {
-    arguments_.push(`-DCMAKE_CUDA_COMPILER=${tools.cudaCompiler}`);
+    arguments_.push(`-DCMAKE_CUDA_COMPILER=${cmakeToolPath(profile, tools.cudaCompiler)}`);
     if (profile.target.os === 'windows') {
-      arguments_.push(`-DCMAKE_CUDA_HOST_COMPILER=${tools.cudaHostCompiler.replaceAll('\\', '/')}`);
+      arguments_.push(`-DCMAKE_CUDA_HOST_COMPILER=${cmakeToolPath(profile, tools.cudaHostCompiler)}`);
     }
   }
   if (engine || directEngine) {

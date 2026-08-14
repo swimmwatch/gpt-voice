@@ -7,8 +7,12 @@ import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
+import { resolvePreparedWindowsSdkInputs } from './native-build/native-toolchain-core.mjs';
 import { sanitizerRuntimeEnvironment } from './native-build/sanitizer-runtime-policy.mjs';
-import { resolveWindowsMsvcBuildEnvironment } from './native-build/windows-msvc-build-environment.mjs';
+import {
+  resolveWindowsMsvcBuildEnvironment,
+  windowsCmakePath,
+} from './native-build/windows-msvc-build-environment.mjs';
 
 const allowedActions = new Set(['format', 'lint', 'unit', 'integration', 'all']);
 const action = process.argv[2];
@@ -65,6 +69,7 @@ const nativeBuildTools = resolveNativeBuildToolPaths({
   workspaceRoot,
 });
 const { cmake, ctest } = nativeBuildTools;
+const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(process.env) : null;
 const gccTools = linuxGcc
   ? Object.freeze({
       cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
@@ -108,8 +113,19 @@ function nativeImplementationFiles(directory) {
 }
 
 function configureAndBuild() {
+  const refreshConfigure = linuxGcc || process.platform === 'win32';
   const arguments_ = [
-    ...(linuxGcc ? [`-DCMAKE_MAKE_PROGRAM=${nativeBuildTools.ninja}`, '--fresh'] : []),
+    ...(linuxGcc
+      ? [`-DCMAKE_MAKE_PROGRAM=${nativeBuildTools.ninja}`]
+      : windowsSdkTools
+        ? [
+            `-DCMAKE_CXX_COMPILER=${windowsCmakePath(nativeBuildTools.compiler)}`,
+            `-DCMAKE_MAKE_PROGRAM=${windowsCmakePath(nativeBuildTools.ninja)}`,
+            `-DCMAKE_RC_COMPILER=${windowsCmakePath(windowsSdkTools.resourceCompiler)}`,
+            `-DCMAKE_MT=${windowsCmakePath(windowsSdkTools.manifestTool)}`,
+          ]
+        : []),
+    ...(refreshConfigure ? ['--fresh'] : []),
     '--preset',
     preset,
     `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,

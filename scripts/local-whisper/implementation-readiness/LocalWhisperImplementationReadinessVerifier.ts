@@ -232,7 +232,7 @@ interface RuntimeProfileContract {
 const RUNTIME_PROFILES: readonly RuntimeProfileContract[] = Object.freeze([
   Object.freeze({ backend: 'cpu', id: 'linux-x64-cpu-baseline-v1', os: 'linux' }),
   Object.freeze({ backend: 'cuda', id: 'linux-x64-cuda-12.8.1-sm120a-v1', os: 'linux' }),
-  Object.freeze({ backend: 'cpu', id: 'windows-x64-cpu-msvc-19.39-v1', os: 'windows' }),
+  Object.freeze({ backend: 'cpu', id: 'windows-x64-cpu-msvc-19.51-v1', os: 'windows' }),
   Object.freeze({ backend: 'cuda', id: 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1', os: 'windows' }),
 ]);
 

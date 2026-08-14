@@ -53,7 +53,7 @@ jobs:
       contents: read
       security-events: write
     env:
-      TOOLCHAIN: msvc-hosted
+      TOOLCHAIN: windows-x64-msvc-19.51-v1
     steps:
       - run: npm run native-hardening
       - run: npm run emit:local-whisper:runner-evidence -- --runner-label=\${{ vars.CI_WINDOWS_RUNNER }} --toolchain=$TOOLCHAIN
@@ -166,7 +166,7 @@ describe('Native CI runner policy', () => {
       sourceCommit: 'b'.repeat(40),
       testedDigests: ['c'.repeat(40)],
       toolchain: {
-        profile: 'msvc-hosted',
+        profile: 'windows-x64-msvc-19.51-v1',
         version: 'Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36231 for x64',
       },
     };

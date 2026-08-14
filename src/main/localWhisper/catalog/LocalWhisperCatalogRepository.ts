@@ -434,23 +434,27 @@ function isRuntimeEntry(
   );
 }
 
-function hasClosedRtx50RuntimeSet(payload: LocalWhisperCatalogPayload): boolean {
+function hasClosedRuntimeSet(payload: LocalWhisperCatalogPayload): boolean {
   if (payload.schemaVersion !== LOCAL_WHISPER_CATALOG_SCHEMA_VERSION) return true;
-  if (payload.runtimes.length !== 2) return false;
   const cpu = payload.runtimes.find(({ identity }) => identity.target === 'cpu' && identity.backend === 'cpu');
+  if (!cpu || cpu.applicability !== null || cpu.identity.architecture !== 'x64') return false;
+  if (cpu.identity.platform === 'win32') {
+    return (
+      payload.runtimes.length === 1 &&
+      cpu.identity.computeTargets.length === 1 &&
+      cpu.identity.computeTargets[0] === 'x86-64-sse2'
+    );
+  }
+  if (cpu.identity.platform !== 'linux' || payload.runtimes.length !== 2) return false;
   const cuda = payload.runtimes.find(({ identity }) => identity.target === 'gpu' && identity.backend === 'cuda');
-  if (!cpu || !cuda || cpu.applicability !== null || !cuda.applicability) return false;
-  const platform = cpu.identity.platform;
-  const expectedDriver = platform === 'linux' ? '570.26' : platform === 'win32' ? '570.65' : null;
+  if (!cuda?.applicability) return false;
   return (
-    expectedDriver !== null &&
-    cuda.identity.platform === platform &&
-    cpu.identity.architecture === 'x64' &&
+    cuda.identity.platform === 'linux' &&
     cuda.identity.architecture === 'x64' &&
     cuda.identity.computeTargets.length === 1 &&
     cuda.identity.computeTargets[0] === 'sm_120a-real' &&
     cuda.applicability.computeTarget === 'sm_120a-real' &&
-    cuda.applicability.minimumDriverVersion === expectedDriver
+    cuda.applicability.minimumDriverVersion === '570.26'
   );
 }
 
@@ -599,7 +603,7 @@ function isPayloadShape(value: unknown): value is LocalWhisperCatalogPayload {
         value.redirectPolicies.every((policy) => isRedirectPolicy(policy, purpose)))) &&
     Array.isArray(value.runtimes) &&
     value.runtimes.every((entry) => isRuntimeEntry(entry, value.schemaVersion as number, purpose)) &&
-    (fixture || hasClosedRtx50RuntimeSet(value as unknown as LocalWhisperCatalogPayload)) &&
+    (fixture || hasClosedRuntimeSet(value as unknown as LocalWhisperCatalogPayload)) &&
     Array.isArray(value.models) &&
     value.models.every((entry) => isModelEntry(entry, value.schemaVersion as number, purpose)) &&
     Array.isArray(value.memoryEstimates) &&

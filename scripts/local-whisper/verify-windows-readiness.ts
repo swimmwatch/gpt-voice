@@ -79,7 +79,7 @@ class WindowsReadinessVerifier {
       { script: 'test:local-whisper:composition' },
       {
         script: 'verify:local-whisper:native-toolchain',
-        arguments: ['--profile=windows-x64-cpu-msvc-19.39-v1', '--contract-only'],
+        arguments: ['--profile=windows-x64-cpu-msvc-19.51-v1', '--contract-only'],
       },
       {
         script: 'verify:local-whisper:native-toolchain',
@@ -99,11 +99,7 @@ class WindowsReadinessVerifier {
       { script: 'build:local-whisper:launcher' },
     ]);
     await this.runStage('runtime-pack-cpu', [{ script: 'produce:local-whisper:windows-runtime-pack:cpu' }]);
-    await this.runStage('runtime-pack-cuda', [{ script: 'produce:local-whisper:windows-runtime-pack:cuda' }]);
-    await this.runStage('runtime-integrations', [
-      { script: 'test:local-whisper:whisper-cpp-cpu-integration' },
-      { script: 'test:local-whisper:whisper-cpp-cuda-integration' },
-    ]);
+    await this.runStage('runtime-integrations', [{ script: 'test:local-whisper:whisper-cpp-cpu-integration' }]);
     await this.runStage('runtime-pack-audit', [{ script: 'audit:local-whisper:whisper-cpp-pack' }]);
     await this.runStage('production-build', [{ script: 'build:prod' }]);
     await this.runStage('unpacked-package-build', [{ script: 'dist:win', arguments: ['--dir'] }]);

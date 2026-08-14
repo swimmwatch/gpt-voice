@@ -1,10 +1,14 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
+import { connect } from 'node:net';
 import { isAbsolute, resolve } from 'node:path';
 import process from 'node:process';
 
 const POWERSHELL_PATH = 'powershell.exe';
 const NETWORK_PROBE_MARKER = 'LOCAL_WHISPER_NETWORK_DENIED';
+const NETWORK_PROBE_ADDRESS = '1.1.1.1';
+const NETWORK_PROBE_PORT = 443;
+const NETWORK_PROBE_TIMEOUT_MS = 5_000;
 
 function fail(message) {
   throw new Error(`Windows network-denied native build failed: ${message}`);
@@ -36,7 +40,6 @@ function parseArguments(arguments_) {
     attemptRoot: one('attempt-root'),
     command: command[0],
     commandArguments: Object.freeze(command.slice(1)),
-    networkProbe: one('network-probe'),
   });
 }
 
@@ -90,8 +93,8 @@ function removeFirewallRules(ruleGroup) {
   runPowerShell(command, 'Windows Firewall isolation cleanup');
 }
 
-function requireDeniedProbe(networkProbe, attemptRoot) {
-  const result = spawnSync(networkProbe, ['--assert-network-denied'], {
+function requireDeniedProbe(attemptRoot) {
+  const result = spawnSync(process.execPath, [import.meta.filename, '--assert-network-denied'], {
     cwd: attemptRoot,
     encoding: 'utf8',
     env: process.env,
@@ -102,6 +105,26 @@ function requireDeniedProbe(networkProbe, attemptRoot) {
   if (result.error || result.status === 0 || String(result.stdout ?? '').trim() !== NETWORK_PROBE_MARKER) {
     fail('same-boundary network probe did not prove denied egress');
   }
+}
+
+function runNetworkProbe() {
+  const socket = connect({ host: NETWORK_PROBE_ADDRESS, port: NETWORK_PROBE_PORT });
+  let settled = false;
+  const denied = () => {
+    if (settled) return;
+    settled = true;
+    socket.destroy();
+    process.stdout.write(`${NETWORK_PROBE_MARKER}\n`);
+    process.exitCode = 1;
+  };
+  socket.setTimeout(NETWORK_PROBE_TIMEOUT_MS, denied);
+  socket.once('error', denied);
+  socket.once('connect', () => {
+    if (settled) return;
+    settled = true;
+    socket.destroy();
+    process.exitCode = 0;
+  });
 }
 
 function runBuild(command, commandArguments, attemptRoot) {
@@ -117,18 +140,21 @@ function runBuild(command, commandArguments, attemptRoot) {
 
 function main() {
   if (process.platform !== 'win32') fail('Windows Firewall boundary requires a Windows host');
+  if (process.argv.length === 3 && process.argv[2] === '--assert-network-denied') {
+    runNetworkProbe();
+    return;
+  }
   const parsed = parseArguments(process.argv.slice(2));
   assertAttemptRoot(parsed.attemptRoot);
   const attemptRoot = realpathSync(parsed.attemptRoot);
   const command = requireRegularExecutable(parsed.command, 'build command');
-  const networkProbe = requireRegularExecutable(parsed.networkProbe, 'network probe');
-  const programs = [...new Set([...parsed.allowedPrograms, command, networkProbe])].map((program) =>
+  const programs = [...new Set([...parsed.allowedPrograms, command, process.execPath])].map((program) =>
     requireRegularExecutable(program, 'allowed program'),
   );
   const ruleGroup = `GPTVoice-LocalWhisper-${process.pid}-${Date.now()}`;
   try {
     addFirewallRules(ruleGroup, programs);
-    requireDeniedProbe(networkProbe, attemptRoot);
+    requireDeniedProbe(attemptRoot);
     runBuild(command, parsed.commandArguments, attemptRoot);
   } finally {
     removeFirewallRules(ruleGroup);

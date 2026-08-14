@@ -45,10 +45,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const arguments_ = parseArguments(process.argv.slice(2));
     const profileId = arguments_.get('profile');
-    const profiles =
-      profileId === undefined && process.platform === 'win32'
-        ? [WINDOWS_CPU_PROFILE, WINDOWS_CUDA_PROFILE]
-        : [profileId];
+    const profiles = profileId === undefined && process.platform === 'win32' ? [WINDOWS_CPU_PROFILE] : [profileId];
     for (const selectedProfile of profiles) {
       if (selectedProfile === CUDA_PROFILE) auditCuda();
       else if (selectedProfile === CPU_PROFILE) {

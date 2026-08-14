@@ -8,8 +8,25 @@ import { canonicalDigest, readJson, sha256 } from './source-import/native-source
 import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
 import { removeTaskOwnedTree, taskCacheRoot } from './whisper-cpp-build-core.mjs';
 
-export const WINDOWS_CPU_PROFILE = 'windows-x64-cpu-msvc-19.39-v1';
+export const WINDOWS_CPU_PROFILE = 'windows-x64-cpu-msvc-19.51-v1';
 export const WINDOWS_CUDA_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
+
+export function windowsRuntimeDllNames(backend) {
+  if (backend === 'cpu') {
+    return ['msvcp140.dll', 'msvcp140_atomic_wait.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'];
+  }
+  if (backend === 'cuda') {
+    return [
+      'cublas64_12.dll',
+      'cublaslt64_12.dll',
+      'cudart64_12.dll',
+      'msvcp140.dll',
+      'vcruntime140.dll',
+      'vcruntime140_1.dll',
+    ];
+  }
+  throw new Error('Windows runtime DLL selection received an unsupported backend');
+}
 
 function allFiles(root, current = root) {
   const result = [];
@@ -54,17 +71,7 @@ export function auditWindows(profileId) {
   const dlls = allFiles(resolve(root, 'bin'))
     .filter((path) => path.toLowerCase().endsWith('.dll'))
     .map((path) => path.toLowerCase());
-  const expectedDlls =
-    backend === 'cuda'
-      ? [
-          'cublas64_12.dll',
-          'cublaslt64_12.dll',
-          'cudart64_12.dll',
-          'msvcp140.dll',
-          'vcruntime140.dll',
-          'vcruntime140_1.dll',
-        ]
-      : ['msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'];
+  const expectedDlls = windowsRuntimeDllNames(backend);
   assert.deepEqual(dlls.sort(), expectedDlls.sort());
 
   const auditRoot = resolve(taskCacheRoot, 'audit', profileId);

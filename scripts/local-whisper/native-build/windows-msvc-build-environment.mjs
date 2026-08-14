@@ -1,8 +1,13 @@
 import { existsSync } from 'node:fs';
-import { basename, dirname, resolve, sep } from 'node:path';
+import { basename, dirname, relative, resolve, sep } from 'node:path';
 
 const WINDOWS_SDK_VERSION = '10.0.26100.0';
 const WINDOWS_SYSTEM_EXECUTABLE_DIRECTORY = 'System32';
+
+export function windowsCmakePath(path) {
+  if (typeof path !== 'string' || path.length === 0) throw new Error('Windows CMake tool path is missing');
+  return path.replaceAll('\\', '/');
+}
 
 function requireDirectory(path, label) {
   if (!existsSync(path)) throw new Error(`Windows native toolchain is missing ${label}`);
@@ -46,7 +51,12 @@ export function resolveWindowsMsvcBuildEnvironment({ environment, includeCuda, t
   const prepared = includeCuda ? null : preparedDeveloperEnvironment(environment);
   if (prepared) return Object.freeze(prepared);
 
-  const msvcRoot = resolve(toolchainRoot, 'msvc-14.39');
+  const relativeCompiler = relative(toolchainRoot, tools.compiler);
+  const [msvcDirectory] = relativeCompiler.split(sep);
+  if (relativeCompiler.startsWith('..') || !/^msvc-14\.(?:39|51)$/u.test(msvcDirectory)) {
+    throw new Error('Windows native compiler is outside an approved pinned MSVC root');
+  }
+  const msvcRoot = resolve(toolchainRoot, msvcDirectory);
   const sdkRoot = resolve(toolchainRoot, 'windows-sdk-10.0.26100.0');
   const compilerDirectory = dirname(tools.compiler);
   const windowsRoot = requiredEnvironmentValue(environment, 'SystemRoot');

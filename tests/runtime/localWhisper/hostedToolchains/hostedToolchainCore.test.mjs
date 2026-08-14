@@ -591,7 +591,7 @@ test('archive preflight rejects traversal, links, case collisions, and extractio
   }
 });
 
-test('hosted Windows builds fail closed until every profile input comes from a reviewed materialization', () => {
+test('hosted Windows builds fail closed until every executable input has a reviewed digest', () => {
   const incomplete = {
     target: { os: 'windows' },
     tools: [{ pathKind: 'toolchainRootRelative', sha256: null }],
@@ -601,6 +601,7 @@ test('hosted Windows builds fail closed until every profile input comes from a r
   assert.throws(() => assertClosedHostedWindowsProfile(incomplete), /ambient/u);
   const complete = globalThis.structuredClone(incomplete);
   complete.tools[0].sha256 = 'a'.repeat(64);
+  complete.licenses = [{ pathKind: 'toolchainRootRelative', sha256: null }];
   assert.equal(assertClosedHostedWindowsProfile(complete), true);
 });
 
@@ -621,23 +622,25 @@ test('disconnected build commands require an OS boundary and a same-boundary pro
     buildRoot: '/attempt/build',
     command: '/tool/cmake',
     arguments_: ['--build', '/attempt/build'],
+    allowedPrograms: ['/tool/cmake', '/tool/ninja'],
   });
   assert.equal(windows.strategy, WINDOWS_NETWORK_DENIAL_STRATEGY);
   assert.equal(
-    windows.arguments.some((argument) => argument.startsWith('--network-probe=/tool/network-probe')),
-    true,
+    windows.arguments.some((argument) => argument.startsWith('--network-probe=')),
+    false,
   );
   assert.equal(windows.arguments.includes('--allowed-program=/tool/cmake'), true);
+  assert.equal(windows.arguments.includes('--allowed-program=/tool/ninja'), true);
 
-  const noProbe = networkProfile('windows');
-  noProbe.tools = noProbe.tools.filter((tool) => tool.role !== 'network-probe-runtime');
+  const noPreparedPrograms = networkProfile('windows');
   assert.throws(() =>
     resolveNetworkDeniedCommand({
-      profile: noProbe,
+      profile: noPreparedPrograms,
       toolchainRoot: '/toolchain',
       buildRoot: '/attempt/build',
       command: '/tool/cmake',
       arguments_: [],
+      allowedPrograms: [],
     }),
   );
 });

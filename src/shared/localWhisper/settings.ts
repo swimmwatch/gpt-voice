@@ -495,7 +495,9 @@ export function createNeverConfiguredLocalWhisperSettings(
   }
   const combinations = context.eligibleGpuCombinations.filter((combination) => combination.engine === engine);
   const selected = combinations.length === 1 ? combinations[0] : undefined;
-  const runtime = selected ? recommendedRuntime(context, engine, 'gpu', selected.backend) : undefined;
+  const gpuRuntime = selected ? recommendedRuntime(context, engine, 'gpu', selected.backend) : undefined;
+  const useGpu = selected !== undefined && gpuRuntime !== undefined;
+  const runtime = useGpu ? gpuRuntime : recommendedRuntime(context, engine, 'cpu', 'cpu');
   const candidate = {
     schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
     engine,
@@ -504,11 +506,9 @@ export function createNeverConfiguredLocalWhisperSettings(
     language: 'auto',
     initialPrompt: '',
     decoding: { strategy: 'greedy', temperatureHundredths: 0 },
-    execution: {
-      target: 'gpu',
-      backend: selected?.backend ?? null,
-      deviceId: selected?.deviceId ?? null,
-    },
+    execution: useGpu
+      ? { target: 'gpu', backend: selected.backend, deviceId: selected.deviceId }
+      : { target: 'cpu', backend: 'cpu', cpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS },
   };
   return validateLocalWhisperSettings(candidate, context);
 }

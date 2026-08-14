@@ -45,7 +45,7 @@ const CANONICAL_FILE_NAME_PATTERN = /^file-[\w-]{1,192}$/;
 const LINUX_RUNTIME_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cuda-runtime)-(\d+)\.\d+\.\d+$/u;
 const WINDOWS_CUDA_LIBRARY_ROLE_PATTERN = /^runtime-(cublas-lt|cublas|cuda-runtime)-(\d+)\.\d+\.\d+$/u;
 const WINDOWS_VC_RUNTIME_LIBRARY_ROLE_PATTERN =
-  /^runtime-microsoft-vc-runtime-\d+\.\d+\.\d+\.\d+-(msvcp140|vcruntime140|vcruntime140-1)$/u;
+  /^runtime-microsoft-vc-runtime-\d+\.\d+\.\d+\.\d+-(msvcp140|msvcp140-atomic-wait|vcruntime140|vcruntime140-1)$/u;
 const OPERATION_NONCE_PATTERN = /^[\w-]{16,128}$/;
 const MANAGED_MANIFEST_NAME = 'managed-manifest-v1';
 const MANAGED_MANIFEST_MODE = 0o600;
@@ -168,7 +168,15 @@ function windowsRuntimeStorageFileName(expected: ManagedArtifactExpectedFile): s
   if (expected.kind === 'executable' && expected.fileId === 'worker') return 'worker.exe';
   if (expected.kind !== 'library') return null;
   const vcRuntime = WINDOWS_VC_RUNTIME_LIBRARY_ROLE_PATTERN.exec(expected.fileId)?.[1];
-  if (vcRuntime) return `${vcRuntime === 'vcruntime140-1' ? 'vcruntime140_1' : vcRuntime}.dll`;
+  if (vcRuntime) {
+    const library =
+      vcRuntime === 'vcruntime140-1'
+        ? 'vcruntime140_1'
+        : vcRuntime === 'msvcp140-atomic-wait'
+          ? 'msvcp140_atomic_wait'
+          : vcRuntime;
+    return `${library}.dll`;
+  }
   const cudaRuntime = WINDOWS_CUDA_LIBRARY_ROLE_PATTERN.exec(expected.fileId);
   if (!cudaRuntime) return null;
   const [, family, major] = cudaRuntime;

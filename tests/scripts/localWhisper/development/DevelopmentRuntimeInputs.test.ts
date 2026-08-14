@@ -27,7 +27,7 @@ const RUNTIMES = Object.freeze([
 const WINDOWS_RUNTIMES = Object.freeze([
   Object.freeze({
     backend: 'cpu' as const,
-    profileId: 'windows-x64-cpu-msvc-19.39-v1',
+    profileId: 'windows-x64-cpu-msvc-19.51-v1',
     packRevision: 'whisper-cpp-windows-x64-cpu-v1',
     runtimeBuildDigest: '1'.repeat(64),
   }),
@@ -140,7 +140,7 @@ describe('DevelopmentRuntimeInputLoader', () => {
     }
   });
 
-  it('selects the closed Windows profiles and freezes current to the admitted host', async () => {
+  it('admits only the executable Windows CPU profile and keeps the CUDA profile contract-only', async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-runtime-'));
     try {
       await Promise.all(WINDOWS_RUNTIMES.map((runtime) => stageRuntime(workspace, runtime)));
@@ -153,7 +153,7 @@ describe('DevelopmentRuntimeInputLoader', () => {
           architecture: catalog.architecture,
           packRevision: catalog.packRevision,
         })),
-        WINDOWS_RUNTIMES.map(({ backend, packRevision }) => ({
+        WINDOWS_RUNTIMES.slice(0, 1).map(({ backend, packRevision }) => ({
           backend,
           platform: 'win32',
           architecture: 'x64',

@@ -1,2 +1,5 @@
 # Native patch locks authenticate their exact reviewed bytes on every platform.
 runtime/local-whisper/whisper-cpp/patches/** text eol=lf
+
+# Native JSONL fixtures are byte-exact protocol evidence on every platform.
+tests/fixtures/local-whisper/native-runtime-log/**/*.jsonl text eol=lf

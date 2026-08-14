@@ -93,13 +93,15 @@ TEST(CommandParserTest, AcceptsOnlyCanonicalLinuxRuntimeLaunchFileNames) {
 }
 
 TEST(CommandParserTest, AcceptsOnlyCanonicalWindowsRuntimeLaunchFileNames) {
-  for (const char* name : {"worker.exe", "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",
-                           "cudart64_12.dll", "cublas64_12.dll", "cublasLt64_12.dll"}) {
+  for (const char* name : {"worker.exe", "msvcp140.dll", "msvcp140_atomic_wait.dll",
+                           "vcruntime140.dll", "vcruntime140_1.dll", "cudart64_12.dll",
+                           "cublas64_12.dll", "cublasLt64_12.dll"}) {
     EXPECT_NO_THROW(static_cast<void>(parse_command("CREATE_FILE", {"directory", name, "0"})))
         << name;
   }
-  for (const char* name : {"worker.com", "msvcp140d.dll", "vcruntime140_2.dll", "cudart64_13.dll",
-                           "cublas64_11.dll", "cublaslt64_12.dll"}) {
+  for (const char* name : {"worker.com", "msvcp140d.dll", "msvcp140_atomic_waitd.dll",
+                           "vcruntime140_2.dll", "cudart64_13.dll", "cublas64_11.dll",
+                           "cublaslt64_12.dll"}) {
     EXPECT_THROW(static_cast<void>(parse_command("CREATE_FILE", {"directory", name, "0"})),
                  GuardError)
         << name;

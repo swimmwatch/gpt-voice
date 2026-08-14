@@ -93,11 +93,11 @@ model fixture; they never download, copy, stage, or log model contents. CUDA
 evidence hashes the private device identity and stays under ignored
 `.cache/local-whisper/`. Generated build and staging trees remain there too.
 The Windows contract checks are non-executing and stay in the dedicated Windows
-CI job. Their semantic profile IDs bind the MSVC 19.39 toolchain contract;
+CI job. The CPU semantic profile ID binds the executable MSVC 19.51 toolchain contract; the CUDA semantic profile remains a separately labeled MSVC 19.39 contract-only input;
 representative execution belongs exclusively to Task 21:
 
 ```text
-npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
+npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.51-v1 --contract-only
 npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
 ```
 

@@ -57,6 +57,13 @@ function(local_whisper_configure_sanitizer_graph sanitizer_option)
       string(REPLACE "/RTC1" "" local_whisper_debug_flags "${CMAKE_${local_whisper_language}_FLAGS_DEBUG}")
       set(CMAKE_${local_whisper_language}_FLAGS_DEBUG "${local_whisper_debug_flags}" PARENT_SCOPE)
     endforeach()
+    foreach(local_whisper_linker_flags
+        CMAKE_EXE_LINKER_FLAGS_DEBUG
+        CMAKE_MODULE_LINKER_FLAGS_DEBUG
+        CMAKE_SHARED_LINKER_FLAGS_DEBUG)
+      string(REPLACE "/INCREMENTAL" "" local_whisper_debug_linker_flags "${${local_whisper_linker_flags}}")
+      set(${local_whisper_linker_flags} "${local_whisper_debug_linker_flags}" PARENT_SCOPE)
+    endforeach()
   else()
     add_compile_definitions(_GLIBCXX_ASSERTIONS)
   endif()
@@ -82,8 +89,10 @@ function(local_whisper_apply_compile_hardening target sanitizer_option)
     if(LOCAL_WHISPER_MSVC_ANALYZE)
       # GoogleTest is a reviewed external dependency. MSVC emits C6326
       # from its headers under /analyze; keep project-owned translation units
-      # analyzed while excluding only external-header diagnostics.
-      target_compile_options(${target} PRIVATE /analyze /analyze:external-)
+      # analyzed while excluding only external-header diagnostics. Native
+      # Ninja builds retain analyzer diagnostics on the compiler output; avoid
+      # MSVC's implicit per-source XML write path.
+      target_compile_options(${target} PRIVATE /analyze /analyze:external- /external:W0 /analyze:autolog-)
     endif()
     if(${sanitizer_option})
       target_compile_options(${target} PRIVATE /fsanitize=address)

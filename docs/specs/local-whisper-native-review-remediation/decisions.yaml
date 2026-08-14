@@ -943,7 +943,7 @@ decisions:
   - id: compatibility.windows-toolchain-policy
     revision: 1
     category: compatibility
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
@@ -2399,7 +2399,23 @@ decisions:
     rationale: The revision was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The runner choice and CI parameterization contract are committed; exact labels, configuration ownership, platform exceptions, failure behavior, acceptance, historical evidence, and plan impact are objective; and no unresolved material behavior remains before draft approval.
     supersedes_revision: 3
     requirement_ids:
-      [OUT-004, GAT-004, CMP-009, CMP-010, CMP-011, CMP-012, RUN-001, RUN-002, RUN-003, RUN-004, RUN-005, RUN-006, RUN-007, TST-010, OPS-004]
+      [
+        OUT-004,
+        GAT-004,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-010,
+        OPS-004,
+      ]
 
   - id: approval.spec
     revision: 4
@@ -3012,7 +3028,7 @@ decisions:
   - id: approval.spec
     revision: 6
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-native-review-remediation/spec.md
@@ -3169,7 +3185,7 @@ decisions:
   - id: approval.plan
     revision: 6
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
@@ -3211,7 +3227,7 @@ decisions:
   - id: authorization.plan-execution
     revision: 3
     category: authorization
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
@@ -3243,3 +3259,248 @@ decisions:
     rationale: The user authorized later one-packet-at-a-time execution of Packets 14–20 with local-first verification, scoped candidate/fix commits, non-force pushes, exact-SHA CI, and mandatory successful Linux and Windows jobs. This planning turn does not start execution.
     supersedes_revision: 2
     requirement_ids: [EXEC-AUTH-004, OPS-004]
+
+  - id: compatibility.windows-toolchain-policy
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - A dedicated MSVC 19.51 filesystem-guard ASan run passed with the required halt-on-error policy after the equivalent MSVC 19.39 run failed before project test execution with an ASan interception-runtime classification.
+      - https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-microsoft-windows/index.html
+      - https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-VS2026-Readme.md
+      - The user explicitly instructed the specification and plan to be corrected and Packet 20 to continue after the MSVC 19.51 experiment.
+    prompt_mcp: null
+    question:
+      text: Which Windows compiler policy should replace the blocked MSVC 19.39 executable-evidence contract?
+      kind: single
+      options:
+        - id: msvc-19.51-executable-evidence
+          label: MSVC 19.51 executable evidence
+          description: Use MSVC 19.51 for every real Windows build, analysis, ASan, CPU runtime, and PE claim while retaining CUDA 12.8.1 and AMD Vulkan MSVC 19.39 profiles only as contract-only inputs.
+        - id: retain-msvc-19.39
+          label: Retain MSVC 19.39
+          description: Keep the blocked executable-evidence profile and leave Packet 20 unable to satisfy its required ASan run on the supported host.
+        - id: migrate-accelerator-dependencies
+          label: Migrate accelerator dependencies
+          description: Expand scope to a new CUDA or accelerator toolchain that supports MSVC 19.51 and requalify packaging contracts.
+    answer:
+      selected_ids: [msvc-19.51-executable-evidence]
+      text: ''
+    rationale: The user selected the proven MSVC 19.51 route. CUDA 12.8 officially supports the MSVC 193x Windows host-compiler family, so its existing 19.39 profile and the unqualified AMD preview profile remain explicitly contract-only rather than being falsely relabeled or compiled with an unsupported override.
+    supersedes_revision: 1
+    requirement_ids: [CMP-005, CMP-010, WIN-001, WIN-002, AC-AUT-042, AC-MAN-004]
+
+  - id: approval.spec
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - compatibility.windows-toolchain-policy revision 2
+      - The user explicitly requested the specification correction and continuation on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: Should the MSVC 19.51 Windows executable-evidence amendment become the approved Packet 20 contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amendment
+          description: Approve the narrowly scoped compiler amendment and retain all unaffected remediation requirements.
+        - id: request-changes
+          label: Request changes
+          description: Revise the compiler boundary before Packet 20 continues.
+        - id: leave-draft
+          label: Leave draft
+          description: Retain the proposed amendment without approving execution against it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user's instruction to correct the specification and continue explicitly approves the MSVC 19.51 amendment selected after the successful isolated experiment.
+    supersedes_revision: 6
+    requirement_ids: [APPROVAL-007]
+
+  - id: approval.plan
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-007
+      - The user explicitly requested the plan correction and continuation on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: Should Packet 20 own the atomic MSVC 19.51 executable-evidence and CPU-profile migration before resuming its final Windows gate?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Packet 20
+          description: Keep completed Packets 01–19 historical and add the narrow toolchain migration to the active final packet.
+        - id: request-changes
+          label: Request changes
+          description: Revise task ownership or the toolchain boundary before execution.
+        - id: leave-draft
+          label: Leave draft
+          description: Retain the revised planning artifacts without continuing Packet 20.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly instructed the plan to be corrected and work to continue; assigning the migration to active Packet 20 preserves completed packet evidence and one-packet execution scope.
+    supersedes_revision: 6
+    requirement_ids: [PLAN-APPROVAL-007, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 4
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - PLAN-APPROVAL-007
+      - The user explicitly instructed Packet 20 execution to continue after the specification and plan correction.
+    prompt_mcp: null
+    question:
+      text: What execution authorization applies after the MSVC 19.51 Packet 20 amendment?
+      kind: single
+      options:
+        - id: continue-packet-20
+          label: Continue Packet 20
+          description: Authorize the scoped migration, local-first Windows and affected shared checks, conventional fix commits, non-force pushes, and exact-SHA CI gate already owned by Packet 20.
+        - id: documentation-only
+          label: Documentation only
+          description: Permit the specification and plan revision but stop before implementation.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Retain the approved plan without further execution.
+    answer:
+      selected_ids: [continue-packet-20]
+      text: ''
+    rationale: The user said to correct the plan and specification and continue, preserving the original Packet 20 commit, push, CI, and no-release boundaries.
+    supersedes_revision: 3
+    requirement_ids: [EXEC-AUTH-005, OPS-004]
+
+  - id: compatibility.windows-execution-input-closure
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - runtime/local-whisper/toolchains/locks/microsoft-vc-runtime-14.51.36247.0-x64-v1.json
+      - The user explicitly instructed the agent to fix the discovered Windows input-closure blockers on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: How should Packet 20 close the exact prepared Windows CPU inputs and materialize an already installed locked VC Runtime?
+      kind: single
+      options:
+        - id: exact-execution-inputs-and-installed-proof
+          label: Exact installed proof
+          description: Hash every prepared executable and SDK/Runtime input, use the same-boundary Node probe, and permit installed-runtime materialization only after exact registry, DLL digest, Authenticode, and license checks.
+        - id: require-redownloaded-installer-only
+          label: Installer only
+          description: Retain the exact downloaded-installer prerequisite even when the already installed runtime and all output DLL bytes are independently locked and verifiable.
+        - id: accept-version-only-tools
+          label: Version only
+          description: Accept version banners for unreadable tools, weakening the executable-input identity contract.
+    answer:
+      selected_ids: [exact-execution-inputs-and-installed-proof]
+      text: ''
+    rationale: The selected remediation keeps the pending static profile separate from executable evidence, binds each execution to its exact readable input bytes, retains fail-closed firewall proof, and permits no ambient Runtime DLL or version-only tool substitution. Installed-runtime proof changes only acquisition evidence; the packaged bytes and license remain checksum locked.
+    supersedes_revision: null
+    requirement_ids: [CMP-010, WIN-001, GAT-001, SEC-004]
+
+  - id: approval.spec
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - compatibility.windows-execution-input-closure revision 1
+      - The user explicitly instructed the agent to fix the blocker on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: Should the closed Windows execution-input and installed-runtime proof remediation become the approved Packet 20 specification contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve remediation
+          description: Approve the narrow fail-closed input and runtime-proof correction while retaining every other Packet 20 requirement.
+        - id: request-changes
+          label: Request changes
+          description: Revise the remediation boundary before continuing Packet 20.
+        - id: leave-blocked
+          label: Leave blocked
+          description: Keep the known defects and stop Packet 20 without implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user's instruction to fix the identified blocker explicitly authorizes this narrow specification correction and continuation without adding a dependency, public API, target, or release scope.
+    supersedes_revision: 7
+    requirement_ids: [APPROVAL-008]
+
+  - id: approval.plan
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-008
+    prompt_mcp: null
+    question:
+      text: Should active Packet 20 own the closed Windows execution-input and installed-runtime proof remediation?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Packet 20
+          description: Keep the remediation in the active final Windows packet and preserve completed packet history.
+        - id: request-changes
+          label: Request changes
+          description: Revise task ownership before implementation.
+        - id: leave-blocked
+          label: Leave blocked
+          description: Record the defects but do not remediate them in Packet 20.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The defects were discovered while executing Packet 20 and affect only its Windows build/package gate, so the user's fix instruction keeps them within the already authorized packet.
+    supersedes_revision: 7
+    requirement_ids: [PLAN-APPROVAL-008, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 5
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - PLAN-APPROVAL-008
+      - The user explicitly said to fix the blocker.
+    prompt_mcp: null
+    question:
+      text: What execution authorization applies after the Packet 20 input-closure correction?
+      kind: single
+      options:
+        - id: continue-packet-20
+          label: Continue Packet 20
+          description: Implement and verify the correction, then continue the existing scoped commit, push, and exact-SHA CI contract.
+        - id: documentation-only
+          label: Documentation only
+          description: Record the correction but stop before implementation.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep Packet 20 blocked without further execution.
+    answer:
+      selected_ids: [continue-packet-20]
+      text: ''
+    rationale: The user explicitly instructed the agent to fix the blocker, preserving Packet 20's original local-first, non-force push, exact-SHA CI, and no-release boundaries.
+    supersedes_revision: 4
+    requirement_ids: [EXEC-AUTH-006, OPS-004]

@@ -100,9 +100,8 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     ../common/src/windows_process_identity.cpp
   )
 endif()
-target_include_directories(local_whisper_worker_common
-  PUBLIC ../common/include
-  PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
+target_include_directories(local_whisper_worker_common PUBLIC ../common/include)
+target_include_directories(local_whisper_worker_common SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
 local_whisper_apply_compile_hardening(local_whisper_worker_common LOCAL_WHISPER_ENABLE_SANITIZERS)
 
 add_library(local_whisper_whisper_cpp_core STATIC
@@ -131,10 +130,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     platform/windows/worker_protocol_windows.cpp
   )
 endif()
-target_include_directories(local_whisper_whisper_cpp_core
-  PUBLIC include
-  PUBLIC "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include"
-  PRIVATE "${LOCAL_WHISPER_GENERATED_INCLUDE_DIR}")
+target_include_directories(local_whisper_whisper_cpp_core PUBLIC include)
+target_include_directories(local_whisper_whisper_cpp_core SYSTEM PUBLIC "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
+target_include_directories(local_whisper_whisper_cpp_core PRIVATE "${LOCAL_WHISPER_GENERATED_INCLUDE_DIR}")
 target_compile_definitions(local_whisper_whisper_cpp_core PUBLIC
   LOCAL_WHISPER_RUNTIME_BUILD_DIGEST="${LOCAL_WHISPER_RUNTIME_BUILD_DIGEST}"
   LOCAL_WHISPER_RUNTIME_REVISION="${LOCAL_WHISPER_RUNTIME_REVISION}"
@@ -186,9 +184,8 @@ if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
     endif()
     add_library(local_whisper_qualification_protocol STATIC
       qualification/qualification_protocol.cpp)
-    target_include_directories(local_whisper_qualification_protocol
-      PUBLIC include
-      PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
+    target_include_directories(local_whisper_qualification_protocol PUBLIC include)
+    target_include_directories(local_whisper_qualification_protocol SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
     target_link_libraries(local_whisper_qualification_protocol
       PUBLIC local_whisper_whisper_cpp_core)
     local_whisper_apply_compile_hardening(local_whisper_qualification_protocol LOCAL_WHISPER_ENABLE_SANITIZERS)
@@ -226,6 +223,10 @@ if(LOCAL_WHISPER_BUILD_TESTS)
     tests/pcm_cpu_test.cpp
     tests/worker_application_test.cpp
   )
+  if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    target_sources(local_whisper_whisper_cpp_core_tests PRIVATE
+      tests/worker_protocol_windows_test.cpp)
+  endif()
   target_include_directories(local_whisper_whisper_cpp_core_tests PRIVATE tests)
   target_link_libraries(local_whisper_whisper_cpp_core_tests
     PRIVATE local_whisper_whisper_cpp_core GTest::gtest_main)

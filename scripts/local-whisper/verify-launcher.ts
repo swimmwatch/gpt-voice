@@ -27,6 +27,7 @@ import type {
   LocalWhisperWorkerLaunchAuthority,
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 import { toLocalWhisperArtifactId, toLocalWhisperRevisionId, type LocalWhisperRevisionId } from '@shared/localWhisper';
+import { WindowsAsanRuntimeSidecar } from '@scripts/local-whisper/native-build/WindowsAsanRuntimeSidecar';
 
 interface FixturePaths {
   readonly authorityWorkerSource: string;
@@ -67,6 +68,7 @@ const modelLaunchFixturePaths = [fixturePaths.fsGuard, fixturePaths.authorityWor
 const runtimeDirectoryPrefix = 'gpt-voice-local-whisper-launcher-';
 const WINDOWS_UNLINK_RETRY_COUNT = 100;
 const WINDOWS_UNLINK_RETRY_DELAY_MS = 50;
+const windowsAsanRuntimeSidecar = new WindowsAsanRuntimeSidecar(process.env.LOCAL_WHISPER_MSVC_ASAN_RUNTIME);
 
 async function unlinkFixtureFile(filePath: string): Promise<void> {
   for (let attempt = 0; attempt < WINDOWS_UNLINK_RETRY_COUNT; attempt += 1) {
@@ -200,6 +202,7 @@ function fileIdentity(path: string): ManagedArtifactIdentitySnapshot {
 function prepareRuntime(ignoreTermination = false): PreparedRuntime {
   const directory = mkdtempSync(resolve(tmpdir(), runtimeDirectoryPrefix));
   chmodSync(directory, 0o700);
+  windowsAsanRuntimeSidecar.copyTo(directory);
   if (ignoreTermination) {
     writeFileSync(resolve(directory, 'launcher-fixture-ignore-term'), 'fixture\n', { mode: 0o600 });
   }
@@ -319,6 +322,7 @@ async function readControl(reader: ReturnType<typeof bufferedReader>): Promise<R
 async function verifyModelLaunchChain(): Promise<void> {
   const directory = mkdtempSync(resolve(tmpdir(), 'gpt-voice-local-whisper-model-launch-'));
   chmodSync(directory, 0o700);
+  windowsAsanRuntimeSidecar.copyTo(directory);
   const worker = resolve(directory, `worker${executableSuffix}`);
   const launcher = resolve(directory, `launcher${executableSuffix}`);
   const model = resolve(directory, 'model.ggml');

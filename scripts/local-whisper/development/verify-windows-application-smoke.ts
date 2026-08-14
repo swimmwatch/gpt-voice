@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
-import { spawn, execFile } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { availableParallelism, freemem, tmpdir } from 'node:os';
 import * as path from 'node:path';
 
+import type { MainLogFileAccessor, RetainedMainLog, ScopedLogger } from '@main/logger';
 import type {
   ArtifactHttpClient,
   ArtifactHttpClientRequest,
 } from '@main/localWhisper/artifacts/ArtifactLifecycleTypes';
-import { NvidiaSmiVramAvailability } from '@main/localWhisper/capability/NvidiaSmiVramAvailability';
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
 import {
   ProductionLocalWhisperEnvironmentFactory,
@@ -23,8 +23,30 @@ import {
 } from '@main/localWhisper/development/LocalWhisperDevelopmentActivation';
 import type { DeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import {
-  toLocalWhisperOpaqueDeviceId,
+  NativeRuntimeLogForwarder,
+  NativeRuntimeLogRelay,
+} from '@main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder';
+import { PROVIDER_AUDIT_SCHEMA_VERSION } from '@main/providerAudit';
+import { DiagnosticsArchiveJsonlSerializer } from '@main/services/diagnosticsArchive';
+import {
+  ArchiverDiagnosticsArchiveWriterFactory,
+  DiagnosticsArchiveFormatAdapter,
+  inspectDiagnosticsArchiveForVerification,
+  type DiagnosticsArchiveMember,
+} from '@main/services/diagnosticsArchiveFormat';
+import { DIAGNOSTIC_REDACTOR_VERSION } from '@main/services/diagnosticTextRedactor';
+import { DiagnosticsManifestBuilder } from '@main/services/diagnosticsManifest';
+import { NativeRuntimeLogArchiveExtractor } from '@main/services/nativeRuntimeLogArchive';
+import { NativeRuntimeLogArchiveReader } from '@main/services/nativeRuntimeLogArchiveReader';
+import {
+  DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
+  DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
+  type DiagnosticsArchiveEnvironmentSnapshot,
+  type DiagnosticsArchivePayloadMemberName,
+} from '@shared/diagnosticsArchive';
+import {
   toLocalWhisperRevisionId,
+  type NativeRuntimeLogRecord,
   type LocalWhisperPublicSettings,
   type LocalWhisperRevisionId,
 } from '@shared/localWhisper';
@@ -42,20 +64,34 @@ const WAV_PATH = path.resolve(WORKSPACE_ROOT, '.cache', 'local-whisper', 'window
 const WAV_SIZE_BYTES = 404_524;
 const WAV_SHA256 = '90a8eba6c057eb30b573922d95c303f2d276ba8f7501bbb1f64711a5f00946b6';
 const CPU_RUNTIME_REVISION = revision('whisper-cpp-windows-x64-cpu-v1');
-const CUDA_RUNTIME_REVISION = revision('whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1');
 const MODEL_REVISION = revision('whisper-cpp-base-full-v1');
 const ARTIFACT_TIMEOUT_MS = 15 * 60 * 1000;
+const NATIVE_EVENT_TIMEOUT_MS = 5_000;
+const NATIVE_EVENT_POLL_MS = 25;
+const DIAGNOSTICS_ARCHIVE_IDS = Object.freeze([
+  '00000000-0000-4000-8000-000000000020',
+  '00000000-0000-4000-8000-000000000021',
+]);
+const PRIVACY_CANARIES = Object.freeze([
+  'packet20-private-path-canary',
+  'packet20-private-audio-canary',
+  'packet20-private-transcript-canary',
+  'packet20-private-credential-canary',
+]);
 
 interface ApplicationSession {
   readonly coordinator: LocalWhisperCoordinator;
   readonly environment: DeferredLocalWhisperEnvironment;
+  readonly nativeRuntimeLogRelay: CapturingNativeRuntimeLogRelay;
 }
 
 interface SmokeResult {
   readonly cpu: 'Pass';
-  readonly cuda: 'Pass';
   readonly offlineReuse: 'Pass';
   readonly cleanup: 'Pass';
+  readonly diagnosticsArchive: 'Pass';
+  readonly diagnosticsArchiveSha256: string;
+  readonly nativePrivacy: 'Pass';
 }
 
 function revision(value: string): LocalWhisperRevisionId {
@@ -85,10 +121,211 @@ class OfflineArtifactHttpClient implements ArtifactHttpClient {
   }
 }
 
+class CapturingScopedNativeLogger implements ScopedLogger, MainLogFileAccessor {
+  private readonly entries: Array<{ readonly level: NativeRuntimeLogRecord['level']; readonly message: string }> = [];
+
+  public debug(...args: unknown[]): void {
+    this.record('debug', args);
+  }
+
+  public info(...args: unknown[]): void {
+    this.record('info', args);
+  }
+
+  public warn(...args: unknown[]): void {
+    this.record('warn', args);
+  }
+
+  public error(...args: unknown[]): void {
+    this.record('error', args);
+  }
+
+  public readRetainedLogs(): readonly RetainedMainLog[] {
+    assert.ok(this.entries.length >= 2, 'Task 24 native main-log history was incomplete');
+    const split = Math.floor(this.entries.length / 2);
+    const render = (entries: typeof this.entries): string =>
+      entries
+        .map(({ level, message }) => `[2026-08-14T00:00:00.000Z] [${level}] (local-whisper-native-runtime) ${message}`)
+        .join('\n');
+    return Object.freeze([
+      Object.freeze({ contents: render(this.entries.slice(0, split)), generation: 'rotated' as const }),
+      Object.freeze({ contents: render(this.entries.slice(split)), generation: 'current' as const }),
+    ]);
+  }
+
+  public serialized(): string {
+    return this.entries.map(({ message }) => message).join('\n');
+  }
+
+  private record(level: NativeRuntimeLogRecord['level'], args: readonly unknown[]): void {
+    if (args.length !== 1 || typeof args[0] !== 'string') {
+      throw new Error('Task 24 native main-log forwarding changed');
+    }
+    this.entries.push(Object.freeze({ level, message: args[0] }));
+  }
+}
+
+class CapturingNativeRuntimeLogRelay extends NativeRuntimeLogRelay {
+  private readonly records: NativeRuntimeLogRecord[] = [];
+  private readonly retainedLogger = new CapturingScopedNativeLogger();
+
+  public constructor() {
+    super();
+    this.attach(
+      new NativeRuntimeLogForwarder({
+        logger: this.retainedLogger,
+        now: () => new Date(),
+      }),
+    );
+  }
+
+  public override accept(record: NativeRuntimeLogRecord): void {
+    this.records.push(record);
+    super.accept(record);
+  }
+
+  public hasEvent(component: NativeRuntimeLogRecord['component'], event: NativeRuntimeLogRecord['event']): boolean {
+    return this.records.some((record) => record.component === component && record.event === event);
+  }
+
+  public async waitForEvents(
+    component: NativeRuntimeLogRecord['component'],
+    events: readonly NativeRuntimeLogRecord['event'][],
+  ): Promise<boolean> {
+    const deadline = Date.now() + NATIVE_EVENT_TIMEOUT_MS;
+    while (Date.now() <= deadline) {
+      if (events.every((event) => this.hasEvent(component, event))) return true;
+      await new Promise<void>((resolve) => setTimeout(resolve, NATIVE_EVENT_POLL_MS));
+    }
+    return false;
+  }
+
+  public async verifyProductionArchive(packageVersion: string, archiveId: string): Promise<string> {
+    assert.ok(this.records.length > 0, 'Task 24 native log history was empty');
+    assert.ok(
+      this.records.every(({ level }) => level !== 'debug'),
+      'Task 24 production retained debug native data',
+    );
+    const retainedText = `${JSON.stringify(this.records)}\n${this.retainedLogger.serialized()}`;
+    for (const canary of PRIVACY_CANARIES) assert.equal(retainedText.includes(canary), false);
+
+    const extraction = new NativeRuntimeLogArchiveExtractor(this.retainedLogger).extract();
+    assert.ok(extraction.summary.includedRecordCount > 0, 'Task 24 native archive history was empty');
+    assert.equal(extraction.summary.invalidRecordCount, 0, 'Task 24 native archive contained invalid records');
+    const observedKeys = new Set<string>();
+    let duplicateRecordCount = 0;
+    for (const record of this.records) {
+      const key = `${record.processInstanceId}\0${record.sequence}`;
+      if (observedKeys.has(key)) duplicateRecordCount += 1;
+      else observedKeys.add(key);
+    }
+    assert.equal(
+      extraction.summary.duplicateRecordCount,
+      duplicateRecordCount,
+      'Task 24 native archive duplicate count changed',
+    );
+    const jsonl = new DiagnosticsArchiveJsonlSerializer();
+    const auditPayload = jsonl.serializeAuditEvents([]);
+    const nativeRuntimePayload = jsonl.serializeNativeRuntime(extraction.records);
+    const payloads = new Map<DiagnosticsArchivePayloadMemberName, Buffer>([
+      [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents, auditPayload],
+      [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime, nativeRuntimePayload],
+    ]);
+    const hash = (payload: Buffer): string => createHash('sha256').update(payload).digest('hex');
+    const environment: DiagnosticsArchiveEnvironmentSnapshot = {
+      appVersion: packageVersion,
+      architecture: 'x64',
+      cloakBrowserVersion: '0.5.3',
+      electronVersion: '43.1.1',
+      nodeVersion: process.versions.node,
+      platformFamily: 'windows',
+      playwrightVersion: '1.62.1',
+      providers: {
+        voice: {
+          capabilityAvailable: true,
+          configured: true,
+          readinessKnown: true,
+          ready: true,
+          registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'],
+          selectedProviderId: 'local-whisper',
+        },
+        prettify: {
+          capabilityAvailable: true,
+          configured: false,
+          readinessKnown: false,
+          ready: false,
+          registeredProviderIds: ['ollama', 'vllm', 'claude-cli', 'codex-cli'],
+          selectedProviderId: null,
+        },
+        translation: {
+          capabilityAvailable: true,
+          configured: false,
+          readinessKnown: false,
+          ready: false,
+          registeredProviderIds: ['google', 'bing', 'yandex'],
+          selectedProviderId: null,
+        },
+      },
+    };
+    const manifestBuilder = new DiagnosticsManifestBuilder({
+      databaseSchemaVersion: 2,
+      diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
+      hash,
+      providerAuditSchemaVersion: PROVIDER_AUDIT_SCHEMA_VERSION,
+      redactorVersion: DIAGNOSTIC_REDACTOR_VERSION,
+    });
+    const manifest = manifestBuilder.build({
+      archiveId,
+      audit: { duplicateRecordCount: 0, invalidRecordCount: 0, validRecordCount: 0 },
+      captureSettings: { capturePrettifyDiagnostics: false, captureTranslationDiagnostics: false },
+      createdAt: new Date().toISOString(),
+      diagnosticRows: [],
+      environment,
+      nativeRuntime: extraction.summary,
+      payloads,
+    });
+    const members: DiagnosticsArchiveMember[] = [
+      { name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest, payload: manifestBuilder.serialize(manifest) },
+      { name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents, payload: auditPayload },
+      { name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime, payload: nativeRuntimePayload },
+    ];
+    const diagnosticsRoot = path.join(SMOKE_ROOT, 'diagnostics');
+    await mkdir(diagnosticsRoot, { mode: 0o700, recursive: true });
+    const archivePath = path.join(diagnosticsRoot, `${archiveId}.zip`);
+    const fileSystem = {
+      chmod: (filePath: string, mode: number) => fs.promises.chmod(filePath, mode),
+      createWriteStream: (filePath: string, options: { readonly flags: 'wx'; readonly mode: number }) =>
+        fs.createWriteStream(filePath, options),
+      readFile: (filePath: string) => fs.promises.readFile(filePath),
+    };
+    const format = new DiagnosticsArchiveFormatAdapter({
+      fileSystem,
+      platform: 'win32',
+      writerFactory: new ArchiverDiagnosticsArchiveWriterFactory(),
+    });
+    await format.writeAndVerify('zip', archivePath, members);
+    const archiveBytes = await readFile(archivePath);
+    const inspected = inspectDiagnosticsArchiveForVerification('zip', archiveBytes);
+    const manifestPayload = inspected.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest);
+    assert.ok(manifestPayload, 'Task 24 diagnostics manifest was absent');
+    const inspectedMembers = [...inspected].map(([name, payload]) => ({ name, payload }));
+    assert.equal(
+      new NativeRuntimeLogArchiveReader({ hash }).inspect(
+        JSON.parse(manifestPayload.toString('utf8')),
+        inspectedMembers,
+      ),
+      'valid',
+    );
+    for (const canary of PRIVACY_CANARIES) assert.equal(archiveBytes.includes(Buffer.from(canary, 'utf8')), false);
+    return hash(archiveBytes);
+  }
+}
+
 class WindowsApplicationSmoke {
   private readonly packageVersion: string;
+  private archiveSequence = 0;
   private requestSequence = 0;
-  private vramSampleCount = 0;
+  private diagnosticsArchiveDigest: string | null = null;
 
   public constructor() {
     const packageValue = JSON.parse(fs.readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8')) as {
@@ -96,6 +333,11 @@ class WindowsApplicationSmoke {
     };
     if (typeof packageValue.version !== 'string') throw new Error('Task 24 app revision unavailable');
     this.packageVersion = packageValue.version;
+  }
+
+  public get diagnosticsArchiveSha256(): string {
+    if (!this.diagnosticsArchiveDigest) throw new Error('Task 24 diagnostics archive was not produced');
+    return this.diagnosticsArchiveDigest;
   }
 
   public async run(arguments_: readonly string[]): Promise<void> {
@@ -121,18 +363,10 @@ class WindowsApplicationSmoke {
     try {
       await this.install(first, 'runtime', CPU_RUNTIME_REVISION);
       await this.install(first, 'model', MODEL_REVISION);
-      await this.install(first, 'runtime', CUDA_RUNTIME_REVISION);
-      await this.select(first, 'cpu');
+      await this.selectCpu(first);
       const cpuEventStart = workerEvents.length;
-      await this.exercise(first, 'cpu');
-      assert.equal(this.vramSampleCount, 0, 'CPU smoke initialized a GPU resource probe');
+      await this.exercise(first);
       assert.ok(workerEvents.slice(cpuEventStart).every(({ backend }) => backend === 'cpu'));
-
-      await this.select(first, 'cuda');
-      const cudaEventStart = workerEvents.length;
-      await this.exercise(first, 'cuda');
-      assert.ok(this.vramSampleCount > 0, 'CUDA smoke did not sample the selected device');
-      assert.ok(workerEvents.slice(cudaEventStart).every(({ backend }) => backend === 'cuda'));
     } finally {
       await this.close(first);
     }
@@ -145,9 +379,8 @@ class WindowsApplicationSmoke {
     try {
       const installed = restarted.environment.facts.snapshot.artifacts.filter(({ state }) => state === 'Installed');
       assert.ok(installed.some(({ revision }) => revision === CPU_RUNTIME_REVISION));
-      assert.ok(installed.some(({ revision }) => revision === CUDA_RUNTIME_REVISION));
       assert.ok(installed.some(({ revision }) => revision === MODEL_REVISION));
-      await this.exercise(restarted, 'cuda');
+      await this.exercise(restarted);
       assert.equal(offline.requestCount, 0, 'Offline restart attempted an artifact transfer');
     } finally {
       await this.close(restarted);
@@ -169,40 +402,29 @@ class WindowsApplicationSmoke {
     const environment = Object.freeze({
       ...process.env,
       APPDATA: configurationRoot,
+      CI: undefined,
       HOME: homeRoot,
       LOCALAPPDATA: localAppDataRoot,
+      NODE_ENV: 'production',
+      PACKET20_PRIVATE_AUDIO_CANARY: PRIVACY_CANARIES[1],
+      PACKET20_PRIVATE_CREDENTIAL_CANARY: PRIVACY_CANARIES[3],
+      PACKET20_PRIVATE_PATH_CANARY: PRIVACY_CANARIES[0],
+      PACKET20_PRIVATE_TRANSCRIPT_CANARY: PRIVACY_CANARIES[2],
       USERPROFILE: homeRoot,
     });
-    const vram = new NvidiaSmiVramAvailability({
-      platform: process.platform,
-      environment,
-      pathExists: fs.existsSync,
-      command: Object.freeze({
-        run: (executablePath: string, arguments_: readonly string[]) =>
-          new Promise<string>((resolve, reject) => {
-            execFile(
-              executablePath,
-              [...arguments_],
-              { encoding: 'utf8', maxBuffer: 64 * 1024, timeout: 10_000, windowsHide: true },
-              (error, stdout) => (error ? reject(new Error('Task 24 NVIDIA resource query failed')) : resolve(stdout)),
-            );
-          }),
-      }),
-    });
+    const nativeRuntimeLogRelay = new CapturingNativeRuntimeLogRelay();
     const dependencies: LocalWhisperProductionEnvironmentDependencies = {
       appRevision: this.packageVersion,
       architecture: process.arch,
       availableMemoryBytes: freemem,
-      availableVramBytes: async (nativeIdentity) => {
-        this.vramSampleCount += 1;
-        return await vram.sample(nativeIdentity);
-      },
+      availableVramBytes: () => Promise.reject(new Error('Windows CPU smoke forbids GPU resource probing')),
       configurationRoot,
       environment,
       fileSystem: fs,
       homeDirectory: () => homeRoot,
       logicalProcessorCount: availableParallelism(),
       nextRequestId: () => `task24-request-${++this.requestSequence}`,
+      nativeRuntimeLogRelay,
       now: Date.now,
       openPath: () => Promise.resolve(''),
       pid: process.pid,
@@ -226,6 +448,7 @@ class WindowsApplicationSmoke {
     return {
       environment: environmentInstance,
       coordinator: new LocalWhisperCoordinator(environmentInstance.coordinator),
+      nativeRuntimeLogRelay,
     };
   }
 
@@ -283,33 +506,15 @@ class WindowsApplicationSmoke {
     });
   }
 
-  private async select(session: ApplicationSession, backend: 'cpu' | 'cuda'): Promise<void> {
-    let deviceId = null;
-    if (backend === 'cuda') {
-      await session.environment.refreshDevices(session.coordinator.snapshot.epochs.configuration);
-      const devices = session.environment.facts.snapshot.options.filter(
-        (option) =>
-          option.group === 'device' &&
-          option.available &&
-          option.label.startsWith('NVIDIA GPU ') &&
-          option.compatibility.eligibleBackends.includes('cuda'),
-      );
-      assert.equal(devices.length, 1, 'Task 24 expected one renderer-safe NVIDIA device');
-      const device = devices[0];
-      deviceId = device ? toLocalWhisperOpaqueDeviceId(device.id) : null;
-      if (!deviceId) throw new Error('Task 24 renderer-safe NVIDIA device unavailable');
-    }
+  private async selectCpu(session: ApplicationSession): Promise<void> {
     const current = session.coordinator.snapshot;
     const candidate: LocalWhisperPublicSettings = {
       ...current.settings,
-      runtimeRevision: backend === 'cpu' ? CPU_RUNTIME_REVISION : CUDA_RUNTIME_REVISION,
+      runtimeRevision: CPU_RUNTIME_REVISION,
       model: { family: 'base', revision: MODEL_REVISION, variant: 'full' },
       language: 'auto',
       decoding: { strategy: 'greedy', temperatureHundredths: 0 },
-      execution:
-        backend === 'cpu'
-          ? { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' }
-          : { target: 'gpu', backend: 'cuda', deviceId },
+      execution: { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' },
     };
     requireSuccess(
       await session.coordinator.applySettingsTransaction({
@@ -319,24 +524,36 @@ class WindowsApplicationSmoke {
         expectedConfigurationEpoch: current.epochs.configuration,
         expectedInventoryEpoch: current.epochs.inventory,
       }),
-      `select-${backend}`,
+      'select-cpu',
     );
   }
 
-  private async exercise(session: ApplicationSession, backend: 'cpu' | 'cuda'): Promise<void> {
+  private async exercise(session: ApplicationSession): Promise<void> {
     const compatibility = await session.coordinator.checkCompatibility();
-    if (!compatibility.success) throw new Error(`${backend}-compatibility:${compatibility.error.code}`);
+    if (!compatibility.success) throw new Error(`cpu-compatibility:${compatibility.error.code}`);
     const load = await session.coordinator.loadNow();
-    if (!load.success) throw new Error(`${backend}-load:${load.error.code}`);
+    if (!load.success) throw new Error(`cpu-load:${load.error.code}`);
     const bytes = await readFile(WAV_PATH);
     const result = await session.coordinator.transcribe({
       dispatch: session.coordinator.captureDispatchSnapshot(),
       buffer: exactArrayBuffer(bytes),
       mimeType: 'audio/wav',
     });
-    const transcript = requireSuccess(result, `${backend}-transcribe`);
-    assert.ok(transcript.trim().length > 0, `Task 24 ${backend} transcript was empty`);
-    requireSuccess(await session.coordinator.unload(), `${backend}-unload`);
+    const transcript = requireSuccess(result, 'cpu-transcribe');
+    assert.ok(transcript.trim().length > 0, 'Task 24 CPU transcript was empty');
+    const requiredWorkerEvents = ['inferenceCompleted', 'requestCompleted'] as const;
+    assert.ok(
+      await session.nativeRuntimeLogRelay.waitForEvents('whisperWorker', requiredWorkerEvents),
+      'Task 24 CPU worker omitted required native events',
+    );
+    const archiveId = DIAGNOSTICS_ARCHIVE_IDS[this.archiveSequence];
+    assert.ok(archiveId, 'Task 24 diagnostics archive identity unavailable');
+    this.archiveSequence += 1;
+    this.diagnosticsArchiveDigest = await session.nativeRuntimeLogRelay.verifyProductionArchive(
+      this.packageVersion,
+      archiveId,
+    );
+    requireSuccess(await session.coordinator.unload(), 'cpu-unload');
   }
 }
 
@@ -363,8 +580,8 @@ async function main(): Promise<SmokeResult> {
   assert.equal(wavBytes.byteLength, WAV_SIZE_BYTES);
   assert.equal(wav, WAV_SHA256);
   await prepareOwnedRoot();
+  const smoke = new WindowsApplicationSmoke();
   try {
-    const smoke = new WindowsApplicationSmoke();
     const launcher: DevelopmentApplicationLauncher = (_executable, arguments_) => {
       const result = smoke.run(arguments_);
       return Promise.resolve({ waitForExit: () => result, terminate: () => undefined });
@@ -373,7 +590,14 @@ async function main(): Promise<SmokeResult> {
   } finally {
     await cleanupOwnedRoot();
   }
-  return { cpu: 'Pass', cuda: 'Pass', offlineReuse: 'Pass', cleanup: 'Pass' };
+  return {
+    cpu: 'Pass',
+    offlineReuse: 'Pass',
+    cleanup: 'Pass',
+    diagnosticsArchive: 'Pass',
+    diagnosticsArchiveSha256: smoke.diagnosticsArchiveSha256,
+    nativePrivacy: 'Pass',
+  };
 }
 
 main()

@@ -34,10 +34,11 @@ function compilerVersion(compiler, toolchain) {
   if (clang && !output.includes(`clang version ${clang.groups.major}.`)) {
     throw new Error(`Compiler does not match the required ${toolchain} profile`);
   }
-  if (toolchain === 'msvc-hosted' && !/Version 19\.\d+\./u.test(output)) {
-    throw new Error('Compiler does not report a supported hosted MSVC version');
+  if (toolchain === 'windows-x64-msvc-19.51-v1' && !/Version 19\.51\./u.test(output)) {
+    throw new Error('Compiler does not report the required hosted MSVC 19.51 version');
   }
-  if (toolchain !== 'msvc-hosted' && result.status !== 0) throw new Error(`Unable to verify compiler ${compiler}`);
+  if (toolchain !== 'windows-x64-msvc-19.51-v1' && result.status !== 0)
+    throw new Error(`Unable to verify compiler ${compiler}`);
   return (
     output
       .split(/\r?\n/u)
@@ -56,7 +57,7 @@ function verifyToolchain(toolchain, expectedOperatingSystem) {
   if (expectedOperatingSystem === 'linux' && !CLANG_TOOLCHAIN.test(toolchain)) {
     throw new Error('Linux runner evidence requires a clang-N toolchain profile');
   }
-  if (expectedOperatingSystem === 'windows' && toolchain !== 'msvc-hosted') {
+  if (expectedOperatingSystem === 'windows' && toolchain !== 'windows-x64-msvc-19.51-v1') {
     throw new Error('Windows runner evidence requires the hosted MSVC toolchain profile');
   }
 }

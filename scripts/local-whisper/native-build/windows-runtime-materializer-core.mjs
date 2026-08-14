@@ -225,7 +225,22 @@ function resolveFreshDestination(toolchainRoot, relativeDestination) {
   return Object.freeze({ canonicalRoot, destination });
 }
 
-export function materializeWindowsRuntime({ installerPath, lock, toolchainRoot }) {
+export function resolveWindowsRuntimeProofMode({ installerPath = null, installedRuntimeProof = false }) {
+  assert(typeof installedRuntimeProof === 'boolean', 'Windows installed-runtime proof flag is invalid');
+  const hasInstaller = typeof installerPath === 'string' && installerPath.length > 0;
+  assert(
+    hasInstaller !== installedRuntimeProof,
+    'Windows runtime materialization requires exactly one installer or installed-runtime proof mode',
+  );
+  return hasInstaller ? 'locked-installer' : 'installed-runtime';
+}
+
+export function materializeWindowsRuntime({
+  installerPath = null,
+  installedRuntimeProof = false,
+  lock,
+  toolchainRoot,
+}) {
   verifyWindowsRuntimeAcquisitionLock(lock);
   assert(
     process.platform === 'win32' && process.arch === 'x64',
@@ -239,14 +254,17 @@ export function materializeWindowsRuntime({ installerPath, lock, toolchainRoot }
     lock.materialization.relativeDestination,
   );
 
-  const canonicalInstaller = realpathSync(installerPath);
-  verifyFileIdentity(canonicalInstaller, lock.installer, 'Windows runtime installer');
-  verifySignedMetadata(
-    readSignedFileMetadata(systemRoot, canonicalInstaller),
-    lock.installer,
-    'Windows runtime installer',
-    lock.installer.publisherSubject,
-  );
+  const proofMode = resolveWindowsRuntimeProofMode({ installerPath, installedRuntimeProof });
+  if (proofMode === 'locked-installer') {
+    const canonicalInstaller = realpathSync(installerPath);
+    verifyFileIdentity(canonicalInstaller, lock.installer, 'Windows runtime installer');
+    verifySignedMetadata(
+      readSignedFileMetadata(systemRoot, canonicalInstaller),
+      lock.installer,
+      'Windows runtime installer',
+      lock.installer.publisherSubject,
+    );
+  }
 
   const licensePath = resolve(canonicalRoot, ...lock.license.path.split('/'));
   verifyFileIdentity(licensePath, lock.license, 'Windows runtime license');
@@ -285,6 +303,7 @@ export function materializeWindowsRuntime({ installerPath, lock, toolchainRoot }
       lockId: lock.lockId,
       target: lock.target,
       installedRuntimeVersion: lock.installedRuntime.version,
+      proofMode,
       source: lock.materialization.source,
       files: verifiedFiles.map(({ fileVersion, name, productVersion, sha256: digest, sizeBytes }) => ({
         fileVersion,

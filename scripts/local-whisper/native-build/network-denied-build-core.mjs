@@ -24,9 +24,13 @@ function assertBuildRoot(buildRoot) {
   }
 }
 
-function windowsAllowedPrograms(profile, toolchainRoot, command) {
-  const programs = new Set(profile.tools.map((tool) => resolveProfileTool(profile, toolchainRoot, tool.role)));
+function windowsAllowedPrograms(command, allowedPrograms) {
+  if (!Array.isArray(allowedPrograms) || allowedPrograms.length === 0) {
+    fail('Windows network boundary requires the prepared executable set');
+  }
+  const programs = new Set(allowedPrograms);
   programs.add(command);
+  programs.add(process.execPath);
   const result = [...programs];
   if (result.some((program) => !isAbsolute(program))) fail('Windows network boundary contains a non-absolute program');
   return result;
@@ -36,14 +40,21 @@ function windowsAllowedPrograms(profile, toolchainRoot, command) {
  * Resolves the OS-enforced command boundary used for every disconnected native
  * build phase. It deliberately has no proxy or boolean-only fallback.
  */
-export function resolveNetworkDeniedCommand({ profile, toolchainRoot, buildRoot, command, arguments_ }) {
+export function resolveNetworkDeniedCommand({
+  profile,
+  toolchainRoot,
+  buildRoot,
+  command,
+  arguments_,
+  allowedPrograms = null,
+}) {
   if (!profile?.target || !['linux', 'windows'].includes(profile.target.os)) {
     fail('network boundary profile target is invalid');
   }
   if (!isAbsolute(command) || !Array.isArray(arguments_)) fail('network boundary command is invalid');
   assertBuildRoot(buildRoot);
-  requireRole(profile, 'network-probe-runtime');
   if (profile.target.os === 'linux') {
+    requireRole(profile, 'network-probe-runtime');
     requireRole(profile, 'network-harness');
     return Object.freeze({
       arguments: Object.freeze(['-Urn', '--', command, ...arguments_]),
@@ -51,13 +62,11 @@ export function resolveNetworkDeniedCommand({ profile, toolchainRoot, buildRoot,
       strategy: LINUX_NETWORK_DENIAL_STRATEGY,
     });
   }
-  const networkProbe = resolveProfileTool(profile, toolchainRoot, 'network-probe-runtime');
   return Object.freeze({
     arguments: Object.freeze([
       WINDOWS_RUNNER_PATH,
       `--attempt-root=${buildRoot}`,
-      `--network-probe=${networkProbe}`,
-      ...windowsAllowedPrograms(profile, toolchainRoot, command).map((program) => `--allowed-program=${program}`),
+      ...windowsAllowedPrograms(command, allowedPrograms).map((program) => `--allowed-program=${program}`),
       '--',
       command,
       ...arguments_,

@@ -16,16 +16,23 @@ import {
 import { resolveNativeBuildToolPaths } from '../../../../scripts/local-whisper/native-build/native-build-tool-paths.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from '../../../../scripts/local-whisper/native-build/windows-msvc-build-environment.mjs';
 import { parseDumpbinDependencies } from '../../../../scripts/local-whisper/native-build/windows-pe-dependency-core.mjs';
-import { resolveWindowsRuntimeDependencyIdentities } from '../../../../scripts/local-whisper/native-build/windows-runtime-materializer-core.mjs';
+import { WINDOWS_SYSTEM_DEPENDENCIES } from '../../../../scripts/local-whisper/native-build/windows-runtime-pack-core.mjs';
 import {
+  resolveWindowsRuntimeDependencyIdentities,
+  resolveWindowsRuntimeProofMode,
+} from '../../../../scripts/local-whisper/native-build/windows-runtime-materializer-core.mjs';
+import {
+  parseMsvcCompilerExpectation,
   qualifyToolchainProfile,
   verifyToolchainContract,
 } from '../../../../scripts/local-whisper/native-build/native-toolchain-core.mjs';
 import {
+  cmakeToolPath,
   platformBuildCmakeArguments,
   resolvePreparedLinuxQualityTools,
   resolvePreparedWindowsQualityTools,
 } from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
+import { windowsRuntimeDllNames } from '../../../../scripts/local-whisper/verify-windows-runtime-pack.mjs';
 import {
   approveSourceCandidate,
   buildIndexManifest,
@@ -51,16 +58,42 @@ const CPU_BUILD_SCRIPT = readFileSync(
   resolve(workspaceRoot, 'scripts', 'local-whisper', 'build-whisper-cpp-core.mjs'),
   'utf8',
 );
+const FS_GUARD_BUILD_SCRIPT = readFileSync(
+  resolve(workspaceRoot, 'scripts', 'local-whisper', 'build-fs-guard.mjs'),
+  'utf8',
+);
+const FS_GUARD_QUALITY_SCRIPT = readFileSync(
+  resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-fs-guard-quality.mjs'),
+  'utf8',
+);
+const LAUNCHER_BUILD_SCRIPT = readFileSync(
+  resolve(workspaceRoot, 'scripts', 'local-whisper', 'build-launcher.mjs'),
+  'utf8',
+);
+const LAUNCHER_QUALITY_SCRIPT = readFileSync(
+  resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-launcher-quality.mjs'),
+  'utf8',
+);
 
 test('Windows runtime pack resolves static profile DLL identities only from the approved 14.51 lock', () => {
-  const profile = readJson(resolve(toolchainRoot, 'profiles', 'windows-x64-cpu-msvc-19.39-v1.json'));
+  const profile = readJson(resolve(toolchainRoot, 'profiles', 'windows-x64-cpu-msvc-19.51-v1.json'));
   const lock = readJson(resolve(toolchainRoot, 'locks', 'microsoft-vc-runtime-14.51.36247.0-x64-v1.json'));
+  assert.equal(profile.target.abi, 'msvc-v145-14.51-vc-runtime-14.51.36247.0-windows-sdk-10.0.26100.0');
+  assert.ok(
+    profile.tools
+      .filter(({ role }) => ['c-compiler', 'cxx-compiler'].includes(role))
+      .every(({ path }) => path.startsWith('msvc-14.51/')),
+  );
+  assert.ok(profile.sbomComponents.includes('msvc-14.51'));
+  assert.ok(!profile.sbomComponents.includes('msvc-14.39'));
   const dependencies = resolveWindowsRuntimeDependencyIdentities({ dependencies: profile.dynamicDependencies, lock });
 
   assert.deepEqual(
     dependencies.map(({ id, sha256: digest }) => [id, digest]),
     lock.materialization.dllAllowlist
-      .filter(({ name }) => ['msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'].includes(name))
+      .filter(({ name }) =>
+        ['msvcp140.dll', 'msvcp140_atomic_wait.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'].includes(name),
+      )
       .map(({ fileVersion, name, sha256: digest }) => [
         `microsoft-vc-runtime-${fileVersion}-${name.slice(0, -'.dll'.length).replaceAll('_', '-')}`,
         digest,
@@ -72,8 +105,29 @@ test('Windows runtime pack resolves static profile DLL identities only from the 
   assert.throws(() => resolveWindowsRuntimeDependencyIdentities({ dependencies: conflicting, lock }), /conflicts/u);
 });
 
+test('Windows compiler verification derives the exact _MSC_VER from the selected profile', () => {
+  assert.deepEqual(
+    parseMsvcCompilerExpectation('Microsoft (R) C/C++ Optimizing Compiler Version 19.51 (_MSC_VER=1951)'),
+    {
+      banner: 'Microsoft (R) C/C++ Optimizing Compiler Version 19.51',
+      mscVer: '1951',
+    },
+  );
+  assert.throws(() => parseMsvcCompilerExpectation('Microsoft compiler latest'));
+});
+
+test('Windows runtime materialization requires one exact acquisition proof mode', () => {
+  assert.equal(resolveWindowsRuntimeProofMode({ installerPath: 'locked-installer.exe' }), 'locked-installer');
+  assert.equal(resolveWindowsRuntimeProofMode({ installedRuntimeProof: true }), 'installed-runtime');
+  assert.throws(() => resolveWindowsRuntimeProofMode({}));
+  assert.throws(() =>
+    resolveWindowsRuntimeProofMode({ installerPath: 'locked-installer.exe', installedRuntimeProof: true }),
+  );
+  assert.throws(() => resolveWindowsRuntimeProofMode({ installedRuntimeProof: 'true' }));
+});
+
 test('only the Windows quality build can omit runtime-pack staging', () => {
-  assert.match(CPU_BUILD_SCRIPT, /skipRuntimePack && profileId !== 'windows-x64-cpu-msvc-19\.39-v1'/u);
+  assert.match(CPU_BUILD_SCRIPT, /skipRuntimePack && profileId !== 'windows-x64-cpu-msvc-19\.51-v1'/u);
   assert.match(CPU_BUILD_SCRIPT, /Skipping runtime-pack staging is reserved for Windows native quality builds/u);
 });
 
@@ -407,7 +461,7 @@ test('toolchain schemas preserve Linux candidates and Windows qualification-only
     assert.equal(validate(profile), true, `${profileId}: ${JSON.stringify(validate.errors)}`);
     assert.equal(verifyToolchainContract(profile, { allowCandidate: true, contractOnly: false }), true);
   }
-  for (const profileId of ['windows-x64-cpu-msvc-19.39-v1', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1']) {
+  for (const profileId of ['windows-x64-cpu-msvc-19.51-v1', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1']) {
     const profile = readJson(resolve(profilesRoot, `${profileId}.json`));
     assert.equal(validate(profile), true, `${profileId}: ${JSON.stringify(validate.errors)}`);
     assert.equal(verifyToolchainContract(profile, { contractOnly: true }), true);
@@ -522,21 +576,30 @@ test('Windows native tool paths honor explicit developer-environment commands', 
 
 test('Windows Whisper.cpp quality uses only explicit prepared developer tools', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-quality-tools-'));
+  const sdkLibraryRoot = resolve(root, 'sdk', 'Lib', '10.0.26100.0', 'um', 'x64');
+  const sdkBinaryRoot = resolve(root, 'sdk', 'bin', '10.0.26100.0', 'x64');
+  mkdirSync(sdkLibraryRoot, { recursive: true });
+  mkdirSync(sdkBinaryRoot, { recursive: true });
   const paths = Object.fromEntries(
-    ['cmake.exe', 'ctest.exe', 'cl.exe', 'ninja.exe'].map((name) => {
-      const path = resolve(root, name);
-      writeFileSync(path, 'fixture\n');
-      return [name, path];
-    }),
+    ['cmake.exe', 'ctest.exe', 'cl.exe', 'dumpbin.exe', 'lib.exe', 'link.exe', 'ninja.exe', 'mt.exe', 'rc.exe'].map(
+      (name) => {
+        const path = ['mt.exe', 'rc.exe'].includes(name) ? resolve(sdkBinaryRoot, name) : resolve(root, name);
+        writeFileSync(path, 'fixture\n');
+        return [name, path];
+      },
+    ),
   );
+  writeFileSync(resolve(sdkLibraryRoot, 'kernel32.lib'), 'fixture\n');
   assert.deepEqual(
     resolvePreparedWindowsQualityTools({
       CMAKE_COMMAND: paths['cmake.exe'],
       CTEST_COMMAND: paths['ctest.exe'],
       CXX: paths['cl.exe'],
+      LIB: sdkLibraryRoot,
       NINJA_COMMAND: paths['ninja.exe'],
     }),
     {
+      archiver: paths['lib.exe'],
       cmake: paths['cmake.exe'],
       ctest: paths['ctest.exe'],
       cCompiler: paths['cl.exe'],
@@ -545,7 +608,10 @@ test('Windows Whisper.cpp quality uses only explicit prepared developer tools', 
       cudaCompiler: null,
       cudaHostCompiler: null,
       inputs: null,
-      linker: null,
+      linker: paths['link.exe'],
+      manifestTool: paths['mt.exe'],
+      peInspector: paths['dumpbin.exe'],
+      resourceCompiler: paths['rc.exe'],
     },
   );
   assert.throws(() => resolvePreparedWindowsQualityTools({}));
@@ -554,6 +620,43 @@ test('Windows Whisper.cpp quality uses only explicit prepared developer tools', 
 test('Windows production worker builds disable optional ccache in the sanitized MSVC environment', () => {
   assert.deepEqual(platformBuildCmakeArguments({ target: { os: 'windows' } }), ['-DGGML_CCACHE=OFF']);
   assert.deepEqual(platformBuildCmakeArguments({ target: { os: 'linux' } }), []);
+});
+
+test('CMake tool paths use portable separators on Windows without changing Linux paths', () => {
+  assert.equal(
+    cmakeToolPath({ target: { os: 'windows' } }, 'C:\\Program Files\\tool.exe'),
+    'C:/Program Files/tool.exe',
+  );
+  assert.equal(cmakeToolPath({ target: { os: 'linux' } }, '/opt/tool'), '/opt/tool');
+});
+
+test('Windows Release component builds bind the prepared SDK resource and manifest tools', () => {
+  for (const source of [FS_GUARD_BUILD_SCRIPT, LAUNCHER_BUILD_SCRIPT]) {
+    assert.match(source, /resolvePreparedWindowsSdkInputs\(process\.env\)/u);
+    assert.match(source, /-DCMAKE_RC_COMPILER=/u);
+    assert.match(source, /-DCMAKE_MT=/u);
+    assert.match(source, /windowsCmakePath/u);
+  }
+});
+
+test('Windows native component quality binds every exact prepared CMake tool input', () => {
+  for (const source of [FS_GUARD_QUALITY_SCRIPT, LAUNCHER_QUALITY_SCRIPT]) {
+    assert.match(source, /resolvePreparedWindowsSdkInputs\(process\.env\)/u);
+    assert.match(source, /-DCMAKE_CXX_COMPILER=/u);
+    assert.match(source, /-DCMAKE_MAKE_PROGRAM=/u);
+    assert.match(source, /-DCMAKE_RC_COMPILER=/u);
+    assert.match(source, /-DCMAKE_MT=/u);
+    assert.match(source, /windowsCmakePath/u);
+  }
+});
+
+test('Windows launcher preserves the bounded native logging environment for its worker', () => {
+  const source = readFileSync(
+    resolve(workspaceRoot, 'runtime/local-whisper/launcher/src/platform/windows/windows_launcher.cpp'),
+    'utf8',
+  );
+  assert.match(source, /L"LOCAL_WHISPER_NATIVE_LOG_LEVEL"/u);
+  assert.match(source, /L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID"/u);
 });
 
 test('Linux Whisper.cpp quality selects explicit prepared tools for each compiler profile', () => {
@@ -632,6 +735,23 @@ test('Windows PE dependency parser is case-preserving, closed, and rejects dupli
   );
   assert.throws(() => parseDumpbinDependencies('KERNEL32.dll\r\nkernel32.DLL\r\n'));
   assert.throws(() => parseDumpbinDependencies('no imports'));
+});
+
+test('Windows PE closure recognizes the atomic-wait runtime API set as system-owned', () => {
+  assert.deepEqual(
+    WINDOWS_SYSTEM_DEPENDENCIES.filter(({ name }) => name === 'api-ms-win-core-synch-l1-2-0.dll'),
+    [{ id: 'windows-api-core-sync-1', name: 'api-ms-win-core-synch-l1-2-0.dll' }],
+  );
+});
+
+test('Windows CPU runtime audit requires the import-derived atomic-wait sidecar', () => {
+  assert.deepEqual(windowsRuntimeDllNames('cpu'), [
+    'msvcp140.dll',
+    'msvcp140_atomic_wait.dll',
+    'vcruntime140.dll',
+    'vcruntime140_1.dll',
+  ]);
+  assert.throws(() => windowsRuntimeDllNames('unsupported'));
 });
 
 test('CUDA profile rejects native, virtual, bare, and silently changed architectures', () => {

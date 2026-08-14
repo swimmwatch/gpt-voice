@@ -165,7 +165,7 @@ test('the verifier rejects an expected output reached through an out-of-root par
     const expectedBinary = resolve(escapedRoot, 'local-whisper', 'fs-guard', 'fs-guard');
     mkdirSync(resolve(expectedBinary, '..'), { recursive: true });
     writeFileSync(expectedBinary, elfFixture());
-    symlinkSync(escapedRoot, resolve(workspaceRoot, '.cache'));
+    symlinkSync(escapedRoot, resolve(workspaceRoot, '.cache'), process.platform === 'win32' ? 'junction' : 'dir');
     assert.throws(
       () => verifyNativeHardening({ manifest: createNativeHardeningManifest('linux'), workspaceRoot }),
       /escaped the Local Whisper workspace root/u,

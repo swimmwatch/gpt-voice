@@ -16,8 +16,8 @@ try {
     throw new Error('Expected --suite=all, core, loader, device-proof, or cancellation');
   const suites = suite === 'all' ? ['core', 'loader', 'device-proof', 'cancellation'] : [suite];
   if (process.platform === 'win32') {
-    const profileId = arguments_.get('profile') ?? 'windows-x64-cpu-msvc-19.39-v1';
-    if (profileId !== 'windows-x64-cpu-msvc-19.39-v1') {
+    const profileId = arguments_.get('profile') ?? 'windows-x64-cpu-msvc-19.51-v1';
+    if (profileId !== 'windows-x64-cpu-msvc-19.51-v1') {
       throw new Error('Windows native quality requires the exact Task 24 CPU profile');
     }
     const sanitizers = arguments_.get('sanitizers') === 'address';

@@ -388,7 +388,9 @@ void write_acknowledgment(int descriptor, DWORD worker_pid) {
 
 std::vector<wchar_t> sanitized_environment() {
   std::vector<std::wstring> entries;
-  for (const wchar_t* key : {L"SystemRoot", L"WINDIR"}) {
+  for (const wchar_t* key : {L"LOCAL_WHISPER_NATIVE_LOG_LEVEL",
+                             L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID", L"SystemRoot",
+                             L"WINDIR"}) {
     const DWORD length = GetEnvironmentVariableW(key, nullptr, 0);
     if (length == 0)
       continue;

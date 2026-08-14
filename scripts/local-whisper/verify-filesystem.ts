@@ -10,6 +10,10 @@ import { ManagedArtifactPathResolver } from '../../src/main/localWhisper/filesys
 import type { ManagedFilesystemPlatformAdapter } from '../../src/main/localWhisper/filesystem/ManagedFilesystemPlatformAdapter';
 import { NativeManagedFilesystemGuardTransport } from '../../src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport';
 import { WindowsManagedFilesystemAdapter } from '../../src/main/localWhisper/filesystem/WindowsManagedFilesystemAdapter';
+import { createNativeRuntimeLogLaunchEnvironment } from '../../src/main/localWhisper/supervisor/NativeRuntimeLogLaunchEnvironment';
+
+const MAX_GUARD_LINE_BYTES = 256 * 1024;
+const GUARD_FAILURE_TIMEOUT_MS = 10_000;
 
 const allowedArguments = new Set(['--fixture']);
 if (process.argv.slice(2).some((argument) => !allowedArguments.has(argument))) {
@@ -33,6 +37,33 @@ if (arch() !== 'x64') {
   process.exit(2);
 }
 
+async function verifyOversizedGuardRestart(executablePath: string): Promise<void> {
+  const child = spawn(executablePath, [], {
+    env: createNativeRuntimeLogLaunchEnvironment('win32', process.env, randomUUID()),
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  child.stdout.resume();
+  child.stderr.resume();
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('Oversized guard input did not terminate its owned process'));
+    }, GUARD_FAILURE_TIMEOUT_MS);
+    child.once('error', (error) => {
+      clearTimeout(timeout);
+      reject(new Error(`Oversized guard process failed to start: ${error.message}`));
+    });
+    child.once('exit', (code, signal) => {
+      clearTimeout(timeout);
+      if (signal || code === 0) reject(new Error('Oversized guard input was not rejected'));
+      else resolve();
+    });
+    child.stdin.end(`${'x'.repeat(MAX_GUARD_LINE_BYTES + 1)}\n`, 'utf8');
+  });
+}
+
 async function main(): Promise<void> {
   const temporaryRoot = mkdtempSync(path.join(tmpdir(), 'gpt-voice-local-whisper-verify-'));
   if (!path.basename(temporaryRoot).startsWith('gpt-voice-local-whisper-verify-')) {
@@ -49,14 +80,16 @@ async function main(): Promise<void> {
       platform: hostPlatform,
     }).resolve();
     if (resolution.availability !== 'available') throw new Error('Managed storage unavailable');
+    const guardExecutablePath = path.resolve(
+      '.cache',
+      'local-whisper',
+      'fs-guard',
+      hostPlatform === 'win32' ? 'fs-guard.exe' : 'fs-guard',
+    );
+    if (hostPlatform === 'win32') await verifyOversizedGuardRestart(guardExecutablePath);
     const transport = new NativeManagedFilesystemGuardTransport({
       environment: process.env,
-      executablePath: path.resolve(
-        '.cache',
-        'local-whisper',
-        'fs-guard',
-        hostPlatform === 'win32' ? 'fs-guard.exe' : 'fs-guard',
-      ),
+      executablePath: guardExecutablePath,
       generateProcessInstanceId: randomUUID,
       platform: hostPlatform,
       spawnProcess: spawn,

@@ -117,6 +117,9 @@ test('Local Whisper uses independent native lanes with stable fail-closed platfo
   assert.doesNotMatch(nativeJobs, /continue-on-error/u);
   assert.doesNotMatch(workflowText, /ubuntu-22\.04|ubuntu-26\.04|windows-2022/u);
   assert.match(msvcAction, /vcvarsall\.bat/u);
+  assert.match(msvcAction, /VCToolsVersion.*14\.51/u);
+  assert.match(msvcAction, /\[regex\]::Match\(\$compilerBanner, 'Version\\s\+/u);
+  assert.match(msvcAction, /StartsWith\('19\.51\.'/u);
   assert.match(msvcAction, /\$env:PATH = \$values\['PATH'\]/u);
   assert.match(msvcAction, /Get-Command (?:cmake|ctest|cl|ninja)\.exe/u);
 });
@@ -175,6 +178,7 @@ test('Windows core, analysis, and ASan lanes retain the complete required surfac
   assert.match(core, /test:local-whisper:fs-guard:native/u);
   assert.match(core, /test:local-whisper:whisper-cpp-core/u);
   assert.match(core, /verify:local-whisper:native-hardening -- --platform=windows/u);
+  assert.match(core, /windows-x64-cpu-msvc-19\.51-v1/u);
   assert.match(core, /windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1/u);
   assert.match(core, /vulkan-windows-x64/u);
   assert.match(core, /category":"\/language:c-cpp,host:windows/u);
@@ -251,7 +255,7 @@ test('Native analysis and CodeQL retain real host builds and source inclusion co
   assert.equal(count(workflowText, 'languages: c-cpp'), 2);
   assert.equal(count(workflowText, 'languages: javascript-typescript'), 1);
   assert.equal(count(workflowText, 'build-mode: manual'), 2);
-  assert.match(workflowText, /schedule:\n {4}- cron: '17 3 \* \* 1'/u);
+  assert.match(workflowText, /schedule:\r?\n {4}- cron: '17 3 \* \* 1'/u);
   assert.match(workflowText, /- \.github\/codeql-config\.yml/u);
   assert.match(workflowText, /- scripts\/\*\*/u);
   assert.match(workflowText, /- src\/renderer\/\*\*/u);
@@ -260,7 +264,10 @@ test('Native analysis and CodeQL retain real host builds and source inclusion co
   assert.match(codeqlConfig, /src\/shared/u);
   assert.match(codeqlConfig, /scripts/u);
   assert.match(nativeHardening, /LOCAL_WHISPER_MSVC_ANALYZE/u);
-  assert.match(nativeHardening, /target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external-\)/u);
+  assert.match(
+    nativeHardening,
+    /target_compile_options\(\$\{target\} PRIVATE \/analyze \/analyze:external- \/external:W0 \/analyze:autolog-\)/u,
+  );
   assert.ok(windowsBuildDrivers.every((driver) => driver.includes('LOCAL_WHISPER_MSVC_ANALYZE=ON')));
   assert.ok(windowsBuildDrivers.every((driver) => !driver.includes('CMAKE_CXX_FLAGS=/analyze')));
   assert.ok(analyzerConfigurations.every((configuration) => configuration.includes('clang-analyzer-*')));

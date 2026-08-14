@@ -155,7 +155,7 @@ describe('diagnostics archive format adapter', () => {
         members.map((member) => member.name),
       );
       for (const member of members) assert.equal(extracted.get(member.name)?.equals(member.payload), true);
-      if (platform !== 'win32') {
+      if (platform !== 'win32' && process.platform !== 'win32') {
         assert.equal((fs.statSync(outputPath).mode & 0o777) === 0o600, true);
       }
     }

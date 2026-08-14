@@ -49,7 +49,7 @@ function verifySchema() {
 }
 
 function verifyFailClosedWindowsProfiles() {
-  for (const profileId of ['windows-x64-cpu-msvc-19.39-v1', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1']) {
+  for (const profileId of ['windows-x64-cpu-msvc-19.51-v1', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1']) {
     const profile = readJson(resolve(profilesRoot, `${profileId}.json`));
     let rejected = false;
     try {

@@ -31,7 +31,7 @@ const WINDOWS_RUNTIME_LOCK_PATH = resolve(
   'microsoft-vc-runtime-14.51.36247.0-x64-v1.json',
 );
 
-const WINDOWS_SYSTEM_DEPENDENCIES = Object.freeze(
+export const WINDOWS_SYSTEM_DEPENDENCIES = Object.freeze(
   [
     ['windows-api-core-console', 'api-ms-win-core-console-l1-1-0.dll'],
     ['windows-api-core-debug', 'api-ms-win-core-debug-l1-1-0.dll'],
@@ -49,6 +49,7 @@ const WINDOWS_SYSTEM_DEPENDENCIES = Object.freeze(
     ['windows-api-core-rtl-support', 'api-ms-win-core-rtlsupport-l1-1-0.dll'],
     ['windows-api-core-string', 'api-ms-win-core-string-l1-1-0.dll'],
     ['windows-api-core-sync', 'api-ms-win-core-synch-l1-1-0.dll'],
+    ['windows-api-core-sync-1', 'api-ms-win-core-synch-l1-2-0.dll'],
     ['windows-api-core-system-info', 'api-ms-win-core-sysinfo-l1-1-0.dll'],
     ['windows-api-security-system-functions', 'api-ms-win-security-systemfunctions-l1-1-0.dll'],
     ['windows-advapi32', 'ADVAPI32.dll'],
@@ -136,7 +137,7 @@ function assertCudaArchitecture(worker) {
   }
 }
 
-export function stageWindowsRuntimePack({ backend, buildRoot, profile }) {
+export function stageWindowsRuntimePack({ backend, buildRoot, profile, tools = null }) {
   if (profile.target.os !== 'windows' || profile.target.architecture !== 'x64') {
     throw new Error('Windows runtime staging requires a Windows x64 execution profile');
   }
@@ -176,7 +177,7 @@ export function stageWindowsRuntimePack({ backend, buildRoot, profile }) {
     stagedDependencies.push(Object.freeze({ id: dependency.id, name, path: target }));
   }
 
-  const inspector = resolveProfileTool(profile, toolchainRoot, 'pe-inspector');
+  const inspector = tools?.peInspector ?? resolveProfileTool(profile, toolchainRoot, 'pe-inspector');
   const dependencyClosure = verifyWindowsPeDependencyClosure({
     entrypoint: worker,
     environment: inspectorEnvironment(inspector),

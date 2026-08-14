@@ -17,8 +17,11 @@ import { DevelopmentRuntimeAttestationStore } from '@scripts/local-whisper/devel
 import type { DevelopmentRuntimeInput } from '@scripts/local-whisper/development/DevelopmentRuntimeInputs';
 import { EphemeralQualificationTlsIdentityFactory } from '@scripts/local-whisper/qualification/EphemeralQualificationTlsIdentity';
 
-function runtime(backend: 'cpu' | 'cuda', index: number): DevelopmentRuntimeInput {
-  const platform = process.platform === 'win32' ? 'win32' : 'linux';
+function runtime(
+  backend: 'cpu' | 'cuda',
+  index: number,
+  platform: 'linux' | 'win32' = process.platform === 'win32' ? 'win32' : 'linux',
+): DevelopmentRuntimeInput {
   return Object.freeze({
     backend,
     archivePath: `/tmp/development-${backend}.tar.gz`,
@@ -56,12 +59,51 @@ function runtime(backend: 'cpu' | 'cuda', index: number): DevelopmentRuntimeInpu
 }
 
 describe('DevelopmentActivationDescriptorProducer', () => {
-  it('produces a strict public descriptor for two runtimes and all six exact models', async () => {
+  it('persists an exact CPU-only runtime attestation for Windows execution', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-producer-'));
+    try {
+      const runtimes = [runtime('cpu', 0, 'win32')];
+      const attestations = new DevelopmentRuntimeAttestationStore();
+      const attestationPath = path.join(root, 'runtime-attestation.json');
+      const runtimeAttestation = await attestations.load(attestationPath, runtimes);
+      assert.deepEqual(
+        runtimeAttestation.runtimes.map(({ backend }) => backend),
+        ['cpu'],
+      );
+      assert.deepEqual(await attestations.load(attestationPath, runtimes), runtimeAttestation);
+      await assert.rejects(
+        () => attestations.load(attestationPath, [runtime('cuda', 1)]),
+        /attestation input invalid/u,
+      );
+      const producer = new DevelopmentActivationDescriptorProducer();
+      const input = {
+        appRevision: '2.4.0',
+        certificatePem: 'public-certificate',
+        descriptorPath: path.join(root, 'windows-activation.json'),
+        platform: 'win32' as const,
+        resourcesPath: path.join(root, 'resources'),
+        runtimeAttestation,
+        runtimeOrigin: 'https://127.0.0.1:39443',
+        runtimes,
+        sourceCommit: 'a'.repeat(40),
+      };
+      await producer.produce(input);
+      await assert.rejects(
+        () => producer.produce({ ...input, runtimes: [...runtimes, runtime('cuda', 1, 'win32')] }),
+        /descriptor input invalid/u,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('produces a strict public descriptor for the host executable runtimes and all six exact models', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-producer-'));
     const tls = await new EphemeralQualificationTlsIdentityFactory().create(path.join(root, 'trust'));
     try {
       const descriptorPath = path.join(root, 'activation.json');
-      const runtimes = [runtime('cpu', 0), runtime('cuda', 1)];
+      const platform = process.platform === 'win32' ? 'win32' : 'linux';
+      const runtimes = platform === 'win32' ? [runtime('cpu', 0)] : [runtime('cpu', 0), runtime('cuda', 1)];
       const attestations = new DevelopmentRuntimeAttestationStore();
       const runtimeAttestation = await attestations.load(path.join(root, 'runtime-attestation.json'), runtimes);
       assert.deepEqual(
@@ -73,7 +115,7 @@ describe('DevelopmentActivationDescriptorProducer', () => {
         appRevision: '2.4.0',
         certificatePem: tls.certificatePem,
         descriptorPath,
-        platform: process.platform === 'win32' ? 'win32' : 'linux',
+        platform,
         resourcesPath: path.join(root, 'resources'),
         runtimeAttestation,
         runtimeOrigin: 'https://127.0.0.1:39443',
@@ -112,10 +154,11 @@ describe('DevelopmentActivationDescriptorProducer', () => {
           buildRevision: identity.buildRevision,
           qualificationStatus,
         })),
-        [
-          { backend: 'cpu', buildRevision: '5'.repeat(64), qualificationStatus: 'estimateOnly' },
-          { backend: 'cuda', buildRevision: '6'.repeat(64), qualificationStatus: 'estimateOnly' },
-        ],
+        runtimes.map(({ backend, catalog }) => ({
+          backend,
+          buildRevision: catalog.buildRevision,
+          qualificationStatus: 'estimateOnly',
+        })),
       );
       assert.deepEqual(
         loaded.catalog.payload.models.map(({ identity, transferSizeBytes, transferSha256, source }) => ({

@@ -36,8 +36,10 @@ std::string base64url_decode(const std::string_view input) {
   inverse.fill(-1);
   constexpr std::string_view table =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  for (std::size_t index = 0; index < table.size(); ++index) {
-    inverse[static_cast<unsigned char>(table[index])] = static_cast<int>(index);
+  int alphabet_value = 0;
+  for (const unsigned char character : table) {
+    inverse[character] = alphabet_value;
+    ++alphabet_value;
   }
   std::string result;
   std::uint32_t accumulator = 0;

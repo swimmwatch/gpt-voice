@@ -295,9 +295,9 @@ function verifyLinux(profileId) {
   assert.match(linuxShards, /build:local-whisper:whisper-cpp-cpu/u);
   assert.match(linuxShards, /audit:local-whisper:whisper-cpp-pack/u);
   assert.match(windowsCore, /runs-on: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
-  assert.match(windowsCore, /windows-x64-cpu-msvc-19\.39-v1/u);
+  assert.match(windowsCore, /windows-x64-cpu-msvc-19\.51-v1/u);
   assert.match(windowsShards, /runs-on: \$\{\{ matrix\.runner \}\}/u);
-  assert.match(windowsShards, /windows-x64-cpu-msvc-19\.39-v1/u);
+  assert.match(windowsShards, /windows-x64-cpu-msvc-19\.51-v1/u);
   const manifest = JSON.parse(readFileSync(resolve(pack.root, 'runtime-manifest.json'), 'utf8'));
   const registry = captureWorkerRegistry(pack.binary, {
     backendId: 'cpu',
@@ -498,7 +498,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const contractOnly = arguments_.has('contract-only');
     const includeCancellation = arguments_.has('include-cancellation');
     if (typeof profileId !== 'string') throw new Error('Expected --profile=<profile-id>');
-    if (profileId === 'windows-x64-cpu-msvc-19.39-v1') {
+    if (profileId === 'windows-x64-cpu-msvc-19.51-v1') {
       if (includeCancellation) throw new Error('Windows CPU cancellation is owned by the native integration suite');
       if (mode !== 'verify') throw new Error('Windows CPU verification supports verify mode only');
       if (contractOnly) verifyWindowsSourceContract(profileId);

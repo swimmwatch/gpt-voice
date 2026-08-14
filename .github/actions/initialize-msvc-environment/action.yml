@@ -14,7 +14,7 @@ runs:
         if (!(Test-Path -LiteralPath $vcvars)) { throw 'Visual Studio x64 developer environment is unavailable' }
         $captured = & cmd.exe /d /c "call `"$vcvars`" x64 && set"
         if ($LASTEXITCODE -ne 0) { throw 'Visual Studio developer environment initialization failed' }
-        $required = @('INCLUDE', 'LIB', 'LIBPATH', 'PATH', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR')
+        $required = @('INCLUDE', 'LIB', 'LIBPATH', 'PATH', 'SystemRoot', 'TEMP', 'TMP', 'VCToolsVersion', 'WINDIR')
         $values = @{}
         foreach ($line in $captured) {
           $separator = $line.IndexOf('=')
@@ -24,11 +24,20 @@ runs:
           if ([string]::IsNullOrWhiteSpace($values[$name])) { throw "Visual Studio developer environment omitted $name" }
           Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($values[$name])" -Encoding utf8
         }
+        if (!$values['VCToolsVersion'].StartsWith('14.51.', [System.StringComparison]::Ordinal)) {
+          throw 'Visual Studio developer environment does not provide the required MSVC 14.51 toolset'
+        }
         $env:PATH = $values['PATH']
+        $compiler = (Get-Command cl.exe -ErrorAction Stop).Source
+        $compilerBanner = (& $compiler 2>&1 | Out-String)
+        $compilerVersion = [regex]::Match($compilerBanner, 'Version\s+(?<version>\d+\.\d+\.\d+)')
+        if (!$compilerVersion.Success -or !$compilerVersion.Groups['version'].Value.StartsWith('19.51.', [System.StringComparison]::Ordinal)) {
+          throw 'Visual Studio developer environment does not provide the required MSVC 19.51 compiler'
+        }
         $tools = @{
           CMAKE_COMMAND = (Get-Command cmake.exe -ErrorAction Stop).Source
           CTEST_COMMAND = (Get-Command ctest.exe -ErrorAction Stop).Source
-          CXX = (Get-Command cl.exe -ErrorAction Stop).Source
+          CXX = $compiler
           NINJA_COMMAND = (Get-Command ninja.exe -ErrorAction Stop).Source
         }
         foreach ($name in $tools.Keys) {

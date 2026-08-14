@@ -26,6 +26,21 @@ export interface DevelopmentActivationDescriptorInput {
   readonly sourceCommit: string;
 }
 
+function hasExecutableRuntimeSet(input: DevelopmentActivationDescriptorInput): boolean {
+  const backends = new Set(input.runtimes.map(({ backend }) => backend));
+  const expectedBackends = input.platform === 'win32' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
+  return (
+    input.runtimes.length === expectedBackends.length &&
+    expectedBackends.every((backend) => backends.has(backend)) &&
+    input.runtimeAttestation.runtimes.length === input.runtimes.length &&
+    input.runtimes.every((runtime) =>
+      input.runtimeAttestation.runtimes.some(
+        (entry) => entry.backend === runtime.backend && entry.archiveSha256 === runtime.archiveSha256,
+      ),
+    )
+  );
+}
+
 /** Generates one public-only canonical descriptor and never persists its ephemeral signing key. */
 export class DevelopmentActivationDescriptorProducer {
   public async produce(input: DevelopmentActivationDescriptorInput): Promise<void> {
@@ -33,8 +48,7 @@ export class DevelopmentActivationDescriptorProducer {
       !path.isAbsolute(input.descriptorPath) ||
       !path.isAbsolute(input.resourcesPath) ||
       !/^[a-f\d]{40}$/u.test(input.sourceCommit) ||
-      input.runtimes.length !== 2 ||
-      new Set(input.runtimes.map(({ backend }) => backend)).size !== 2 ||
+      !hasExecutableRuntimeSet(input) ||
       input.runtimes.some(({ catalog }) => catalog.platform !== input.platform || catalog.architecture !== 'x64')
     ) {
       throw new Error('Local Whisper development descriptor input invalid');

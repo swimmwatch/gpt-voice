@@ -10,10 +10,10 @@ namespace local_whisper::fs_guard {
 namespace {
 
 bool is_runtime_launch_file_name(const std::string_view value) noexcept {
-  constexpr std::array<std::string_view, 8> exact_names = {
-      "worker",           "worker.exe",         "msvcp140.dll",
-      "vcruntime140.dll", "vcruntime140_1.dll", "cudart64_12.dll",
-      "cublas64_12.dll",  "cublasLt64_12.dll"};
+  constexpr std::array<std::string_view, 9> exact_names = {
+      "worker",                   "worker.exe",         "msvcp140.dll",
+      "msvcp140_atomic_wait.dll", "vcruntime140.dll",   "vcruntime140_1.dll",
+      "cudart64_12.dll",          "cublas64_12.dll",    "cublasLt64_12.dll"};
   for (const auto name : exact_names) {
     if (value == name)
       return true;
