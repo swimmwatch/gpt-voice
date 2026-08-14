@@ -1,9 +1,12 @@
 # Local Whisper Performance Remediation Specification
 
-Status: Approved  
-Date: 2026-08-08  
-Approval: Explicit `approve` recorded in the persistent `spec:local-whisper-performance-remediation` interview  
-Decision ledger: [`decisions.yaml`](decisions.yaml)
+- Status: Approved
+- Date: 2026-08-08
+- Updated: 2026-08-14
+- Revision basis: repository `e49b5790c6b0b1a6fe417b920da8f45df365fe2f`; relevant native source through `2304c16e6f4251e0bbf77afa96ea83a12558ff6b`
+- Approval: revision 2 was explicitly approved in the persistent `spec:local-whisper-performance-remediation` interview on 2026-08-14
+- Previous approval: revision 1 is retained as superseded historical evidence
+- Decision ledger: [`decisions.yaml`](decisions.yaml)
 
 ## 1. Purpose and authority
 
@@ -25,22 +28,51 @@ thread safety, resource ownership, privacy, and deterministic recovery.
 **SCP-003** Approval of this specification authorizes neither planning nor implementation. `/plan` is a
 separate, later workflow.
 
+**SCP-007** This revision SHALL reconcile the performance contract with the current C++ implementation. It SHALL
+remove obsolete prerequisite work, retain completed native safety foundations as inherited constraints, and keep
+only performance behavior that remains unmet.
+
 ## 2. Repository-established baseline
 
-The following facts define the starting point and SHALL be re-established by qualification rather than treated
-as unverified timing claims:
+**BASE-001** The revision basis above establishes the current implementation snapshot. The following completed
+native foundations are inherited and SHALL NOT be recreated as performance work:
 
-- a successful full model load currently performs eight full model hashes on Linux and seven on Windows;
-- installation chunks are currently base64url-encoded twice;
-- a 192 KiB raw chunk cannot fit the private guard's 262,144-byte complete-line limit;
-- the filesystem guard is intentionally single-threaded;
+- C++20 RAII ownership, the 64-live-lease guard budget, OS descriptor/handle failure evidence, and deterministic
+  cleanup;
+- fail-stop bounded guard input, exact `LIST` behavior, and typed shared-to-platform command dispatch;
+- one hardened project-owned scalar SHA-256 implementation shared by native components, with retained Windows
+  CNG filesystem hashing;
+- typed native launch failures, binary hardening, ordinary and sanitizer execution, static analysis, bounded
+  parser fuzzing, worker TSan, focused GCC coverage, and exact source/build manifests; and
+- native structured JSONL diagnostics with a closed schema-version-1 event contract, strict TypeScript
+  validation, bounded retained-log/archive handling, and privacy-safe failure behavior.
+
+Native remediation Packets 01–19 are complete at this snapshot. Packet 20's supported-host Windows manual
+validation remains pending; hosted Windows Server evidence is not a substitute for that manual gate.
+
+The current source still contains the following performance work:
+
+- source inspection identifies eight full model hashes on a successful Linux load and seven on Windows;
+- `appendStagedFile` base64url-encodes raw bytes, the generic transport encodes that text again, `parse_request`
+  decodes the outer layer, and `parse_command` decodes the inner layer;
+- filesystem-guard protocol version 1 accepts at most 262,144 request-payload bytes before the newline delimiter;
+  the delimiter is not part of that payload budget, and a payload byte beyond the limit terminates the guard;
+- a 192 KiB raw chunk still cannot fit because its single base64url field alone consumes all 262,144 payload
+  bytes before request metadata;
+- the typed `WriteFileCommand` already owns decoded raw bytes and both platform backends already write those bytes
+  directly;
+- the common SHA-256 transform remains scalar and has no runtime hardware dispatch;
+- the filesystem guard remains intentionally single-threaded;
 - `ExactModelReader` separately hashes the preflight byte stream and the byte stream consumed by whisper.cpp;
-- the settings document and nested Local Whisper settings schemas are version 1;
-- GPU execution currently hardcodes a request ceiling of four CPU threads; and
-- real one-second inference warm-up currently occurs inside native model load, while the later `warmup` request
-  only acknowledges the state transition.
+- settings schemas remain version 1, and GPU load still derives four CPU threads while GPU residency records no
+  resolved thread count;
+- native model load still runs real inference warm-up before returning `loaded`, while the later protocol-v1
+  `warmup` request only returns `warmed`;
+- the complete WAV byte vector remains alive while inference uses the converted float PCM vector; and
+- Linux CPU/CUDA profiles pin a broad explicit option set, while Windows profiles still pin only a subset and do
+  not yet express equivalent current-value intent.
 
-These facts are not acceptance evidence by themselves.
+These source facts are not performance acceptance evidence by themselves.
 
 ## 3. Scope
 
@@ -53,7 +85,7 @@ These facts are not acceptance evidence by themselves.
 5. a line-budget-derived chunk limit and a bounded, backpressure-aware write pipeline;
 6. x64 runtime-dispatched SHA-256 acceleration with a hardened scalar fallback;
 7. early release of the source WAV byte buffer before inference;
-8. explicit pinning of the current effective backend build options;
+8. completion and cross-platform normalization of current-value backend option pinning;
 9. a user-configurable GPU-path CPU-thread value; and
 10. execution of real inference warm-up through the existing explicit `warmup` request.
 
@@ -70,6 +102,9 @@ proves the result; it does not turn a selected item into measurement-only work.
 **SCP-006** This work SHALL NOT add or change provider network requests, browser sessions, microphone capture,
 clipboard actions, transcript/history retention, or external publication behavior.
 
+Completed native ownership, typed-command, common-crypto, hardening, diagnostics, and quality-gate work is a
+preserved baseline rather than an implementation deliverable of this specification.
+
 ### 3.1 Non-goals
 
 The following are explicitly outside scope:
@@ -78,18 +113,21 @@ The following are explicitly outside scope:
 - removing pre-spawn or pre-load freshness proofs;
 - model `mmap`, a Linux buffered model reader, a threaded filesystem guard, or concurrent installs;
 - a raw binary installation channel;
+- replacing the typed `WriteFileCommand` or rewriting Linux/Windows raw-byte backend write methods;
 - Windows tiny-read buffering, libuv pool tuning, extra worker threads, or read/hash overlap;
 - flash attention, changed ggml/CUDA option values, CUDA-upload-first work, or CUDA JIT cache variables;
 - CPU micro-architecture pack variants, ARM acceleration, Apple Silicon, or production macOS support;
 - new runtime dependencies, build-host-native flags, packaging-target changes, release publication, or catalog
   rollout; and
-- changing model artifacts, their bytes, managed-root layout, history data, or unrelated settings.
+- changing model artifacts, their bytes, managed-root layout, history data, or unrelated settings; and
+- redesigning native structured-log retention, diagnostics archive ownership, or the closed event schema merely
+  to collect performance evidence.
 
 ## 4. Entry gates and compatibility
 
-**GAT-001** Native remediation Packets 02, 03, and 05 SHALL satisfy their acceptance criteria before performance
-work changes their overlapping resource-ownership, typed-command, or common-SHA areas. The performance result
-SHALL also preserve the cross-platform resource evidence required by native remediation Packet 08.
+**GAT-001** The former native remediation prerequisites are satisfied at the revision basis: Packets 02, 03, and
+05 implemented resource ownership, bounded typed commands, and common SHA consolidation. Performance work SHALL
+consume those current contracts and SHALL NOT reopen, duplicate, or weaken them.
 
 **GAT-002** A corrected baseline conforming to Section 5 SHALL exist before any performance-changing result is
 accepted.
@@ -97,6 +135,11 @@ accepted.
 **GAT-003** Before/after evidence SHALL use the same app revision lineage, authenticated runtime and model
 artifacts, host, backend, device, settings, cache-state preparation, and input fixture except for the change being
 measured.
+
+**GAT-004** Before planning or implementation begins, and again before qualification, the affected source SHALL
+be compared with the revision basis. A later native-remediation, Windows-validation, protocol, worker, profile,
+or security change that touches an affected path invalidates stale source counts and requires a refreshed
+baseline. Historical hosted evidence SHALL not replace the required representative-host performance evidence.
 
 **CMP-001** Production applicability is Linux x64 and Windows x64. Shared behavior SHALL be equivalent across
 both platforms; platform-specific filesystem, process, crypto, and compiler mechanisms MAY differ only where
@@ -146,9 +189,10 @@ before/after samples, cache preparation, run ordering, resource sampling interva
 calculation. Failed samples SHALL be reported and SHALL NOT be silently replaced until a desired result appears.
 The before/after pair SHALL use the same manifest.
 
-**OBS-003** Measurement instrumentation SHALL be qualification-owned. Production code MAY expose bounded private
-phase evidence needed by qualification, but SHALL NOT emit new routine telemetry, absolute paths, device-native
-identities, raw native output, or unbounded timing events.
+**OBS-003** New measurement instrumentation SHALL be qualification-owned. It MAY consume existing validated
+native lifecycle records, but SHALL NOT repurpose the production structured-log or diagnostics archive as a
+performance telemetry store. Qualification-only phase evidence SHALL remain separate and SHALL NOT emit absolute
+paths, device-native identities, raw native output, or unbounded timing events.
 
 ### 5.2 Performance gates
 
@@ -194,8 +238,9 @@ still fails closed with no worker residency or artifact publication.
 
 ### 6.1 SHA-256 acceleration
 
-**CRY-001** After the common-SHA prerequisite is complete, the shared project-owned SHA-256 implementation SHALL
-provide x64 runtime dispatch for supported GCC/Clang and MSVC builds. It SHALL:
+**CRY-001** The current consolidated, lifecycle-hardened scalar SHA-256 implementation SHALL be extended with x64
+runtime dispatch for supported GCC/Clang and MSVC builds. The acceleration SHALL preserve the current public
+`Sha256` state machine, exception contract, source-manifest ownership, and shared vectors. It SHALL:
 
 - select the accelerated path only after a trustworthy runtime CPU-feature check;
 - retain the hardened scalar implementation as the universal fallback;
@@ -212,10 +257,11 @@ test binaries; they SHALL NOT become production environment variables or command
 
 ### 7.1 Protocol-v2 byte field
 
-**CODEC-001** For protocol version 2, the TypeScript transport SHALL encode each raw installation chunk exactly
-once as unpadded base64url. The shared guard parser SHALL validate and decode that field once into owned raw
-bytes. Typed `WRITE_FILE` command data SHALL own those bytes, and Linux and Windows backends SHALL write them
-directly without a second decode.
+**CODEC-001, ARC-004** For protocol version 2, the TypeScript transport SHALL accept a bounded raw-byte field and
+encode each installation chunk exactly once as unpadded base64url. The shared guard parser SHALL validate and
+decode that field once; `parse_command` SHALL construct the existing typed `WriteFileCommand` from those already
+decoded bytes without calling base64url decode again. The existing Linux and Windows backend raw-byte write
+contracts SHALL remain unchanged.
 
 **CODEC-002** The decoder SHALL use a bounded inverse lookup and an allocation-free canonical-form check. It SHALL
 reject invalid alphabet, padding, impossible unpadded length modulo four, non-zero unused tail bits, integer
@@ -225,15 +271,22 @@ overflow, and decoded output beyond the derived field bound before backend write
 response SHALL never be interpreted as a successful write. Stable content-free errors SHALL not echo payloads,
 paths, tokens, or native messages.
 
-### 7.2 Complete-line budget
+### 7.2 Request-payload budget
 
-**INST-001** The raw chunk maximum SHALL be derived from the complete worst-case version-2 request line, including
-the maximum legal request ID, version, command, file token, separators, encoded payload, and line terminator. The
-calculation SHALL use the guard's canonical 262,144-byte complete-line limit and an explicit non-zero safety
-margin owned by the protocol contract.
+**INST-001** The raw chunk maximum SHALL be derived from the complete worst-case version-2 request payload,
+including the maximum legal request ID, version, command, file token, separators, and encoded bytes. The
+calculation SHALL use the guard's canonical 262,144-byte payload limit and an explicit non-zero safety margin
+owned by the protocol contract. The terminating newline is transport framing and is not counted in that payload
+limit.
 
-No caller SHALL duplicate the limit as an unexplained larger constant. A line exactly at the accepted boundary
-SHALL parse; the smallest one-byte-over complete line SHALL fail before payload allocation or write.
+No caller SHALL duplicate the limit as an unexplained larger constant. A 262,144-byte payload followed by the
+newline SHALL be accepted when all fields are valid. The first non-newline byte beyond that payload limit SHALL
+trigger the existing fail-stop overflow behavior before parsing, allocation, or write.
+
+**IPC-004** Protocol version 2 SHALL preserve the current bounded-reader failure distinction: a syntactically
+invalid in-budget request receives a bounded error response, while an over-limit request payload terminates the
+guard so the transport rejects every pending request. The reader SHALL neither retain nor drain an
+attacker-sized overflow line.
 
 ### 7.3 Bounded pipelining and backpressure
 
@@ -260,12 +313,20 @@ partial artifact.
 renderer-safe result shapes SHALL remain compatible except for the explicitly documented GPU thread setting.
 
 **WRM-001, IPC-002** Native model load SHALL end in the existing `loaded` state without running the one-second
-inference warm-up. The existing `warmup` request SHALL perform the real inference warm-up and report its bounded
-phase evidence before the supervisor enters `warmed`.
+inference warm-up. The existing worker protocol-version-1 `warmup` request SHALL perform the real inference
+warm-up and report its bounded phase evidence before the supervisor enters `warmed`. The existing
+`load`/`loaded` then `warmup`/`warmed` wire sequence and message shapes are already compatible and SHALL remain
+protocol version 1.
 
 **WRM-002** Residency SHALL be committed only after load evidence, explicit warm-up, device/allocation proof, and
 all existing authority checks succeed. A warm-up failure or timeout SHALL return `WARMUP_FAILED` or the existing
 stage-specific timeout, terminate or unload uncertain state, and leave no reusable residency.
+
+**LOG-001** The closed native-runtime log schema SHALL remain version 1. Existing events SHALL be repositioned so
+`modelLoadStarted`/`modelLoadCompleted` bound model load only, `stateWarming` is emitted when the explicit warm-up
+begins, and `stateWarmed` is emitted only after warm-up succeeds. Existing `requestAccepted`, `requestCompleted`,
+`nativeFailure`, and allowed `elapsedMs` fields MAY represent the operation without adding event names, sensitive
+fields, or a diagnostics schema migration.
 
 **MEM-001** After successful WAV validation and conversion to the float PCM buffer, ownership of the complete
 source WAV byte vector SHALL be destroyed or transferred out of the live inference scope before the inference
@@ -338,10 +399,12 @@ the visible target or cause a valid unsaved value to be silently lost.
 
 ## 10. Backend build-option contract
 
-**BLD-001** Every applicable ggml/whisper.cpp CPU and CUDA performance option SHALL be named explicitly in each
-Linux and Windows runtime profile after proving that the pinned upstream revision defines and consumes it. The
-profiles SHALL pin the current effective values, including the existing flash-attention state; this work SHALL
-not tune or enable an option.
+**BLD-001** The current broad Linux CPU/CUDA option declarations SHALL be preserved. Every still-implicit
+applicable ggml/whisper.cpp CPU and CUDA performance option in the Windows profiles SHALL be proven to exist and
+be consumed by the pinned upstream revision, then pinned to its current effective value. Shared options SHALL
+express equivalent Linux/Windows intent; a platform-only option SHALL be explicitly classified rather than
+silently omitted. The current flash-attention state remains off, and this work SHALL not tune or enable an
+option.
 
 Generated CMake cache evidence and exact runtime-pack manifests SHALL demonstrate Linux/Windows intent,
 selected-backend exclusivity, and absence of host-default drift. Existing disconnected-build, pinned-toolchain,
@@ -380,12 +443,13 @@ device identities, private hardware identifiers, audio, transcripts, prompts, cr
 environment dumps, or unrestricted native output.
 
 **PRIV-002** Runtime logs, renderer errors, diagnostics, crash attachments, and CI artifacts SHALL remain
-content-free under the parent specification. Performance instrumentation SHALL not create a production telemetry
-channel.
+content-free under the parent specification. The current native structured-log decoder, bounded retention,
+archive extraction, event levels, line limit, and canonical validation SHALL remain intact. Performance
+instrumentation SHALL not create a production telemetry channel.
 
-**SEC-005** Protocol-v2 decode SHALL validate version, complete-line and decoded-size bounds, canonical base64url,
-request correlation, typed command shape, and staging authority before write. Validation order SHALL prevent
-oversized allocation and partial authority use.
+**SEC-005** Protocol-v2 decode SHALL validate version, request-payload and decoded-size bounds, canonical
+base64url, request correlation, typed command shape, and staging authority before write. Validation order SHALL
+prevent oversized allocation and partial authority use.
 
 **SEC-006** Removing the immediate `LIST` duplicate SHALL not shorten any later trust-boundary freshness window.
 An external same-user writer, identity change, size change, content change, or authority mismatch at a retained
@@ -409,7 +473,8 @@ evidence.
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Missing or inconsistent phase evidence                               | Block performance qualification; do not infer a pass.                                               |
 | Protocol-v1/v2 mismatch                                              | Reject before chunk interpretation or write; report the existing protocol/install failure.          |
-| Invalid/oversized base64url or line                                  | Reject before backend write; settle the transfer and discard staging.                               |
+| Invalid in-budget base64url or request                               | Return a bounded error before backend write; settle the transfer and discard staging.               |
+| Request payload beyond 262,144 bytes                                 | Terminate the guard, reject every pending request, discard staging, and expose no partial success.  |
 | Pipe failure, missing drain, timeout, cancellation, or late response | Stop issuance, deterministically settle/invalidate issued work, and publish no artifact.            |
 | Unsupported SHA instructions                                         | Use the scalar path; an illegal-instruction risk is a qualification failure.                        |
 | Model identity change at a retained proof                            | Fail the load and preserve no residency.                                                            |
@@ -422,8 +487,10 @@ evidence.
 A successful retry and the next ordinary operation SHALL prove that no stale pending request, staging token,
 worker state, digest state, or audio buffer was reused.
 
-**OPS-001** Protocol-v2 app/guard peers, runtime protocol semantics, settings schema 2, renderer validation, and
-worker residency identity SHALL roll out as coherent compatibility sets. Mixed private peers SHALL fail closed.
+**OPS-001** Protocol-v2 app/guard peers, worker behavior behind the retained worker protocol-v1 state sequence,
+settings schema 2, renderer validation, and worker residency identity SHALL roll out as coherent compatibility
+sets. Mixed filesystem-guard peers SHALL fail closed; authenticated runtime-pack identity SHALL continue to
+govern worker compatibility.
 
 **OPS-002** Automatic settings downgrade is forbidden. Rolling back to an older build requires an explicit Local
 Whisper settings reset or restoration of a compatible version-1 backup. The newer settings file SHALL not be
@@ -434,23 +501,23 @@ that a backup is automatically created.
 
 ### 14.1 Automated acceptance
 
-| ID         | Procedure                                                                                                                                                                                      | Required evidence                                                                                                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-AUT-001 | Validate the qualification phase schema and redaction against complete, missing, malformed, oversized, and sensitive fixtures.                                                                 | Phase/resource evidence is bounded and complete; sensitive fields cannot be serialized or retained.                                                                                     |
-| AC-AUT-002 | Run the locked paired benchmark analysis over passing, sub-25-percent, over-3-percent-regression, and uncertainty-overlap fixtures.                                                            | Only a conservative targeted-component gain of at least 25 percent with every end-to-end/resource regression at or below 3 percent passes.                                              |
-| AC-AUT-003 | Count model inspections and hashes for runtime/model acquisition on Linux and Windows fixtures before and after result reuse.                                                                  | The immediate inspection is removed once; baseline full-model counts are 8/7 and post-change counts are 7/6; all retained proofs still execute.                                         |
-| AC-AUT-004 | Mutate identity/content at each retained revalidation point.                                                                                                                                   | Every mutation fails closed; no residency or published artifact remains.                                                                                                                |
-| AC-AUT-005 | Run shared canonical base64url vectors, empty/boundary inputs, invalid alphabet/padding/modulo/tail-bit cases, and cross-platform guard integration.                                           | TypeScript, shared native parser, Linux, and Windows agree; raw bytes are decoded exactly once and invalid data is never written.                                                       |
-| AC-AUT-006 | Generate complete request lines at the derived accepted limit and one byte over, including maximum legal metadata fields.                                                                      | The boundary request succeeds; the one-byte-over request fails before allocation/write on both platforms; the safety-margin calculation is traceable to the canonical line limit.       |
-| AC-AUT-007 | Exercise the bounded pipeline with slow input/output, `stdin.write(false)`, delayed `drain`, early/mid-window failure, timeout, cancellation, EOF, process exit, and late/duplicate responses. | Ordering, 32 MiB aggregate bound, exactly-once settlement, staging cleanup, and descriptor/handle baselines hold with no hang or resurrection.                                          |
-| AC-AUT-008 | Run SHA standard, boundary, chunk-split, lifecycle, overflow, and multi-gigabyte-length vectors in scalar, accelerated, and simulated-unsupported modes.                                       | Digests agree with retained providers; unsupported mode never reaches accelerated instructions; concurrent runs are race-free.                                                          |
-| AC-AUT-009 | Exercise load then explicit warm-up, warm-up timeout/failure, device-proof failure, unload, retry, and protocol-order violations.                                                              | `loaded` precedes real warm-up, `warmed` and residency occur only after total success, and failure leaves no reusable state.                                                            |
-| AC-AUT-010 | Transcribe maximum accepted, malformed, cancelled, and repeated audio fixtures while tracking WAV/PCM ownership.                                                                               | WAV bytes are no longer live when inference starts; transcript and cancellation behavior remain correct; the next request succeeds.                                                     |
-| AC-AUT-011 | Migrate valid/invalid version-1 CPU and GPU settings, target-specific selection memory, safe unknown fields, and version-2 documents.                                                          | Existing GPU becomes 4, new/reset GPU is `auto`, CPU values are preserved, target memories remain independent, invalid input fails safely, and older-version behavior is deterministic. |
-| AC-AUT-012 | Validate CPU/GPU thread drafts, host-count boundaries, target switches, translated messages, keyboard/focus behavior, saves, and stale configuration epochs.                                   | UI and shared validation agree; labels are contextual; invalid values launch no worker; a changed resolved value invalidates reuse.                                                     |
-| AC-AUT-013 | Compare residency and reusable configuration identities across every GPU thread value, `auto` resolution, topology generation, and configuration epoch.                                        | Equal execution state compares equal; any effective thread/topology/configuration change compares unequal and cannot reuse stale residency.                                             |
-| AC-AUT-014 | Inspect generated Linux/Windows CMake caches and runtime-pack manifests for all affected CPU/CUDA profiles.                                                                                    | Every applicable option exists, is consumed, is explicitly pinned to its prior effective value, and no backend/dependency/package drift appears.                                        |
-| AC-AUT-015 | Run affected strict TypeScript checks plus common, guard, launcher, and worker native unit/integration suites with the native remediation sanitizer/resource gates.                            | All changed contracts compile and pass with warnings as errors; ASan/UBSan and applicable Windows execution report no leak, race, bounds, or ownership regression.                      |
+| ID         | Procedure                                                                                                                                                                                                                                                                                                      | Required evidence                                                                                                                                                                                                                               |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-AUT-001 | Validate the qualification phase schema and redaction against complete, missing, malformed, oversized, and sensitive fixtures.                                                                                                                                                                                 | Phase/resource evidence is bounded and complete; sensitive fields cannot be serialized or retained.                                                                                                                                             |
+| AC-AUT-002 | Run the locked paired benchmark analysis over passing, sub-25-percent, over-3-percent-regression, and uncertainty-overlap fixtures.                                                                                                                                                                            | Only a conservative targeted-component gain of at least 25 percent with every end-to-end/resource regression at or below 3 percent passes.                                                                                                      |
+| AC-AUT-003 | Count model inspections and hashes for runtime/model acquisition on Linux and Windows fixtures before and after result reuse.                                                                                                                                                                                  | The immediate inspection is removed once; baseline full-model counts are 8/7 and post-change counts are 7/6; all retained proofs still execute.                                                                                                 |
+| AC-AUT-004 | Mutate identity/content at each retained revalidation point.                                                                                                                                                                                                                                                   | Every mutation fails closed; no residency or published artifact remains.                                                                                                                                                                        |
+| AC-AUT-005 | Run shared canonical base64url vectors, empty/boundary inputs, invalid alphabet/padding/modulo/tail-bit cases, the current request fuzz target, and cross-platform guard integration.                                                                                                                          | TypeScript and the shared native parser agree; bytes are decoded exactly once before the existing typed command, both unchanged platform backends receive identical raw bytes, and invalid data is never written.                               |
+| AC-AUT-006 | Generate request payloads at 262,144 bytes and one byte over, including maximum legal metadata fields, then exercise newline and EOF framing.                                                                                                                                                                  | The valid boundary payload is accepted; the first over-limit payload byte causes fail-stop guard exit and pending-request rejection before parse/allocation/write on both platforms; newline is excluded from the payload calculation.          |
+| AC-AUT-007 | Exercise the bounded pipeline with slow input/output, `stdin.write(false)`, delayed `drain`, early/mid-window failure, timeout, cancellation, EOF, process exit, and late/duplicate responses.                                                                                                                 | Ordering, 32 MiB aggregate bound, exactly-once settlement, staging cleanup, and descriptor/handle baselines hold with no hang or resurrection.                                                                                                  |
+| AC-AUT-008 | Run SHA standard, boundary, chunk-split, lifecycle, overflow, and multi-gigabyte-length vectors in scalar, accelerated, and simulated-unsupported modes.                                                                                                                                                       | Digests agree with retained providers; unsupported mode never reaches accelerated instructions; concurrent runs are race-free.                                                                                                                  |
+| AC-AUT-009 | Exercise load then explicit warm-up, warm-up timeout/failure, device-proof failure, unload, retry, protocol-order violations, and native-log event ordering.                                                                                                                                                   | Worker protocol remains version 1; `loaded` and `modelLoadCompleted` precede real warm-up; `stateWarming`, `warmed`, and `stateWarmed` occur in order; residency follows total success; failure leaves no reusable state or invalid log record. |
+| AC-AUT-010 | Transcribe maximum accepted, malformed, cancelled, and repeated audio fixtures while tracking WAV/PCM ownership.                                                                                                                                                                                               | WAV bytes are no longer live when inference starts; transcript and cancellation behavior remain correct; the next request succeeds.                                                                                                             |
+| AC-AUT-011 | Migrate valid/invalid version-1 CPU and GPU settings, target-specific selection memory, safe unknown fields, and version-2 documents.                                                                                                                                                                          | Existing GPU becomes 4, new/reset GPU is `auto`, CPU values are preserved, target memories remain independent, invalid input fails safely, and older-version behavior is deterministic.                                                         |
+| AC-AUT-012 | Validate CPU/GPU thread drafts, host-count boundaries, target switches, translated messages, keyboard/focus behavior, saves, and stale configuration epochs.                                                                                                                                                   | UI and shared validation agree; labels are contextual; invalid values launch no worker; a changed resolved value invalidates reuse.                                                                                                             |
+| AC-AUT-013 | Compare residency and reusable configuration identities across every GPU thread value, `auto` resolution, topology generation, and configuration epoch.                                                                                                                                                        | Equal execution state compares equal; any effective thread/topology/configuration change compares unequal and cannot reuse stale residency.                                                                                                     |
+| AC-AUT-014 | Inspect generated Linux/Windows CMake caches and runtime-pack manifests for all affected CPU/CUDA profiles against the revision basis.                                                                                                                                                                         | Existing Linux declarations remain, Windows closes applicable omissions, platform-only differences are explicit, every option is consumed and pinned to its prior effective value, and no backend/dependency/package drift appears.             |
+| AC-AUT-015 | Run affected strict TypeScript checks and the current native quality matrix, including ordinary tests, formatting/lint, source manifests, analyzers, ASan/UBSan, hardened STL/binaries, bounded fuzzing, worker TSan, focused GCC, structured-log privacy, MSVC analysis/ASan, and platform resource evidence. | Every applicable current gate executes and passes without waiver; changed contracts compile with warnings as errors; no leak, race, bounds, logging, ownership, manifest, or cross-platform regression is hidden by an older narrower gate.     |
 
 ### 14.2 Manual and representative-host acceptance
 
@@ -469,16 +536,16 @@ that a backup is automatically created.
 version-2 migration defaults, unsupported-newer-settings recovery, and the fact that performance depends on host,
 backend, model, and cache state.
 
-Maintainer documentation SHALL record the protocol-v2 line-budget formula and safety margin, pipeline bounds,
-phase definitions, qualification manifest, runtime-dispatch fallback, pinned backend options, supported platform
-matrix, and exact rollback procedure. It SHALL not publish private paths, device identities, or raw qualification
-inputs.
+Maintainer documentation SHALL record the protocol-v2 payload-budget formula and safety margin, newline framing
+semantics, fail-stop overflow behavior, pipeline bounds, phase definitions, qualification manifest,
+runtime-dispatch fallback, pinned backend options, retained native-log schema, supported platform matrix, and
+exact rollback procedure. It SHALL not publish private paths, device identities, or raw qualification inputs.
 
 ## 16. Completion criteria
 
 This specification is complete only when:
 
-- GAT-001 through GAT-003 are satisfied;
+- GAT-001 through GAT-004 are satisfied;
 - every in-scope requirement and applicable automated criterion passes;
 - AC-MAN-001 through AC-MAN-006 provide real Linux x64 and Windows x64 evidence or remain explicit blockers;
 - every performance-changing component meets the 25 percent conservative improvement gate and the 3 percent
@@ -487,4 +554,4 @@ This specification is complete only when:
   intact;
 - settings and private peers migrate and fail closed exactly as specified;
 - no non-goal, new dependency, unsupported platform claim, release action, or unrelated behavior is included; and
-- this draft has received explicit approval through the persistent specification interview.
+- this specification has received explicit approval through the persistent specification interview.

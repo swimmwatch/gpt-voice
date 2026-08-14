@@ -982,7 +982,7 @@ decisions:
   - id: approval.spec
     revision: 1
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-performance-remediation/spec.md
@@ -1012,3 +1012,499 @@ decisions:
     rationale: The user explicitly approved the draft as the implementation contract and planning remains deferred.
     supersedes_revision: null
     requirement_ids: []
+
+  - id: outcome.current-cpp-reconciliation
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User requested revision of the current specification against the updated C++ code on 2026-08-14.
+      - Repository revision e49b5790c6b0b1a6fe417b920da8f45df365fe2f.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [reconcile-current-cpp]
+      text: Update relevant sections and correct or remove stale requirements without planning or implementation.
+    rationale: The request explicitly reopens the specification for repository-evidence-based reconciliation.
+    supersedes_revision: null
+    requirement_ids: [SCP-007]
+
+  - id: revision.current-cpp-baseline
+    revision: 1
+    category: scope
+    state: observed
+    provenance: repository
+    evidence:
+      - Repository revision e49b5790c6b0b1a6fe417b920da8f45df365fe2f.
+      - Native source revision 2304c16e6f4251e0bbf77afa96ea83a12558ff6b.
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - native-packets-01-through-19-complete
+        - packet-20-manual-windows-pending
+        - preserve-current-native-foundations
+        - refresh-on-relevant-source-drift
+      text: ''
+    rationale: Resource ownership, typed guard commands, common scalar SHA, hardening, diagnostics, and native quality infrastructure are current baseline facts rather than remaining performance deliverables.
+    supersedes_revision: null
+    requirement_ids: [BASE-001, GAT-001, GAT-004]
+
+  - id: compatibility.guard-payload-limit
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/protocol.hpp
+      - runtime/local-whisper/fs-guard/src/common/bounded_line_reader.cpp
+      - runtime/local-whisper/fs-guard/src/common/guard_application.cpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - payload-excludes-newline
+        - exact-262144-byte-payload
+        - overflow-fail-stop
+      text: ''
+    rationale: The native bounded reader counts payload bytes before the newline, accepts the exact limit, and terminates the guard on the first over-limit non-newline byte.
+    supersedes_revision: null
+    requirement_ids: [INST-001, IPC-004]
+
+  - id: architecture.typed-write-boundary
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/command.hpp
+      - runtime/local-whisper/fs-guard/src/common/command.cpp
+      - runtime/local-whisper/fs-guard/src/common/guard_application.cpp
+      - runtime/local-whisper/fs-guard/src/platform/linux/linux_backend.cpp
+      - runtime/local-whisper/fs-guard/src/platform/windows/windows_backend.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - typed-write-command-exists
+        - platform-backends-already-write-raw-bytes
+        - remove-only-extra-codec-layer
+      text: ''
+    rationale: Packet 03 moved validation and decoding ahead of the platform backends; performance work must not redesign the already-correct typed backend contract.
+    supersedes_revision: null
+    requirement_ids: [CODEC-001, ARC-004]
+
+  - id: operations.native-logging-baseline
+    revision: 1
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/common/include/local_whisper/common/native_logger.hpp
+      - runtime/local-whisper/common/src/native_logger.cpp
+      - src/shared/localWhisper/nativeRuntimeLog.ts
+      - src/main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder.ts
+      - src/main/services/nativeRuntimeLogArchive.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-log-schema-version-1
+        - reposition-existing-warmup-events
+        - keep-performance-evidence-qualification-owned
+      text: ''
+    rationale: The existing closed event vocabulary and optional elapsedMs field can represent the split load/warm-up sequence without a new production telemetry channel or diagnostics migration.
+    supersedes_revision: null
+    requirement_ids: [OBS-003, LOG-001, PRIV-002]
+
+  - id: compatibility.worker-warmup-protocol
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-worker-protocol-v1]
+      text: ''
+    rationale: Both peers already exchange load/loaded followed by warmup/warmed; moving the real work between those existing states needs no wire-shape or worker-protocol version change.
+    supersedes_revision: null
+    requirement_ids: [WRM-001, IPC-002, OPS-001]
+
+  - id: configuration.backend-profile-current-state
+    revision: 1
+    category: configuration
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/toolchains/profiles/linux-x64-cpu-baseline-v1.json
+      - runtime/local-whisper/toolchains/profiles/linux-x64-cuda-12.8.1-sm120a-v1.json
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.39-v1.json
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-broad-explicit-options
+        - windows-partial-explicit-options
+        - preserve-values-complete-parity
+      text: ''
+    rationale: The original blanket statement that performance options are absent is stale; current Linux profiles are broad, while Windows still needs applicable current-value declarations and explicit platform-difference classification.
+    supersedes_revision: null
+    requirement_ids: [BLD-001, PERF-005]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - Repository revision e49b5790c6b0b1a6fe417b920da8f45df365fe2f.
+      - Native source revision 2304c16e6f4251e0bbf77afa96ea83a12558ff6b.
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: Do you approve the revised Local Whisper performance remediation draft, reconciled with the current C++ implementation, as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark the revised specification Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and revise the affected decisions before another approval request.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the revised specification Draft and stop without approving it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the C++-reconciled revision as the implementation contract; planning and implementation remain separate workflows.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: planning.protocol-payload-safety-margin
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#72-request-payload-budget
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/protocol.hpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: transport-round-01
+      question_id: planning.protocol-payload-safety-margin
+      idempotency_key: planning.protocol-payload-safety-margin:v1
+      last_status: answered
+    question:
+      text: Which fixed future-headroom margin should the protocol-v2 chunk formula reserve inside the 262,144-byte request-payload limit after accounting for worst-case metadata?
+      kind: single
+      options:
+        - id: margin-4096
+          label: 4 KiB margin
+          description: Reserve 4,096 payload bytes as a named protocol constant, leaving ample metadata evolution room with negligible chunk-throughput cost.
+        - id: margin-1024
+          label: 1 KiB margin
+          description: Reserve 1,024 bytes, maximizing each chunk while leaving less future protocol headroom.
+        - id: margin-8192
+          label: 8 KiB margin
+          description: Reserve 8,192 bytes, favoring extra protocol headroom at a slightly larger chunk-count cost.
+    answer:
+      selected_ids: [margin-4096]
+      text: ''
+    rationale: The protocol-v2 formula reserves a fixed 4,096-byte future-headroom margin after accounting for worst-case metadata; the small throughput cost buys deterministic cross-platform headroom.
+    supersedes_revision: null
+    requirement_ids: [INST-001, SEC-005]
+
+  - id: planning.pipeline-window-selection
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#73-bounded-pipelining-and-backpressure
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+      - scripts/local-whisper/qualification/QualificationContracts.ts
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: transport-round-01
+      question_id: planning.pipeline-window-selection
+      idempotency_key: planning.pipeline-window-selection:v1
+      last_status: answered
+    question:
+      text: How should the bounded filesystem-guard in-flight request limit be selected?
+      kind: single
+      options:
+        - id: benchmark-and-freeze
+          label: Benchmark and freeze
+          description: Measure fixed candidates 1, 2, 4, and 8, select the smallest qualifying value, and freeze it as a named constant before pipeline implementation.
+        - id: fixed-four
+          label: Fix at four
+          description: Use four requests without a selection experiment, reducing planning overhead but weakening the measurement-selected contract.
+        - id: runtime-adaptive
+          label: Runtime adaptive
+          description: Adapt the window during installation under the 32 MiB cap, adding runtime state and platform variability.
+    answer:
+      selected_ids: [benchmark-and-freeze]
+      text: ''
+    rationale: Qualification measures fixed candidate windows 1, 2, 4, and 8, selects the smallest value that satisfies the targeted gain and resource guardrails, and freezes it as a named constant before pipeline implementation.
+    supersedes_revision: null
+    requirement_ids: [THR-001, RES-001, PERF-001, RES-002]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/13_representative_host_qualification.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: Do you approve the 13-packet Local Whisper performance remediation plan as the authoritative execution breakdown?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark the plan Approved while keeping implementation separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan Draft and revise the affected packet contracts before another approval request.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep the plan Draft and stop without authorizing it as the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the 13-packet execution breakdown; implementation remains separately gated.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.packet-01
+    revision: 1
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-01
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize Packet 01 for a future incremental-implementation invocation?
+      kind: single
+      options:
+        - id: defer-execution
+          label: Defer execution
+          description: Finish planning with no production changes authorized.
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Authorize only Packet 01 for a later explicit incremental-implementation invocation.
+    answer:
+      selected_ids: [defer-execution]
+      text: ''
+    rationale: The user explicitly deferred execution; the approved plan remains ready, but no implementation packet is authorized.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: planning.per-packet-ci-gate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User requested task-specific checks in every packet, execution in CI, and a wait for a positive result.
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [task-specific-ci-success]
+      text: Every packet must name its task-specific CI checks, run them after push, and remain incomplete until every required check reports success.
+    rationale: Local verification alone is insufficient for packet completion; skipped, cancelled, failed, or timed-out CI checks are non-passing.
+    supersedes_revision: null
+    requirement_ids: [GAT-004, AC-AUT-015]
+
+  - id: planning.separate-ci-fix-commits
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - User requested a separate commit for every fix after a CI failure.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [separate-authorized-fix-commit]
+      text: An actionable CI failure must be corrected in a separately authorized fix commit; the packet implementation commit must not be amended or squashed, and the same checks must be rerun until green.
+    rationale: Separate fix commits preserve reviewable CI failure and remediation history.
+    supersedes_revision: null
+    requirement_ids: [AC-AUT-015]
+
+  - id: planning.windows-ci-ownership
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - User stated that development is performed on Linux and required Windows checks to run through CI.
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-checks-in-ci]
+      text: Windows-specific automated checks must execute on the configured Windows CI runner rather than being treated as Linux-development-host checks.
+    rationale: The plan must obtain real MSVC and Windows process, filesystem, packaging, and compatibility evidence from CI.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CMP-005, BLD-001, AC-AUT-015]
+
+  - id: planning.windows-e2e-and-final-remediation
+    revision: 1
+    category: sequencing
+    state: answered
+    provenance: user
+    evidence:
+      - User requested end-to-end checks on Windows and all subsequent Windows fixes and improvements in a separate final task.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-e2e-then-final-remediation]
+      text: Windows end-to-end qualification must be its own late packet, followed by a separate final conditional packet that owns only Windows failures, fixes, improvements, and reruns discovered by that qualification.
+    rationale: Windows qualification remains independently reviewable, and platform-specific remediation cannot leak back into earlier cross-platform packets.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]
+
+  - id: planning.windows-e2e-runner-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#51-evidence-matrix
+      - docs/specs/local-whisper-performance-remediation/spec.md#142-manual-and-representative-host-acceptance
+      - .github/workflows/pr-checks.yml
+      - The configured hosted Windows runner supports MSVC, native CPU, packaging, and deterministic fixture checks but does not provide representative CUDA hardware.
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: compatibility-round-02
+      question_id: planning.windows-e2e-runner-policy
+      idempotency_key: planning.windows-e2e-runner-policy:v1
+      last_status: answered
+    question:
+      text: Which Windows end-to-end runner policy should the revised plan use while preserving the approved representative-host acceptance contract?
+      kind: single
+      options:
+        - id: hosted-cpu-manual-cuda
+          label: Hosted CPU plus manual CUDA
+          description: Run automated and CPU end-to-end checks on the hosted Windows CI runner, while retaining representative Windows CUDA as a direct supported-host manual gate.
+        - id: hosted-plus-self-hosted-gpu
+          label: Add self-hosted GPU diagnostics
+          description: Add protected self-hosted Windows GPU CI diagnostics while still retaining the specification's direct representative-host CUDA acceptance gate.
+        - id: replace-manual-with-self-hosted
+          label: Replace manual CUDA gate
+          description: Replace the approved direct representative-host gate with self-hosted GPU CI, which requires returning to specification revision before planning can continue.
+    answer:
+      selected_ids: []
+      text: "This isn't a CI runner, it's a regular computer. We'll run all the necessary checks on it. If anything breaks, make the necessary fixes."
+    rationale: Task-specific automated Windows checks remain on hosted CI as explicitly requested. The complete representative Windows CPU/CUDA end-to-end matrix runs directly on the regular supported Windows computer, and failures discovered there flow to the separate final Windows remediation packet.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, AC-MAN-002, AC-MAN-004, AC-AUT-015]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/13_representative_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-02
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      last_status: answered
+    question:
+      text: Do you approve revision 2 of the 15-packet Local Whisper performance remediation plan with per-packet CI gates, direct Windows end-to-end qualification, and conditional final Windows remediation?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 2 Approved while keeping implementation, commits, and pushes separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 2 Draft and revise affected packet contracts before another approval request.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 2 Draft and stop without authorizing it as the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 2 as the authoritative 15-packet execution breakdown; implementation, commits, and pushes remain separately gated.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: authorization.packet-01
+    revision: 2
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-02
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v2
+      last_status: answered
+    question:
+      text: Do you separately authorize Packet 01 for a future incremental-implementation invocation under approved plan revision 2?
+      kind: single
+      options:
+        - id: defer-execution
+          label: Defer execution
+          description: Finish planning with no production changes, commits, or pushes authorized.
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Authorize only Packet 01 implementation for a later incremental-implementation invocation; commit and push still require later review authorization.
+    answer:
+      selected_ids: [defer-execution]
+      text: ''
+    rationale: The user explicitly deferred execution after approving revision 2; no packet, production change, commit, or push is authorized.
+    supersedes_revision: 1
+    requirement_ids: [SCP-003]
