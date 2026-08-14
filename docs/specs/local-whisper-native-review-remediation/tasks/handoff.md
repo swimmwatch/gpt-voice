@@ -452,12 +452,14 @@
 - Preserve all unrelated worktree content. Hosted Windows Server 2025 evidence
   is not a substitute for the incomplete supported-desktop manual gates.
 
-## Packet 20 Code Candidate Evidence Awaiting Exact-SHA CI
+## Packet 20 Completion Evidence
 
-- The authorized branch and remote head both remain
-  `d7d3970645429bc329da011b2647f1f24b163ca1`. Packet 20 remains unchecked;
-  the code candidate commit and its exact-SHA hosted matrix are not yet
-  created.
+- The final code candidate is
+  `3edda246955195e75641ac1a5154bba0e6fcb7c3`. Packet 20 is complete.
+  The candidate series is `9116904f`, `6713beb9`, `985f7bb8`, `b5563222`,
+  `e1864ba4`, `93596cc5`, and `3edda246`; every commit contains only Packet 20
+  code, focused regressions, authorized startup remediation, or mechanical
+  formatting of owned sources.
 - The elevated, same-boundary Windows CPU runtime-pack build passed under the
   validated private temporary root. Its private role-log SHA-256 is
   `3ebdb2432dc648123ca47aea50fd3a18f5ee7ccd693411aad75bfbb608caae13`.
@@ -515,23 +517,46 @@
   The base package remains Local Whisper-disabled and contains no worker,
   model, or accelerator payload.
 - Final focused ESLint, Prettier, native-source, TypeScript source, TypeScript
-  test, and whitespace gates passed. Security policy, SBOM, vulnerability,
-  attestation, evidence, aggregate, runner, native-build-audit, and workflow
-  validation gates also passed. Repository-wide local lint and formatting
-  retain only the previously recorded unchanged-head/ambient-checkout failures;
-  no out-of-scope file was repaired or staged.
+  test, startup regression, production build, Dependabot validation, and
+  whitespace gates passed. Repository-wide ESLint completed with zero errors,
+  and the exact clean-LF candidate snapshot passed the repository formatting
+  gate. Security policy, SBOM, vulnerability, attestation, evidence, aggregate,
+  runner, native-build-audit, and workflow validation gates also passed. The
+  repository-wide unit suite retains unrelated Windows/platform-only failures;
+  the focused startup suite passed all eight cases and the exact-SHA CI test
+  lane passed.
+- Exact-SHA hosted evidence for `3edda246955195e75641ac1a5154bba0e6fcb7c3`
+  is Dependency Review `31845914562`, Actionlint `31845914468`, fixture
+  packaging `31845914457`, Repository Security `31845914504`, and Pull Request
+  Checks `31845914485`. All five workflows and all 16 Pull Request Checks jobs
+  succeeded: Linux static analysis,
+  GCC/package, sanitizers, fuzzing, TSan, hardening, native coverage, and C++
+  CodeQL; Windows ordinary MSVC, `/analyze`, dedicated ASan, hardened binaries,
+  native coverage, C++ CodeQL, and package smoke; Fedora package smoke; both
+  attestations; JavaScript/TypeScript CodeQL; and both native-quality aggregate
+  jobs. No required job was skipped. AC-MAN-009's Packet 20 platform comparison
+  and the repository-wide aggregate are complete.
+- CI-discovered Packet 20 corrections added focused regression coverage for the
+  Windows-only worker protocol test classification and retained the existing
+  strict clang-format gates. The final local focused native rechecks passed
+  ordinary MSVC, `/analyze`, and ASan for the guard, launcher, and Whisper.cpp
+  roles; no warning, analyzer, sanitizer, hardening, or privacy gate was
+  weakened.
 
-## Packet 20 Current Blockers
+## Packet 20 Completion
 
-- AC-MAN-009 and Packet 20 completion require the code candidate's exact-SHA
-  Ubuntu 24.04, Windows Server 2025, Fedora 44, package-security, attestation,
-  and aggregate records. Those records cannot exist until the candidate is
-  committed and pushed.
-- GitHub CLI `2.97.0` is installed but its authentication remains classified
-  `unavailable`. The normal Git credential path has not yet been tested for the
-  authorized push. No force-push, workflow dispatch, PR mutation, signing,
-  qualification, publication, or release is authorized.
-- No separate supported Linux desktop path is available in this session.
-  Affected Linux/shared/security coverage must therefore come from the exact
-  hosted candidate lanes and remains distinct from the completed Windows
-  desktop manual evidence.
+- Explicit scope expansion authorized format-only remediation of
+  `src/renderer/App.tsx`, `src/renderer/index.html`, and
+  `tests/renderer/windowStartupState.test.ts`, followed by the minimal startup
+  state fix and focused regression needed to satisfy the mandatory ESLint gate.
+- Final changed-file scope is the Packet 20 candidate series recorded above,
+  the three explicitly authorized startup roles, and this completion-only
+  `todo.md`/`handoff.md` update. Generated binaries, reports, archives, logs,
+  models, audio, transcripts, environment dumps, credentials, and
+  machine-specific paths remain untracked. Unrelated worktree content was not
+  staged or overwritten.
+- AC-MAN-002, Windows AC-MAN-003, AC-MAN-004, AC-MAN-009, and AC-MAN-011 are
+  complete on the supported Windows desktop. All affected Linux, shared,
+  security, package, attestation, CodeQL, and aggregate exact-SHA gates passed.
+- Blockers: none.
+- Exact next packet: none.
