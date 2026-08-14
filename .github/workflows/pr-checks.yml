@@ -41,7 +41,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: pr-checks-${{ github.workflow }}-${{ github.ref }}
@@ -53,42 +52,28 @@ env:
   NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
 
 jobs:
-  native-quality:
-    name: Local Whisper Native Quality (${{ matrix.checkName }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: ${{ matrix.timeoutMinutes }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - checkName: Linux
-            evidenceArtifact: local-whisper-runner-evidence-linux-primary
-            evidenceOutput: release-artifacts/local-whisper-runner-evidence-linux-primary.json
-            platform: linux
-            runner: ${{ vars.CI_LINUX_RUNNER }}
-            timeoutMinutes: 60
-            toolchain: clang-${{ vars.CI_LLVM_VERSION }}
-          - checkName: Windows
-            evidenceArtifact: local-whisper-runner-evidence-windows-primary
-            evidenceOutput: release-artifacts/local-whisper-runner-evidence-windows-primary.json
-            platform: windows
-            runner: ${{ vars.CI_WINDOWS_RUNNER }}
-            timeoutMinutes: 60
-            toolchain: msvc-hosted
-
+  native-linux-core:
+    name: Local Whisper Linux / Core and CodeQL
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      EVIDENCE_ARTIFACT: local-whisper-runner-evidence-linux-primary
+      EVIDENCE_OUTPUT: release-artifacts/local-whisper-runner-evidence-linux-primary.json
+      PLATFORM: linux
+      TOOLCHAIN: clang-${{ vars.CI_LLVM_VERSION }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
       - name: Set up project
         uses: ./.github/actions/setup-ci-project
         with:
           node-version: ${{ vars.CI_NODE_VERSION }}
-
       - name: Install and configure Linux native toolchain
-        if: matrix.platform == 'linux'
         shell: bash
         run: |
           sudo apt-get update
@@ -108,67 +93,35 @@ jobs:
             echo "LOCAL_WHISPER_CLANG_LINKER=$(command -v ld.lld-${{ vars.CI_LLVM_VERSION }})"
             echo "LOCAL_WHISPER_PREPARED_LINUX_QUALITY=true"
           } >> "$GITHUB_ENV"
-
       - name: Provision verified Local Whisper native test sources
         run: npm run prepare:local-whisper:native-test-sources
-
-      - name: Initialize MSVC developer environment
-        if: matrix.platform == 'windows'
-        uses: ./.github/actions/initialize-msvc-environment
-
-      - name: Mark Windows native environment prepared
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
-
       - name: Verify Local Whisper native source objects
-        if: matrix.platform == 'linux'
         run: |
           npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
-
       - name: Prove non-recovering Linux sanitizer policy
-        if: matrix.platform == 'linux'
         env:
           LD_PRELOAD: ''
         run: npm run test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality
-
       - name: Run Linux worker ThreadSanitizer gate
-        if: matrix.platform == 'linux'
         env:
           LD_PRELOAD: ''
         run: |
           npm run test:local-whisper:worker-tsan-proof
           npm run test:local-whisper:worker-tsan
-
       - name: Run bounded Linux parser fuzzing
-        if: matrix.platform == 'linux'
         run: |
           npm run test:local-whisper:native-fuzz
           npm run test:local-whisper:native-fuzz-proof
-
-      - name: Initialize host-native C++ CodeQL database
+      - name: Initialize Linux C++ CodeQL database
         uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           build-mode: manual
-          db-location: ${{ github.workspace }}/.cache/codeql/cpp-${{ matrix.platform }}
+          db-location: ${{ github.workspace }}/.cache/codeql/cpp-linux
           languages: c-cpp
           queries: security-and-quality
-
-      - name: Run Linux formatting and clang-tidy checks
-        if: matrix.platform == 'linux'
-        run: |
-          npm run verify:local-whisper:worker-vectors -- --check-clean
-          npm run format:check:local-whisper:worker-common
-          npm run format:check:local-whisper:fs-guard
-          npm run format:check:local-whisper:launcher
-          npm run lint:local-whisper:fs-guard
-          npm run lint:local-whisper:launcher
-          npm run lint:local-whisper:worker-common
-
       - name: Run Linux worker and sanitizer suites
-        if: matrix.platform == 'linux'
         run: |
           npm run test:local-whisper:worker-codec
           npm run test:local-whisper:worker-proof-vectors
@@ -181,20 +134,104 @@ jobs:
           npm run test:local-whisper:whisper-cpp-loader
           npm run test:local-whisper:whisper-cpp-device-proof
           npm run test:local-whisper:whisper-cpp-cancellation
+      - name: Run Linux compatibility checks
+        run: |
+          npm run test:local-whisper:supervisor
+          npm run test:local-whisper:filesystem
+          npm run verify:local-whisper:filesystem -- --fixture
+      - name: Emit Linux native-quality coverage
+        shell: bash
+        run: >-
+          npm run emit:local-whisper:native-quality-coverage -- --platform=$PLATFORM --compiler-profile=$TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-linux --output=release-artifacts/native-quality-coverage-linux.json
+      - name: Analyze Linux C++ CodeQL database
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: /language:c-cpp,host:linux
+          output: release-artifacts/codeql-cpp-linux
+          upload: always
+      - name: Emit Linux runner evidence
+        shell: bash
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_LINUX_RUNNER }} --toolchain=$TOOLCHAIN --expected-os=$PLATFORM --compiler="$CXX" --output=$EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+      - name: Upload Linux runner evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ env.EVIDENCE_ARTIFACT }}
+          path: |
+            ${{ env.EVIDENCE_OUTPUT }}
+            release-artifacts/native-quality-coverage-linux.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
+  native-linux-shards:
+    name: Local Whisper Linux / ${{ matrix.checkName }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - checkName: Static Analysis
+            lane: static-analysis
+            runner: ${{ vars.CI_LINUX_RUNNER }}
+            timeoutMinutes: 20
+          - checkName: GCC and Package
+            lane: gcc-package
+            runner: ${{ vars.CI_LINUX_RUNNER }}
+            timeoutMinutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+      - name: Install and configure Linux native toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build gcc-${{ vars.CI_GCC_VERSION }} g++-${{ vars.CI_GCC_VERSION }} clang-${{ vars.CI_LLVM_VERSION }} clang-format-${{ vars.CI_LLVM_VERSION }} clang-tidy-${{ vars.CI_LLVM_VERSION }} libclang-rt-${{ vars.CI_LLVM_VERSION }}-dev lld-${{ vars.CI_LLVM_VERSION }}
+          {
+            echo "CMAKE_COMMAND=$(command -v cmake)"
+            echo "CTEST_COMMAND=$(command -v ctest)"
+            echo "CXX=$(command -v clang++-${{ vars.CI_LLVM_VERSION }})"
+            echo "CLANG_FORMAT=$(command -v clang-format-${{ vars.CI_LLVM_VERSION }})"
+            echo "CLANG_TIDY=$(command -v clang-tidy-${{ vars.CI_LLVM_VERSION }})"
+            echo "NINJA_COMMAND=$(command -v ninja)"
+            echo "LOCAL_WHISPER_GCC_C_COMPILER=$(command -v x86_64-linux-gnu-gcc-${{ vars.CI_GCC_VERSION }})"
+            echo "LOCAL_WHISPER_GCC_CXX_COMPILER=$(command -v x86_64-linux-gnu-g++-${{ vars.CI_GCC_VERSION }})"
+            echo "LOCAL_WHISPER_GCC_LINKER=$(command -v x86_64-linux-gnu-ld.bfd)"
+            echo "LOCAL_WHISPER_CLANG_C_COMPILER=$(command -v clang-${{ vars.CI_LLVM_VERSION }})"
+            echo "LOCAL_WHISPER_CLANG_CXX_COMPILER=$(command -v clang++-${{ vars.CI_LLVM_VERSION }})"
+            echo "LOCAL_WHISPER_CLANG_LINKER=$(command -v ld.lld-${{ vars.CI_LLVM_VERSION }})"
+            echo "LOCAL_WHISPER_PREPARED_LINUX_QUALITY=true"
+          } >> "$GITHUB_ENV"
+      - name: Provision verified Local Whisper native test sources
+        run: npm run prepare:local-whisper:native-test-sources
+      - name: Run Linux formatting and clang-tidy checks
+        if: matrix.lane == 'static-analysis'
+        run: |
+          npm run verify:local-whisper:worker-vectors -- --check-clean
+          npm run format:check:local-whisper:worker-common
+          npm run format:check:local-whisper:fs-guard
+          npm run format:check:local-whisper:launcher
+          npm run lint:local-whisper:fs-guard
+          npm run lint:local-whisper:launcher
+          npm run lint:local-whisper:worker-common
       - name: Prove Linux analyzer rejects bad sources
-        if: matrix.platform == 'linux'
+        if: matrix.lane == 'static-analysis'
         run: npm run test:local-whisper:native-analysis
-
       - name: Run focused Linux GCC 13 guard and launcher quality
-        if: matrix.platform == 'linux'
+        if: matrix.lane == 'gcc-package'
         run: |
           npm run test:local-whisper:fs-guard:gcc
           npm run test:local-whisper:launcher:gcc
           npm run emit:local-whisper:focused-gcc-quality-coverage -- --output=release-artifacts/focused-gcc-quality-coverage-linux.json
-
       - name: Build and verify Linux Whisper.cpp CPU pack
-        if: matrix.platform == 'linux'
+        if: matrix.lane == 'gcc-package'
         run: |
           npm run build:local-whisper:fs-guard
           npm run build:local-whisper:launcher
@@ -202,26 +239,155 @@ jobs:
           npm run verify:local-whisper:native-hardening -- --platform=linux
           npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1
           npm run audit:local-whisper:whisper-cpp-pack -- --profile=linux-x64-cpu-baseline-v1
-
       - name: Verify Linux AMD contracts without hardware claims
-        if: matrix.platform == 'linux'
+        if: matrix.lane == 'gcc-package'
         run: |
           npm run format:check:local-whisper:amd-packs
           npm run lint:local-whisper:amd-packs
           npm run test:local-whisper:amd-packs
           npm run verify:local-whisper:amd-packs -- --profile=vulkan-contract-linux
           npm run verify:local-whisper:amd-packs -- --profile=hip-no-approved-row
+      - name: Upload focused GCC coverage
+        if: matrix.lane == 'gcc-package'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: local-whisper-focused-gcc-quality-coverage-linux
+          path: release-artifacts/focused-gcc-quality-coverage-linux.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
+  native-quality-linux:
+    name: Local Whisper Native Quality (Linux)
+    if: ${{ always() }}
+    needs:
+      - native-linux-core
+      - native-linux-shards
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 5
+    env:
+      CORE_RESULT: ${{ needs.native-linux-core.result }}
+      SHARDS_RESULT: ${{ needs.native-linux-shards.result }}
+    steps:
+      - name: Require every Linux native lane
+        shell: bash
+        run: |
+          if [[ "$CORE_RESULT" != 'success' || "$SHARDS_RESULT" != 'success' ]]; then
+            echo "Linux native lanes did not all succeed" >&2
+            exit 1
+          fi
+
+  native-windows-core:
+    name: Local Whisper Windows / Core and CodeQL
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      EVIDENCE_ARTIFACT: local-whisper-runner-evidence-windows-primary
+      EVIDENCE_OUTPUT: release-artifacts/local-whisper-runner-evidence-windows-primary.json
+      PLATFORM: windows
+      TOOLCHAIN: msvc-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+      - name: Provision verified Local Whisper native test sources
+        run: npm run prepare:local-whisper:native-test-sources
+      - name: Initialize MSVC developer environment
+        uses: ./.github/actions/initialize-msvc-environment
+      - name: Mark Windows native environment prepared
+        shell: pwsh
+        run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
+      - name: Initialize Windows C++ CodeQL database
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          build-mode: manual
+          db-location: ${{ github.workspace }}/.cache/codeql/cpp-windows
+          languages: c-cpp
+          queries: security-and-quality
       - name: Run MSVC native and worker suites
-        if: matrix.platform == 'windows'
         run: |
           npm run test:local-whisper:fs-guard:native
           npm run test:local-whisper:launcher:native
           npm run test:local-whisper:worker-codec
           npm run test:local-whisper:whisper-cpp-core
+      - name: Build and verify hardened Windows production binaries
+        run: |
+          npm run build:local-whisper:fs-guard
+          npm run build:local-whisper:launcher
+          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
+          npm run verify:local-whisper:native-hardening -- --platform=windows
+          npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
+          npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
+      - name: Run Windows compatibility checks
+        run: |
+          npm run test:local-whisper:supervisor
+          npm run test:local-whisper:filesystem
+      - name: Emit Windows native-quality coverage
+        shell: pwsh
+        run: >-
+          npm run emit:local-whisper:native-quality-coverage -- --platform=$env:PLATFORM --compiler-profile=$env:TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-windows --output=release-artifacts/native-quality-coverage-windows.json
+      - name: Analyze Windows C++ CodeQL database
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: /language:c-cpp,host:windows
+          output: release-artifacts/codeql-cpp-windows
+          upload: always
+      - name: Emit Windows runner evidence
+        shell: pwsh
+        run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_WINDOWS_RUNNER }} --toolchain=$env:TOOLCHAIN --expected-os=$env:PLATFORM --compiler="$env:CXX" --output=$env:EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
+      - name: Upload Windows runner evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ env.EVIDENCE_ARTIFACT }}
+          path: |
+            ${{ env.EVIDENCE_OUTPUT }}
+            release-artifacts/native-quality-coverage-windows.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
+  native-windows-shards:
+    name: Local Whisper Windows / ${{ matrix.checkName }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - checkName: MSVC Analyze
+            lane: analyze
+            runner: ${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: 30
+          - checkName: MSVC AddressSanitizer
+            lane: asan
+            runner: ${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+      - name: Provision verified Local Whisper native test sources
+        run: npm run prepare:local-whisper:native-test-sources
+      - name: Initialize MSVC developer environment
+        uses: ./.github/actions/initialize-msvc-environment
+      - name: Mark Windows native environment prepared
+        shell: pwsh
+        run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
       - name: Run MSVC /analyze native suites
-        if: matrix.platform == 'windows'
+        if: matrix.lane == 'analyze'
         env:
           LOCAL_WHISPER_MSVC_ANALYZE: 'true'
         run: |
@@ -230,9 +396,8 @@ jobs:
           npm run test:local-whisper:worker-codec
           npm run test:local-whisper:whisper-cpp-core
           npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
-
       - name: Run MSVC AddressSanitizer native suites
-        if: matrix.platform == 'windows'
+        if: matrix.lane == 'asan'
         run: |
           npm run test:local-whisper:fs-guard:msvc-asan
           npm run test:local-whisper:launcher:msvc-asan
@@ -241,106 +406,82 @@ jobs:
           npm run verify:local-whisper:worker-authority -- --platform=windows --contract-only
           npm run verify:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --contract-only
 
-      - name: Build and verify hardened Windows production binaries
-        if: matrix.platform == 'windows'
+  native-quality-windows:
+    name: Local Whisper Native Quality (Windows)
+    if: ${{ always() }}
+    needs:
+      - native-windows-core
+      - native-windows-shards
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 5
+    env:
+      CORE_RESULT: ${{ needs.native-windows-core.result }}
+      SHARDS_RESULT: ${{ needs.native-windows-shards.result }}
+    steps:
+      - name: Require every Windows native lane
+        shell: pwsh
         run: |
-          npm run build:local-whisper:fs-guard
-          npm run build:local-whisper:launcher
-          npm run build:local-whisper:whisper-cpp-cpu -- --profile=windows-x64-cpu-msvc-19.39-v1 --skip-runtime-pack
-          npm run verify:local-whisper:native-hardening -- --platform=windows
-          npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
-          npm run verify:local-whisper:amd-packs -- --profile=vulkan-windows-x64
+          if ($env:CORE_RESULT -ne 'success' -or $env:SHARDS_RESULT -ne 'success') {
+            throw 'Windows native lanes did not all succeed'
+          }
 
-      - name: Run Local Whisper supervisor conformance tests
-        run: npm run test:local-whisper:supervisor
-
-      - name: Run Node/native filesystem compatibility tests
-        run: npm run test:local-whisper:filesystem
-
-      - name: Verify Linux filesystem fixture
-        if: matrix.platform == 'linux'
-        run: npm run verify:local-whisper:filesystem -- --fixture
-
-      - name: Emit Linux native-quality coverage
-        if: matrix.platform == 'linux'
-        shell: bash
-        run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=${{ matrix.platform }} --compiler-profile=${{ matrix.toolchain }} --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-${{ matrix.platform }} --output=release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
-
-      - name: Emit Windows native-quality coverage
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=${{ matrix.platform }} --compiler-profile=${{ matrix.toolchain }} --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-${{ matrix.platform }} --output=release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
-
-      - name: Analyze host-native C++ CodeQL database
-        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
-        with:
-          category: /language:c-cpp,host:${{ matrix.platform }}
-          output: release-artifacts/codeql-cpp-${{ matrix.platform }}
-          upload: always
-
-      - name: Emit Linux runner evidence
-        if: matrix.platform == 'linux'
-        shell: bash
-        run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ matrix.runner }} --toolchain=${{ matrix.toolchain }} --expected-os=${{ matrix.platform }} --compiler="$CXX" --output=${{ matrix.evidenceOutput }} --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
-
-      - name: Emit Windows runner evidence
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ matrix.runner }} --toolchain=${{ matrix.toolchain }} --expected-os=${{ matrix.platform }} --compiler="$env:CXX" --output=${{ matrix.evidenceOutput }} --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
-
-      - name: Upload focused GCC coverage
-        if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: local-whisper-focused-gcc-quality-coverage-linux
-          path: release-artifacts/focused-gcc-quality-coverage-linux.json
-          if-no-files-found: error
-          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
-
-      - name: Upload runner evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: ${{ matrix.evidenceArtifact }}
-          path: |
-            ${{ matrix.evidenceOutput }}
-            release-artifacts/native-quality-coverage-${{ matrix.platform }}.json
-          if-no-files-found: error
-          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
-
-  quality:
-    name: Quality Gates
+  quality-static:
+    name: Quality / Static and Type Contracts
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}
     env:
       CI_LINUX_RUNNER: ${{ vars.CI_LINUX_RUNNER }}
       CI_WINDOWS_RUNNER: ${{ vars.CI_WINDOWS_RUNNER }}
-      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-
       - name: Set up project
         uses: ./.github/actions/setup-ci-project
         with:
           node-version: ${{ vars.CI_NODE_VERSION }}
           package-manager-cache: 'true'
+      - name: Check formatting
+        run: npm run format:check
+      - name: Validate Dependabot configuration
+        run: npm run validate:dependabot
+      - name: Generate package metadata
+        run: npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Typecheck tests
+        run: npm run test:types
+      - name: Prove CodeQL policy and source inclusion contracts
+        run: npm run test:security:codeql-policy
+      - name: Prove security evidence and aggregate gate policies
+        run: |
+          npm run test:security:attestation-policy
+          npm run test:security:evidence-policy
+          npm run test:security:aggregate-gates
+          npm run test:security:scorecard-policy
 
-      - name: Initialize JavaScript and TypeScript CodeQL database
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+  quality-tests:
+    name: Quality / Tests and Production Build
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          build-mode: none
-          config-file: ./.github/codeql-config.yml
-          db-location: ${{ github.workspace }}/.cache/codeql/javascript-typescript
-          languages: javascript-typescript
-          queries: security-and-quality
-
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
       - name: Cache Electron binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -351,44 +492,35 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-
-
-      - name: Check formatting
-        run: npm run format:check
-
-      - name: Validate Dependabot configuration
-        run: npm run validate:dependabot
-
       - name: Generate package metadata
         run: npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Typecheck tests
-        run: npm run test:types
-
       - name: Unit tests
         run: npm test
-
       - name: Audit production dependencies
         run: npm run audit:prod
-
       - name: Build production bundles
         run: npm run build:prod
 
-      - name: Prove CodeQL policy and source inclusion contracts
-        run: npm run test:security:codeql-policy
-
-      - name: Prove security evidence and aggregate gate policies
-        run: |
-          npm run test:security:attestation-policy
-          npm run test:security:evidence-policy
-          npm run test:security:aggregate-gates
-          npm run test:security:scorecard-policy
-
+  quality-codeql:
+    name: Quality / JavaScript and TypeScript CodeQL
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Initialize JavaScript and TypeScript CodeQL database
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          build-mode: none
+          config-file: ./.github/codeql-config.yml
+          db-location: ${{ github.workspace }}/.cache/codeql/javascript-typescript
+          languages: javascript-typescript
+          queries: security-and-quality
       - name: Analyze JavaScript and TypeScript CodeQL database
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
@@ -396,9 +528,30 @@ jobs:
           output: release-artifacts/codeql-javascript-typescript
           upload: always
 
+  quality:
+    name: Quality Gates
+    if: ${{ always() }}
+    needs:
+      - quality-static
+      - quality-tests
+      - quality-codeql
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 5
+    env:
+      CODEQL_RESULT: ${{ needs.quality-codeql.result }}
+      STATIC_RESULT: ${{ needs.quality-static.result }}
+      TESTS_RESULT: ${{ needs.quality-tests.result }}
+    steps:
+      - name: Require every quality lane
+        shell: bash
+        run: |
+          if [[ "$STATIC_RESULT" != 'success' || "$TESTS_RESULT" != 'success' || "$CODEQL_RESULT" != 'success' ]]; then
+            echo "Quality lanes did not all succeed" >&2
+            exit 1
+          fi
+
   package-smoke:
     name: Package Smoke (${{ matrix.checkName }})
-    needs: quality
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeoutMinutes }}
     permissions:

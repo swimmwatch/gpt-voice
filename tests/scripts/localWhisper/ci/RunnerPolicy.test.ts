@@ -5,42 +5,135 @@ import { RunnerPolicyVerifier } from '@scripts/local-whisper/ci/RunnerPolicyVeri
 
 const validWorkflow = `
 jobs:
-  native-quality:
+  native-linux-core:
+    runs-on: \${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      TOOLCHAIN: clang-\${{ vars.CI_LLVM_VERSION }}
+    steps:
+      - run: npm run native-sanitizer-proof && npm run worker-tsan && npm run native-fuzz
+      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=\${{ vars.CI_LINUX_RUNNER }} --toolchain=$TOOLCHAIN
+  native-linux-shards:
     runs-on: \${{ matrix.runner }}
+    timeout-minutes: \${{ matrix.timeoutMinutes }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: linux
+          - checkName: Static Analysis
+            lane: static-analysis
             runner: \${{ vars.CI_LINUX_RUNNER }}
-            toolchain: clang-\${{ vars.CI_LLVM_VERSION }}
-          - platform: windows
-            runner: \${{ vars.CI_WINDOWS_RUNNER }}
-            toolchain: msvc-hosted
+            timeoutMinutes: 20
+          - checkName: GCC and Package
+            lane: gcc-package
+            runner: \${{ vars.CI_LINUX_RUNNER }}
+            timeoutMinutes: 30
     steps:
-      - run: npm run native-sanitizer-proof && npm run lint:local-whisper:worker-common
-      - run: npm run test:local-whisper:fs-guard:msvc-asan && npm run verify:local-whisper:native-hardening
-      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=\${{ matrix.runner }} --toolchain=\${{ matrix.toolchain }} --expected-os=\${{ matrix.platform }}
-  quality:
+      - run: npm run lint:local-whisper && npm run native-analysis
+      - run: npm run fs-guard:gcc && npm run native-hardening
+  native-quality-linux:
+    name: Local Whisper Native Quality (Linux)
+    if: \${{ always() }}
+    needs:
+      - native-linux-core
+      - native-linux-shards
     runs-on: \${{ vars.CI_LINUX_RUNNER }}
+    env:
+      CORE_RESULT: \${{ needs.native-linux-core.result }}
+      SHARDS_RESULT: \${{ needs.native-linux-shards.result }}
+    steps:
+      - run: test "$CORE_RESULT" = success && test "$SHARDS_RESULT" = success
+  native-windows-core:
+    runs-on: \${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      TOOLCHAIN: msvc-hosted
+    steps:
+      - run: npm run native-hardening
+      - run: npm run emit:local-whisper:runner-evidence -- --runner-label=\${{ vars.CI_WINDOWS_RUNNER }} --toolchain=$TOOLCHAIN
+      - uses: github/codeql-action/init@0123456789012345678901234567890123456789
+        with:
+          languages: c-cpp
+  native-windows-shards:
+    runs-on: \${{ matrix.runner }}
+    timeout-minutes: \${{ matrix.timeoutMinutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - checkName: MSVC Analyze
+            lane: analyze
+            runner: \${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: 30
+          - checkName: MSVC AddressSanitizer
+            lane: asan
+            runner: \${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: 30
+    steps:
+      - run: npm run LOCAL_WHISPER_MSVC_ANALYZE
+      - run: npm run test:local-whisper:fs-guard:msvc-asan
+  native-quality-windows:
+    name: Local Whisper Native Quality (Windows)
+    if: \${{ always() }}
+    needs:
+      - native-windows-core
+      - native-windows-shards
+    runs-on: \${{ vars.CI_WINDOWS_RUNNER }}
+    env:
+      CORE_RESULT: \${{ needs.native-windows-core.result }}
+      SHARDS_RESULT: \${{ needs.native-windows-shards.result }}
+    steps:
+      - run: test "$CORE_RESULT" = success && test "$SHARDS_RESULT" = success
 `;
 
 describe('Native CI runner policy', () => {
-  it('accepts the configured two-platform native matrix', () => {
+  it('accepts the configured parallel native lanes and aggregate gates', () => {
     new RunnerPolicyVerifier().verify(validWorkflow);
   });
 
-  it('rejects literal, unsupported, duplicate, and incomplete runner rows', () => {
+  it('rejects literal runners and unsupported or duplicate lanes', () => {
     const verifier = new RunnerPolicyVerifier();
     assert.throws(
       () => verifier.verify(validWorkflow.replace('${{ vars.CI_LINUX_RUNNER }}', 'ubuntu-24.04')),
       /configured runner/u,
     );
+    assert.throws(() => verifier.verify(validWorkflow.replace('lane: asan', 'lane: darwin')), /exact approved lanes/u);
+    assert.throws(() => verifier.verify(validWorkflow.replace('lane: asan', 'lane: analyze')), /exact approved lanes/u);
+  });
+
+  it('rejects accidental lane dependencies and changed matrix metadata', () => {
+    const verifier = new RunnerPolicyVerifier();
     assert.throws(
-      () => verifier.verify(validWorkflow.replace('platform: windows', 'platform: darwin')),
-      /unsupported platform/u,
+      () =>
+        verifier.verify(validWorkflow.replace('  native-linux-core:\n', '  native-linux-core:\n    needs: quality\n')),
+      /start independently/u,
     );
-    assert.throws(() => verifier.verify(validWorkflow.replace('platform: windows', 'platform: linux')), /duplicates/u);
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('timeoutMinutes: 20', 'timeoutMinutes: 60')),
+      /metadata must remain parameterized and exact/u,
+    );
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('checkName: MSVC Analyze', 'checkName: Analyze')),
+      /metadata must remain parameterized and exact/u,
+    );
+  });
+
+  it('rejects aggregate gates that can accept a non-success dependency result', () => {
+    const verifier = new RunnerPolicyVerifier();
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('test "$CORE_RESULT" = success', 'test -n "$CORE_RESULT"')),
+      /fail closed/u,
+    );
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('      - native-windows-shards\n', '')),
+      /require every windows native lane/u,
+    );
   });
 
   it('rejects configured runner values outside the approved pair', () => {

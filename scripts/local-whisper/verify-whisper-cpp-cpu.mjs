@@ -257,15 +257,47 @@ function verifyLinux(profileId) {
   );
   assert.match(provisioner, /whisper-cpp-v1\.9\.1-f049fff/u);
   const workflow = readFileSync(resolve(workspaceRoot, '.github', 'workflows', 'pr-checks.yml'), 'utf8');
-  const nativeQuality = workflow.slice(workflow.indexOf('  native-quality:'), workflow.indexOf('  quality:'));
-  assert.match(nativeQuality, /runs-on: \$\{\{ matrix\.runner \}\}/u);
-  assert.match(nativeQuality, /platform: linux/u);
-  assert.match(nativeQuality, /test:local-whisper:whisper-cpp-core/u);
-  assert.match(nativeQuality, /test:local-whisper:whisper-cpp-loader/u);
-  assert.match(nativeQuality, /build:local-whisper:whisper-cpp-cpu/u);
-  assert.match(nativeQuality, /audit:local-whisper:whisper-cpp-pack/u);
-  assert.match(nativeQuality, /platform: windows/u);
-  assert.match(nativeQuality, /windows-x64-cpu-msvc-19\.39-v1/u);
+  const linuxCoreStart = workflow.indexOf('  native-linux-core:');
+  const linuxShardsStart = workflow.indexOf('  native-linux-shards:');
+  const linuxGateStart = workflow.indexOf('  native-quality-linux:');
+  const windowsCoreStart = workflow.indexOf('  native-windows-core:');
+  const windowsShardsStart = workflow.indexOf('  native-windows-shards:');
+  const windowsGateStart = workflow.indexOf('  native-quality-windows:');
+  const qualityStart = workflow.indexOf('  quality-static:');
+  for (const offset of [
+    linuxCoreStart,
+    linuxShardsStart,
+    linuxGateStart,
+    windowsCoreStart,
+    windowsShardsStart,
+    windowsGateStart,
+    qualityStart,
+  ]) {
+    assert.notEqual(offset, -1, 'Pull Request Checks must retain every native lane and aggregate gate');
+  }
+  assert.ok(
+    linuxCoreStart < linuxShardsStart &&
+      linuxShardsStart < linuxGateStart &&
+      linuxGateStart < windowsCoreStart &&
+      windowsCoreStart < windowsShardsStart &&
+      windowsShardsStart < windowsGateStart &&
+      windowsGateStart < qualityStart,
+    'Pull Request Checks native lane order changed unexpectedly',
+  );
+  const linuxCore = workflow.slice(linuxCoreStart, linuxShardsStart);
+  const linuxShards = workflow.slice(linuxShardsStart, linuxGateStart);
+  const windowsCore = workflow.slice(windowsCoreStart, windowsShardsStart);
+  const windowsShards = workflow.slice(windowsShardsStart, windowsGateStart);
+  assert.match(linuxCore, /runs-on: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u);
+  assert.match(linuxCore, /test:local-whisper:whisper-cpp-core/u);
+  assert.match(linuxCore, /test:local-whisper:whisper-cpp-loader/u);
+  assert.match(linuxShards, /runs-on: \$\{\{ matrix\.runner \}\}/u);
+  assert.match(linuxShards, /build:local-whisper:whisper-cpp-cpu/u);
+  assert.match(linuxShards, /audit:local-whisper:whisper-cpp-pack/u);
+  assert.match(windowsCore, /runs-on: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
+  assert.match(windowsCore, /windows-x64-cpu-msvc-19\.39-v1/u);
+  assert.match(windowsShards, /runs-on: \$\{\{ matrix\.runner \}\}/u);
+  assert.match(windowsShards, /windows-x64-cpu-msvc-19\.39-v1/u);
   const manifest = JSON.parse(readFileSync(resolve(pack.root, 'runtime-manifest.json'), 'utf8'));
   const registry = captureWorkerRegistry(pack.binary, {
     backendId: 'cpu',
