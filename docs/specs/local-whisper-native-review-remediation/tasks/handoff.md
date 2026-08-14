@@ -152,6 +152,14 @@
 - Packet 20 — Windows validation and remediation gate. Do not begin it without
   a new explicit incremental-implementation authorization.
 
+## Packet 20 Manifest Correction
+
+- Packet 19 cannot truthfully supply a supported-host Windows run manifest: it
+  executed Linux/shared/security closure and hosted CI only. Packet 20 now
+  creates its manifest as its first action from direct Windows-host observations
+  and records it here before running validation. This correction neither claims
+  Windows manual evidence nor changes any Packet 19 completion result.
+
 ## Blockers
 
 - Preserve unrelated dirty worktree content under `docs/reviews/`, other specification bundles, translations, and translation-provider files/tests.

@@ -63,7 +63,7 @@ The complete Linux/shared implementation, native-quality, repository-security, t
 - AC-MAN-001, Linux AC-MAN-003, AC-MAN-005, and AC-MAN-010 pass without abort, hang, busy loop, orphan, descriptor leak, sensitive output, protocol corruption, malformed retained native evidence, or lost committed transcript.
 - Every gate-discovered defect has a focused regression and all affected checks pass after the fix.
 - AC-MAN-006–AC-MAN-008 pass without identity gaps, excess attestation permissions, hosted scanner connections, or external-state mutation.
-- The Packet 20 manual manifest is complete and no hosted Windows Server or automated result is mislabeled as supported-desktop manual evidence.
+- The Packet 20 manual-manifest template and required command inventory are ready, and no hosted Windows Server or automated result is mislabeled as supported-desktop manual evidence. The real supported-host manifest is created only by Packet 20 on that host; Packet 19 cannot create or substitute it.
 - Exclusions, privacy constraints, and no-release/no-qualification boundaries remain intact.
 
 ## Verification

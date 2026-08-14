@@ -6,7 +6,7 @@ One final Windows x64 packet performs the separate supported-host manual validat
 
 ## Prerequisites
 
-- Packets 01–19 are checked complete, every code-bearing Packet 04–19 required Windows Server 2025 native/package/artifact-security job executed successfully without skips, and `handoff.md` contains the exact supported-host manual Windows run manifest.
+- Packets 01–19 are checked complete and every code-bearing Packet 04–19 required Windows Server 2025 native/package/artifact-security job executed successfully without skips.
 - This packet has separate execution authorization and no other packet is in progress.
 - A supported Windows x64 host with the pinned MSVC 19.39/SDK toolchain, verified native inputs, and authorized non-sensitive smoke fixtures is available.
 - A supported Linux verification path is available for any shared code changed while fixing a Windows finding.
@@ -35,7 +35,7 @@ One final Windows x64 packet performs the separate supported-host manual validat
 
 ## Task Contract
 
-1. Materialize the exact supported-host manual manifest from Packet 19 and reject missing, duplicate, unexpected, wrong-profile, or contract-only substitutions.
+1. Before any Windows validation command, create the exact supported-host manual run manifest in `handoff.md` from observations made on this host. Record the candidate commit SHA, timestamp with timezone, Windows edition/build, architecture, MSVC and Windows SDK versions, Node and Git versions, native source-lock identities, selected CPU/CUDA profile, authorized synthetic fixture identifiers, and the complete Packet 20 command inventory. Record only bounded classifications, versions, identifiers, and digests: never usernames, paths, environment values, credentials, audio, transcripts, or raw command output. Reject missing, duplicate, unexpected, wrong-profile, stale-candidate, or contract-only substitutions. This setup record establishes provenance only; it is not a passing manual result.
 2. Run ordinary MSVC 19.39 builds and project-owned tests for every common, guard, launcher, and worker Windows manifest source.
 3. Run the dedicated MSVC ASan configurations for every supported target. Confirm `/RTC1` is absent, unsupported sanitizer options are absent, the injected ASan proof fails, and normal suites pass.
 4. Run MSVC analysis with warnings as errors over every Windows-owned translation unit and prove the supported bad fixture is detected.
@@ -133,7 +133,7 @@ npm run test:types
 ## References
 
 - Entire approved specification, especially Sections 4, 9–12.
-- Packet 19's exact supported-host manual Windows manifest and Linux/shared/security evidence.
+- Packet 19's Linux/shared/security evidence and the supported-host manual manifest created as Packet 20 step 1.
 - Planning decisions `plan.packet-platform-slicing` revision 3 and `plan.windows-job-skip-policy` revision 1.
 
 ## Completion And Handoff
