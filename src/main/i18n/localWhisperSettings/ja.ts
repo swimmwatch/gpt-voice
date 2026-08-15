@@ -133,6 +133,9 @@ export default {
   'localWhisper.settings.bestOf': '最高の',
   'localWhisper.settings.cpuThreads': 'CPU スレッド',
   'localWhisper.settings.cpuThreadsHint': 'auto または 1 から {count} までの整数を使用します。',
+  'localWhisper.settings.gpuCpuThreads': 'GPU CPU スレッド',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'GPU 推論中の CPU 処理には auto または 1 から {count} までの整数を使用します。',
   'localWhisper.settings.savedInitialPrompt': '保存された初期プロンプト',
   'localWhisper.settings.savedPromptExists':
     '保存されたプロンプトは存在しますが、そのテキストはレンダラに返されません。',
@@ -150,6 +153,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'ビーム: {value}',
   'localWhisper.settings.summaryBestOf': 'ベストオブ: {value}',
   'localWhisper.settings.summaryCpuThreads': 'CPU スレッド: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'GPU CPU スレッド: {value}',
   'localWhisper.settings.auto': '自動',
   'localWhisper.settings.actionDownload': 'ダウンロード',
   'localWhisper.settings.actionResume': '再開',
@@ -221,6 +225,8 @@ export default {
   'localWhisper.settings.validationGreedyTemperature': '欲張り検索とビーム検索には温度 0.00 が必要です。',
   'localWhisper.settings.validationCpuThreads':
     'CPU スレッドは auto または 1 から {count} までの整数である必要があります。',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'GPU CPU スレッドは auto または 1 から {count} までの整数である必要があります。',
   'localWhisper.settings.validationBackendRequired': '明示的な GPU バックエンドを選択します。',
   'localWhisper.settings.validationDeviceRequired': 'アプリケーションが発行した GPU デバイスを選択します。',
   'localWhisper.settings.availabilityPlanned': 'このプラットフォームは計画されており、このリリースでは使用できません。',

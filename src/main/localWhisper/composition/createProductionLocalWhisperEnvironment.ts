@@ -8,6 +8,7 @@ import {
   getLocalWhisperMemoryConfigurationKey,
   isLocalWhisperGpuBackend,
   isValidLocalWhisperPublicSettings,
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT,
   LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   resolveLocalWhisperCpuThreads,
@@ -16,6 +17,7 @@ import {
   type LocalWhisperArtifactProgress,
   type LocalWhisperArtifactSetupState,
   type LocalWhisperBackend,
+  type LocalWhisperCpuThreads,
   type LocalWhisperFailureCode,
   type LocalWhisperMemoryEstimateRecord,
   type LocalWhisperDeviceDescriptor,
@@ -670,6 +672,24 @@ function reconcileNvidiaTopology(
   return Object.freeze(inventory.devices.filter(({ id }) => runtimeIds.has(id)));
 }
 
+function rememberedThreadSelection(
+  snapshot: LocalWhisperSettingsSnapshot,
+  target: 'cpu' | 'gpu',
+  logicalProcessorCount: number,
+): LocalWhisperCpuThreads {
+  const remembered = snapshot.dependentSelections.values[`threads:whisperCpp:${target}`];
+  if (resolveLocalWhisperCpuThreads(remembered, logicalProcessorCount) !== null) {
+    return remembered as LocalWhisperCpuThreads;
+  }
+  const execution = snapshot.settings.execution;
+  let configured: LocalWhisperCpuThreads = LOCAL_WHISPER_AUTO_CPU_THREADS;
+  if (target === 'cpu' && execution.target === 'cpu') configured = execution.cpuThreads;
+  if (target === 'gpu' && execution.target === 'gpu') configured = execution.gpuCpuThreads;
+  return resolveLocalWhisperCpuThreads(configured, logicalProcessorCount) === null
+    ? LOCAL_WHISPER_AUTO_CPU_THREADS
+    : configured;
+}
+
 /** Builds renderer-safe catalog, inventory, and read-only resource facts for the current selection. */
 function factsSnapshot(
   catalog: LocalWhisperAuthenticatedCatalog,
@@ -730,6 +750,10 @@ function factsSnapshot(
               .map(({ label }) => label)
               .join(' · ')}`,
       logicalProcessorCount: context.logicalProcessorCount,
+    }),
+    threadSelections: Object.freeze({
+      cpuThreads: rememberedThreadSelection(settingsSnapshot, 'cpu', context.logicalProcessorCount),
+      gpuCpuThreads: rememberedThreadSelection(settingsSnapshot, 'gpu', context.logicalProcessorCount),
     }),
     memory: Object.freeze({
       selectedEstimate: estimate,

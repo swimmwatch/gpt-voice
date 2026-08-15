@@ -133,6 +133,9 @@ export default {
   'localWhisper.settings.bestOf': 'Lo mejor de',
   'localWhisper.settings.cpuThreads': 'Hilos de CPU',
   'localWhisper.settings.cpuThreadsHint': 'Utilice auto o un número entero del 1 al {count}.',
+  'localWhisper.settings.gpuCpuThreads': 'Hilos de CPU para GPU',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'Utilice auto o un número entero del 1 al {count} para el trabajo de CPU durante la inferencia en GPU.',
   'localWhisper.settings.savedInitialPrompt': 'Mensaje inicial guardado',
   'localWhisper.settings.savedPromptExists':
     'Existe un mensaje guardado, pero su texto nunca se devuelve al renderizador.',
@@ -150,6 +153,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'Haz: {value}',
   'localWhisper.settings.summaryBestOf': 'Lo mejor de: {value}',
   'localWhisper.settings.summaryCpuThreads': 'Subprocesos de CPU: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'Hilos de CPU para GPU: {value}',
   'localWhisper.settings.auto': 'Automático',
   'localWhisper.settings.actionDownload': 'Descargar',
   'localWhisper.settings.actionResume': 'Currículum',
@@ -226,6 +230,8 @@ export default {
     'La búsqueda codiciosa y de haz requiere una temperatura de 0,00.',
   'localWhisper.settings.validationCpuThreads':
     'Los subprocesos de la CPU deben ser automáticos o un número entero del 1 al {count}.',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'Los hilos de CPU para GPU deben ser auto o un número entero del 1 al {count}.',
   'localWhisper.settings.validationBackendRequired': 'Seleccione un backend de GPU explícito.',
   'localWhisper.settings.validationDeviceRequired': 'Seleccione un dispositivo GPU emitido por la aplicación.',
   'localWhisper.settings.availabilityPlanned': 'Esta plataforma está planificada y no está disponible en esta versión.',

@@ -120,8 +120,14 @@ describe('Local Whisper accessibility and narrow viewport contracts', () => {
     const inference = source('src/renderer/localWhisper/components/LocalWhisperInferenceSections.tsx');
     const page = source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx');
     assert.match(shared, /<label[\s\S]*htmlFor=\{htmlFor\}/u);
+    assert.match(shared, /id=\{htmlFor \? `\$\{htmlFor\}-hint` : undefined\}/u);
     assert.match(runtime, /aria-pressed=\{selected\}/u);
     assert.match(inference, /focus-visible:ring-2|focus-within:ring-2/u);
+    assert.match(inference, /aria-describedby=\{threadDescription\}/u);
+    assert.match(inference, /aria-invalid=\{threadError !== undefined\}/u);
+    assert.match(inference, /inputMode="text"/u);
+    assert.match(inference, /onChange=\{\(event\) =>[\s\S]{0,120}\[threadField\]: event\.target\.value/u);
+    assert.equal(inference.match(/id=\{THREAD_INPUT_ID\}/gu)?.length, 1);
     assert.match(page, /saveDisabledReason/u);
     assert.match(page, /t\('localWhisper\.settings\.disabledBusy'\)/u);
   });

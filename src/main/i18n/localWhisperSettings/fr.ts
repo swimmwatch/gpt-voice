@@ -136,6 +136,9 @@ export default {
   'localWhisper.settings.bestOf': 'Le meilleur des',
   'localWhisper.settings.cpuThreads': 'Threads CPU',
   'localWhisper.settings.cpuThreadsHint': 'Utiliser auto ou un nombre entier compris entre 1 et {count}.',
+  'localWhisper.settings.gpuCpuThreads': 'Threads CPU pour GPU',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'Utiliser auto ou un nombre entier compris entre 1 et {count} pour le travail CPU pendant l’inférence GPU.',
   'localWhisper.settings.savedInitialPrompt': 'Invite initiale enregistrée',
   'localWhisper.settings.savedPromptExists':
     "Une invite enregistrée existe, mais son texte n\\\\\\\\\\\\\\'est jamais renvoyé au moteur de rendu.",
@@ -153,6 +156,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'Beam : {value}',
   'localWhisper.settings.summaryBestOf': 'Best of : {value}',
   'localWhisper.settings.summaryCpuThreads': 'Threads CPU : {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'Threads CPU pour GPU : {value}',
   'localWhisper.settings.auto': 'Automatique',
   'localWhisper.settings.actionDownload': 'Télécharger',
   'localWhisper.settings.actionResume': 'CV',
@@ -235,6 +239,8 @@ export default {
     'La recherche gourmande et par faisceau nécessite une température de 0,00.',
   'localWhisper.settings.validationCpuThreads':
     'Les threads du processeur doivent être auto ou un nombre entier compris entre 1 et {count}.',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'Les threads CPU pour GPU doivent être auto ou un nombre entier compris entre 1 et {count}.',
   'localWhisper.settings.validationBackendRequired': 'Sélectionnez un backend GPU explicite.',
   'localWhisper.settings.validationDeviceRequired':
     "Sélectionnez un périphérique GPU émis par l\\\\\\\\\\\\\\'application.",

@@ -134,6 +134,9 @@ export default {
   'localWhisper.settings.bestOf': 'Beste Auswahl',
   'localWhisper.settings.cpuThreads': 'CPU-Threads',
   'localWhisper.settings.cpuThreadsHint': 'Verwenden Sie Auto oder eine Ganzzahl von 1 bis {count}.',
+  'localWhisper.settings.gpuCpuThreads': 'GPU-CPU-Threads',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'Verwenden Sie für CPU-Arbeit während der GPU-Inferenz auto oder eine Ganzzahl von 1 bis {count}.',
   'localWhisper.settings.savedInitialPrompt': 'Gespeicherte anfängliche Eingabeaufforderung',
   'localWhisper.settings.savedPromptExists':
     'Eine gespeicherte Eingabeaufforderung ist vorhanden, ihr Text wird jedoch nie an den Renderer zurückgegeben.',
@@ -151,6 +154,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'Strahl: {value}',
   'localWhisper.settings.summaryBestOf': 'Beste Auswahl: {value}',
   'localWhisper.settings.summaryCpuThreads': 'CPU-Threads: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'GPU-CPU-Threads: {value}',
   'localWhisper.settings.auto': 'Automatisch',
   'localWhisper.settings.actionDownload': 'Herunterladen',
   'localWhisper.settings.actionResume': 'Lebenslauf',
@@ -225,6 +229,8 @@ export default {
   'localWhisper.settings.validationGreedyTemperature': 'Greedy- und Beam-Suche erfordern eine Temperatur von 0,00.',
   'localWhisper.settings.validationCpuThreads':
     'CPU-Threads müssen automatisch oder eine Ganzzahl von 1 bis {count} sein.',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'GPU-CPU-Threads müssen auto oder eine Ganzzahl von 1 bis {count} sein.',
   'localWhisper.settings.validationBackendRequired': 'Wählen Sie ein explizites GPU-Backend aus.',
   'localWhisper.settings.validationDeviceRequired': 'Wählen Sie ein von der Anwendung ausgegebenes GPU-Gerät aus.',
   'localWhisper.settings.availabilityPlanned': 'Diese Plattform ist geplant und in dieser Version nicht verfügbar.',

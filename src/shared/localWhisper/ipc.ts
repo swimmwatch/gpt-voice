@@ -38,11 +38,14 @@ import { isLocalWhisperLanguageId } from './languages';
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_MAX_CANDIDATE_COUNT,
+  LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT,
   LOCAL_WHISPER_MAX_TEMPERATURE_HUNDREDTHS,
   LOCAL_WHISPER_MIN_CANDIDATE_COUNT,
   LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   LOCAL_WHISPER_TEMPERATURE_STEP_HUNDREDTHS,
   getLocalWhisperPromptValidationError,
+  resolveLocalWhisperCpuThreads,
+  type LocalWhisperCpuThreads,
   type LocalWhisperPromptMutation,
   type LocalWhisperPublicSettings,
   type LocalWhisperSettingsValidationIssue,
@@ -184,6 +187,10 @@ export interface LocalWhisperRendererSnapshot {
   readonly host: {
     readonly label: string;
     readonly logicalProcessorCount: number;
+  };
+  readonly threadSelections: {
+    readonly cpuThreads: LocalWhisperCpuThreads;
+    readonly gpuCpuThreads: LocalWhisperCpuThreads;
   };
   readonly options: readonly LocalWhisperRendererOption[];
   readonly validationIssues: readonly LocalWhisperSettingsValidationIssue[];
@@ -732,6 +739,7 @@ export function isLocalWhisperRendererSnapshot(value: unknown): value is LocalWh
       'hasInitialPrompt',
       'selectedDeviceId',
       'host',
+      'threadSelections',
       'options',
       'validationIssues',
       'memory',
@@ -772,7 +780,17 @@ export function isLocalWhisperRendererSnapshot(value: unknown): value is LocalWh
     !isLocalWhisperRendererSafeLabel(value.host.label) ||
     !Number.isSafeInteger(value.host.logicalProcessorCount) ||
     (value.host.logicalProcessorCount as number) < 1 ||
-    (value.host.logicalProcessorCount as number) > 65_536
+    (value.host.logicalProcessorCount as number) > LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT
+  ) {
+    return false;
+  }
+  if (
+    !isPlainRecord(value.threadSelections) ||
+    !hasExactKeys(value.threadSelections, ['cpuThreads', 'gpuCpuThreads']) ||
+    resolveLocalWhisperCpuThreads(value.threadSelections.cpuThreads, value.host.logicalProcessorCount as number) ===
+      null ||
+    resolveLocalWhisperCpuThreads(value.threadSelections.gpuCpuThreads, value.host.logicalProcessorCount as number) ===
+      null
   ) {
     return false;
   }

@@ -80,6 +80,38 @@ describe('Local Whisper UI contracts', () => {
     assert.match(controller, /service\.reset\(\), true/u);
   });
 
+  it('uses one contextual thread control with target-specific memory, text, and stale-epoch protection', () => {
+    const inference = source('src/renderer/localWhisper/components/LocalWhisperInferenceSections.tsx');
+    const state = source('src/renderer/localWhisper/LocalWhisperSettingsState.ts');
+    const service = source('src/renderer/localWhisper/LocalWhisperRendererService.ts');
+
+    assert.match(state, /cpuThreads: String\(snapshot\.threadSelections\.cpuThreads\)/u);
+    assert.match(state, /gpuCpuThreads: String\(snapshot\.threadSelections\.gpuCpuThreads\)/u);
+    assert.match(inference, /const threadField = draft\.executionTarget === 'cpu' \? 'cpuThreads' : 'gpuCpuThreads'/u);
+    assert.match(inference, /localWhisper\.settings\.gpuCpuThreadsHint/u);
+    assert.match(inference, /localWhisper\.settings\.gpuCpuThreads/u);
+    assert.match(inference, /value=\{draft\[threadField\]\}/u);
+    assert.equal(inference.match(/id=\{THREAD_INPUT_ID\}/gu)?.length, 1);
+    assert.doesNotMatch(inference, /electron|ipcRenderer|child_process/u);
+    assert.match(service, /expectedConfigurationEpoch: snapshot\.configurationEpoch/u);
+    assert.match(service, /expectedInventoryEpoch: snapshot\.inventoryEpoch/u);
+  });
+
+  it('defines contextual GPU thread labels, help, summaries, and validation in every supported locale', () => {
+    const locales = ['be', 'de', 'en', 'es', 'fr', 'hi', 'ja', 'pt-BR', 'ru', 'uk', 'zh'];
+    const keys = ['gpuCpuThreads', 'gpuCpuThreadsHint', 'summaryGpuCpuThreads', 'validationGpuCpuThreads'];
+
+    for (const locale of locales) {
+      const localeSource = source(`src/main/i18n/localWhisperSettings/${locale}.ts`);
+      for (const key of keys) {
+        assert.match(localeSource, new RegExp(`'localWhisper\\.settings\\.${key}'`, 'u'), `${locale}:${key}`);
+      }
+      assert.match(localeSource, /'localWhisper\.settings\.gpuCpuThreadsHint':[\s\S]{0,180}\{count\}/u, locale);
+      assert.match(localeSource, /'localWhisper\.settings\.summaryGpuCpuThreads':[\s\S]{0,120}\{value\}/u, locale);
+      assert.match(localeSource, /'localWhisper\.settings\.validationGpuCpuThreads':[\s\S]{0,180}\{count\}/u, locale);
+    }
+  });
+
   it('uses only bounded renderer-safe artifact and host/resource DTOs', () => {
     const pageSources = [
       source('src/renderer/localWhisper/LocalWhisperSettingsPage.tsx'),
@@ -226,6 +258,22 @@ describe('Local Whisper UI contracts', () => {
       }),
       false,
     );
+    assert.equal(
+      isLocalWhisperRendererSnapshot({
+        ...snapshot,
+        threadSelections: { cpuThreads: 9, gpuCpuThreads: 'auto' },
+      }),
+      false,
+    );
+    assert.equal(
+      isLocalWhisperRendererSnapshot({
+        ...snapshot,
+        threadSelections: { cpuThreads: 4, gpuCpuThreads: 'Auto' },
+      }),
+      false,
+    );
+    const { threadSelections: _threadSelections, ...missingThreadSelections } = snapshot;
+    assert.equal(isLocalWhisperRendererSnapshot(missingThreadSelections), false);
     assert.equal(
       isLocalWhisperRendererSnapshot({
         ...snapshot,

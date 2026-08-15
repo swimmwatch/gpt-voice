@@ -117,7 +117,11 @@ export function LocalWhisperField({
         {label}
       </label>
       {children}
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p className="text-xs text-muted-foreground" id={htmlFor ? `${htmlFor}-hint` : undefined}>
+          {hint}
+        </p>
+      ) : null}
       {error ? (
         <p className="text-xs font-medium text-destructive" id={htmlFor ? `${htmlFor}-error` : undefined} role="alert">
           {error}

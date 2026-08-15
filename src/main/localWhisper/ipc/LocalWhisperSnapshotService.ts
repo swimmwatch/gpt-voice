@@ -22,6 +22,7 @@ export interface LocalWhisperSnapshotFacts {
   readonly options: readonly LocalWhisperRendererOption[];
   readonly validationIssues: readonly LocalWhisperSettingsValidationIssue[];
   readonly host: LocalWhisperRendererSnapshot['host'];
+  readonly threadSelections: LocalWhisperRendererSnapshot['threadSelections'];
   readonly memory: Omit<LocalWhisperRendererMemoryFacts, 'approximateFamilies'>;
   readonly resources: LocalWhisperRendererSnapshot['resources'];
   readonly storage: LocalWhisperRendererSnapshot['storage'];
@@ -124,6 +125,7 @@ export class LocalWhisperSnapshotService {
       hasInitialPrompt: coordinator.hasInitialPrompt,
       selectedDeviceId: coordinator.selectedDeviceId,
       host: cloneAndFreeze(facts.host),
+      threadSelections: cloneAndFreeze(facts.threadSelections),
       options: cloneAndFreeze(facts.options),
       validationIssues: cloneAndFreeze(facts.validationIssues),
       memory: Object.freeze({

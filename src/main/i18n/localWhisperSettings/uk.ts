@@ -130,6 +130,9 @@ export default {
   'localWhisper.settings.bestOf': 'Найкращий з',
   'localWhisper.settings.cpuThreads': 'потоків ЦП',
   'localWhisper.settings.cpuThreadsHint': 'Використовуйте авто або ціле число від 1 до {count}.',
+  'localWhisper.settings.gpuCpuThreads': 'Потоки ЦП для GPU',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'Для роботи ЦП під час інференсу на GPU використовуйте auto або ціле число від 1 до {count}.',
   'localWhisper.settings.savedInitialPrompt': 'Збережена початкова підказка',
   'localWhisper.settings.savedPromptExists':
     'Збережена підказка існує, але її текст ніколи не повертається до рендерера.',
@@ -147,6 +150,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'Beam: {value}',
   'localWhisper.settings.summaryBestOf': 'Best of: {value}',
   'localWhisper.settings.summaryCpuThreads': 'CPU threads: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'Потоки ЦП для GPU: {value}',
   'localWhisper.settings.auto': 'Auto',
   'localWhisper.settings.actionDownload': 'Завантажити',
   'localWhisper.settings.actionResume': 'Резюме',
@@ -219,6 +223,8 @@ export default {
   'localWhisper.settings.validationGreedyTemperature': 'Жадібний пошук і пошук променя вимагають температури 0,00.',
   'localWhisper.settings.validationCpuThreads':
     'Потоки ЦП мають бути автоматичними або цілими числами від 1 до {count}.',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'Потоки ЦП для GPU мають бути auto або цілим числом від 1 до {count}.',
   'localWhisper.settings.validationBackendRequired': 'Виберіть явний сервер GPU.',
   'localWhisper.settings.validationDeviceRequired': 'Виберіть пристрій GPU, виданий програмою.',
   'localWhisper.settings.availabilityPlanned': 'Ця платформа запланована і недоступна в цьому випуску.',

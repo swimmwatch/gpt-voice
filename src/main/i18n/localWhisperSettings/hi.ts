@@ -130,6 +130,9 @@ export default {
   'localWhisper.settings.bestOf': 'के बहतरीन',
   'localWhisper.settings.cpuThreads': 'सीपीयू धागे',
   'localWhisper.settings.cpuThreadsHint': '1 से {count} तक ऑटो या पूर्णांक का उपयोग करें।',
+  'localWhisper.settings.gpuCpuThreads': 'GPU CPU थ्रेड',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'GPU अनुमान के दौरान CPU कार्य के लिए auto या 1 से {count} तक पूर्णांक का उपयोग करें।',
   'localWhisper.settings.savedInitialPrompt': 'आरंभिक संकेत सहेजा गया',
   'localWhisper.settings.savedPromptExists':
     'एक सहेजा गया प्रॉम्प्ट मौजूद है, लेकिन उसका टेक्स्ट कभी भी रेंडरर को वापस नहीं किया जाता है।',
@@ -147,6 +150,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'बीम: {value}',
   'localWhisper.settings.summaryBestOf': 'सर्वोत्तम: {value}',
   'localWhisper.settings.summaryCpuThreads': 'सीपीयू थ्रेड: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'GPU CPU थ्रेड: {value}',
   'localWhisper.settings.auto': 'ऑटो',
   'localWhisper.settings.actionDownload': 'डाउनलोड करना',
   'localWhisper.settings.actionResume': 'फिर शुरू करना',
@@ -215,6 +219,7 @@ export default {
     'सर्वोत्तम नमूने के लिए 0.05 से 1.00 तक तापमान की आवश्यकता होती है।',
   'localWhisper.settings.validationGreedyTemperature': 'लालची और किरण खोज के लिए तापमान 0.00 की आवश्यकता होती है।',
   'localWhisper.settings.validationCpuThreads': 'सीपीयू थ्रेड्स ऑटो या 1 से {count} तक पूर्णांक होना चाहिए।',
+  'localWhisper.settings.validationGpuCpuThreads': 'GPU CPU थ्रेड auto या 1 से {count} तक पूर्णांक होना चाहिए।',
   'localWhisper.settings.validationBackendRequired': 'एक स्पष्ट GPU बैकएंड का चयन करें।',
   'localWhisper.settings.validationDeviceRequired': 'एप्लिकेशन-जारी किए गए GPU डिवाइस का चयन करें।',
   'localWhisper.settings.availabilityPlanned': 'यह प्लेटफ़ॉर्म योजनाबद्ध है और इस रिलीज़ में उपलब्ध नहीं है।',

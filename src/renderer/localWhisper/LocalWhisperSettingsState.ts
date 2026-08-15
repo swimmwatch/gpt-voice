@@ -7,6 +7,7 @@ import {
   isLocalWhisperGpuBackend,
   isLocalWhisperLanguageId,
   isLocalWhisperModelFamily,
+  resolveLocalWhisperCpuThreads,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   type LocalWhisperDecodingStrategy,
@@ -97,8 +98,8 @@ export function createLocalWhisperDraft(snapshot: LocalWhisperRendererSnapshot):
     decodingStrategy: snapshot.settings.decoding.strategy,
     beamSize: decodingCandidateCount(snapshot, 'beamSize'),
     bestOf: decodingCandidateCount(snapshot, 'bestOf'),
-    cpuThreads: execution.target === 'cpu' ? String(execution.cpuThreads) : LOCAL_WHISPER_AUTO_CPU_THREADS,
-    gpuCpuThreads: execution.target === 'gpu' ? String(execution.gpuCpuThreads) : LOCAL_WHISPER_AUTO_CPU_THREADS,
+    cpuThreads: String(snapshot.threadSelections.cpuThreads),
+    gpuCpuThreads: String(snapshot.threadSelections.gpuCpuThreads),
   });
 }
 
@@ -170,6 +171,10 @@ function validationMessage(message: string): LocalWhisperValidationMessage {
     const count = message.match(/\d+(?=\.$)/u)?.[0] ?? '';
     return Object.freeze({ key: 'localWhisper.settings.validationCpuThreads', params: Object.freeze({ count }) });
   }
+  if (message.startsWith('GPU CPU threads must')) {
+    const count = message.match(/\d+(?=\.$)/u)?.[0] ?? '';
+    return Object.freeze({ key: 'localWhisper.settings.validationGpuCpuThreads', params: Object.freeze({ count }) });
+  }
   if (message.startsWith('Select an explicit GPU backend'))
     return Object.freeze({ key: 'localWhisper.settings.validationBackendRequired' });
   if (message.startsWith('Select an application-issued GPU device'))
@@ -197,10 +202,12 @@ function parseCpuThreads(
   value: string,
   logicalProcessorCount: number,
 ): typeof LOCAL_WHISPER_AUTO_CPU_THREADS | number | null {
-  if (value === LOCAL_WHISPER_AUTO_CPU_THREADS) return value;
+  if (value === LOCAL_WHISPER_AUTO_CPU_THREADS) {
+    return resolveLocalWhisperCpuThreads(value, logicalProcessorCount) === null ? null : value;
+  }
   if (!/^\d+$/u.test(value)) return null;
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= logicalProcessorCount ? parsed : null;
+  return resolveLocalWhisperCpuThreads(parsed, logicalProcessorCount) === null ? null : parsed;
 }
 
 function validateOption(

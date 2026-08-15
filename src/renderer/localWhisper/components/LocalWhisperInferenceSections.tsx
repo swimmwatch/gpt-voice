@@ -25,6 +25,8 @@ interface LocalWhisperInferenceSectionsProps {
   readonly updateDraft: (updater: (draft: LocalWhisperSettingsDraft) => LocalWhisperSettingsDraft) => void;
 }
 
+const THREAD_INPUT_ID = 'local-whisper-execution-threads';
+
 function strategies(
   translate: ReturnType<typeof useI18n>['t'],
 ): readonly { readonly id: LocalWhisperDecodingStrategy; readonly label: string }[] {
@@ -78,13 +80,24 @@ function inferenceSummary(
     draft.decodingStrategy === 'bestOfSampling'
       ? translate('localWhisper.settings.summaryBestOf', { value: draft.bestOf })
       : null,
-    draft.executionTarget === 'cpu'
-      ? translate('localWhisper.settings.summaryCpuThreads', {
-          value: draft.cpuThreads || translate('localWhisper.settings.auto'),
-        })
-      : null,
+    translate(
+      draft.executionTarget === 'cpu'
+        ? 'localWhisper.settings.summaryCpuThreads'
+        : 'localWhisper.settings.summaryGpuCpuThreads',
+      {
+        value:
+          (draft.executionTarget === 'cpu' ? draft.cpuThreads : draft.gpuCpuThreads) ||
+          translate('localWhisper.settings.auto'),
+      },
+    ),
   ].filter((value): value is string => value !== null);
-  return [language, prompt, `Temp: ${draft.temperature}`, strategy, ...extras].join(' · ');
+  return [
+    language,
+    prompt,
+    translate('localWhisper.settings.summaryTemperature', { value: draft.temperature }),
+    strategy,
+    ...extras,
+  ].join(' · ');
 }
 
 /** Keeps transcription controls compact until the user expands the disclosure. */
@@ -97,6 +110,16 @@ export default function LocalWhisperInferenceSections({
 }: LocalWhisperInferenceSectionsProps): React.JSX.Element {
   const { locale, t } = useI18n();
   const promptLength = countLocalWhisperPromptCodePoints(draft.initialPrompt);
+  const threadField = draft.executionTarget === 'cpu' ? 'cpuThreads' : 'gpuCpuThreads';
+  const threadError = errors[threadField];
+  const threadErrorText = threadError ? t(threadError.key, threadError.params) : undefined;
+  const threadHintKey =
+    draft.executionTarget === 'cpu'
+      ? 'localWhisper.settings.cpuThreadsHint'
+      : 'localWhisper.settings.gpuCpuThreadsHint';
+  const threadLabelKey =
+    draft.executionTarget === 'cpu' ? 'localWhisper.settings.cpuThreads' : 'localWhisper.settings.gpuCpuThreads';
+  const threadDescription = `${THREAD_INPUT_ID}-hint${threadError ? ` ${THREAD_INPUT_ID}-error` : ''}`;
 
   return (
     <LocalWhisperDisclosure
@@ -199,23 +222,25 @@ export default function LocalWhisperInferenceSections({
           </LocalWhisperField>
         ) : null}
 
-        {draft.executionTarget === 'cpu' ? (
-          <LocalWhisperField
-            error={errors.cpuThreads ? t(errors.cpuThreads.key, errors.cpuThreads.params) : undefined}
-            hint={t('localWhisper.settings.cpuThreadsHint', { count: String(snapshot.host.logicalProcessorCount) })}
-            htmlFor="local-whisper-cpu-threads"
-            label={t('localWhisper.settings.cpuThreads')}
-          >
-            <Input
-              disabled={disabled}
-              id="local-whisper-cpu-threads"
-              inputMode="numeric"
-              onChange={(event) => updateDraft((current) => ({ ...current, cpuThreads: event.target.value }))}
-              placeholder={LOCAL_WHISPER_AUTO_CPU_THREADS}
-              value={draft.cpuThreads}
-            />
-          </LocalWhisperField>
-        ) : null}
+        <LocalWhisperField
+          error={threadErrorText}
+          hint={t(threadHintKey, { count: String(snapshot.host.logicalProcessorCount) })}
+          htmlFor={THREAD_INPUT_ID}
+          label={t(threadLabelKey)}
+        >
+          <Input
+            aria-describedby={threadDescription}
+            aria-invalid={threadError !== undefined}
+            autoComplete="off"
+            disabled={disabled}
+            id={THREAD_INPUT_ID}
+            inputMode="text"
+            onChange={(event) => updateDraft((current) => ({ ...current, [threadField]: event.target.value }))}
+            placeholder={LOCAL_WHISPER_AUTO_CPU_THREADS}
+            spellCheck={false}
+            value={draft[threadField]}
+          />
+        </LocalWhisperField>
       </div>
 
       <fieldset className="lw-prompt-settings" disabled={disabled}>

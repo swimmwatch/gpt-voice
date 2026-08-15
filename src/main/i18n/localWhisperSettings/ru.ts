@@ -130,6 +130,9 @@ export default {
   'localWhisper.settings.bestOf': 'Количество вариантов',
   'localWhisper.settings.cpuThreads': 'Потоки CPU',
   'localWhisper.settings.cpuThreadsHint': 'Используйте auto или целое число от 1 до {count}.',
+  'localWhisper.settings.gpuCpuThreads': 'Потоки CPU для GPU',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'Для работы CPU во время инференса на GPU используйте auto или целое число от 1 до {count}.',
   'localWhisper.settings.savedInitialPrompt': 'Сохранённый начальный запрос',
   'localWhisper.settings.savedPromptExists':
     'Сохранённый запрос существует, но его текст никогда не передаётся в рендерер.',
@@ -147,6 +150,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'Луч: {value}',
   'localWhisper.settings.summaryBestOf': 'Вариантов: {value}',
   'localWhisper.settings.summaryCpuThreads': 'Потоки CPU: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'Потоки CPU для GPU: {value}',
   'localWhisper.settings.auto': 'Авто',
   'localWhisper.settings.actionDownload': 'Загрузить',
   'localWhisper.settings.actionResume': 'Продолжить',
@@ -214,6 +218,8 @@ export default {
   'localWhisper.settings.validationBestOfTemperature': 'Для выбора лучшего нужна температура от 0.05 до 1.00.',
   'localWhisper.settings.validationGreedyTemperature': 'Для жадного и лучевого поиска нужна температура 0.00.',
   'localWhisper.settings.validationCpuThreads': 'Потоки CPU должны быть auto или целым числом от 1 до {count}.',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'Потоки CPU для GPU должны быть auto или целым числом от 1 до {count}.',
   'localWhisper.settings.validationBackendRequired': 'Выберите явный GPU-бэкенд.',
   'localWhisper.settings.validationDeviceRequired': 'Выберите выданное приложением GPU-устройство.',
   'localWhisper.settings.availabilityPlanned': 'Эта платформа запланирована и недоступна в этом выпуске.',

@@ -283,6 +283,10 @@ export function createDeferredLocalWhisperEnvironment(input: {
           : `CPU · ${Math.max(1, Math.trunc(input.logicalProcessorCount))} logical processors`,
         logicalProcessorCount: Math.max(1, Math.trunc(input.logicalProcessorCount)),
       }),
+      threadSelections: Object.freeze({
+        cpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
       memory: Object.freeze({ selectedEstimate: null, qualifiedPeak: null, exactEstimateUnavailable: true }),
       resources: null,
       storage: Object.freeze({ label: 'Local Whisper managed storage', installedArtifactCount: 0, installedBytes: 0 }),

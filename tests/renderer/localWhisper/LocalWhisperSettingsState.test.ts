@@ -122,6 +122,80 @@ describe('Local Whisper settings draft', () => {
     });
   });
 
+  it('restores independent CPU and GPU thread drafts and validates only the active target', () => {
+    const current = Object.freeze({
+      ...selectionSnapshot(),
+      threadSelections: Object.freeze({ cpuThreads: 6, gpuCpuThreads: 3 }),
+    });
+    const baseline = createLocalWhisperDraft(current);
+    const cpuDraft = Object.freeze({ ...baseline, cpuThreads: '7', gpuCpuThreads: 'malformed' });
+    const cpuValidation = validateLocalWhisperDraft(cpuDraft, current);
+
+    assert.equal(baseline.cpuThreads, '6');
+    assert.equal(baseline.gpuCpuThreads, '3');
+    assert.equal(cpuValidation.errors.cpuThreads, undefined);
+    assert.equal(cpuValidation.errors.gpuCpuThreads, undefined);
+    assert.deepEqual(cpuValidation.candidate?.execution, { target: 'cpu', backend: 'cpu', cpuThreads: 7 });
+
+    const invalidGpuDraft = updateLocalWhisperTarget(cpuDraft, 'gpu', current);
+    const invalidGpuValidation = validateLocalWhisperDraft(invalidGpuDraft, current);
+    assert.equal(invalidGpuDraft.cpuThreads, '7');
+    assert.equal(invalidGpuDraft.gpuCpuThreads, 'malformed');
+    assert.equal(invalidGpuValidation.errors.cpuThreads, undefined);
+    assert.equal(invalidGpuValidation.errors.gpuCpuThreads?.key, 'localWhisper.settings.validationGpuCpuThreads');
+
+    const validGpuDraft = Object.freeze({ ...invalidGpuDraft, gpuCpuThreads: '5' });
+    assert.deepEqual(validateLocalWhisperDraft(validGpuDraft, current).candidate?.execution, {
+      target: 'gpu',
+      backend: 'cuda',
+      deviceId: 'nvidia-device',
+      gpuCpuThreads: 5,
+    });
+    const restoredCpuDraft = updateLocalWhisperTarget(validGpuDraft, 'cpu', current);
+    assert.equal(restoredCpuDraft.cpuThreads, '7');
+    assert.equal(restoredCpuDraft.gpuCpuThreads, '5');
+  });
+
+  it('hydrates both persisted thread selections after reload', () => {
+    const reloaded = Object.freeze({
+      ...selectionSnapshot(),
+      threadSelections: Object.freeze({ cpuThreads: 8, gpuCpuThreads: 4 }),
+    });
+    const draft = createLocalWhisperDraft(reloaded);
+    const gpuDraft = updateLocalWhisperTarget(draft, 'gpu', reloaded);
+
+    assert.equal(draft.cpuThreads, '8');
+    assert.equal(draft.gpuCpuThreads, '4');
+    assert.equal(gpuDraft.cpuThreads, '8');
+    assert.equal(gpuDraft.gpuCpuThreads, '4');
+  });
+
+  it('accepts auto and thread boundaries while rejecting malformed values identically for CPU and GPU', () => {
+    const current = selectionSnapshot();
+    const cpuDraft = createLocalWhisperDraft(current);
+    const gpuDraft = updateLocalWhisperTarget(cpuDraft, 'gpu', current);
+    const maximum = String(current.host.logicalProcessorCount);
+
+    for (const value of ['auto', '1', maximum]) {
+      assert.equal(validateLocalWhisperDraft({ ...cpuDraft, cpuThreads: value }, current).errors.cpuThreads, undefined);
+      assert.equal(
+        validateLocalWhisperDraft({ ...gpuDraft, gpuCpuThreads: value }, current).errors.gpuCpuThreads,
+        undefined,
+      );
+    }
+
+    for (const value of ['', 'Auto', '0', '-1', '1.5', ' 1', String(current.host.logicalProcessorCount + 1)]) {
+      assert.equal(
+        validateLocalWhisperDraft({ ...cpuDraft, cpuThreads: value }, current).errors.cpuThreads?.key,
+        'localWhisper.settings.validationCpuThreads',
+      );
+      assert.equal(
+        validateLocalWhisperDraft({ ...gpuDraft, gpuCpuThreads: value }, current).errors.gpuCpuThreads?.key,
+        'localWhisper.settings.validationGpuCpuThreads',
+      );
+    }
+  });
+
   it('keeps execution and model parents synchronized when a dependent revision is selected', () => {
     const current = selectionSnapshot();
     const cuda = updateLocalWhisperRuntimeRevision(createLocalWhisperDraft(current), 'runtime-cuda-v1', current);
@@ -214,14 +288,15 @@ describe('Local Whisper settings draft', () => {
       ).errors.cpuThreads?.key,
       'localWhisper.settings.validationCpuThreads',
     );
-    assert.ok(
+    assert.equal(
       validateLocalWhisperDraft(
         {
           ...updateLocalWhisperTarget(baseline, 'gpu', selectionSnapshot()),
           gpuCpuThreads: String(current.host.logicalProcessorCount + 1),
         },
         selectionSnapshot(),
-      ).errors.gpuCpuThreads,
+      ).errors.gpuCpuThreads?.key,
+      'localWhisper.settings.validationGpuCpuThreads',
     );
   });
 });

@@ -131,6 +131,9 @@ export default {
   'localWhisper.settings.bestOf': 'Лепшы з',
   'localWhisper.settings.cpuThreads': 'патокаў працэсара',
   'localWhisper.settings.cpuThreadsHint': 'Выкарыстоўвайце аўтаматычны або цэлы лік ад 1 да {count}.',
+  'localWhisper.settings.gpuCpuThreads': 'Патокі CPU для GPU',
+  'localWhisper.settings.gpuCpuThreadsHint':
+    'Для працы CPU падчас вываду на GPU выкарыстоўвайце auto або цэлы лік ад 1 да {count}.',
   'localWhisper.settings.savedInitialPrompt': 'Захаванае першапачатковае запрашэнне',
   'localWhisper.settings.savedPromptExists':
     'Захаванае запыт існуе, але яго тэкст ніколі не вяртаецца праграме візуалізацыі.',
@@ -148,6 +151,7 @@ export default {
   'localWhisper.settings.summaryBeam': 'Beam: {value}',
   'localWhisper.settings.summaryBestOf': 'Best of: {value}',
   'localWhisper.settings.summaryCpuThreads': 'CPU threads: {value}',
+  'localWhisper.settings.summaryGpuCpuThreads': 'Патокі CPU для GPU: {value}',
   'localWhisper.settings.auto': 'Auto',
   'localWhisper.settings.actionDownload': 'Спампаваць',
   'localWhisper.settings.actionResume': 'Рэзюмэ',
@@ -218,6 +222,8 @@ export default {
   'localWhisper.settings.validationGreedyTemperature': 'Прагны і прамянёвы пошук патрабуюць тэмпературы 0,00.',
   'localWhisper.settings.validationCpuThreads':
     'Патокі працэсара павінны быць аўтаматычнымі або цэлым лікам ад 1 да {count}.',
+  'localWhisper.settings.validationGpuCpuThreads':
+    'Патокі CPU для GPU павінны быць auto або цэлым лікам ад 1 да {count}.',
   'localWhisper.settings.validationBackendRequired': 'Выберыце відавочны бэкэнд GPU.',
   'localWhisper.settings.validationDeviceRequired': 'Выберыце прыладу GPU, выпушчаную праграмай.',
   'localWhisper.settings.availabilityPlanned': 'Гэтая платформа запланавана і недаступная ў гэтым выпуску.',
