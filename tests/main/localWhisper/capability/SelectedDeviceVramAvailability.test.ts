@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { SelectedDeviceVramAvailability } from '@main/localWhisper/capability/SelectedDeviceVramAvailability';
-import type { LocalWhisperOpaqueDeviceId } from '@shared/localWhisper';
+import { LOCAL_WHISPER_AUTO_CPU_THREADS, type LocalWhisperOpaqueDeviceId } from '@shared/localWhisper';
 
 const selectedDeviceId = 'local-whisper-device-selected' as LocalWhisperOpaqueDeviceId;
 const otherDeviceId = 'local-whisper-device-other' as LocalWhisperOpaqueDeviceId;
@@ -40,15 +40,33 @@ describe('SelectedDeviceVramAvailability', () => {
     availability.updateTopology(topology());
 
     assert.equal(
-      await availability.refresh({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId }),
+      await availability.refresh({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
       5 * 1024 ** 3,
     );
     assert.deepEqual(identities, ['0000:01:00.0']);
     assert.equal(
-      availability.availableBytes({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId }),
+      availability.availableBytes({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
       5 * 1024 ** 3,
     );
-    assert.equal(availability.availableBytes({ target: 'gpu', backend: 'cuda', deviceId: otherDeviceId }), null);
+    assert.equal(
+      availability.availableBytes({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: otherDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
+      null,
+    );
     assert.equal(availability.availableBytes({ target: 'cpu', backend: 'cpu', cpuThreads: 4 }), null);
   });
 
@@ -63,9 +81,25 @@ describe('SelectedDeviceVramAvailability', () => {
     });
 
     availability.updateTopology(topology(selectedDeviceId, 'amd'));
-    assert.equal(await availability.refresh({ target: 'gpu', backend: 'vulkan', deviceId: selectedDeviceId }), null);
+    assert.equal(
+      await availability.refresh({
+        target: 'gpu',
+        backend: 'vulkan',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
+      null,
+    );
     availability.updateTopology(topology());
-    assert.equal(await availability.refresh({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId }), null);
+    assert.equal(
+      await availability.refresh({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
+      null,
+    );
     assert.equal(samples, 0);
 
     const invalid = new SelectedDeviceVramAvailability({
@@ -73,8 +107,24 @@ describe('SelectedDeviceVramAvailability', () => {
       sample: () => Promise.resolve(Number.MAX_SAFE_INTEGER + 1),
     });
     invalid.updateTopology(topology());
-    assert.equal(await invalid.refresh({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId }), null);
-    assert.equal(invalid.availableBytes({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId }), null);
+    assert.equal(
+      await invalid.refresh({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
+      null,
+    );
+    assert.equal(
+      invalid.availableBytes({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
+      null,
+    );
   });
 
   it('does not cache an in-flight sample after the device topology changes', async () => {
@@ -87,7 +137,12 @@ describe('SelectedDeviceVramAvailability', () => {
         }),
     });
     availability.updateTopology(topology());
-    const pending = availability.refresh({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId });
+    const pending = availability.refresh({
+      target: 'gpu',
+      backend: 'cuda',
+      deviceId: selectedDeviceId,
+      gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+    });
 
     availability.updateTopology(
       Object.freeze({ ...topology(otherDeviceId), generation: 2, registryFingerprint: 'changed-fingerprint' }),
@@ -95,6 +150,14 @@ describe('SelectedDeviceVramAvailability', () => {
     completeSample(3 * 1024 ** 3);
 
     assert.equal(await pending, 3 * 1024 ** 3);
-    assert.equal(availability.availableBytes({ target: 'gpu', backend: 'cuda', deviceId: selectedDeviceId }), null);
+    assert.equal(
+      availability.availableBytes({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: selectedDeviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
+      null,
+    );
   });
 });

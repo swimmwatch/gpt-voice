@@ -8,6 +8,7 @@ import type {
   LocalWhisperResidentWorkerLease,
 } from '@main/localWhisper/coordinator/LocalWhisperCoordinatorTypes';
 import {
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperRevisionId,
   type LocalWhisperMemoryConfigurationIdentity,
   type LocalWhisperMemoryEstimateRecord,
@@ -24,7 +25,7 @@ const RUNTIME_REVISION = revision('runtime-cpu-v1');
 const MODEL_REVISION = revision('model-base-v1');
 
 const SETTINGS: LocalWhisperSettings = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   engine: 'whisperCpp',
   runtimeRevision: RUNTIME_REVISION,
   model: Object.freeze({ family: 'base', revision: MODEL_REVISION, variant: 'full' }),

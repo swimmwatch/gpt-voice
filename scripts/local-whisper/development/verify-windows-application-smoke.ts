@@ -47,6 +47,7 @@ import {
   type DiagnosticsArchivePayloadMemberName,
 } from '@shared/diagnosticsArchive';
 import {
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   type NativeRuntimeLogRecord,
@@ -595,7 +596,7 @@ class WindowsApplicationSmoke {
       model: { family: 'base', revision: MODEL_REVISION, variant: 'full' },
       language: 'auto',
       decoding: { strategy: 'greedy', temperatureHundredths: 0 },
-      execution: { target: 'gpu', backend: 'cuda', deviceId },
+      execution: { target: 'gpu', backend: 'cuda', deviceId, gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS },
     };
     requireSuccess(
       await session.coordinator.applySettingsTransaction({

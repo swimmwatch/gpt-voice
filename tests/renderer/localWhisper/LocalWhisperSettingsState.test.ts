@@ -118,6 +118,7 @@ describe('Local Whisper settings draft', () => {
       target: 'gpu',
       backend: 'cuda',
       deviceId: 'nvidia-device',
+      gpuCpuThreads: 'auto',
     });
   });
 
@@ -212,6 +213,15 @@ describe('Local Whisper settings draft', () => {
         current,
       ).errors.cpuThreads?.key,
       'localWhisper.settings.validationCpuThreads',
+    );
+    assert.ok(
+      validateLocalWhisperDraft(
+        {
+          ...updateLocalWhisperTarget(baseline, 'gpu', selectionSnapshot()),
+          gpuCpuThreads: String(current.host.logicalProcessorCount + 1),
+        },
+        selectionSnapshot(),
+      ).errors.gpuCpuThreads,
     );
   });
 });

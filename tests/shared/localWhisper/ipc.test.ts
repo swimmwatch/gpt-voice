@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   createLocalWhisperRendererSafeFailure,
   isLocalWhisperMainResidencyCommand,
   isLocalWhisperMainResidencyCommandResult,
@@ -17,7 +18,7 @@ const revision = toLocalWhisperRevisionId('revision-v1');
 if (!revision) throw new Error('Invalid fixture revision');
 
 const SETTINGS = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   engine: 'whisperCpp',
   runtimeRevision: revision,
   model: Object.freeze({ family: 'base', revision, variant: 'full' }),
@@ -57,7 +58,31 @@ describe('Local Whisper IPC decoders', () => {
       isLocalWhisperPublicSettings({ ...SETTINGS, execution: { target: 'cpu', backend: 'cpu', cpuThreads: 1.5 } }),
       false,
     );
-    const inherited = Object.create({ schemaVersion: 1 }) as Record<string, unknown>;
+    assert.equal(
+      isLocalWhisperPublicSettings({
+        ...SETTINGS,
+        execution: { target: 'gpu', backend: 'cuda', deviceId: 'gpu-1', gpuCpuThreads: 'auto' },
+      }),
+      true,
+    );
+    assert.equal(
+      isLocalWhisperPublicSettings({
+        ...SETTINGS,
+        execution: { target: 'gpu', backend: 'cuda', deviceId: 'gpu-1', gpuCpuThreads: 0 },
+      }),
+      false,
+    );
+    assert.equal(
+      isLocalWhisperPublicSettings({
+        ...SETTINGS,
+        execution: { target: 'gpu', backend: 'cuda', deviceId: 'gpu-1', gpuCpuThreads: 'auto', cpuThreads: 2 },
+      }),
+      false,
+    );
+    const inherited = Object.create({ schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION }) as Record<
+      string,
+      unknown
+    >;
     Object.assign(inherited, SETTINGS);
     assert.equal(isLocalWhisperPublicSettings(inherited), false);
   });

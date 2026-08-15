@@ -28,6 +28,8 @@ import type {
   LocalWhisperWorkerLaunchAuthority,
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 import {
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperOpaqueDeviceId,
   type LocalWhisperBackend,
   type LocalWhisperPublicSettings,
@@ -90,7 +92,7 @@ function values(
       isModelDenylisted: () => false,
     },
     settings: Object.freeze({
-      schemaVersion: 1,
+      schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
       engine: 'whisperCpp',
       runtimeRevision: runtime.identity.packRevision,
       model: Object.freeze({
@@ -104,7 +106,12 @@ function values(
       execution:
         backend === 'cpu'
           ? Object.freeze({ target: 'cpu' as const, backend, cpuThreads: 'auto' as const })
-          : Object.freeze({ target: 'gpu' as const, backend, deviceId: DEVICE_ID }),
+          : Object.freeze({
+              target: 'gpu' as const,
+              backend,
+              deviceId: DEVICE_ID,
+              gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+            }),
     }),
   };
 }

@@ -39,8 +39,8 @@ import {
 export const LOCAL_WHISPER_PRIVATE_FILE_MODE = 0o600;
 export const LOCAL_WHISPER_PRIVATE_DIRECTORY_MODE = 0o700;
 export const LOCAL_WHISPER_SETTINGS_NAMESPACE = 'local-whisper' as const;
-export const LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION = 1 as const;
-export const LOCAL_WHISPER_SETTINGS_SUPPORTED_PRIOR_DOCUMENT_SCHEMA_VERSIONS = [0] as const;
+export const LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION = 2 as const;
+export const LOCAL_WHISPER_SETTINGS_SUPPORTED_PRIOR_DOCUMENT_SCHEMA_VERSIONS = [0, 1] as const;
 export const LOCAL_WHISPER_SETTINGS_DIRECTORY_NAME = 'local-whisper';
 export const LOCAL_WHISPER_SETTINGS_FILE_NAME = 'settings.json';
 
@@ -74,6 +74,7 @@ const STORED_DOCUMENT_SHAPE: StoredKnownShape = Object.freeze({
       backend: null,
       deviceId: null,
       cpuThreads: null,
+      gpuCpuThreads: null,
     }),
   }),
   dependentSelections: Object.freeze({ values: 'validated' }),
@@ -222,8 +223,9 @@ function projectSettings(value: unknown): unknown {
         : ['strategy', 'temperatureHundredths'],
   );
   const execution = isRecord(settings.execution) ? settings.execution : {};
-  const executionKeys =
-    execution.target === 'cpu' ? ['target', 'backend', 'cpuThreads'] : ['target', 'backend', 'deviceId'];
+  const executionKeys = ['target', 'backend', 'deviceId', 'cpuThreads', 'gpuCpuThreads'].filter((key) =>
+    Object.prototype.hasOwnProperty.call(execution, key),
+  );
   settings.execution = projectObject(execution, executionKeys);
   return settings;
 }
@@ -329,7 +331,9 @@ function isSelectionKey(key: string): boolean {
         isMember(LOCAL_WHISPER_MODEL_FAMILIES, parts[2])
       );
     case 'threads':
-      return parts.length === 2 && isMember(LOCAL_WHISPER_ENGINES, parts[1]);
+      return (
+        parts.length === 3 && isMember(LOCAL_WHISPER_ENGINES, parts[1]) && isMember(LOCAL_WHISPER_TARGETS, parts[2])
+      );
     case 'request':
       return (
         parts.length === 2 &&
@@ -340,7 +344,7 @@ function isSelectionKey(key: string): boolean {
   }
 }
 
-function isSelectionValue(key: string, value: unknown): value is string | number {
+function isSelectionValue(key: string, value: unknown, logicalProcessorCount: number): value is string | number {
   if (value === UNSET_SELECTION_VALUE) return true;
   if (key.startsWith('runtime:') || key.startsWith('revision:')) return toLocalWhisperRevisionId(value) !== null;
   if (key.startsWith('backend:')) return isMember(LOCAL_WHISPER_GPU_BACKENDS, value);
@@ -348,7 +352,9 @@ function isSelectionValue(key: string, value: unknown): value is string | number
   if (key.startsWith('model:')) return isMember(LOCAL_WHISPER_MODEL_FAMILIES, value);
   if (key.startsWith('variant:')) return isMember(LOCAL_WHISPER_MODEL_VARIANTS, value);
   if (key.startsWith('threads:'))
-    return value === LOCAL_WHISPER_AUTO_CPU_THREADS || (isSafeInteger(value) && value > 0);
+    return (
+      value === LOCAL_WHISPER_AUTO_CPU_THREADS || (isSafeInteger(value) && value > 0 && value <= logicalProcessorCount)
+    );
   if (key === 'request:language') return isLocalWhisperLanguageId(value);
   if (key === 'request:initialPrompt') return getLocalWhisperPromptValidationError(value) === null;
   if (key === 'request:strategy') return isMember(LOCAL_WHISPER_DECODING_STRATEGIES, value);
@@ -365,37 +371,89 @@ function isSelectionValue(key: string, value: unknown): value is string | number
   );
 }
 
-function readDependentSelections(value: unknown): LocalWhisperDependentSelectionMemory | null {
+function readDependentSelections(
+  value: unknown,
+  logicalProcessorCount: number,
+): LocalWhisperDependentSelectionMemory | null {
   if (!isRecord(value) || !isRecord(value.values)) return null;
   const entries = Object.entries(value.values);
-  if (entries.some(([key, selection]) => !isSelectionKey(key) || !isSelectionValue(key, selection))) return null;
+  if (
+    entries.some(([key, selection]) => !isSelectionKey(key) || !isSelectionValue(key, selection, logicalProcessorCount))
+  ) {
+    return null;
+  }
   return Object.freeze({ values: Object.freeze({ ...value.values }) });
 }
 
-function mergePreservingUnknown(previous: unknown, next: unknown): unknown {
-  if (!isRecord(previous) || !isRecord(next)) return structuredClone(next);
-  const merged: Record<string, unknown> = { ...structuredClone(previous) };
+function mergePreservingUnknown(
+  previous: unknown,
+  next: unknown,
+  knownShape: StoredKnownShape | 'validated' | null,
+): unknown {
+  if (knownShape === 'validated' || knownShape === null || !isRecord(previous) || !isRecord(next)) {
+    return structuredClone(next);
+  }
+  const merged = Object.fromEntries(
+    Object.entries(previous)
+      .filter(([key]) => knownShape[key] === undefined)
+      .map(([key, value]) => [key, structuredClone(value)]),
+  );
   for (const [key, value] of Object.entries(next)) {
-    merged[key] = mergePreservingUnknown(previous[key], value);
+    const childShape = knownShape[key];
+    merged[key] =
+      childShape === undefined ? structuredClone(value) : mergePreservingUnknown(previous[key], value, childShape);
   }
   return merged;
+}
+
+function migrateVersionOneSettings(value: unknown): unknown {
+  if (!isRecord(value) || value.schemaVersion !== 1) return value;
+  const execution = value.execution;
+  return {
+    ...value,
+    schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
+    execution: isRecord(execution) && execution.target === 'gpu' ? { ...execution, gpuCpuThreads: 4 } : execution,
+  };
+}
+
+function migrateVersionOneDependentSelections(value: unknown, settings: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value.values)) return value;
+  const selections = value;
+  const values = value.values;
+  const { ['threads:whisperCpp']: legacyThreads, ...preservedValues } = values;
+  const execution = isRecord(settings) && isRecord(settings.execution) ? settings.execution : null;
+  return {
+    ...selections,
+    values: {
+      ...preservedValues,
+      ...(legacyThreads === undefined ? {} : { 'threads:whisperCpp:cpu': legacyThreads }),
+      'threads:whisperCpp:gpu': execution?.target === 'gpu' ? 4 : LOCAL_WHISPER_AUTO_CPU_THREADS,
+    },
+  };
 }
 
 /** Migrates only repository-owned prior schemas in memory and performs no persistence or runtime action. */
 export function migrateLocalWhisperSettingsDocument(value: unknown): Record<string, unknown> | null {
   if (!isRecord(value) || value.namespace !== LOCAL_WHISPER_SETTINGS_NAMESPACE) return null;
+  let prior = value;
   if (value.schemaVersion === 0) {
     const { configuration, ...preserved } = value;
-    return {
+    prior = {
       ...preserved,
-      schemaVersion: LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION,
-      settings: isRecord(configuration)
-        ? { ...configuration, schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION }
-        : configuration,
+      schemaVersion: 1,
+      settings: isRecord(configuration) ? { ...configuration, schemaVersion: 1 } : configuration,
       dependentSelections: value.dependentSelections ?? EMPTY_LOCAL_WHISPER_DEPENDENT_SELECTION_MEMORY,
     };
   }
-  return value;
+  if (prior.schemaVersion !== 1) return prior;
+  if (!isRecord(prior.settings) || prior.settings.schemaVersion !== 1) return prior;
+  const settings = migrateVersionOneSettings(prior.settings);
+  return {
+    ...prior,
+    schemaVersion: LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION,
+    settings,
+    dependentSelections: migrateVersionOneDependentSelections(prior.dependentSelections, settings),
+  };
 }
 
 export function resolveLocalWhisperSettingsFile(configurationRoot: string): string {
@@ -506,7 +564,7 @@ export class LocalWhisperSettingsRepository {
       return { status: 'invalid', code: 'INVALID_SETTINGS' };
     }
     const projected = projectSettings(document.settings);
-    const dependentSelections = readDependentSelections(document.dependentSelections);
+    const dependentSelections = readDependentSelections(document.dependentSelections, context.logicalProcessorCount);
     if (!dependentSelections) return { status: 'invalid', code: 'INVALID_SETTINGS' };
 
     const current = validateLocalWhisperSettings(projected, context);
@@ -547,7 +605,7 @@ export class LocalWhisperSettingsRepository {
       throw new LocalWhisperSettingsRepositoryError('SETTINGS_VERSION_UNSUPPORTED');
     }
     const previous = read.status === 'ok' ? migrateLocalWhisperSettingsDocument(read.value) : null;
-    const previousSelections = readDependentSelections(previous?.dependentSelections);
+    const previousSelections = readDependentSelections(previous?.dependentSelections, context.logicalProcessorCount);
     const dependentSelections = rememberLocalWhisperSettingsSelections(
       previousSelections ?? EMPTY_LOCAL_WHISPER_DEPENDENT_SELECTION_MEMORY,
       validated.settings,
@@ -559,7 +617,9 @@ export class LocalWhisperSettingsRepository {
       dependentSelections,
     };
     const document =
-      previous && hasSafeUnknownFields(previous, STORED_DOCUMENT_SHAPE) ? mergePreservingUnknown(previous, next) : next;
+      previous && hasSafeUnknownFields(previous, STORED_DOCUMENT_SHAPE)
+        ? mergePreservingUnknown(previous, next, STORED_DOCUMENT_SHAPE)
+        : next;
     this.store.write(document);
     return Object.freeze({
       configured: true,

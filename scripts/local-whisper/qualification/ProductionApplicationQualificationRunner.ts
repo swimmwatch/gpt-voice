@@ -4,6 +4,7 @@ import { LocalWhisperCoordinator } from '@main/localWhisper/coordinator/LocalWhi
 import type { DeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
 import {
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
   toLocalWhisperOpaqueDeviceId,
   type LocalWhisperPublicSettings,
   type LocalWhisperRevisionId,
@@ -419,7 +420,7 @@ export class ProductionApplicationQualificationRunner {
       execution:
         runtime.backend === 'cpu'
           ? { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' }
-          : { target: 'gpu', backend: 'cuda', deviceId },
+          : { target: 'gpu', backend: 'cuda', deviceId, gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS },
     };
     requireSuccess(
       await session.coordinator.applySettingsTransaction({

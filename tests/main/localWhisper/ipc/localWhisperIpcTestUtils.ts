@@ -21,6 +21,7 @@ import {
 } from '@main/localWhisper/ipc/LocalWhisperSnapshotService';
 import { StaticLocalWhisperSnapshotFacts } from '@main/localWhisper/ipc/StaticLocalWhisperSnapshotFacts';
 import {
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
   type LocalWhisperSettingsCommand,
@@ -54,7 +55,7 @@ export function coordinatorSnapshot(
     epochs: Object.freeze({ provider: 0, configuration: 2, inventory: 3, topology: 0, capability: 0, worker: 0 }),
     configured: true,
     settings: Object.freeze({
-      schemaVersion: 1,
+      schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
       engine: 'whisperCpp',
       runtimeRevision: RUNTIME_REVISION,
       model: Object.freeze({ family: 'base', revision: MODEL_REVISION, variant: 'full' }),

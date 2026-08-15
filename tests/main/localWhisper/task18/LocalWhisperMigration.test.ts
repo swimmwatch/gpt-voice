@@ -10,7 +10,7 @@ import { LegacyVoiceProviderCompatibilityFixture } from '../../../fixtures/local
 
 describe('Local Whisper migration and preceding-provider compatibility', () => {
   it('migrates every repository-supported prior document schema only in memory', () => {
-    assert.deepEqual(LOCAL_WHISPER_SETTINGS_SUPPORTED_PRIOR_DOCUMENT_SCHEMA_VERSIONS, [0]);
+    assert.deepEqual(LOCAL_WHISPER_SETTINGS_SUPPORTED_PRIOR_DOCUMENT_SCHEMA_VERSIONS, [0, 1]);
     const legacy = {
       namespace: 'local-whisper',
       schemaVersion: 0,
@@ -30,8 +30,8 @@ describe('Local Whisper migration and preceding-provider compatibility', () => {
 
     assert.deepEqual(legacy, before);
     assert.equal(migrated?.schemaVersion, LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION);
-    assert.equal((migrated?.settings as Record<string, unknown>).schemaVersion, 1);
-    assert.deepEqual(migrated?.dependentSelections, { values: {} });
+    assert.equal((migrated?.settings as Record<string, unknown>).schemaVersion, 2);
+    assert.deepEqual(migrated?.dependentSelections, { values: { 'threads:whisperCpp:gpu': 'auto' } });
     assert.equal('configuration' in (migrated ?? {}), false);
   });
 

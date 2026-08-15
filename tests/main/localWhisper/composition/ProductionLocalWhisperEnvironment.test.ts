@@ -16,6 +16,8 @@ import type {
 } from '@main/localWhisper/capability/NvidiaCudaRuntimeApplicability';
 import type { LocalWhisperInventorySnapshot } from '@main/localWhisper/inventory/LocalWhisperInventoryRepository';
 import {
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   type LocalWhisperSettings,
@@ -138,7 +140,7 @@ describe('production Local Whisper environment activation', () => {
         variant: model.identity.variant,
       }),
       runtimeRevision: null,
-      schemaVersion: 1,
+      schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
     });
 
     const options = createLocalWhisperRendererOptions(catalog, context, settings, false);
@@ -170,7 +172,12 @@ describe('production Local Whisper environment activation', () => {
     const eligibleSettings: LocalWhisperSettings = Object.freeze({
       ...settings,
       runtimeRevision: cudaRuntime.identity.packRevision,
-      execution: Object.freeze({ target: 'gpu', backend: 'cuda', deviceId }),
+      execution: Object.freeze({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
     });
     const eligibleOptions = createLocalWhisperRendererOptions(
       catalog,
@@ -273,7 +280,12 @@ describe('production Local Whisper environment activation', () => {
     const settings: LocalWhisperSettings = Object.freeze({
       decoding: Object.freeze({ strategy: 'greedy', temperatureHundredths: 0 }),
       engine: 'whisperCpp',
-      execution: Object.freeze({ target: 'gpu', backend: 'cuda', deviceId }),
+      execution: Object.freeze({
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId,
+        gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+      }),
       initialPrompt: '',
       language: 'auto',
       model: Object.freeze({
@@ -282,7 +294,7 @@ describe('production Local Whisper environment activation', () => {
         variant: model.identity.variant,
       }),
       runtimeRevision: cudaRuntime.identity.packRevision,
-      schemaVersion: 1,
+      schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
     });
 
     const artifacts = rendererArtifacts(catalog, inventory, settings, {

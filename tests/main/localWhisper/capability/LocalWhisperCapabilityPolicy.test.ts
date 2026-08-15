@@ -15,6 +15,8 @@ import {
 import { LocalWhisperResourcePolicy } from '@main/localWhisper/capability/LocalWhisperResourcePolicy';
 import { LocalWhisperSupportPolicy } from '@main/localWhisper/capability/LocalWhisperSupportPolicy';
 import {
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   type LocalWhisperMemoryConfigurationIdentity,
@@ -75,13 +77,18 @@ const CPU_ESTIMATE: LocalWhisperMemoryEstimateRecord = Object.freeze({
 const GPU_DEVICE_ID = deviceId('device-v1-nvidia-fixture');
 
 const GPU_SETTINGS: LocalWhisperPublicSettings = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   engine: 'whisperCpp',
   runtimeRevision: CONFIGURATION.runtimePackRevision,
   model: Object.freeze({ family: 'base', revision: CONFIGURATION.model.artifactRevision, variant: 'full' }),
   language: 'auto',
   decoding: Object.freeze({ strategy: 'greedy', temperatureHundredths: 0 }),
-  execution: Object.freeze({ target: 'gpu', backend: 'cuda', deviceId: GPU_DEVICE_ID }),
+  execution: Object.freeze({
+    target: 'gpu',
+    backend: 'cuda',
+    deviceId: GPU_DEVICE_ID,
+    gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+  }),
 });
 
 function capabilityRequest(
@@ -403,7 +410,12 @@ describe('LocalWhisperCapabilityService', () => {
       capabilityRequest({
         settings: {
           ...GPU_SETTINGS,
-          execution: { target: 'gpu', backend: 'metal', deviceId: appleDeviceId },
+          execution: {
+            target: 'gpu',
+            backend: 'metal',
+            deviceId: appleDeviceId,
+            gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+          },
         },
         platform: 'darwin',
         architecture: 'arm64',

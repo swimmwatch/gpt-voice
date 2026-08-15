@@ -24,6 +24,7 @@ import type {
 } from '@main/localWhisper/inventory/LocalWhisperInventoryRepository';
 import { LocalWhisperInventoryRepository } from '@main/localWhisper/inventory/LocalWhisperInventoryRepository';
 import {
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   createLocalWhisperRendererSafeFailure,
   type LocalWhisperArtifactId,
   type LocalWhisperPublicSettings,
@@ -128,7 +129,7 @@ function settings(catalogValue: LocalWhisperAuthenticatedCatalog): LocalWhisperP
   const runtime = catalogValue.payload.runtimes[0].identity;
   const model = catalogValue.payload.models[0].identity;
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
     engine: 'whisperCpp',
     runtimeRevision: runtime.packRevision,
     model: Object.freeze({ family: model.logicalModel, revision: model.artifactRevision, variant: model.variant }),

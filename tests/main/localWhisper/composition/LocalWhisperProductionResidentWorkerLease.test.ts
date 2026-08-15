@@ -4,7 +4,11 @@ import { it } from 'node:test';
 import { LocalWhisperProductionResidentWorkerLease } from '@main/localWhisper/composition/LocalWhisperProductionResidentWorkerLease';
 import type { LocalWhisperWorkerLifecycleSession } from '@main/localWhisper/supervisor/LocalWhisperWorkerLifecycle';
 import type { LocalWhisperSupervisorResult } from '@main/localWhisper/supervisor/LocalWhisperWorkerSupervisor';
-import { toLocalWhisperRevisionId, type LocalWhisperSettings } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
+  toLocalWhisperRevisionId,
+  type LocalWhisperSettings,
+} from '@shared/localWhisper';
 
 interface Deferred<T> {
   readonly promise: Promise<T>;
@@ -73,7 +77,7 @@ class CancellationSession implements LocalWhisperWorkerLifecycleSession {
 }
 
 const SETTINGS: LocalWhisperSettings = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   engine: 'whisperCpp',
   runtimeRevision: revision('runtime-v1'),
   model: Object.freeze({ family: 'tiny', revision: revision('model-v1'), variant: 'full' }),

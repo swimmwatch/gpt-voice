@@ -129,7 +129,7 @@ describe('Local Whisper settings contracts', () => {
   it('creates deterministic never-configured defaults without probing or fallback', () => {
     const settings = defaultSettings();
     assert.deepEqual(settings, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       engine: 'whisperCpp',
       runtimeRevision: 'whisper-cpp-cuda-v1',
       model: {
@@ -140,7 +140,7 @@ describe('Local Whisper settings contracts', () => {
       language: 'auto',
       initialPrompt: '',
       decoding: { strategy: 'greedy', temperatureHundredths: 0 },
-      execution: { target: 'gpu', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID },
+      execution: { target: 'gpu', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID, gpuCpuThreads: 'auto' },
     });
     assert.equal(Object.isFrozen(settings), true);
     assert.equal(Object.isFrozen(settings.execution), true);
@@ -189,24 +189,24 @@ describe('Local Whisper settings contracts', () => {
     );
   });
 
-  it('round-trips every release-1 target, backend, model, and decoding class', () => {
+  it('round-trips every schema-v2 target, backend, model, and decoding class', () => {
     const context = createContext();
     const base = defaultSettings(context);
     const executions = [
       {
         engine: 'whisperCpp',
         runtimeRevision: revision('whisper-cpp-cuda-v1'),
-        execution: { target: 'gpu', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID },
+        execution: { target: 'gpu', backend: 'cuda', deviceId: NVIDIA_DEVICE_ID, gpuCpuThreads: 'auto' },
       },
       {
         engine: 'whisperCpp',
         runtimeRevision: revision('whisper-cpp-hip-v1'),
-        execution: { target: 'gpu', backend: 'hip', deviceId: AMD_DEVICE_ID },
+        execution: { target: 'gpu', backend: 'hip', deviceId: AMD_DEVICE_ID, gpuCpuThreads: 1 },
       },
       {
         engine: 'whisperCpp',
         runtimeRevision: revision('whisper-cpp-vulkan-v1'),
-        execution: { target: 'gpu', backend: 'vulkan', deviceId: AMD_DEVICE_ID },
+        execution: { target: 'gpu', backend: 'vulkan', deviceId: AMD_DEVICE_ID, gpuCpuThreads: 16 },
       },
       {
         engine: 'whisperCpp',
@@ -276,6 +276,27 @@ describe('Local Whisper settings contracts', () => {
       },
       {
         ...valid,
+        execution: { ...valid.execution, gpuCpuThreads: 0 },
+      },
+      {
+        ...valid,
+        execution: { ...valid.execution, gpuCpuThreads: 17 },
+      },
+      {
+        ...valid,
+        execution: { ...valid.execution, gpuCpuThreads: 1.5 },
+      },
+      {
+        ...valid,
+        execution: { ...valid.execution, cpuThreads: 4 },
+      },
+      {
+        ...valid,
+        execution: { target: 'cpu', backend: 'cpu', cpuThreads: 'auto', gpuCpuThreads: 'auto' },
+        runtimeRevision: revision('whisper-cpp-cpu-v1'),
+      },
+      {
+        ...valid,
         execution: { target: 'gpu', backend: 'hip', deviceId: NVIDIA_DEVICE_ID },
         runtimeRevision: revision('whisper-cpp-hip-v1'),
       },
@@ -307,14 +328,16 @@ describe('Local Whisper settings contracts', () => {
     memory = rememberLocalWhisperDependentSelection(memory, revisionKey, 'model-v1');
     memory = rememberLocalWhisperDependentSelection(memory, 'backend:whisperCpp:gpu', 'cuda');
     memory = rememberLocalWhisperDependentSelection(memory, 'model:whisperCpp', 'base');
-    memory = rememberLocalWhisperDependentSelection(memory, 'threads:whisperCpp', 'auto');
+    memory = rememberLocalWhisperDependentSelection(memory, 'threads:whisperCpp:cpu', 6);
+    memory = rememberLocalWhisperDependentSelection(memory, 'threads:whisperCpp:gpu', 'auto');
     memory = rememberLocalWhisperDependentSelection(memory, 'request:language', 'ru');
 
     assert.equal(readLocalWhisperDependentSelection(memory, deviceKey), NVIDIA_DEVICE_ID);
     assert.equal(readLocalWhisperDependentSelection(memory, revisionKey), 'model-v1');
     assert.equal(readLocalWhisperDependentSelection(memory, 'backend:whisperCpp:gpu'), 'cuda');
     assert.equal(readLocalWhisperDependentSelection(memory, 'model:whisperCpp'), 'base');
-    assert.equal(readLocalWhisperDependentSelection(memory, 'threads:whisperCpp'), 'auto');
+    assert.equal(readLocalWhisperDependentSelection(memory, 'threads:whisperCpp:cpu'), 6);
+    assert.equal(readLocalWhisperDependentSelection(memory, 'threads:whisperCpp:gpu'), 'auto');
     assert.equal(readLocalWhisperDependentSelection(memory, 'request:language'), 'ru');
     assert.equal(readLocalWhisperDependentSelection(memory, 'device:whisperCpp:vulkan'), undefined);
 
@@ -323,6 +346,8 @@ describe('Local Whisper settings contracts', () => {
     assert.equal(readLocalWhisperDependentSelection(captured, 'variant:whisperCpp:base'), 'full');
     assert.equal(readLocalWhisperDependentSelection(captured, 'request:temperatureHundredths'), 0);
     assert.equal(readLocalWhisperDependentSelection(captured, 'request:strategy'), 'greedy');
+    assert.equal(readLocalWhisperDependentSelection(captured, 'threads:whisperCpp:cpu'), 6);
+    assert.equal(readLocalWhisperDependentSelection(captured, 'threads:whisperCpp:gpu'), 'auto');
   });
 
   it('keeps prompt content private in cache contexts while comparing its injected digest', () => {

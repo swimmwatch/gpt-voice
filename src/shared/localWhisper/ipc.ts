@@ -402,9 +402,11 @@ export function isLocalWhisperPublicSettings(value: unknown): value is LocalWhis
     );
   }
   return (
-    hasExactKeys(value.execution, ['target', 'backend', 'deviceId']) &&
+    hasExactKeys(value.execution, ['target', 'backend', 'deviceId', 'gpuCpuThreads']) &&
     (value.execution.backend === null || isLocalWhisperGpuBackend(value.execution.backend)) &&
-    (value.execution.deviceId === null || toLocalWhisperOpaqueDeviceId(value.execution.deviceId) !== null)
+    (value.execution.deviceId === null || toLocalWhisperOpaqueDeviceId(value.execution.deviceId) !== null) &&
+    (value.execution.gpuCpuThreads === LOCAL_WHISPER_AUTO_CPU_THREADS ||
+      (Number.isSafeInteger(value.execution.gpuCpuThreads) && (value.execution.gpuCpuThreads as number) > 0))
   );
 }
 

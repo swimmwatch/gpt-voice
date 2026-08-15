@@ -36,7 +36,8 @@ export type LocalWhisperDraftField =
   | 'decodingStrategy'
   | 'beamSize'
   | 'bestOf'
-  | 'cpuThreads';
+  | 'cpuThreads'
+  | 'gpuCpuThreads';
 
 export interface LocalWhisperSettingsDraft {
   readonly executionTarget: 'gpu' | 'cpu';
@@ -54,6 +55,7 @@ export interface LocalWhisperSettingsDraft {
   readonly beamSize: string;
   readonly bestOf: string;
   readonly cpuThreads: string;
+  readonly gpuCpuThreads: string;
 }
 
 export interface LocalWhisperDraftValidation {
@@ -96,6 +98,7 @@ export function createLocalWhisperDraft(snapshot: LocalWhisperRendererSnapshot):
     beamSize: decodingCandidateCount(snapshot, 'beamSize'),
     bestOf: decodingCandidateCount(snapshot, 'bestOf'),
     cpuThreads: execution.target === 'cpu' ? String(execution.cpuThreads) : LOCAL_WHISPER_AUTO_CPU_THREADS,
+    gpuCpuThreads: execution.target === 'gpu' ? String(execution.gpuCpuThreads) : LOCAL_WHISPER_AUTO_CPU_THREADS,
   });
 }
 
@@ -389,13 +392,23 @@ export function validateLocalWhisperDraft(
       execution = Object.freeze({ target: 'cpu', backend: 'cpu', cpuThreads });
     }
   } else {
+    const gpuCpuThreads = parseCpuThreads(draft.gpuCpuThreads, snapshot.host.logicalProcessorCount);
+    if (gpuCpuThreads === null) {
+      addError(
+        errors,
+        'gpuCpuThreads',
+        `GPU CPU threads must be auto or an integer from 1 to ${snapshot.host.logicalProcessorCount}.`,
+      );
+    }
     if (!draft.backend) addError(errors, 'backend', 'Select an explicit GPU backend.');
     const backendOption = validateOption(errors, snapshot, 'backend', draft.backend, 'backend');
     const deviceId = toLocalWhisperOpaqueDeviceId(draft.deviceId);
     if (!deviceId) addError(errors, 'deviceId', 'Select an application-issued GPU device.');
     const deviceOption = validateOption(errors, snapshot, 'device', draft.deviceId, 'deviceId');
     validateGpuCompatibility(draft, backendOption, deviceOption, errors);
-    if (draft.backend && deviceId) execution = Object.freeze({ target: 'gpu', backend: draft.backend, deviceId });
+    if (draft.backend && deviceId && gpuCpuThreads !== null) {
+      execution = Object.freeze({ target: 'gpu', backend: draft.backend, deviceId, gpuCpuThreads });
+    }
   }
 
   const promptMutation = createPromptMutation(draft, errors);

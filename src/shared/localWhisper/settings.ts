@@ -19,7 +19,7 @@ import {
 import { LOCAL_WHISPER_MODEL_VARIANTS, type LocalWhisperModelIdentity, type LocalWhisperModelVariant } from './catalog';
 import { isLocalWhisperLanguageId, type LocalWhisperLanguageId } from './languages';
 
-export const LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION = 1 as const;
+export const LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION = 2 as const;
 export const LOCAL_WHISPER_MAX_PROMPT_CODE_POINTS = 1_000;
 export const LOCAL_WHISPER_MIN_TEMPERATURE_HUNDREDTHS = 0;
 export const LOCAL_WHISPER_MAX_TEMPERATURE_HUNDREDTHS = 100;
@@ -57,6 +57,7 @@ export type LocalWhisperCppExecutionSettings =
       readonly target: 'gpu';
       readonly backend: LocalWhisperGpuBackend | null;
       readonly deviceId: LocalWhisperOpaqueDeviceId | null;
+      readonly gpuCpuThreads: LocalWhisperCpuThreads;
     }
   | {
       readonly target: 'cpu';
@@ -141,7 +142,7 @@ export type LocalWhisperSelectionKey =
   | `model:${LocalWhisperEngine}`
   | `revision:${LocalWhisperEngine}:${LocalWhisperModelFamily}`
   | `variant:${LocalWhisperEngine}:${LocalWhisperModelFamily}`
-  | `threads:${LocalWhisperEngine}`
+  | `threads:${LocalWhisperEngine}:${LocalWhisperTarget}`
   | `request:language`
   | `request:initialPrompt`
   | `request:temperatureHundredths`
@@ -198,7 +199,7 @@ const SETTINGS_KEYS = [
   'execution',
 ] as const;
 const MODEL_KEYS = ['family', 'revision', 'variant'] as const;
-const GPU_EXECUTION_KEYS = ['target', 'backend', 'deviceId'] as const;
+const GPU_EXECUTION_KEYS = ['target', 'backend', 'deviceId', 'gpuCpuThreads'] as const;
 const CPU_EXECUTION_KEYS = ['target', 'backend', 'cpuThreads'] as const;
 const UNSET_SELECTION_VALUE = '__unset__';
 
@@ -228,6 +229,13 @@ function isValidCandidateCount(value: unknown): value is number {
     Number.isSafeInteger(value) &&
     (value as number) >= LOCAL_WHISPER_MIN_CANDIDATE_COUNT &&
     (value as number) <= LOCAL_WHISPER_MAX_CANDIDATE_COUNT
+  );
+}
+
+function isValidThreadCount(value: unknown, logicalProcessorCount: number): value is LocalWhisperCpuThreads {
+  return (
+    value === LOCAL_WHISPER_AUTO_CPU_THREADS ||
+    (Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= logicalProcessorCount)
   );
 }
 
@@ -392,12 +400,7 @@ function validateExecution(
   if (value.target === 'cpu') {
     if (!hasExactKeys(value, CPU_EXECUTION_KEYS)) addIssue(issues, 'execution', 'unknown-property');
     if (value.backend !== 'cpu') addIssue(issues, 'execution.backend', 'cross-field-invalid');
-    if (
-      value.cpuThreads !== LOCAL_WHISPER_AUTO_CPU_THREADS &&
-      (!Number.isSafeInteger(value.cpuThreads) ||
-        (value.cpuThreads as number) < 1 ||
-        (value.cpuThreads as number) > context.logicalProcessorCount)
-    ) {
+    if (!isValidThreadCount(value.cpuThreads, context.logicalProcessorCount)) {
       addIssue(issues, 'execution.cpuThreads', 'invalid-number');
     }
     validateRuntimeRevision(engine, 'cpu', 'cpu', runtimeRevision, context, issues);
@@ -409,6 +412,9 @@ function validateExecution(
   if (backend === undefined) addIssue(issues, 'execution.backend', 'unknown-value');
   const device = value.deviceId === null ? undefined : getKnownDevice(context, value.deviceId);
   if (value.deviceId !== null && !device) addIssue(issues, 'execution.deviceId', 'unknown-value');
+  if (!isValidThreadCount(value.gpuCpuThreads, context.logicalProcessorCount)) {
+    addIssue(issues, 'execution.gpuCpuThreads', 'invalid-number');
+  }
   if (value.deviceId !== null && backend === null) addIssue(issues, 'execution', 'cross-field-invalid');
   if (backend !== undefined) {
     validateGpuCompatibility(backend, device, context, issues);
@@ -507,7 +513,12 @@ export function createNeverConfiguredLocalWhisperSettings(
     initialPrompt: '',
     decoding: { strategy: 'greedy', temperatureHundredths: 0 },
     execution: useGpu
-      ? { target: 'gpu', backend: selected.backend, deviceId: selected.deviceId }
+      ? {
+          target: 'gpu',
+          backend: selected.backend,
+          deviceId: selected.deviceId,
+          gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
+        }
       : { target: 'cpu', backend: 'cpu', cpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS },
   };
   return validateLocalWhisperSettings(candidate, context);
@@ -591,6 +602,7 @@ export function rememberLocalWhisperSettingsSelections(
   );
   if (execution.target === 'gpu') {
     next = rememberLocalWhisperDependentSelection(next, `backend:${settings.engine}:gpu`, execution.backend);
+    next = rememberLocalWhisperDependentSelection(next, `threads:${settings.engine}:gpu`, execution.gpuCpuThreads);
     if (execution.backend !== null) {
       next = rememberLocalWhisperDependentSelection(
         next,
@@ -599,7 +611,7 @@ export function rememberLocalWhisperSettingsSelections(
       );
     }
   } else {
-    next = rememberLocalWhisperDependentSelection(next, `threads:${settings.engine}`, execution.cpuThreads);
+    next = rememberLocalWhisperDependentSelection(next, `threads:${settings.engine}:cpu`, execution.cpuThreads);
   }
   next = rememberLocalWhisperDependentSelection(next, 'request:language', settings.language);
   next = rememberLocalWhisperDependentSelection(next, 'request:initialPrompt', settings.initialPrompt);

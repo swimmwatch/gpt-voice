@@ -8,6 +8,7 @@ import {
   FileLocalWhisperPrivateJsonStore,
   LOCAL_WHISPER_PRIVATE_DIRECTORY_MODE,
   LOCAL_WHISPER_PRIVATE_FILE_MODE,
+  LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION,
   LocalWhisperSettingsRepository,
   LocalWhisperSettingsRepositoryError,
   resolveLocalWhisperSettingsFile,
@@ -105,7 +106,7 @@ function createCudaSettings(): LocalWhisperSettings {
   return {
     ...createSettings(),
     runtimeRevision: CUDA_RUNTIME_REVISION,
-    execution: { target: 'gpu', backend: 'cuda', deviceId: CUDA_DEVICE_ID },
+    execution: { target: 'gpu', backend: 'cuda', deviceId: CUDA_DEVICE_ID, gpuCpuThreads: 'auto' },
   };
 }
 
@@ -144,6 +145,7 @@ describe('LocalWhisperSettingsRepository', () => {
     assert.equal(loaded.status, 'configured');
     if (loaded.status !== 'configured') return;
     assert.deepEqual(loaded.snapshot.settings, createSettings('Приватный prompt 😀'));
+    assert.equal(loaded.snapshot.dependentSelections.values['threads:whisperCpp:cpu'], 'auto');
     assert.equal(loaded.snapshot.dependentSelections.values['request:initialPrompt'], 'Приватный prompt 😀');
     if (process.platform !== 'win32') {
       assert.equal(fs.statSync(path.dirname(filePath)).mode & 0o777, LOCAL_WHISPER_PRIVATE_DIRECTORY_MODE);
@@ -220,7 +222,7 @@ describe('LocalWhisperSettingsRepository', () => {
     const { repository, store } = createHarness();
     store.write({
       namespace: 'local-whisper',
-      schemaVersion: 1,
+      schemaVersion: LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION,
       settings: createSettings(),
       dependentSelections: { values: {} },
       futureRuntime: {
@@ -295,6 +297,204 @@ describe('LocalWhisperSettingsRepository', () => {
         loaded.snapshot.repairIssues.some(({ path }) => path === 'runtimeRevision'),
         true,
       );
+    }
+  });
+
+  it('keeps CPU and GPU thread selection memory independent across target saves', () => {
+    const { filePath, repository, store } = createHarness();
+    repository.save(
+      { ...createSettings(), execution: { target: 'cpu', backend: 'cpu', cpuThreads: 2 } },
+      createContext(),
+    );
+    const storedCpu = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    const storedCpuSettings = storedCpu.settings as Record<string, unknown>;
+    store.write({
+      ...storedCpu,
+      settings: {
+        ...storedCpuSettings,
+        execution: {
+          ...(storedCpuSettings.execution as Record<string, unknown>),
+          futureTuning: 'preserved',
+        },
+      },
+    });
+    repository.save(
+      { ...createCudaSettings(), execution: { ...createCudaSettings().execution, gpuCpuThreads: 3 } },
+      createCudaContext(true),
+    );
+
+    const gpu = repository.load(createCudaContext(true));
+    assert.equal(gpu.status, 'configured');
+    if (gpu.status !== 'configured') return;
+    assert.equal(gpu.snapshot.dependentSelections.values['threads:whisperCpp:cpu'], 2);
+    assert.equal(gpu.snapshot.dependentSelections.values['threads:whisperCpp:gpu'], 3);
+    const storedGpu = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    assert.deepEqual((storedGpu.settings as Record<string, unknown>).execution, {
+      target: 'gpu',
+      backend: 'cuda',
+      deviceId: CUDA_DEVICE_ID,
+      gpuCpuThreads: 3,
+      futureTuning: 'preserved',
+    });
+
+    repository.save(
+      { ...createSettings(), execution: { target: 'cpu', backend: 'cpu', cpuThreads: 5 } },
+      createContext(),
+    );
+    const cpu = repository.load(createContext());
+    assert.equal(cpu.status, 'configured');
+    if (cpu.status !== 'configured') return;
+    assert.equal(cpu.snapshot.dependentSelections.values['threads:whisperCpp:cpu'], 5);
+    assert.equal(cpu.snapshot.dependentSelections.values['threads:whisperCpp:gpu'], 3);
+    const savedCpu = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    assert.deepEqual((savedCpu.settings as Record<string, unknown>).execution, {
+      target: 'cpu',
+      backend: 'cpu',
+      cpuThreads: 5,
+      futureTuning: 'preserved',
+    });
+  });
+
+  it('migrates valid v1 GPU settings to four threads and preserves safe unknown fields', () => {
+    const { filePath, repository, store } = createHarness();
+    const current = createCudaSettings();
+    const { schemaVersion: _schemaVersion, execution: currentExecution, ...settings } = current;
+    assert.equal(currentExecution.target, 'gpu');
+    if (currentExecution.target !== 'gpu') return;
+    const { gpuCpuThreads: _gpuCpuThreads, ...versionOneExecution } = currentExecution;
+    store.write({
+      namespace: 'local-whisper',
+      schemaVersion: 1,
+      settings: {
+        ...settings,
+        schemaVersion: 1,
+        execution: { ...versionOneExecution, futureTuning: 'preserved' },
+        futureSetting: { enabled: true },
+      },
+      dependentSelections: {
+        values: { 'threads:whisperCpp': 6, 'request:language': 'en' },
+        futureMemory: true,
+      },
+      futureDocument: { label: 'preserved' },
+    });
+    const before = fs.readFileSync(filePath);
+
+    const migrated = repository.load(createCudaContext(true));
+
+    assert.equal(migrated.status, 'configured');
+    if (migrated.status !== 'configured') return;
+    assert.deepEqual(migrated.snapshot.settings.execution, {
+      target: 'gpu',
+      backend: 'cuda',
+      deviceId: CUDA_DEVICE_ID,
+      gpuCpuThreads: 4,
+    });
+    assert.equal(migrated.snapshot.dependentSelections.values['threads:whisperCpp:cpu'], 6);
+    assert.equal(migrated.snapshot.dependentSelections.values['threads:whisperCpp:gpu'], 4);
+    assert.equal('threads:whisperCpp' in migrated.snapshot.dependentSelections.values, false);
+    assert.deepEqual(fs.readFileSync(filePath), before);
+
+    repository.save(migrated.snapshot.settings, createCudaContext(true));
+    const saved = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    assert.equal(saved.schemaVersion, LOCAL_WHISPER_SETTINGS_DOCUMENT_SCHEMA_VERSION);
+    assert.deepEqual(saved.futureDocument, { label: 'preserved' });
+    assert.deepEqual((saved.settings as Record<string, unknown>).futureSetting, { enabled: true });
+    assert.equal(
+      ((saved.settings as Record<string, unknown>).execution as Record<string, unknown>).futureTuning,
+      'preserved',
+    );
+    assert.equal(
+      ((saved.dependentSelections as Record<string, unknown>).values as Record<string, unknown>)['threads:whisperCpp'],
+      undefined,
+    );
+  });
+
+  it('migrates valid v1 CPU settings unchanged and initializes GPU thread memory to auto', () => {
+    const { filePath, repository, store } = createHarness();
+    const current = {
+      ...createSettings(),
+      execution: { target: 'cpu' as const, backend: 'cpu' as const, cpuThreads: 7 },
+    };
+    const { schemaVersion: _schemaVersion, ...settings } = current;
+    store.write({
+      namespace: 'local-whisper',
+      schemaVersion: 1,
+      settings: { ...settings, schemaVersion: 1 },
+      dependentSelections: { values: { 'threads:whisperCpp': 7 } },
+    });
+    const before = fs.readFileSync(filePath);
+
+    const migrated = repository.load(createContext());
+
+    assert.equal(migrated.status, 'configured');
+    if (migrated.status !== 'configured') return;
+    assert.deepEqual(migrated.snapshot.settings.execution, current.execution);
+    assert.equal(migrated.snapshot.dependentSelections.values['threads:whisperCpp:cpu'], 7);
+    assert.equal(migrated.snapshot.dependentSelections.values['threads:whisperCpp:gpu'], 'auto');
+    assert.deepEqual(fs.readFileSync(filePath), before);
+  });
+
+  it('rejects invalid v1 settings and stale thread memory without rewriting the file', () => {
+    const invalidDocuments = [
+      {
+        settings: createSettings(),
+        dependentSelections: { values: {} },
+      },
+      {
+        settings: {
+          ...createSettings(),
+          schemaVersion: 1,
+          execution: { target: 'cpu', backend: 'cpu', cpuThreads: 9 },
+        },
+        dependentSelections: { values: {} },
+      },
+      {
+        settings: { ...createSettings(), schemaVersion: 1 },
+        dependentSelections: { values: { 'threads:whisperCpp': 9 } },
+      },
+      {
+        settings: {
+          ...createCudaSettings(),
+          schemaVersion: 1,
+          execution: {
+            target: 'gpu',
+            backend: 'cuda',
+            deviceId: CUDA_DEVICE_ID,
+            cpuThreads: 2,
+          },
+        },
+        dependentSelections: { values: {} },
+      },
+    ];
+    for (const invalid of invalidDocuments) {
+      const { filePath, repository, store } = createHarness();
+      store.write({ namespace: 'local-whisper', schemaVersion: 1, ...invalid });
+      const before = fs.readFileSync(filePath);
+
+      assert.deepEqual(repository.load(createContext()), { status: 'invalid', code: 'INVALID_SETTINGS' });
+      assert.deepEqual(fs.readFileSync(filePath), before);
+    }
+  });
+
+  it('uses auto GPU threads for never-configured and reset settings', () => {
+    const { filePath, repository } = createHarness();
+    const first = repository.load(createCudaContext(true));
+    assert.equal(first.status, 'default');
+    if (first.status !== 'default') return;
+    assert.equal(first.snapshot.settings.execution.target, 'gpu');
+    if (first.snapshot.settings.execution.target !== 'gpu') return;
+    assert.equal(first.snapshot.settings.execution.gpuCpuThreads, 'auto');
+
+    repository.save(
+      { ...createCudaSettings(), execution: { ...createCudaSettings().execution, gpuCpuThreads: 4 } },
+      createCudaContext(true),
+    );
+    assert.equal(repository.reset(), true);
+    assert.equal(fs.existsSync(filePath), false);
+    const reset = repository.load(createCudaContext(true));
+    assert.equal(reset.status, 'default');
+    if (reset.status === 'default' && reset.snapshot.settings.execution.target === 'gpu') {
+      assert.equal(reset.snapshot.settings.execution.gpuCpuThreads, 'auto');
     }
   });
 

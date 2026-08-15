@@ -1,6 +1,7 @@
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_MODEL_FAMILIES,
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   validateLocalWhisperSettings,
@@ -59,7 +60,7 @@ const DEFERRED_MODEL_REVISION = revision('catalog-publication-pending-model');
 const DEFERRED_MACOS_DEVICE_ID = deviceId('planned-apple-metal-device');
 
 const DEFERRED_SETTINGS: LocalWhisperSettings = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   engine: 'whisperCpp',
   runtimeRevision: DEFERRED_RUNTIME_REVISION,
   model: Object.freeze({ family: 'base', revision: DEFERRED_MODEL_REVISION, variant: 'full' }),
@@ -79,6 +80,7 @@ const DEFERRED_MACOS_SETTINGS: LocalWhisperSettings = Object.freeze({
     target: 'gpu',
     backend: 'metal',
     deviceId: DEFERRED_MACOS_DEVICE_ID,
+    gpuCpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS,
   }),
 });
 

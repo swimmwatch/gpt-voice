@@ -21,6 +21,7 @@ import type {
   LocalWhisperCapabilityPreflightResult,
 } from '@main/localWhisper/capability/LocalWhisperCapabilityService';
 import {
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
   type LocalWhisperArtifactSetupState,
@@ -45,7 +46,7 @@ function artifactId(value: string) {
 
 function settings(overrides: Partial<LocalWhisperSettings> = {}): LocalWhisperSettings {
   return {
-    schemaVersion: 1,
+    schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
     engine: 'whisperCpp',
     runtimeRevision: revision('runtime-cpu-v1'),
     model: { family: 'base', revision: revision('model-base-v1'), variant: 'full' },
