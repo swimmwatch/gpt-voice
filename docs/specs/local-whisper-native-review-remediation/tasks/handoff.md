@@ -560,3 +560,26 @@
   security, package, attestation, CodeQL, and aggregate exact-SHA gates passed.
 - Blockers: none.
 - Exact next packet: none.
+
+## Packet 20 Reopened CUDA Amendment
+
+- **APPROVAL-009**, **PLAN-APPROVAL-009**, and **EXEC-AUTH-007** reopen only
+  Packet 20 for real supported-desktop execution of the existing
+  `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1` profile on the RTX 5090.
+  No new specification bundle, dependency, compiler profile, compute target,
+  support tier, qualification, publication, or release authority was created.
+- Historical Packet 20 CPU/native evidence and exact-SHA CI remain retained,
+  but the prior completion statement is superseded for checklist purposes.
+  The packet is incomplete until the exact CUDA toolchain inputs, deterministic
+  runtime pack, optimized CUDA worker digest, authenticated development
+  activation, bounded worker/application lifecycle, offline reuse, privacy,
+  resource cleanup, affected regressions, and replacement exact-SHA gates pass.
+- Ordinary Windows, CPU, `/analyze`, dedicated ASan, and their PE evidence
+  remain on MSVC 19.51. Only the existing CUDA 12.8.1 / `120a-real` path uses
+  MSVC 19.39, and it cannot substitute for those lanes or claim Task 21
+  qualification.
+- Current worktree content outside the amended Packet 20 scope remains
+  unrelated and must not be overwritten or staged.
+- Blockers: none established; exact CUDA input availability and execution must
+  be observed by the reopened run.
+- Exact next packet: Packet 20 — Windows validation and remediation gate.

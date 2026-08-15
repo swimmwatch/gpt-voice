@@ -19,4 +19,4 @@
 - [x] [17 — Application SBOM and vulnerability evidence](17_application_sbom_and_vulnerability_evidence.md)
 - [x] [18 — Provenance, attestation, and security reporting](18_provenance_attestation_and_security_reporting.md)
 - [x] [19 — Linux, shared, and security remediation gate](19_linux_shared_security_remediation_gate.md)
-- [x] [20 — Windows validation and remediation gate](20_windows_validation_and_remediation_gate.md)
+- [ ] [20 — Windows validation and remediation gate](20_windows_validation_and_remediation_gate.md) — reopened by APPROVAL-009 for real Windows RTX 5090 CUDA 12.8.1 / MSVC 19.39 / `sm_120a-real` execution; historical CPU/native evidence remains retained

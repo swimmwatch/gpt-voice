@@ -3504,3 +3504,124 @@ decisions:
     rationale: The user explicitly instructed the agent to fix the blocker, preserving Packet 20's original local-first, non-force push, exact-SHA CI, and no-release boundaries.
     supersedes_revision: 4
     requirement_ids: [EXEC-AUTH-006, OPS-004]
+
+  - id: compatibility.windows-toolchain-policy
+    revision: 3
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json
+      - The user explicitly required Windows CUDA validation to remain inside Packet 20 and rejected creating a separate specification.
+    prompt_mcp: null
+    question:
+      text: How should Packet 20 validate Windows CUDA without weakening the proven MSVC 19.51 ordinary Windows lanes?
+      kind: single
+      options:
+        - id: dual-execution-profiles
+          label: Execute the existing CUDA profile
+          description: Keep ordinary Windows and CPU evidence on MSVC 19.51 while separately executing the existing CUDA 12.8.1 / MSVC 19.39 / sm_120a-real profile on the supported RTX 5090 desktop.
+        - id: retain-contract-only
+          label: Retain contract-only CUDA
+          description: Leave CUDA unavailable in the ordinary Windows development application and preserve the prior Packet 20 completion boundary.
+        - id: migrate-cuda-toolchain
+          label: Migrate CUDA toolchain
+          description: Introduce a different CUDA or compiler profile and require a broader dependency and compatibility revision.
+    answer:
+      selected_ids: [dual-execution-profiles]
+      text: ''
+    rationale: The product path and exact CUDA profile already exist. The amendment requires real readiness execution on the available representative desktop without inventing a new profile or allowing CUDA evidence to replace the ordinary MSVC 19.51 gates.
+    supersedes_revision: 2
+    requirement_ids: [CMP-005, CMP-010, WIN-001, AC-AUT-042, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-011]
+
+  - id: approval.spec
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - compatibility.windows-toolchain-policy revision 3
+      - The user explicitly approved changing the existing Packet 20 contract on 2026-08-15.
+    prompt_mcp: null
+    question:
+      text: Should real supported-desktop execution of the existing Windows CUDA profile become part of the approved Packet 20 specification contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amendment
+          description: Reopen Packet 20 for exact CUDA execution while retaining every unaffected remediation requirement.
+        - id: request-changes
+          label: Request changes
+          description: Revise the CUDA execution boundary before Packet 20 continues.
+        - id: leave-contract-only
+          label: Leave contract-only
+          description: Keep the previous Packet 20 completion without real CUDA execution.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: After rejecting a separate specification, the user explicitly asked to change the existing contract as described.
+    supersedes_revision: 8
+    requirement_ids: [APPROVAL-009]
+
+  - id: approval.plan
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-009
+    prompt_mcp: null
+    question:
+      text: Should the existing Packet 20 be reopened to own the approved Windows CUDA execution amendment?
+      kind: single
+      options:
+        - id: approve
+          label: Approve reopened Packet 20
+          description: Preserve historical evidence and make Packet 20 incomplete until the amended CUDA gates pass.
+        - id: request-changes
+          label: Request changes
+          description: Revise task ownership before execution.
+        - id: leave-complete
+          label: Leave Packet 20 complete
+          description: Do not add the CUDA execution requirement to the checklist.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly identified Packet 20 as the owning task and requested the existing documents be changed rather than creating another specification.
+    supersedes_revision: 8
+    requirement_ids: [PLAN-APPROVAL-009, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 6
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - PLAN-APPROVAL-009
+      - The user said to proceed and then explicitly approved the Packet 20 amendment.
+    prompt_mcp: null
+    question:
+      text: What execution authorization applies after the Windows CUDA Packet 20 amendment?
+      kind: single
+      options:
+        - id: continue-packet-20
+          label: Continue Packet 20
+          description: Implement and verify the CUDA correction, then use the existing scoped commit, non-force push, and exact-SHA CI contract.
+        - id: documentation-only
+          label: Documentation only
+          description: Record the amendment but stop before implementation.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep Packet 20 reopened without further execution.
+    answer:
+      selected_ids: [continue-packet-20]
+      text: ''
+    rationale: The user's Go instruction and subsequent scope correction authorize continuation of the same Packet 20 under the amended contract.
+    supersedes_revision: 5
+    requirement_ids: [EXEC-AUTH-007, OPS-004]
