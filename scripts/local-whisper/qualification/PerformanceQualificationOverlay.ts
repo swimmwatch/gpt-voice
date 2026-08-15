@@ -6,7 +6,7 @@ import { qualificationCanonicalJson } from './QualificationContracts';
 
 const TAR_BLOCK_BYTES = 512;
 const BASELINE_COMPOSITION_SHA256 = '8e1fcdc8493bfdcf9d880fd63d5a0c6680830526b55e8c8a2b40628377abb7f1';
-const CANDIDATE_COMPOSITION_SHA256 = 'a8770b10f4ee42318fd49fbd6d49fb622a0cc67aace9220f00ff6fc7e4c4622d';
+const CANDIDATE_COMPOSITION_SHA256 = 'bba32aeca990781c9dab0c62de0435ee10fd60be77ba60e233b3bdcc14046302';
 const COMPOSITION_PATH = 'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts';
 const HOOK_ANCHOR = `  readonly qualificationHooks?: {
     readonly artifactHttpClient?: ArtifactHttpClient;
