@@ -4,10 +4,12 @@ import {
   type LocalWhisperPerformanceResourceId,
   type LocalWhisperQualificationValidator,
 } from './QualificationContracts';
-import {
-  type PerformanceQualificationManifest,
-  type PerformanceQualificationSample,
-  type PerformanceRunOrder,
+import type {
+  PerformanceCacheState,
+  PerformanceModelIdentity,
+  PerformanceQualificationBundle,
+  PerformanceQualificationManifest,
+  PerformanceQualificationSample,
 } from './PerformanceQualification';
 import {
   LOCAL_WHISPER_PERFORMANCE_MAXIMUM_CONSERVATIVE_REGRESSION_PERCENT,
@@ -45,11 +47,15 @@ function resourcePeak(sample: SuccessfulPair['before'], resourceId: LocalWhisper
   return resource.peakBytes;
 }
 
-function expectedRunOrder(pairIndex: number): PerformanceRunOrder {
-  return pairIndex % 2 === 1 ? 'beforeThenAfter' : 'afterThenBefore';
+function modelKey(model: PerformanceModelIdentity): string {
+  return `${model.family}|${model.variant}|${model.sha256}`;
 }
 
-/** Applies the frozen paired median/MAD thresholds and deterministic [1,2,4,8] window selection. */
+function cellKey(model: PerformanceModelIdentity, candidateWindow: number, cacheState: PerformanceCacheState): string {
+  return `${modelKey(model)}|${candidateWindow}|${cacheState}`;
+}
+
+/** Produces aggregate-only per-model/per-cache rows without selecting a production window. */
 export class LocalWhisperPerformanceResultProducer {
   private readonly graph: LocalWhisperQualificationGraphProducer;
 
@@ -57,167 +63,168 @@ export class LocalWhisperPerformanceResultProducer {
     this.graph = new LocalWhisperQualificationGraphProducer(validator);
   }
 
-  public produce(
+  public produce(bundle: PerformanceQualificationBundle): Readonly<Record<string, unknown>> {
+    bundle = this.validator.validateAndFreezeDocument(
+      'performanceBundle',
+      bundle,
+    ) as unknown as PerformanceQualificationBundle;
+    const manifest = bundle.manifest;
+    const groups = this.groupPairs(manifest, bundle.samples);
+    const candidateResults = manifest.modelArtifacts.flatMap((model) =>
+      manifest.candidateWindows.map((candidateWindow) => {
+        const cacheResults = manifest.cacheStates.map((cacheState) =>
+          this.produceCacheResult(manifest, groups, bundle.samples, model, candidateWindow, cacheState),
+        );
+        const reasonCodes = cacheResults.some(({ status }) => status === 'Fail') ? ['CACHE_CELL_FAILED'] : [];
+        return Object.freeze({
+          model: Object.freeze({ family: model.family, variant: model.variant }),
+          candidateWindow,
+          cacheResults,
+          status: reasonCodes.length === 0 ? ('Pass' as const) : ('Fail' as const),
+          reasonCodes,
+        });
+      }),
+    );
+    const successfulAttempts = bundle.samples.filter(({ status }) => status === 'success').length;
+    return this.graph.freeze('performanceResult', {
+      schemaVersion: 2,
+      contractRevision: 2,
+      performanceRunPlanDigest: bundle.performanceRunPlanDigest,
+      performanceManifestDigest: bundle.performanceManifestDigest,
+      performanceBundleDigest: bundle.performanceBundleDigest,
+      platform: bundle.platform,
+      architecture: 'x64',
+      backend: bundle.backend,
+      executionMode: bundle.executionMode,
+      evidenceClaim: bundle.evidenceClaim,
+      attemptCounts: Object.freeze({
+        planned: bundle.samples.length,
+        successful: successfulAttempts,
+        failed: bundle.samples.length - successfulAttempts,
+      }),
+      candidateResults,
+      selectedInFlightWindow: null,
+      selectionStatus: bundle.evidenceClaim === 'contractOnly' ? 'fixtureOnly' : 'awaitingCrossPlatform',
+      sourceHashBaseline: manifest.sourceHashBaseline,
+    });
+  }
+
+  private groupPairs(
     manifest: PerformanceQualificationManifest,
     samples: readonly PerformanceQualificationSample[],
-  ): Readonly<Record<string, unknown>> {
-    manifest = this.validator.validateAndFreezeDocument(
-      'performanceManifest',
-      manifest,
-    ) as unknown as PerformanceQualificationManifest;
-    samples = samples.map(
-      (sample) =>
-        this.validator.validateAndFreezeDocument(
-          'performanceSample',
-          sample,
-        ) as unknown as PerformanceQualificationSample,
-    );
-    if (samples.length === 0 || samples.length > 512) throw new Error('QUALIFICATION_PERFORMANCE_SAMPLE_SET_INVALID');
-    const sampleIds = new Set<string>();
-    const sampleDigests = new Set<string>();
-    const groups = new Map<string, SamplePair>();
-    const failedSamples: Array<{ readonly sampleId: string; readonly reasonCode: string }> = [];
+  ): ReadonlyMap<string, readonly SuccessfulPair[]> {
+    const pairs = new Map<string, SamplePair>();
     for (const sample of samples) {
-      if (
-        sample.performanceManifestDigest !== manifest.performanceManifestDigest ||
-        !manifest.candidateWindows.includes(sample.candidateWindow) ||
-        !manifest.cacheStates.includes(sample.cacheState) ||
-        sample.pairIndex > manifest.plannedPairsPerCandidateCacheState ||
-        sample.runOrder !== expectedRunOrder(sample.pairIndex) ||
-        sampleIds.has(sample.sampleId) ||
-        sampleDigests.has(sample.performanceSampleDigest)
-      ) {
-        throw new Error('QUALIFICATION_PERFORMANCE_SAMPLE_SET_INVALID');
-      }
-      sampleIds.add(sample.sampleId);
-      sampleDigests.add(sample.performanceSampleDigest);
-      if (sample.status === 'success') {
-        if (
-          JSON.stringify(sample.phases.map(({ id }) => id)) !== JSON.stringify(manifest.requiredPhaseIds) ||
-          JSON.stringify(sample.resources.map(({ id }) => id)) !== JSON.stringify(manifest.requiredResourceIds)
-        ) {
-          throw new Error('QUALIFICATION_PERFORMANCE_METRIC_SET_INVALID');
-        }
-      } else {
-        failedSamples.push(Object.freeze({ sampleId: sample.sampleId, reasonCode: sample.failureReason }));
-      }
-      const key = `${sample.candidateWindow}|${sample.cacheState}|${sample.pairIndex}`;
-      const pair = groups.get(key) ?? {};
-      if (pair[sample.side]) throw new Error('QUALIFICATION_PERFORMANCE_DUPLICATE_SAMPLE_SIDE');
+      const key = `${cellKey(sample.model, sample.candidateWindow, sample.cacheState)}|${sample.pairIndex}`;
+      const pair = pairs.get(key) ?? {};
       pair[sample.side] = sample;
-      groups.set(key, pair);
+      pairs.set(key, pair);
     }
-
-    const successfulPairs = new Map<string, SuccessfulPair[]>();
-    for (const candidateWindow of manifest.candidateWindows) {
-      for (const cacheState of manifest.cacheStates) {
-        const key = `${candidateWindow}|${cacheState}`;
-        const complete: SuccessfulPair[] = [];
-        for (let pairIndex = 1; pairIndex <= manifest.plannedPairsPerCandidateCacheState; pairIndex += 1) {
-          const pair = groups.get(`${key}|${pairIndex}`);
-          if (!pair?.before || !pair.after) throw new Error('QUALIFICATION_PERFORMANCE_PAIR_SET_INCOMPLETE');
-          if (pair.before.runOrder !== pair.after.runOrder) {
-            throw new Error('QUALIFICATION_PERFORMANCE_PAIR_ORDER_INVALID');
+    const successful = new Map<string, readonly SuccessfulPair[]>();
+    for (const model of manifest.modelArtifacts) {
+      for (const candidateWindow of manifest.candidateWindows) {
+        for (const cacheState of manifest.cacheStates) {
+          const cell = cellKey(model, candidateWindow, cacheState);
+          const complete: SuccessfulPair[] = [];
+          for (let pairIndex = 1; pairIndex <= manifest.plannedPairsPerCandidateCacheState; pairIndex += 1) {
+            const pair = pairs.get(`${cell}|${pairIndex}`);
+            if (!pair?.before || !pair.after) throw new Error('QUALIFICATION_PERFORMANCE_PAIR_SET_INCOMPLETE');
+            if (pair.before.status === 'success' && pair.after.status === 'success') {
+              complete.push(Object.freeze({ before: pair.before, after: pair.after }));
+            }
           }
-          if (pair.before.status === 'success' && pair.after.status === 'success') {
-            complete.push(Object.freeze({ before: pair.before, after: pair.after }));
-          }
+          successful.set(cell, Object.freeze(complete));
         }
-        successfulPairs.set(key, complete);
       }
     }
+    return successful;
+  }
 
-    const candidateResults = manifest.candidateWindows.map((candidateWindow) => {
-      const cold = successfulPairs.get(`${candidateWindow}|cold`) ?? [];
-      const warm = successfulPairs.get(`${candidateWindow}|warm`) ?? [];
-      const pairs = [...cold, ...warm];
-      const counts = Object.freeze({ cold: cold.length, warm: warm.length });
-      if (cold.length < manifest.minimumSuccessfulPairs || warm.length < manifest.minimumSuccessfulPairs) {
-        return Object.freeze({
-          candidateWindow,
-          successfulPairsByCacheState: counts,
-          targetedComponent: null,
-          guardrails: [],
-          status: 'Fail' as const,
-          reasonCodes: ['INSUFFICIENT_SUCCESSFUL_PAIRS'],
-        });
-      }
-      const improvement = qualificationPairedEstimate(
-        pairs.map(({ before, after }) =>
-          qualificationImprovementPercentage(targetDuration(before), targetDuration(after)),
+  private produceCacheResult(
+    manifest: PerformanceQualificationManifest,
+    groups: ReadonlyMap<string, readonly SuccessfulPair[]>,
+    samples: readonly PerformanceQualificationSample[],
+    model: PerformanceModelIdentity,
+    candidateWindow: number,
+    cacheState: PerformanceCacheState,
+  ): Readonly<Record<string, unknown>> {
+    const pairs = groups.get(cellKey(model, candidateWindow, cacheState)) ?? [];
+    const successfulAttempts = samples.filter(
+      (sample) =>
+        modelKey(sample.model) === modelKey(model) &&
+        sample.candidateWindow === candidateWindow &&
+        sample.cacheState === cacheState &&
+        sample.status === 'success',
+    ).length;
+    const failedAttempts = manifest.plannedPairsPerCandidateCacheState * 2 - successfulAttempts;
+    if (pairs.length < manifest.minimumSuccessfulPairs) {
+      return Object.freeze({
+        cacheState,
+        plannedPairs: manifest.plannedPairsPerCandidateCacheState,
+        successfulPairs: pairs.length,
+        failedAttempts,
+        targetedComponent: null,
+        guardrails: [],
+        status: 'Fail' as const,
+        reasonCodes: ['INSUFFICIENT_SUCCESSFUL_PAIRS'],
+      });
+    }
+    const improvement = qualificationPairedEstimate(
+      pairs.map(({ before, after }) =>
+        qualificationImprovementPercentage(targetDuration(before), targetDuration(after)),
+      ),
+    );
+    const conservativeImprovement = improvement.pointEstimatePercent - improvement.uncertaintyPercent;
+    const targetedComponent = Object.freeze({
+      ...improvement,
+      conservativePercent: conservativeImprovement,
+      status:
+        conservativeImprovement >= LOCAL_WHISPER_PERFORMANCE_MINIMUM_CONSERVATIVE_IMPROVEMENT_PERCENT
+          ? ('Pass' as const)
+          : ('Fail' as const),
+    });
+    const guardrailMetrics: Array<{
+      readonly id: 'endToEnd' | LocalWhisperPerformanceResourceId;
+      readonly values: readonly number[];
+    }> = [
+      {
+        id: 'endToEnd',
+        values: pairs.map(({ before, after }) =>
+          qualificationRegressionPercentage(before.endToEndNanoseconds, after.endToEndNanoseconds),
         ),
-      );
-      const conservativeImprovement = improvement.pointEstimatePercent - improvement.uncertaintyPercent;
-      const targetedComponent = Object.freeze({
-        ...improvement,
-        conservativePercent: conservativeImprovement,
+      },
+      ...manifest.requiredResourceIds.map((id) => ({
+        id,
+        values: pairs.map(({ before, after }) =>
+          qualificationRegressionPercentage(resourcePeak(before, id), resourcePeak(after, id)),
+        ),
+      })),
+    ];
+    const guardrails = guardrailMetrics.map(({ id, values }) => {
+      const estimate = qualificationPairedEstimate(values);
+      const upperBoundPercent = estimate.pointEstimatePercent + estimate.uncertaintyPercent;
+      return Object.freeze({
+        id,
+        ...estimate,
+        upperBoundPercent,
         status:
-          conservativeImprovement >= LOCAL_WHISPER_PERFORMANCE_MINIMUM_CONSERVATIVE_IMPROVEMENT_PERCENT
+          upperBoundPercent <= LOCAL_WHISPER_PERFORMANCE_MAXIMUM_CONSERVATIVE_REGRESSION_PERCENT
             ? ('Pass' as const)
             : ('Fail' as const),
       });
-      const guardrailMetrics: Array<{
-        readonly id: 'endToEnd' | LocalWhisperPerformanceResourceId;
-        readonly values: readonly number[];
-      }> = [
-        {
-          id: 'endToEnd',
-          values: pairs.map(({ before, after }) =>
-            qualificationRegressionPercentage(before.endToEndNanoseconds, after.endToEndNanoseconds),
-          ),
-        },
-        ...manifest.requiredResourceIds.map((id) => ({
-          id,
-          values: pairs.map(({ before, after }) =>
-            qualificationRegressionPercentage(resourcePeak(before, id), resourcePeak(after, id)),
-          ),
-        })),
-      ];
-      const guardrails = guardrailMetrics.map(({ id, values }) => {
-        const estimate = qualificationPairedEstimate(values);
-        const upperBoundPercent = estimate.pointEstimatePercent + estimate.uncertaintyPercent;
-        return Object.freeze({
-          id,
-          ...estimate,
-          upperBoundPercent,
-          status:
-            upperBoundPercent <= LOCAL_WHISPER_PERFORMANCE_MAXIMUM_CONSERVATIVE_REGRESSION_PERCENT
-              ? ('Pass' as const)
-              : ('Fail' as const),
-        });
-      });
-      const reasonCodes: string[] = [];
-      if (targetedComponent.status === 'Fail') reasonCodes.push('CONSERVATIVE_IMPROVEMENT_BELOW_THRESHOLD');
-      if (guardrails.some(({ status }) => status === 'Fail')) reasonCodes.push('RESOURCE_OR_END_TO_END_REGRESSION');
-      return Object.freeze({
-        candidateWindow,
-        successfulPairsByCacheState: counts,
-        targetedComponent,
-        guardrails,
-        status: reasonCodes.length === 0 ? ('Pass' as const) : ('Fail' as const),
-        reasonCodes,
-      });
     });
-    const selectedInFlightWindow = candidateResults.find(({ status }) => status === 'Pass')?.candidateWindow ?? null;
-    return this.graph.freeze('performanceResult', {
-      schemaVersion: 1,
-      contractRevision: 1,
-      performanceManifestDigest: manifest.performanceManifestDigest,
-      platform: manifest.platform,
-      backend: manifest.backend,
-      executionMode: manifest.executionMode,
-      evidenceClaim: manifest.evidenceClaim,
-      sampleDigests: [...sampleDigests].sort((left, right) => left.localeCompare(right, 'en')),
-      failedSamples: failedSamples.sort((left, right) => left.sampleId.localeCompare(right.sampleId, 'en')),
-      candidateResults,
-      selectedInFlightWindow,
-      selectionStatus:
-        selectedInFlightWindow === null
-          ? 'blocked'
-          : manifest.executionMode === 'hostedFixture'
-            ? 'fixtureOnly'
-            : 'selected',
-      sourceHashBaseline: manifest.sourceHashBaseline,
+    const reasonCodes: string[] = [];
+    if (targetedComponent.status === 'Fail') reasonCodes.push('CONSERVATIVE_IMPROVEMENT_BELOW_THRESHOLD');
+    if (guardrails.some(({ status }) => status === 'Fail')) reasonCodes.push('RESOURCE_OR_END_TO_END_REGRESSION');
+    return Object.freeze({
+      cacheState,
+      plannedPairs: manifest.plannedPairsPerCandidateCacheState,
+      successfulPairs: pairs.length,
+      failedAttempts,
+      targetedComponent,
+      guardrails,
+      status: reasonCodes.length === 0 ? ('Pass' as const) : ('Fail' as const),
+      reasonCodes,
     });
   }
 }

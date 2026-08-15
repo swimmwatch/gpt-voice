@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-run-plan-v2.schema.json",
+  "title": "Local Whisper private performance qualification run plan v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceRunPlanDigest",
+    "sourceRevision",
+    "sourceProofDigest",
+    "platform",
+    "architecture",
+    "backend",
+    "executionMode",
+    "evidenceClaim",
+    "baselineCommit",
+    "candidateCommit",
+    "sourceProof",
+    "worktrees",
+    "applicationArtifacts",
+    "runtimeArtifacts",
+    "models",
+    "inputFixture",
+    "cachePreparation",
+    "cacheStates",
+    "candidateWindows",
+    "minimumSuccessfulPairs",
+    "plannedPairsPerCandidateCacheState",
+    "runOrdering",
+    "statistic",
+    "uncertaintyMethod",
+    "samplingIntervalMilliseconds",
+    "attemptTimeoutMilliseconds",
+    "units",
+    "requiredPhaseIds",
+    "requiredResourceIds",
+    "sourceHashBaseline"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "contractRevision": { "const": 2 },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "sourceRevision": { "$ref": "#/$defs/commit" },
+    "sourceProofDigest": { "$ref": "#/$defs/sha256" },
+    "platform": { "enum": ["linux", "win32"] },
+    "architecture": { "const": "x64" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "executionMode": { "const": "representativeHost" },
+    "evidenceClaim": { "enum": ["contractOnly", "representativePerformance"] },
+    "baselineCommit": { "$ref": "#/$defs/commit" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "sourceProof": { "$ref": "#/$defs/artifact" },
+    "worktrees": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after"],
+      "properties": {
+        "before": { "$ref": "#/$defs/worktree" },
+        "after": { "$ref": "#/$defs/worktree" }
+      }
+    },
+    "applicationArtifacts": { "$ref": "#/$defs/sides" },
+    "runtimeArtifacts": { "$ref": "#/$defs/sides" },
+    "models": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "variant", "sha256", "artifact"],
+        "properties": {
+          "family": { "enum": ["base", "medium", "large-v3"] },
+          "variant": { "enum": ["full", "q5_0"] },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "artifact": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "inputFixture": { "$ref": "#/$defs/artifact" },
+    "cachePreparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["procedure", "cold", "warm"],
+      "properties": {
+        "procedure": { "enum": ["linuxFileAdviceV1", "windowsFileCacheV1"] },
+        "cold": { "const": "fileAdviceDontNeed" },
+        "warm": { "const": "boundedSequentialRead" }
+      }
+    },
+    "cacheStates": { "$ref": "#/$defs/cacheStates" },
+    "candidateWindows": { "$ref": "#/$defs/candidateWindows" },
+    "minimumSuccessfulPairs": { "const": 5 },
+    "plannedPairsPerCandidateCacheState": { "const": 6 },
+    "runOrdering": { "const": "alternatingBeforeAfter" },
+    "statistic": { "const": "medianOfPairedPercentages" },
+    "uncertaintyMethod": { "const": "medianAbsoluteDeviation" },
+    "samplingIntervalMilliseconds": { "const": 100 },
+    "attemptTimeoutMilliseconds": { "type": "integer", "minimum": 1000, "maximum": 3600000 },
+    "units": { "$ref": "#/$defs/units" },
+    "requiredPhaseIds": { "$ref": "#/$defs/phases" },
+    "requiredResourceIds": { "$ref": "#/$defs/resources" },
+    "sourceHashBaseline": { "$ref": "#/$defs/sourceHashBaseline" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.?(?:[/\\\\]|$))[A-Za-z0-9._/\\\\-]+$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relativePath", "sizeBytes", "sha256"],
+      "properties": {
+        "relativePath": { "$ref": "#/$defs/relativePath" },
+        "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "worktree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relativePath", "commit"],
+      "properties": {
+        "relativePath": { "$ref": "#/$defs/relativePath" },
+        "commit": { "$ref": "#/$defs/commit" }
+      }
+    },
+    "sides": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after"],
+      "properties": {
+        "before": { "$ref": "#/$defs/artifact" },
+        "after": { "$ref": "#/$defs/artifact" }
+      }
+    },
+    "cacheStates": {
+      "type": "array",
+      "prefixItems": [{ "const": "cold" }, { "const": "warm" }],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "candidateWindows": {
+      "type": "array",
+      "prefixItems": [{ "const": 1 }, { "const": 2 }, { "const": 4 }, { "const": 8 }],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phaseDuration", "resourcePeak", "change"],
+      "properties": {
+        "phaseDuration": { "const": "nanoseconds" },
+        "resourcePeak": { "const": "bytes" },
+        "change": { "const": "percent" }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 19,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/phaseId" }
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resourceId" }
+    },
+    "phaseId": {
+      "enum": [
+        "directoryProofRuntimeAcquisition",
+        "directoryProofModelAcquisition",
+        "directoryProofRuntimePreSpawn",
+        "directoryProofModelPreSpawn",
+        "directoryProofModelPreLoad",
+        "nativeModelGuardDigest",
+        "nativeAuthorityDigest",
+        "workerPreflightDigest",
+        "workerLoaderDigest",
+        "guardedProcessCreation",
+        "authorityTransfer",
+        "modelPreflight",
+        "whisperLoad",
+        "inferenceWarmup",
+        "gpuUploadAllocation",
+        "installationEncode",
+        "installationPipeWait",
+        "installationDecode",
+        "installationWrite"
+      ]
+    },
+    "resourceId": {
+      "enum": ["mainProcessPeakRss", "guardProcessPeakRss", "workerProcessPeakRss", "gpuPeakVram"]
+    },
+    "sourceHashBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beforeOptimization", "afterDirectoryReuse"],
+      "properties": {
+        "beforeOptimization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 8 }, "win32": { "const": 7 } }
+        },
+        "afterDirectoryReuse": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 7 }, "win32": { "const": 6 } }
+        }
+      }
+    }
+  }
+}

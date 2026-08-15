@@ -3,10 +3,15 @@ import { createHash } from 'node:crypto';
 import type { LocalWhisperQualificationValidator } from './QualificationContracts';
 import {
   LocalWhisperPerformanceDocumentProducer,
+  performanceExpectedRunOrder,
+  performanceOrderedSides,
+  performanceSampleId,
   type PerformanceBackend,
+  type PerformanceCacheReceipt,
   type PerformanceCandidateWindow,
   type PerformancePhaseMeasurement,
   type PerformancePlatform,
+  type PerformanceQualificationBundle,
   type PerformanceQualificationManifest,
   type PerformanceQualificationSample,
   type PerformanceResourceMeasurement,
@@ -20,9 +25,13 @@ const AFTER_TARGET_PHASE_NANOSECONDS: Readonly<Record<PerformanceCandidateWindow
   4: 700,
   8: 650,
 });
+const FIXTURE_BASELINE_COMMIT = '0'.repeat(40);
+const FIXTURE_CANDIDATE_COMMIT = '1'.repeat(40);
 
-function fixtureDigest(platform: PerformancePlatform, backend: PerformanceBackend): string {
-  return createHash('sha256').update(`local-whisper-performance-v1|${platform}|${backend}`, 'utf8').digest('hex');
+function fixtureDigest(platform: PerformancePlatform, backend: PerformanceBackend, purpose: string): string {
+  return createHash('sha256')
+    .update(`local-whisper-performance-v2|${platform}|${backend}|${purpose}`, 'utf8')
+    .digest('hex');
 }
 
 function phases(
@@ -52,60 +61,87 @@ function resources(manifest: PerformanceQualificationManifest): readonly Perform
 
 export interface HostedPerformanceFixtureResult {
   readonly manifest: PerformanceQualificationManifest;
+  readonly cacheReceipts: readonly PerformanceCacheReceipt[];
   readonly samples: readonly PerformanceQualificationSample[];
+  readonly bundle: PerformanceQualificationBundle;
   readonly result: Readonly<Record<string, unknown>>;
 }
 
-/** Builds content-free deterministic fixtures used only to prove the hosted Linux/Windows contract lanes. */
+/** Builds content-free deterministic schema-v2 fixtures that can never claim representative selection. */
 export function createHostedPerformanceFixture(
   validator: LocalWhisperQualificationValidator,
   platform: PerformancePlatform,
   backend: PerformanceBackend,
 ): HostedPerformanceFixtureResult {
   const documents = new LocalWhisperPerformanceDocumentProducer(validator);
-  const manifest = documents.produceManifest({
+  const manifest = documents.produceHostedManifest({
     platform,
     backend,
     executionMode: 'hostedFixture',
-    inputFixtureDigest: fixtureDigest(platform, backend),
-    plannedPairsPerCandidateCacheState: 6,
+    evidenceClaim: 'contractOnly',
+    performanceRunPlanDigest: fixtureDigest(platform, backend, 'run-plan'),
+    baselineCommit: FIXTURE_BASELINE_COMMIT,
+    candidateCommit: FIXTURE_CANDIDATE_COMMIT,
+    inputFixtureDigest: fixtureDigest(platform, backend, 'input'),
   });
+  const cacheReceipts: PerformanceCacheReceipt[] = [];
   const samples: PerformanceQualificationSample[] = [];
-  for (const candidateWindow of manifest.candidateWindows) {
-    for (const cacheState of manifest.cacheStates) {
-      for (let pairIndex = 1; pairIndex <= manifest.plannedPairsPerCandidateCacheState; pairIndex += 1) {
-        const runOrder = pairIndex % 2 === 1 ? 'beforeThenAfter' : 'afterThenBefore';
-        for (const side of ['before', 'after'] as const) {
-          const sampleId = `${platform}-${backend}-${candidateWindow}-${cacheState}-${String(pairIndex).padStart(2, '0')}-${side}`;
-          samples.push(
-            pairIndex === manifest.plannedPairsPerCandidateCacheState
-              ? documents.produceSample(manifest, {
-                  sampleId,
-                  candidateWindow,
-                  cacheState,
-                  pairIndex,
-                  runOrder,
-                  side,
-                  status: 'failed',
-                  failureReason: 'FIXTURE_SAMPLE_FAILED',
-                })
-              : documents.produceSample(manifest, {
-                  sampleId,
-                  candidateWindow,
-                  cacheState,
-                  pairIndex,
-                  runOrder,
-                  side,
-                  status: 'success',
-                  endToEndNanoseconds: 100_000,
-                  phases: phases(manifest, candidateWindow, side),
-                  resources: resources(manifest),
-                }),
-          );
+  for (const model of manifest.modelArtifacts) {
+    for (const candidateWindow of manifest.candidateWindows) {
+      for (const cacheState of manifest.cacheStates) {
+        for (let pairIndex = 1; pairIndex <= manifest.plannedPairsPerCandidateCacheState; pairIndex += 1) {
+          const runOrder = performanceExpectedRunOrder(pairIndex);
+          for (const side of performanceOrderedSides(runOrder)) {
+            const sampleId = performanceSampleId({ model, candidateWindow, cacheState, pairIndex, side });
+            const receipt = documents.produceCacheReceipt(manifest, {
+              sampleId,
+              cacheState,
+              inputSetDigest: fixtureDigest(platform, backend, `${sampleId}-cache`),
+              status: 'prepared',
+              reasonCode: null,
+            });
+            cacheReceipts.push(receipt);
+            samples.push(
+              pairIndex === manifest.plannedPairsPerCandidateCacheState
+                ? documents.produceSample(manifest, {
+                    cacheReceiptDigest: receipt.performanceCacheReceiptDigest,
+                    sampleId,
+                    model,
+                    candidateWindow,
+                    cacheState,
+                    pairIndex,
+                    runOrder,
+                    side,
+                    status: 'failed',
+                    failureReason: 'FIXTURE_SAMPLE_FAILED',
+                  })
+                : documents.produceSample(manifest, {
+                    cacheReceiptDigest: receipt.performanceCacheReceiptDigest,
+                    sampleId,
+                    model,
+                    candidateWindow,
+                    cacheState,
+                    pairIndex,
+                    runOrder,
+                    side,
+                    status: 'success',
+                    endToEndNanoseconds: 100_000,
+                    phases: phases(manifest, candidateWindow, side),
+                    resources: resources(manifest),
+                  }),
+            );
+          }
         }
       }
     }
   }
-  const result = new LocalWhisperPerformanceResultProducer(validator).produce(manifest, samples);
-  return Object.freeze({ manifest, samples: Object.freeze(samples), result });
+  const bundle = documents.produceBundle(manifest, cacheReceipts, samples);
+  const result = new LocalWhisperPerformanceResultProducer(validator).produce(bundle);
+  return Object.freeze({
+    manifest,
+    cacheReceipts: Object.freeze(cacheReceipts),
+    samples: Object.freeze(samples),
+    bundle,
+    result,
+  });
 }

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-bundle-v2.schema.json",
+  "title": "Local Whisper private performance qualification bundle v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceBundleDigest",
+    "performanceRunPlanDigest",
+    "performanceManifestDigest",
+    "platform",
+    "backend",
+    "executionMode",
+    "evidenceClaim",
+    "manifest",
+    "cacheReceipts",
+    "samples"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "contractRevision": { "const": 2 },
+    "performanceBundleDigest": { "$ref": "#/$defs/sha256" },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "platform": { "enum": ["linux", "win32"] },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "executionMode": { "enum": ["hostedFixture", "representativeHost"] },
+    "evidenceClaim": { "enum": ["contractOnly", "representativePerformance"] },
+    "manifest": { "type": "object" },
+    "cacheReceipts": {
+      "type": "array",
+      "minItems": 288,
+      "maxItems": 288,
+      "items": { "type": "object" }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 288,
+      "maxItems": 288,
+      "items": { "type": "object" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

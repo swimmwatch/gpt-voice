@@ -17,12 +17,21 @@ const SCHEMA_FILES = Object.freeze({
   measurementSeries: 'measurement-series-v2.schema.json',
   platformResult: 'platform-result-v2.schema.json',
   evidenceIndex: 'evidence-index-v2.schema.json',
-  performanceManifest: 'performance-manifest-v1.schema.json',
-  performanceSample: 'performance-sample-v1.schema.json',
-  performanceResult: 'performance-result-v1.schema.json',
+  performanceRunPlan: 'performance-run-plan-v2.schema.json',
+  performanceManifest: 'performance-manifest-v2.schema.json',
+  performanceCacheReceipt: 'performance-cache-receipt-v2.schema.json',
+  performanceSample: 'performance-sample-v2.schema.json',
+  performanceBundle: 'performance-bundle-v2.schema.json',
+  performanceResult: 'performance-result-v2.schema.json',
 } as const);
 
-const RETIRED_ACTIVE_SCHEMA_FILES = Object.freeze(['candidate-v2.schema.json', 'measurement-series-v1.schema.json']);
+const RETIRED_ACTIVE_SCHEMA_FILES = Object.freeze([
+  'candidate-v2.schema.json',
+  'measurement-series-v1.schema.json',
+  'performance-manifest-v1.schema.json',
+  'performance-sample-v1.schema.json',
+  'performance-result-v1.schema.json',
+]);
 const DOCUMENT_DIGEST_FIELDS = Object.freeze({
   candidateInput: 'candidateInputDigest',
   platformInput: 'platformInputDigest',
@@ -32,8 +41,11 @@ const DOCUMENT_DIGEST_FIELDS = Object.freeze({
   measurementSeries: 'seriesDigest',
   platformResult: 'resultDigest',
   evidenceIndex: 'indexDigest',
+  performanceRunPlan: 'performanceRunPlanDigest',
   performanceManifest: 'performanceManifestDigest',
+  performanceCacheReceipt: 'performanceCacheReceiptDigest',
   performanceSample: 'performanceSampleDigest',
+  performanceBundle: 'performanceBundleDigest',
   performanceResult: 'performanceResultDigest',
 } as const);
 
@@ -66,23 +78,29 @@ const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
 const MAXIMUM_PERFORMANCE_DOCUMENT_BYTES = 1024 * 1024;
+const MAXIMUM_PERFORMANCE_BUNDLE_BYTES = 8 * 1024 * 1024;
 const PERFORMANCE_PRIVATE_KEYS = new Set([
   'absolutePath',
   'audio',
   'capabilities',
+  'command',
   'credentials',
   'deviceId',
   'deviceIdentity',
   'environmentDump',
+  'executablePath',
   'hostName',
   'nativeOutput',
   'prompt',
   'rawAudio',
   'rawLog',
+  'shell',
   'transcript',
 ]);
 
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION = '1f6ce9c988a275f1ef9faa295b1bb04879943e89';
+export const LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST =
+  'a8a6ede6a48ce6d8b591a46e77867ca0e2a26b5a75084b401d9159b4cdd363ee';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE = Object.freeze({
   beforeOptimization: Object.freeze({ linux: 8, win32: 7 }),
   afterDirectoryReuse: Object.freeze({ linux: 7, win32: 6 }),
@@ -246,6 +264,27 @@ function digestOf(document: Record<string, unknown>, field: string, code: string
   return value;
 }
 
+function performanceNormalizedPath(value: unknown, code: string): string {
+  if (typeof value !== 'string') throw new Error(code);
+  const stringValue: string = value;
+  const normalized: string = stringValue.split('\\').join('/');
+  const segments = normalized.split('/');
+  if (
+    normalized.startsWith('/') ||
+    normalized.endsWith('/') ||
+    segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')
+  ) {
+    throw new Error(code);
+  }
+  return normalized;
+}
+
+function performancePathIsContained(parent: unknown, child: unknown): boolean {
+  const parentPath = performanceNormalizedPath(parent, 'QUALIFICATION_PERFORMANCE_PATH_INVALID');
+  const childPath = performanceNormalizedPath(child, 'QUALIFICATION_PERFORMANCE_PATH_INVALID');
+  return childPath.startsWith(`${parentPath}/`);
+}
+
 function immutableRecord(value: Record<string, unknown>): Readonly<Record<string, unknown>> {
   const freeze = (candidate: unknown): void => {
     if (Array.isArray(candidate)) {
@@ -314,7 +353,9 @@ export class LocalWhisperQualificationValidator {
     assertQualificationPrivacySafe(document);
     if (kind.startsWith('performance')) {
       assertPerformancePrivacySafe(document);
-      if (Buffer.byteLength(qualificationCanonicalJson(document), 'utf8') > MAXIMUM_PERFORMANCE_DOCUMENT_BYTES) {
+      const maximumBytes =
+        kind === 'performanceBundle' ? MAXIMUM_PERFORMANCE_BUNDLE_BYTES : MAXIMUM_PERFORMANCE_DOCUMENT_BYTES;
+      if (Buffer.byteLength(qualificationCanonicalJson(document), 'utf8') > maximumBytes) {
         throw new Error('QUALIFICATION_PERFORMANCE_DOCUMENT_OVERSIZED');
       }
     }
@@ -329,8 +370,11 @@ export class LocalWhisperQualificationValidator {
     if (kind === 'measurementSeries') this.assertMeasurementSeries(document);
     if (kind === 'platformResult') this.assertPlatformResult(document);
     if (kind === 'evidenceIndex') this.assertEvidenceIndex(document);
+    if (kind === 'performanceRunPlan') this.assertPerformanceRunPlan(document);
     if (kind === 'performanceManifest') this.assertPerformanceManifest(document);
+    if (kind === 'performanceCacheReceipt') this.assertPerformanceCacheReceipt(document);
     if (kind === 'performanceSample') this.assertPerformanceSample(document);
+    if (kind === 'performanceBundle') this.assertPerformanceBundle(document);
     if (kind === 'performanceResult') this.assertPerformanceResult(document);
   }
 
@@ -646,49 +690,151 @@ export class LocalWhisperQualificationValidator {
     }
   }
 
-  private assertPerformanceManifest(document: Record<string, unknown>): void {
-    const models = document.modelArtifacts;
-    const requiredPhaseIds = strings(document.requiredPhaseIds, 'QUALIFICATION_PERFORMANCEMANIFEST_INVALID');
-    const requiredResourceIds = strings(document.requiredResourceIds, 'QUALIFICATION_PERFORMANCEMANIFEST_INVALID');
-    if (!Array.isArray(models)) throw new Error('QUALIFICATION_PERFORMANCEMANIFEST_INVALID');
-    const selectedModels = [
-      ['base', 'full'],
-      ['medium', 'full'],
-      ['large-v3', 'q5_0'],
-    ] as const;
-    const expectedModels = selectedModels.map(([family, variant]) => {
+  private expectedPerformanceModels(): readonly string[] {
+    return (
+      [
+        ['base', 'full'],
+        ['medium', 'full'],
+        ['large-v3', 'q5_0'],
+      ] as const
+    ).map(([family, variant]) => {
       const model = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
         (candidate) => candidate.family === family && candidate.variant === variant,
       );
       if (!model) throw new Error('QUALIFICATION_PERFORMANCE_MODEL_MATRIX_INVALID');
       return `${model.family}|${model.variant}|${model.sha256}`;
     });
-    const actualModels = models.map((entry) => {
-      const model = asRecord(entry, 'QUALIFICATION_PERFORMANCE_MODEL_MATRIX_INVALID');
-      return `${String(model.family)}|${String(model.variant)}|${String(model.sha256)}`;
-    });
-    const platform = document.platform;
-    const backend = document.backend;
+  }
+
+  private performanceModelIdentity(value: unknown, code: string): string {
+    const model = asRecord(value, code);
+    return `${String(model.family)}|${String(model.variant)}|${String(model.sha256)}`;
+  }
+
+  private assertPerformanceMetricContract(document: Record<string, unknown>, code: string): void {
+    const requiredPhaseIds = strings(document.requiredPhaseIds, code);
+    const requiredResourceIds = strings(document.requiredResourceIds, code);
     const expectedPhaseIds = LOCAL_WHISPER_PERFORMANCE_PHASES.map(({ id }) => id).filter(
       (id) =>
-        !(platform === 'win32' && id === 'nativeAuthorityDigest') &&
-        !(backend === 'cpu' && id === 'gpuUploadAllocation'),
+        !(document.platform === 'win32' && id === 'nativeAuthorityDigest') &&
+        !(document.backend === 'cpu' && id === 'gpuUploadAllocation'),
     );
     const expectedResourceIds = LOCAL_WHISPER_PERFORMANCE_RESOURCES.map(({ id }) => id).filter(
-      (id) => !(backend === 'cpu' && id === 'gpuPeakVram'),
+      (id) => !(document.backend === 'cpu' && id === 'gpuPeakVram'),
     );
     if (
-      document.sourceRevision !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
       JSON.stringify(document.sourceHashBaseline) !== JSON.stringify(LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE) ||
       JSON.stringify(document.candidateWindows) !== JSON.stringify([1, 2, 4, 8]) ||
       JSON.stringify(document.cacheStates) !== JSON.stringify(['cold', 'warm']) ||
-      JSON.stringify(actualModels) !== JSON.stringify(expectedModels) ||
+      document.minimumSuccessfulPairs !== 5 ||
+      document.plannedPairsPerCandidateCacheState !== 6 ||
+      document.runOrdering !== 'alternatingBeforeAfter' ||
+      document.statistic !== 'medianOfPairedPercentages' ||
+      document.uncertaintyMethod !== 'medianAbsoluteDeviation' ||
+      document.samplingIntervalMilliseconds !== 100 ||
       JSON.stringify(requiredPhaseIds) !== JSON.stringify(expectedPhaseIds) ||
-      JSON.stringify(requiredResourceIds) !== JSON.stringify(expectedResourceIds) ||
-      (document.executionMode === 'hostedFixture' && document.evidenceClaim !== 'contractOnly') ||
-      (document.executionMode === 'representativeHost' && document.evidenceClaim !== 'representativePerformance')
+      JSON.stringify(requiredResourceIds) !== JSON.stringify(expectedResourceIds)
     ) {
-      throw new Error('QUALIFICATION_PERFORMANCEMANIFEST_CONTRACT_INVALID');
+      throw new Error(code);
+    }
+  }
+
+  private assertPerformanceRunPlan(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_PERFORMANCERUNPLAN_CONTRACT_INVALID';
+    const models = document.models;
+    if (!Array.isArray(models)) throw new Error(code);
+    this.assertPerformanceMetricContract(document, code);
+    const actualModels = models.map((entry) => this.performanceModelIdentity(entry, code));
+    const expectedModels = this.expectedPerformanceModels();
+    const sourceProof = asRecord(document.sourceProof, code);
+    const worktrees = asRecord(document.worktrees, code);
+    const beforeWorktree = asRecord(worktrees.before, code);
+    const afterWorktree = asRecord(worktrees.after, code);
+    const applications = asRecord(document.applicationArtifacts, code);
+    const runtimes = asRecord(document.runtimeArtifacts, code);
+    const beforeApplication = asRecord(applications.before, code);
+    const afterApplication = asRecord(applications.after, code);
+    const beforeRuntime = asRecord(runtimes.before, code);
+    const afterRuntime = asRecord(runtimes.after, code);
+    const expectedProcedure = document.platform === 'linux' ? 'linuxFileAdviceV1' : 'windowsFileCacheV1';
+    const cache = asRecord(document.cachePreparation, code);
+    const artifactPaths = [
+      sourceProof,
+      beforeApplication,
+      afterApplication,
+      beforeRuntime,
+      afterRuntime,
+      asRecord(document.inputFixture, code),
+      ...models.map((entry) => asRecord(asRecord(entry, code).artifact, code)),
+    ].map((artifact) => performanceNormalizedPath(artifact.relativePath, code));
+    if (
+      JSON.stringify(actualModels) !== JSON.stringify(expectedModels) ||
+      beforeWorktree.commit !== document.baselineCommit ||
+      afterWorktree.commit !== document.candidateCommit ||
+      sourceProof.sha256 !== document.sourceProofDigest ||
+      cache.procedure !== expectedProcedure ||
+      !performancePathIsContained(beforeWorktree.relativePath, beforeApplication.relativePath) ||
+      !performancePathIsContained(afterWorktree.relativePath, afterApplication.relativePath) ||
+      !performancePathIsContained(beforeWorktree.relativePath, beforeRuntime.relativePath) ||
+      !performancePathIsContained(afterWorktree.relativePath, afterRuntime.relativePath) ||
+      new Set(artifactPaths).size !== artifactPaths.length
+    ) {
+      throw new Error(code);
+    }
+    if (document.evidenceClaim === 'representativePerformance') {
+      const modelArtifactDigests = models.map((entry) => {
+        const model = asRecord(entry, code);
+        return asRecord(model.artifact, code).sha256;
+      });
+      const modelArtifactSizes = models.map((entry) => asRecord(asRecord(entry, code).artifact, code).sizeBytes);
+      const identityDigests = models.map((entry) => asRecord(entry, code).sha256);
+      const expectedSizes = models.map((entry) => {
+        const model = asRecord(entry, code);
+        const releaseModel = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
+          (candidate) => candidate.family === model.family && candidate.variant === model.variant,
+        );
+        if (!releaseModel) throw new Error(code);
+        return releaseModel.sizeBytes;
+      });
+      if (
+        document.sourceRevision !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
+        document.sourceProofDigest !== LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST ||
+        document.baselineCommit === document.candidateCommit ||
+        JSON.stringify(modelArtifactDigests) !== JSON.stringify(identityDigests) ||
+        JSON.stringify(modelArtifactSizes) !== JSON.stringify(expectedSizes)
+      ) {
+        throw new Error(code);
+      }
+    }
+  }
+
+  private assertPerformanceManifest(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_PERFORMANCEMANIFEST_CONTRACT_INVALID';
+    const models = document.modelArtifacts;
+    if (!Array.isArray(models)) throw new Error(code);
+    this.assertPerformanceMetricContract(document, code);
+    const actualModels = models.map((entry) => this.performanceModelIdentity(entry, code));
+    const expectedProcedure = document.platform === 'linux' ? 'linuxFileAdviceV1' : 'windowsFileCacheV1';
+    if (
+      JSON.stringify(actualModels) !== JSON.stringify(this.expectedPerformanceModels()) ||
+      document.cachePreparationProcedure !== expectedProcedure ||
+      (document.executionMode === 'hostedFixture' && document.evidenceClaim !== 'contractOnly') ||
+      (document.evidenceClaim === 'representativePerformance' &&
+        (document.executionMode !== 'representativeHost' ||
+          document.sourceRevision !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
+          document.sourceProofDigest !== LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST ||
+          document.baselineCommit === document.candidateCommit))
+    ) {
+      throw new Error(code);
+    }
+  }
+
+  private assertPerformanceCacheReceipt(document: Record<string, unknown>): void {
+    if (
+      (document.status === 'prepared' && document.reasonCode !== null) ||
+      (document.status === 'failed' && typeof document.reasonCode !== 'string')
+    ) {
+      throw new Error('QUALIFICATION_PERFORMANCECACHERECEIPT_CONTRACT_INVALID');
     }
   }
 
@@ -709,29 +855,132 @@ export class LocalWhisperQualificationValidator {
     }
   }
 
+  private assertPerformanceBundle(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_PERFORMANCEBUNDLE_CONTRACT_INVALID';
+    const manifest = asRecord(document.manifest, code);
+    const samples = document.samples;
+    const receipts = document.cacheReceipts;
+    if (!Array.isArray(samples) || !Array.isArray(receipts) || samples.length !== 288 || receipts.length !== 288) {
+      throw new Error(code);
+    }
+    this.validateDocument('performanceManifest', manifest);
+    if (
+      document.performanceRunPlanDigest !== manifest.performanceRunPlanDigest ||
+      document.performanceManifestDigest !== manifest.performanceManifestDigest ||
+      document.platform !== manifest.platform ||
+      document.backend !== manifest.backend ||
+      document.executionMode !== manifest.executionMode ||
+      document.evidenceClaim !== manifest.evidenceClaim
+    ) {
+      throw new Error(code);
+    }
+    const models = manifest.modelArtifacts;
+    const candidateWindows = manifest.candidateWindows;
+    const cacheStates = manifest.cacheStates;
+    if (!Array.isArray(models) || !Array.isArray(candidateWindows) || !Array.isArray(cacheStates))
+      throw new Error(code);
+    const sampleIds = new Set<string>();
+    const sampleDigests = new Set<string>();
+    const receiptDigests = new Set<string>();
+    let index = 0;
+    for (const modelValue of models) {
+      const model = asRecord(modelValue, code);
+      for (const candidateWindow of candidateWindows) {
+        for (const cacheState of cacheStates) {
+          for (let pairIndex = 1; pairIndex <= 6; pairIndex += 1) {
+            const runOrder = pairIndex % 2 === 1 ? 'beforeThenAfter' : 'afterThenBefore';
+            const sides = runOrder === 'beforeThenAfter' ? ['before', 'after'] : ['after', 'before'];
+            for (const side of sides) {
+              const sample = asRecord(samples[index], code);
+              const receipt = asRecord(receipts[index], code);
+              this.validateDocument('performanceSample', sample);
+              this.validateDocument('performanceCacheReceipt', receipt);
+              const expectedSampleId = `${String(model.family)}-${String(model.variant)}-${String(candidateWindow)}-${String(cacheState)}-${String(pairIndex).padStart(2, '0')}-${side}`;
+              const modelIdentity = this.performanceModelIdentity(sample.model, code);
+              if (
+                sample.sampleId !== expectedSampleId ||
+                modelIdentity !== this.performanceModelIdentity(model, code) ||
+                sample.candidateWindow !== candidateWindow ||
+                sample.cacheState !== cacheState ||
+                sample.pairIndex !== pairIndex ||
+                sample.runOrder !== runOrder ||
+                sample.side !== side ||
+                sample.performanceRunPlanDigest !== manifest.performanceRunPlanDigest ||
+                sample.performanceManifestDigest !== manifest.performanceManifestDigest ||
+                sample.baselineCommit !== manifest.baselineCommit ||
+                sample.candidateCommit !== manifest.candidateCommit ||
+                sample.platform !== manifest.platform ||
+                sample.backend !== manifest.backend ||
+                receipt.sampleId !== sample.sampleId ||
+                receipt.cacheState !== sample.cacheState ||
+                receipt.performanceRunPlanDigest !== manifest.performanceRunPlanDigest ||
+                receipt.performanceManifestDigest !== manifest.performanceManifestDigest ||
+                receipt.procedure !== manifest.cachePreparationProcedure ||
+                sample.cacheReceiptDigest !== receipt.performanceCacheReceiptDigest ||
+                (receipt.status === 'failed' &&
+                  (sample.status !== 'failed' || sample.failureReason !== receipt.reasonCode))
+              ) {
+                throw new Error(code);
+              }
+              if (sample.status === 'success') {
+                const phases = sample.phases as readonly unknown[];
+                const resources = sample.resources as readonly unknown[];
+                const phaseIds = phases.map((entry) => asRecord(entry, code).id);
+                const resourceIds = resources.map((entry) => asRecord(entry, code).id);
+                if (
+                  JSON.stringify(phaseIds) !== JSON.stringify(manifest.requiredPhaseIds) ||
+                  JSON.stringify(resourceIds) !== JSON.stringify(manifest.requiredResourceIds)
+                ) {
+                  throw new Error('QUALIFICATION_PERFORMANCE_METRIC_SET_INVALID');
+                }
+              }
+              const sampleId = String(sample.sampleId);
+              const sampleDigest = String(sample.performanceSampleDigest);
+              const receiptDigest = String(receipt.performanceCacheReceiptDigest);
+              if (sampleIds.has(sampleId) || sampleDigests.has(sampleDigest) || receiptDigests.has(receiptDigest)) {
+                throw new Error('QUALIFICATION_PERFORMANCE_DUPLICATE_CELL');
+              }
+              sampleIds.add(sampleId);
+              sampleDigests.add(sampleDigest);
+              receiptDigests.add(receiptDigest);
+              index += 1;
+            }
+          }
+        }
+      }
+    }
+    if (index !== 288) throw new Error(code);
+  }
+
   private assertPerformanceResult(document: Record<string, unknown>): void {
     const candidateResults = document.candidateResults;
-    const sampleDigests = strings(document.sampleDigests, 'QUALIFICATION_PERFORMANCERESULT_INVALID');
-    const failedSamples = document.failedSamples;
-    if (!Array.isArray(candidateResults) || !Array.isArray(failedSamples)) {
+    if (!Array.isArray(candidateResults) || candidateResults.length !== 12) {
       throw new Error('QUALIFICATION_PERFORMANCERESULT_INVALID');
     }
-    const candidateWindows = candidateResults.map(
-      (entry) => asRecord(entry, 'QUALIFICATION_PERFORMANCERESULT_INVALID').candidateWindow,
-    );
-    const failedIds = failedSamples.map((entry) =>
-      String(asRecord(entry, 'QUALIFICATION_PERFORMANCERESULT_INVALID').sampleId),
-    );
-    const selected = document.selectedInFlightWindow;
+    const expectedRows = this.expectedPerformanceModels().flatMap((model) => {
+      const [family, variant] = model.split('|');
+      return [1, 2, 4, 8].map((candidateWindow) => `${family}|${variant}|${candidateWindow}`);
+    });
+    const actualRows = candidateResults.map((entry) => {
+      const row = asRecord(entry, 'QUALIFICATION_PERFORMANCERESULT_INVALID');
+      const cacheResults = row.cacheResults;
+      if (!Array.isArray(cacheResults) || cacheResults.length !== 2) {
+        throw new Error('QUALIFICATION_PERFORMANCERESULT_INVALID');
+      }
+      const cacheStates = cacheResults.map(
+        (cache) => asRecord(cache, 'QUALIFICATION_PERFORMANCERESULT_INVALID').cacheState,
+      );
+      if (JSON.stringify(cacheStates) !== JSON.stringify(['cold', 'warm'])) {
+        throw new Error('QUALIFICATION_PERFORMANCERESULT_INVALID');
+      }
+      const model = asRecord(row.model, 'QUALIFICATION_PERFORMANCERESULT_INVALID');
+      return `${String(model.family)}|${String(model.variant)}|${String(row.candidateWindow)}`;
+    });
     if (
-      JSON.stringify(candidateWindows) !== JSON.stringify([1, 2, 4, 8]) ||
-      JSON.stringify(sampleDigests) !== JSON.stringify([...sampleDigests].sort((a, b) => a.localeCompare(b, 'en'))) ||
-      JSON.stringify(failedIds) !== JSON.stringify([...failedIds].sort((a, b) => a.localeCompare(b, 'en'))) ||
-      (document.executionMode === 'hostedFixture' && selected !== null && document.selectionStatus !== 'fixtureOnly') ||
-      (document.executionMode === 'representativeHost' &&
-        selected !== null &&
-        document.selectionStatus !== 'selected') ||
-      (selected === null && document.selectionStatus !== 'blocked')
+      JSON.stringify(actualRows) !== JSON.stringify(expectedRows) ||
+      document.selectedInFlightWindow !== null ||
+      (document.evidenceClaim === 'contractOnly' && document.selectionStatus !== 'fixtureOnly') ||
+      (document.evidenceClaim === 'representativePerformance' && document.selectionStatus !== 'awaitingCrossPlatform')
     ) {
       throw new Error('QUALIFICATION_PERFORMANCERESULT_CONTRACT_INVALID');
     }

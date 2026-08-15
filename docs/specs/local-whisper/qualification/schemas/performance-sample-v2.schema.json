@@ -1,15 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-sample-v1.schema.json",
-  "title": "Local Whisper performance qualification sample v1",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-sample-v2.schema.json",
+  "title": "Local Whisper private performance qualification sample v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schemaVersion",
     "contractRevision",
     "performanceSampleDigest",
+    "performanceRunPlanDigest",
     "performanceManifestDigest",
+    "cacheReceiptDigest",
+    "baselineCommit",
+    "candidateCommit",
+    "platform",
+    "backend",
     "sampleId",
+    "model",
     "candidateWindow",
     "cacheState",
     "pairIndex",
@@ -19,23 +26,31 @@
     "failureReason",
     "endToEndNanoseconds",
     "phases",
-    "resources"
+    "resources",
+    "processSettlementProof",
+    "unownedProcessAttribution",
+    "unownedGpuAttribution"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "contractRevision": { "const": 1 },
+    "schemaVersion": { "const": 2 },
+    "contractRevision": { "const": 2 },
     "performanceSampleDigest": { "$ref": "#/$defs/sha256" },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
     "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "cacheReceiptDigest": { "$ref": "#/$defs/sha256" },
+    "baselineCommit": { "$ref": "#/$defs/commit" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "platform": { "enum": ["linux", "win32"] },
+    "backend": { "enum": ["cpu", "cuda"] },
     "sampleId": { "$ref": "#/$defs/identifier" },
+    "model": { "$ref": "#/$defs/model" },
     "candidateWindow": { "enum": [1, 2, 4, 8] },
     "cacheState": { "enum": ["cold", "warm"] },
-    "pairIndex": { "type": "integer", "minimum": 1, "maximum": 64 },
+    "pairIndex": { "type": "integer", "minimum": 1, "maximum": 6 },
     "runOrder": { "enum": ["beforeThenAfter", "afterThenBefore"] },
     "side": { "enum": ["before", "after"] },
     "status": { "enum": ["success", "failed"] },
-    "failureReason": {
-      "oneOf": [{ "$ref": "#/$defs/reasonCode" }, { "type": "null" }]
-    },
+    "failureReason": { "oneOf": [{ "$ref": "#/$defs/reasonCode" }, { "type": "null" }] },
     "endToEndNanoseconds": {
       "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, { "type": "null" }]
     },
@@ -65,7 +80,10 @@
           "peakBytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
         }
       }
-    }
+    },
+    "processSettlementProof": { "oneOf": [{ "const": "ownedProcessTreeSettled" }, { "type": "null" }] },
+    "unownedProcessAttribution": { "oneOf": [{ "const": 0 }, { "type": "null" }] },
+    "unownedGpuAttribution": { "oneOf": [{ "const": 0 }, { "const": "notApplicable" }, { "type": "null" }] }
   },
   "oneOf": [
     {
@@ -75,7 +93,10 @@
         "failureReason": { "type": "null" },
         "endToEndNanoseconds": { "type": "integer", "minimum": 1 },
         "phases": { "type": "array", "minItems": 1 },
-        "resources": { "type": "array", "minItems": 1 }
+        "resources": { "type": "array", "minItems": 1 },
+        "processSettlementProof": { "const": "ownedProcessTreeSettled" },
+        "unownedProcessAttribution": { "const": 0 },
+        "unownedGpuAttribution": { "enum": [0, "notApplicable"] }
       }
     },
     {
@@ -85,11 +106,16 @@
         "failureReason": { "$ref": "#/$defs/reasonCode" },
         "endToEndNanoseconds": { "type": "null" },
         "phases": { "type": "array", "maxItems": 0 },
-        "resources": { "type": "array", "maxItems": 0 }
+        "resources": { "type": "array", "maxItems": 0 },
+        "processSettlementProof": { "type": "null" },
+        "unownedProcessAttribution": { "type": "null" },
+        "unownedGpuAttribution": { "type": "null" }
       }
     }
   ],
   "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
     "identifier": {
       "type": "string",
       "minLength": 1,
@@ -102,7 +128,16 @@
       "maxLength": 64,
       "pattern": "^[A-Z][A-Z0-9_]*$"
     },
-    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant", "sha256"],
+      "properties": {
+        "family": { "enum": ["base", "medium", "large-v3"] },
+        "variant": { "enum": ["full", "q5_0"] },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
     "phaseId": {
       "enum": [
         "directoryProofRuntimeAcquisition",
