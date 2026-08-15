@@ -202,6 +202,7 @@ class ElectronNodeArchiveRuntimeFixture {
 
 class PackageArtifactFixture {
   public readonly directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-dependency-policy-'));
+  private readonly declaredModes = new Map<string, number>();
   public readonly classifier = new PackageArtifactClassifier({
     readDirectory: (directoryPath) =>
       fs.readdirSync(directoryPath, { withFileTypes: true }).map((entry): ArtifactDirectoryEntry => ({
@@ -217,7 +218,7 @@ class PackageArtifactFixture {
     readFilePrefix: (filePath, maximumBytes) => fs.readFileSync(filePath).subarray(0, maximumBytes),
     readPackageManifest: (packageRoot) =>
       JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as unknown,
-    statFile: (filePath) => ({ mode: fs.statSync(filePath).mode }),
+    statFile: (filePath) => ({ mode: this.declaredModes.get(filePath) ?? fs.statSync(filePath).mode }),
   });
 
   public constructor() {
@@ -233,6 +234,7 @@ class PackageArtifactFixture {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, typeof bytes === 'string' ? bytes : Uint8Array.from(bytes), { mode });
     fs.chmodSync(filePath, mode);
+    this.declaredModes.set(filePath, mode);
   }
 }
 

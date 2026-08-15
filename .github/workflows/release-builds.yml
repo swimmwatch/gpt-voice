@@ -62,6 +62,31 @@ jobs:
           WORKFLOW_DISPATCH_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=release
 
+      - name: Set up immutable artifact vulnerability scanner
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          path: ${{ runner.temp }}/trivy
+          version: v0.69.3
+
+      - name: Generate and scan exact Linux release security evidence
+        env:
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/gpt-voice-trivy
+        run: >-
+          npm run scan:security:application-artifacts --
+          --platform=linux
+          --source-commit=${{ github.sha }}
+          --output-directory=release-artifacts/application-security-linux
+
+      - name: Prepare exact Linux release attestation subjects
+        run: >-
+          npm run prepare:security:package-attestation --
+          --platform=linux
+          --source-commit=${{ github.sha }}
+          --repository=${{ github.repository }}
+          --workflow-path=.github/workflows/release-builds.yml
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-release-build-linux
+          --output-directory=release-artifacts/attestation-subjects-release-linux
+
       - name: Upload Linux installer artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -69,6 +94,22 @@ jobs:
           path: release-artifacts/linux/*
           if-no-files-found: error
           retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
+
+      - name: Upload exact Linux release attestation subjects
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-release-attestation-subjects-linux
+          path: release-artifacts/attestation-subjects-release-linux
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+      - name: Upload exact Linux release security evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-release-security-linux
+          path: release-artifacts/application-security-linux
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
   build-windows:
     name: Build Windows x64
@@ -107,6 +148,7 @@ jobs:
           BASELINE_REF: 3845bad421f32650cb57a44f32345bfe0f46a127
         run: |
           git worktree add --detach .size-baseline $env:BASELINE_REF
+          node scripts/security/verify-npm-signatures-preinstall.mjs --workspace=.size-baseline
           Push-Location .size-baseline
           npm run ci:install
           npm run prepare:cloakbrowser -- --target=win32
@@ -180,6 +222,31 @@ jobs:
       - name: Collect installer artifacts
         run: npm run collect:release-artifacts -- --platform=win32
 
+      - name: Set up immutable artifact vulnerability scanner
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          path: ${{ runner.temp }}/trivy
+          version: v0.69.3
+
+      - name: Generate and scan exact Windows release security evidence
+        env:
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/gpt-voice-trivy
+        run: >-
+          npm run scan:security:application-artifacts --
+          --platform=win32
+          --source-commit=${{ github.sha }}
+          --output-directory=release-artifacts/application-security-win32
+
+      - name: Prepare exact Windows release attestation subjects
+        run: >-
+          npm run prepare:security:package-attestation --
+          --platform=win32
+          --source-commit=${{ github.sha }}
+          --repository=${{ github.repository }}
+          --workflow-path=.github/workflows/release-builds.yml
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-release-build-win32
+          --output-directory=release-artifacts/attestation-subjects-release-win32
+
       - name: Upload Windows installer artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -188,6 +255,150 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
+      - name: Upload exact Windows release attestation subjects
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-release-attestation-subjects-win32
+          path: release-artifacts/attestation-subjects-release-win32
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+      - name: Upload exact Windows release security evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-release-security-win32
+          path: release-artifacts/application-security-win32
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+  verify-release-attestation-input:
+    name: Verify Release Attestation Input (${{ matrix.checkName }})
+    needs:
+      - build-linux
+      - build-windows
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifactPlatform: linux
+            checkName: Fedora Linux
+          - artifactPlatform: win32
+            checkName: Windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Download exact release attestation subjects
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-release-attestation-subjects-${{ matrix.artifactPlatform }}
+          path: attestation-subjects
+
+      - name: Verify release signed-input candidate and subject bindings
+        run: >-
+          npm run verify:security:package-attestation --
+          --input=attestation-subjects/attestation-input.json
+          --platform=${{ matrix.artifactPlatform }}
+          --source-commit=${{ github.sha }}
+          --repository=${{ github.repository }}
+          --workflow-path=.github/workflows/release-builds.yml
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-release-build-${{ matrix.artifactPlatform }}
+
+  attest-release:
+    name: Attest Release Candidate (${{ matrix.checkName }})
+    needs:
+      - verify-release-attestation-input
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 20
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifactPlatform: linux
+            checkName: Fedora Linux
+          - artifactPlatform: win32
+            checkName: Windows
+    steps:
+      - name: Download exact release attestation subjects
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-release-attestation-subjects-${{ matrix.artifactPlatform }}
+          path: attestation-subjects
+
+      - name: Download exact publishable release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-${{ matrix.artifactPlatform }}
+          path: release-assets
+
+      - name: Download exact release security evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-release-security-${{ matrix.artifactPlatform }}
+          path: security-evidence
+
+      - name: Attest exact release package chain
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        with:
+          subject-path: |
+            attestation-subjects/attestation-input.json
+            attestation-subjects/subject/package
+            attestation-subjects/subject/checksum
+            attestation-subjects/subject/sbom
+            attestation-subjects/subject/scanner
+            attestation-subjects/subject/smoke
+            release-assets/*
+            security-evidence/*
+
+      - name: Verify exact release provenance identities
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_DIGEST: ${{ github.sha }}
+        run: |
+          shopt -s nullglob
+          subjects=(
+            attestation-subjects/attestation-input.json
+            attestation-subjects/subject/package
+            attestation-subjects/subject/checksum
+            attestation-subjects/subject/sbom
+            attestation-subjects/subject/scanner
+            attestation-subjects/subject/smoke
+            release-assets/*
+            security-evidence/*
+          )
+          if (( ${#subjects[@]} < 8 )); then
+            echo "Release attestation subject inventory is incomplete" >&2
+            exit 1
+          fi
+          for subject in "${subjects[@]}"; do
+            if [[ ! -f "$subject" || -L "$subject" ]]; then
+              echo "Release attestation subject inventory is invalid" >&2
+              exit 1
+            fi
+            gh attestation verify "$subject" \
+              --repo "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/release-builds.yml" \
+              --source-digest "$SOURCE_DIGEST" \
+              --predicate-type https://slsa.dev/provenance/v1 >/dev/null
+          done
+
   publish:
     name: Publish GitHub Release
     permissions:
@@ -195,6 +406,7 @@ jobs:
     needs:
       - build-linux
       - build-windows
+      - attest-release
     if: github.event_name == 'release'
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_PUBLISH_TIMEOUT_MINUTES) }}
@@ -204,8 +416,13 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           path: release-assets
-          pattern: gpt-voice-*
-          merge-multiple: true
+          name: gpt-voice-linux
+
+      - name: Download Windows build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          path: release-assets
+          name: gpt-voice-win32
 
       - name: Publish release assets
         env:

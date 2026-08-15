@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstat, readdir } from 'node:fs/promises';
 import * as path from 'node:path';
 
+import { extractFile, listPackage } from '@electron/asar';
+
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
 
 import { withVerifiedRegularFile } from './verifiedRegularFile';
@@ -17,6 +19,7 @@ const MAXIMUM_COMPONENTS = 256;
 const MAXIMUM_FILES = 50_000;
 const MAXIMUM_FILE_BYTES = 1024 * 1024 * 1024;
 const MAXIMUM_PACKAGE_LOCK_BYTES = 2 * 1024 * 1024;
+const MAXIMUM_PACKAGED_PACKAGE_JSON_BYTES = 64 * 1024;
 const MAXIMUM_SOURCE_LOCK_BYTES = 1024 * 1024;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
@@ -165,6 +168,18 @@ function packageNameFromLockPath(lockPath: string, entry: PackageLockEntry): str
   return SAFE_COMPONENT.test(candidate) ? candidate : null;
 }
 
+function isPackagedPackageJsonPath(archiveEntry: string): boolean {
+  const segments = archiveEntry.split('/');
+  if (segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) return false;
+  const nodeModulesIndex = segments.lastIndexOf('node_modules');
+  if (nodeModulesIndex < 0 || segments[segments.length - 1] !== 'package.json') return false;
+  const packageSegments = segments.slice(nodeModulesIndex + 1, -1);
+  return (
+    (packageSegments.length === 1 && !packageSegments[0]?.startsWith('@')) ||
+    (packageSegments.length === 2 && packageSegments[0]?.startsWith('@') === true)
+  );
+}
+
 function npmPurl(name: string, version: string): string {
   return `pkg:npm/${encodeURIComponent(name).replace(/%2F/gu, '/')}@${encodeURIComponent(version)}`;
 }
@@ -210,13 +225,24 @@ function normalizeTrivyReport(value: unknown, expectedArtifact: string): void {
     report.SchemaVersion !== TRIVY_REPORT_SCHEMA_VERSION ||
     canonicalTrivyArtifactName(report.ArtifactName) !== expectedArtifact ||
     typeof report.ArtifactType !== 'string' ||
-    (rawResults !== undefined && rawResults !== null && !Array.isArray(rawResults)) ||
-    (Array.isArray(rawResults) && rawResults.length > MAXIMUM_COMPONENTS)
+    !Array.isArray(rawResults) ||
+    rawResults.length === 0 ||
+    rawResults.length > MAXIMUM_COMPONENTS
   ) {
     fail('SCAN_MALFORMED');
   }
-  for (const result of Array.isArray(rawResults) ? rawResults : []) {
-    if (!isRecord(result)) fail('SCAN_MALFORMED');
+  for (const result of rawResults) {
+    if (
+      !isRecord(result) ||
+      typeof result.Target !== 'string' ||
+      result.Target.length === 0 ||
+      typeof result.Class !== 'string' ||
+      result.Class.length === 0 ||
+      typeof result.Type !== 'string' ||
+      result.Type.length === 0
+    ) {
+      fail('SCAN_MALFORMED');
+    }
     if (result.Vulnerabilities === undefined || result.Vulnerabilities === null) continue;
     if (!Array.isArray(result.Vulnerabilities) || result.Vulnerabilities.length > MAXIMUM_COMPONENTS) {
       fail('SCAN_MALFORMED');
@@ -306,11 +332,28 @@ export class ApplicationSbomGenerator {
       if (components.size > MAXIMUM_COMPONENTS) fail('COMPONENT_LIMIT');
     };
 
-    for (const component of await this.productionNodeComponents(input.workspaceRoot)) add(component);
+    const productionComponents = await this.productionNodeComponents(input.workspaceRoot);
+    const assembledComponents = await this.assembledNodeComponents(input.unpackedRoot, productionComponents);
+    for (const component of productionComponents) {
+      add({
+        ...component,
+        properties: Object.freeze([
+          Object.freeze({
+            name: 'gpt-voice:component-evidence',
+            value: assembledComponents.has(component['bom-ref']) ? 'final-app-asar' : 'source-lock-bundled',
+          }),
+        ]),
+      });
+    }
     for (const component of await this.nativeSourceComponents(input.workspaceRoot)) add(component);
     for (const component of this.binaryComponents(input.manifest, input.platform)) add(component);
 
-    for (const required of ['electron', 'cloakbrowser', 'playwright-core']) {
+    for (const required of ['cloakbrowser', 'playwright-core']) {
+      if (![...assembledComponents.values()].some((component) => component.name === required)) {
+        fail('ASSEMBLY_COMPONENT_MISSING');
+      }
+    }
+    for (const required of ['electron']) {
       const packageVersion = await this.packageVersion(input.workspaceRoot, required);
       add({
         'bom-ref': npmPurl(required, packageVersion),
@@ -321,7 +364,7 @@ export class ApplicationSbomGenerator {
       });
     }
 
-    const helperManifest = await this.readHelperManifest(input.unpackedRoot, input.platform);
+    const helperManifest = await this.readHelperManifest(input.unpackedRoot, input.platform, input.manifest);
     for (const helper of helperManifest) {
       add({
         'bom-ref': `urn:sha256:${helper.sha256}`,
@@ -353,10 +396,60 @@ export class ApplicationSbomGenerator {
     for (const [lockPath, rawEntry] of Object.entries(value.packages)) {
       if (lockPath === '' || !isRecord(rawEntry) || rawEntry.dev === true || typeof rawEntry.version !== 'string')
         continue;
-      const name = packageNameFromLockPath(lockPath, rawEntry as PackageLockEntry);
+      const name = packageNameFromLockPath(lockPath, rawEntry);
       if (!name || !SAFE_COMPONENT.test(rawEntry.version)) fail('LOCKFILE_INVALID');
       const purl = npmPurl(name, rawEntry.version);
       components.push(Object.freeze({ 'bom-ref': purl, name, purl, type: 'library', version: rawEntry.version }));
+    }
+    return components;
+  }
+
+  private async assembledNodeComponents(
+    unpackedRoot: string,
+    productionComponents: readonly CycloneDxComponent[],
+  ): Promise<ReadonlyMap<string, CycloneDxComponent>> {
+    const archivePath = path.join(unpackedRoot, 'resources', 'app.asar');
+    const metadata = await lstat(archivePath).catch(() => fail('ASSEMBLY_UNAVAILABLE'));
+    if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size < 1 || metadata.size > MAXIMUM_FILE_BYTES) {
+      fail('ASSEMBLY_INVALID');
+    }
+    let entries: string[];
+    try {
+      entries = listPackage(archivePath, { isPack: false });
+    } catch {
+      fail('ASSEMBLY_INVALID');
+    }
+    if (entries.length === 0 || entries.length > MAXIMUM_FILES) fail('ASSEMBLY_INVALID');
+    const expected = new Set(productionComponents.map((component) => component['bom-ref']));
+    const components = new Map<string, CycloneDxComponent>();
+    for (const rawPath of entries) {
+      const extractEntry = rawPath.replace(/^[\\/]+/u, '');
+      const archiveEntry = extractEntry.replace(/\\/gu, '/');
+      if (!isPackagedPackageJsonPath(archiveEntry)) continue;
+      let bytes: Buffer;
+      try {
+        bytes = Buffer.from(extractFile(archivePath, extractEntry));
+      } catch {
+        fail('ASSEMBLY_INVALID');
+      }
+      if (bytes.byteLength < 1 || bytes.byteLength > MAXIMUM_PACKAGED_PACKAGE_JSON_BYTES) fail('ASSEMBLY_INVALID');
+      const value = parseJson(bytes, 'ASSEMBLY_INVALID');
+      if (
+        !isRecord(value) ||
+        typeof value.name !== 'string' ||
+        !SAFE_COMPONENT.test(value.name) ||
+        typeof value.version !== 'string' ||
+        !SAFE_COMPONENT.test(value.version)
+      ) {
+        fail('ASSEMBLY_INVALID');
+      }
+      const purl = npmPurl(value.name, value.version);
+      if (!expected.has(purl)) fail('ASSEMBLY_COMPONENT_MISMATCH');
+      components.set(
+        purl,
+        Object.freeze({ 'bom-ref': purl, name: value.name, purl, type: 'library', version: value.version }),
+      );
+      if (components.size > MAXIMUM_COMPONENTS) fail('COMPONENT_LIMIT');
     }
     return components;
   }
@@ -441,6 +534,7 @@ export class ApplicationSbomGenerator {
   private async readHelperManifest(
     unpackedRoot: string,
     platform: ApplicationSecurityPlatform,
+    manifest: readonly FileManifestEntry[],
   ): Promise<readonly { readonly name: string; readonly sha256: string }[]> {
     const manifestPath = path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json');
     const value = parseJson(
@@ -455,12 +549,19 @@ export class ApplicationSbomGenerator {
     ) {
       fail('HELPER_MANIFEST_INVALID');
     }
+    const files = new Map(manifest.map((entry) => [entry.path, entry]));
+    const names = new Set<string>();
     return Object.freeze(
       value.helpers.map((entry) => {
         if (!isRecord(entry) || typeof entry.name !== 'string' || !SAFE_COMPONENT.test(entry.name)) {
           fail('HELPER_MANIFEST_INVALID');
         }
-        return Object.freeze({ name: entry.name, sha256: safeSha256(entry.sha256, 'HELPER_MANIFEST_INVALID') });
+        if (names.has(entry.name)) fail('HELPER_MANIFEST_INVALID');
+        names.add(entry.name);
+        const sha256 = safeSha256(entry.sha256, 'HELPER_MANIFEST_INVALID');
+        const packaged = files.get(`resources/local-whisper/native/${entry.name}`);
+        if (!packaged || packaged.sha256 !== sha256) fail('HELPER_MANIFEST_DIGEST_MISMATCH');
+        return Object.freeze({ name: entry.name, sha256 });
       }),
     );
   }

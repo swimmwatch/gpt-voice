@@ -11,11 +11,15 @@ import {
   TRIVY_DATABASE_ARGUMENTS,
   TRIVY_IMAGE,
 } from './dockerBuilderPolicy';
+import { withVerifiedRegularFile } from './verifiedRegularFile';
+import { trivyDatabaseIdentity } from './trivyDatabaseIdentity';
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 const builderDirectory = path.join(workspaceRoot, 'build', 'fedora-release');
 const dockerfilePath = path.join(builderDirectory, 'Dockerfile');
 const evidencePath = path.join(workspaceRoot, 'release-artifacts', 'repository-security-builder-evidence.json');
+const MAXIMUM_DATABASE_METADATA_BYTES = 512 * 1024;
+const MAXIMUM_DATABASE_PAYLOAD_BYTES = 1024 * 1024 * 1024;
 
 interface DockerCommandResult {
   readonly exitCode: number;
@@ -24,6 +28,49 @@ interface DockerCommandResult {
 
 function sha256(value: Buffer): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+async function databaseFileEvidence(
+  filePath: string,
+  maximumBytes: number,
+): Promise<{ readonly bytes?: Buffer; readonly sha256: string; readonly size: number }> {
+  return await withVerifiedRegularFile(
+    {
+      filePath,
+      invalid: () => {
+        throw new Error('Docker builder policy violation: scanner database evidence malformed');
+      },
+      maximumBytes,
+      minimumBytes: 1,
+      unavailable: () => {
+        throw new Error('Docker builder policy violation: scanner database evidence unavailable or stale');
+      },
+    },
+    async (file, expectedSize) => {
+      if (maximumBytes === MAXIMUM_DATABASE_METADATA_BYTES) {
+        const bytes = await file.readFile().catch(() => {
+          throw new Error('Docker builder policy violation: scanner database evidence unavailable or stale');
+        });
+        if (bytes.byteLength !== expectedSize)
+          throw new Error('Docker builder policy violation: scanner database evidence malformed');
+        return Object.freeze({ bytes, sha256: sha256(bytes), size: expectedSize });
+      }
+      const digest = createHash('sha256');
+      const chunk = Buffer.allocUnsafe(64 * 1024);
+      let offset = 0;
+      while (offset < expectedSize) {
+        const length = Math.min(chunk.byteLength, expectedSize - offset);
+        const result = await file.read(chunk, 0, length, offset).catch(() => {
+          throw new Error('Docker builder policy violation: scanner database evidence unavailable or stale');
+        });
+        if (result.bytesRead !== length)
+          throw new Error('Docker builder policy violation: scanner database evidence malformed');
+        digest.update(chunk.subarray(0, length));
+        offset += length;
+      }
+      return Object.freeze({ sha256: digest.digest('hex'), size: expectedSize });
+    },
+  );
 }
 
 function runDocker(arguments_: readonly string[]): Promise<DockerCommandResult> {
@@ -138,13 +185,17 @@ async function main(): Promise<void> {
   try {
     const scan = await runDocker(await scannerArguments(cacheDirectory));
     if (scan.exitCode !== 0) throw new Error('Docker builder policy violation: scanner evidence unavailable');
-    const databasePath = path.join(cacheDirectory, 'db', 'metadata.json');
-    let databaseBytes: Buffer;
-    try {
-      databaseBytes = await readFile(databasePath);
-    } catch {
-      throw new Error('Docker builder policy violation: scanner database evidence unavailable or stale');
-    }
+    const databaseMetadata = await databaseFileEvidence(
+      path.join(cacheDirectory, 'db', 'metadata.json'),
+      MAXIMUM_DATABASE_METADATA_BYTES,
+    );
+    const databasePayload = await databaseFileEvidence(
+      path.join(cacheDirectory, 'db', 'trivy.db'),
+      MAXIMUM_DATABASE_PAYLOAD_BYTES,
+    );
+    const databaseBytes = databaseMetadata.bytes;
+    if (!databaseBytes) throw new Error('Docker builder policy violation: scanner database evidence malformed');
+    const databaseSha256 = trivyDatabaseIdentity(databaseMetadata, databasePayload);
     let database: unknown;
     try {
       database = JSON.parse(databaseBytes.toString('utf8')) as unknown;
@@ -156,7 +207,7 @@ async function main(): Promise<void> {
       policy.verifyScanEvidence({
         builderImage: SECURITY_BUILDER_TAG,
         database,
-        databaseSha256: sha256(databaseBytes),
+        databaseSha256,
         now: new Date(),
         report,
         scannerImage: TRIVY_IMAGE,
@@ -173,7 +224,7 @@ async function main(): Promise<void> {
       `${JSON.stringify(
         {
           builderImage: SECURITY_BUILDER_TAG,
-          databaseSha256: sha256(databaseBytes),
+          databaseSha256,
           scannerImage: TRIVY_IMAGE,
           schemaVersion: 1,
         },

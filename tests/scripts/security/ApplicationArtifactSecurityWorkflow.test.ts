@@ -70,8 +70,12 @@ describe('Application artifact security workflow', () => {
     assert.match(packageSmoke, /artifactPlatform: win32/u);
   });
 
-  it('transfers a bounded digest-bound package chain into separate least-privilege Linux and Windows attestation jobs', async () => {
+  it('validates transferred bindings before a token-minimal GitHub-native attestation job', async () => {
     const workflow = await readWorkspaceFile('.github', 'workflows', 'pr-checks.yml');
+    const inputVerification = workflow.slice(
+      workflow.indexOf('  package-attestation-input:'),
+      workflow.indexOf('  package-attestation:'),
+    );
     const attestation = workflow.slice(workflow.indexOf('  package-attestation:'), workflow.length);
 
     assert.match(workflow, /package-smoke:[\s\S]*?permissions:\n {6}contents: read/u);
@@ -80,13 +84,39 @@ describe('Application artifact security workflow', () => {
       /Upload exact attestation subjects[\s\S]*?gpt-voice-attestation-subjects-\$\{\{ matrix\.artifactPlatform \}\}/u,
     );
     assert.match(workflow, /Prepare digest-bound attestation subjects[\s\S]*?prepare:security:package-attestation/u);
-    assert.match(attestation, /needs: package-smoke/u);
+    assert.match(inputVerification, /needs: package-smoke/u);
+    assert.match(inputVerification, /verify:security:package-attestation/u);
+    assert.doesNotMatch(inputVerification, /id-token: write|attestations: write/u);
+    assert.match(attestation, /needs: package-attestation-input/u);
     assert.match(attestation, /attestations: write\n {6}contents: read\n {6}id-token: write/u);
-    assert.match(attestation, /artifactPlatform: linux[\s\S]*?runner: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u);
-    assert.match(attestation, /artifactPlatform: win32[\s\S]*?runner: \$\{\{ vars\.CI_WINDOWS_RUNNER \}\}/u);
+    assert.match(attestation, /runs-on: \$\{\{ vars\.CI_LINUX_RUNNER \}\}/u);
     assert.match(attestation, /actions\/attest-build-provenance@[a-f\d]{40} # v3/u);
+    assert.match(attestation, /attestation-subjects\/attestation-input\.json/u);
     assert.match(attestation, /attestation-subjects\/subject\/(?:package|checksum|sbom|scanner|smoke)/u);
-    assert.match(attestation, /Verify GitHub-native attestations\n {8}env:\n {10}GH_TOKEN: \$\{\{ github\.token \}\}/u);
-    assert.match(attestation, /--verify-github/u);
+    assert.match(
+      attestation,
+      /Verify GitHub-native attestations\n {8}shell: bash\n {8}env:\n {10}GH_TOKEN: \$\{\{ github\.token \}\}/u,
+    );
+    assert.match(attestation, /--signer-workflow/u);
+    assert.match(attestation, /--source-digest/u);
+    assert.doesNotMatch(attestation, /actions\/checkout|setup-ci-project|npm run/u);
+  });
+
+  it('scans and attests the immutable artifact sets that the release publisher downloads', async () => {
+    const workflow = await readWorkspaceFile('.github', 'workflows', 'release-builds.yml');
+    const attestation = workflow.slice(workflow.indexOf('  attest-release:'), workflow.indexOf('  publish:'));
+    const publish = workflow.slice(workflow.indexOf('  publish:'));
+
+    assert.match(workflow, /Generate and scan exact Linux release security evidence/u);
+    assert.match(workflow, /Generate and scan exact Windows release security evidence/u);
+    assert.match(workflow, /verify-release-attestation-input:[\s\S]*verify:security:package-attestation/u);
+    assert.match(attestation, /needs:\n {6}- verify-release-attestation-input/u);
+    assert.match(attestation, /release-assets\/\*/u);
+    assert.match(attestation, /security-evidence\/\*/u);
+    assert.match(attestation, /--signer-workflow "\$GH_REPO\/\.github\/workflows\/release-builds\.yml"/u);
+    assert.match(publish, /- attest-release/u);
+    assert.match(publish, /name: gpt-voice-linux/u);
+    assert.match(publish, /name: gpt-voice-win32/u);
+    assert.doesNotMatch(publish, /pattern: gpt-voice-/u);
   });
 });

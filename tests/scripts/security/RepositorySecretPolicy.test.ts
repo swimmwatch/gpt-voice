@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { RepositorySecretPolicy } from '@scripts/security/repositorySecretPolicy';
+import { RepositorySecretPolicy, TRACKED_TEXT_GIT_ARGUMENTS } from '@scripts/security/repositorySecretPolicy';
 
 const fixtureDirectory = path.join(process.cwd(), 'tests', 'fixtures', 'security', 'repository-secret');
 const githubToken = `ghp_${'A'.repeat(36)}`;
@@ -15,6 +15,29 @@ async function fixture(name: string): Promise<string> {
 }
 
 describe('Repository secret policy', () => {
+  it('selects every tracked text file, including tests, prototypes, extensions, and dotfiles', () => {
+    assert.deepEqual(TRACKED_TEXT_GIT_ARGUMENTS, ['grep', '-Il', '-z', '-e', '', '--', '.']);
+  });
+
+  it('allows only the exact digest-bound synthetic canary at its reviewed test path', () => {
+    const reviewedCanary = ['sk-proj-', 'abcdefghijklmnopqrstuvwxyz123456'].join('');
+    const policy = new RepositorySecretPolicy();
+    assert.doesNotThrow(() =>
+      policy.assertNoBlockingFindings([{ path: 'tests/main/diagnosticCaptureStorage.test.ts', text: reviewedCanary }]),
+    );
+    assert.throws(
+      () => policy.assertNoBlockingFindings([{ path: 'tests/main/unreviewed.test.ts', text: reviewedCanary }]),
+      /high-confidence secret/u,
+    );
+    assert.throws(
+      () =>
+        policy.assertNoBlockingFindings([
+          { path: 'tests/main/diagnosticCaptureStorage.test.ts', text: `${reviewedCanary}x` },
+        ]),
+      /high-confidence secret/u,
+    );
+  });
+
   it('accepts ordinary source and documentation while retaining entropy-only findings as advisory', async () => {
     const findings = new RepositorySecretPolicy().assertNoBlockingFindings([
       { path: 'docs/ordinary.md', text: await fixture('ordinary-doc.md') },

@@ -99,21 +99,40 @@ export class DockerBuilderPolicy {
     ) {
       throw new Error('Docker builder policy violation: scanner report malformed');
     }
-    if (value.Results === undefined) return;
-    if (!Array.isArray(value.Results)) throw new Error('Docker builder policy violation: scanner report malformed');
+    const operatingSystem = isRecord(value.Metadata.OS) ? value.Metadata.OS : null;
+    if (
+      operatingSystem === null ||
+      typeof operatingSystem.Family !== 'string' ||
+      operatingSystem.Family.length === 0 ||
+      typeof operatingSystem.Name !== 'string' ||
+      operatingSystem.Name.length === 0 ||
+      !Array.isArray(value.Results) ||
+      value.Results.length === 0
+    ) {
+      throw new Error('Docker builder policy violation: scanner report malformed');
+    }
     for (const result of value.Results) {
-      if (!isRecord(result)) throw new Error('Docker builder policy violation: scanner report malformed');
-      if (result.Vulnerabilities === undefined) continue;
-      if (!Array.isArray(result.Vulnerabilities)) {
+      if (
+        !isRecord(result) ||
+        typeof result.Target !== 'string' ||
+        result.Target.length === 0 ||
+        typeof result.Class !== 'string' ||
+        result.Class.length === 0 ||
+        typeof result.Type !== 'string' ||
+        result.Type.length === 0
+      ) {
         throw new Error('Docker builder policy violation: scanner report malformed');
       }
+      if (result.Vulnerabilities === undefined || result.Vulnerabilities === null) continue;
+      if (!Array.isArray(result.Vulnerabilities))
+        throw new Error('Docker builder policy violation: scanner report malformed');
       for (const vulnerability of result.Vulnerabilities) {
         if (!isRecord(vulnerability) || typeof vulnerability.Severity !== 'string') {
           throw new Error('Docker builder policy violation: scanner report malformed');
         }
-        if (vulnerability.Severity === 'HIGH' || vulnerability.Severity === 'CRITICAL') {
-          throw new Error('Docker builder policy violation: high or critical builder finding');
-        }
+        if (vulnerability.Severity !== 'HIGH' && vulnerability.Severity !== 'CRITICAL')
+          throw new Error('Docker builder policy violation: scanner report malformed');
+        throw new Error('Docker builder policy violation: high or critical builder finding');
       }
     }
   }

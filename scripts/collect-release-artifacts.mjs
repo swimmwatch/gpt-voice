@@ -106,7 +106,12 @@ for (const fileName of artifactFiles) {
   const targetPath = path.join(outputDir, fileName);
   const contents = await readFile(sourcePath);
   await copyFile(sourcePath, targetPath);
-  checksumLines.push(`${sha256(contents)}  ${fileName}`);
+  const sourceSha256 = sha256(contents);
+  const collectedSha256 = sha256(await readFile(targetPath));
+  if (collectedSha256 !== sourceSha256) {
+    throw new Error(`Collected ${platform} release artifact digest mismatch: ${fileName}`);
+  }
+  checksumLines.push(`${collectedSha256}  ${fileName}`);
 }
 
 for (const fileName of measurementReports[platform] || []) {

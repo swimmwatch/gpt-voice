@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
+
+import { createPackage } from '@electron/asar';
 
 import {
   APPLICATION_ARTIFACT_SECURITY_SCHEMA_VERSION,
@@ -44,7 +47,7 @@ function cleanReport(artifactName: string): object {
   return {
     ArtifactName: artifactName,
     ArtifactType: 'filesystem',
-    Results: [{ Target: 'component', Vulnerabilities: [] }],
+    Results: [{ Class: 'lang-pkgs', Target: 'component', Type: 'npm', Vulnerabilities: [] }],
     SchemaVersion: 2,
   };
 }
@@ -53,6 +56,7 @@ async function createWorkspace(
   input: {
     readonly packageLockPaddingBytes?: number;
     readonly platform?: 'linux' | 'win32';
+    readonly assembledPlaywrightVersion?: string;
     readonly sourceLockPaddingBytes?: number;
   } = {},
 ): Promise<{ readonly root: string; readonly unpackedRoot: string }> {
@@ -65,12 +69,24 @@ async function createWorkspace(
       ? { guard: 'fs-guard.exe', launcher: 'local-whisper-launcher.exe' }
       : { guard: 'fs-guard', launcher: 'local-whisper-launcher' };
   const runtimeName = platform === 'win32' ? 'runtime.dll' : 'runtime.so';
+  const asarSource = path.join(root, 'asar-source');
+  const helperBytes = {
+    guard: Buffer.from('guard', 'utf8'),
+    launcher: Buffer.from('launcher', 'utf8'),
+  };
+  const helperSha256 = {
+    guard: createHash('sha256').update(helperBytes.guard).digest('hex'),
+    launcher: createHash('sha256').update(helperBytes.launcher).digest('hex'),
+  };
   await Promise.all([
     mkdir(path.join(root, 'node_modules', 'electron'), { recursive: true }),
     mkdir(path.join(root, 'node_modules', 'cloakbrowser'), { recursive: true }),
     mkdir(path.join(root, 'node_modules', 'playwright-core'), { recursive: true }),
     mkdir(path.join(root, 'runtime', 'local-whisper', 'sources', 'locks'), { recursive: true }),
     mkdir(path.join(unpackedRoot, 'resources', 'local-whisper', 'native'), { recursive: true }),
+    mkdir(path.join(asarSource, 'node_modules', 'archiver'), { recursive: true }),
+    mkdir(path.join(asarSource, 'node_modules', 'cloakbrowser'), { recursive: true }),
+    mkdir(path.join(asarSource, 'node_modules', 'playwright-core'), { recursive: true }),
   ]);
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ name: 'gpt-voice', version: '1.4.0' }));
   await writeFile(
@@ -103,19 +119,35 @@ async function createWorkspace(
     ),
     writeFile(path.join(unpackedRoot, applicationName), 'CANARY_APPLICATION_BYTES'),
     writeFile(path.join(unpackedRoot, 'resources', runtimeName), 'CANARY_RUNTIME_BYTES'),
-    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.guard), 'guard'),
-    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.launcher), 'launcher'),
+    writeFile(path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.guard), helperBytes.guard),
+    writeFile(
+      path.join(unpackedRoot, 'resources', 'local-whisper', 'native', helperNames.launcher),
+      helperBytes.launcher,
+    ),
+    writeFile(
+      path.join(asarSource, 'node_modules', 'archiver', 'package.json'),
+      JSON.stringify({ name: 'archiver', version: '8.0.0' }),
+    ),
+    writeFile(
+      path.join(asarSource, 'node_modules', 'cloakbrowser', 'package.json'),
+      JSON.stringify({ name: 'cloakbrowser', version: '0.5.3' }),
+    ),
+    writeFile(
+      path.join(asarSource, 'node_modules', 'playwright-core', 'package.json'),
+      JSON.stringify({ name: 'playwright-core', version: input.assembledPlaywrightVersion ?? '1.62.1' }),
+    ),
     writeFile(
       path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json'),
       JSON.stringify({
         helpers: [
-          { name: helperNames.guard, sha256: '5'.repeat(64) },
-          { name: helperNames.launcher, sha256: '6'.repeat(64) },
+          { name: helperNames.guard, sha256: helperSha256.guard },
+          { name: helperNames.launcher, sha256: helperSha256.launcher },
         ],
         platform,
       }),
     ),
   ]);
+  await createPackage(asarSource, path.join(unpackedRoot, 'resources', 'app.asar'));
   for (const [lockId, repository, commit] of EXPECTED_LOCKS) {
     await writeFile(
       path.join(root, 'runtime', 'local-whisper', 'sources', 'locks', `${lockId}.json`),
@@ -215,6 +247,50 @@ describe('Application artifact SBOM', () => {
             workspaceRoot: fixture.root,
           }),
         /SOURCE_LOCK_UNAVAILABLE/u,
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects final app.asar versions that do not match the reviewed lockfile', async () => {
+    const fixture = await createWorkspace({ assembledPlaywrightVersion: '1.62.0' });
+    try {
+      await assert.rejects(
+        () =>
+          new ApplicationSbomGenerator().generate({
+            packageFormat: 'appimage',
+            packageSha256: PACKAGE_SHA256,
+            platform: 'linux',
+            sourceCommit: SOURCE_COMMIT,
+            unpackedRoot: fixture.unpackedRoot,
+            workspaceRoot: fixture.root,
+          }),
+        /APPLICATION_ARTIFACT_SECURITY_ASSEMBLY_COMPONENT_MISMATCH/u,
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects a helper manifest digest that does not match the final assembled helper bytes', async () => {
+    const fixture = await createWorkspace();
+    try {
+      await writeFile(
+        path.join(fixture.unpackedRoot, 'resources', 'local-whisper', 'native', 'fs-guard'),
+        'mutated-helper',
+      );
+      await assert.rejects(
+        () =>
+          new ApplicationSbomGenerator().generate({
+            packageFormat: 'appimage',
+            packageSha256: PACKAGE_SHA256,
+            platform: 'linux',
+            sourceCommit: SOURCE_COMMIT,
+            unpackedRoot: fixture.unpackedRoot,
+            workspaceRoot: fixture.root,
+          }),
+        /APPLICATION_ARTIFACT_SECURITY_HELPER_MANIFEST_DIGEST_MISMATCH/u,
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
@@ -331,7 +407,7 @@ describe('Application artifact vulnerability policy', () => {
     }
   });
 
-  it('normalizes valid Trivy database timestamps and empty result variants to canonical record bytes', () => {
+  it('normalizes valid Trivy database timestamps to canonical record bytes', () => {
     const record = new ArtifactVulnerabilityPolicy().createRecord({
       checksumSha256: CHECKSUM_SHA256,
       database: {
@@ -341,22 +417,13 @@ describe('Application artifact vulnerability policy', () => {
         UpdatedAt: '2026-08-13T11:00:00.123456789Z',
       },
       databaseSha256: DATABASE_SHA256,
-      filesystemReport: {
-        ArtifactName: 'unpacked-root',
-        ArtifactType: 'filesystem',
-        SchemaVersion: 2,
-      },
+      filesystemReport: cleanReport('unpacked-root'),
       filesystemTarget: 'unpacked-root',
       now: NOW,
       packageFormat: 'appimage',
       packageSha256: PACKAGE_SHA256,
       platform: 'linux',
-      sbomReport: {
-        ArtifactName: 'sbom',
-        ArtifactType: 'cyclonedx',
-        Results: null,
-        SchemaVersion: 2,
-      },
+      sbomReport: cleanReport('sbom'),
       sbomSha256: '8'.repeat(64),
       sbomTarget: 'sbom',
       sourceCommit: SOURCE_COMMIT,
@@ -366,10 +433,70 @@ describe('Application artifact vulnerability policy', () => {
     assert.equal(record.scanner.database.updatedAt.endsWith('.123Z'), true);
   });
 
+  it('rejects scanner reports without semantic result coverage', () => {
+    for (const Results of [undefined, null, []]) {
+      assert.throws(
+        () =>
+          new ArtifactVulnerabilityPolicy().createRecord({
+            checksumSha256: CHECKSUM_SHA256,
+            database: DATABASE,
+            databaseSha256: DATABASE_SHA256,
+            filesystemReport: {
+              ArtifactName: 'unpacked-root',
+              ArtifactType: 'filesystem',
+              Results,
+              SchemaVersion: 2,
+            },
+            filesystemTarget: 'unpacked-root',
+            now: NOW,
+            packageFormat: 'appimage',
+            packageSha256: PACKAGE_SHA256,
+            platform: 'linux',
+            sbomReport: cleanReport('sbom'),
+            sbomSha256: '8'.repeat(64),
+            sbomTarget: 'sbom',
+            sourceCommit: SOURCE_COMMIT,
+            unpackedRootSha256: '7'.repeat(64),
+          }),
+        /SCAN_MALFORMED/u,
+      );
+    }
+    assert.throws(
+      () =>
+        new ArtifactVulnerabilityPolicy().createRecord({
+          checksumSha256: CHECKSUM_SHA256,
+          database: DATABASE,
+          databaseSha256: DATABASE_SHA256,
+          filesystemReport: {
+            ArtifactName: 'unpacked-root',
+            ArtifactType: 'filesystem',
+            Results: [{ Target: 'component', Vulnerabilities: [] }],
+            SchemaVersion: 2,
+          },
+          filesystemTarget: 'unpacked-root',
+          now: NOW,
+          packageFormat: 'appimage',
+          packageSha256: PACKAGE_SHA256,
+          platform: 'linux',
+          sbomReport: cleanReport('sbom'),
+          sbomSha256: '8'.repeat(64),
+          sbomTarget: 'sbom',
+          sourceCommit: SOURCE_COMMIT,
+          unpackedRootSha256: '7'.repeat(64),
+        }),
+      /SCAN_MALFORMED/u,
+    );
+  });
+
   for (const [name, input, expected] of [
     [
       'a high finding',
-      { filesystemReport: { ...cleanReport('unpacked-root'), Results: [{ Vulnerabilities: [{ Severity: 'HIGH' }] }] } },
+      {
+        filesystemReport: {
+          ...cleanReport('unpacked-root'),
+          Results: [{ Class: 'lang-pkgs', Target: 'component', Type: 'npm', Vulnerabilities: [{ Severity: 'HIGH' }] }],
+        },
+      },
       /SCAN_FINDING/u,
     ],
     [
@@ -377,7 +504,14 @@ describe('Application artifact vulnerability policy', () => {
       {
         filesystemReport: {
           ...cleanReport('unpacked-root'),
-          Results: [{ Vulnerabilities: [{ Severity: 'CRITICAL', Status: 'not_fixed' }] }],
+          Results: [
+            {
+              Class: 'lang-pkgs',
+              Target: 'component',
+              Type: 'npm',
+              Vulnerabilities: [{ Severity: 'CRITICAL', Status: 'not_fixed' }],
+            },
+          ],
         },
       },
       /SCAN_FINDING/u,
@@ -385,7 +519,12 @@ describe('Application artifact vulnerability policy', () => {
     [
       'an ambiguous severity',
       {
-        filesystemReport: { ...cleanReport('unpacked-root'), Results: [{ Vulnerabilities: [{ Severity: 'MEDIUM' }] }] },
+        filesystemReport: {
+          ...cleanReport('unpacked-root'),
+          Results: [
+            { Class: 'lang-pkgs', Target: 'component', Type: 'npm', Vulnerabilities: [{ Severity: 'MEDIUM' }] },
+          ],
+        },
       },
       /SCAN_AMBIGUOUS/u,
     ],

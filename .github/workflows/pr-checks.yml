@@ -5,37 +5,53 @@ on:
     branches:
       - main
     paths:
+      - .gitattributes
       - .github/actions/**
       - .github/codeql-config.yml
       - .github/workflows/**
+      - .prettierignore
+      - .prettierrc
+      - build/**
       - build/fedora-release/**
+      - docs/specs/local-whisper-native-review-remediation/**
       - docs/specs/local-whisper-performance-remediation/**
+      - eslint.config.mjs
       - package-lock.json
       - package.json
+      - postcss.config.js
       - runtime/local-whisper/**
       - scripts/**
       - src/main/**
       - src/renderer/**
       - src/shared/**
       - tests/**
+      - tsconfig*.json
       - webpack.config.js
   push:
     branches:
       - main
     paths:
+      - .gitattributes
       - .github/actions/**
       - .github/codeql-config.yml
       - .github/workflows/**
+      - .prettierignore
+      - .prettierrc
+      - build/**
       - build/fedora-release/**
+      - docs/specs/local-whisper-native-review-remediation/**
       - docs/specs/local-whisper-performance-remediation/**
+      - eslint.config.mjs
       - package-lock.json
       - package.json
+      - postcss.config.js
       - runtime/local-whisper/**
       - scripts/**
       - src/main/**
       - src/renderer/**
       - src/shared/**
       - tests/**
+      - tsconfig*.json
       - webpack.config.js
   schedule:
     - cron: '17 3 * * 1'
@@ -102,6 +118,13 @@ jobs:
           npm run verify:local-whisper:native-source -- --lock=nlohmann-json-v3.12.0-subset
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
+      - name: Initialize Linux C++ CodeQL database
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          build-mode: manual
+          db-location: ${{ github.workspace }}/.cache/codeql/cpp-linux
+          languages: c-cpp
+          queries: security-and-quality
       - name: Prove non-recovering Linux sanitizer policy
         env:
           LD_PRELOAD: ''
@@ -116,13 +139,6 @@ jobs:
         run: |
           npm run test:local-whisper:native-fuzz
           npm run test:local-whisper:native-fuzz-proof
-      - name: Initialize Linux C++ CodeQL database
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
-        with:
-          build-mode: manual
-          db-location: ${{ github.workspace }}/.cache/codeql/cpp-linux
-          languages: c-cpp
-          queries: security-and-quality
       - name: Run Linux worker and sanitizer suites
         run: |
           npm run test:local-whisper:worker-codec
@@ -141,16 +157,16 @@ jobs:
           npm run test:local-whisper:supervisor
           npm run test:local-whisper:filesystem
           npm run verify:local-whisper:filesystem -- --fixture
-      - name: Emit Linux native-quality coverage
-        shell: bash
-        run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=$PLATFORM --compiler-profile=$TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-linux --output=release-artifacts/native-quality-coverage-linux.json
       - name: Analyze Linux C++ CodeQL database
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           category: /language:c-cpp,host:linux
           output: release-artifacts/codeql-cpp-linux
           upload: always
+      - name: Emit Linux native-quality coverage
+        shell: bash
+        run: >-
+          npm run emit:local-whisper:native-quality-coverage -- --platform=$PLATFORM --compiler-profile=$TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-linux --output=release-artifacts/native-quality-coverage-linux.json
       - name: Emit Linux runner evidence
         shell: bash
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_LINUX_RUNNER }} --toolchain=$TOOLCHAIN --expected-os=$PLATFORM --compiler="$CXX" --output=$EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
@@ -331,16 +347,16 @@ jobs:
         run: |
           npm run test:local-whisper:supervisor
           npm run test:local-whisper:filesystem
-      - name: Emit Windows native-quality coverage
-        shell: pwsh
-        run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=$env:PLATFORM --compiler-profile=$env:TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-windows --output=release-artifacts/native-quality-coverage-windows.json
       - name: Analyze Windows C++ CodeQL database
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           category: /language:c-cpp,host:windows
           output: release-artifacts/codeql-cpp-windows
           upload: always
+      - name: Emit Windows native-quality coverage
+        shell: pwsh
+        run: >-
+          npm run emit:local-whisper:native-quality-coverage -- --platform=$env:PLATFORM --compiler-profile=$env:TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-windows --output=release-artifacts/native-quality-coverage-windows.json
       - name: Emit Windows runner evidence
         shell: pwsh
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_WINDOWS_RUNNER }} --toolchain=$env:TOOLCHAIN --expected-os=$env:PLATFORM --compiler="$env:CXX" --output=$env:EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
@@ -767,10 +783,51 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
+  package-attestation-input:
+    name: Package Attestation Input (${{ matrix.checkName }})
+    needs: package-smoke
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifactPlatform: linux
+            checkName: Fedora Linux
+          - artifactPlatform: win32
+            checkName: Windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Download exact attestation subjects
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
+          path: attestation-subjects
+
+      - name: Verify signed-input candidate and subject bindings
+        run: >-
+          npm run verify:security:package-attestation --
+          --input=attestation-subjects/attestation-input.json
+          --platform=${{ matrix.artifactPlatform }}
+          --source-commit=${{ github.sha }}
+          --repository=${{ github.repository }}
+          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-package-smoke-${{ matrix.artifactPlatform }}
+
   package-attestation:
     name: Package Attestation (${{ matrix.checkName }})
-    needs: package-smoke
-    runs-on: ${{ matrix.runner }}
+    needs: package-attestation-input
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: 20
     permissions:
       attestations: write
@@ -783,38 +840,16 @@ jobs:
           - artifactPlatform: linux
             checkName: Fedora Linux
             platform: linux
-            runner: ${{ vars.CI_LINUX_RUNNER }}
           - artifactPlatform: win32
             checkName: Windows
             platform: windows
-            runner: ${{ vars.CI_WINDOWS_RUNNER }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up project
-        uses: ./.github/actions/setup-ci-project
-        with:
-          node-version: ${{ vars.CI_NODE_VERSION }}
-          package-manager-cache: 'true'
-
       - name: Download exact attestation subjects
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
           path: attestation-subjects
-
-      - name: Verify package, checksum, SBOM, scan, smoke, and source bindings
-        run: >-
-          npm run verify:security:package-attestation --
-          --input=attestation-subjects/attestation-input.json
-          --platform=${{ matrix.artifactPlatform }}
-          --repository=${{ github.repository }}
-          --source-commit=${{ github.sha }}
-          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-package-smoke-${{ matrix.artifactPlatform }}
 
       - name: Attest exact package chain
         uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
@@ -828,13 +863,49 @@ jobs:
             attestation-subjects/subject/smoke
 
       - name: Verify GitHub-native attestations
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          npm run verify:security:package-attestation --
-          --input=attestation-subjects/attestation-input.json
-          --platform=${{ matrix.artifactPlatform }}
-          --repository=${{ github.repository }}
-          --source-commit=${{ github.sha }}
-          --invocation=${{ github.run_id }}-${{ github.run_attempt }}-package-smoke-${{ matrix.artifactPlatform }}
-          --verify-github
+          GH_REPO: ${{ github.repository }}
+          SOURCE_DIGEST: ${{ github.sha }}
+        run: |
+          while IFS= read -r subject; do
+            gh attestation verify "$subject" \
+              --repo "$GH_REPO" \
+              --signer-workflow "$GH_REPO/.github/workflows/pr-checks.yml" \
+              --source-digest "$SOURCE_DIGEST" \
+              --predicate-type https://slsa.dev/provenance/v1 >/dev/null
+          done <<'SUBJECTS'
+          attestation-subjects/attestation-input.json
+          attestation-subjects/subject/package
+          attestation-subjects/subject/checksum
+          attestation-subjects/subject/sbom
+          attestation-subjects/subject/scanner
+          attestation-subjects/subject/smoke
+          SUBJECTS
+
+  security-aggregate:
+    name: Security and Supply-Chain Gates
+    if: ${{ always() }}
+    needs:
+      - native-quality-linux
+      - native-quality-windows
+      - quality
+      - package-attestation
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      LINUX_NATIVE_RESULT: ${{ needs.native-quality-linux.result }}
+      WINDOWS_NATIVE_RESULT: ${{ needs.native-quality-windows.result }}
+      QUALITY_RESULT: ${{ needs.quality.result }}
+      PACKAGE_ATTESTATION_RESULT: ${{ needs.package-attestation.result }}
+    steps:
+      - name: Require every blocking security lane
+        shell: bash
+        run: |
+          if [[ "$LINUX_NATIVE_RESULT" != 'success' || "$WINDOWS_NATIVE_RESULT" != 'success' || "$QUALITY_RESULT" != 'success' || "$PACKAGE_ATTESTATION_RESULT" != 'success' ]]; then
+            echo "Blocking security lanes did not all succeed" >&2
+            exit 1
+          fi

@@ -23,8 +23,8 @@ const database = {
 const cleanReport = {
   ArtifactName: SECURITY_BUILDER_TAG,
   ArtifactType: 'container_image',
-  Metadata: {},
-  Results: [{ Target: 'rootfs', Vulnerabilities: [] }],
+  Metadata: { OS: { Family: 'fedora', Name: '44' } },
+  Results: [{ Class: 'os-pkgs', Target: 'rootfs', Type: 'fedora', Vulnerabilities: [] }],
   SchemaVersion: 2,
 };
 const dockerFixtureDirectory = path.join(process.cwd(), 'tests', 'fixtures', 'security', 'docker');
@@ -66,9 +66,13 @@ describe('Docker builder policy', () => {
     assert.doesNotThrow(() => verifyEvidence());
   });
 
-  it('accepts a clean Trivy schema-v2 report that omits an empty results collection', () => {
+  it('rejects a report that omits semantic package coverage', () => {
     const { Results: _results, ...emptyCleanReport } = cleanReport;
-    assert.doesNotThrow(() => verifyEvidence({ report: emptyCleanReport }));
+    assert.throws(() => verifyEvidence({ report: emptyCleanReport }), /report malformed/u);
+  });
+
+  it('rejects a report that omits operating-system identity', () => {
+    assert.throws(() => verifyEvidence({ report: { ...cleanReport, Metadata: {} } }), /report malformed/u);
   });
 
   for (const [name, fixture, expected] of [
@@ -94,11 +98,33 @@ describe('Docker builder policy', () => {
     ],
     ['malformed report', { report: {} }, /report malformed/u],
     [
+      'unclassified package result',
+      { report: { ...cleanReport, Results: [{ Target: 'rootfs', Vulnerabilities: [] }] } },
+      /report malformed/u,
+    ],
+    [
+      'unexpected filtered severity',
+      {
+        report: {
+          ...cleanReport,
+          Results: [{ Class: 'os-pkgs', Target: 'rootfs', Type: 'fedora', Vulnerabilities: [{ Severity: 'LOW' }] }],
+        },
+      },
+      /report malformed/u,
+    ],
+    [
       'unfixed critical finding',
       {
         report: {
           ...cleanReport,
-          Results: [{ Vulnerabilities: [{ Severity: 'CRITICAL', Status: 'not_fixed' }] }],
+          Results: [
+            {
+              Class: 'os-pkgs',
+              Target: 'rootfs',
+              Type: 'fedora',
+              Vulnerabilities: [{ Severity: 'CRITICAL', Status: 'not_fixed' }],
+            },
+          ],
         },
       },
       /high or critical/u,

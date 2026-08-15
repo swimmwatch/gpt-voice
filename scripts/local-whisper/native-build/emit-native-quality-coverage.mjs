@@ -8,6 +8,12 @@ import {
   createNativeQualityManifest,
   normalizeNativeCompilationPath,
 } from './native-quality-manifest.mjs';
+import {
+  assertCodeqlDatabaseSourceCoverage,
+  codeqlDatabaseSources,
+  codeqlDatabaseSourceSha256,
+  workspaceSourceSha256,
+} from './codeql-database-source-coverage.mjs';
 
 function parseArguments(arguments_) {
   const values = new Map();
@@ -83,6 +89,11 @@ try {
     compileCommandFiles(resolve(workspaceRoot, '.cache', 'local-whisper')),
   );
   assertPlatformCompilationCoverage(manifest, platform, compiled);
+  const codeqlSources = codeqlDatabaseSources(codeqlDatabase);
+  assertCodeqlDatabaseSourceCoverage(manifest, platform, codeqlSources.entries, {
+    databaseSha256: (archiveEntry) => codeqlDatabaseSourceSha256(codeqlSources, archiveEntry),
+    workspaceSha256: (sourcePath) => workspaceSourceSha256(workspaceRoot, sourcePath),
+  });
   const report = createNativeQualityCoverageReport({
     compilerProfile: values.get('compiler-profile'),
     evidence: values.get('evidence').split(',').filter(Boolean),

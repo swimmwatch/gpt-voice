@@ -7,9 +7,13 @@ import { WORKSPACE_ROOT } from '../packaging/packagingTestUtils';
 
 const workflowPath = path.join(WORKSPACE_ROOT, '.github', 'workflows', 'local-whisper-native-advisories.yml');
 
+async function readWorkflow(): Promise<string> {
+  return (await readFile(workflowPath, 'utf8')).replace(/\r\n/gu, '\n');
+}
+
 describe('Native source advisory workflow', () => {
   it('runs only on a weekly schedule with read-only authority and no artifact publication', async () => {
-    const workflow = await readFile(workflowPath, 'utf8');
+    const workflow = await readWorkflow();
 
     assert.match(workflow, /^on:\n {2}schedule:\n {4}- cron: '.+'$/mu);
     assert.doesNotMatch(workflow, /^ {2}(?:pull_request|push|workflow_dispatch):/mu);
@@ -22,7 +26,7 @@ describe('Native source advisory workflow', () => {
   });
 
   it('emits and validates one bounded report without running a second live scan', async () => {
-    const workflow = await readFile(workflowPath, 'utf8');
+    const workflow = await readWorkflow();
 
     assert.match(
       workflow,

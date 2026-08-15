@@ -66,7 +66,7 @@ function source(kind: 'advisory' | 'release', result: Result, advisoryIds: reado
 }
 
 function priority(result: Result): number {
-  return { unaffected: 0, unresolved: 2, affected: 3, unavailable: 4, malformed: 5 }[result];
+  return { unaffected: 0, unresolved: 2, unavailable: 4, malformed: 5, affected: 6 }[result];
 }
 
 function report(scannedAt: string, advisoryResult: Result = 'unaffected', releaseResult: Result = 'unaffected') {
@@ -133,6 +133,11 @@ describe('Native source advisory qualification evidence', () => {
     [
       'later affected result',
       [report('2026-08-10T12:00:00.000Z'), report('2026-08-12T12:00:00.000Z', 'affected')],
+      /LATER_ADVERSE_RESULT/u,
+    ],
+    [
+      'later affected result with an unavailable secondary source',
+      [report('2026-08-10T12:00:00.000Z'), report('2026-08-12T12:00:00.000Z', 'affected', 'unavailable')],
       /LATER_ADVERSE_RESULT/u,
     ],
     [

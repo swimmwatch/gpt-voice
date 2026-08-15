@@ -40,6 +40,7 @@ await Promise.all([
 
 await run('node', ['--version']);
 await run('npm', ['--version']);
+await run('node', ['scripts/security/verify-npm-signatures-preinstall.mjs']);
 await run('npm', ['run', 'ci:install']);
 
 if (releaseTag) {

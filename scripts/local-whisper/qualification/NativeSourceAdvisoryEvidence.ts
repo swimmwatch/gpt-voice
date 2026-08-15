@@ -119,7 +119,7 @@ function orderedUniqueAdvisoryIds(value: unknown, code: string): readonly string
 }
 
 function resultPriority(value: AdvisoryResult): number {
-  return { unaffected: 0, unresolved: 2, affected: 3, unavailable: 4, malformed: 5 }[value];
+  return { unaffected: 0, unresolved: 2, unavailable: 4, malformed: 5, affected: 6 }[value];
 }
 
 function worstResult(values: readonly AdvisoryResult[]): AdvisoryResult {

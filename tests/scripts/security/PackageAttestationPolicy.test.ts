@@ -37,7 +37,13 @@ function input(): PackageAttestationInput {
 
 function verify(value = input(), subjectBytes = subjects()): void {
   new PackageAttestationVerifier().verify({
-    expected: { invocation: INVOCATION, platform: 'linux', repository: REPOSITORY, sourceCommit: SOURCE_COMMIT },
+    expected: {
+      invocation: INVOCATION,
+      platform: 'linux',
+      repository: REPOSITORY,
+      sourceCommit: SOURCE_COMMIT,
+      workflowPath: '.github/workflows/pr-checks.yml',
+    },
     input: value,
     subjects: subjectBytes,
   });
@@ -97,7 +103,12 @@ describe('Package attestation policy', () => {
       () =>
         new GitHubAttestationVerifier(command).verify({
           repository: REPOSITORY,
-          subjectPaths: PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+          sourceCommit: SOURCE_COMMIT,
+          subjectPaths: [
+            'attestation-input.json',
+            ...PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+          ],
+          workflowPath: '.github/workflows/pr-checks.yml',
         }),
       /PACKAGE_ATTESTATION_GITHUB_UNSUPPORTED/u,
     );
@@ -110,11 +121,56 @@ describe('Package attestation policy', () => {
         () =>
           new GitHubAttestationVerifier(command).verify({
             repository: REPOSITORY,
-            subjectPaths: PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+            sourceCommit: SOURCE_COMMIT,
+            subjectPaths: [
+              'attestation-input.json',
+              ...PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+            ],
+            workflowPath: '.github/workflows/pr-checks.yml',
           }),
         (error: unknown) =>
           error instanceof Error && error.message === `PACKAGE_ATTESTATION_GITHUB_${result.toUpperCase()}`,
       );
     });
   }
+
+  it('requires the signed input subject and exact provenance identity', async () => {
+    const calls: Array<{ readonly path: string; readonly sourceCommit: string; readonly workflowPath: string }> = [];
+    const command: GitHubAttestationCommand = {
+      verify: async (path, expectation) => {
+        calls.push({ path, sourceCommit: expectation.sourceCommit, workflowPath: expectation.workflowPath });
+        return 'verified';
+      },
+    };
+    const verifier = new GitHubAttestationVerifier(command);
+    const subjectPaths = [
+      'attestation-input.json',
+      ...PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+    ];
+    await verifier.verify({
+      repository: REPOSITORY,
+      sourceCommit: SOURCE_COMMIT,
+      subjectPaths,
+      workflowPath: '.github/workflows/pr-checks.yml',
+    });
+    assert.equal(calls.length, subjectPaths.length);
+    assert.equal(
+      calls.every((call) => call.sourceCommit === SOURCE_COMMIT),
+      true,
+    );
+    assert.equal(
+      calls.every((call) => call.workflowPath === '.github/workflows/pr-checks.yml'),
+      true,
+    );
+    await assert.rejects(
+      () =>
+        verifier.verify({
+          repository: REPOSITORY,
+          sourceCommit: SOURCE_COMMIT,
+          subjectPaths: subjectPaths.filter((path) => path !== 'attestation-input.json'),
+          workflowPath: '.github/workflows/pr-checks.yml',
+        }),
+      /PACKAGE_ATTESTATION_SUBJECT_UNAVAILABLE/u,
+    );
+  });
 });

@@ -31,6 +31,13 @@ interface WorkflowStep {
   readonly with?: unknown;
 }
 
+function isAttestationJob(workflowName: string, jobName: string): boolean {
+  return (
+    (workflowName === 'pr-checks.yml' && jobName === 'package-attestation') ||
+    (workflowName === 'release-builds.yml' && jobName === 'attest-release')
+  );
+}
+
 function parseWorkflow(text: string, name: string): WorkflowDocument {
   const value = parse(text) as unknown;
   if (!isRecord(value) || !isRecord(value.jobs) || !isRecord(value.permissions)) {
@@ -60,11 +67,7 @@ function stepsFor(workflow: WorkflowDocument, workflowName: string): readonly [s
     if (!isRecord(job)) throw new Error(`Job ${jobName} must be an object`);
     if (job.permissions !== undefined) {
       if (!isRecord(job.permissions)) throw new Error(`Job ${jobName} permissions must be an object`);
-      validatePermissions(
-        job.permissions,
-        `Job ${jobName}`,
-        workflowName === 'pr-checks.yml' && jobName === 'package-attestation',
-      );
+      validatePermissions(job.permissions, `Job ${jobName}`, isAttestationJob(workflowName, jobName));
     }
     if (job.steps === undefined) continue;
     if (!Array.isArray(job.steps)) throw new Error(`Job ${jobName} steps must be an array`);
@@ -161,23 +164,32 @@ function hasExactPermissions(value: unknown, expected: Readonly<Record<string, s
 }
 
 function validatePackageAttestationWorkflow(workflow: WorkflowDocument, name: string): void {
-  if (name !== 'pr-checks.yml') return;
-  const attestation = workflow.jobs['package-attestation'];
-  const packageSmoke = workflow.jobs['package-smoke'];
+  if (name !== 'pr-checks.yml' && name !== 'release-builds.yml') return;
+  const attestationJobName = name === 'pr-checks.yml' ? 'package-attestation' : 'attest-release';
+  const inputJobName = name === 'pr-checks.yml' ? 'package-attestation-input' : 'verify-release-attestation-input';
+  const attestation = workflow.jobs[attestationJobName];
+  const inputVerification = workflow.jobs[inputJobName];
+  const packageSmoke = name === 'pr-checks.yml' ? workflow.jobs['package-smoke'] : null;
+  const expectedNeeds = name === 'pr-checks.yml' ? 'package-attestation-input' : ['verify-release-attestation-input'];
+  const expectedInputNeeds = name === 'pr-checks.yml' ? 'package-smoke' : ['build-linux', 'build-windows'];
   if (
     !isRecord(attestation) ||
-    !isRecord(packageSmoke) ||
-    attestation.needs !== 'package-smoke' ||
+    !isRecord(inputVerification) ||
+    (name === 'pr-checks.yml' && !isRecord(packageSmoke)) ||
+    JSON.stringify(attestation.needs) !== JSON.stringify(expectedNeeds) ||
+    JSON.stringify(inputVerification.needs) !== JSON.stringify(expectedInputNeeds) ||
     !hasExactPermissions(attestation.permissions, { attestations: 'write', contents: 'read', 'id-token': 'write' }) ||
-    !hasExactPermissions(packageSmoke.permissions, { contents: 'read' }) ||
+    !hasExactPermissions(inputVerification.permissions, { contents: 'read' }) ||
+    (name === 'pr-checks.yml' &&
+      !hasExactPermissions((packageSmoke as Record<string, unknown>).permissions, { contents: 'read' })) ||
     !Array.isArray(attestation.steps)
   ) {
-    throw new Error('pr-checks package attestation permissions are not least-privilege');
+    throw new Error(`${name} attestation permissions are not least-privilege`);
   }
   for (const [jobName, job] of Object.entries(workflow.jobs)) {
-    if (!isRecord(job) || jobName === 'package-attestation') continue;
+    if (!isRecord(job) || isAttestationJob(name, jobName)) continue;
     if (isRecord(job.permissions) && 'id-token' in job.permissions) {
-      throw new Error(`pr-checks job ${jobName} must not receive an identity token`);
+      throw new Error(`${name} job ${jobName} must not receive an identity token`);
     }
   }
   const attestationSteps = attestation.steps.filter(isRecord);
@@ -185,9 +197,9 @@ function validatePackageAttestationWorkflow(workflow: WorkflowDocument, name: st
     !attestationSteps.some(
       (step) => step.uses === 'actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661',
     ) ||
-    !attestationSteps.some((step) => typeof step.run === 'string' && step.run.includes('--verify-github'))
+    !attestationSteps.some((step) => typeof step.run === 'string' && step.run.includes('gh attestation verify'))
   ) {
-    throw new Error('pr-checks package attestation must create and verify GitHub-native attestations');
+    throw new Error(`${name} attestation job must create and verify GitHub-native attestations`);
   }
 }
 

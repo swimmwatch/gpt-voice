@@ -14,11 +14,13 @@ import {
   type ApplicationSecurityPlatform,
 } from './applicationArtifactSecurity';
 import { withVerifiedRegularFile } from './verifiedRegularFile';
+import { trivyDatabaseIdentity } from './trivyDatabaseIdentity';
 
 const workspaceRoot = path.resolve(
   process.env.APPLICATION_ARTIFACT_SECURITY_WORKSPACE ?? path.resolve(__dirname, '..', '..'),
 );
 const MAXIMUM_SCANNER_OUTPUT_BYTES = 512 * 1024;
+const MAXIMUM_SCANNER_DATABASE_BYTES = 1024 * 1024 * 1024;
 const MAXIMUM_VERSION_OUTPUT_BYTES = 4096;
 const MAXIMUM_PACKAGE_BYTES = 4 * 1024 * 1024 * 1024;
 const MAXIMUM_PACKAGE_METADATA_BYTES = 64 * 1024;
@@ -293,10 +295,39 @@ async function runTrivyScan(input: {
   });
 }
 
-async function databaseEvidence(databasePath: string): Promise<{ readonly bytes: Buffer; readonly value: unknown }> {
+async function regularFileDigest(
+  filePath: string,
+  maximumBytes: number,
+): Promise<{ readonly sha256: string; readonly size: number }> {
   return await withVerifiedRegularFile(
     {
-      filePath: databasePath,
+      filePath,
+      invalid: () => fail('DATABASE_INVALID'),
+      maximumBytes,
+      minimumBytes: 1,
+      unavailable: () => fail('DATABASE_UNAVAILABLE'),
+    },
+    async (file, expectedSize) => {
+      const digest = createHash('sha256');
+      const chunk = Buffer.allocUnsafe(64 * 1024);
+      let offset = 0;
+      while (offset < expectedSize) {
+        const length = Math.min(chunk.byteLength, expectedSize - offset);
+        const result = await file.read(chunk, 0, length, offset).catch(() => fail('DATABASE_UNAVAILABLE'));
+        if (result.bytesRead !== length) fail('DATABASE_INVALID');
+        digest.update(chunk.subarray(0, length));
+        offset += length;
+      }
+      return Object.freeze({ sha256: digest.digest('hex'), size: expectedSize });
+    },
+  );
+}
+
+async function databaseEvidence(cacheDirectory: string): Promise<{ readonly sha256: string; readonly value: unknown }> {
+  const metadataPath = path.join(cacheDirectory, 'db', 'metadata.json');
+  const metadata = await withVerifiedRegularFile(
+    {
+      filePath: metadataPath,
       invalid: () => fail('DATABASE_INVALID'),
       maximumBytes: MAXIMUM_SCANNER_OUTPUT_BYTES,
       minimumBytes: 1,
@@ -305,9 +336,15 @@ async function databaseEvidence(databasePath: string): Promise<{ readonly bytes:
     async (file, expectedSize) => {
       const bytes = await file.readFile().catch(() => fail('DATABASE_UNAVAILABLE'));
       if (bytes.byteLength !== expectedSize) fail('DATABASE_INVALID');
-      return Object.freeze({ bytes, value: parseJson(bytes, 'DATABASE_INVALID') });
+      return Object.freeze({
+        sha256: sha256(bytes),
+        size: expectedSize,
+        value: parseJson(bytes, 'DATABASE_INVALID'),
+      });
     },
   );
+  const payload = await regularFileDigest(path.join(cacheDirectory, 'db', 'trivy.db'), MAXIMUM_SCANNER_DATABASE_BYTES);
+  return Object.freeze({ sha256: trivyDatabaseIdentity(metadata, payload), value: metadata.value });
 }
 
 function sourceCommit(value: string): string {
@@ -327,7 +364,7 @@ async function main(): Promise<void> {
     if (scanner !== 'trivy') fail('ARGUMENT_INVALID');
     const cacheDirectory = option('database-directory') ?? process.env.TRIVY_CACHE_DIR;
     if (!cacheDirectory) fail('DATABASE_UNAVAILABLE');
-    const databasePath = path.join(path.resolve(cacheDirectory), 'db', 'metadata.json');
+    const resolvedCacheDirectory = path.resolve(cacheDirectory);
     const packageMetadata = await metadata();
     const root = unpackedRoot(platform_);
     const filesystemTarget = scannerTarget(root);
@@ -359,7 +396,7 @@ async function main(): Promise<void> {
     const checksumSha256 = sha256(checksumBytes);
     await scannerVersion(scanner);
     await prepareDatabase(scanner);
-    const database = await databaseEvidence(databasePath);
+    const database = await databaseEvidence(resolvedCacheDirectory);
     const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-artifact-security-'));
     try {
       const filesystemReport = await runTrivyScan({
@@ -392,7 +429,7 @@ async function main(): Promise<void> {
         const record = policy.createRecord({
           checksumSha256,
           database: database.value,
-          databaseSha256: sha256(database.bytes),
+          databaseSha256: database.sha256,
           filesystemReport,
           filesystemTarget,
           now: new Date(),
