@@ -1643,7 +1643,7 @@ decisions:
   - id: authorization.packet-01
     revision: 5
     category: execution
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
@@ -1670,4 +1670,28 @@ decisions:
       text: ''
     rationale: The user explicitly authorized the reviewed Packet 01 implementation commit, branch push, and waiting for all five required CI checks; Packet 02 and representative-host benchmarks remain outside this authorization.
     supersedes_revision: 4
+    requirement_ids: [SCP-003, AC-AUT-015]
+
+  - id: authorization.packet-01
+    revision: 6
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User instructed "Fix this in parallel" after the implementation SHA produced an actionable GitHub Advanced Security failure.
+      - Commit d243899f640cee3785110a5b47002d51f46b5e53.
+      - GitHub Actions run 31875841093.
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Fix this in parallel.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [authorize-separate-ci-fix]
+      text: Create, commit, and push the isolated CI remediation, then wait for the exact-SHA Linux and Windows checks.
+    rationale: The user explicitly authorized the actionable CI remediation as the separate fix commit required by Packet 01; Packet 02 and representative-host benchmarks remained out of scope.
+    supersedes_revision: 5
     requirement_ids: [SCP-003, AC-AUT-015]
