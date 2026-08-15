@@ -1,7 +1,7 @@
 # Local Whisper Performance Remediation Handoff
 
-- Completed packets: Packets 01-02; Packet 03 local implementation and Linux verification are complete but
-  uncommitted
+- Completed packets: Packets 01-02; Packet 03 implementation and Linux verification are committed as
+  `f0a199ed7764f015602b7910b19c819d5754297d`, with push and required exact-SHA CI still open
 - Packet 03 changes: `Sha256` keeps its public lifecycle while selecting one immutable block transform from local
   CPUID evidence; a baseline dispatch translation unit owns detection, a dedicated x64 translation unit owns SHA-NI
   rounds, and the scalar implementation remains the unsupported or unavailable fallback
@@ -25,9 +25,10 @@
   first use, accelerated dispatch, and scalar fallback remain CI-only on the Linux development host
 - Reconciliation evidence: unpublished Packet 02 ledger commit `1564af2c` was rebased as `739c09ec` onto remote
   commits `c58f39b3` and `26c6cb2b`; all Packet 03 verification was rerun successfully on the integrated tree
-- Next action: commit Packet 03 under the standing invocation authority, then push it outside this skill and obtain
-  the required exact-SHA CI results; Packet 04 remains blocked until Packet 03 exact-SHA CI is green
+- Next action: push immutable Packet 03 commit `f0a199ed7764f015602b7910b19c819d5754297d` outside this skill and
+  obtain the required exact-SHA CI results; Packet 04 remains blocked until Packet 03 exact-SHA CI is green
 - Remaining manual gates: representative unsupported-CPU behavior is deferred to Packet 14; no package publication
   or host-specific binary commit is authorized
-- Local branch state: `739c09ec` is one commit ahead of `origin/feat/local-whisper-provider`; Packet 03
-  implementation and ledger changes are uncommitted
+- Local branch state after this ledger commit: reconciled Packet 02 ledger `739c09ec`, Packet 03 implementation
+  `f0a199ed`, and this Packet 03 ledger commit are three commits ahead of `origin/feat/local-whisper-provider`; no
+  Packet 03 files remain uncommitted
