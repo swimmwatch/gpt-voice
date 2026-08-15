@@ -663,3 +663,91 @@
   execution from the exact supported-host inputs above. Hosted contract-only
   evidence, CPU fallback, another GPU, another compiler, or another target is
   rejected.
+
+## Packet 20 CUDA Amendment Completion Evidence
+
+- Packet 20 is complete. The final validated branch candidate is
+  `a39d10dc7eff5a489093d5d003a18ddeff18896c`; its Packet 20 commits remain
+  `c58f39b3e1245b4ef3253ab0e3e84be3dc556fcd` and
+  `26c6cb2ba18da9f761b1ce87fe7200e6e50d7468`, based on the intentionally
+  advanced reviewed predecessor `db85c43e78995710772b0ac6e6e113a0250ce4b5`.
+  The later branch advances `739c09ec`, `f0a199ed`, and `a39d10dc` were
+  inspected; the shared SHA-256 dispatch change in `f0a199ed` kept Packet 20
+  applicable and required the final rerun recorded below. The remote head and
+  final clean-LF candidate matched, and the candidate had zero tracked changes.
+- The full elevated supported-host manifest passed from an administrator token
+  on candidate `a39d10dc7eff5a489093d5d003a18ddeff18896c`. Its private bounded result
+  role is `candidate-windows-readiness-result.json`; the associated role-log
+  SHA-256 is
+  `7abc483ceca59e6c29d2ea2c1fd066210283f27dd7f50f422591185ba734c217`.
+  The run passed all contracts, ordinary native quality, release helpers, CPU
+  and CUDA pack production, CUDA verification, real CPU and CUDA integration,
+  pack audit, application smoke, production build, unpacked Windows package
+  build, and both packaged-verification commands. No ambient process was
+  terminated.
+- The clean CPU pack used profile `windows-x64-cpu-msvc-19.51-v1`. Its two
+  independent roots matched with archive SHA-256
+  `55abecad7eef72b5a05f9d15452a6a6e9739baaa08223a5f7dbc7f2419998342`,
+  pack-record digest
+  `417f974b90548f8b839d1eb4af64e838a9e6363126b71b7fb03bb3d494b03a85`,
+  and reproducibility digest
+  `95a822f837ba76d76e5f3af79ed4bf2f9342c63a5228d07ddff0f17d1af3e95d`.
+- The clean CUDA pack used profile
+  `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1`. Its two independent roots
+  matched with archive SHA-256
+  `75fe6774ae248ecddd2ebcd3b50492577115a5be1d6893def375f2f831dd9d63`,
+  pack-record digest
+  `b9708e7b503beefd4142c12a5551bf44e03565125ab7916e8c9c68af1de36909`,
+  and reproducibility digest
+  `ccdc56b6afb0783cedf864f407d3b8bfe6fcf901014ed1fbec99e070c5031e6c`.
+  Network isolation remained `fetchcontent-disconnected-isolated-toolchain`;
+  no CPU fallback, alternate GPU, compiler, CUDA version, or compute target was
+  accepted.
+- Windows AC-MAN-003 passed against the exact smoke-tested optimized PE bytes.
+  Filesystem guard SHA-256 is
+  `a5b4debf92a7985ba8bd57f4203dc4af173939b4445de7632592c66d05cefb03`;
+  launcher SHA-256 is
+  `ccac075897f166d18219df248be1b6da7544946b7f7a3505b2db977f3cfe4cbd`;
+  CPU worker SHA-256 is
+  `c231692d9ce7100c3b8eeaa5efc4b54ec22d5ab0b83675ebfac2d9049c7b561a`;
+  and CUDA worker SHA-256 is
+  `0b7d2475506a153b702084bd98d9cc038e8866326cbbca33b4a522b8377f93f7`.
+  Both canonical workers matched their reproducible pack records. Live PE
+  inspection confirmed ASLR, CFG, high-entropy VA, NX, and stack cookie for
+  all four roles; the private hardening role-log SHA-256 is
+  `b2890cfe15f1dbfb0228703a06fb447b5c73bfc334b32f3a20cb3019ca94bab1`.
+- AC-MAN-002, AC-MAN-004, AC-MAN-009, and AC-MAN-011 are complete for the
+  amended Windows scope. The final direct application smoke reported CPU,
+  CUDA, offline reuse, cleanup, diagnostics archive, and native privacy as
+  `Pass`; the independently validated private diagnostics-archive SHA-256 is
+  `c18545569968da5d2ee67e6bf20fc04866b1eb57e803d174a6f0dfe89b23cb44`.
+  Authorized public WAV and model roles retained their recorded digests; no
+  input contents, transcripts, private paths, or raw native output were
+  retained in repository evidence.
+- Exact-SHA hosted evidence for
+  `a39d10dc7eff5a489093d5d003a18ddeff18896c` is Dependency Review
+  `31880473089`, Actionlint `31880473062`, fixture packaging `31880473069`,
+  Repository Security `31880473072`, and Pull Request Checks `31880473063`
+  attempt 2. All five workflows succeeded. All 20 Pull Request jobs succeeded,
+  including Linux static analysis, GCC/package, Core/CodeQL, performance,
+  native quality, Windows Core/CodeQL, MSVC `/analyze`, dedicated MSVC ASan,
+  Fedora and Windows package smoke, both attestations, JavaScript/TypeScript
+  CodeQL, and Quality Gates. No required job was skipped, cancelled, or
+  continued on error. Attempt 1 was cancelled externally; the complete
+  exact-SHA attempt 2 rerun passed without a code or gate downgrade.
+- Validation-harness remediation remained private and untracked. A top-level
+  cache junction correctly produced `IDENTITY_REJECTED`, and a `node_modules`
+  junction correctly produced `Electron runtime unavailable`; materializing
+  both owned temp-worktree roles preserved the product security checks and the
+  final full manifest passed. One CUDA load transient did not reproduce in an
+  immediate exact focused rerun and did not recur in the final full elevated
+  run. No unsupported product workaround or evidence substitution was added.
+- Packet 20's code-bearing changed-file scope remains 38 tracked roles relative
+  to `db85c43e78995710772b0ac6e6e113a0250ce4b5` through `26c6cb2b`: two runtime profile/CMake roles,
+  20 build/readiness/qualification scripts, four main-process implementation
+  roles, eleven focused regression roles, and the active handoff record. The
+  completion commit changes only `todo.md` and `handoff.md`. Generated
+  binaries, packs, reports, archives, logs, models, audio, transcripts,
+  environment dumps, credentials, and machine-specific paths remain untracked.
+- Blockers: none.
+- Exact next packet: none.
