@@ -194,7 +194,7 @@ describe('production Local Whisper environment activation', () => {
     );
   });
 
-  it('projects the current host CPU runtime while a saved CUDA configuration remains selected', () => {
+  it('projects every host runtime for qualification while production remains selection-scoped', () => {
     const payload = createQualificationCatalogPayload();
     const cpuRuntime = payload.runtimes.find(({ identity }) => identity.target === 'cpu');
     const cudaRuntime = payload.runtimes.find(
@@ -312,6 +312,35 @@ describe('production Local Whisper environment activation', () => {
     assert.equal(
       runtimeArtifacts.some((artifact) => artifact.revision === foreignRuntimeRevision),
       false,
+    );
+
+    const cpuSettings: LocalWhisperSettings = Object.freeze({
+      ...settings,
+      execution: Object.freeze({ target: 'cpu', backend: 'cpu', cpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS }),
+      runtimeRevision: cpuRuntime.identity.packRevision,
+    });
+    const cpuQualificationArtifacts = rendererArtifacts(catalog, inventory, cpuSettings, {
+      applicability,
+      cuda,
+      host: { architecture: 'x64', platform: 'linux' },
+    });
+    assert.deepEqual(
+      cpuQualificationArtifacts.filter((artifact) => artifact.kind === 'runtime').map((artifact) => artifact.revision),
+      [cpuRuntime.identity.packRevision, cudaRuntime.identity.packRevision],
+    );
+
+    const productionCatalog: LocalWhisperAuthenticatedCatalog = Object.freeze({
+      ...catalog,
+      payload: Object.freeze({ ...catalog.payload, purpose: 'production' as const }),
+    });
+    const cpuProductionArtifacts = rendererArtifacts(productionCatalog, inventory, cpuSettings, {
+      applicability,
+      cuda,
+      host: { architecture: 'x64', platform: 'linux' },
+    });
+    assert.deepEqual(
+      cpuProductionArtifacts.filter((artifact) => artifact.kind === 'runtime').map((artifact) => artifact.revision),
+      [cpuRuntime.identity.packRevision],
     );
   });
 

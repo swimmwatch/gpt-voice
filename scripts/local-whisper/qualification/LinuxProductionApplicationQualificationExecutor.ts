@@ -1,12 +1,15 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
 import { availableParallelism, freemem } from 'node:os';
 import * as path from 'node:path';
 import { setTimeout as wait } from 'node:timers/promises';
+import { promisify } from 'node:util';
 
 import { NodeArtifactHttpClient } from '@main/localWhisper/artifacts/NodeArtifactHttpClient';
+import { NvidiaSmiHostInventory } from '@main/localWhisper/capability/NvidiaSmiHostInventory';
+import { NvidiaSmiVramAvailability } from '@main/localWhisper/capability/NvidiaSmiVramAvailability';
 import type { LocalWhisperCatalogTrustPolicy } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import { ProductionLocalWhisperEnvironmentFactory } from '@main/localWhisper/composition/createProductionLocalWhisperEnvironment';
 import { toLocalWhisperArtifactId, toLocalWhisperRevisionId } from '@shared/localWhisper';
@@ -21,6 +24,10 @@ import { LinuxResourceSampler } from './LinuxResourceSampler';
 import { ProductionApplicationQualificationRunner } from './ProductionApplicationQualificationRunner';
 import { QualificationArtifactHttpClient } from './QualificationArtifactHttpClient';
 import type { QualificationLinuxRowEvidence } from './QualificationResultProducer';
+
+const execFileAsync = promisify(execFile);
+const NVIDIA_SMI_MAXIMUM_BUFFER_BYTES = 16 * 1024;
+const NVIDIA_SMI_TIMEOUT_MILLISECONDS = 10_000;
 
 export interface LinuxApplicationQualificationExecutionInput {
   readonly bundleDirectory: string;
@@ -68,6 +75,17 @@ function trustPolicy(keyringValue: unknown): LocalWhisperCatalogTrustPolicy {
   });
 }
 
+async function runNvidiaSmi(executablePath: string, arguments_: readonly string[]): Promise<string> {
+  const result = await execFileAsync(executablePath, [...arguments_], {
+    encoding: 'utf8',
+    env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
+    maxBuffer: NVIDIA_SMI_MAXIMUM_BUFFER_BYTES,
+    timeout: NVIDIA_SMI_TIMEOUT_MILLISECONDS,
+    windowsHide: true,
+  });
+  return result.stdout;
+}
+
 /** Owns production application composition for one bounded Linux qualification run. */
 export class LinuxProductionApplicationQualificationExecutor implements LinuxApplicationQualificationPort {
   public async run(
@@ -91,6 +109,19 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
     const sampler = new LinuxResourceSampler(
       path.join(execution.input.workspaceRoot, 'scripts/local-whisper/qualification/linux_resource_sampler.py'),
     );
+    const nvidiaCommand = Object.freeze({ run: runNvidiaSmi });
+    const nvidiaInventory = new NvidiaSmiHostInventory({
+      platform: 'linux',
+      environment: process.env,
+      pathExists: fs.existsSync,
+      command: nvidiaCommand,
+    });
+    const vramAvailability = new NvidiaSmiVramAvailability({
+      platform: 'linux',
+      environment: process.env,
+      pathExists: fs.existsSync,
+      command: nvidiaCommand,
+    });
     const application = new ProductionApplicationQualificationRunner({
       createEnvironment: (onSessionProcessLaunched) =>
         new ProductionLocalWhisperEnvironmentFactory(
@@ -98,8 +129,8 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
             appRevision: policy.appRevision,
             architecture: 'x64',
             availableMemoryBytes: freemem,
-            availableVramBytes: () => Promise.resolve(null),
-            readNvidiaInventory: () => Promise.resolve({ available: false, reason: 'DEVICE_NOT_FOUND' }),
+            availableVramBytes: (nativeIdentity) => vramAvailability.sample(nativeIdentity),
+            readNvidiaInventory: () => nvidiaInventory.read(),
             configurationRoot,
             environment: Object.freeze({
               HOME: homeRoot,

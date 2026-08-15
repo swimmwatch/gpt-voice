@@ -250,6 +250,7 @@ function selectedRuntimeEntry(
 }
 
 function hasRuntimeArtifactAccess(
+  catalog: LocalWhisperAuthenticatedCatalog,
   entry: LocalWhisperCatalogRuntimeEntry,
   selectedRuntime: LocalWhisperCatalogRuntimeEntry | undefined,
   host: Pick<LocalWhisperSettingsValidationContext, 'architecture' | 'platform'>,
@@ -258,8 +259,8 @@ function hasRuntimeArtifactAccess(
     entry === selectedRuntime ||
     (entry.identity.platform === host.platform &&
       entry.identity.architecture === host.architecture &&
-      entry.identity.target === 'cpu' &&
-      entry.identity.backend === 'cpu')
+      (catalog.payload.purpose === 'qualification' ||
+        (entry.identity.target === 'cpu' && entry.identity.backend === 'cpu')))
   );
 }
 
@@ -276,7 +277,7 @@ export function rendererArtifacts(
 ): readonly LocalWhisperRendererArtifact[] {
   const selectedRuntime = selectedRuntimeEntry(catalog, settings, runtime.applicability, runtime.cuda);
   const runtimes = catalog.payload.runtimes.flatMap((entry, index) => {
-    if (!hasRuntimeArtifactAccess(entry, selectedRuntime, runtime.host)) return [];
+    if (!hasRuntimeArtifactAccess(catalog, entry, selectedRuntime, runtime.host)) return [];
     const item = inventory.runtimes[index];
     if (!item) return [];
     const descriptor = createManagedRuntimeDescriptor(catalog, entry);
@@ -1321,7 +1322,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
           cudaApplicability,
           cuda,
         );
-        if (runtime) return hasRuntimeArtifactAccess(runtime, selectedRuntime, context);
+        if (runtime) return hasRuntimeArtifactAccess(loaded.catalog, runtime, selectedRuntime, context);
         const model = loaded.catalog.payload.models.find(
           (entry) => createManagedModelDescriptor(loaded.catalog, entry).artifactId === artifactId,
         );
