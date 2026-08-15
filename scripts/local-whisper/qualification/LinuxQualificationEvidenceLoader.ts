@@ -26,6 +26,10 @@ import type {
 } from './ProductionApplicationQualificationRunner';
 import type { QualificationCachedArtifact } from './QualificationArtifactHttpClient';
 import type { QualificationCandidateSeed, QualificationLinuxPlatformSeed } from './QualificationInputProducer';
+import {
+  PerformanceRuntimeArchiveInspector,
+  type PerformanceRuntimeArchiveEvidence,
+} from './PerformanceRuntimeArchiveInspector';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const SOURCE_COMMIT = 'f049fff95a089aa9969deb009cdd4892b3e74916';
@@ -135,6 +139,21 @@ function expectedRuntimeFiles(value: readonly unknown[]): LocalWhisperRuntimeIde
       });
     }),
   );
+}
+
+export function qualificationRuntimeArchiveBuildDigest(
+  profileId: string,
+  expectedFiles: LocalWhisperRuntimeIdentity['expectedFiles'],
+  archive: PerformanceRuntimeArchiveEvidence,
+): string {
+  if (
+    archive.profileId !== profileId ||
+    serializeCanonicalLocalWhisperCatalogJson(archive.expectedFiles) !==
+      serializeCanonicalLocalWhisperCatalogJson(expectedFiles)
+  ) {
+    throw new Error('Qualification runtime archive evidence mismatch');
+  }
+  return archive.runtimeBuildDigest;
 }
 
 async function loadModels(cacheRoot: string): Promise<{
@@ -337,7 +356,11 @@ async function loadRuntime(cacheRoot: string, backend: 'cpu' | 'cuda'): Promise<
     arrayField(pack, 'expectedFiles', 'Qualification runtime file matrix invalid'),
   );
   const packRevision = qualificationRuntimeRevision(backend, profileId);
-  const runtimeBuildDigest = digestField(direct, 'runtimeBuildDigest', 'Qualification runtime build invalid');
+  const runtimeBuildDigest = qualificationRuntimeArchiveBuildDigest(
+    profileId,
+    expectedFiles,
+    await new PerformanceRuntimeArchiveInspector().inspect(archivePath),
+  );
   const directBinary = record(direct.binary, 'Qualification direct-engine binary invalid');
   const directEngine: QualificationDirectEngine = Object.freeze({
     backend,
