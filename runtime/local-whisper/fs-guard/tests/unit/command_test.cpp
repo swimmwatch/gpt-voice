@@ -22,7 +22,7 @@ TEST(CommandParserTest, ParsesEverySupportedCommand) {
        {"root", kArtifactName, "1234567890abcdef", "1", "identity", "staging", kArtifactName}},
       {"CREATE_STAGING", {"root", "model", kArtifactName, "1234567890abcdef"}},
       {"CREATE_FILE", {"directory", "file-model", "384"}},
-      {"WRITE_FILE", {"file", "aGVsbG8"}},
+      {"WRITE_FILE", {"file", "hello"}},
       {"SEAL_FILE", {"file"}},
       {"LIST", {"directory", "file-model|384"}},
       {"LIST_NAMESPACE", {"root", "models"}},
@@ -69,7 +69,7 @@ TEST(CommandParserTest, ConvertsWireValuesToClosedDomainsBeforeDispatch) {
   const auto& create_command = std::get<CreateFileCommand>(create);
   EXPECT_EQ(create_command.mode.value(), 384U);
 
-  const Command write = parse_command("WRITE_FILE", {"file", "aGVsbG8"});
+  const Command write = parse_command("WRITE_FILE", {"file", "hello"});
   EXPECT_EQ(std::get<WriteFileCommand>(write).bytes, "hello");
 
   const Command list = parse_command("LIST", {"directory", "file-model|384"});

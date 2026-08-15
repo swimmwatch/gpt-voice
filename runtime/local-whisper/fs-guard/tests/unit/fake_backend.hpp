@@ -9,6 +9,7 @@ namespace local_whisper::fs_guard::test {
 class RecordingBackend final : public Backend {
 public:
   [[nodiscard]] const std::string& last_call() const noexcept { return last_call_; }
+  [[nodiscard]] const std::string& last_write_bytes() const noexcept { return last_write_bytes_; }
 
 #define FS_GUARD_RECORD(method, type)                                                              \
   ResponseFields method(const type&) override {                                                    \
@@ -21,7 +22,6 @@ public:
   FS_GUARD_RECORD(lock, LockCommand)
   FS_GUARD_RECORD(create_staging, CreateStagingCommand)
   FS_GUARD_RECORD(create_file, CreateFileCommand)
-  FS_GUARD_RECORD(write_file, WriteFileCommand)
   FS_GUARD_RECORD(seal_file, SealFileCommand)
   FS_GUARD_RECORD(list, ListCommand)
   FS_GUARD_RECORD(list_namespace, ListNamespaceCommand)
@@ -37,8 +37,15 @@ public:
 
 #undef FS_GUARD_RECORD
 
+  ResponseFields write_file(const WriteFileCommand& command) override {
+    last_call_ = "write_file";
+    last_write_bytes_ = command.bytes;
+    return {last_call_};
+  }
+
 private:
   std::string last_call_;
+  std::string last_write_bytes_;
 };
 
 } // namespace local_whisper::fs_guard::test

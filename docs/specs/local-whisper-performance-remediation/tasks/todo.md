@@ -1,17 +1,20 @@
 # Local Whisper Performance Remediation Todo
 
 - Plan status: Approved revision 3 on 2026-08-15
-- Execution status: Packets 01-02 complete; Packet 03 implementation `f0a199ed` and Linux verification are complete,
-  with push and required exact-SHA CI still pending
+- Execution status: Packets 01-02 complete; Packet 03 is pushed but its exact-SHA CI has not been inspected; Packet 04
+  implementation and local verification are complete and uncommitted. Per user direction, do not push or inspect CI
+  before Packet 11.
 
 - [x] [01 Qualification contract and baseline](01_qualification_contract_and_baseline.md) — implementation
       `8a808757`, separate fix `d243899f`, and all required final-SHA CI checks completed successfully
 - [x] [02 Launch-lease directory-result reuse](02_launch_lease_directory_result_reuse.md) — implementation
       `db85c43e` reduces Linux/Windows full-model proof counts from 8/7 to 7/6; all required exact-SHA CI checks
       completed successfully
-- [ ] [03 Runtime SHA-256 dispatch](03_runtime_sha256_dispatch.md) — implementation `f0a199ed` adds immutable
-      CPUID dispatch, isolated SHA-NI code, scalar fallback, and concurrent-first-use proof; push and CI pending
-- [ ] [04 Filesystem-guard protocol-v2 codec](04_fs_guard_protocol_v2_codec.md)
+- [ ] [03 Runtime SHA-256 dispatch](03_runtime_sha256_dispatch.md) — implementation `f0a199ed` and ledger
+      `a39d10dc` are pushed; exact-SHA CI inspection is deferred until Packet 11
+- [x] [04 Filesystem-guard protocol-v2 codec](04_fs_guard_protocol_v2_codec.md) — local implementation derives a
+      193,483-byte raw chunk and passes all required Linux checks; commit, push, and exact-SHA CI are deferred until
+      Packet 11
 - [ ] [05 Bounded installation pipeline](05_bounded_installation_pipeline.md)
 - [ ] [06 Worker warm-up and log ordering](06_worker_warmup_and_log_ordering.md)
 - [ ] [07 WAV buffer lifetime](07_wav_buffer_lifetime.md)

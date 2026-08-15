@@ -207,7 +207,6 @@ using Command =
                  DeleteFileCommand, DeleteStagingFileCommand, RemoveQuarantineCommand,
                  RemoveStagingCommand, RevalidateCommand, ReleaseCommand>;
 
-[[nodiscard]] Command parse_command(const std::string& name,
-                                    const std::vector<std::string>& arguments);
+[[nodiscard]] Command parse_command(const std::string& name, std::vector<std::string> arguments);
 
 } // namespace local_whisper::fs_guard

@@ -447,13 +447,13 @@ TEST(RealBackendIntegrationTest, GuardApplicationUsesTheRealBackendThroughStream
   TemporaryManagedRoot root_path;
   auto backend = make_backend();
   GuardApplication application(*backend);
-  const std::string request = "1\t1\tINIT\t" + base64url_encode(platform_name()) + "\t" +
+  const std::string request = "1\t2\tINIT\t" + base64url_encode(platform_name()) + "\t" +
                               base64url_encode(root_path.path().string()) + "\n";
   std::istringstream input(request);
   std::ostringstream output;
 
   EXPECT_EQ(application.run(input, output), 0);
-  EXPECT_TRUE(output.str().starts_with("1\t1\tOK\t"));
+  EXPECT_TRUE(output.str().starts_with("1\t2\tOK\t"));
 }
 
 #if defined(_WIN32)

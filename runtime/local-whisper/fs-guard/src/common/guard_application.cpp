@@ -61,7 +61,7 @@ ResponseFields dispatch_command(Backend& backend, const Command& command) {
 GuardApplication::GuardApplication(Backend& backend) noexcept : backend_(backend) {}
 
 int GuardApplication::run(std::istream& input, std::ostream& output) {
-  BoundedLineReader reader(kMaxLineBytes);
+  BoundedLineReader reader(kMaxRequestPayloadBytes);
   while (true) {
     const LineReadResult line = reader.read(input);
     if (line.status == LineReadStatus::kEnd)

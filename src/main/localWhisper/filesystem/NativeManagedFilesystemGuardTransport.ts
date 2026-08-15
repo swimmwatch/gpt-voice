@@ -7,11 +7,30 @@ import {
 } from '../supervisor/NativeRuntimeLogLaunchEnvironment';
 import { NativeRuntimeLogStreamDecoder, type NativeRuntimeLogRelay } from '../supervisor/NativeRuntimeLogStreamDecoder';
 
-const GUARD_PROTOCOL_VERSION = '1';
-const MAX_GUARD_LINE_BYTES = 256 * 1024;
+// protocol.hpp is the canonical cross-language owner; parity tests pin these mirrors.
+export const GUARD_PROTOCOL_VERSION = '2';
+export const MAX_GUARD_REQUEST_PAYLOAD_BYTES = 256 * 1024;
+export const GUARD_PROTOCOL_FUTURE_HEADROOM_BYTES = 4 * 1024;
+
+const MAX_GUARD_REQUEST_ID_BYTES = 20;
+const MAX_GUARD_FILE_TOKEN_BYTES = 'lease-'.length + 20;
+const WRITE_FILE_COMMAND = 'WRITE_FILE';
+const WRITE_FILE_SEPARATOR_BYTES = 4;
+const MAX_ENCODED_FILE_TOKEN_BYTES = Math.ceil((MAX_GUARD_FILE_TOKEN_BYTES * 4) / 3);
+const WRITE_FILE_FIXED_PAYLOAD_BYTES =
+  MAX_GUARD_REQUEST_ID_BYTES +
+  GUARD_PROTOCOL_VERSION.length +
+  WRITE_FILE_COMMAND.length +
+  MAX_ENCODED_FILE_TOKEN_BYTES +
+  WRITE_FILE_SEPARATOR_BYTES;
+const MAX_ENCODED_WRITE_FILE_CHUNK_BYTES =
+  MAX_GUARD_REQUEST_PAYLOAD_BYTES - GUARD_PROTOCOL_FUTURE_HEADROOM_BYTES - WRITE_FILE_FIXED_PAYLOAD_BYTES;
+export const MAX_GUARD_WRITE_FILE_CHUNK_BYTES = Math.floor((MAX_ENCODED_WRITE_FILE_CHUNK_BYTES * 3) / 4);
+
+export type ManagedFilesystemGuardRequestField = string | Uint8Array;
 
 export interface ManagedFilesystemGuardTransport {
-  request(command: string, arguments_: readonly string[]): Promise<readonly string[]>;
+  request(command: string, arguments_: readonly ManagedFilesystemGuardRequestField[]): Promise<readonly string[]>;
   dispose(): Promise<void>;
 }
 
@@ -29,8 +48,8 @@ interface PendingRequest {
   readonly resolve: (fields: readonly string[]) => void;
 }
 
-function encodeField(value: string): string {
-  return Buffer.from(value, 'utf8').toString('base64url');
+function encodeField(value: ManagedFilesystemGuardRequestField): string {
+  return (typeof value === 'string' ? Buffer.from(value, 'utf8') : Buffer.from(value)).toString('base64url');
 }
 
 function decodeField(value: string): string {
@@ -39,6 +58,25 @@ function decodeField(value: string): string {
 
 function isSafeCommand(value: string): boolean {
   return /^[A-Z_]{1,32}$/.test(value);
+}
+
+function validateRequestFields(command: string, fields: readonly ManagedFilesystemGuardRequestField[]): void {
+  if (command === WRITE_FILE_COMMAND) {
+    const [fileToken, bytes] = fields;
+    if (
+      fields.length !== 2 ||
+      typeof fileToken !== 'string' ||
+      Buffer.byteLength(fileToken, 'utf8') > MAX_GUARD_FILE_TOKEN_BYTES ||
+      !(bytes instanceof Uint8Array) ||
+      bytes.byteLength > MAX_GUARD_WRITE_FILE_CHUNK_BYTES
+    ) {
+      throw new ManagedFilesystemAdapterError('INVALID_INPUT');
+    }
+    return;
+  }
+  if (fields.some((field) => typeof field !== 'string')) {
+    throw new ManagedFilesystemAdapterError('INVALID_INPUT');
+  }
 }
 
 /** Owns one narrow native guard process and a bounded request/response protocol. */
@@ -52,16 +90,20 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
 
   public constructor(private readonly dependencies: NativeManagedFilesystemGuardTransportDependencies) {}
 
-  public async request(command: string, arguments_: readonly string[]): Promise<readonly string[]> {
+  public async request(
+    command: string,
+    arguments_: readonly ManagedFilesystemGuardRequestField[],
+  ): Promise<readonly string[]> {
     if (this.disposed || !isSafeCommand(command)) throw new ManagedFilesystemAdapterError('INVALID_INPUT');
-    const child = this.ensureStarted();
+    validateRequestFields(command, arguments_);
     if (this.nextRequestId >= Number.MAX_SAFE_INTEGER) throw new ManagedFilesystemAdapterError('IO_FAILED');
     const requestId = this.nextRequestId;
-    this.nextRequestId += 1;
     const line = [String(requestId), GUARD_PROTOCOL_VERSION, command, ...arguments_.map(encodeField)].join('\t');
-    if (Buffer.byteLength(line, 'utf8') > MAX_GUARD_LINE_BYTES) {
+    if (Buffer.byteLength(line, 'utf8') > MAX_GUARD_REQUEST_PAYLOAD_BYTES) {
       throw new ManagedFilesystemAdapterError('INVALID_INPUT');
     }
+    this.nextRequestId += 1;
+    const child = this.ensureStarted();
     return await new Promise<readonly string[]>((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
       child.stdin.write(`${line}\n`, 'utf8', (error) => {
@@ -133,7 +175,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     while (offset < chunk.length) {
       const newline = chunk.indexOf(0x0a, offset);
       const payloadEnd = newline === -1 ? chunk.length : newline;
-      if (this.outputBytes.length + payloadEnd - offset > MAX_GUARD_LINE_BYTES) {
+      if (this.outputBytes.length + payloadEnd - offset > MAX_GUARD_REQUEST_PAYLOAD_BYTES) {
         this.failProcess(child);
         return;
       }

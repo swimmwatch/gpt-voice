@@ -1,34 +1,26 @@
 # Local Whisper Performance Remediation Handoff
 
-- Completed packets: Packets 01-02; Packet 03 implementation and Linux verification are committed as
-  `f0a199ed7764f015602b7910b19c819d5754297d`, with push and required exact-SHA CI still open
-- Packet 03 changes: `Sha256` keeps its public lifecycle while selecting one immutable block transform from local
-  CPUID evidence; a baseline dispatch translation unit owns detection, a dedicated x64 translation unit owns SHA-NI
-  rounds, and the scalar implementation remains the unsupported or unavailable fallback
-- Build changes: shared `LocalWhisperSha256.cmake` adds the three SHA sources to common, filesystem-guard, launcher,
-  and worker targets; GCC/Clang `-msha` applies only to the accelerated object, while MSVC uses its intrinsic support
-  without a target-wide ISA option
-- Test changes: shared standard, padding-boundary, split-stream, million-byte, lifecycle, move, overflow, and
-  multi-gibibyte length vectors run through scalar, automatic, and simulated-unsupported modes; supported hosts also
-  execute the accelerated mode; the retained shared vectors continue covering Windows CNG
-- Concurrency evidence: a fresh-process eight-thread first-use executable runs in common GCC/Clang/ASan and the
-  worker TSan suite; the test-only dispatch target proves simulated unsupported selection never chooses SHA-NI
-- Compile evidence: the generated GCC compilation database records `-msha` for `sha256_x86.cpp` only and records no
-  raised ISA option for `sha256.cpp`, `sha256_dispatch.cpp`, or either test translation unit
-- Checks successful: `test:local-whisper:worker-common:native`, `test:local-whisper:worker-tsan`,
-  `test:local-whisper:native-analysis`, `test:local-whisper:native-build-audits`,
-  `test:local-whisper:native-sources`, `test:local-whisper:fs-guard:gcc`, additional launcher GCC unit/integration
-  coverage, worker-common clang-tidy and clang-format, targeted Prettier, project lint with warnings only, and
-  `git diff --check`
-- Remaining verification: after an immutable Packet 03 commit is pushed, require exact-SHA `Quality Gates`, Linux
-  and Windows performance, and Linux and Windows native-quality checks; Windows MSVC `/analyze`, ASan, concurrent
-  first use, accelerated dispatch, and scalar fallback remain CI-only on the Linux development host
-- Reconciliation evidence: unpublished Packet 02 ledger commit `1564af2c` was rebased as `739c09ec` onto remote
-  commits `c58f39b3` and `26c6cb2b`; all Packet 03 verification was rerun successfully on the integrated tree
-- Next action: push immutable Packet 03 commit `f0a199ed7764f015602b7910b19c819d5754297d` outside this skill and
-  obtain the required exact-SHA CI results; Packet 04 remains blocked until Packet 03 exact-SHA CI is green
-- Remaining manual gates: representative unsupported-CPU behavior is deferred to Packet 14; no package publication
-  or host-specific binary commit is authorized
-- Local branch state after this ledger commit: reconciled Packet 02 ledger `739c09ec`, Packet 03 implementation
-  `f0a199ed`, and this Packet 03 ledger commit are three commits ahead of `origin/feat/local-whisper-provider`; no
-  Packet 03 files remain uncommitted
+- Completed locally: Packets 01-04. Packet 03 implementation `f0a199ed` and ledger `a39d10dc` are pushed, but their
+  exact-SHA CI result was not inspected. Packet 04 is uncommitted.
+- Packet 04 transport: both peers now require private protocol v2; the adapter passes `Uint8Array` unchanged and the
+  transport performs the sole raw-byte base64url encoding. Mixed-version responses fail-stop and reject all pending
+  requests.
+- Packet 04 native codec: the canonical C++ constants derive a 193,483-byte maximum raw chunk from the 262,144-byte
+  payload limit, 4,096-byte headroom, worst-case 20-byte request ID, 26-byte lease token, protocol, command, and
+  separators. The decoder validates alphabet, padding, modulo, tail bits, overflow, and output size before its one
+  decoded-output allocation and before backend dispatch.
+- Boundary behavior: exact 262,144-byte payloads are read and dispatched; the first byte over the payload limit exits
+  without parsing or writing. Invalid in-budget data returns only the stable bounded error vocabulary. Linux and
+  Windows backend implementations were not changed.
+- Changed areas: TypeScript native adapter/transport and filesystem tests; native protocol/command/guard constants,
+  codec, unit/integration tests, fake backend; native fuzz metadata and protocol-v2 corpus seeds.
+- Successful local checks: `test:local-whisper:filesystem`, `test:local-whisper:fs-guard:native`,
+  `test:local-whisper:fs-guard:gcc`, `test:local-whisper:native-fuzz` with the verified prepared Linux toolchain,
+  `typecheck`, `format:check`, native clang-format, and native clang-tidy. The initial fuzz invocation stopped at the
+  missing shell marker before build; the prepared-toolchain rerun and final-code rerun both passed.
+- User sequencing override: do not push or inspect remote CI before Packet 11; perform local checks only. Packet 04
+  therefore has no implementation SHA or CI evidence yet.
+- Exact next packet: [05 Bounded installation pipeline](05_bounded_installation_pipeline.md), only after a new explicit
+  incremental-implementation invocation. Do not begin it in this session.
+- Remaining manual gates: Windows MSVC/ASan and exact-SHA hosted checks are deferred; no package installation,
+  publication, push, or release is authorized.

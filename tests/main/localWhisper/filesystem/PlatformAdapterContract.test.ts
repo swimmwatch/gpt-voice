@@ -4,14 +4,23 @@ import * as path from 'node:path';
 import { describe, test } from 'node:test';
 
 import { WindowsManagedFilesystemAdapter } from '@main/localWhisper/filesystem/WindowsManagedFilesystemAdapter';
-import type { ManagedFilesystemGuardTransport } from '@main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport';
+import type {
+  ManagedFilesystemGuardRequestField,
+  ManagedFilesystemGuardTransport,
+} from '@main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport';
 
 const IDENTITY = '1|2|1|448|3|0|directory';
 
 class RecordingTransport implements ManagedFilesystemGuardTransport {
-  public readonly calls: { readonly arguments_: readonly string[]; readonly command: string }[] = [];
+  public readonly calls: {
+    readonly arguments_: readonly ManagedFilesystemGuardRequestField[];
+    readonly command: string;
+  }[] = [];
 
-  public async request(command: string, arguments_: readonly string[]): Promise<readonly string[]> {
+  public async request(
+    command: string,
+    arguments_: readonly ManagedFilesystemGuardRequestField[],
+  ): Promise<readonly string[]> {
     this.calls.push({ arguments_, command });
     return ['lease-1', IDENTITY];
   }
@@ -33,6 +42,19 @@ describe('platform adapter contract', () => {
         command: 'INIT',
       },
     ]);
+  });
+
+  test('passes staged-file bytes to the transport without pre-encoding them', async () => {
+    const transport = new RecordingTransport();
+    const adapter = new WindowsManagedFilesystemAdapter(transport);
+    const chunk = Uint8Array.of(0x00, 0x80, 0xff);
+
+    await adapter.appendStagedFile('lease-1', chunk);
+
+    assert.equal(transport.calls.length, 1);
+    assert.equal(transport.calls[0]?.command, 'WRITE_FILE');
+    assert.equal(transport.calls[0]?.arguments_[0], 'lease-1');
+    assert.equal(transport.calls[0]?.arguments_[1], chunk);
   });
 
   test('keeps the Windows guard on handle-relative and identity-aware primitives', () => {

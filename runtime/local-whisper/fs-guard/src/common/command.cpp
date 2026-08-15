@@ -1,7 +1,6 @@
 #include "local_whisper/fs_guard/command.hpp"
 
 #include "local_whisper/fs_guard/error.hpp"
-#include "local_whisper/fs_guard/protocol.hpp"
 #include "local_whisper/fs_guard/validation.hpp"
 
 #include <charconv>
@@ -205,7 +204,7 @@ ExpectedEntry::ExpectedEntry(const std::string& encoded) {
   mode = FileMode(fields[1]);
 }
 
-Command parse_command(const std::string& name, const std::vector<std::string>& arguments) {
+Command parse_command(const std::string& name, std::vector<std::string> arguments) {
   if (name == "PROCESS_IDENTITY") {
     require_count(arguments, 1);
     return ProcessIdentityCommand{arguments[0]};
@@ -238,7 +237,7 @@ Command parse_command(const std::string& name, const std::vector<std::string>& a
   }
   if (name == "WRITE_FILE") {
     require_count(arguments, 2);
-    return WriteFileCommand{arguments[0], base64url_decode(arguments[1])};
+    return WriteFileCommand{std::move(arguments[0]), std::move(arguments[1])};
   }
   if (name == "SEAL_FILE") {
     require_count(arguments, 1);

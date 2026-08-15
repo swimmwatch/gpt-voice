@@ -119,7 +119,7 @@ export abstract class NativeManagedFilesystemAdapter implements ManagedFilesyste
   }
 
   public async appendStagedFile(fileToken: string, chunk: Uint8Array): Promise<void> {
-    await this.transport.request('WRITE_FILE', [fileToken, Buffer.from(chunk).toString('base64url')]);
+    await this.transport.request('WRITE_FILE', [fileToken, chunk]);
   }
 
   public async sealStagedFile(fileToken: string): Promise<ManagedArtifactIdentitySnapshot> {

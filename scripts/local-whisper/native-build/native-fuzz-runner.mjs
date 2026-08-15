@@ -103,7 +103,7 @@ export const NATIVE_FUZZ_TARGETS = Object.freeze([
     executable: 'fs_guard_request_fuzz',
     id: 'fs-guard-request',
     project: 'fsGuard',
-    seed: '7\t1\tRELEASE\tbGVhc2UtMQ',
+    seed: '7\t2\tRELEASE\tbGVhc2UtMQ',
   }),
   Object.freeze({
     boundaryKind: 'line',
