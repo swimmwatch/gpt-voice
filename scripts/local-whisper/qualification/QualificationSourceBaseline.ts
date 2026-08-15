@@ -58,7 +58,7 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
-    sha256: 'aef50d73ca50d01115349183c4a30cca07fc37e6f98b7e8450a274adff86cce4',
+    sha256: '99de372f6b9f32f468cf70e890b3f1e8cccdf361894fea2d49534ff1d69c4cf5',
   },
 ]);
 

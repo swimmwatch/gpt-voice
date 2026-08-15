@@ -226,13 +226,13 @@ function supervisorSuccess<T>(
   return Object.freeze({ success: true, state, value });
 }
 
-function supervisorFailure(code: 'MODEL_LOAD_FAILED'): LocalWhisperSupervisorResult {
+function supervisorFailure(code: 'MODEL_LOAD_FAILED' | 'WARMUP_FAILED'): LocalWhisperSupervisorResult {
   return {
     success: false,
     state: 'idle',
     error: {
       code,
-      stage: 'modelLoad',
+      stage: code === 'WARMUP_FAILED' ? 'warmup' : 'modelLoad',
       recoveryAction: 'retry',
       retryable: true,
       stateImpact: 'notReady',
@@ -290,7 +290,7 @@ class LoadSession implements LocalWhisperWorkerLifecycleSession {
   public warmup(): Promise<LocalWhisperSupervisorResult> {
     this.calls.push('warmup');
     return Promise.resolve(
-      this.failWarmup ? supervisorFailure('MODEL_LOAD_FAILED') : supervisorSuccess('warmed', undefined),
+      this.failWarmup ? supervisorFailure('WARMUP_FAILED') : supervisorSuccess('warmed', undefined),
     );
   }
 }
@@ -394,11 +394,12 @@ class LoadLifecycle {
 
 class LoadModelAuthorities {
   public calls = 0;
+  public revalidationCalls = 0;
   public readonly lease: ManagedArtifactLease;
 
   public constructor(
     private readonly released: { value: number },
-    private readonly failRevalidation: boolean,
+    private readonly failRevalidationAtCall: number | null,
   ) {
     this.lease = new ManagedArtifactLease(
       {
@@ -445,8 +446,12 @@ class LoadModelAuthorities {
         modelLease: this.lease,
         modelLeaseTokenDigest: 'f'.repeat(64),
         operationNonce: Uint8Array.from({ length: 16 }, (_value, index) => index + 1),
-        revalidate: () =>
-          this.failRevalidation ? Promise.reject(new Error('model revalidation failed')) : Promise.resolve(),
+        revalidate: () => {
+          this.revalidationCalls += 1;
+          return this.failRevalidationAtCall === this.revalidationCalls
+            ? Promise.reject(new Error('model revalidation failed'))
+            : Promise.resolve();
+        },
       }),
     );
   }
@@ -509,6 +514,7 @@ function loadHarness(
   backend: 'cpu' | 'cuda',
   options: {
     readonly failModelRevalidation?: boolean;
+    readonly failPostWarmupRevalidation?: boolean;
     readonly failCleanup?: boolean;
     readonly failRuntimeAcquisition?: boolean;
     readonly failWarmup?: boolean;
@@ -519,7 +525,10 @@ function loadHarness(
   const model = selected.catalog.payload.models[0];
   assert.ok(model);
   const released = { value: 0 };
-  const modelAuthorities = new LoadModelAuthorities(released, options.failModelRevalidation ?? false);
+  const modelAuthorities = new LoadModelAuthorities(
+    released,
+    options.failModelRevalidation ? 1 : options.failPostWarmupRevalidation ? 2 : null,
+  );
   const runtimeAuthorities = new RuntimeAuthorities(options.failRuntimeAcquisition ?? false);
   const registry = new RegistryDiscovery();
   const lifecycle = new LoadLifecycle(
@@ -637,6 +646,7 @@ describe('LocalWhisperProductionWorkerPort', () => {
       Buffer.from(authority.modelGuardAuthority.operationNonce).toString('base64url'),
     );
     assert.deepEqual(value.lifecycle.session.calls, ['warmup']);
+    assert.equal(value.modelAuthorities.revalidationCalls, 2);
     assert.deepEqual(
       await loaded.value.transcribe({
         audio: Uint8Array.from([1, 2, 3]),
@@ -659,10 +669,10 @@ describe('LocalWhisperProductionWorkerPort', () => {
     const loaded = await value.port.loadFresh(request(value.selected.settings, 'cuda'));
     assert.equal(loaded.success, true);
     if (!loaded.success) return;
-    assert.equal(value.registry.calls, 3);
+    assert.equal(value.registry.calls, 4);
     assert.deepEqual(
       value.runtimeAuthorities.calls.map(({ launchMode }) => launchMode),
-      ['registry', 'fullLoad', 'registry', 'registry'],
+      ['registry', 'fullLoad', 'registry', 'registry', 'registry'],
     );
     const authority = value.lifecycle.authorities[0];
     assert.ok(authority?.modelGuardAuthority);
@@ -670,7 +680,7 @@ describe('LocalWhisperProductionWorkerPort', () => {
     assert.equal(authority.workerInputBootstrap.byteLength, 40);
     assert.deepEqual(authority.workerInputBootstrap.subarray(8, 24), authority.modelGuardAuthority.operationNonce);
     assert.equal(await loaded.value.revalidate(), true);
-    assert.equal(value.registry.calls, 4);
+    assert.equal(value.registry.calls, 5);
     assert.equal(await loaded.value.terminate(), true);
     assert.deepEqual(value.lifecycle.session.calls, ['warmup', 'forceCleanup']);
     assert.equal(value.released.value, 1);
@@ -680,9 +690,21 @@ describe('LocalWhisperProductionWorkerPort', () => {
     const value = loadHarness('cpu', { failWarmup: true });
     assert.deepEqual(await value.port.loadFresh(request(value.selected.settings, 'cpu')), {
       success: false,
+      code: 'WARMUP_FAILED',
+    });
+    assert.deepEqual(value.lifecycle.session.calls, ['warmup', 'forceCleanup']);
+    assert.equal(value.lifecycle.activeFullLoadSession, null);
+    assert.equal(value.released.value, 1);
+  });
+
+  it('cleans loaded state when final authority revalidation fails after warmup', async () => {
+    const value = loadHarness('cpu', { failPostWarmupRevalidation: true });
+    assert.deepEqual(await value.port.loadFresh(request(value.selected.settings, 'cpu')), {
+      success: false,
       code: 'MODEL_LOAD_FAILED',
     });
     assert.deepEqual(value.lifecycle.session.calls, ['warmup', 'forceCleanup']);
+    assert.equal(value.modelAuthorities.revalidationCalls, 2);
     assert.equal(value.lifecycle.activeFullLoadSession, null);
     assert.equal(value.released.value, 1);
   });

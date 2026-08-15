@@ -158,6 +158,8 @@ std::string protocol_failure(FailureCode code) {
     return "MODEL_CORRUPT";
   case FailureCode::model_load_failed:
     return "MODEL_LOAD_FAILED";
+  case FailureCode::warmup_failed:
+    return "WARMUP_FAILED";
   case FailureCode::allocation_failed:
     return "ALLOCATION_FAILED";
   case FailureCode::invalid_settings:
@@ -203,6 +205,7 @@ common::NativeLogErrorCode native_log_error_code(const FailureCode code) noexcep
     return common::NativeLogErrorCode::protocol_mismatch;
   case FailureCode::runtime_prerequisite_missing:
   case FailureCode::backend_init_failed:
+  case FailureCode::warmup_failed:
   case FailureCode::transcription_failed:
   case FailureCode::not_ready:
   case FailureCode::cleanup_failed:
@@ -510,7 +513,6 @@ int WorkerApplication::run_checked() {
   const auto load = parse_load(channel_.read_control(), engine_.backend(), device_authority_);
   current_request_id_ = load.request_id;
   log(common::NativeLogEvent::model_load_started, {std::nullopt, *current_request_id_});
-  log(common::NativeLogEvent::state_warming);
   if (load.authority_id != base64url(model_authority_->binding().operation_nonce))
     throw CoreError(FailureCode::model_authority_invalid, "model authority ID mismatch");
   require_not_cancelled();
@@ -520,7 +522,6 @@ int WorkerApplication::run_checked() {
                           model_authority_->binding().expected_artifact_bytes,
                           model_authority_->binding().artifact_content_sha256);
   engine_.load(reader, load.family, load.variant, load.device_authority, cancellation_);
-  engine_.warm_up(probe_evidence.resolved_threads, cancellation_);
   if (clock_.now_ticks() < started)
     throw CoreError(FailureCode::model_load_failed, "worker clock moved backwards");
   nlohmann::json loaded{
@@ -546,10 +547,10 @@ int WorkerApplication::run_checked() {
     loaded["selectedDeviceModelWeightBytes"] = evidence.selected_device_model_weight_bytes;
     loaded["loadProof"] = evidence.load_proof;
   }
-  channel_.send_control(loaded);
   log(common::NativeLogEvent::model_load_completed, {std::nullopt, *current_request_id_});
-  log(common::NativeLogEvent::state_warmed);
+  channel_.send_control(loaded);
 
+  bool warmed = false;
   std::optional<nlohmann::json> prefetched_control;
   while (true) {
     auto message =
@@ -561,16 +562,32 @@ int WorkerApplication::run_checked() {
     if (type == "warmup") {
       require_exact_keys(message, {"type", "protocolVersion", "requestId"});
       require_protocol(message, "warmup");
-      if (!engine_.loaded())
-        throw CoreError(FailureCode::model_load_failed, "warm-up requires loaded worker");
+      if (!engine_.loaded() || warmed)
+        throw CoreError(FailureCode::invalid_settings,
+                        "warm-up requires a loaded non-warmed worker");
+      log(common::NativeLogEvent::state_warming, {std::nullopt, *current_request_id_});
+      try {
+        engine_.warm_up(probe_evidence.resolved_threads, cancellation_);
+      } catch (const CoreError& error) {
+        if (error.code() == FailureCode::cancelled)
+          throw;
+        throw CoreError(FailureCode::warmup_failed, "worker warm-up failed");
+      } catch (...) {
+        throw CoreError(FailureCode::warmup_failed, "worker warm-up failed");
+      }
+      warmed = true;
       channel_.send_control(
           {{"type", "warmed"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
+      log(common::NativeLogEvent::state_warmed, {std::nullopt, *current_request_id_});
       continue;
     }
     if (type == "transcribe") {
       require_exact_keys(message, {"type", "protocolVersion", "requestId", "settingsEpoch",
                                    "audioByteLength", "options"});
       require_protocol(message, "transcribe");
+      if (!engine_.loaded() || !warmed)
+        throw CoreError(FailureCode::invalid_settings,
+                        "transcription requires explicit successful warm-up");
       if (!message.at("settingsEpoch").is_number_unsigned() ||
           !message.at("audioByteLength").is_number_unsigned()) {
         throw CoreError(FailureCode::invalid_settings, "invalid transcription envelope");

@@ -1,5 +1,6 @@
 #include "local_whisper/whisper_cpp/worker_application.hpp"
 
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
 #include "test_model_source.hpp"
@@ -47,6 +48,8 @@ private:
 
 class FakeChannel final : public WorkerChannel {
 public:
+  explicit FakeChannel(std::vector<std::string>* trace = nullptr) : trace_(trace) {}
+
   [[nodiscard]] nlohmann::json read_control() override {
     if (controls.empty())
       throw std::runtime_error("missing test control");
@@ -84,6 +87,8 @@ public:
   }
 
   void send_control(const nlohmann::json& value) override {
+    if (trace_ != nullptr)
+      trace_->push_back("send:" + value.value("type", "missing"));
     sent.push_back(value);
     serialized.push_back(value.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
   }
@@ -98,10 +103,15 @@ public:
   std::atomic_bool* signal_on_wait = nullptr;
   std::size_t inference_completion_signals = 0U;
   bool wait_for_inference_before_control = false;
+
+private:
+  std::vector<std::string>* trace_;
 };
 
 class FakeEngine final : public SpeechEngine {
 public:
+  explicit FakeEngine(std::vector<std::string>* trace = nullptr) : trace_(trace) {}
+
   [[nodiscard]] EngineBackend backend() const noexcept override { return EngineBackend::cpu; }
   [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority&,
                                                  const CancellationToken&) override {
@@ -118,12 +128,18 @@ public:
     reader.close();
     loaded_ = true;
     ++load_calls;
+    if (trace_ != nullptr)
+      trace_->push_back("engine:load");
   }
 
   void warm_up(std::uint32_t cpu_threads, const CancellationToken&) override {
     EXPECT_TRUE(loaded_);
     EXPECT_EQ(cpu_threads, 1U);
     ++warm_up_calls;
+    if (trace_ != nullptr)
+      trace_->push_back("engine:warmup");
+    if (fail_warm_up)
+      throw CoreError(FailureCode::warmup_failed, "fake warm-up failed");
   }
 
   [[nodiscard]] std::string transcribe(std::span<const float> samples,
@@ -165,11 +181,28 @@ public:
   bool block_until_cancel = false;
   bool delay_failure = false;
   bool fail_transcription = false;
+  bool fail_warm_up = false;
   std::atomic_bool release_delayed_failure = false;
   std::deque<std::string> transcripts;
 
 private:
+  std::vector<std::string>* trace_;
   bool loaded_ = false;
+};
+
+class RecordingNativeLogger final : public common::NativeLogger {
+public:
+  explicit RecordingNativeLogger(std::vector<std::string>& trace) : trace_(trace) {}
+
+  void emit(common::NativeLogComponent, common::NativeLogEvent event,
+            common::NativeLogFields) noexcept override {
+    trace_.emplace_back(common::native_log_event_name(event));
+  }
+
+  void shutdown() noexcept override {}
+
+private:
+  std::vector<std::string>& trace_;
 };
 
 class FakeClock final : public WorkerClock {
@@ -238,6 +271,10 @@ nlohmann::json load_message() {
   };
 }
 
+nlohmann::json warmup_message() {
+  return {{"type", "warmup"}, {"protocolVersion", 1}, {"requestId", "warm-test"}};
+}
+
 nlohmann::json transcribe_message(std::size_t audio_bytes, std::string request_id = "tx-test") {
   return {{"type", "transcribe"},
           {"protocolVersion", 1},
@@ -253,21 +290,40 @@ nlohmann::json transcribe_message(std::size_t audio_bytes, std::string request_i
 }
 
 struct Fixture final {
-  Fixture() : authority({1U, 2U, 3U, 4U}) {}
+  Fixture() : channel(&trace), engine(&trace), authority({1U, 2U, 3U, 4U}), logger(trace) {}
 
   [[nodiscard]] int run() {
     CpuProbe probe;
     WorkerApplication application(WorkerRunMode::load, channel, engine, probe, clock, cancellation,
-                                  &authority, nullptr);
+                                  &authority, nullptr, &logger);
     return application.run();
   }
 
+  std::vector<std::string> trace;
   FakeChannel channel;
   FakeEngine engine;
   FakeClock clock;
   CancellationController cancellation;
   FakeAuthority authority;
+  RecordingNativeLogger logger;
 };
+
+std::size_t trace_index(const std::vector<std::string>& trace, std::string_view value) {
+  for (std::size_t index = 0; index < trace.size(); ++index) {
+    if (trace[index] == value)
+      return index;
+  }
+  ADD_FAILURE() << "missing trace entry: " << value;
+  return trace.size();
+}
+
+bool trace_contains(const std::vector<std::string>& trace, std::string_view value) {
+  for (const auto& entry : trace) {
+    if (entry == value)
+      return true;
+  }
+  return false;
+}
 
 TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine) {
   Fixture fixture;
@@ -275,7 +331,7 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine
   fixture.channel.controls = {
       hello(),
       load_message(),
-      {{"type", "warmup"}, {"protocolVersion", 1}, {"requestId", "warm-test"}},
+      warmup_message(),
       transcribe_message(wav.size()),
       {{"type", "unload"}, {"protocolVersion", 1}, {"requestId", "unload-test"}},
       {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
@@ -297,13 +353,81 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine
   EXPECT_EQ(fixture.channel.sent[4].at("type"), "unloaded");
   EXPECT_EQ(fixture.channel.sent[5].at("type"), "shutdownAck");
   EXPECT_EQ(fixture.channel.sent[5].at("requestId"), "shutdown-test");
+  EXPECT_EQ(common::kNativeRuntimeLogSchemaVersion, 1U);
+  EXPECT_EQ(fixture.channel.sent[1].at("protocolVersion"), 1);
+  EXPECT_EQ(fixture.channel.sent[2].at("protocolVersion"), 1);
+  const auto loaded = trace_index(fixture.trace, "send:loaded");
+  const auto model_load_completed = trace_index(fixture.trace, "modelLoadCompleted");
+  const auto state_warming = trace_index(fixture.trace, "stateWarming");
+  const auto warmup = trace_index(fixture.trace, "engine:warmup");
+  const auto warmed = trace_index(fixture.trace, "send:warmed");
+  const auto state_warmed = trace_index(fixture.trace, "stateWarmed");
+  EXPECT_LT(loaded, state_warming);
+  EXPECT_LT(model_load_completed, state_warming);
+  EXPECT_LT(state_warming, warmup);
+  EXPECT_LT(warmup, warmed);
+  EXPECT_LT(warmed, state_warmed);
+}
+
+TEST(WorkerApplication, RejectsTranscriptionBeforeExplicitWarmup) {
+  Fixture fixture;
+  fixture.channel.controls = {hello(), load_message(), transcribe_message(wav_fixture().size())};
+
+  EXPECT_EQ(fixture.run(), 10);
+  EXPECT_EQ(fixture.engine.load_calls, 1U);
+  EXPECT_EQ(fixture.engine.warm_up_calls, 0U);
+  EXPECT_EQ(fixture.engine.transcribe_calls, 0U);
+  EXPECT_EQ(fixture.channel.audio_reads, 0U);
+  EXPECT_EQ(fixture.engine.unload_calls, 1U);
+  ASSERT_EQ(fixture.channel.sent.size(), 3U);
+  EXPECT_EQ(fixture.channel.sent[1].at("type"), "loaded");
+  EXPECT_EQ(fixture.channel.sent[2].at("type"), "failure");
+  EXPECT_EQ(fixture.channel.sent[2].at("code"), "INVALID_SETTINGS");
+}
+
+TEST(WorkerApplication, RejectsDuplicateWarmupAfterOneSuccessfulTransition) {
+  Fixture fixture;
+  fixture.channel.controls = {hello(), load_message(), warmup_message(), warmup_message()};
+
+  EXPECT_EQ(fixture.run(), 10);
+  EXPECT_EQ(fixture.engine.warm_up_calls, 1U);
+  EXPECT_EQ(fixture.engine.unload_calls, 1U);
+  ASSERT_EQ(fixture.channel.sent.size(), 4U);
+  EXPECT_EQ(fixture.channel.sent[2].at("type"), "warmed");
+  EXPECT_EQ(fixture.channel.sent[3].at("type"), "failure");
+  EXPECT_EQ(fixture.channel.sent[3].at("code"), "INVALID_SETTINGS");
+}
+
+TEST(WorkerApplication, WarmupFailureUnloadsAndReturnsTypedFailureBeforeCleanRetry) {
+  Fixture failed;
+  failed.engine.fail_warm_up = true;
+  failed.channel.controls = {hello(), load_message(), warmup_message()};
+
+  EXPECT_EQ(failed.run(), 10);
+  EXPECT_EQ(failed.engine.load_calls, 1U);
+  EXPECT_EQ(failed.engine.warm_up_calls, 1U);
+  EXPECT_EQ(failed.engine.unload_calls, 1U);
+  ASSERT_EQ(failed.channel.sent.size(), 3U);
+  EXPECT_EQ(failed.channel.sent[2].at("type"), "failure");
+  EXPECT_EQ(failed.channel.sent[2].at("code"), "WARMUP_FAILED");
+  EXPECT_FALSE(trace_contains(failed.trace, "stateWarmed"));
+
+  Fixture retry;
+  retry.channel.controls = {
+      hello(),
+      load_message(),
+      warmup_message(),
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}}};
+  EXPECT_EQ(retry.run(), 0);
+  EXPECT_EQ(retry.engine.warm_up_calls, 1U);
+  EXPECT_EQ(retry.channel.sent[2].at("type"), "warmed");
 }
 
 TEST(WorkerApplication, RejectsMalformedSettingsBeforeReadingAudioOrInference) {
   Fixture fixture;
   auto malformed = transcribe_message(wav_fixture().size());
   malformed["options"]["temperatureHundredths"] = 5U;
-  fixture.channel.controls = {hello(), load_message(), std::move(malformed)};
+  fixture.channel.controls = {hello(), load_message(), warmup_message(), std::move(malformed)};
 
   EXPECT_EQ(fixture.run(), 10);
   EXPECT_EQ(fixture.channel.audio_reads, 0U);
@@ -315,7 +439,7 @@ TEST(WorkerApplication, RejectsMalformedSettingsBeforeReadingAudioOrInference) {
 
 TEST(WorkerApplication, RejectsMalformedAudioBeforeInference) {
   Fixture fixture;
-  fixture.channel.controls = {hello(), load_message(), transcribe_message(1U)};
+  fixture.channel.controls = {hello(), load_message(), warmup_message(), transcribe_message(1U)};
   fixture.channel.audio.push_back({"tx-test", 0U, true, {0U}});
 
   EXPECT_EQ(fixture.run(), 10);
@@ -332,6 +456,7 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
   fixture.channel.controls = {
       hello(),
       load_message(),
+      warmup_message(),
       transcribe_message(wav.size()),
       {{"type", "cancel"},
        {"protocolVersion", 1},
@@ -344,13 +469,14 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
   fixture.channel.waits = {WorkerChannelWaitResult::control_ready};
 
   EXPECT_EQ(fixture.run(), 0);
-  ASSERT_EQ(fixture.channel.sent.size(), 5U);
+  ASSERT_EQ(fixture.channel.sent.size(), 6U);
   EXPECT_EQ(fixture.channel.sent[0].at("type"), "helloAck");
   EXPECT_EQ(fixture.channel.sent[1].at("type"), "loaded");
-  EXPECT_EQ(fixture.channel.sent[2].at("type"), "cancelled");
-  EXPECT_EQ(fixture.channel.sent[2].at("targetRequestId"), "tx-test");
-  EXPECT_EQ(fixture.channel.sent[3].at("type"), "unloaded");
-  EXPECT_EQ(fixture.channel.sent[4].at("type"), "shutdownAck");
+  EXPECT_EQ(fixture.channel.sent[2].at("type"), "warmed");
+  EXPECT_EQ(fixture.channel.sent[3].at("type"), "cancelled");
+  EXPECT_EQ(fixture.channel.sent[3].at("targetRequestId"), "tx-test");
+  EXPECT_EQ(fixture.channel.sent[4].at("type"), "unloaded");
+  EXPECT_EQ(fixture.channel.sent[5].at("type"), "shutdownAck");
 }
 
 TEST(WorkerApplication, TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate) {
@@ -360,6 +486,7 @@ TEST(WorkerApplication, TranscriptCommitBeforeCancellationEmitsTranscriptAndCanc
   fixture.channel.controls = {
       hello(),
       load_message(),
+      warmup_message(),
       transcribe_message(wav.size(), "tx-first"),
       {{"type", "cancel"},
        {"protocolVersion", 1},
@@ -373,15 +500,15 @@ TEST(WorkerApplication, TranscriptCommitBeforeCancellationEmitsTranscriptAndCanc
                            WorkerChannelWaitResult::inference_completed};
 
   EXPECT_EQ(fixture.run(), 0);
-  ASSERT_EQ(fixture.channel.sent.size(), 6U);
-  EXPECT_EQ(fixture.channel.sent[2].at("type"), "transcript");
-  EXPECT_EQ(fixture.channel.sent[2].at("requestId"), "tx-first");
-  EXPECT_EQ(fixture.channel.sent[3].at("type"), "cancelTooLate");
-  EXPECT_EQ(fixture.channel.sent[3].size(), 4U);
-  EXPECT_EQ(fixture.channel.sent[3].at("requestId"), "cancel-first");
-  EXPECT_EQ(fixture.channel.sent[3].at("targetRequestId"), "tx-first");
-  EXPECT_EQ(fixture.channel.sent[4].at("type"), "transcript");
-  EXPECT_EQ(fixture.channel.sent[4].at("requestId"), "tx-second");
+  ASSERT_EQ(fixture.channel.sent.size(), 7U);
+  EXPECT_EQ(fixture.channel.sent[3].at("type"), "transcript");
+  EXPECT_EQ(fixture.channel.sent[3].at("requestId"), "tx-first");
+  EXPECT_EQ(fixture.channel.sent[4].at("type"), "cancelTooLate");
+  EXPECT_EQ(fixture.channel.sent[4].size(), 4U);
+  EXPECT_EQ(fixture.channel.sent[4].at("requestId"), "cancel-first");
+  EXPECT_EQ(fixture.channel.sent[4].at("targetRequestId"), "tx-first");
+  EXPECT_EQ(fixture.channel.sent[5].at("type"), "transcript");
+  EXPECT_EQ(fixture.channel.sent[5].at("requestId"), "tx-second");
   EXPECT_EQ(fixture.engine.transcribe_calls, 2U);
   EXPECT_EQ(fixture.channel.inference_completion_signals, 2U);
 }
@@ -393,6 +520,7 @@ TEST(WorkerApplication, InvalidCancellationStopsAndJoinsBlockedInference) {
   fixture.channel.controls = {
       hello(),
       load_message(),
+      warmup_message(),
       transcribe_message(wav.size()),
       {{"type", "cancel"}, {"protocolVersion", 1}, {"requestId", "cancel-test"}},
   };
@@ -402,7 +530,7 @@ TEST(WorkerApplication, InvalidCancellationStopsAndJoinsBlockedInference) {
   EXPECT_EQ(fixture.run(), 10);
   EXPECT_EQ(fixture.engine.transcribe_calls, 1U);
   EXPECT_TRUE(fixture.cancellation.requested());
-  ASSERT_EQ(fixture.channel.sent.size(), 3U);
+  ASSERT_EQ(fixture.channel.sent.size(), 4U);
   EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
   EXPECT_EQ(fixture.channel.sent.back().at("code"), "INVALID_SETTINGS");
 }
@@ -411,14 +539,15 @@ TEST(WorkerApplication, ControlClosureStopsAndJoinsBlockedInference) {
   Fixture fixture;
   fixture.engine.block_until_cancel = true;
   const auto wav = wav_fixture();
-  fixture.channel.controls = {hello(), load_message(), transcribe_message(wav.size())};
+  fixture.channel.controls = {hello(), load_message(), warmup_message(),
+                              transcribe_message(wav.size())};
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
   fixture.channel.waits = {WorkerChannelWaitResult::control_closed};
 
   EXPECT_EQ(fixture.run(), 10);
   EXPECT_EQ(fixture.engine.transcribe_calls, 1U);
   EXPECT_EQ(fixture.engine.unload_calls, 1U);
-  ASSERT_EQ(fixture.channel.sent.size(), 3U);
+  ASSERT_EQ(fixture.channel.sent.size(), 4U);
   EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
   EXPECT_EQ(fixture.channel.sent.back().at("code"), "TRANSCRIPTION_FAILED");
   EXPECT_FALSE(fixture.cancellation.requested());
@@ -432,12 +561,13 @@ TEST(WorkerApplication,
     fixture.engine.fail_transcription = true;
     fixture.channel.signal_on_wait = delayed ? &fixture.engine.release_delayed_failure : nullptr;
     const auto wav = wav_fixture();
-    fixture.channel.controls = {hello(), load_message(), transcribe_message(wav.size())};
+    fixture.channel.controls = {hello(), load_message(), warmup_message(),
+                                transcribe_message(wav.size())};
     fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
     fixture.channel.waits = {WorkerChannelWaitResult::inference_completed};
 
     EXPECT_EQ(fixture.run(), 10) << (delayed ? "delayed" : "immediate");
-    ASSERT_EQ(fixture.channel.sent.size(), 3U) << (delayed ? "delayed" : "immediate");
+    ASSERT_EQ(fixture.channel.sent.size(), 4U) << (delayed ? "delayed" : "immediate");
     EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
     EXPECT_EQ(fixture.channel.sent.back().at("code"), "TRANSCRIPTION_FAILED");
   }
@@ -451,6 +581,7 @@ TEST(WorkerApplication, ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWa
   fixture.channel.controls = {
       hello(),
       load_message(),
+      warmup_message(),
       transcribe_message(wav.size(), "tx-split"),
       transcribe_message(wav.size(), "tx-second"),
       {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
@@ -460,11 +591,11 @@ TEST(WorkerApplication, ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWa
                            WorkerChannelWaitResult::inference_completed};
 
   EXPECT_EQ(fixture.run(), 0);
-  ASSERT_EQ(fixture.channel.sent.size(), 5U);
-  EXPECT_EQ(fixture.channel.sent[2].at("type"), "transcript");
-  EXPECT_NE(fixture.channel.serialized[2].find("\xef\xbf\xbd"), std::string::npos);
+  ASSERT_EQ(fixture.channel.sent.size(), 6U);
   EXPECT_EQ(fixture.channel.sent[3].at("type"), "transcript");
-  EXPECT_EQ(fixture.channel.sent[3].at("text"), "second transcript");
+  EXPECT_NE(fixture.channel.serialized[3].find("\xef\xbf\xbd"), std::string::npos);
+  EXPECT_EQ(fixture.channel.sent[4].at("type"), "transcript");
+  EXPECT_EQ(fixture.channel.sent[4].at("text"), "second transcript");
   EXPECT_EQ(fixture.engine.transcribe_calls, 2U);
 }
 

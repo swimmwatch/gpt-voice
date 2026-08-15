@@ -19,6 +19,7 @@ enum class FailureCode {
   model_authority_invalid,
   model_corrupt,
   model_load_failed,
+  warmup_failed,
   allocation_failed,
   invalid_settings,
   audio_format_unsupported,

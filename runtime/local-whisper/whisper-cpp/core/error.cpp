@@ -35,6 +35,8 @@ std::string_view failure_code_name(FailureCode code) noexcept {
     return "MODEL_CORRUPT";
   case FailureCode::model_load_failed:
     return "MODEL_LOAD_FAILED";
+  case FailureCode::warmup_failed:
+    return "WARMUP_FAILED";
   case FailureCode::allocation_failed:
     return "ALLOCATION_FAILED";
   case FailureCode::invalid_settings:

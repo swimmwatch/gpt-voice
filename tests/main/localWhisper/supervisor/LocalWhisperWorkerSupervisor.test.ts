@@ -38,6 +38,7 @@ type WorkerMode =
   | 'cancel'
   | 'cancelTooLate'
   | 'cleanupFailure'
+  | 'failWarmup'
   | 'handshakeMismatch'
   | 'hangHandshake'
   | 'hangLoad'
@@ -221,6 +222,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   private resolveLateCancellationReady: (() => void) | null = null;
   private pendingTranscriptRequestId: string | null = null;
   public forceTerminationCount = 0;
+  public readonly receivedMessages: LocalWhisperWorkerClientMessage[] = [];
   public readonly waitTimeouts: number[] = [];
 
   public constructor(private readonly mode: WorkerMode) {
@@ -280,6 +282,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   }
 
   private onMessage(message: LocalWhisperWorkerClientMessage): void {
+    this.receivedMessages.push(message);
     switch (message.type) {
       case 'hello':
         this.handleHello();
@@ -314,6 +317,15 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
       }
       case 'warmup':
         if (this.mode === 'hangWarmup') break;
+        if (this.mode === 'failWarmup') {
+          this.respond({
+            type: 'failure',
+            protocolVersion: 1,
+            requestId: message.requestId,
+            code: 'WARMUP_FAILED',
+          });
+          break;
+        }
         this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
         break;
       case 'cancel':
@@ -621,6 +633,71 @@ test('fresh full-load worker loads without upgrading a probe process', async () 
   assert.equal(value.releasedRuntime.value, 1);
 });
 
+test('load reaches loaded before the explicit protocol-v1 warmup transition', async () => {
+  const value = harness('happy');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  const loaded = await value.supervisor.load({
+    ...bindingAuthority(),
+    configurationEpoch: 7,
+    modelLease: value.modelLease,
+    residency: selectedResidency(),
+    revalidate: async () => undefined,
+  });
+  assert.deepEqual(loaded, { success: true, state: 'loaded', value: undefined });
+  const process = value.processOwner.process;
+  assert.ok(process);
+  assert.deepEqual(
+    process.receivedMessages.map(({ type }) => type),
+    ['hello', 'load'],
+  );
+  assert.ok(process.receivedMessages.every(({ protocolVersion }) => protocolVersion === 1));
+
+  assert.deepEqual(await value.supervisor.warmup(7), { success: true, state: 'warmed', value: undefined });
+  assert.deepEqual(
+    process.receivedMessages.map(({ type }) => type),
+    ['hello', 'load', 'warmup'],
+  );
+  const duplicate = await value.supervisor.warmup(7);
+  assert.equal(duplicate.success, false);
+  if (!duplicate.success) assert.equal(duplicate.error.code, 'OPERATION_CONFLICT');
+  assert.deepEqual(
+    process.receivedMessages.map(({ type }) => type),
+    ['hello', 'load', 'warmup'],
+  );
+  assert.equal((await value.supervisor.shutdown()).success, true);
+});
+
+test('warmup failure unloads uncertain state and permits a clean worker retry', async () => {
+  const failed = harness('failWarmup');
+  assert.equal((await failed.supervisor.startAndHandshake(failed.authority)).success, true);
+  assert.equal(
+    (
+      await failed.supervisor.load({
+        ...bindingAuthority(),
+        configurationEpoch: 7,
+        modelLease: failed.modelLease,
+        residency: selectedResidency(),
+        revalidate: async () => undefined,
+      })
+    ).success,
+    true,
+  );
+  const result = await failed.supervisor.warmup(7);
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.error.code, 'WARMUP_FAILED');
+    assert.equal(result.error.stage, 'warmup');
+  }
+  assert.equal(failed.supervisor.state, 'idle');
+  assert.equal(failed.releasedModel.value, 1);
+  assert.equal(failed.releasedRuntime.value, 1);
+  assert.equal(failed.recordStore.record, null);
+
+  const retry = await readyHarness('happy');
+  assert.equal(retry.supervisor.state, 'warmed');
+  assert.equal((await retry.supervisor.forceCleanup()).success, true);
+});
+
 test('supervisor accepts native key ordering for identical residency evidence', async () => {
   const value = harness('nativeObjectOrder');
   assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
@@ -828,7 +905,13 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
   await fireTimer(warmup.clock, 2 * 60_000);
   const warmupFailure = await warmupResult;
   assert.equal(warmupFailure.success, false);
-  if (!warmupFailure.success) assert.equal(warmupFailure.error.stage, 'warmup');
+  if (!warmupFailure.success) {
+    assert.equal(warmupFailure.error.code, 'OPERATION_TIMEOUT');
+    assert.equal(warmupFailure.error.stage, 'warmup');
+  }
+  assert.equal(warmup.supervisor.state, 'idle');
+  assert.equal(warmup.releasedModel.value, 1);
+  assert.equal(warmup.releasedRuntime.value, 1);
 
   const transcription = await readyHarness('hangTranscription');
   const transcriptionResult = transcription.supervisor.transcribe({

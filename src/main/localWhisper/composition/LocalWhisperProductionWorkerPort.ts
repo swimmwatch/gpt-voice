@@ -379,6 +379,20 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
           if (!cleaned?.success) return failure('CLEANUP_FAILED');
           return failure(warmed.error.code);
         }
+        let authorityRemainsValid = false;
+        try {
+          authorityRemainsValid = await revalidateAuthority();
+        } catch {
+          authorityRemainsValid = false;
+        }
+        if (request.signal.aborted) {
+          return await this.cleanupAfterCancellation();
+        }
+        if (!authorityRemainsValid) {
+          const cleaned = await this.dependencies.lifecycle.forceCleanupFullLoad().catch(() => null);
+          if (!cleaned?.success) return failure('CLEANUP_FAILED');
+          return failure('MODEL_LOAD_FAILED');
+        }
         return Object.freeze({
           success: true,
           value: new LocalWhisperProductionResidentWorkerLease({
