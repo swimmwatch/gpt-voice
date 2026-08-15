@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 
-import type { LocalWhisperQualificationValidator } from './QualificationContracts';
+import {
+  LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST,
+  type LocalWhisperQualificationValidator,
+} from './QualificationContracts';
 import {
   LocalWhisperPerformanceDocumentProducer,
   performanceExpectedRunOrder,
@@ -30,7 +33,7 @@ const FIXTURE_CANDIDATE_COMMIT = '1'.repeat(40);
 
 function fixtureDigest(platform: PerformancePlatform, backend: PerformanceBackend, purpose: string): string {
   return createHash('sha256')
-    .update(`local-whisper-performance-v2|${platform}|${backend}|${purpose}`, 'utf8')
+    .update(`local-whisper-performance-v3|${platform}|${backend}|${purpose}`, 'utf8')
     .digest('hex');
 }
 
@@ -67,13 +70,38 @@ export interface HostedPerformanceFixtureResult {
   readonly result: Readonly<Record<string, unknown>>;
 }
 
-/** Builds content-free deterministic schema-v2 fixtures that can never claim representative selection. */
+/** Builds content-free deterministic schema-v3 fixtures that can never claim representative selection. */
 export function createHostedPerformanceFixture(
   validator: LocalWhisperQualificationValidator,
   platform: PerformancePlatform,
   backend: PerformanceBackend,
 ): HostedPerformanceFixtureResult {
   const documents = new LocalWhisperPerformanceDocumentProducer(validator);
+  const instrumentationOverlaySha256 = fixtureDigest(platform, backend, 'instrumentation-overlay');
+  const derivedSourceReceipts = Object.freeze({
+    before: documents.produceDerivedSourceReceipt({
+      side: 'before',
+      parentCommit: FIXTURE_BASELINE_COMMIT,
+      sourceProofDigest: LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST,
+      instrumentationOverlaySha256,
+      derivedTreeManifestSha256: fixtureDigest(platform, backend, 'before-derived-tree'),
+      executableArtifactIdentity: Object.freeze({
+        sizeBytes: 1,
+        sha256: fixtureDigest(platform, backend, 'before-executable'),
+      }),
+    }),
+    after: documents.produceDerivedSourceReceipt({
+      side: 'after',
+      parentCommit: FIXTURE_CANDIDATE_COMMIT,
+      sourceProofDigest: LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST,
+      instrumentationOverlaySha256,
+      derivedTreeManifestSha256: fixtureDigest(platform, backend, 'after-derived-tree'),
+      executableArtifactIdentity: Object.freeze({
+        sizeBytes: 1,
+        sha256: fixtureDigest(platform, backend, 'after-executable'),
+      }),
+    }),
+  });
   const manifest = documents.produceHostedManifest({
     platform,
     backend,
@@ -83,6 +111,7 @@ export function createHostedPerformanceFixture(
     baselineCommit: FIXTURE_BASELINE_COMMIT,
     candidateCommit: FIXTURE_CANDIDATE_COMMIT,
     inputFixtureDigest: fixtureDigest(platform, backend, 'input'),
+    derivedSourceReceipts,
   });
   const cacheReceipts: PerformanceCacheReceipt[] = [];
   const samples: PerformanceQualificationSample[] = [];

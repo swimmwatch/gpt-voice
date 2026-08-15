@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-bundle-v2.schema.json",
-  "title": "Local Whisper private performance qualification bundle v2",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-bundle-v3.schema.json",
+  "title": "Local Whisper private performance qualification bundle v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,8 +19,8 @@
     "samples"
   ],
   "properties": {
-    "schemaVersion": { "const": 2 },
-    "contractRevision": { "const": 2 },
+    "schemaVersion": { "const": 3 },
+    "contractRevision": { "const": 3 },
     "performanceBundleDigest": { "$ref": "#/$defs/sha256" },
     "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
     "performanceManifestDigest": { "$ref": "#/$defs/sha256" },

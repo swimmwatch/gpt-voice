@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
@@ -82,8 +82,7 @@ for sequence, phase_id in enumerate(request["requiredPhaseIds"]):
     if phase_id in ("installationPipeWait", "installationWrite"):
         duration = 1000 if side == "before" else after
     phases.append({"id": phase_id, "sequence": sequence, "durationNanoseconds": duration})
-resources = [{"id": resource_id, "peakBytes": 1024} for resource_id in request["requiredResourceIds"]]
-result = {"schemaVersion": 2, "status": "success", "failureReason": None, "endToEndNanoseconds": 100000, "phases": phases, "resources": resources}
+result = {"schemaVersion": 3, "status": "success", "failureReason": None, "endToEndNanoseconds": 100000, "phases": phases}
 sys.stdout.write(json.dumps(result, separators=(",", ":")) + "\\n")
 `;
   const application = await artifact(root, `${name}/attempt.py`, applicationSource);
@@ -96,7 +95,7 @@ sys.stdout.write(json.dumps(result, separators=(",", ":")) + "\\n")
 }
 
 describe('Local Whisper performance qualification commands', () => {
-  it('aggregates only a complete schema-v2 bundle inside the validated root and never overwrites', async () => {
+  it('aggregates only a complete schema-v3 bundle inside the validated root and never overwrites', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-performance-command-'));
     try {
       const fixture = createHostedPerformanceFixture(
@@ -175,6 +174,35 @@ describe('Local Whisper performance qualification commands', () => {
       const documents = new LocalWhisperPerformanceDocumentProducer(
         new LocalWhisperQualificationValidator(qualificationRoot),
       );
+      const deriveArtifacts = async (derivedName: string, parent: typeof before) => {
+        await mkdir(path.join(root, derivedName));
+        await copyFile(path.join(root, parent.application.relativePath), path.join(root, derivedName, 'attempt.py'));
+        await copyFile(path.join(root, parent.runtime.relativePath), path.join(root, derivedName, 'runtime.bin'));
+        await chmod(path.join(root, derivedName, 'attempt.py'), 0o755);
+        return Object.freeze({
+          application: Object.freeze({ ...parent.application, relativePath: `${derivedName}/attempt.py` }),
+          runtime: Object.freeze({ ...parent.runtime, relativePath: `${derivedName}/runtime.bin` }),
+        });
+      };
+      const beforeDerived = await deriveArtifacts('derived-before', before);
+      const afterDerived = await deriveArtifacts('derived-after', after);
+      const instrumentationOverlaySha256 = '9'.repeat(64);
+      const derivedReceipt = (
+        side: 'before' | 'after',
+        parentCommit: string,
+        application: PerformancePrivateArtifact,
+      ) =>
+        documents.produceDerivedSourceReceipt({
+          side,
+          parentCommit,
+          sourceProofDigest: sourceProof.sha256,
+          instrumentationOverlaySha256,
+          derivedTreeManifestSha256: side === 'before' ? '7'.repeat(64) : '8'.repeat(64),
+          executableArtifactIdentity: Object.freeze({
+            sizeBytes: application.sizeBytes,
+            sha256: application.sha256,
+          }),
+        });
       const plan = documents.produceRunPlan({
         sourceRevision: '4'.repeat(40),
         sourceProofDigest: sourceProof.sha256,
@@ -189,8 +217,18 @@ describe('Local Whisper performance qualification commands', () => {
           before: { relativePath: 'before', commit: before.commit },
           after: { relativePath: 'after', commit: after.commit },
         },
-        applicationArtifacts: { before: before.application, after: after.application },
-        runtimeArtifacts: { before: before.runtime, after: after.runtime },
+        derivedSources: {
+          before: {
+            relativePath: 'derived-before',
+            receipt: derivedReceipt('before', before.commit, beforeDerived.application),
+          },
+          after: {
+            relativePath: 'derived-after',
+            receipt: derivedReceipt('after', after.commit, afterDerived.application),
+          },
+        },
+        applicationArtifacts: { before: beforeDerived.application, after: afterDerived.application },
+        runtimeArtifacts: { before: beforeDerived.runtime, after: afterDerived.runtime },
         models: performanceSelectedModels().map((model, index) => ({
           ...model,
           artifact: modelArtifacts[index]!,

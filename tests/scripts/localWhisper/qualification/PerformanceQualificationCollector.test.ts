@@ -8,12 +8,14 @@ import {
   PerformanceCollectionError,
   PerformanceQualificationPhaseParser,
   type PerformanceAttemptProcessInput,
+  type PerformanceAttemptRequest,
   type PerformanceAttemptProcessPort,
   type PerformanceAttemptProcessSession,
   type PerformanceCachePreparationInput,
   type PerformanceCachePreparationPort,
   type PerformanceCollectionPlatformPort,
   type PerformanceResourcePort,
+  type PerformanceResourceProof,
   type PerformanceResourceSession,
   type PreparedPerformanceArtifact,
   type PreparedPerformanceInputs,
@@ -51,32 +53,55 @@ function plan(
   evidenceClaim: 'contractOnly' | 'representativePerformance' = 'contractOnly',
 ): PerformanceQualificationRunPlan {
   const documents = new LocalWhisperPerformanceDocumentProducer(validator);
+  const baselineCommit =
+    evidenceClaim === 'representativePerformance' ? LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION : '2'.repeat(40);
+  const candidateCommit = '3'.repeat(40);
+  const sourceProofDigest =
+    evidenceClaim === 'representativePerformance' ? LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST : 'b'.repeat(64);
+  const instrumentationOverlaySha256 = 'c'.repeat(64);
+  const beforeApplication = artifact('derived/before/app');
+  const afterApplication = artifact('derived/after/app');
+  const derivedReceipt = (side: 'before' | 'after', parentCommit: string, application: PerformancePrivateArtifact) =>
+    documents.produceDerivedSourceReceipt({
+      side,
+      parentCommit,
+      sourceProofDigest,
+      instrumentationOverlaySha256,
+      derivedTreeManifestSha256: side === 'before' ? 'd'.repeat(64) : 'f'.repeat(64),
+      executableArtifactIdentity: Object.freeze({ sizeBytes: application.sizeBytes, sha256: application.sha256 }),
+    });
   return documents.produceRunPlan({
     sourceRevision:
       evidenceClaim === 'representativePerformance' ? LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION : '4'.repeat(40),
-    sourceProofDigest:
-      evidenceClaim === 'representativePerformance' ? LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST : 'b'.repeat(64),
+    sourceProofDigest,
     platform: 'linux',
     backend: 'cpu',
     executionMode: 'representativeHost',
     evidenceClaim,
-    baselineCommit: '2'.repeat(40),
-    candidateCommit: '3'.repeat(40),
-    sourceProof: artifact(
-      'proof/source.json',
-      evidenceClaim === 'representativePerformance' ? LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST : 'b'.repeat(64),
-    ),
+    baselineCommit,
+    candidateCommit,
+    sourceProof: artifact('proof/source.json', sourceProofDigest),
     worktrees: {
-      before: { relativePath: 'before', commit: '2'.repeat(40) },
-      after: { relativePath: 'after', commit: '3'.repeat(40) },
+      before: { relativePath: 'parents/before', commit: baselineCommit },
+      after: { relativePath: 'parents/after', commit: candidateCommit },
+    },
+    derivedSources: {
+      before: {
+        relativePath: 'derived/before',
+        receipt: derivedReceipt('before', baselineCommit, beforeApplication),
+      },
+      after: {
+        relativePath: 'derived/after',
+        receipt: derivedReceipt('after', candidateCommit, afterApplication),
+      },
     },
     applicationArtifacts: {
-      before: artifact('before/app'),
-      after: artifact('after/app'),
+      before: beforeApplication,
+      after: afterApplication,
     },
     runtimeArtifacts: {
-      before: artifact('before/runtime'),
-      after: artifact('after/runtime'),
+      before: artifact('derived/before/runtime'),
+      after: artifact('derived/after/runtime'),
     },
     models: performanceSelectedModels().map((model, index) => ({
       ...model,
@@ -108,7 +133,8 @@ class FakePlatform implements PerformanceCollectionPlatformPort {
     this.prepareCalls += 1;
     return Object.freeze({
       sourceProof: preparedArtifact(input.sourceProof),
-      worktrees: Object.freeze({ before: '/private/before', after: '/private/after' }),
+      parentWorktrees: Object.freeze({ before: '/private/parents/before', after: '/private/parents/after' }),
+      derivedSources: Object.freeze({ before: '/private/derived/before', after: '/private/derived/after' }),
       applications: Object.freeze({
         before: preparedArtifact(input.applicationArtifacts.before),
         after: preparedArtifact(input.applicationArtifacts.after),
@@ -145,15 +171,14 @@ class FakeCache implements PerformanceCachePreparationPort {
   }
 }
 
-function output(request: Readonly<Record<string, unknown>>): Buffer {
-  const phaseIds = request.requiredPhaseIds as readonly string[];
-  const resourceIds = request.requiredResourceIds as readonly string[];
+function output(request: PerformanceAttemptRequest): Buffer {
+  const phaseIds = request.requiredPhaseIds;
   const side = request.side;
   const window = request.candidateWindow as 1 | 2 | 4 | 8;
   const after = { 1: 800, 2: 770, 4: 700, 8: 650 }[window];
   return Buffer.from(
     `${JSON.stringify({
-      schemaVersion: 2,
+      schemaVersion: 3,
       status: 'success',
       failureReason: null,
       endToEndNanoseconds: 100_000,
@@ -163,7 +188,6 @@ function output(request: Readonly<Record<string, unknown>>): Buffer {
         durationNanoseconds:
           id === 'installationPipeWait' || id === 'installationWrite' ? (side === 'before' ? 1000 : after) : 100,
       })),
-      resources: resourceIds.map((id) => ({ id, peakBytes: 1024 })),
     })}\n`,
     'utf8',
   );
@@ -216,11 +240,48 @@ class FakeProcess implements PerformanceAttemptProcessPort {
 class FakeResourceSession implements PerformanceResourceSession {
   public terminated = false;
 
-  public async finish() {
+  public constructor(
+    private readonly input: Parameters<PerformanceResourcePort['start']>[0],
+    private readonly failure: ResourceProofFailure | null,
+  ) {}
+
+  public async finish(): Promise<PerformanceResourceProof> {
+    let resources = Object.freeze(this.input.requiredResourceIds.map((id) => Object.freeze({ id, peakBytes: 1024 })));
+    let roleRegistrations = Object.freeze(
+      (['main', 'guard', 'worker'] as const).map((role, index) =>
+        Object.freeze({
+          role,
+          pid: this.input.rootPid + index,
+          processStartIdentity: `fixture-${String(this.input.rootPid)}-${role}`,
+          executableSha256: this.input.expectedExecutableSha256,
+        }),
+      ),
+    );
+    if (this.failure === 'missingRole') roleRegistrations = Object.freeze(roleRegistrations.slice(0, -1));
+    if (this.failure === 'reusedPid') {
+      roleRegistrations = Object.freeze(
+        roleRegistrations.map((registration, index) =>
+          index === 1 ? Object.freeze({ ...registration, pid: this.input.rootPid }) : registration,
+        ),
+      );
+    }
+    if (this.failure === 'wrongExecutable') {
+      roleRegistrations = Object.freeze(
+        roleRegistrations.map((registration, index) =>
+          index === 2 ? Object.freeze({ ...registration, executableSha256: 'f'.repeat(64) }) : registration,
+        ),
+      );
+    }
+    if (this.failure === 'resourceOrder') resources = Object.freeze([...resources].reverse());
     return Object.freeze({
+      resources,
+      roleRegistrations,
       processSettlementProof: 'ownedProcessTreeSettled' as const,
       unownedProcessAttribution: 0 as const,
       unownedGpuAttribution: 'notApplicable' as const,
+      identityChanges: this.failure === 'identityChange' ? 1 : 0,
+      lateRoleRegistrations: this.failure === 'lateRegistration' ? 1 : 0,
+      liveOwnedProcessesAfterSettlement: this.failure === 'liveOwnership' ? 1 : 0,
     });
   }
 
@@ -229,11 +290,23 @@ class FakeResourceSession implements PerformanceResourceSession {
   }
 }
 
+type ResourceProofFailure =
+  | 'missingRole'
+  | 'reusedPid'
+  | 'wrongExecutable'
+  | 'identityChange'
+  | 'lateRegistration'
+  | 'liveOwnership'
+  | 'resourceOrder';
+
 class FakeResources implements PerformanceResourcePort {
   public readonly sessions: FakeResourceSession[] = [];
 
-  public start(): PerformanceResourceSession {
-    const session = new FakeResourceSession();
+  public constructor(public failureOnce: ResourceProofFailure | null = null) {}
+
+  public start(input: Parameters<PerformanceResourcePort['start']>[0]): PerformanceResourceSession {
+    const session = new FakeResourceSession(input, this.failureOnce);
+    this.failureOnce = null;
     this.sessions.push(session);
     return session;
   }
@@ -315,6 +388,31 @@ describe('LocalWhisperPerformanceCollector', () => {
     assert.equal(JSON.stringify(bundle.samples[0]).includes('/home/private'), false);
   });
 
+  it('rejects process-owned resource rows from the phase-only response contract', async () => {
+    const processes = new FakeProcess();
+    const originalStart = processes.start.bind(processes);
+    processes.start = (input): PerformanceAttemptProcessSession => {
+      if (processes.requests.length !== 0) return originalStart(input);
+      processes.requests.push(input);
+      const response = JSON.parse(output(input.request).toString('utf8')) as Readonly<Record<string, unknown>>;
+      const session = new FakeProcessSession(
+        10,
+        Buffer.from(`${JSON.stringify({ ...response, resources: [] })}\n`, 'utf8'),
+      );
+      processes.sessions.push(session);
+      return session;
+    };
+    const bundle = await collector({
+      platform: new FakePlatform(),
+      cache: new FakeCache(),
+      process: processes,
+      resources: new FakeResources(),
+    }).collect(plan());
+    assert.equal(bundle.samples[0]!.status, 'failed');
+    assert.equal(bundle.samples[0]!.failureReason, 'ATTEMPT_OUTPUT_INVALID');
+    assert.equal(bundle.samples[1]!.status, 'success');
+  });
+
   it('keeps Linux-only representative evidence awaiting cross-platform selection', async () => {
     const platform = new FakePlatform();
     const cache = new FakeCache();
@@ -327,5 +425,29 @@ describe('LocalWhisperPerformanceCollector', () => {
     assert.equal(result.evidenceClaim, 'representativePerformance');
     assert.equal(result.selectionStatus, 'awaitingCrossPlatform');
     assert.equal(result.selectedInFlightWindow, null);
+  });
+
+  it('fails one exact cell for missing, reused, changed, late, live, or misordered resource ownership', async () => {
+    for (const failure of [
+      'missingRole',
+      'reusedPid',
+      'wrongExecutable',
+      'identityChange',
+      'lateRegistration',
+      'liveOwnership',
+      'resourceOrder',
+    ] as const) {
+      const resources = new FakeResources(failure);
+      const bundle = await collector({
+        platform: new FakePlatform(),
+        cache: new FakeCache(),
+        process: new FakeProcess(),
+        resources,
+      }).collect(plan());
+      assert.equal(bundle.samples[0]!.status, 'failed');
+      assert.match(String(bundle.samples[0]!.failureReason), /^RESOURCE_/u);
+      assert.equal(bundle.samples[1]!.status, 'success');
+      assert.doesNotMatch(JSON.stringify(bundle.samples[0]), /fixture-|pid|role|executable/u);
+    }
   });
 });

@@ -17,13 +17,15 @@ const SCHEMA_FILES = Object.freeze({
   measurementSeries: 'measurement-series-v2.schema.json',
   platformResult: 'platform-result-v2.schema.json',
   evidenceIndex: 'evidence-index-v2.schema.json',
-  performanceRunPlan: 'performance-run-plan-v2.schema.json',
-  performanceManifest: 'performance-manifest-v2.schema.json',
-  performanceCacheReceipt: 'performance-cache-receipt-v2.schema.json',
-  performanceSample: 'performance-sample-v2.schema.json',
-  performanceBundle: 'performance-bundle-v2.schema.json',
-  performanceResult: 'performance-result-v2.schema.json',
+  performanceDerivedSourceReceipt: 'performance-derived-source-receipt-v3.schema.json',
+  performanceRunPlan: 'performance-run-plan-v3.schema.json',
+  performanceManifest: 'performance-manifest-v3.schema.json',
+  performanceCacheReceipt: 'performance-cache-receipt-v3.schema.json',
+  performanceSample: 'performance-sample-v3.schema.json',
+  performanceBundle: 'performance-bundle-v3.schema.json',
+  performanceResult: 'performance-result-v3.schema.json',
 } as const);
+const PERFORMANCE_TRANSPORT_SCHEMA_FILES = Object.freeze(['performance-attempt-response-v3.schema.json']);
 
 const RETIRED_ACTIVE_SCHEMA_FILES = Object.freeze([
   'candidate-v2.schema.json',
@@ -31,6 +33,12 @@ const RETIRED_ACTIVE_SCHEMA_FILES = Object.freeze([
   'performance-manifest-v1.schema.json',
   'performance-sample-v1.schema.json',
   'performance-result-v1.schema.json',
+  'performance-run-plan-v2.schema.json',
+  'performance-manifest-v2.schema.json',
+  'performance-cache-receipt-v2.schema.json',
+  'performance-sample-v2.schema.json',
+  'performance-bundle-v2.schema.json',
+  'performance-result-v2.schema.json',
 ]);
 const DOCUMENT_DIGEST_FIELDS = Object.freeze({
   candidateInput: 'candidateInputDigest',
@@ -41,6 +49,7 @@ const DOCUMENT_DIGEST_FIELDS = Object.freeze({
   measurementSeries: 'seriesDigest',
   platformResult: 'resultDigest',
   evidenceIndex: 'indexDigest',
+  performanceDerivedSourceReceipt: 'performanceDerivedSourceReceiptDigest',
   performanceRunPlan: 'performanceRunPlanDigest',
   performanceManifest: 'performanceManifestDigest',
   performanceCacheReceipt: 'performanceCacheReceiptDigest',
@@ -323,6 +332,7 @@ export class LocalWhisperQualificationGraphProducer {
 /** Validates immutable qualification contracts without collecting host-private evidence. */
 export class LocalWhisperQualificationValidator {
   private readonly validators: Readonly<Record<QualificationDocumentKind, ValidateFunction>>;
+  private readonly performanceTransportValidators: readonly ValidateFunction[];
 
   public constructor(private readonly qualificationRoot: string) {
     const schemaRoot = path.join(qualificationRoot, 'schemas');
@@ -335,11 +345,17 @@ export class LocalWhisperQualificationValidator {
         ]),
       ) as unknown as Record<QualificationDocumentKind, ValidateFunction>,
     );
+    this.performanceTransportValidators = Object.freeze(
+      PERFORMANCE_TRANSPORT_SCHEMA_FILES.map((fileName) => ajv.compile(parseSchema(path.join(schemaRoot, fileName)))),
+    );
   }
 
   /** Compiles every active schema, rejects retired aliases, and validates the truthful Linux gate state. */
   public validateInputs(): void {
     for (const validator of Object.values(this.validators)) {
+      if (typeof validator !== 'function') throw new Error('QUALIFICATION_SCHEMA_INVALID');
+    }
+    for (const validator of this.performanceTransportValidators) {
       if (typeof validator !== 'function') throw new Error('QUALIFICATION_SCHEMA_INVALID');
     }
     const schemaRoot = path.join(this.qualificationRoot, 'schemas');
@@ -370,6 +386,7 @@ export class LocalWhisperQualificationValidator {
     if (kind === 'measurementSeries') this.assertMeasurementSeries(document);
     if (kind === 'platformResult') this.assertPlatformResult(document);
     if (kind === 'evidenceIndex') this.assertEvidenceIndex(document);
+    if (kind === 'performanceDerivedSourceReceipt') this.assertPerformanceDerivedSourceReceipt(document);
     if (kind === 'performanceRunPlan') this.assertPerformanceRunPlan(document);
     if (kind === 'performanceManifest') this.assertPerformanceManifest(document);
     if (kind === 'performanceCacheReceipt') this.assertPerformanceCacheReceipt(document);
@@ -739,6 +756,23 @@ export class LocalWhisperQualificationValidator {
     }
   }
 
+  private assertPerformanceDerivedSourceReceipt(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_PERFORMANCEDERIVEDSOURCERECEIPT_CONTRACT_INVALID';
+    const executable = asRecord(document.executableArtifactIdentity, code);
+    if (
+      !['before', 'after'].includes(String(document.side)) ||
+      !COMMIT_PATTERN.test(String(document.parentCommit)) ||
+      !SHA256_PATTERN.test(String(document.sourceProofDigest)) ||
+      !SHA256_PATTERN.test(String(document.instrumentationOverlaySha256)) ||
+      !SHA256_PATTERN.test(String(document.derivedTreeManifestSha256)) ||
+      !SHA256_PATTERN.test(String(executable.sha256)) ||
+      !Number.isSafeInteger(executable.sizeBytes) ||
+      (executable.sizeBytes as number) < 1
+    ) {
+      throw new Error(code);
+    }
+  }
+
   private assertPerformanceRunPlan(document: Record<string, unknown>): void {
     const code = 'QUALIFICATION_PERFORMANCERUNPLAN_CONTRACT_INVALID';
     const models = document.models;
@@ -750,6 +784,13 @@ export class LocalWhisperQualificationValidator {
     const worktrees = asRecord(document.worktrees, code);
     const beforeWorktree = asRecord(worktrees.before, code);
     const afterWorktree = asRecord(worktrees.after, code);
+    const derivedSources = asRecord(document.derivedSources, code);
+    const beforeDerived = asRecord(derivedSources.before, code);
+    const afterDerived = asRecord(derivedSources.after, code);
+    const beforeReceipt = asRecord(beforeDerived.receipt, code);
+    const afterReceipt = asRecord(afterDerived.receipt, code);
+    this.validateDocument('performanceDerivedSourceReceipt', beforeReceipt);
+    this.validateDocument('performanceDerivedSourceReceipt', afterReceipt);
     const applications = asRecord(document.applicationArtifacts, code);
     const runtimes = asRecord(document.runtimeArtifacts, code);
     const beforeApplication = asRecord(applications.before, code);
@@ -758,6 +799,10 @@ export class LocalWhisperQualificationValidator {
     const afterRuntime = asRecord(runtimes.after, code);
     const expectedProcedure = document.platform === 'linux' ? 'linuxFileAdviceV1' : 'windowsFileCacheV1';
     const cache = asRecord(document.cachePreparation, code);
+    const beforeWorktreePath = performanceNormalizedPath(beforeWorktree.relativePath, code);
+    const afterWorktreePath = performanceNormalizedPath(afterWorktree.relativePath, code);
+    const beforeDerivedPath = performanceNormalizedPath(beforeDerived.relativePath, code);
+    const afterDerivedPath = performanceNormalizedPath(afterDerived.relativePath, code);
     const artifactPaths = [
       sourceProof,
       beforeApplication,
@@ -771,12 +816,31 @@ export class LocalWhisperQualificationValidator {
       JSON.stringify(actualModels) !== JSON.stringify(expectedModels) ||
       beforeWorktree.commit !== document.baselineCommit ||
       afterWorktree.commit !== document.candidateCommit ||
+      beforeReceipt.side !== 'before' ||
+      afterReceipt.side !== 'after' ||
+      beforeReceipt.parentCommit !== document.baselineCommit ||
+      afterReceipt.parentCommit !== document.candidateCommit ||
+      beforeReceipt.sourceProofDigest !== document.sourceProofDigest ||
+      afterReceipt.sourceProofDigest !== document.sourceProofDigest ||
+      beforeReceipt.instrumentationOverlaySha256 !== afterReceipt.instrumentationOverlaySha256 ||
       sourceProof.sha256 !== document.sourceProofDigest ||
       cache.procedure !== expectedProcedure ||
-      !performancePathIsContained(beforeWorktree.relativePath, beforeApplication.relativePath) ||
-      !performancePathIsContained(afterWorktree.relativePath, afterApplication.relativePath) ||
-      !performancePathIsContained(beforeWorktree.relativePath, beforeRuntime.relativePath) ||
-      !performancePathIsContained(afterWorktree.relativePath, afterRuntime.relativePath) ||
+      asRecord(beforeReceipt.executableArtifactIdentity, code).sha256 !== beforeApplication.sha256 ||
+      asRecord(beforeReceipt.executableArtifactIdentity, code).sizeBytes !== beforeApplication.sizeBytes ||
+      asRecord(afterReceipt.executableArtifactIdentity, code).sha256 !== afterApplication.sha256 ||
+      asRecord(afterReceipt.executableArtifactIdentity, code).sizeBytes !== afterApplication.sizeBytes ||
+      !performancePathIsContained(beforeDerived.relativePath, beforeApplication.relativePath) ||
+      !performancePathIsContained(afterDerived.relativePath, afterApplication.relativePath) ||
+      !performancePathIsContained(beforeDerived.relativePath, beforeRuntime.relativePath) ||
+      !performancePathIsContained(afterDerived.relativePath, afterRuntime.relativePath) ||
+      new Set([beforeWorktreePath, afterWorktreePath, beforeDerivedPath, afterDerivedPath]).size !== 4 ||
+      [
+        [beforeWorktreePath, beforeDerivedPath],
+        [afterWorktreePath, afterDerivedPath],
+      ].some(
+        ([parent, derived]) =>
+          performancePathIsContained(parent, derived) || performancePathIsContained(derived, parent),
+      ) ||
       new Set(artifactPaths).size !== artifactPaths.length
     ) {
       throw new Error(code);
@@ -798,6 +862,7 @@ export class LocalWhisperQualificationValidator {
       });
       if (
         document.sourceRevision !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
+        document.baselineCommit !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
         document.sourceProofDigest !== LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST ||
         document.baselineCommit === document.candidateCommit ||
         JSON.stringify(modelArtifactDigests) !== JSON.stringify(identityDigests) ||
@@ -815,13 +880,27 @@ export class LocalWhisperQualificationValidator {
     this.assertPerformanceMetricContract(document, code);
     const actualModels = models.map((entry) => this.performanceModelIdentity(entry, code));
     const expectedProcedure = document.platform === 'linux' ? 'linuxFileAdviceV1' : 'windowsFileCacheV1';
+    const receipts = asRecord(document.derivedSourceReceipts, code);
+    const beforeReceipt = asRecord(receipts.before, code);
+    const afterReceipt = asRecord(receipts.after, code);
+    this.validateDocument('performanceDerivedSourceReceipt', beforeReceipt);
+    this.validateDocument('performanceDerivedSourceReceipt', afterReceipt);
     if (
       JSON.stringify(actualModels) !== JSON.stringify(this.expectedPerformanceModels()) ||
       document.cachePreparationProcedure !== expectedProcedure ||
+      beforeReceipt.side !== 'before' ||
+      afterReceipt.side !== 'after' ||
+      beforeReceipt.parentCommit !== document.baselineCommit ||
+      afterReceipt.parentCommit !== document.candidateCommit ||
+      beforeReceipt.sourceProofDigest !== document.sourceProofDigest ||
+      afterReceipt.sourceProofDigest !== document.sourceProofDigest ||
+      beforeReceipt.instrumentationOverlaySha256 !== document.instrumentationOverlaySha256 ||
+      afterReceipt.instrumentationOverlaySha256 !== document.instrumentationOverlaySha256 ||
       (document.executionMode === 'hostedFixture' && document.evidenceClaim !== 'contractOnly') ||
       (document.evidenceClaim === 'representativePerformance' &&
         (document.executionMode !== 'representativeHost' ||
           document.sourceRevision !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
+          document.baselineCommit !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
           document.sourceProofDigest !== LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST ||
           document.baselineCommit === document.candidateCommit))
     ) {

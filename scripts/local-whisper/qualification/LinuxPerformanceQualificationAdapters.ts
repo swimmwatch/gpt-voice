@@ -9,6 +9,7 @@ import { withVerifiedRegularFile } from '@scripts/security/verifiedRegularFile';
 import { LinuxResourceSampler } from './LinuxResourceSampler';
 import {
   PerformanceCollectionError,
+  type PerformanceAttemptRequest,
   type PerformanceAttemptProcessInput,
   type PerformanceAttemptProcessPort,
   type PerformanceAttemptProcessSession,
@@ -33,7 +34,7 @@ const MAXIMUM_GIT_OUTPUT_BYTES = 64 * 1024;
 const MAXIMUM_CACHE_HELPER_OUTPUT_BYTES = 4096;
 const MAXIMUM_ATTEMPT_OUTPUT_BYTES = 1024 * 1024;
 const CACHE_PREPARATION_TIMEOUT_MILLISECONDS = 60 * 60 * 1000;
-const ATTEMPT_ARGUMENT = '--local-whisper-performance-qualification-v2';
+const ATTEMPT_ARGUMENT = '--local-whisper-performance-qualification-v3';
 
 function invalidInput(code = 'COLLECTION_INPUT_INVALID'): never {
   throw new PerformanceCollectionError(code);
@@ -115,15 +116,20 @@ export class LinuxPerformanceCollectionPlatformAdapter implements PerformanceCol
     if (process.platform !== 'linux' || plan.platform !== 'linux') {
       throw new PerformanceCollectionError('PLATFORM_ADAPTER_MISMATCH');
     }
-    const worktrees = Object.freeze({
+    const parentWorktrees = Object.freeze({
       before: await this.root.resolveExistingDirectory(plan.worktrees.before.relativePath),
       after: await this.root.resolveExistingDirectory(plan.worktrees.after.relativePath),
     });
-    await this.git.verify(worktrees.before, plan.baselineCommit);
-    await this.git.verify(worktrees.after, plan.candidateCommit);
+    await this.git.verify(parentWorktrees.before, plan.baselineCommit);
+    await this.git.verify(parentWorktrees.after, plan.candidateCommit);
+    const derivedSources = Object.freeze({
+      before: await this.root.resolveExistingDirectory(plan.derivedSources.before.relativePath),
+      after: await this.root.resolveExistingDirectory(plan.derivedSources.after.relativePath),
+    });
     const prepared = Object.freeze({
       sourceProof: await this.prepareArtifact(plan.sourceProof),
-      worktrees,
+      parentWorktrees,
+      derivedSources,
       applications: Object.freeze({
         before: await this.prepareArtifact(plan.applicationArtifacts.before, true),
         after: await this.prepareArtifact(plan.applicationArtifacts.after, true),
@@ -151,8 +157,8 @@ export class LinuxPerformanceCollectionPlatformAdapter implements PerformanceCol
     plan: PerformanceQualificationRunPlan,
     inputs: PreparedPerformanceInputs,
   ): Promise<void> {
-    await this.git.verify(inputs.worktrees.before, plan.baselineCommit);
-    await this.git.verify(inputs.worktrees.after, plan.candidateCommit);
+    await this.git.verify(inputs.parentWorktrees.before, plan.baselineCommit);
+    await this.git.verify(inputs.parentWorktrees.after, plan.candidateCommit);
     const artifacts = [
       inputs.sourceProof,
       inputs.applications.before,
@@ -194,7 +200,7 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
 
   public constructor(
     private readonly child: ChildProcessWithoutNullStreams,
-    request: Readonly<Record<string, unknown>>,
+    request: PerformanceAttemptRequest,
     timeoutMilliseconds: number,
     signal?: AbortSignal,
   ) {
@@ -386,19 +392,12 @@ export class LinuxPerformanceCachePreparationAdapter implements PerformanceCache
 }
 
 class LinuxPerformanceResourceSession implements PerformanceResourceSession {
-  public constructor(
-    private readonly session: ReturnType<LinuxResourceSampler['start']>,
-    private readonly backend: PerformanceBackend,
-  ) {}
+  public constructor(private readonly session: ReturnType<LinuxResourceSampler['start']>) {}
 
   public async finish(): Promise<PerformanceResourceProof> {
     await this.session.ready;
     await this.session.finish();
-    return Object.freeze({
-      processSettlementProof: 'ownedProcessTreeSettled',
-      unownedProcessAttribution: 0,
-      unownedGpuAttribution: this.backend === 'cpu' ? 'notApplicable' : 0,
-    });
+    throw new PerformanceCollectionError('RESOURCE_ROLE_ATTRIBUTION_UNAVAILABLE');
   }
 
   public terminate(): void {
@@ -409,8 +408,10 @@ class LinuxPerformanceResourceSession implements PerformanceResourceSession {
 export class LinuxPerformanceResourceAdapter implements PerformanceResourcePort {
   public constructor(private readonly sampler: LinuxResourceSampler) {}
 
-  public start(rootPid: number, backend: PerformanceBackend): PerformanceResourceSession {
-    return new LinuxPerformanceResourceSession(this.sampler.start(rootPid, backend), backend);
+  public start(
+    input: Readonly<{ readonly rootPid: number; readonly backend: PerformanceBackend }>,
+  ): PerformanceResourceSession {
+    return new LinuxPerformanceResourceSession(this.sampler.start(input.rootPid, input.backend));
   }
 }
 
@@ -422,13 +423,34 @@ export class ContractOnlyPerformanceCacheAdapter implements PerformanceCachePrep
 }
 
 class ContractOnlyPerformanceResourceSession implements PerformanceResourceSession {
-  public constructor(private readonly backend: PerformanceBackend) {}
+  public constructor(
+    private readonly input: Readonly<{
+      readonly rootPid: number;
+      readonly backend: PerformanceBackend;
+      readonly expectedExecutableSha256: string;
+      readonly requiredResourceIds: readonly PerformanceResourceProof['resources'][number]['id'][];
+    }>,
+  ) {}
 
   public async finish(): Promise<PerformanceResourceProof> {
     return Object.freeze({
+      resources: Object.freeze(this.input.requiredResourceIds.map((id) => Object.freeze({ id, peakBytes: 1024 }))),
+      roleRegistrations: Object.freeze(
+        (['main', 'guard', 'worker'] as const).map((role, index) =>
+          Object.freeze({
+            role,
+            pid: this.input.rootPid + index,
+            processStartIdentity: `fixture-${String(this.input.rootPid)}-${role}`,
+            executableSha256: this.input.expectedExecutableSha256,
+          }),
+        ),
+      ),
       processSettlementProof: 'ownedProcessTreeSettled',
       unownedProcessAttribution: 0,
-      unownedGpuAttribution: this.backend === 'cpu' ? 'notApplicable' : 0,
+      unownedGpuAttribution: this.input.backend === 'cpu' ? 'notApplicable' : 0,
+      identityChanges: 0,
+      lateRoleRegistrations: 0,
+      liveOwnedProcessesAfterSettlement: 0,
     });
   }
 
@@ -437,7 +459,7 @@ class ContractOnlyPerformanceResourceSession implements PerformanceResourceSessi
 
 /** Deterministic resource fixture that cannot be composed for representative evidence. */
 export class ContractOnlyPerformanceResourceAdapter implements PerformanceResourcePort {
-  public start(_rootPid: number, backend: PerformanceBackend): PerformanceResourceSession {
-    return new ContractOnlyPerformanceResourceSession(backend);
+  public start(input: Parameters<PerformanceResourcePort['start']>[0]): PerformanceResourceSession {
+    return new ContractOnlyPerformanceResourceSession(input);
   }
 }

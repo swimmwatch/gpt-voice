@@ -13,6 +13,7 @@ import {
   LocalWhisperPerformanceDocumentProducer,
   performanceSelectedModels,
   type PerformanceModelIdentity,
+  type PerformancePrivateArtifact,
   type PerformanceQualificationBundle,
   type PerformanceQualificationSample,
 } from '@scripts/local-whisper/qualification/PerformanceQualification';
@@ -73,11 +74,26 @@ function transformSuccessfulSamples(
 }
 
 function representativeRunPlanSeed() {
+  const documents = new LocalWhisperPerformanceDocumentProducer(validator);
   const artifact = (relativePath: string, sha256 = 'a'.repeat(64), sizeBytes = 1) => ({
     relativePath,
     sizeBytes,
     sha256,
   });
+  const baselineCommit = LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION;
+  const candidateCommit = '3'.repeat(40);
+  const instrumentationOverlaySha256 = 'b'.repeat(64);
+  const beforeApplication = artifact('derived/before/app');
+  const afterApplication = artifact('derived/after/app');
+  const receipt = (side: 'before' | 'after', parentCommit: string, application: PerformancePrivateArtifact) =>
+    documents.produceDerivedSourceReceipt({
+      side,
+      parentCommit,
+      sourceProofDigest: LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST,
+      instrumentationOverlaySha256,
+      derivedTreeManifestSha256: side === 'before' ? 'c'.repeat(64) : 'd'.repeat(64),
+      executableArtifactIdentity: Object.freeze({ sizeBytes: application.sizeBytes, sha256: application.sha256 }),
+    });
   return {
     sourceRevision: LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION,
     sourceProofDigest: LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST,
@@ -85,20 +101,24 @@ function representativeRunPlanSeed() {
     backend: 'cpu' as const,
     executionMode: 'representativeHost' as const,
     evidenceClaim: 'representativePerformance' as const,
-    baselineCommit: '2'.repeat(40),
-    candidateCommit: '3'.repeat(40),
+    baselineCommit,
+    candidateCommit,
     sourceProof: artifact('proof/source.json', LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST),
     worktrees: {
-      before: { relativePath: 'worktrees/before', commit: '2'.repeat(40) },
-      after: { relativePath: 'worktrees/after', commit: '3'.repeat(40) },
+      before: { relativePath: 'parents/before', commit: baselineCommit },
+      after: { relativePath: 'parents/after', commit: candidateCommit },
+    },
+    derivedSources: {
+      before: { relativePath: 'derived/before', receipt: receipt('before', baselineCommit, beforeApplication) },
+      after: { relativePath: 'derived/after', receipt: receipt('after', candidateCommit, afterApplication) },
     },
     applicationArtifacts: {
-      before: artifact('worktrees/before/app'),
-      after: artifact('worktrees/after/app'),
+      before: beforeApplication,
+      after: afterApplication,
     },
     runtimeArtifacts: {
-      before: artifact('worktrees/before/runtime'),
-      after: artifact('worktrees/after/runtime'),
+      before: artifact('derived/before/runtime'),
+      after: artifact('derived/after/runtime'),
     },
     models: performanceSelectedModels().map((model, index) => ({
       ...model,
@@ -131,7 +151,10 @@ describe('Local Whisper performance qualification', () => {
       assert.deepEqual(fixture.result.attemptCounts, { planned: 288, successful: 240, failed: 48 });
       assert.match(String(fixture.result.performanceResultDigest), /^[a-f0-9]{64}$/u);
       assert.equal(Object.isFrozen(fixture.bundle), true);
-      assert.doesNotMatch(JSON.stringify(fixture.result), /relativePath|sampleId|failureReason/u);
+      assert.doesNotMatch(
+        JSON.stringify(fixture.result),
+        /relativePath|sampleId|failureReason|derivedSourceReceipts|executableArtifactIdentity/u,
+      );
       for (const model of fixture.manifest.modelArtifacts) {
         assert.equal(JSON.stringify(fixture.result).includes(model.sha256), false);
       }
@@ -199,7 +222,7 @@ describe('Local Whisper performance qualification', () => {
   it('freezes representative commits, source proof, model artifacts, and the complete run plan', () => {
     const documents = new LocalWhisperPerformanceDocumentProducer(validator);
     const plan = documents.produceRunPlan(representativeRunPlanSeed());
-    assert.equal(plan.schemaVersion, 2);
+    assert.equal(plan.schemaVersion, 3);
     assert.equal(plan.plannedPairsPerCandidateCacheState, 6);
     assert.equal(plan.models.length, 3);
     assert.match(plan.performanceRunPlanDigest, /^[a-f0-9]{64}$/u);
@@ -335,6 +358,24 @@ describe('Local Whisper performance qualification', () => {
       baselineCommit: 'f'.repeat(40),
       candidateCommit: 'e'.repeat(40),
       inputFixtureDigest: fixture.manifest.inputFixtureDigest,
+      derivedSourceReceipts: Object.freeze({
+        before: documents.produceDerivedSourceReceipt({
+          side: 'before',
+          parentCommit: 'f'.repeat(40),
+          sourceProofDigest: fixture.manifest.sourceProofDigest,
+          instrumentationOverlaySha256: fixture.manifest.instrumentationOverlaySha256,
+          derivedTreeManifestSha256: fixture.manifest.derivedSourceReceipts.before.derivedTreeManifestSha256,
+          executableArtifactIdentity: fixture.manifest.derivedSourceReceipts.before.executableArtifactIdentity,
+        }),
+        after: documents.produceDerivedSourceReceipt({
+          side: 'after',
+          parentCommit: 'e'.repeat(40),
+          sourceProofDigest: fixture.manifest.sourceProofDigest,
+          instrumentationOverlaySha256: fixture.manifest.instrumentationOverlaySha256,
+          derivedTreeManifestSha256: fixture.manifest.derivedSourceReceipts.after.derivedTreeManifestSha256,
+          executableArtifactIdentity: fixture.manifest.derivedSourceReceipts.after.executableArtifactIdentity,
+        }),
+      }),
     });
     const first = fixture.samples[0]!;
     const otherReceipt = documents.produceCacheReceipt(otherManifest, {

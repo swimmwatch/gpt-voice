@@ -4,12 +4,14 @@ import {
   type LocalWhisperPerformanceResourceId,
   type LocalWhisperQualificationValidator,
 } from './QualificationContracts';
-import type {
-  PerformanceCacheState,
-  PerformanceModelIdentity,
-  PerformanceQualificationBundle,
-  PerformanceQualificationManifest,
-  PerformanceQualificationSample,
+import {
+  PERFORMANCE_CONTRACT_REVISION,
+  PERFORMANCE_SCHEMA_VERSION,
+  type PerformanceCacheState,
+  type PerformanceModelIdentity,
+  type PerformanceQualificationBundle,
+  type PerformanceQualificationManifest,
+  type PerformanceQualificationSample,
 } from './PerformanceQualification';
 import {
   LOCAL_WHISPER_PERFORMANCE_MAXIMUM_CONSERVATIVE_REGRESSION_PERCENT,
@@ -87,11 +89,15 @@ export class LocalWhisperPerformanceResultProducer {
     );
     const successfulAttempts = bundle.samples.filter(({ status }) => status === 'success').length;
     return this.graph.freeze('performanceResult', {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       performanceRunPlanDigest: bundle.performanceRunPlanDigest,
       performanceManifestDigest: bundle.performanceManifestDigest,
       performanceBundleDigest: bundle.performanceBundleDigest,
+      baselineCommit: manifest.baselineCommit,
+      candidateCommit: manifest.candidateCommit,
+      sourceProofDigest: manifest.sourceProofDigest,
+      instrumentationOverlaySha256: manifest.instrumentationOverlaySha256,
       platform: bundle.platform,
       architecture: 'x64',
       backend: bundle.backend,

@@ -18,6 +18,8 @@ export const PERFORMANCE_PLANNED_PAIRS = 6 as const;
 export const PERFORMANCE_MINIMUM_SUCCESSFUL_PAIRS = 5 as const;
 export const PERFORMANCE_SAMPLING_INTERVAL_MILLISECONDS = 100 as const;
 export const PERFORMANCE_ATTEMPT_COUNT = 288 as const;
+export const PERFORMANCE_SCHEMA_VERSION = 3 as const;
+export const PERFORMANCE_CONTRACT_REVISION = 3 as const;
 
 export type PerformanceCandidateWindow = (typeof PERFORMANCE_CANDIDATE_WINDOWS)[number];
 export type PerformanceCacheState = (typeof PERFORMANCE_CACHE_STATES)[number];
@@ -42,6 +44,23 @@ export interface PerformancePrivateArtifact {
   readonly sha256: string;
 }
 
+export interface PerformanceExecutableArtifactIdentity {
+  readonly sizeBytes: number;
+  readonly sha256: string;
+}
+
+export interface PerformanceDerivedSourceReceipt {
+  readonly schemaVersion: 3;
+  readonly contractRevision: 3;
+  readonly performanceDerivedSourceReceiptDigest: string;
+  readonly side: PerformanceSide;
+  readonly parentCommit: string;
+  readonly sourceProofDigest: string;
+  readonly instrumentationOverlaySha256: string;
+  readonly derivedTreeManifestSha256: string;
+  readonly executableArtifactIdentity: PerformanceExecutableArtifactIdentity;
+}
+
 export interface PerformancePhaseMeasurement {
   readonly id: LocalWhisperPerformancePhaseId;
   readonly sequence: number;
@@ -54,8 +73,8 @@ export interface PerformanceResourceMeasurement {
 }
 
 export interface PerformanceQualificationRunPlan {
-  readonly schemaVersion: 2;
-  readonly contractRevision: 2;
+  readonly schemaVersion: 3;
+  readonly contractRevision: 3;
   readonly performanceRunPlanDigest: string;
   readonly sourceRevision: string;
   readonly sourceProofDigest: string;
@@ -70,6 +89,10 @@ export interface PerformanceQualificationRunPlan {
   readonly worktrees: Readonly<{
     readonly before: Readonly<{ readonly relativePath: string; readonly commit: string }>;
     readonly after: Readonly<{ readonly relativePath: string; readonly commit: string }>;
+  }>;
+  readonly derivedSources: Readonly<{
+    readonly before: Readonly<{ readonly relativePath: string; readonly receipt: PerformanceDerivedSourceReceipt }>;
+    readonly after: Readonly<{ readonly relativePath: string; readonly receipt: PerformanceDerivedSourceReceipt }>;
   }>;
   readonly applicationArtifacts: Readonly<{
     readonly before: PerformancePrivateArtifact;
@@ -106,14 +129,19 @@ export interface PerformanceQualificationRunPlan {
 }
 
 export interface PerformanceQualificationManifest {
-  readonly schemaVersion: 2;
-  readonly contractRevision: 2;
+  readonly schemaVersion: 3;
+  readonly contractRevision: 3;
   readonly performanceManifestDigest: string;
   readonly performanceRunPlanDigest: string;
   readonly sourceRevision: string;
   readonly sourceProofDigest: string;
   readonly baselineCommit: string;
   readonly candidateCommit: string;
+  readonly instrumentationOverlaySha256: string;
+  readonly derivedSourceReceipts: Readonly<{
+    readonly before: PerformanceDerivedSourceReceipt;
+    readonly after: PerformanceDerivedSourceReceipt;
+  }>;
   readonly platform: PerformancePlatform;
   readonly architecture: 'x64';
   readonly backend: PerformanceBackend;
@@ -141,8 +169,8 @@ export interface PerformanceQualificationManifest {
 }
 
 export interface PerformanceCacheReceipt {
-  readonly schemaVersion: 2;
-  readonly contractRevision: 2;
+  readonly schemaVersion: 3;
+  readonly contractRevision: 3;
   readonly performanceCacheReceiptDigest: string;
   readonly performanceRunPlanDigest: string;
   readonly performanceManifestDigest: string;
@@ -155,8 +183,8 @@ export interface PerformanceCacheReceipt {
 }
 
 interface PerformanceSampleBase {
-  readonly schemaVersion: 2;
-  readonly contractRevision: 2;
+  readonly schemaVersion: 3;
+  readonly contractRevision: 3;
   readonly performanceSampleDigest: string;
   readonly performanceRunPlanDigest: string;
   readonly performanceManifestDigest: string;
@@ -199,8 +227,8 @@ export type PerformanceQualificationSample = PerformanceSampleBase &
   );
 
 export interface PerformanceQualificationBundle {
-  readonly schemaVersion: 2;
-  readonly contractRevision: 2;
+  readonly schemaVersion: 3;
+  readonly contractRevision: 3;
   readonly performanceBundleDigest: string;
   readonly performanceRunPlanDigest: string;
   readonly performanceManifestDigest: string;
@@ -242,9 +270,18 @@ export interface PerformanceManifestSeed {
   readonly baselineCommit: string;
   readonly candidateCommit: string;
   readonly inputFixtureDigest: string;
+  readonly derivedSourceReceipts: Readonly<{
+    readonly before: PerformanceDerivedSourceReceipt;
+    readonly after: PerformanceDerivedSourceReceipt;
+  }>;
   readonly sourceRevision?: string;
   readonly sourceProofDigest?: string;
 }
+
+export type PerformanceDerivedSourceReceiptSeed = Omit<
+  PerformanceDerivedSourceReceipt,
+  'schemaVersion' | 'contractRevision' | 'performanceDerivedSourceReceiptDigest'
+>;
 
 export type PerformanceSampleSeed = Omit<
   PerformanceSampleBase,
@@ -382,7 +419,7 @@ export function performanceSchedule(
   );
 }
 
-/** Produces digest-linked immutable schema-v2 performance documents. */
+/** Produces digest-linked immutable schema-v3 performance documents. */
 export class LocalWhisperPerformanceDocumentProducer {
   private readonly graph: LocalWhisperQualificationGraphProducer;
 
@@ -392,8 +429,8 @@ export class LocalWhisperPerformanceDocumentProducer {
 
   public produceRunPlan(seed: PerformanceRunPlanSeed): PerformanceQualificationRunPlan {
     const document = this.graph.freeze('performanceRunPlan', {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       ...seed,
       architecture: 'x64',
       cacheStates: PERFORMANCE_CACHE_STATES,
@@ -415,13 +452,18 @@ export class LocalWhisperPerformanceDocumentProducer {
   public produceManifestFromRunPlan(plan: PerformanceQualificationRunPlan): PerformanceQualificationManifest {
     this.validator.validateDocument('performanceRunPlan', plan);
     const document = this.graph.freeze('performanceManifest', {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       performanceRunPlanDigest: plan.performanceRunPlanDigest,
       sourceRevision: plan.sourceRevision,
       sourceProofDigest: plan.sourceProofDigest,
       baselineCommit: plan.baselineCommit,
       candidateCommit: plan.candidateCommit,
+      instrumentationOverlaySha256: plan.derivedSources.before.receipt.instrumentationOverlaySha256,
+      derivedSourceReceipts: Object.freeze({
+        before: plan.derivedSources.before.receipt,
+        after: plan.derivedSources.after.receipt,
+      }),
       platform: plan.platform,
       architecture: plan.architecture,
       backend: plan.backend,
@@ -448,13 +490,15 @@ export class LocalWhisperPerformanceDocumentProducer {
 
   public produceHostedManifest(seed: PerformanceManifestSeed): PerformanceQualificationManifest {
     const document = this.graph.freeze('performanceManifest', {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       performanceRunPlanDigest: seed.performanceRunPlanDigest,
       sourceRevision: seed.sourceRevision ?? LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION,
       sourceProofDigest: seed.sourceProofDigest ?? LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST,
       baselineCommit: seed.baselineCommit,
       candidateCommit: seed.candidateCommit,
+      instrumentationOverlaySha256: seed.derivedSourceReceipts.before.instrumentationOverlaySha256,
+      derivedSourceReceipts: seed.derivedSourceReceipts,
       platform: seed.platform,
       architecture: 'x64',
       backend: seed.backend,
@@ -479,14 +523,23 @@ export class LocalWhisperPerformanceDocumentProducer {
     return document as unknown as PerformanceQualificationManifest;
   }
 
+  public produceDerivedSourceReceipt(seed: PerformanceDerivedSourceReceiptSeed): PerformanceDerivedSourceReceipt {
+    const document = this.graph.freeze('performanceDerivedSourceReceipt', {
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
+      ...seed,
+    });
+    return document as unknown as PerformanceDerivedSourceReceipt;
+  }
+
   public produceCacheReceipt(
     manifest: PerformanceQualificationManifest,
     seed: PerformanceCacheReceiptSeed,
   ): PerformanceCacheReceipt {
     this.validator.validateDocument('performanceManifest', manifest);
     const document = this.graph.freeze('performanceCacheReceipt', {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       performanceRunPlanDigest: manifest.performanceRunPlanDigest,
       performanceManifestDigest: manifest.performanceManifestDigest,
       procedure: manifest.cachePreparationProcedure,
@@ -501,8 +554,8 @@ export class LocalWhisperPerformanceDocumentProducer {
   ): PerformanceQualificationSample {
     this.validator.validateDocument('performanceManifest', manifest);
     const common = {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       performanceRunPlanDigest: manifest.performanceRunPlanDigest,
       performanceManifestDigest: manifest.performanceManifestDigest,
       baselineCommit: manifest.baselineCommit,
@@ -551,8 +604,8 @@ export class LocalWhisperPerformanceDocumentProducer {
     samples: readonly PerformanceQualificationSample[],
   ): PerformanceQualificationBundle {
     const document = this.graph.freeze('performanceBundle', {
-      schemaVersion: 2,
-      contractRevision: 2,
+      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+      contractRevision: PERFORMANCE_CONTRACT_REVISION,
       performanceRunPlanDigest: manifest.performanceRunPlanDigest,
       performanceManifestDigest: manifest.performanceManifestDigest,
       platform: manifest.platform,

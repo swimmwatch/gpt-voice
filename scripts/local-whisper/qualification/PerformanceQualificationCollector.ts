@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { LocalWhisperQualificationValidator } from './QualificationContracts';
+import type { LocalWhisperPerformanceResourceId, LocalWhisperQualificationValidator } from './QualificationContracts';
 import {
   LocalWhisperPerformanceDocumentProducer,
   performanceSchedule,
@@ -16,8 +16,11 @@ import {
   type PerformanceSide,
 } from './PerformanceQualification';
 
-const MAXIMUM_ATTEMPT_OUTPUT_BYTES = 1024 * 1024;
+const MAXIMUM_ATTEMPT_OUTPUT_BYTES = 64 * 1024;
 const REASON_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
+const PROCESS_START_IDENTITY = /^\w[\w.:-]{0,127}$/u;
+const SHA256 = /^[a-f0-9]{64}$/u;
+const PERFORMANCE_PROCESS_ROLES = ['main', 'guard', 'worker'] as const;
 
 export class PerformanceCollectionError extends Error {
   public constructor(public readonly code: string) {
@@ -38,7 +41,8 @@ export interface PreparedPerformanceModel {
 
 export interface PreparedPerformanceInputs {
   readonly sourceProof: PreparedPerformanceArtifact;
-  readonly worktrees: Readonly<{ readonly before: string; readonly after: string }>;
+  readonly parentWorktrees: Readonly<{ readonly before: string; readonly after: string }>;
+  readonly derivedSources: Readonly<{ readonly before: string; readonly after: string }>;
   readonly applications: Readonly<{
     readonly before: PreparedPerformanceArtifact;
     readonly after: PreparedPerformanceArtifact;
@@ -72,7 +76,26 @@ export interface PerformanceAttemptProcessInput {
   readonly workingDirectory: string;
   readonly timeoutMilliseconds: number;
   readonly signal?: AbortSignal;
-  readonly request: Readonly<Record<string, unknown>>;
+  readonly request: PerformanceAttemptRequest;
+}
+
+export interface PerformanceAttemptRequest {
+  readonly schemaVersion: 3;
+  readonly activationPurpose: 'qualification';
+  readonly sampleId: string;
+  readonly platform: PerformanceQualificationManifest['platform'];
+  readonly backend: PerformanceBackend;
+  readonly model: PerformanceModelIdentity;
+  readonly candidateWindow: 1 | 2 | 4 | 8;
+  readonly cacheState: PerformanceCacheState;
+  readonly pairIndex: number;
+  readonly runOrder: 'beforeThenAfter' | 'afterThenBefore';
+  readonly side: PerformanceSide;
+  readonly runtimePath: string;
+  readonly modelPath: string;
+  readonly inputFixturePath: string;
+  readonly requiredPhaseIds: PerformanceQualificationManifest['requiredPhaseIds'];
+  readonly derivedSourceReceiptDigest: string;
 }
 
 export interface PerformanceAttemptProcessSession {
@@ -86,9 +109,23 @@ export interface PerformanceAttemptProcessPort {
 }
 
 export interface PerformanceResourceProof {
-  readonly processSettlementProof: 'ownedProcessTreeSettled';
-  readonly unownedProcessAttribution: 0;
-  readonly unownedGpuAttribution: 0 | 'notApplicable';
+  readonly resources: readonly PerformanceResourceMeasurement[];
+  readonly roleRegistrations: readonly PerformanceRoleRegistration[];
+  readonly processSettlementProof: string;
+  readonly unownedProcessAttribution: number;
+  readonly unownedGpuAttribution: number | 'notApplicable';
+  readonly identityChanges: number;
+  readonly lateRoleRegistrations: number;
+  readonly liveOwnedProcessesAfterSettlement: number;
+}
+
+export type PerformanceProcessRole = (typeof PERFORMANCE_PROCESS_ROLES)[number];
+
+export interface PerformanceRoleRegistration {
+  readonly role: PerformanceProcessRole;
+  readonly pid: number;
+  readonly processStartIdentity: string;
+  readonly executableSha256: string;
 }
 
 export interface PerformanceResourceSession {
@@ -97,7 +134,14 @@ export interface PerformanceResourceSession {
 }
 
 export interface PerformanceResourcePort {
-  start(rootPid: number, backend: PerformanceBackend): PerformanceResourceSession;
+  start(
+    input: Readonly<{
+      readonly rootPid: number;
+      readonly backend: PerformanceBackend;
+      readonly expectedExecutableSha256: string;
+      readonly requiredResourceIds: readonly LocalWhisperPerformanceResourceId[];
+    }>,
+  ): PerformanceResourceSession;
 }
 
 export type PerformanceAttemptOutcome =
@@ -105,7 +149,6 @@ export type PerformanceAttemptOutcome =
       status: 'success';
       endToEndNanoseconds: number;
       phases: readonly PerformancePhaseMeasurement[];
-      resources: readonly PerformanceResourceMeasurement[];
     }>
   | Readonly<{ status: 'failed'; failureReason: string }>;
 
@@ -133,7 +176,9 @@ export class PerformanceQualificationPhaseParser implements PerformancePhasePort
     if (
       output.byteLength === 0 ||
       output.byteLength > MAXIMUM_ATTEMPT_OUTPUT_BYTES ||
-      output[output.byteLength - 1] !== 0x0a
+      output[output.byteLength - 1] !== 0x0a ||
+      output.subarray(0, -1).includes(0x0a) ||
+      output.includes(0x0d)
     ) {
       throw new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID');
     }
@@ -145,10 +190,9 @@ export class PerformanceQualificationPhaseParser implements PerformancePhasePort
     }
     if (
       !isRecord(value) ||
-      !exactKeys(value, ['schemaVersion', 'status', 'failureReason', 'endToEndNanoseconds', 'phases', 'resources']) ||
-      value.schemaVersion !== 2 ||
-      !Array.isArray(value.phases) ||
-      !Array.isArray(value.resources)
+      !exactKeys(value, ['schemaVersion', 'status', 'failureReason', 'endToEndNanoseconds', 'phases']) ||
+      value.schemaVersion !== 3 ||
+      !Array.isArray(value.phases)
     ) {
       throw new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID');
     }
@@ -157,8 +201,7 @@ export class PerformanceQualificationPhaseParser implements PerformancePhasePort
         typeof value.failureReason !== 'string' ||
         !REASON_CODE.test(value.failureReason) ||
         value.endToEndNanoseconds !== null ||
-        value.phases.length !== 0 ||
-        value.resources.length !== 0
+        value.phases.length !== 0
       ) {
         throw new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID');
       }
@@ -168,8 +211,7 @@ export class PerformanceQualificationPhaseParser implements PerformancePhasePort
       value.status !== 'success' ||
       value.failureReason !== null ||
       !safeInteger(value.endToEndNanoseconds, 1) ||
-      value.phases.length !== manifest.requiredPhaseIds.length ||
-      value.resources.length !== manifest.requiredResourceIds.length
+      value.phases.length !== manifest.requiredPhaseIds.length
     ) {
       throw new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID');
     }
@@ -189,27 +231,86 @@ export class PerformanceQualificationPhaseParser implements PerformancePhasePort
         durationNanoseconds: entry.durationNanoseconds,
       });
     });
-    const resources = value.resources.map((entry, index) => {
-      if (
-        !isRecord(entry) ||
-        !exactKeys(entry, ['id', 'peakBytes']) ||
-        entry.id !== manifest.requiredResourceIds[index] ||
-        !safeInteger(entry.peakBytes, 0)
-      ) {
-        throw new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID');
-      }
-      return Object.freeze({
-        id: entry.id as PerformanceResourceMeasurement['id'],
-        peakBytes: entry.peakBytes,
-      });
-    });
     return Object.freeze({
       status: 'success',
       endToEndNanoseconds: value.endToEndNanoseconds,
       phases: Object.freeze(phases),
-      resources: Object.freeze(resources),
     });
   }
+}
+
+function validateResourceProof(
+  proof: PerformanceResourceProof,
+  input: Readonly<{
+    readonly rootPid: number;
+    readonly backend: PerformanceBackend;
+    readonly expectedExecutableSha256: string;
+    readonly requiredResourceIds: readonly LocalWhisperPerformanceResourceId[];
+  }>,
+): readonly PerformanceResourceMeasurement[] {
+  if (
+    !isRecord(proof) ||
+    !exactKeys(proof, [
+      'resources',
+      'roleRegistrations',
+      'processSettlementProof',
+      'unownedProcessAttribution',
+      'unownedGpuAttribution',
+      'identityChanges',
+      'lateRoleRegistrations',
+      'liveOwnedProcessesAfterSettlement',
+    ]) ||
+    !Array.isArray(proof.roleRegistrations) ||
+    !Array.isArray(proof.resources) ||
+    proof.processSettlementProof !== 'ownedProcessTreeSettled' ||
+    proof.unownedProcessAttribution !== 0 ||
+    proof.unownedGpuAttribution !== (input.backend === 'cpu' ? 'notApplicable' : 0) ||
+    proof.identityChanges !== 0 ||
+    proof.lateRoleRegistrations !== 0 ||
+    proof.liveOwnedProcessesAfterSettlement !== 0 ||
+    proof.roleRegistrations.length !== PERFORMANCE_PROCESS_ROLES.length ||
+    proof.resources.length !== input.requiredResourceIds.length
+  ) {
+    throw new PerformanceCollectionError('RESOURCE_ATTRIBUTION_INVALID');
+  }
+  const pids = new Set<number>();
+  const startIdentities = new Set<string>();
+  for (const [index, registration] of proof.roleRegistrations.entries()) {
+    if (
+      !isRecord(registration) ||
+      !exactKeys(registration, ['role', 'pid', 'processStartIdentity', 'executableSha256']) ||
+      registration.role !== PERFORMANCE_PROCESS_ROLES[index] ||
+      !safeInteger(registration.pid, 2) ||
+      (index === 0 && registration.pid !== input.rootPid) ||
+      !PROCESS_START_IDENTITY.test(registration.processStartIdentity) ||
+      registration.executableSha256 !== input.expectedExecutableSha256 ||
+      !SHA256.test(registration.executableSha256) ||
+      pids.has(registration.pid) ||
+      startIdentities.has(registration.processStartIdentity)
+    ) {
+      throw new PerformanceCollectionError('RESOURCE_ROLE_ATTRIBUTION_INVALID');
+    }
+    pids.add(registration.pid);
+    startIdentities.add(registration.processStartIdentity);
+  }
+  const resources: PerformanceResourceMeasurement[] = [];
+  for (const [index, resource] of proof.resources.entries()) {
+    if (
+      !isRecord(resource) ||
+      !exactKeys(resource, ['id', 'peakBytes']) ||
+      resource.id !== input.requiredResourceIds[index] ||
+      !safeInteger(resource.peakBytes, 0)
+    ) {
+      throw new PerformanceCollectionError('RESOURCE_MEASUREMENT_INVALID');
+    }
+    resources.push(
+      Object.freeze({
+        id: resource.id as PerformanceResourceMeasurement['id'],
+        peakBytes: resource.peakBytes,
+      }),
+    );
+  }
+  return Object.freeze(resources);
 }
 
 function inputSetDigest(files: readonly PreparedPerformanceArtifact[]): string {
@@ -371,11 +472,11 @@ export class LocalWhisperPerformanceCollector {
     try {
       processSession = this.ports.process.start({
         executablePath: input.application.absolutePath,
-        workingDirectory: input.prepared.worktrees[input.side],
+        workingDirectory: input.prepared.derivedSources[input.side],
         timeoutMilliseconds: input.plan.attemptTimeoutMilliseconds,
         ...(input.signal ? { signal: input.signal } : {}),
         request: Object.freeze({
-          schemaVersion: 2,
+          schemaVersion: 3,
           activationPurpose: 'qualification',
           sampleId: input.sampleId,
           platform: input.manifest.platform,
@@ -390,20 +491,21 @@ export class LocalWhisperPerformanceCollector {
           modelPath: input.preparedModel.artifact.absolutePath,
           inputFixturePath: input.prepared.inputFixture.absolutePath,
           requiredPhaseIds: input.manifest.requiredPhaseIds,
-          requiredResourceIds: input.manifest.requiredResourceIds,
+          derivedSourceReceiptDigest:
+            input.manifest.derivedSourceReceipts[input.side].performanceDerivedSourceReceiptDigest,
         }),
       });
-      resourceSession = this.ports.resources.start(processSession.rootPid, input.manifest.backend);
+      const resourceInput = Object.freeze({
+        rootPid: processSession.rootPid,
+        backend: input.manifest.backend,
+        expectedExecutableSha256: input.application.identity.sha256,
+        requiredResourceIds: input.manifest.requiredResourceIds,
+      });
+      resourceSession = this.ports.resources.start(resourceInput);
       const output = await processSession.complete();
       const outcome = this.ports.phases.parse(output, input.manifest);
       const resourceProof = await resourceSession.finish();
-      if (
-        resourceProof.processSettlementProof !== 'ownedProcessTreeSettled' ||
-        resourceProof.unownedProcessAttribution !== 0 ||
-        resourceProof.unownedGpuAttribution !== (input.manifest.backend === 'cpu' ? 'notApplicable' : 0)
-      ) {
-        throw new PerformanceCollectionError('RESOURCE_ATTRIBUTION_INVALID');
-      }
+      const resources = validateResourceProof(resourceProof, resourceInput);
       if (outcome.status === 'failed') {
         return documents.produceSample(input.manifest, {
           cacheReceiptDigest: input.cacheReceiptDigest,
@@ -430,7 +532,7 @@ export class LocalWhisperPerformanceCollector {
         status: 'success',
         endToEndNanoseconds: outcome.endToEndNanoseconds,
         phases: outcome.phases,
-        resources: outcome.resources,
+        resources,
       });
     } catch (error) {
       if (cancellationRequested(input.signal)) throw new PerformanceCollectionError('COLLECTION_CANCELLED');
