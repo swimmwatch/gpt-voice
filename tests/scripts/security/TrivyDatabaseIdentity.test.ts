@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { trivyDatabaseIdentity } from '@scripts/security/trivyDatabaseIdentity';
+import { MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES, trivyDatabaseIdentity } from '@scripts/security/trivyDatabaseIdentity';
 
 describe('Trivy database payload identity', () => {
+  it('retains a bounded ceiling above the obsolete one-gibibyte database limit', () => {
+    const legacyCeiling = 1024 * 1024 * 1024;
+
+    assert.equal(MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES, 2 * legacyCeiling);
+  });
+
   it('changes when either metadata or the consumed database payload changes', () => {
     const metadata = { sha256: 'a'.repeat(64), size: 100 };
     const payload = { sha256: 'b'.repeat(64), size: 200 };

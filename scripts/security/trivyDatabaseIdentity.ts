@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 
+export const MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+
 interface TrivyDatabaseFileIdentity {
   readonly sha256: string;
   readonly size: number;

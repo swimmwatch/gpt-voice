@@ -14,13 +14,12 @@ import {
   type ApplicationSecurityPlatform,
 } from './applicationArtifactSecurity';
 import { withVerifiedRegularFile } from './verifiedRegularFile';
-import { trivyDatabaseIdentity } from './trivyDatabaseIdentity';
+import { MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES, trivyDatabaseIdentity } from './trivyDatabaseIdentity';
 
 const workspaceRoot = path.resolve(
   process.env.APPLICATION_ARTIFACT_SECURITY_WORKSPACE ?? path.resolve(__dirname, '..', '..'),
 );
 const MAXIMUM_SCANNER_OUTPUT_BYTES = 512 * 1024;
-const MAXIMUM_SCANNER_DATABASE_BYTES = 1024 * 1024 * 1024;
 const MAXIMUM_VERSION_OUTPUT_BYTES = 4096;
 const MAXIMUM_PACKAGE_BYTES = 4 * 1024 * 1024 * 1024;
 const MAXIMUM_PACKAGE_METADATA_BYTES = 64 * 1024;
@@ -343,7 +342,10 @@ async function databaseEvidence(cacheDirectory: string): Promise<{ readonly sha2
       });
     },
   );
-  const payload = await regularFileDigest(path.join(cacheDirectory, 'db', 'trivy.db'), MAXIMUM_SCANNER_DATABASE_BYTES);
+  const payload = await regularFileDigest(
+    path.join(cacheDirectory, 'db', 'trivy.db'),
+    MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES,
+  );
   return Object.freeze({ sha256: trivyDatabaseIdentity(metadata, payload), value: metadata.value });
 }
 

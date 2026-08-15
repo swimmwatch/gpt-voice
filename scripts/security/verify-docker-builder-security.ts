@@ -12,14 +12,13 @@ import {
   TRIVY_IMAGE,
 } from './dockerBuilderPolicy';
 import { withVerifiedRegularFile } from './verifiedRegularFile';
-import { trivyDatabaseIdentity } from './trivyDatabaseIdentity';
+import { MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES, trivyDatabaseIdentity } from './trivyDatabaseIdentity';
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 const builderDirectory = path.join(workspaceRoot, 'build', 'fedora-release');
 const dockerfilePath = path.join(builderDirectory, 'Dockerfile');
 const evidencePath = path.join(workspaceRoot, 'release-artifacts', 'repository-security-builder-evidence.json');
 const MAXIMUM_DATABASE_METADATA_BYTES = 512 * 1024;
-const MAXIMUM_DATABASE_PAYLOAD_BYTES = 1024 * 1024 * 1024;
 
 interface DockerCommandResult {
   readonly exitCode: number;
@@ -191,7 +190,7 @@ async function main(): Promise<void> {
     );
     const databasePayload = await databaseFileEvidence(
       path.join(cacheDirectory, 'db', 'trivy.db'),
-      MAXIMUM_DATABASE_PAYLOAD_BYTES,
+      MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES,
     );
     const databaseBytes = databaseMetadata.bytes;
     if (!databaseBytes) throw new Error('Docker builder policy violation: scanner database evidence malformed');
