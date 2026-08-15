@@ -84,7 +84,7 @@ class FakeGuardChild extends EventEmitter {
 }
 
 async function nextTurn(): Promise<void> {
-  await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 test('pins the TypeScript mirrors to the canonical native protocol-v2 constants', () => {

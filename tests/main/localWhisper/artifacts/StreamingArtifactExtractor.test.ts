@@ -15,7 +15,6 @@ import {
   PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
   StreamingArtifactExtractor,
   type ArtifactInstallationPipelineSnapshot,
-  type ArtifactInstallationPipelineWindow,
 } from '@main/localWhisper/artifacts/StreamingArtifactExtractor';
 import type { ManagedArtifactLease } from '@main/localWhisper/filesystem/ManagedArtifactLease';
 import type { ManagedArtifactExpectedFile } from '@main/localWhisper/filesystem/ManagedArtifactStore';
@@ -158,25 +157,23 @@ class ControlledWriteStore extends RecordingManagedArtifactStore {
       await super.appendStagedFile(fileLease, chunk);
       return;
     }
-    await new Promise<void>((resolveWrite, rejectWrite) => {
-      let pending: PendingWrite;
-      const onAbort = signal
-        ? (): void => {
-            void this.complete(pending, new Error('fixture cancelled'));
-          }
-        : null;
-      pending = {
+    await new Promise<void>((resolve, reject) => {
+      const pending: PendingWrite = {
         chunk: Uint8Array.from(chunk),
         fileLease,
-        onAbort,
-        reject: rejectWrite,
-        resolve: resolveWrite,
+        onAbort: signal
+          ? (): void => {
+              void this.complete(pending, new Error('fixture cancelled'));
+            }
+          : null,
+        reject,
+        resolve,
         signal: signal ?? null,
       };
       this.pendingWrites.push(pending);
       this.active += 1;
       this.maximumActive = Math.max(this.maximumActive, this.active);
-      if (signal && onAbort) signal.addEventListener('abort', onAbort, { once: true });
+      if (signal && pending.onAbort) signal.addEventListener('abort', pending.onAbort, { once: true });
     });
   }
 
@@ -208,7 +205,7 @@ class ControlledWriteStore extends RecordingManagedArtifactStore {
 async function waitFor(predicate: () => boolean): Promise<void> {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     if (predicate()) return;
-    await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
   throw new Error('Timed out waiting for pipeline fixture');
 }
@@ -363,7 +360,7 @@ describe('StreamingArtifactExtractor bounded installation pipeline', () => {
     const failedInstallation = extractor.install(fixture.spec, [fixture.entry], new AbortController().signal);
     await waitFor(() => store.issuedBytes.length === 4);
     await store.completeNext(new Error('fixture write failure'));
-    await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+    await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(store.issuedBytes.length, 4);
     while (store.pendingCount > 0) await store.completeNext();
     await assert.rejects(

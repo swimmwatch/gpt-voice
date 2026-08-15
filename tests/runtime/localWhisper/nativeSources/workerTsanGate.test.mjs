@@ -41,6 +41,7 @@ test('worker TSan profile pins the Linux-only isolated instrumentation and full 
     'WorkerApplication.ImmediateAndDelayedInferenceFailuresEmitTypedFailureWithoutAnotherControlFrame',
     'WorkerApplication.InvalidCancellationStopsAndJoinsBlockedInference',
     'WorkerApplication.RejectsDuplicateWarmupAfterOneSuccessfulTransition',
+    'WorkerApplication.RejectsInconsistentResidencyThreadIdentityBeforeModelLoad',
     'WorkerApplication.RejectsMalformedAudioBeforeInference',
     'WorkerApplication.RejectsMalformedSettingsBeforeReadingAudioOrInference',
     'WorkerApplication.RejectsTranscriptionBeforeExplicitWarmup',

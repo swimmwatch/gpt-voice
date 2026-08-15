@@ -48,7 +48,8 @@ The Local Whisper page exposes these fields and actions:
 | Temperature         | 0.00 through 1.00 in 0.05 steps                                                                                                                   |
 | Strategy            | `greedy`, `beamSearch`, or `bestOfSampling`                                                                                                       |
 | Beam size / Best of | Integer 1–20, visible only for the matching strategy                                                                                              |
-| CPU threads         | `auto` or an integer from 1 through the sanitized logical-processor count; visible only for CPU                                                   |
+| CPU threads         | `auto` or an integer from 1 through the sanitized logical-processor count; visible for CPU and remembered independently                           |
+| GPU CPU threads     | `auto` or the same host-bounded integer range; visible for GPU and remembered independently from the CPU target                                   |
 
 Validation is cross-field and atomic. Missing, corrupt, or newer stored fields
 produce a repair state or `SETTINGS_VERSION_UNSUPPORTED`; they never silently
@@ -57,6 +58,23 @@ value. `Check compatibility` evaluates the exact selected configuration and
 reports support, setup, capability, residency, selected-stack identity,
 resource requirements, current headroom when measurable, and a stable failure
 code. Only a real load proves that the model can be resident.
+
+The thread field is contextual: switching targets shows the value remembered
+for that target. `auto` resolves to the current sanitized logical-processor
+count. Explicit values must be from 1 through that count, whose defensive host
+limit is 65,536. A fresh configuration and a reset use `auto` for both targets.
+When version-1 settings are migrated in memory, a saved CPU value is preserved;
+an active GPU configuration receives 4 GPU CPU threads, while a previously
+unconfigured GPU target receives `auto`. The settings document and its nested
+settings are written as schema version 2 only after an explicit save.
+
+A newer settings schema remains byte-preserved and read-only. Saving stays
+blocked with `SETTINGS_VERSION_UNSUPPORTED` until the user explicitly resets
+Local Whisper settings or, with every app instance closed, restores a complete
+compatible version-1 backup. Do not edit or downgrade a version-2 document in
+place. GPT-Voice does not create that backup automatically. Reset clears Local
+Whisper settings and its private prompt; neither recovery option removes a
+managed runtime or model artifact.
 
 ## Approximate requirements
 
@@ -78,6 +96,12 @@ is separate from RAM/VRAM and includes immutable runtime/model artifacts plus
 bounded staging space. The UI distinguishes approximate family guidance, the
 selected-configuration estimate, a qualified measured peak, current headroom,
 and real-load authority.
+
+Model-load, installation, and inference time depend on the host, selected CPU
+or GPU backend, model family and variant, thread setting, and whether relevant
+operating-system and device caches are cold or warm. Results from one host or
+cache state are not a promise for another configuration; qualification compares
+matching before/after runs and reports both cold and warm states.
 
 ## Installation and residency lifecycle
 
@@ -185,6 +209,17 @@ older version is already running with the unknown `local-whisper` provider ID
 stored, use its existing provider chooser to select ChatGPT Web, Claude Web, or
 OpenAI API. The older application must preserve unknown Local Whisper
 namespaces and must not execute or delete them.
+
+For Local Whisper settings rollback, use exactly one supported recovery path.
+Either invoke the explicit Local Whisper reset in a build that offers the
+recovery action, wait for it to finish, and then close every GPT-Voice instance;
+or close every instance first and restore a known-good, complete version-1
+settings backup before starting the older build. Never rewrite selected fields
+inside a version-2 file or treat a failed downgrade as permission to remove
+managed storage. After restart, confirm that reset settings are unconfigured or
+that the restored version-1 selection is accepted, then confirm the previously
+installed runtime and model rows are still present. Artifact removal remains a
+separate, confirmed action. No compatible backup is created automatically.
 
 Repository fixtures model that preceding registry/chooser contract, but they
 are not real-binary evidence. Release support remains blocked until Task 21

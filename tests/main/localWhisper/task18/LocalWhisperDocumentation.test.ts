@@ -64,4 +64,51 @@ describe('Local Whisper user, operator, developer, and analyzer documentation', 
     assert.equal(qualification.includes('Representative Windows'), true);
     assert.equal(qualification.includes('AMD remains Preview · Untested'), true);
   });
+
+  it('documents the integrated performance, compatibility, and rollback contracts without raw evidence', () => {
+    const user = read('docs/local-whisper.md');
+    const maintainer = read('docs/specs/local-whisper-performance-remediation/maintainer-integration-contract.md');
+
+    for (const expected of [
+      'GPU CPU threads',
+      '`auto` resolves to the current sanitized logical-processor',
+      'active GPU configuration receives 4 GPU CPU threads',
+      '`SETTINGS_VERSION_UNSUPPORTED`',
+      'compatible version-1 backup',
+      'host, selected CPU',
+      'cold and warm states',
+      'separate, confirmed action.',
+    ]) {
+      assert.equal(user.includes(expected), true, expected);
+    }
+
+    for (const expected of [
+      'Protocol 2',
+      'Worker protocol 1',
+      'Document 2 and nested settings 2',
+      '262,144 - 4,096 - 70 = 257,978 bytes',
+      '193,483 bytes',
+      'excludes the terminating',
+      'Candidate in-flight windows are exactly 1, 2, 4, and 8',
+      '32 MiB aggregate owned-byte',
+      'Packet 15 alone selects',
+      'median of paired percentages',
+      'absolute deviation',
+      'use the scalar transform',
+      'windows-x64-cpu-msvc-19.51-v1',
+      'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
+      'Native log schema 1',
+      'maximum 4,096 bytes including',
+      'Linux x64 CPU/CUDA',
+      'Packet 14 must run',
+      'invoke artifact removal',
+      'Direct Windows proof of',
+    ]) {
+      assert.equal(maintainer.includes(expected), true, expected);
+    }
+
+    for (const prohibited of ['raw qualification inputs', 'private hardware identifiers']) {
+      assert.equal(maintainer.includes(prohibited), false, prohibited);
+    }
+  });
 });

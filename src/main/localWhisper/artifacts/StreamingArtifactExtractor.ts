@@ -75,12 +75,11 @@ class BoundedArtifactWritePipeline {
     await this.waitForCapacity(writeOwnedBytes);
     this.throwIfUnavailable();
 
-    let tracked: Promise<void>;
     const timeout = this.dependencies.clock.setTimeout(() => {
       this.terminalError ??= new LocalWhisperArtifactLifecycleError('OPERATION_TIMEOUT');
       this.controller.abort();
     }, ARTIFACT_NO_PROGRESS_TIMEOUT_MS);
-    tracked = this.dependencies.store
+    const tracked = this.dependencies.store
       .appendStagedFile(fileLease, chunk, this.controller.signal)
       .then(
         () => undefined,
@@ -129,7 +128,8 @@ class BoundedArtifactWritePipeline {
 
   private throwIfUnavailable(): void {
     if (this.signal.aborted) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED');
-    if (this.terminalError) throw this.terminalError;
+    if (this.terminalError instanceof Error) throw this.terminalError;
+    if (this.terminalError !== null) throw new LocalWhisperArtifactLifecycleError('INSTALL_FAILED');
   }
 
   private observe(): void {

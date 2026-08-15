@@ -544,7 +544,7 @@ describe('LocalWhisperCoordinator', () => {
   });
 
   it('resets settings as one prompt-safe atomic transaction', async () => {
-    const { coordinator, settingsPort, workers } = harness();
+    const { artifacts, coordinator, settingsPort, workers } = harness();
     await coordinator.loadNow();
     const before = coordinator.snapshot;
     const result = await coordinator.applySettingsTransaction({
@@ -555,6 +555,7 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(result.success, true);
     assert.equal(settingsPort.resetCount, 1);
     assert.equal(settingsPort.saved.length, 0);
+    assert.equal(artifacts.calls, 0);
     assert.equal(workers.resident.unloadCount, 0);
     assert.equal(coordinator.snapshot.hasInitialPrompt, false);
     assert.equal(coordinator.snapshot.configured, false);

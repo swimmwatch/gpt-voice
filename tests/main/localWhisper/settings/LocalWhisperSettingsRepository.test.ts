@@ -518,6 +518,37 @@ describe('LocalWhisperSettingsRepository', () => {
     assert.equal(fs.existsSync(filePath), false);
   });
 
+  it('recovers from a future schema through a complete compatible v1 backup without rewriting it', () => {
+    const { filePath, repository, store } = createHarness();
+    store.write({ namespace: 'local-whisper', schemaVersion: 99, privateFutureState: 'untouched' });
+    const futureBytes = fs.readFileSync(filePath);
+
+    assert.equal(repository.load(createContext()).status, 'unsupported');
+    assert.deepEqual(fs.readFileSync(filePath), futureBytes);
+
+    const current = {
+      ...createSettings(),
+      execution: { target: 'cpu' as const, backend: 'cpu' as const, cpuThreads: 7 },
+    };
+    const { schemaVersion: _schemaVersion, ...settings } = current;
+    store.write({
+      namespace: 'local-whisper',
+      schemaVersion: 1,
+      settings: { ...settings, schemaVersion: 1 },
+      dependentSelections: { values: { 'threads:whisperCpp': 7 } },
+    });
+    const backupBytes = fs.readFileSync(filePath);
+
+    const recovered = repository.load(createContext());
+
+    assert.equal(recovered.status, 'configured');
+    if (recovered.status !== 'configured') return;
+    assert.deepEqual(recovered.snapshot.settings.execution, current.execution);
+    assert.equal(recovered.snapshot.dependentSelections.values['threads:whisperCpp:cpu'], 7);
+    assert.equal(recovered.snapshot.dependentSelections.values['threads:whisperCpp:gpu'], 'auto');
+    assert.deepEqual(fs.readFileSync(filePath), backupBytes);
+  });
+
   it('reset removes only the Local Whisper settings document and clears its private prompt', () => {
     const { directory, filePath, repository } = createHarness();
     const unrelatedFile = path.join(directory, 'unrelated-provider.json');
