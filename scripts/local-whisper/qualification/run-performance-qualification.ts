@@ -1,5 +1,7 @@
-import { lstat, readFile, realpath, writeFile } from 'node:fs/promises';
+import { lstat, realpath, writeFile, type FileHandle } from 'node:fs/promises';
 import * as path from 'node:path';
+
+import { withVerifiedRegularFile } from '@scripts/security/verifiedRegularFile';
 
 import { LocalWhisperQualificationValidator, qualificationCanonicalJson } from './QualificationContracts';
 import {
@@ -60,6 +62,38 @@ async function validatedRoot(value: string): Promise<string> {
   return realpath(resolved);
 }
 
+function invalidQualificationInput(): never {
+  throw new Error('Qualification input is invalid');
+}
+
+async function qualificationInputPath(root: string, value: string): Promise<string> {
+  const candidate = containedPath(root, value);
+  const parent = await realpath(path.dirname(candidate)).catch(() => invalidQualificationInput());
+  try {
+    return containedPath(root, path.join(parent, path.basename(candidate)));
+  } catch {
+    return invalidQualificationInput();
+  }
+}
+
+async function readExpectedBytes(file: FileHandle, expectedBytes: number): Promise<Buffer> {
+  const bytes = Buffer.allocUnsafe(expectedBytes);
+  let offset = 0;
+  while (offset < expectedBytes) {
+    const { bytesRead } = await file
+      .read(bytes, offset, expectedBytes - offset, offset)
+      .catch(() => invalidQualificationInput());
+    if (bytesRead === 0) invalidQualificationInput();
+    offset += bytesRead;
+  }
+  const trailing = Buffer.allocUnsafe(1);
+  const { bytesRead } = await file
+    .read(trailing, 0, trailing.byteLength, expectedBytes)
+    .catch(() => invalidQualificationInput());
+  if (bytesRead !== 0) invalidQualificationInput();
+  return bytes;
+}
+
 async function readBundle(
   root: string,
   value: string,
@@ -67,12 +101,18 @@ async function readBundle(
   readonly manifest: PerformanceQualificationManifest;
   readonly samples: readonly PerformanceQualificationSample[];
 }> {
-  const inputPath = containedPath(root, value);
-  const metadata = await lstat(inputPath);
-  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size <= 0 || metadata.size > MAXIMUM_INPUT_BYTES) {
-    throw new Error('Qualification input is invalid');
-  }
-  const document = JSON.parse(await readFile(inputPath, 'utf8')) as unknown;
+  const inputPath = await qualificationInputPath(root, value);
+  const bytes = await withVerifiedRegularFile(
+    {
+      filePath: inputPath,
+      invalid: invalidQualificationInput,
+      maximumBytes: MAXIMUM_INPUT_BYTES,
+      minimumBytes: 1,
+      unavailable: invalidQualificationInput,
+    },
+    readExpectedBytes,
+  );
+  const document = JSON.parse(bytes.toString('utf8')) as unknown;
   if (!isRecord(document) || Object.keys(document).sort().join('|') !== 'manifest|samples') {
     throw new Error('Qualification input bundle is invalid');
   }
