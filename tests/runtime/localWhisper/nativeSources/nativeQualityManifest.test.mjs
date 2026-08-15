@@ -69,6 +69,14 @@ test('native quality manifest covers every owned project and separates host-spec
     ['linux'],
   );
   assert.deepEqual(
+    manifest.find((entry) => entry.path.endsWith('/launcher/tests/unit/poll_direction_test.cpp'))?.platforms,
+    ['linux'],
+  );
+  assert.deepEqual(
+    manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_protocol_posix_test.cpp'))?.platforms,
+    ['linux'],
+  );
+  assert.deepEqual(
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_tsan_race_proof.cpp'))?.platforms,
     ['linux'],
   );

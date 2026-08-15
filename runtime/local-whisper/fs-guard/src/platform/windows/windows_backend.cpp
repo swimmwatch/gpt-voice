@@ -287,7 +287,8 @@ public:
     return reinterpret_cast<TOKEN_USER*>(storage.data())->User.Sid;
   }
 
-  void apply_private_acl(HANDLE handle, const std::optional<unsigned int> file_mode = std::nullopt) {
+  void apply_private_acl(HANDLE handle,
+                         const std::optional<unsigned int> file_mode = std::nullopt) {
     std::vector<unsigned char> sid_storage;
     PSID sid = current_user_sid(sid_storage);
     const DWORD ace_size = sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(sid) - sizeof(DWORD);
@@ -298,8 +299,8 @@ public:
         !AddAccessAllowedAceEx(acl, ACL_REVISION, OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE,
                                FILE_ALL_ACCESS, sid) ||
         (file_mode.has_value() &&
-         !AddAccessAllowedAceEx(acl, ACL_REVISION, 0,
-                                kPersistedFileModeMarker | file_mode.value(), sid))) {
+         !AddAccessAllowedAceEx(acl, ACL_REVISION, 0, kPersistedFileModeMarker | file_mode.value(),
+                                sid))) {
       throw GuardError("IO_FAILED");
     }
     const DWORD result = SetSecurityInfo(handle, SE_FILE_OBJECT,
@@ -364,16 +365,17 @@ public:
     const auto* owner_ace = static_cast<ACCESS_ALLOWED_ACE*>(raw_owner_ace);
     const auto* mode_ace = static_cast<ACCESS_ALLOWED_ACE*>(raw_mode_ace);
     constexpr DWORD kEncodedModeMask = kPersistedFileModeMarker | kPersistedFileModeBits;
-    const bool valid =
-        control_ok && owner_ace_ok && mode_ace_ok && EqualSid(owner, current) != FALSE &&
-        (control & SE_DACL_PROTECTED) != 0 &&
-        owner_ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
-        mode_ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
-        EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&owner_ace->SidStart)), current) != FALSE &&
-        EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&mode_ace->SidStart)), current) != FALSE &&
-        (owner_ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS &&
-        (mode_ace->Mask & kPersistedFileModeMarker) == kPersistedFileModeMarker &&
-        (mode_ace->Mask & ~kEncodedModeMask) == 0;
+    const bool valid = control_ok && owner_ace_ok && mode_ace_ok &&
+                       EqualSid(owner, current) != FALSE && (control & SE_DACL_PROTECTED) != 0 &&
+                       owner_ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
+                       mode_ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
+                       EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&owner_ace->SidStart)),
+                                current) != FALSE &&
+                       EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&mode_ace->SidStart)),
+                                current) != FALSE &&
+                       (owner_ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS &&
+                       (mode_ace->Mask & kPersistedFileModeMarker) == kPersistedFileModeMarker &&
+                       (mode_ace->Mask & ~kEncodedModeMask) == 0;
     if (!valid)
       throw GuardError("UNSAFE_ENTRY");
     return mode_ace->Mask & kPersistedFileModeBits;

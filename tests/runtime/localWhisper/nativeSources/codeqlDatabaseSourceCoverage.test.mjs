@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, truncateSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { crc32 } from 'node:zlib';
 
 import {
   assertCodeqlDatabaseSourceCoverage,
+  codeqlArchiveListingEntries,
   codeqlDatabaseSources,
   codeqlDatabaseSourceSha256,
   workspaceSourceSha256,
@@ -42,6 +44,38 @@ function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function storedZipEntry(name, value) {
+  const nameBytes = Buffer.from(name, 'utf8');
+  const valueBytes = Buffer.from(value, 'utf8');
+  const checksum = crc32(valueBytes);
+  const localHeader = Buffer.alloc(30);
+  localHeader.writeUInt32LE(0x04034b50, 0);
+  localHeader.writeUInt16LE(20, 4);
+  localHeader.writeUInt32LE(checksum, 14);
+  localHeader.writeUInt32LE(valueBytes.length, 18);
+  localHeader.writeUInt32LE(valueBytes.length, 22);
+  localHeader.writeUInt16LE(nameBytes.length, 26);
+  const localRecord = Buffer.concat([localHeader, nameBytes, valueBytes]);
+
+  const centralHeader = Buffer.alloc(46);
+  centralHeader.writeUInt32LE(0x02014b50, 0);
+  centralHeader.writeUInt16LE(20, 4);
+  centralHeader.writeUInt16LE(20, 6);
+  centralHeader.writeUInt32LE(checksum, 16);
+  centralHeader.writeUInt32LE(valueBytes.length, 20);
+  centralHeader.writeUInt32LE(valueBytes.length, 24);
+  centralHeader.writeUInt16LE(nameBytes.length, 28);
+  const centralRecord = Buffer.concat([centralHeader, nameBytes]);
+
+  const endRecord = Buffer.alloc(22);
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(1, 8);
+  endRecord.writeUInt16LE(1, 10);
+  endRecord.writeUInt32LE(centralRecord.length, 12);
+  endRecord.writeUInt32LE(localRecord.length, 16);
+  return Buffer.concat([localRecord, centralRecord, endRecord]);
+}
+
 function sourcePathForArchiveEntry(archiveEntry) {
   const normalized = archiveEntry.replace(/\\/gu, '/');
   const matches = Object.keys(workspaceSources).filter(
@@ -62,6 +96,11 @@ function fixtureDigests(databaseOverrides = {}) {
 }
 
 describe('CodeQL database source coverage', () => {
+  it('rejects an excessive raw archive member count before materializing the listing', () => {
+    const listing = Buffer.from('a\n'.repeat(200_001), 'utf8');
+    assert.throws(() => codeqlArchiveListingEntries(listing), /inventory is malformed/u);
+  });
+
   it('requires every manifest translation unit in the finalized database source archive', () => {
     assert.doesNotThrow(() =>
       assertCodeqlDatabaseSourceCoverage(
@@ -118,6 +157,16 @@ describe('CodeQL database source coverage', () => {
     );
   });
 
+  it('rejects a traversal-bearing directory member from a real ZIP before filtering directories', () => {
+    const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-codeql-source-'));
+    try {
+      writeFileSync(path.join(temporaryRoot, 'src.zip'), storedZipEntry('../', ''));
+      assert.throws(() => codeqlDatabaseSources(temporaryRoot), /inventory is malformed/u);
+    } finally {
+      rmSync(temporaryRoot, { force: true, recursive: true });
+    }
+  });
+
   it('rejects ambiguous or inconsistent repository prefixes', () => {
     assert.throws(
       () =>
@@ -163,22 +212,16 @@ describe('CodeQL database source coverage', () => {
     const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-codeql-source-'));
     try {
       const workspaceRoot = path.join(temporaryRoot, 'workspace');
-      const archiveRoot = path.join(temporaryRoot, 'archive');
       const databaseRoot = path.join(temporaryRoot, 'database');
       const sourcePath = 'runtime/local-whisper/common/src/a.cpp';
       const workspaceFile = path.join(workspaceRoot, ...sourcePath.split('/'));
-      const archiveFile = path.join(archiveRoot, 'source-root', ...sourcePath.split('/'));
       mkdirSync(path.dirname(workspaceFile), { recursive: true });
-      mkdirSync(path.dirname(archiveFile), { recursive: true });
       mkdirSync(databaseRoot, { recursive: true });
       writeFileSync(workspaceFile, 'current translation unit\n', 'utf8');
-      writeFileSync(archiveFile, 'current translation unit\n', 'utf8');
-      const packed = spawnSync('tar', ['-cf', path.join(databaseRoot, 'src.zip'), 'source-root'], {
-        cwd: archiveRoot,
-        shell: false,
-        windowsHide: true,
-      });
-      assert.equal(packed.status, 0);
+      const archiveEntry = `source-root/${sourcePath}`;
+      const sourceArchive = storedZipEntry(archiveEntry, 'current translation unit\n');
+      assert.equal(sourceArchive.readUInt32LE(0), 0x04034b50);
+      writeFileSync(path.join(databaseRoot, 'src.zip'), sourceArchive);
 
       const inventory = codeqlDatabaseSources(databaseRoot);
       const oneTranslationUnit = manifest.filter((entry) => entry.path === sourcePath);
@@ -195,6 +238,21 @@ describe('CodeQL database source coverage', () => {
         () => assertCodeqlDatabaseSourceCoverage(oneTranslationUnit, 'linux', inventory.entries, digests),
         /has 1 stale translation unit/u,
       );
+    } finally {
+      rmSync(temporaryRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('rejects an oversized workspace translation unit through the pre-read file bound', () => {
+    const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-codeql-source-'));
+    try {
+      const sourcePath = 'runtime/local-whisper/common/src/a.cpp';
+      const workspaceFile = path.join(temporaryRoot, ...sourcePath.split('/'));
+      mkdirSync(path.dirname(workspaceFile), { recursive: true });
+      writeFileSync(workspaceFile, '', 'utf8');
+      truncateSync(workspaceFile, 4 * 1024 * 1024 + 1);
+
+      assert.throws(() => workspaceSourceSha256(temporaryRoot, sourcePath), /workspace source is unavailable/u);
     } finally {
       rmSync(temporaryRoot, { force: true, recursive: true });
     }

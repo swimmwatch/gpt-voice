@@ -1,15 +1,20 @@
 import { spawnSync } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
-import { lstatSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
+import process from 'node:process';
+import { TextDecoder } from 'node:util';
 
 import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
 
 const MAXIMUM_SOURCE_ARCHIVE_BYTES = 1024 * 1024 * 1024;
 const MAXIMUM_SOURCE_LIST_BYTES = 16 * 1024 * 1024;
+const MAXIMUM_SOURCE_ARCHIVE_MEMBERS = 200_000;
 const MAXIMUM_TRANSLATION_UNIT_BYTES = 4 * 1024 * 1024;
+const ARCHIVE_COMMAND_TIMEOUT_MS = 30_000;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 
 function normalizedArchivePath(value) {
   if (typeof value !== 'string' || /[\0\r\n]/u.test(value)) {
@@ -125,6 +130,133 @@ function archiveMetadata(databasePath) {
   return archiveFileMetadata(resolve(databasePath, 'src.zip'));
 }
 
+function verifiedArchiveTool() {
+  let executable;
+  let kind;
+  let environment;
+  try {
+    if (process.platform === 'linux') {
+      const expected = '/usr/bin/unzip';
+      executable = realpathSync(expected);
+      if (executable !== expected) throw new Error('unexpected executable identity');
+      kind = 'unzip';
+      environment = Object.freeze({ LANG: 'C', LC_ALL: 'C' });
+    } else if (process.platform === 'win32') {
+      const rootInput = process.env.SystemRoot ?? process.env.WINDIR;
+      if (typeof rootInput !== 'string' || !isAbsolute(rootInput)) {
+        throw new Error('Windows root is unavailable');
+      }
+      const systemRoot = realpathSync(rootInput);
+      const expectedSystemDirectory = resolve(systemRoot, 'System32');
+      const systemDirectory = realpathSync(expectedSystemDirectory);
+      if (systemDirectory.toLowerCase() !== expectedSystemDirectory.toLowerCase()) {
+        throw new Error('Windows system directory identity changed');
+      }
+      const expected = resolve(systemDirectory, 'tar.exe');
+      executable = realpathSync(expected);
+      if (executable.toLowerCase() !== expected.toLowerCase()) {
+        throw new Error('unexpected executable identity');
+      }
+      kind = 'bsdtar';
+      environment = Object.freeze({ SystemRoot: systemRoot, WINDIR: systemRoot });
+    } else {
+      throw new Error('unsupported platform');
+    }
+    const metadata = lstatSync(executable);
+    if (
+      !metadata.isFile() ||
+      metadata.isSymbolicLink() ||
+      metadata.size < 1 ||
+      (process.platform === 'linux' && (metadata.mode & 0o111) === 0)
+    ) {
+      throw new Error('archive tool is invalid');
+    }
+  } catch {
+    throw new Error('Native quality CodeQL ZIP tool is unavailable');
+  }
+  return Object.freeze({ environment, executable, kind });
+}
+
+function checkedArchiveToolEntry(value) {
+  const normalizedValue = typeof value === 'string' && value.endsWith('/') ? value.slice(0, -1) : value;
+  normalizedArchivePath(normalizedValue);
+  if (
+    value.startsWith('-') ||
+    value.includes('\\') ||
+    value.includes('*') ||
+    value.includes('?') ||
+    value.includes('[') ||
+    value.includes(']')
+  ) {
+    throw new Error('Native quality CodeQL source inventory is malformed');
+  }
+  return value;
+}
+
+function checkedArchiveToolPath(value) {
+  if (
+    typeof value !== 'string' ||
+    !isAbsolute(value) ||
+    /[\0\r\n]/u.test(value) ||
+    value.includes('*') ||
+    value.includes('?') ||
+    value.includes('[') ||
+    value.includes(']')
+  ) {
+    throw new Error('Native quality CodeQL source archive is invalid');
+  }
+  return value;
+}
+
+function runArchiveTool(tool, operation, archivePath, archiveEntry = null) {
+  const listing = operation === 'list';
+  const checkedArchivePath = checkedArchiveToolPath(archivePath);
+  const arguments_ =
+    tool.kind === 'unzip'
+      ? listing
+        ? ['-Z1', checkedArchivePath]
+        : ['-p', checkedArchivePath, checkedArchiveToolEntry(archiveEntry)]
+      : listing
+        ? ['-tf', checkedArchivePath]
+        : ['-xOf', checkedArchivePath, '--', checkedArchiveToolEntry(archiveEntry)];
+  return spawnSync(tool.executable, arguments_, {
+    encoding: null,
+    env: tool.environment,
+    maxBuffer: listing ? MAXIMUM_SOURCE_LIST_BYTES : MAXIMUM_TRANSLATION_UNIT_BYTES,
+    shell: false,
+    timeout: ARCHIVE_COMMAND_TIMEOUT_MS,
+    windowsHide: true,
+  });
+}
+
+export function codeqlArchiveListingEntries(listingBytes) {
+  if (!Buffer.isBuffer(listingBytes) || listingBytes.length < 1 || listingBytes.length > MAXIMUM_SOURCE_LIST_BYTES) {
+    throw new Error('Native quality CodeQL source inventory is malformed');
+  }
+  let memberCount = listingBytes.at(-1) === 0x0a ? 0 : 1;
+  for (const byte of listingBytes) {
+    if (byte !== 0x0a) continue;
+    memberCount += 1;
+    if (memberCount > MAXIMUM_SOURCE_ARCHIVE_MEMBERS) {
+      throw new Error('Native quality CodeQL source inventory is malformed');
+    }
+  }
+  let listing;
+  try {
+    listing = UTF8_DECODER.decode(listingBytes);
+  } catch {
+    throw new Error('Native quality CodeQL source inventory is malformed');
+  }
+  const listedEntries = listing.split(/\r?\n/u);
+  if (listedEntries.at(-1) === '') listedEntries.pop();
+  if (listedEntries.length !== memberCount || listedEntries.some((entry) => entry.length === 0)) {
+    throw new Error('Native quality CodeQL source inventory is malformed');
+  }
+  return Object.freeze(
+    listedEntries.map((entry) => checkedArchiveToolEntry(entry)).filter((entry) => !entry.endsWith('/')),
+  );
+}
+
 function sameArchive(left, right) {
   const identityMatches =
     left.dev !== 0 && left.ino !== 0 && right.dev !== 0 && right.ino !== 0
@@ -137,22 +269,11 @@ function sameArchive(left, right) {
 
 export function codeqlDatabaseSources(databasePath) {
   const metadata = archiveMetadata(databasePath);
-  const result = spawnSync('tar', ['-tf', metadata.archivePath], {
-    encoding: 'utf8',
-    maxBuffer: MAXIMUM_SOURCE_LIST_BYTES,
-    shell: false,
-    windowsHide: true,
-  });
-  if (result.error || result.status !== 0 || typeof result.stdout !== 'string') {
+  const result = runArchiveTool(verifiedArchiveTool(), 'list', metadata.archivePath);
+  if (result.error || result.status !== 0 || !Buffer.isBuffer(result.stdout)) {
     throw new Error('Native quality CodeQL source inventory is unavailable');
   }
-  const entries = result.stdout
-    .split(/\r?\n/u)
-    .filter((entry) => entry.length > 0 && !entry.endsWith('/') && !entry.endsWith('\\'))
-    .map((entry) => {
-      normalizedArchivePath(entry);
-      return entry;
-    });
+  const entries = codeqlArchiveListingEntries(result.stdout);
   if (!sameArchive(metadata, archiveFileMetadata(metadata.archivePath))) {
     throw new Error('Native quality CodeQL source archive changed while being inspected');
   }
@@ -169,12 +290,7 @@ export function codeqlDatabaseSourceSha256(inventory, archiveEntry) {
     throw new Error('Native quality CodeQL source archive changed while being inspected');
   }
   normalizedArchivePath(archiveEntry);
-  const result = spawnSync('tar', ['-xOf', inventory.metadata.archivePath, '--', archiveEntry], {
-    encoding: null,
-    maxBuffer: MAXIMUM_TRANSLATION_UNIT_BYTES,
-    shell: false,
-    windowsHide: true,
-  });
+  const result = runArchiveTool(verifiedArchiveTool(), 'extract', inventory.metadata.archivePath, archiveEntry);
   if (
     result.error ||
     result.status !== 0 ||
@@ -202,7 +318,7 @@ export function workspaceSourceSha256(workspaceRoot, sourcePath) {
   }
   let file;
   try {
-    file = readVerifiedRegularFileSync(source);
+    file = readVerifiedRegularFileSync(source, { maximumBytes: MAXIMUM_TRANSLATION_UNIT_BYTES });
   } catch {
     throw new Error('Native quality workspace source is unavailable');
   }

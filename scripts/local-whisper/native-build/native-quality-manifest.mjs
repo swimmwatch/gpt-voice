@@ -43,9 +43,11 @@ const LINUX_ONLY_BASENAMES = new Set([
   'model_authority_linux.cpp',
   'model_authority_server.cpp',
   'model_launch_application.cpp',
+  'poll_direction_test.cpp',
   'qualification_protocol_test.cpp',
-  'worker_tsan_race_proof.cpp',
   'worker_protocol_posix.cpp',
+  'worker_protocol_posix_test.cpp',
+  'worker_tsan_race_proof.cpp',
 ]);
 
 const WINDOWS_ONLY_BASENAMES = new Set([
