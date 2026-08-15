@@ -40,11 +40,14 @@ test('worker TSan profile pins the Linux-only isolated instrumentation and full 
     'WorkerApplication.CooperativeCancellationEmitsNoTranscriptOrLateSuccess',
     'WorkerApplication.ImmediateAndDelayedInferenceFailuresEmitTypedFailureWithoutAnotherControlFrame',
     'WorkerApplication.InvalidCancellationStopsAndJoinsBlockedInference',
+    'WorkerApplication.RejectsDuplicateWarmupAfterOneSuccessfulTransition',
     'WorkerApplication.RejectsMalformedAudioBeforeInference',
     'WorkerApplication.RejectsMalformedSettingsBeforeReadingAudioOrInference',
+    'WorkerApplication.RejectsTranscriptionBeforeExplicitWarmup',
     'WorkerApplication.ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWarmed',
     'WorkerApplication.RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine',
     'WorkerApplication.TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate',
+    'WorkerApplication.WarmupFailureUnloadsAndReturnsTypedFailureBeforeCleanRetry',
   ]);
 });
 
