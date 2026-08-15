@@ -43,10 +43,10 @@ const EXPECTED_LOCKS = [
   ],
 ] as const;
 
-function cleanReport(artifactName: string): object {
+function cleanReport(artifactName: string, artifactType: 'cyclonedx' | 'filesystem' = 'filesystem'): object {
   return {
     ArtifactName: artifactName,
-    ArtifactType: 'filesystem',
+    ArtifactType: artifactType,
     Results: [{ Class: 'lang-pkgs', Target: 'component', Type: 'npm', Vulnerabilities: [] }],
     SchemaVersion: 2,
   };
@@ -187,7 +187,7 @@ function createRecord(sbomSha256: string) {
     packageFormat: 'appimage',
     packageSha256: PACKAGE_SHA256,
     platform: 'linux',
-    sbomReport: cleanReport('sbom'),
+    sbomReport: cleanReport('sbom', 'cyclonedx'),
     sbomSha256,
     sbomTarget: 'sbom',
     sourceCommit: SOURCE_COMMIT,
@@ -423,7 +423,7 @@ describe('Application artifact vulnerability policy', () => {
       packageFormat: 'appimage',
       packageSha256: PACKAGE_SHA256,
       platform: 'linux',
-      sbomReport: cleanReport('sbom'),
+      sbomReport: cleanReport('sbom', 'cyclonedx'),
       sbomSha256: '8'.repeat(64),
       sbomTarget: 'sbom',
       sourceCommit: SOURCE_COMMIT,
@@ -433,7 +433,33 @@ describe('Application artifact vulnerability policy', () => {
     assert.equal(record.scanner.database.updatedAt.endsWith('.123Z'), true);
   });
 
-  it('rejects scanner reports without semantic result coverage', () => {
+  it('accepts omitted or empty filesystem results when the SBOM retains semantic coverage', () => {
+    for (const filesystemReport of [
+      { ArtifactName: 'unpacked-root', ArtifactType: 'filesystem', SchemaVersion: 2 },
+      { ArtifactName: 'unpacked-root', ArtifactType: 'filesystem', Results: [], SchemaVersion: 2 },
+    ]) {
+      assert.doesNotThrow(() =>
+        new ArtifactVulnerabilityPolicy().createRecord({
+          checksumSha256: CHECKSUM_SHA256,
+          database: DATABASE,
+          databaseSha256: DATABASE_SHA256,
+          filesystemReport,
+          filesystemTarget: 'unpacked-root',
+          now: NOW,
+          packageFormat: 'appimage',
+          packageSha256: PACKAGE_SHA256,
+          platform: 'linux',
+          sbomReport: cleanReport('sbom', 'cyclonedx'),
+          sbomSha256: '8'.repeat(64),
+          sbomTarget: 'sbom',
+          sourceCommit: SOURCE_COMMIT,
+          unpackedRootSha256: '7'.repeat(64),
+        }),
+      );
+    }
+  });
+
+  it('rejects SBOM reports without semantic result coverage', () => {
     for (const Results of [undefined, null, []]) {
       assert.throws(
         () =>
@@ -444,7 +470,6 @@ describe('Application artifact vulnerability policy', () => {
             filesystemReport: {
               ArtifactName: 'unpacked-root',
               ArtifactType: 'filesystem',
-              Results,
               SchemaVersion: 2,
             },
             filesystemTarget: 'unpacked-root',
@@ -452,7 +477,12 @@ describe('Application artifact vulnerability policy', () => {
             packageFormat: 'appimage',
             packageSha256: PACKAGE_SHA256,
             platform: 'linux',
-            sbomReport: cleanReport('sbom'),
+            sbomReport: {
+              ArtifactName: 'sbom',
+              ArtifactType: 'cyclonedx',
+              Results,
+              SchemaVersion: 2,
+            },
             sbomSha256: '8'.repeat(64),
             sbomTarget: 'sbom',
             sourceCommit: SOURCE_COMMIT,
@@ -478,7 +508,7 @@ describe('Application artifact vulnerability policy', () => {
           packageFormat: 'appimage',
           packageSha256: PACKAGE_SHA256,
           platform: 'linux',
-          sbomReport: cleanReport('sbom'),
+          sbomReport: cleanReport('sbom', 'cyclonedx'),
           sbomSha256: '8'.repeat(64),
           sbomTarget: 'sbom',
           sourceCommit: SOURCE_COMMIT,
@@ -528,6 +558,31 @@ describe('Application artifact vulnerability policy', () => {
       },
       /SCAN_AMBIGUOUS/u,
     ],
+    [
+      'a null filesystem result set',
+      { filesystemReport: { ...cleanReport('unpacked-root'), Results: null } },
+      /SCAN_MALFORMED/u,
+    ],
+    [
+      'a mismatched filesystem artifact type',
+      { filesystemReport: { ...cleanReport('unpacked-root'), ArtifactType: 'cyclonedx', Results: [] } },
+      /SCAN_MALFORMED/u,
+    ],
+    [
+      'a mismatched SBOM artifact type',
+      { sbomReport: { ...cleanReport('sbom', 'cyclonedx'), ArtifactType: 'filesystem' } },
+      /SCAN_MALFORMED/u,
+    ],
+    [
+      'a mismatched filesystem artifact name',
+      { filesystemReport: { ArtifactName: 'other-root', ArtifactType: 'filesystem', SchemaVersion: 2 } },
+      /SCAN_MALFORMED/u,
+    ],
+    [
+      'a mismatched filesystem schema',
+      { filesystemReport: { ArtifactName: 'unpacked-root', ArtifactType: 'filesystem', SchemaVersion: 1 } },
+      /SCAN_MALFORMED/u,
+    ],
     ['a malformed scanner result', { sbomReport: {} }, /SCAN_MALFORMED/u],
     ['a stale database', { database: { ...DATABASE, UpdatedAt: '2026-08-01T00:00:00.000Z' } }, /DATABASE_STALE/u],
     ['an unavailable database', { database: null }, /DATABASE_INVALID/u],
@@ -545,7 +600,7 @@ describe('Application artifact vulnerability policy', () => {
             packageFormat: 'appimage',
             packageSha256: PACKAGE_SHA256,
             platform: 'linux',
-            sbomReport: cleanReport('sbom'),
+            sbomReport: cleanReport('sbom', 'cyclonedx'),
             sbomSha256: '8'.repeat(64),
             sbomTarget: 'sbom',
             sourceCommit: SOURCE_COMMIT,

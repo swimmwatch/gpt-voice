@@ -141,6 +141,7 @@ test('Linux core preserves TSan, fuzzing, sanitizer, coverage, and CodeQL orderi
   assert.match(core, /test:local-whisper:native-fuzz-proof/u);
   assert.match(core, /test:local-whisper:whisper-cpp-cancellation/u);
   assert.match(core, /emit:local-whisper:native-quality-coverage/u);
+  assert.match(core, /--codeql-database=\.cache\/codeql\/cpp-linux\/cpp/u);
   assert.match(core, /--evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection/u);
   assert.match(core, /category":"\/language:c-cpp,host:linux/u);
   assert.doesNotMatch(core, /SEMMLE_|CODEQL_RUNNER/u);
@@ -178,6 +179,7 @@ test('Linux core preserves TSan, fuzzing, sanitizer, coverage, and CodeQL orderi
 test('Windows core, analysis, and ASan lanes retain the complete required surface', () => {
   const core = jobText('native-windows-core');
   const shards = jobText('native-windows-shards');
+  assert.match(core, /--codeql-database=\.cache\/codeql\/cpp-windows\/cpp/u);
   assert.match(core, /test:local-whisper:fs-guard:native/u);
   assert.match(core, /test:local-whisper:whisper-cpp-core/u);
   assert.match(core, /verify:local-whisper:native-hardening -- --platform=windows/u);

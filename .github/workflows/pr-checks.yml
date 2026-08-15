@@ -166,7 +166,7 @@ jobs:
       - name: Emit Linux native-quality coverage
         shell: bash
         run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=$PLATFORM --compiler-profile=$TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-linux --output=release-artifacts/native-quality-coverage-linux.json
+          npm run emit:local-whisper:native-quality-coverage -- --platform=$PLATFORM --compiler-profile=$TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection --codeql-database=.cache/codeql/cpp-linux/cpp --output=release-artifacts/native-quality-coverage-linux.json
       - name: Emit Linux runner evidence
         shell: bash
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_LINUX_RUNNER }} --toolchain=$TOOLCHAIN --expected-os=$PLATFORM --compiler="$CXX" --output=$EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
@@ -356,7 +356,7 @@ jobs:
       - name: Emit Windows native-quality coverage
         shell: pwsh
         run: >-
-          npm run emit:local-whisper:native-quality-coverage -- --platform=$env:PLATFORM --compiler-profile=$env:TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-windows --output=release-artifacts/native-quality-coverage-windows.json
+          npm run emit:local-whisper:native-quality-coverage -- --platform=$env:PLATFORM --compiler-profile=$env:TOOLCHAIN --evidence=contract-inspection,compile,execute,analyze,sanitize,binary-inspection --codeql-database=.cache/codeql/cpp-windows/cpp --output=release-artifacts/native-quality-coverage-windows.json
       - name: Emit Windows runner evidence
         shell: pwsh
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_WINDOWS_RUNNER }} --toolchain=$env:TOOLCHAIN --expected-os=$env:PLATFORM --compiler="$env:CXX" --output=$env:EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916

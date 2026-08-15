@@ -171,12 +171,15 @@ if (isWindowsExecutable || isDirectScript) {
     fs.writeFileSync(output, '{}');
     process.exit(0);
   }
-  fs.writeFileSync(output, JSON.stringify({
+  const report = {
     ArtifactName: process.env.FAKE_TRIVY_MODE === 'windows-separators' ? args.at(-1).split('/').join('\\\\') : args.at(-1),
     ArtifactType: args[0] === 'sbom' ? 'cyclonedx' : 'filesystem',
-    Results: [{ Class: 'lang-pkgs', Target: args.at(-1), Type: 'npm', Vulnerabilities: [] }],
     SchemaVersion: 2,
-  }));
+  };
+  if (args[0] === 'sbom' && process.env.FAKE_TRIVY_MODE !== 'empty-sbom') {
+    report.Results = [{ Class: 'lang-pkgs', Target: args.at(-1), Type: 'npm', Vulnerabilities: [] }];
+  }
+  fs.writeFileSync(output, JSON.stringify(report));
   process.exit(0);
 }
 `;
@@ -197,7 +200,7 @@ if (isWindowsExecutable || isDirectScript) {
 async function runScanner(
   fixture: ArtifactSecurityFixture,
   input: {
-    readonly mode?: 'malformed' | 'scanner-failure' | 'windows-separators';
+    readonly mode?: 'empty-sbom' | 'malformed' | 'scanner-failure' | 'windows-separators';
     readonly platform?: 'linux' | 'win32';
   } = {},
 ): Promise<{ readonly code: number | null; readonly stderr: string; readonly stdout: string }> {
@@ -302,6 +305,7 @@ describe('Application artifact security scanner CLI', () => {
   for (const [name, mode, databaseAgeDays, expected] of [
     ['a scanner process failure', 'scanner-failure', 0, /SCANNER_UNAVAILABLE/u],
     ['a malformed scanner report', 'malformed', 0, /SCAN_MALFORMED/u],
+    ['an SBOM report without semantic coverage', 'empty-sbom', 0, /SCAN_MALFORMED/u],
     ['a stale scanner database', undefined, 8, /DATABASE_STALE/u],
   ] as const) {
     it(`fails closed and removes partial evidence for ${name}`, async () => {

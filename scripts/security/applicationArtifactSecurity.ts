@@ -218,15 +218,21 @@ function canonicalTrivyArtifactName(value: unknown): string {
   return segments.join('/');
 }
 
-function normalizeTrivyReport(value: unknown, expectedArtifact: string): void {
+function normalizeTrivyReport(value: unknown, expectedArtifact: string, role: 'filesystem' | 'sbom'): void {
   const report = isRecord(value) ? value : fail('SCAN_MALFORMED');
   const rawResults = report.Results;
+  const expectedArtifactType = role === 'filesystem' ? 'filesystem' : 'cyclonedx';
   if (
     report.SchemaVersion !== TRIVY_REPORT_SCHEMA_VERSION ||
     canonicalTrivyArtifactName(report.ArtifactName) !== expectedArtifact ||
-    typeof report.ArtifactType !== 'string' ||
+    report.ArtifactType !== expectedArtifactType
+  ) {
+    fail('SCAN_MALFORMED');
+  }
+  if (rawResults === undefined && role === 'filesystem') return;
+  if (
     !Array.isArray(rawResults) ||
-    rawResults.length === 0 ||
+    (role === 'sbom' && rawResults.length === 0) ||
     rawResults.length > MAXIMUM_COMPONENTS
   ) {
     fail('SCAN_MALFORMED');
@@ -671,8 +677,8 @@ export class ArtifactVulnerabilityPolicy {
     const now = input.now;
     if (!Number.isFinite(now.getTime())) fail('CLOCK_INVALID');
     this.verifyDatabase(input.database, input.databaseSha256, now);
-    normalizeTrivyReport(input.filesystemReport, input.filesystemTarget);
-    normalizeTrivyReport(input.sbomReport, input.sbomTarget);
+    normalizeTrivyReport(input.filesystemReport, input.filesystemTarget, 'filesystem');
+    normalizeTrivyReport(input.sbomReport, input.sbomTarget, 'sbom');
     const scannedAt = now.toISOString();
     if (!TIMESTAMP.test(scannedAt)) fail('CLOCK_INVALID');
     const database = input.database as TrivyDatabase;

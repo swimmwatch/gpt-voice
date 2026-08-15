@@ -26,10 +26,14 @@ describe('Repository security workflow', () => {
     const baselineInstall = releaseWorkflow.indexOf('npm run ci:install', baselineGate);
     assert.ok(baselineGate >= 0 && baselineInstall > baselineGate);
 
-    const fedoraEntrypoint = await readWorkspaceFile('build', 'fedora-release', 'fedora-release-entrypoint.mjs');
-    assert.ok(
-      fedoraEntrypoint.indexOf('verify-npm-signatures-preinstall.mjs') < fedoraEntrypoint.indexOf("'ci:install'"),
+    const fedoraRunner = await readWorkspaceFile('scripts', 'build-fedora-release.mjs');
+    assert.match(
+      fedoraRunner,
+      /await run\('node', \['scripts\/security\/verify-npm-signatures-preinstall\.mjs'\]\);\r?\nawait run\('docker', containerArgs\);/u,
     );
+    const fedoraEntrypoint = await readWorkspaceFile('build', 'fedora-release', 'fedora-release-entrypoint.mjs');
+    assert.doesNotMatch(fedoraEntrypoint, /verify-npm-signatures-preinstall\.mjs/u);
+    assert.match(fedoraEntrypoint, /await run\('npm', \['run', 'ci:install'\]\)/u);
   });
 
   it('runs every repository-control gate with immutable inputs', async () => {

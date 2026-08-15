@@ -133,6 +133,18 @@ test('native quality reports reject over-claims and expose only relative source 
 test('focused GCC quality reports only the compiled Linux guard, launcher, and shared dependency sources', () => {
   const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
   const compiledPaths = manifestEntriesForFocusedGcc(manifest).map((entry) => entry.path);
+  assert.deepEqual(
+    compiledPaths.filter((sourcePath) => sourcePath.startsWith('runtime/local-whisper/common/src/')),
+    [
+      'runtime/local-whisper/common/src/authority_bootstrap.cpp',
+      'runtime/local-whisper/common/src/linux_process_identity.cpp',
+      'runtime/local-whisper/common/src/model_authority.cpp',
+      'runtime/local-whisper/common/src/native_logger.cpp',
+      'runtime/local-whisper/common/src/sha256.cpp',
+      'runtime/local-whisper/common/src/sha256_dispatch.cpp',
+      'runtime/local-whisper/common/src/sha256_x86.cpp',
+    ],
+  );
   const report = createFocusedGccQualityCoverageReport({
     compilerProfile: 'linux-x64-cpu-baseline-v1',
     compiledPaths,

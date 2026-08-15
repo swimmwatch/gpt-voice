@@ -27,6 +27,9 @@ const FOCUSED_GCC_SHARED_TRANSLATION_UNITS = new Set([
   'runtime/local-whisper/common/src/linux_process_identity.cpp',
   'runtime/local-whisper/common/src/model_authority.cpp',
   'runtime/local-whisper/common/src/native_logger.cpp',
+  'runtime/local-whisper/common/src/sha256.cpp',
+  'runtime/local-whisper/common/src/sha256_dispatch.cpp',
+  'runtime/local-whisper/common/src/sha256_x86.cpp',
 ]);
 
 const LINUX_ONLY_BASENAMES = new Set([

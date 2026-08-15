@@ -90,9 +90,8 @@ public:
 
   UniqueDir open_directory(UniqueFd&& fd) {
     before_resource_acquisition();
-    return open_unique_directory(std::move(fd), [](const int descriptor) {
-      return fdopendir(descriptor);
-    });
+    return open_unique_directory(std::move(fd),
+                                 [](const int descriptor) { return fdopendir(descriptor); });
   }
 
   void require_lease_capacity() const {
