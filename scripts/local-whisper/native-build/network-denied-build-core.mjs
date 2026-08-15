@@ -6,6 +6,28 @@ import { resolveProfileTool } from './native-toolchain-core.mjs';
 export const LINUX_NETWORK_DENIAL_STRATEGY = 'linux-user-network-namespace';
 export const WINDOWS_NETWORK_DENIAL_STRATEGY = 'windows-firewall-process-boundary';
 
+export function runWithRequiredCleanup(action, cleanup) {
+  let result;
+  let primaryError = null;
+  try {
+    result = action();
+  } catch (error) {
+    primaryError = error;
+  }
+  try {
+    cleanup();
+  } catch (cleanupError) {
+    if (primaryError === null) throw cleanupError;
+    const primaryMessage = primaryError instanceof Error ? primaryError.message : 'network-isolated action failed';
+    const cleanupMessage = cleanupError instanceof Error ? cleanupError.message : 'required cleanup failed';
+    throw new Error(`${primaryMessage}; additionally, ${cleanupMessage}`, {
+      cause: cleanupError,
+    });
+  }
+  if (primaryError !== null) throw primaryError;
+  return result;
+}
+
 const WINDOWS_RUNNER_PATH = resolve(import.meta.dirname, 'windows-network-denied-runner.mjs');
 
 function fail(message) {

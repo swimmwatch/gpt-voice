@@ -50,6 +50,62 @@ const RUNNER_EVIDENCE_EMITTER = resolve(
   'native-build',
   'emit-runner-evidence.mjs',
 );
+const WINDOWS_NETWORK_DENIED_RUNNER = resolve(
+  workspaceRoot,
+  'scripts',
+  'local-whisper',
+  'native-build',
+  'windows-network-denied-runner.mjs',
+);
+
+function hasElevatedWindowsToken() {
+  if (process.platform !== 'win32') return false;
+  const result = spawnSync(
+    'powershell.exe',
+    [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      '([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)',
+    ],
+    { encoding: 'utf8', shell: false, windowsHide: true },
+  );
+  return result.status === 0 && result.stdout.trim() === 'True';
+}
+
+test(
+  'Windows Firewall runner resolves PowerShell without ambient PATH lookup',
+  { skip: process.platform !== 'win32' },
+  () => {
+    const result = run(process.execPath, [WINDOWS_NETWORK_DENIED_RUNNER, '--assert-powershell-resolved'], {
+      allowFailure: true,
+      cwd: workspaceRoot,
+      env: {
+        PATH: '',
+        SystemRoot: process.env.SystemRoot,
+        TEMP: process.env.TEMP,
+        TMP: process.env.TMP,
+        WINDIR: process.env.WINDIR,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'LOCAL_WHISPER_POWERSHELL_RESOLVED');
+  },
+);
+
+test(
+  'Windows Firewall cleanup succeeds when setup created no packet-owned rules',
+  { skip: !hasElevatedWindowsToken() },
+  () => {
+    const result = run(process.execPath, [WINDOWS_NETWORK_DENIED_RUNNER, '--assert-cleanup-idempotent'], {
+      allowFailure: true,
+      cwd: workspaceRoot,
+      env: process.env,
+    });
+    assert.equal(result.status, 0, result.stderr);
+  },
+);
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {

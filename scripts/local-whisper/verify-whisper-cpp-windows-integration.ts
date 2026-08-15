@@ -451,7 +451,7 @@ function verifyRtx5090(registry: RuntimeRegistry): string {
   );
   if (result.status !== 0) throw new Error('Windows integration NVIDIA probe failed');
   const rows = result.stdout.trim().split(/\r?\n/u);
-  assert.equal(rows.length, 1, 'Windows Task 24 requires exactly one visible RTX 5090');
+  assert.equal(rows.length, 1, 'Windows Packet 20 requires exactly one visible RTX 5090');
   const [index, name, busId, computeCapability, driver] = (rows[0] ?? '').split(',').map((value) => value.trim());
   assert.equal(index, '0');
   assert.equal(name, 'NVIDIA GeForce RTX 5090');

@@ -24,7 +24,16 @@ if (process.platform !== 'linux' && process.platform !== 'win32') {
 mkdirSync(outputDirectory, { mode: 0o700, recursive: true });
 
 const tools = resolveNativeBuildToolPaths({ environment: process.env, platform: process.platform, workspaceRoot });
-const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(process.env) : null;
+const buildEnvironment =
+  process.platform === 'win32'
+    ? resolveWindowsMsvcBuildEnvironment({
+        environment: process.env,
+        includeCuda: false,
+        toolchainRoot: resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),
+        tools,
+      })
+    : process.env;
+const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(buildEnvironment) : null;
 const preset = process.platform === 'win32' ? 'windows-release' : 'linux-release';
 const configureArguments = [
   '--fresh',
@@ -40,16 +49,6 @@ if (windowsSdkTools) {
   configureArguments.push(`-DCMAKE_RC_COMPILER=${windowsCmakePath(windowsSdkTools.resourceCompiler)}`);
   configureArguments.push(`-DCMAKE_MT=${windowsCmakePath(windowsSdkTools.manifestTool)}`);
 }
-const buildEnvironment =
-  process.platform === 'win32'
-    ? resolveWindowsMsvcBuildEnvironment({
-        environment: process.env,
-        includeCuda: false,
-        toolchainRoot: resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),
-        tools,
-      })
-    : process.env;
-
 function run(arguments_) {
   const result = spawnSync(tools.cmake, arguments_, {
     cwd: sourceDirectory,

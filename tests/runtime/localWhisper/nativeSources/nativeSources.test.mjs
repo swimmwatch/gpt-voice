@@ -16,7 +16,10 @@ import {
 import { resolveNativeBuildToolPaths } from '../../../../scripts/local-whisper/native-build/native-build-tool-paths.mjs';
 import { resolveWindowsMsvcBuildEnvironment } from '../../../../scripts/local-whisper/native-build/windows-msvc-build-environment.mjs';
 import { parseDumpbinDependencies } from '../../../../scripts/local-whisper/native-build/windows-pe-dependency-core.mjs';
-import { WINDOWS_SYSTEM_DEPENDENCIES } from '../../../../scripts/local-whisper/native-build/windows-runtime-pack-core.mjs';
+import {
+  resolveWindowsPackRuntimeDependencies,
+  WINDOWS_SYSTEM_DEPENDENCIES,
+} from '../../../../scripts/local-whisper/native-build/windows-runtime-pack-core.mjs';
 import {
   resolveWindowsRuntimeDependencyIdentities,
   resolveWindowsRuntimeProofMode,
@@ -29,6 +32,7 @@ import {
 import {
   cmakeToolPath,
   platformBuildCmakeArguments,
+  requiresPinnedWindowsToolchain,
   resolvePreparedLinuxQualityTools,
   resolvePreparedWindowsQualityTools,
 } from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
@@ -103,6 +107,36 @@ test('Windows runtime pack resolves static profile DLL identities only from the 
   const conflicting = globalThis.structuredClone(profile.dynamicDependencies);
   conflicting[0].sha256 = '0'.repeat(64);
   assert.throws(() => resolveWindowsRuntimeDependencyIdentities({ dependencies: conflicting, lock }), /conflicts/u);
+});
+
+test('Windows CUDA runtime pack admits only captured CUDA DLL identities beside the acquired VC Runtime', () => {
+  const profile = readJson(resolve(toolchainRoot, 'profiles', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json'));
+  const lock = readJson(resolve(toolchainRoot, 'locks', 'microsoft-vc-runtime-14.51.36247.0-x64-v1.json'));
+  const candidate = globalThis.structuredClone(profile);
+  for (const component of [...candidate.runtime, ...candidate.dynamicDependencies]) {
+    if (['cuda-runtime-12.8.1', 'cublas-12.8.1', 'cublas-lt-12.8.1'].includes(component.id)) {
+      component.sha256 = '1'.repeat(64);
+    }
+  }
+  const dependencies = resolveWindowsPackRuntimeDependencies({ backend: 'cuda', profile: candidate, lock });
+  assert.equal(
+    dependencies.some(({ id }) => id === 'microsoft-vc-runtime-14.51.36247.0-msvcp140-atomic-wait'),
+    true,
+  );
+  assert.deepEqual(
+    dependencies.slice(-3).map(({ id, path }) => [id, path]),
+    [
+      ['cuda-runtime-12.8.1', 'cuda-12.8.1/bin/cudart64_12.dll'],
+      ['cublas-12.8.1', 'cuda-12.8.1/bin/cublas64_12.dll'],
+      ['cublas-lt-12.8.1', 'cuda-12.8.1/bin/cublasLt64_12.dll'],
+    ],
+  );
+  const changed = globalThis.structuredClone(candidate);
+  changed.dynamicDependencies.at(-1).sha256 = '2'.repeat(64);
+  assert.throws(
+    () => resolveWindowsPackRuntimeDependencies({ backend: 'cuda', profile: changed, lock }),
+    /identity changed/u,
+  );
 });
 
 test('Windows compiler verification derives the exact _MSC_VER from the selected profile', () => {
@@ -469,6 +503,30 @@ test('toolchain schemas preserve Linux candidates and Windows qualification-only
   }
 });
 
+test('Windows CUDA execution profile owns the complete pinned build-tool set', () => {
+  const profile = readJson(resolve(toolchainRoot, 'profiles', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json'));
+  assert.deepEqual(
+    profile.tools.map(({ role }) => role),
+    [
+      'c-compiler',
+      'cxx-compiler',
+      'linker',
+      'archiver',
+      'pe-inspector',
+      'cuda-compiler',
+      'cmake',
+      'ninja',
+      'resource-compiler',
+      'manifest-tool',
+    ],
+  );
+  assert.equal(requiresPinnedWindowsToolchain(profile), true);
+  assert.equal(
+    requiresPinnedWindowsToolchain(readJson(resolve(toolchainRoot, 'profiles', 'windows-x64-cpu-msvc-19.51-v1.json'))),
+    false,
+  );
+});
+
 test('Windows CUDA environment derives the exact Visual Studio instance from the verified host compiler', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-environment-'));
   const toolchain = resolve(root, 'toolchains');
@@ -632,7 +690,7 @@ test('CMake tool paths use portable separators on Windows without changing Linux
 
 test('Windows Release component builds bind the prepared SDK resource and manifest tools', () => {
   for (const source of [FS_GUARD_BUILD_SCRIPT, LAUNCHER_BUILD_SCRIPT]) {
-    assert.match(source, /resolvePreparedWindowsSdkInputs\(process\.env\)/u);
+    assert.match(source, /resolvePreparedWindowsSdkInputs\(buildEnvironment\)/u);
     assert.match(source, /-DCMAKE_RC_COMPILER=/u);
     assert.match(source, /-DCMAKE_MT=/u);
     assert.match(source, /windowsCmakePath/u);
@@ -641,7 +699,7 @@ test('Windows Release component builds bind the prepared SDK resource and manife
 
 test('Windows native component quality binds every exact prepared CMake tool input', () => {
   for (const source of [FS_GUARD_QUALITY_SCRIPT, LAUNCHER_QUALITY_SCRIPT]) {
-    assert.match(source, /resolvePreparedWindowsSdkInputs\(process\.env\)/u);
+    assert.match(source, /resolvePreparedWindowsSdkInputs\(buildEnvironment\)/u);
     assert.match(source, /-DCMAKE_CXX_COMPILER=/u);
     assert.match(source, /-DCMAKE_MAKE_PROGRAM=/u);
     assert.match(source, /-DCMAKE_RC_COMPILER=/u);
@@ -752,6 +810,24 @@ test('Windows CPU runtime audit requires the import-derived atomic-wait sidecar'
     'vcruntime140_1.dll',
   ]);
   assert.throws(() => windowsRuntimeDllNames('unsupported'));
+});
+
+test('Windows CUDA runtime audit retains the import-derived atomic-wait sidecar', () => {
+  assert.deepEqual(windowsRuntimeDllNames('cuda'), [
+    'cublas64_12.dll',
+    'cublaslt64_12.dll',
+    'cudart64_12.dll',
+    'msvcp140.dll',
+    'msvcp140_atomic_wait.dll',
+    'vcruntime140.dll',
+    'vcruntime140_1.dll',
+  ]);
+});
+
+test('CUDA builds stabilize NVCC temporary object names on both supported platforms', () => {
+  const cmake = readFileSync(resolve(workspaceRoot, 'runtime/local-whisper/whisper-cpp/CMakeLists.txt'), 'utf8');
+  assert.match(cmake, /if\(LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda"\)[\s\S]*?--objdir-as-tempdir[\s\S]*?endif\(\)/u);
+  assert.doesNotMatch(cmake, /if\(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda"\)/u);
 });
 
 test('CUDA profile rejects native, virtual, bare, and silently changed architectures', () => {

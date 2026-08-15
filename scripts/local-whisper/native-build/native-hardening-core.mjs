@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { validateRelativePath } from '../source-import/native-source-core.mjs';
@@ -38,6 +38,10 @@ const PE_OPTIONAL_HEADER_DATA_DIRECTORY_OFFSET = 112;
 const PE_OPTIONAL_HEADER_DLL_CHARACTERISTICS_OFFSET = 70;
 const PE_SECTION_HEADER_SIZE = 40;
 const PE_GUARD_CF_INSTRUMENTED = 0x00000100;
+const WINDOWS_CUDA_QUALIFICATION_BUILD = 'wcuda-engine-p20w-cuda-a';
+const WINDOWS_CUDA_QUALIFICATION_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
+export const WINDOWS_CUDA_QUALIFICATION_EVIDENCE_RELATIVE_PATH =
+  '.cache/local-whisper/qualification/runtime-packs/cuda/runtime-reproducibility.json';
 
 export const NATIVE_HARDENING_SCHEMA_ID = 'local-whisper-native-hardening-v1';
 
@@ -279,6 +283,15 @@ function readOwnedFile(root, relativePath, label) {
   return Object.freeze({ bytes: readFileSync(canonicalPath) });
 }
 
+function readOwnedJson(root, relativePath, label) {
+  const { bytes } = readOwnedFile(root, relativePath, label);
+  try {
+    return JSON.parse(bytes.toString('utf8'));
+  } catch {
+    throw new Error(`${label} is not valid JSON`);
+  }
+}
+
 function commandText(entry) {
   if (typeof entry.command === 'string') return entry.command;
   if (Array.isArray(entry.arguments) && entry.arguments.every((argument) => typeof argument === 'string')) {
@@ -316,12 +329,16 @@ function sha256(bytes) {
 }
 
 /** Returns the only permitted production-binary manifest for a host-native verification run. */
-export function createNativeHardeningManifest(platform) {
+export function createNativeHardeningManifest(platform, { windowsCudaQualification = false } = {}) {
   if (platform !== 'linux' && platform !== 'windows')
     throw new Error('Native hardening supports Linux and Windows only');
+  if (typeof windowsCudaQualification !== 'boolean' || (platform !== 'windows' && windowsCudaQualification)) {
+    throw new Error('Native hardening qualification selection is invalid');
+  }
   const extension = platform === 'windows' ? '.exe' : '';
   const buildPlatform = platform === 'windows' ? 'windows' : 'linux';
   const workerBuild = platform === 'windows' ? 'wcpu-engine' : 'linux-x64-cpu-baseline-v1-engine';
+  const cudaWorkerBuild = windowsCudaQualification ? WINDOWS_CUDA_QUALIFICATION_BUILD : 'wcuda-engine';
   return Object.freeze({
     executables: Object.freeze([
       Object.freeze({
@@ -339,10 +356,56 @@ export function createNativeHardeningManifest(platform) {
         relativePath: `.cache/local-whisper/whisper-cpp/build/${workerBuild}/bin/local-whisper-whisper-cpp-worker${extension}`,
         role: 'whisper-cpp-cpu-worker',
       }),
+      ...(platform === 'windows'
+        ? [
+            Object.freeze({
+              compileCommandsRelativePath: `.cache/local-whisper/whisper-cpp/build/${cudaWorkerBuild}/compile_commands.json`,
+              relativePath: `.cache/local-whisper/whisper-cpp/build/${cudaWorkerBuild}/bin/local-whisper-whisper-cpp-worker.exe`,
+              role: 'whisper-cpp-cuda-worker',
+            }),
+          ]
+        : []),
     ]),
     platform,
     schemaId: NATIVE_HARDENING_SCHEMA_ID,
+    windowsCudaQualification,
   });
+}
+
+export function hasWindowsCudaQualificationHardeningEvidence(workspaceRoot) {
+  return existsSync(resolve(workspaceRoot, ...WINDOWS_CUDA_QUALIFICATION_EVIDENCE_RELATIVE_PATH.split('/')));
+}
+
+function qualificationCudaWorkerIdentity(workspaceRoot) {
+  const reproducibility = readOwnedJson(
+    workspaceRoot,
+    WINDOWS_CUDA_QUALIFICATION_EVIDENCE_RELATIVE_PATH,
+    'Windows CUDA runtime reproducibility record',
+  );
+  const pack = readOwnedJson(
+    workspaceRoot,
+    '.cache/local-whisper/qualification/runtime-packs/cuda/build-a/runtime-pack.json',
+    'Windows CUDA runtime pack record',
+  );
+  if (
+    reproducibility?.backend !== 'cuda' ||
+    reproducibility.profileId !== WINDOWS_CUDA_QUALIFICATION_PROFILE ||
+    reproducibility.cleanRootCount !== 2 ||
+    reproducibility.networkIsolation !== 'fetchcontent-disconnected-isolated-toolchain' ||
+    reproducibility.reproducible !== true ||
+    pack?.profileId !== WINDOWS_CUDA_QUALIFICATION_PROFILE ||
+    pack.archive?.sha256 !== reproducibility.archiveSha256 ||
+    !Array.isArray(pack.expectedFiles)
+  ) {
+    throw new Error('Windows CUDA hardening evidence is not the reproducible Packet 20 runtime pack');
+  }
+  const workers = pack.expectedFiles.filter(
+    (file) => file?.fileId === 'worker' && file.kind === 'executable' && /^[a-f0-9]{64}$/u.test(file.sha256),
+  );
+  if (workers.length !== 1 || !Number.isSafeInteger(workers[0].sizeBytes) || workers[0].sizeBytes <= 0) {
+    throw new Error('Windows CUDA hardening evidence has no exact worker identity');
+  }
+  return workers[0];
 }
 
 /** Verifies only the generated manifest's exact production outputs and returns a privacy-bounded report. */
@@ -350,10 +413,12 @@ export function verifyNativeHardening({ manifest, workspaceRoot }) {
   if (manifest?.schemaId !== NATIVE_HARDENING_SCHEMA_ID) throw new Error('Native hardening manifest schema is invalid');
   if (manifest.platform !== 'linux' && manifest.platform !== 'windows')
     throw new Error('Native hardening platform is invalid');
-  if (!Array.isArray(manifest.executables) || manifest.executables.length !== 3) {
-    throw new Error('Native hardening manifest must contain exactly three executables');
+  const expected = createNativeHardeningManifest(manifest.platform, {
+    windowsCudaQualification: manifest.windowsCudaQualification,
+  });
+  if (!Array.isArray(manifest.executables) || manifest.executables.length !== expected.executables.length) {
+    throw new Error(`Native hardening manifest must contain exactly ${expected.executables.length} executables`);
   }
-  const expected = createNativeHardeningManifest(manifest.platform);
   const expectedByRole = new Map(expected.executables.map((entry) => [entry.role, entry]));
   const observedRoles = new Set();
   const verifiedExecutables = [];
@@ -376,8 +441,16 @@ export function verifyNativeHardening({ manifest, workspaceRoot }) {
   if (observedRoles.size !== expectedByRole.size) throw new Error('Native hardening manifest omitted an executable');
 
   const reports = [];
+  const qualificationWorker = manifest.windowsCudaQualification ? qualificationCudaWorkerIdentity(workspaceRoot) : null;
   for (const executable of verifiedExecutables) {
     const { bytes } = readOwnedFile(workspaceRoot, executable.relativePath, `Native executable ${executable.role}`);
+    if (
+      executable.role === 'whisper-cpp-cuda-worker' &&
+      qualificationWorker !== null &&
+      (bytes.byteLength !== qualificationWorker.sizeBytes || sha256(bytes) !== qualificationWorker.sha256)
+    ) {
+      throw new Error('Windows CUDA hardening worker does not match the reproducible runtime pack');
+    }
     if (manifest.platform === 'linux') {
       inspectElfHardening(bytes);
       verifyCompileEvidence(workspaceRoot, executable.compileCommandsRelativePath, [

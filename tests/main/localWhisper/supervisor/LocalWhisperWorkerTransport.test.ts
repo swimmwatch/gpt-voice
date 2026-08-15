@@ -88,3 +88,19 @@ test('transport terminates once on worker audio or malformed stdout', () => {
   assert.deepEqual(terminal, ['protocolViolation']);
   transport.dispose();
 });
+
+test('transport consumes a late Windows pipe error after disposal', () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const terminal: LocalWhisperTransportTerminalCause[] = [];
+  const transport = new LocalWhisperWorkerTransport(
+    { input, output },
+    { onMessage: () => undefined, onTerminal: (cause) => terminal.push(cause) },
+  );
+
+  transport.dispose();
+
+  assert.doesNotThrow(() => input.emit('error', new Error('late worker input EOF')));
+  assert.doesNotThrow(() => output.emit('error', new Error('late worker output EOF')));
+  assert.deepEqual(terminal, []);
+});

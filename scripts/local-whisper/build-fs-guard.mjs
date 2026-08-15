@@ -23,8 +23,17 @@ if (process.platform !== 'linux' && process.platform !== 'win32') {
 mkdirSync(outputDirectory, { mode: 0o700, recursive: true });
 
 const tools = resolveNativeBuildToolPaths({ environment: process.env, platform: process.platform, workspaceRoot });
-const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(process.env) : null;
 const linuxGccQuality = process.platform === 'linux' && process.env.LOCAL_WHISPER_NATIVE_QUALITY_GCC === 'true';
+const buildEnvironment =
+  process.platform === 'win32'
+    ? resolveWindowsMsvcBuildEnvironment({
+        environment: process.env,
+        includeCuda: false,
+        toolchainRoot: resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),
+        tools,
+      })
+    : process.env;
+const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(buildEnvironment) : null;
 const preset =
   process.platform === 'win32' ? 'windows-release' : linuxGccQuality ? 'linux-gcc-release' : 'linux-release';
 const configureArguments = ['--fresh', '--preset', preset, `-DFS_GUARD_OUTPUT_DIRECTORY=${outputDirectory}`];
@@ -45,16 +54,6 @@ if (linuxGccQuality) {
     `-DCMAKE_LINKER=${process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd'}`,
   );
 }
-const buildEnvironment =
-  process.platform === 'win32'
-    ? resolveWindowsMsvcBuildEnvironment({
-        environment: process.env,
-        includeCuda: false,
-        toolchainRoot: resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains'),
-        tools,
-      })
-    : process.env;
-
 function run(arguments_) {
   const result = spawnSync(tools.cmake, arguments_, {
     cwd: sourceDirectory,

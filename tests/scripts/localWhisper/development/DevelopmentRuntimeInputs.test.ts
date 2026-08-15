@@ -140,7 +140,7 @@ describe('DevelopmentRuntimeInputLoader', () => {
     }
   });
 
-  it('admits only the executable Windows CPU profile and keeps the CUDA profile contract-only', async () => {
+  it('admits the exact executable Windows CPU and CUDA profiles', async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-runtime-'));
     try {
       await Promise.all(WINDOWS_RUNTIMES.map((runtime) => stageRuntime(workspace, runtime)));
@@ -153,7 +153,7 @@ describe('DevelopmentRuntimeInputLoader', () => {
           architecture: catalog.architecture,
           packRevision: catalog.packRevision,
         })),
-        WINDOWS_RUNTIMES.slice(0, 1).map(({ backend, packRevision }) => ({
+        WINDOWS_RUNTIMES.map(({ backend, packRevision }) => ({
           backend,
           platform: 'win32',
           architecture: 'x64',

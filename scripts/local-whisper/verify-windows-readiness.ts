@@ -69,7 +69,7 @@ class WindowsReadinessVerifier {
 
   public async verify(): Promise<void> {
     if (process.platform !== 'win32' || process.arch !== 'x64') {
-      throw new Error('Task 24 Windows readiness verification requires native Windows x64');
+      throw new Error('Packet 20 Windows readiness verification requires native Windows x64');
     }
 
     await this.runStage('contracts', [
@@ -99,8 +99,23 @@ class WindowsReadinessVerifier {
       { script: 'build:local-whisper:launcher' },
     ]);
     await this.runStage('runtime-pack-cpu', [{ script: 'produce:local-whisper:windows-runtime-pack:cpu' }]);
-    await this.runStage('runtime-integrations', [{ script: 'test:local-whisper:whisper-cpp-cpu-integration' }]);
+    await this.runStage('runtime-cuda-build', [
+      {
+        script: 'build:local-whisper:whisper-cpp-cuda',
+        arguments: ['--profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1'],
+      },
+    ]);
+    await this.runStage('runtime-cuda-verification', [
+      {
+        script: 'verify:local-whisper:whisper-cpp-cuda',
+        arguments: ['--profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1'],
+      },
+    ]);
+    await this.runStage('runtime-pack-cuda', [{ script: 'produce:local-whisper:windows-runtime-pack:cuda' }]);
+    await this.runStage('runtime-integration-cpu', [{ script: 'test:local-whisper:whisper-cpp-cpu-integration' }]);
+    await this.runStage('runtime-integration-cuda', [{ script: 'test:local-whisper:whisper-cpp-cuda-integration' }]);
     await this.runStage('runtime-pack-audit', [{ script: 'audit:local-whisper:whisper-cpp-pack' }]);
+    await this.runStage('application-smoke', [{ script: 'test:local-whisper:windows-application-smoke' }]);
     await this.runStage('production-build', [{ script: 'build:prod' }]);
     await this.runStage('unpacked-package-build', [{ script: 'dist:win', arguments: ['--dir'] }]);
     await this.runStage('unpacked-package-verification', [
@@ -120,7 +135,7 @@ class WindowsReadinessVerifier {
     }
     if (failures.length > 0) {
       throw new Error(
-        [`Task 24 Windows readiness stage failed: ${name}`, ...failures.map((failure) => failure.message)].join('\n'),
+        [`Packet 20 Windows readiness stage failed: ${name}`, ...failures.map((failure) => failure.message)].join('\n'),
       );
     }
     process.stdout.write(`[windows-readiness] PASS ${name}\n`);
@@ -130,11 +145,11 @@ class WindowsReadinessVerifier {
 async function main(): Promise<void> {
   const npmCliPath = process.env.npm_execpath;
   if (!npmCliPath || !path.isAbsolute(npmCliPath)) {
-    throw new Error('Task 24 Windows readiness verification requires npm_execpath');
+    throw new Error('Packet 20 Windows readiness verification requires npm_execpath');
   }
   const workspaceRoot = path.resolve(__dirname, '..', '..');
   await new WindowsReadinessVerifier(new NpmCommandRunner(workspaceRoot, npmCliPath)).verify();
-  process.stdout.write('Task 24 Windows runtime delivery readiness verified\n');
+  process.stdout.write('Packet 20 Windows runtime delivery readiness verified\n');
 }
 
 void main().catch((error: unknown) => {

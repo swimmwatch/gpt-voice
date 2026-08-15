@@ -21,6 +21,7 @@ export function windowsRuntimeDllNames(backend) {
       'cublaslt64_12.dll',
       'cudart64_12.dll',
       'msvcp140.dll',
+      'msvcp140_atomic_wait.dll',
       'vcruntime140.dll',
       'vcruntime140_1.dll',
     ];

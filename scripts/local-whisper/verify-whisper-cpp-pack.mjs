@@ -45,7 +45,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const arguments_ = parseArguments(process.argv.slice(2));
     const profileId = arguments_.get('profile');
-    const profiles = profileId === undefined && process.platform === 'win32' ? [WINDOWS_CPU_PROFILE] : [profileId];
+    const profiles =
+      profileId === undefined && process.platform === 'win32'
+        ? [WINDOWS_CPU_PROFILE, WINDOWS_CUDA_PROFILE]
+        : [profileId];
     for (const selectedProfile of profiles) {
       if (selectedProfile === CUDA_PROFILE) auditCuda();
       else if (selectedProfile === CPU_PROFILE) {
@@ -58,7 +61,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       } else if (selectedProfile === WINDOWS_CPU_PROFILE || selectedProfile === WINDOWS_CUDA_PROFILE) {
         auditWindows(selectedProfile);
       } else {
-        throw new Error('Pack audit accepts only approved Linux or Task 24 Windows CPU/CUDA profiles');
+        throw new Error('Pack audit accepts only approved Linux or Packet 20 Windows CPU/CUDA profiles');
       }
       process.stdout.write(`Local Whisper pack audited: ${selectedProfile}\n`);
     }

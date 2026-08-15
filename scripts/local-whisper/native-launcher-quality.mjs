@@ -65,7 +65,6 @@ const nativeBuildTools = resolveNativeBuildToolPaths({
   workspaceRoot,
 });
 const { cmake, ctest } = nativeBuildTools;
-const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(process.env) : null;
 const gccTools = linuxGcc
   ? Object.freeze({
       cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
@@ -82,6 +81,7 @@ const buildEnvironment =
         tools: nativeBuildTools,
       })
     : process.env;
+const windowsSdkTools = process.platform === 'win32' ? resolvePreparedWindowsSdkInputs(buildEnvironment) : null;
 const windowsAsanRuntime = windowsAsan
   ? resolve(dirname(nativeBuildTools.compiler), 'clang_rt.asan_dynamic-x86_64.dll')
   : null;

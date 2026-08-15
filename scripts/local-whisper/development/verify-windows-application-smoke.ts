@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -11,6 +11,8 @@ import type {
   ArtifactHttpClient,
   ArtifactHttpClientRequest,
 } from '@main/localWhisper/artifacts/ArtifactLifecycleTypes';
+import { NvidiaSmiHostInventory } from '@main/localWhisper/capability/NvidiaSmiHostInventory';
+import { NvidiaSmiVramAvailability } from '@main/localWhisper/capability/NvidiaSmiVramAvailability';
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
 import {
   ProductionLocalWhisperEnvironmentFactory,
@@ -45,6 +47,7 @@ import {
   type DiagnosticsArchivePayloadMemberName,
 } from '@shared/diagnosticsArchive';
 import {
+  toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   type NativeRuntimeLogRecord,
   type LocalWhisperPublicSettings,
@@ -58,12 +61,13 @@ import {
 } from './LocalWhisperDevelopmentSession';
 
 const WORKSPACE_ROOT = path.resolve(__dirname, '..', '..', '..');
-const SMOKE_ROOT = path.resolve(tmpdir(), 'gpt-voice-local-whisper-task24-application-smoke');
-const SMOKE_MARKER = path.join(SMOKE_ROOT, '.task24-owned.json');
+const SMOKE_ROOT = path.resolve(tmpdir(), 'gpt-voice-local-whisper-packet20-application-smoke');
+const SMOKE_MARKER = path.join(SMOKE_ROOT, '.packet20-owned.json');
 const WAV_PATH = path.resolve(WORKSPACE_ROOT, '.cache', 'local-whisper', 'windows-readiness', 'fleurs', 'smoke.wav');
 const WAV_SIZE_BYTES = 404_524;
 const WAV_SHA256 = '90a8eba6c057eb30b573922d95c303f2d276ba8f7501bbb1f64711a5f00946b6';
 const CPU_RUNTIME_REVISION = revision('whisper-cpp-windows-x64-cpu-v1');
+const CUDA_RUNTIME_REVISION = revision('whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1');
 const MODEL_REVISION = revision('whisper-cpp-base-full-v1');
 const ARTIFACT_TIMEOUT_MS = 15 * 60 * 1000;
 const NATIVE_EVENT_TIMEOUT_MS = 5_000;
@@ -71,6 +75,7 @@ const NATIVE_EVENT_POLL_MS = 25;
 const DIAGNOSTICS_ARCHIVE_IDS = Object.freeze([
   '00000000-0000-4000-8000-000000000020',
   '00000000-0000-4000-8000-000000000021',
+  '00000000-0000-4000-8000-000000000022',
 ]);
 const PRIVACY_CANARIES = Object.freeze([
   'packet20-private-path-canary',
@@ -78,6 +83,7 @@ const PRIVACY_CANARIES = Object.freeze([
   'packet20-private-transcript-canary',
   'packet20-private-credential-canary',
 ]);
+const CUDA_SESSION_LAUNCH_MODES = ['probe', 'fullLoad'] as const;
 
 interface ApplicationSession {
   readonly coordinator: LocalWhisperCoordinator;
@@ -87,6 +93,7 @@ interface ApplicationSession {
 
 interface SmokeResult {
   readonly cpu: 'Pass';
+  readonly cuda: 'Pass';
   readonly offlineReuse: 'Pass';
   readonly cleanup: 'Pass';
   readonly diagnosticsArchive: 'Pass';
@@ -94,9 +101,26 @@ interface SmokeResult {
   readonly nativePrivacy: 'Pass';
 }
 
+function runNvidiaSmiCommand(executablePath: string, arguments_: readonly string[]): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    execFile(
+      executablePath,
+      [...arguments_],
+      { encoding: 'utf8', maxBuffer: 4_096, timeout: 2_000, windowsHide: true },
+      (error, stdout) => {
+        if (error) {
+          reject(new Error('Packet 20 NVIDIA query failed'));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
+  });
+}
+
 function revision(value: string): LocalWhisperRevisionId {
   const parsed = toLocalWhisperRevisionId(value);
-  if (!parsed) throw new Error('Invalid Task 24 smoke revision');
+  if (!parsed) throw new Error('Invalid Packet 20 smoke revision');
   return parsed;
 }
 
@@ -117,7 +141,7 @@ class OfflineArtifactHttpClient implements ArtifactHttpClient {
 
   public open(_request: ArtifactHttpClientRequest): Promise<never> {
     this.requestCount += 1;
-    return Promise.reject(new Error('Task 24 offline restart forbids artifact network access'));
+    return Promise.reject(new Error('Packet 20 offline restart forbids artifact network access'));
   }
 }
 
@@ -141,7 +165,7 @@ class CapturingScopedNativeLogger implements ScopedLogger, MainLogFileAccessor {
   }
 
   public readRetainedLogs(): readonly RetainedMainLog[] {
-    assert.ok(this.entries.length >= 2, 'Task 24 native main-log history was incomplete');
+    assert.ok(this.entries.length >= 2, 'Packet 20 native main-log history was incomplete');
     const split = Math.floor(this.entries.length / 2);
     const render = (entries: typeof this.entries): string =>
       entries
@@ -159,7 +183,7 @@ class CapturingScopedNativeLogger implements ScopedLogger, MainLogFileAccessor {
 
   private record(level: NativeRuntimeLogRecord['level'], args: readonly unknown[]): void {
     if (args.length !== 1 || typeof args[0] !== 'string') {
-      throw new Error('Task 24 native main-log forwarding changed');
+      throw new Error('Packet 20 native main-log forwarding changed');
     }
     this.entries.push(Object.freeze({ level, message: args[0] }));
   }
@@ -201,17 +225,17 @@ class CapturingNativeRuntimeLogRelay extends NativeRuntimeLogRelay {
   }
 
   public async verifyProductionArchive(packageVersion: string, archiveId: string): Promise<string> {
-    assert.ok(this.records.length > 0, 'Task 24 native log history was empty');
+    assert.ok(this.records.length > 0, 'Packet 20 native log history was empty');
     assert.ok(
       this.records.every(({ level }) => level !== 'debug'),
-      'Task 24 production retained debug native data',
+      'Packet 20 production retained debug native data',
     );
     const retainedText = `${JSON.stringify(this.records)}\n${this.retainedLogger.serialized()}`;
     for (const canary of PRIVACY_CANARIES) assert.equal(retainedText.includes(canary), false);
 
     const extraction = new NativeRuntimeLogArchiveExtractor(this.retainedLogger).extract();
-    assert.ok(extraction.summary.includedRecordCount > 0, 'Task 24 native archive history was empty');
-    assert.equal(extraction.summary.invalidRecordCount, 0, 'Task 24 native archive contained invalid records');
+    assert.ok(extraction.summary.includedRecordCount > 0, 'Packet 20 native archive history was empty');
+    assert.equal(extraction.summary.invalidRecordCount, 0, 'Packet 20 native archive contained invalid records');
     const observedKeys = new Set<string>();
     let duplicateRecordCount = 0;
     for (const record of this.records) {
@@ -222,7 +246,7 @@ class CapturingNativeRuntimeLogRelay extends NativeRuntimeLogRelay {
     assert.equal(
       extraction.summary.duplicateRecordCount,
       duplicateRecordCount,
-      'Task 24 native archive duplicate count changed',
+      'Packet 20 native archive duplicate count changed',
     );
     const jsonl = new DiagnosticsArchiveJsonlSerializer();
     const auditPayload = jsonl.serializeAuditEvents([]);
@@ -307,7 +331,7 @@ class CapturingNativeRuntimeLogRelay extends NativeRuntimeLogRelay {
     const archiveBytes = await readFile(archivePath);
     const inspected = inspectDiagnosticsArchiveForVerification('zip', archiveBytes);
     const manifestPayload = inspected.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest);
-    assert.ok(manifestPayload, 'Task 24 diagnostics manifest was absent');
+    assert.ok(manifestPayload, 'Packet 20 diagnostics manifest was absent');
     const inspectedMembers = [...inspected].map(([name, payload]) => ({ name, payload }));
     assert.equal(
       new NativeRuntimeLogArchiveReader({ hash }).inspect(
@@ -331,12 +355,12 @@ class WindowsApplicationSmoke {
     const packageValue = JSON.parse(fs.readFileSync(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8')) as {
       readonly version?: unknown;
     };
-    if (typeof packageValue.version !== 'string') throw new Error('Task 24 app revision unavailable');
+    if (typeof packageValue.version !== 'string') throw new Error('Packet 20 app revision unavailable');
     this.packageVersion = packageValue.version;
   }
 
   public get diagnosticsArchiveSha256(): string {
-    if (!this.diagnosticsArchiveDigest) throw new Error('Task 24 diagnostics archive was not produced');
+    if (!this.diagnosticsArchiveDigest) throw new Error('Packet 20 diagnostics archive was not produced');
     return this.diagnosticsArchiveDigest;
   }
 
@@ -353,7 +377,7 @@ class WindowsApplicationSmoke {
       platform: process.platform,
       userId: process.getuid?.(),
     }).load();
-    if (activation.status !== 'active') throw new Error('Task 24 development activation unavailable');
+    if (activation.status !== 'active') throw new Error('Packet 20 development activation unavailable');
 
     const workerEvents: Array<{ readonly backend: string; readonly launchMode: string }> = [];
     const first = await this.createApplication(activation, {
@@ -362,11 +386,24 @@ class WindowsApplicationSmoke {
     });
     try {
       await this.install(first, 'runtime', CPU_RUNTIME_REVISION);
+      await this.install(first, 'runtime', CUDA_RUNTIME_REVISION);
       await this.install(first, 'model', MODEL_REVISION);
       await this.selectCpu(first);
       const cpuEventStart = workerEvents.length;
-      await this.exercise(first);
-      assert.ok(workerEvents.slice(cpuEventStart).every(({ backend }) => backend === 'cpu'));
+      await this.exercise(first, 'cpu', false);
+      const cpuEvents = workerEvents.slice(cpuEventStart);
+      assert.ok(cpuEvents.length > 0 && cpuEvents.every(({ backend }) => backend === 'cpu'));
+      await this.selectCuda(first);
+      const cudaEventStart = workerEvents.length;
+      await this.exercise(first, 'cuda', true);
+      const cudaEvents = workerEvents.slice(cudaEventStart);
+      assert.ok(cudaEvents.length > 0 && cudaEvents.every(({ backend }) => backend === 'cuda'));
+      for (const launchMode of CUDA_SESSION_LAUNCH_MODES) {
+        assert.ok(
+          cudaEvents.some((event) => event.launchMode === launchMode),
+          `Packet 20 CUDA launch mode missing:${launchMode}`,
+        );
+      }
     } finally {
       await this.close(first);
     }
@@ -379,8 +416,10 @@ class WindowsApplicationSmoke {
     try {
       const installed = restarted.environment.facts.snapshot.artifacts.filter(({ state }) => state === 'Installed');
       assert.ok(installed.some(({ revision }) => revision === CPU_RUNTIME_REVISION));
+      assert.ok(installed.some(({ revision }) => revision === CUDA_RUNTIME_REVISION));
       assert.ok(installed.some(({ revision }) => revision === MODEL_REVISION));
-      await this.exercise(restarted);
+      await this.selectCuda(restarted);
+      await this.exercise(restarted, 'cuda', false);
       assert.equal(offline.requestCount, 0, 'Offline restart attempted an artifact transfer');
     } finally {
       await this.close(restarted);
@@ -412,18 +451,31 @@ class WindowsApplicationSmoke {
       PACKET20_PRIVATE_TRANSCRIPT_CANARY: PRIVACY_CANARIES[2],
       USERPROFILE: homeRoot,
     });
+    const nvidiaCommand = Object.freeze({ run: runNvidiaSmiCommand });
+    const nvidiaInventory = new NvidiaSmiHostInventory({
+      platform: process.platform,
+      environment,
+      pathExists: fs.existsSync,
+      command: nvidiaCommand,
+    });
+    const nvidiaVramAvailability = new NvidiaSmiVramAvailability({
+      platform: process.platform,
+      environment,
+      pathExists: fs.existsSync,
+      command: nvidiaCommand,
+    });
     const nativeRuntimeLogRelay = new CapturingNativeRuntimeLogRelay();
     const dependencies: LocalWhisperProductionEnvironmentDependencies = {
       appRevision: this.packageVersion,
       architecture: process.arch,
       availableMemoryBytes: freemem,
-      availableVramBytes: () => Promise.reject(new Error('Windows CPU smoke forbids GPU resource probing')),
+      availableVramBytes: (nativeIdentity) => nvidiaVramAvailability.sample(nativeIdentity),
       configurationRoot,
       environment,
       fileSystem: fs,
       homeDirectory: () => homeRoot,
       logicalProcessorCount: availableParallelism(),
-      nextRequestId: () => `task24-request-${++this.requestSequence}`,
+      nextRequestId: () => `packet20-request-${++this.requestSequence}`,
       nativeRuntimeLogRelay,
       now: Date.now,
       openPath: () => Promise.resolve(''),
@@ -432,7 +484,7 @@ class WindowsApplicationSmoke {
       qualificationHooks,
       randomBytes: (size) => randomBytes(size),
       randomNonce: () => randomBytes(24).toString('base64url'),
-      readNvidiaInventory: () => Promise.resolve({ available: false, reason: 'DEVICE_NOT_FOUND' }),
+      readNvidiaInventory: () => nvidiaInventory.read(),
       readFile: async (filePath) => await readFile(filePath),
       resourcesPath: activation.resourcesPath,
       spawnProcess: spawn,
@@ -443,7 +495,7 @@ class WindowsApplicationSmoke {
     ).create();
     if (environmentInstance.facts.snapshot.catalogRevision === null) {
       await environmentInstance.dispose();
-      throw new Error('Task 24 production application graph unavailable');
+      throw new Error('Packet 20 production application graph unavailable');
     }
     return {
       environment: environmentInstance,
@@ -465,7 +517,7 @@ class WindowsApplicationSmoke {
     const artifact = session.environment.facts.snapshot.artifacts.find(
       (entry) => entry.kind === kind && entry.revision === artifactRevision,
     );
-    if (!artifact) throw new Error('Task 24 catalog artifact unavailable');
+    if (!artifact) throw new Error('Packet 20 catalog artifact unavailable');
     if (artifact.state === 'Installed') return;
     const action = artifact.state === 'Missing' ? 'download' : artifact.state === 'Resumable' ? 'resume' : 'retry';
     const current = session.coordinator.snapshot;
@@ -478,11 +530,11 @@ class WindowsApplicationSmoke {
       expectedConfigurationEpoch: current.epochs.configuration,
       expectedInventoryEpoch: current.epochs.inventory,
     });
-    if (!started.success) throw new Error(`Task 24 artifact start failed:${started.code ?? 'UNKNOWN'}`);
+    if (!started.success) throw new Error(`Packet 20 artifact start failed:${started.code ?? 'UNKNOWN'}`);
     await new Promise<void>((resolve, reject) => {
       let settled = false;
       let unsubscribe = (): void => undefined;
-      const timeout = setTimeout(() => finish(new Error('Task 24 artifact install timed out')), ARTIFACT_TIMEOUT_MS);
+      const timeout = setTimeout(() => finish(new Error('Packet 20 artifact install timed out')), ARTIFACT_TIMEOUT_MS);
       const finish = (error?: Error): void => {
         if (settled) return;
         settled = true;
@@ -496,9 +548,9 @@ class WindowsApplicationSmoke {
         const progress = facts.progress.find(({ artifactId }) => artifactId === artifact.id);
         if (currentArtifact?.state === 'Installed') finish();
         else if (progress?.failure) {
-          finish(new Error(`Task 24 ${kind} ${artifactRevision} failed:${progress.failure.code}`));
+          finish(new Error(`Packet 20 ${kind} ${artifactRevision} failed:${progress.failure.code}`));
         } else if (currentArtifact && ['Blocked', 'Corrupt', 'Failed'].includes(currentArtifact.state)) {
-          finish(new Error(`Task 24 artifact failed:${currentArtifact.state}`));
+          finish(new Error(`Packet 20 artifact failed:${currentArtifact.state}`));
         }
       };
       unsubscribe = session.environment.facts.subscribe(inspect);
@@ -528,52 +580,105 @@ class WindowsApplicationSmoke {
     );
   }
 
-  private async exercise(session: ApplicationSession): Promise<void> {
+  private async selectCuda(session: ApplicationSession): Promise<void> {
+    await session.environment.refreshDevices(session.coordinator.snapshot.epochs.configuration);
+    const devices = session.environment.facts.snapshot.options.filter(
+      (option) => option.group === 'device' && option.available,
+    );
+    assert.equal(devices.length, 1, 'Packet 20 requires one eligible CUDA device');
+    const deviceId = toLocalWhisperOpaqueDeviceId(devices[0]?.id ?? '');
+    assert.ok(deviceId, 'Packet 20 CUDA device identity unavailable');
+    const current = session.coordinator.snapshot;
+    const candidate: LocalWhisperPublicSettings = {
+      ...current.settings,
+      runtimeRevision: CUDA_RUNTIME_REVISION,
+      model: { family: 'base', revision: MODEL_REVISION, variant: 'full' },
+      language: 'auto',
+      decoding: { strategy: 'greedy', temperatureHundredths: 0 },
+      execution: { target: 'gpu', backend: 'cuda', deviceId },
+    };
+    requireSuccess(
+      await session.coordinator.applySettingsTransaction({
+        kind: 'save',
+        candidate,
+        promptMutation: { kind: 'clear' },
+        expectedConfigurationEpoch: current.epochs.configuration,
+        expectedInventoryEpoch: current.epochs.inventory,
+      }),
+      'select-cuda',
+    );
+  }
+
+  private async exercise(
+    session: ApplicationSession,
+    backend: 'cpu' | 'cuda',
+    exerciseCancellation: boolean,
+  ): Promise<void> {
     const compatibility = await session.coordinator.checkCompatibility();
-    if (!compatibility.success) throw new Error(`cpu-compatibility:${compatibility.error.code}`);
+    if (!compatibility.success) throw new Error(`${backend}-compatibility:${compatibility.error.code}`);
     const load = await session.coordinator.loadNow();
-    if (!load.success) throw new Error(`cpu-load:${load.error.code}`);
+    if (!load.success) throw new Error(`${backend}-load:${load.error.code}`);
     const bytes = await readFile(WAV_PATH);
+    if (exerciseCancellation) {
+      const cancellationTarget = session.coordinator.transcribe({
+        dispatch: session.coordinator.captureDispatchSnapshot(),
+        buffer: exactArrayBuffer(bytes),
+        mimeType: 'audio/wav',
+      });
+      assert.equal(
+        session.coordinator.snapshot.runtime.activity,
+        'Transcribing',
+        'Packet 20 CUDA cancellation target did not enter the coordinator operation',
+      );
+      requireSuccess(await session.coordinator.cancel(), `${backend}-cancel`);
+      const cancelled = await cancellationTarget;
+      assert.equal(cancelled.success, false, 'Packet 20 CUDA cancellation lost');
+      if (!cancelled.success) assert.equal(cancelled.error.code, 'CANCELLED');
+      assert.ok(
+        await session.nativeRuntimeLogRelay.waitForEvents('whisperWorker', ['requestCancelled']),
+        'Packet 20 CUDA cancellation event missing',
+      );
+    }
     const result = await session.coordinator.transcribe({
       dispatch: session.coordinator.captureDispatchSnapshot(),
       buffer: exactArrayBuffer(bytes),
       mimeType: 'audio/wav',
     });
-    const transcript = requireSuccess(result, 'cpu-transcribe');
-    assert.ok(transcript.trim().length > 0, 'Task 24 CPU transcript was empty');
+    const transcript = requireSuccess(result, `${backend}-transcribe`);
+    assert.ok(transcript.trim().length > 0, `Packet 20 ${backend} transcript was empty`);
     const requiredWorkerEvents = ['inferenceCompleted', 'requestCompleted'] as const;
     assert.ok(
       await session.nativeRuntimeLogRelay.waitForEvents('whisperWorker', requiredWorkerEvents),
-      'Task 24 CPU worker omitted required native events',
+      `Packet 20 ${backend} worker omitted required native events`,
     );
     const archiveId = DIAGNOSTICS_ARCHIVE_IDS[this.archiveSequence];
-    assert.ok(archiveId, 'Task 24 diagnostics archive identity unavailable');
+    assert.ok(archiveId, 'Packet 20 diagnostics archive identity unavailable');
     this.archiveSequence += 1;
     this.diagnosticsArchiveDigest = await session.nativeRuntimeLogRelay.verifyProductionArchive(
       this.packageVersion,
       archiveId,
     );
-    requireSuccess(await session.coordinator.unload(), 'cpu-unload');
+    requireSuccess(await session.coordinator.unload(), `${backend}-unload`);
   }
 }
 
 async function prepareOwnedRoot(): Promise<void> {
   const expectedParent = path.resolve(tmpdir());
   assert.equal(path.dirname(SMOKE_ROOT), expectedParent);
-  assert.equal(path.basename(SMOKE_ROOT), 'gpt-voice-local-whisper-task24-application-smoke');
+  assert.equal(path.basename(SMOKE_ROOT), 'gpt-voice-local-whisper-packet20-application-smoke');
   await rm(SMOKE_ROOT, { force: true, recursive: true });
   await mkdir(SMOKE_ROOT, { mode: 0o700, recursive: true });
-  await writeFile(SMOKE_MARKER, '{"owner":"local-whisper-task-24"}', { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+  await writeFile(SMOKE_MARKER, '{"owner":"local-whisper-packet-20"}', { encoding: 'utf8', flag: 'wx', mode: 0o600 });
 }
 
 async function cleanupOwnedRoot(): Promise<void> {
-  assert.equal(await readFile(SMOKE_MARKER, 'utf8'), '{"owner":"local-whisper-task-24"}');
+  assert.equal(await readFile(SMOKE_MARKER, 'utf8'), '{"owner":"local-whisper-packet-20"}');
   await rm(SMOKE_ROOT, { force: true, recursive: true });
 }
 
 async function main(): Promise<SmokeResult> {
   if (process.platform !== 'win32' || process.arch !== 'x64') {
-    throw new Error('Task 24 application smoke requires native Windows x64');
+    throw new Error('Packet 20 application smoke requires native Windows x64');
   }
   const wav = await sha256File(WAV_PATH);
   const wavBytes = await readFile(WAV_PATH);
@@ -592,6 +697,7 @@ async function main(): Promise<SmokeResult> {
   }
   return {
     cpu: 'Pass',
+    cuda: 'Pass',
     offlineReuse: 'Pass',
     cleanup: 'Pass',
     diagnosticsArchive: 'Pass',
@@ -603,6 +709,6 @@ async function main(): Promise<SmokeResult> {
 main()
   .then((result) => process.stdout.write(`${JSON.stringify(result)}\n`))
   .catch((error: unknown) => {
-    process.stderr.write(`${error instanceof Error ? error.message : 'Task 24 application smoke failed'}\n`);
+    process.stderr.write(`${error instanceof Error ? error.message : 'Packet 20 application smoke failed'}\n`);
     process.exitCode = 1;
   });

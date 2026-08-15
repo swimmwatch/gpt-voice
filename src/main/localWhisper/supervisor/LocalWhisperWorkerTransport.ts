@@ -68,8 +68,9 @@ export class LocalWhisperWorkerTransport {
     this.disposed = true;
     this.streams.output.off('data', this.onData);
     this.streams.output.off('end', this.onEnd);
-    this.streams.output.off('error', this.onOutputError);
-    this.streams.input.off('error', this.onInputError);
+    // Keep the one-shot error consumers until each pipe closes. Windows can
+    // report a queued write EOF after disposal; without a listener Node treats
+    // that expected terminal race as an unhandled process error.
     this.codec.reset();
   }
 

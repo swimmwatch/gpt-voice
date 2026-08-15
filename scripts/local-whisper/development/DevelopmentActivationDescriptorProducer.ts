@@ -28,7 +28,7 @@ export interface DevelopmentActivationDescriptorInput {
 
 function hasExecutableRuntimeSet(input: DevelopmentActivationDescriptorInput): boolean {
   const backends = new Set(input.runtimes.map(({ backend }) => backend));
-  const expectedBackends = input.platform === 'win32' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
+  const expectedBackends = ['cpu', 'cuda'] as const;
   return (
     input.runtimes.length === expectedBackends.length &&
     expectedBackends.every((backend) => backends.has(backend)) &&
@@ -77,6 +77,7 @@ export class DevelopmentActivationDescriptorProducer {
       runtimeOrigin: input.runtimeOrigin,
       sourceCommit: input.sourceCommit,
       qualificationStatus: 'estimateOnly',
+      executionMode: 'representativeQualification',
       runtimes: input.runtimes.map((runtime) => ({
         ...runtime.catalog,
         archiveFileName: path.basename(runtime.archivePath),

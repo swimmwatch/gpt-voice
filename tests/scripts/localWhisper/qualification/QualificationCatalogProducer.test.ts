@@ -151,7 +151,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
     );
   });
 
-  it('produces only the executable Windows x64 CPU row', () => {
+  it('produces the executable Windows x64 CPU and CUDA rows', () => {
     const payload = new LocalWhisperQualificationCatalogProducer().produce({
       platform: 'win32',
       candidateSemVer: '2.4.0',
@@ -160,7 +160,8 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       runtimeOriginId: 'qualification-runtime-origin',
       runtimeOrigin: 'https://127.0.0.1:39443',
       sourceCommit: 'a'.repeat(40),
-      runtimes: [runtime('cpu', 'win32')],
+      runtimes: [runtime('cpu', 'win32'), runtime('cuda', 'win32')],
+      executionMode: 'representativeQualification',
       qualificationStatus: 'estimateOnly',
     });
     assert.deepEqual(
@@ -179,10 +180,17 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
           packRevision: 'whisper-cpp-windows-x64-cpu-v1',
           computeTargets: ['x86-64-sse2'],
         },
+        {
+          platform: 'win32',
+          architecture: 'x64',
+          backend: 'cuda',
+          packRevision: 'whisper-cpp-windows-x64-cuda-12.8.1-sm120a-v1',
+          computeTargets: ['sm_120a-real'],
+        },
       ],
     );
     assert.equal(
-      payload.models.every(({ compatibleRuntimePackRevisions }) => compatibleRuntimePackRevisions.length === 1),
+      payload.models.every(({ compatibleRuntimePackRevisions }) => compatibleRuntimePackRevisions.length === 2),
       true,
     );
     const keys = generateKeyPairSync('ed25519');
@@ -212,7 +220,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       },
     }).load();
     if (!loaded.success) assert.fail(loaded.code);
-    assert.equal(loaded.catalog.payload.runtimes.length, 1);
+    assert.equal(loaded.catalog.payload.runtimes.length, 2);
     assert.throws(
       () =>
         new LocalWhisperQualificationCatalogProducer().produce({
@@ -223,7 +231,8 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
           runtimeOriginId: 'qualification-runtime-origin',
           runtimeOrigin: 'https://127.0.0.1:39443',
           sourceCommit: 'a'.repeat(40),
-          runtimes: [runtime('cpu', 'win32'), runtime('cuda', 'win32')],
+          runtimes: [runtime('cpu', 'win32')],
+          executionMode: 'representativeQualification',
         }),
       /runtime matrix invalid/u,
     );

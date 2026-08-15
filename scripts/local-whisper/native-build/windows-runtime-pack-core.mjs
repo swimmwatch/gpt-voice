@@ -31,6 +31,14 @@ const WINDOWS_RUNTIME_LOCK_PATH = resolve(
   'microsoft-vc-runtime-14.51.36247.0-x64-v1.json',
 );
 
+const WINDOWS_CUDA_RUNTIME_DEPENDENCIES = Object.freeze(
+  new Map([
+    ['cuda-runtime-12.8.1', 'cudart64_12.dll'],
+    ['cublas-12.8.1', 'cublas64_12.dll'],
+    ['cublas-lt-12.8.1', 'cublasLt64_12.dll'],
+  ]),
+);
+
 export const WINDOWS_SYSTEM_DEPENDENCIES = Object.freeze(
   [
     ['windows-api-core-console', 'api-ms-win-core-console-l1-1-0.dll'],
@@ -137,6 +145,44 @@ function assertCudaArchitecture(worker) {
   }
 }
 
+/** Resolves the acquired VC Runtime and captured CUDA DLL identities without allowing ambient substitution. */
+export function resolveWindowsPackRuntimeDependencies({ backend, profile, lock }) {
+  const vcDependencies = profile.dynamicDependencies.filter(({ id }) => id.startsWith('microsoft-vc-runtime-'));
+  const cudaDependencies = profile.dynamicDependencies.filter(({ id }) => !id.startsWith('microsoft-vc-runtime-'));
+  const resolvedVcDependencies = resolveWindowsRuntimeDependencyIdentities({ dependencies: vcDependencies, lock });
+  if (backend === 'cpu') {
+    if (cudaDependencies.length !== 0) throw new Error('Windows CPU runtime pack contains an accelerator dependency');
+    return resolvedVcDependencies;
+  }
+  if (backend !== 'cuda' || cudaDependencies.length !== WINDOWS_CUDA_RUNTIME_DEPENDENCIES.size) {
+    throw new Error('Windows CUDA runtime dependency set is incomplete');
+  }
+  const resolvedCudaIds = new Set();
+  const resolvedCudaDependencies = cudaDependencies.map((dependency) => {
+    const expectedName = WINDOWS_CUDA_RUNTIME_DEPENDENCIES.get(dependency.id);
+    const runtimeIdentity = profile.runtime.find(({ id }) => id === dependency.id);
+    if (
+      !expectedName ||
+      resolvedCudaIds.has(dependency.id) ||
+      dependency.pathKind !== 'toolchainRootRelative' ||
+      dependency.path !== `cuda-12.8.1/bin/${expectedName}` ||
+      !/^[a-f\d]{64}$/u.test(dependency.sha256) ||
+      !runtimeIdentity ||
+      runtimeIdentity.pathKind !== dependency.pathKind ||
+      runtimeIdentity.path !== dependency.path ||
+      runtimeIdentity.sha256 !== dependency.sha256
+    ) {
+      throw new Error(`Windows CUDA runtime dependency identity changed: ${dependency.id}`);
+    }
+    resolvedCudaIds.add(dependency.id);
+    return Object.freeze({ ...dependency });
+  });
+  if (resolvedCudaIds.size !== WINDOWS_CUDA_RUNTIME_DEPENDENCIES.size) {
+    throw new Error('Windows CUDA runtime dependency set is incomplete');
+  }
+  return Object.freeze([...resolvedVcDependencies, ...resolvedCudaDependencies]);
+}
+
 export function stageWindowsRuntimePack({ backend, buildRoot, profile, tools = null }) {
   if (profile.target.os !== 'windows' || profile.target.architecture !== 'x64') {
     throw new Error('Windows runtime staging requires a Windows x64 execution profile');
@@ -159,8 +205,9 @@ export function stageWindowsRuntimePack({ backend, buildRoot, profile, tools = n
 
   const stagedRuntimeEvidence = [];
   const stagedDependencies = [];
-  const runtimeDependencies = resolveWindowsRuntimeDependencyIdentities({
-    dependencies: profile.dynamicDependencies,
+  const runtimeDependencies = resolveWindowsPackRuntimeDependencies({
+    backend,
+    profile,
     lock: readJson(WINDOWS_RUNTIME_LOCK_PATH),
   });
   for (const dependency of runtimeDependencies) {

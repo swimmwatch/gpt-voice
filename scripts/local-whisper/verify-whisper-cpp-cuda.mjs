@@ -16,7 +16,7 @@ try {
   if (profileId === WINDOWS_CUDA_PROFILE && contractOnly) verifyWindowsCudaSourceContract();
   else if (profileId === WINDOWS_CUDA_PROFILE) verifyWindowsCudaPack();
   else if (profileId === CUDA_PROFILE) verifyLinuxCudaPack();
-  else throw new Error('CUDA verification accepts only the approved Linux or Task 24 Windows profile');
+  else throw new Error('CUDA verification accepts only the approved Linux or Packet 20 Windows profile');
   process.stdout.write(`Local Whisper CUDA pack verified: ${profileId}\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Whisper.cpp CUDA verification failed'}\n`);

@@ -63,6 +63,20 @@
       "path": "ninja-1.12.1/ninja.exe",
       "version": "1.12.1",
       "sha256": null
+    },
+    {
+      "role": "resource-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "windows-sdk-10.0.26100.0/bin/10.0.26100.0/x64/rc.exe",
+      "version": "Microsoft (R) Windows (R) Resource Compiler Version 10.0.10011.16384",
+      "sha256": null
+    },
+    {
+      "role": "manifest-tool",
+      "pathKind": "toolchainRootRelative",
+      "path": "windows-sdk-10.0.26100.0/bin/10.0.26100.0/x64/mt.exe",
+      "version": "Microsoft (R) Manifest Tool",
+      "sha256": null
     }
   ],
   "runtime": [
@@ -70,6 +84,12 @@
       "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140",
       "pathKind": "toolchainRootRelative",
       "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140-atomic-wait",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140_atomic_wait.dll",
       "sha256": null
     },
     {
@@ -159,6 +179,12 @@
       "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140",
       "pathKind": "toolchainRootRelative",
       "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140.dll",
+      "sha256": null
+    },
+    {
+      "id": "microsoft-vc-runtime-14.51.36247.0-msvcp140-atomic-wait",
+      "pathKind": "toolchainRootRelative",
+      "path": "vc-runtime-14.51.36247.0-x64/bin/msvcp140_atomic_wait.dll",
       "sha256": null
     },
     {

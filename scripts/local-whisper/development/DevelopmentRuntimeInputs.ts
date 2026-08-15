@@ -180,7 +180,7 @@ export class DevelopmentRuntimeInputLoader {
       throw new Error('Local Whisper development runtime host invalid');
     }
     const inputs: DevelopmentRuntimeInput[] = [];
-    const executableBackends = platform === 'win32' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
+    const executableBackends = ['cpu', 'cuda'] as const;
     for (const backend of executableBackends) {
       const profile = RUNTIME_PROFILES[platform][backend];
       const packRoot = path.join(

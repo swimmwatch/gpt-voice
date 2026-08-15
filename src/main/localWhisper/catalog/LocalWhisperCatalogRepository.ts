@@ -438,23 +438,21 @@ function hasClosedRuntimeSet(payload: LocalWhisperCatalogPayload): boolean {
   if (payload.schemaVersion !== LOCAL_WHISPER_CATALOG_SCHEMA_VERSION) return true;
   const cpu = payload.runtimes.find(({ identity }) => identity.target === 'cpu' && identity.backend === 'cpu');
   if (!cpu || cpu.applicability !== null || cpu.identity.architecture !== 'x64') return false;
-  if (cpu.identity.platform === 'win32') {
-    return (
-      payload.runtimes.length === 1 &&
-      cpu.identity.computeTargets.length === 1 &&
-      cpu.identity.computeTargets[0] === 'x86-64-sse2'
-    );
+  if (payload.runtimes.length !== 2 || (cpu.identity.platform !== 'linux' && cpu.identity.platform !== 'win32')) {
+    return false;
   }
-  if (cpu.identity.platform !== 'linux' || payload.runtimes.length !== 2) return false;
   const cuda = payload.runtimes.find(({ identity }) => identity.target === 'gpu' && identity.backend === 'cuda');
   if (!cuda?.applicability) return false;
+  const windows = cpu.identity.platform === 'win32';
   return (
-    cuda.identity.platform === 'linux' &&
+    cpu.identity.computeTargets.length === 1 &&
+    cpu.identity.computeTargets[0] === (windows ? 'x86-64-sse2' : 'x86-64-v2') &&
+    cuda.identity.platform === cpu.identity.platform &&
     cuda.identity.architecture === 'x64' &&
     cuda.identity.computeTargets.length === 1 &&
     cuda.identity.computeTargets[0] === 'sm_120a-real' &&
     cuda.applicability.computeTarget === 'sm_120a-real' &&
-    cuda.applicability.minimumDriverVersion === '570.26'
+    cuda.applicability.minimumDriverVersion === (windows ? '570.65' : '570.26')
   );
 }
 

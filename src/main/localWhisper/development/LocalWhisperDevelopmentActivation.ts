@@ -263,9 +263,23 @@ export class LocalWhisperDevelopmentActivationLoader {
 }
 
 /** Opens the selected descriptor without following its final path component. */
-export function openLocalWhisperActivationFile(
+export async function openLocalWhisperActivationFile(
   filePath: string,
   flags: number,
 ): ReturnType<typeof fileSystemPromises.open> {
-  return fileSystemPromises.open(filePath, flags);
+  const pathIdentity = await fileSystemPromises.lstat(filePath);
+  if (!pathIdentity.isFile() || pathIdentity.isSymbolicLink()) {
+    throw new Error('Local Whisper activation path identity is unavailable');
+  }
+  const handle = await fileSystemPromises.open(filePath, flags);
+  try {
+    const openedIdentity = await handle.stat();
+    if (openedIdentity.dev !== pathIdentity.dev || openedIdentity.ino !== pathIdentity.ino) {
+      throw new Error('Local Whisper activation path identity changed');
+    }
+    return handle;
+  } catch (error) {
+    await handle.close().catch(() => undefined);
+    throw error;
+  }
 }

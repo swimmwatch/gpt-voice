@@ -583,3 +583,83 @@
 - Blockers: none established; exact CUDA input availability and execution must
   be observed by the reopened run.
 - Exact next packet: Packet 20 — Windows validation and remediation gate.
+
+## Packet 20 Active CUDA Supported-Host Run Manifest
+
+- Status: materialized and validated before the first amended Windows CUDA
+  validation command. This is setup provenance only, not pass evidence.
+- Candidate: `1f6ce9c988a275f1ef9faa295b1bb04879943e89`; observed
+  `2026-08-15T10:26:58.8901687+03:00` on a Windows 11 Pro desktop x64 host
+  (build `26200`) and branch `feat/local-whisper-provider`.
+- Private evidence-root role: `gpt-voice-packet20-cuda-e7735d8ba40249be`.
+  The root is an access-restricted direct child of the Windows temporary root
+  with an ownership marker; no machine path is retained here.
+- Toolchain: MSVC `19.39.33523`; toolset `14.39.33519`; Windows SDK
+  `10.0.26100.0`; CUDA compiler `12.8.93`; CMake `3.31.8`; Ninja `1.12.1`;
+  Node `24.18.1`; npm `11.9.0`; Git `2.55.0.windows.3`; and GitHub CLI
+  `2.97.0`.
+- Accelerator: `RTX 5090` class; driver `610.88`; compute capability `12.0`.
+  The authorized execution profile is
+  `windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1` with target
+  `120a-real`. No other device identity is retained.
+- The 21 exact profile input roles were readable and their sorted role/digest
+  aggregate SHA-256 is
+  `87f382ab2ee673736e6daf1e2f3891dcbda93a76e730bd3c9b82caef834b87ce`
+  (`sha256-utf8-sorted-role-colon-digest-lf-no-trailer`).
+  These roles cover the compiler, linker, archiver, PE inspector, CUDA
+  compiler, CMake, Ninja, SDK library, VC Runtime DLLs, CUDA runtime DLLs, and
+  license records. A later executable candidate must rehash every consumed
+  role and fail closed on divergence.
+- Native source locks remain GoogleTest
+  `52eb8108c5bdec04579160ae17225d66034bd723`, nlohmann-json
+  `55f93686c01528224f448c19128836e7df245f72`, and Whisper.cpp
+  `f049fff95a089aa9969deb009cdd4892b3e74916`.
+- Authorized fixture roles remain public WAV SHA-256
+  `90a8eba6c057eb30b573922d95c303f2d276ba8f7501bbb1f64711a5f00946b6`
+  and public base-model SHA-256
+  `60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe`.
+  No fixture contents or output are retained in repository evidence.
+- The complete amended command inventory is the unchanged ordinary MSVC 19.51,
+  `/analyze`, dedicated-ASan, behavior, hardening, package-security,
+  attestation, privacy, diagnostics, type, and workflow inventory recorded in
+  **Packet 20 Active MSVC 19.51 Supported-Host Windows Run Manifest**, plus
+  these exact CUDA and affected-integration commands in this order:
+
+  ```text
+  npm run verify:local-whisper:native-toolchain -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1 --contract-only
+  npm run test:local-whisper:native-sources
+  npm run build:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1
+  npm run verify:local-whisper:whisper-cpp-cuda -- --profile=windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1
+  npm run produce:local-whisper:windows-runtime-pack:cuda
+  npm run test:local-whisper:whisper-cpp-cuda-integration
+  npm run audit:local-whisper:whisper-cpp-pack
+  npm run test:local-whisper:development
+  npm run test:local-whisper:windows-readiness
+  npm run test:local-whisper:native-hardening
+  npm run verify:local-whisper:native-hardening -- --platform=windows
+  npm run test:local-whisper:windows-application-smoke
+  npm run verify:local-whisper:windows-readiness
+  npm run test:local-whisper:native-build-audits
+  npm run test:local-whisper:runner-policy
+  npm run test:security:codeql-policy
+  npm run test:security:application-sbom
+  npm run test:security:artifact-vulnerability-policy
+  npm run test:security:attestation-policy
+  npm run test:security:evidence-policy
+  npm run test:security:aggregate-gates
+  npm run validate:workflows
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test:types
+  npm run validate:dependabot
+  npm run audit:prod
+  npm run build:prod
+  git diff --check
+  ```
+
+- The first command is supplementary contract validation. Every subsequent
+  CUDA build, pack, integration, PE, and ordinary-app claim requires real
+  execution from the exact supported-host inputs above. Hosted contract-only
+  evidence, CPU fallback, another GPU, another compiler, or another target is
+  rejected.

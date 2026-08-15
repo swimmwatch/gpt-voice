@@ -1,7 +1,11 @@
 import process from 'node:process';
 import { resolve } from 'node:path';
 
-import { createNativeHardeningManifest, verifyNativeHardening } from './native-build/native-hardening-core.mjs';
+import {
+  createNativeHardeningManifest,
+  hasWindowsCudaQualificationHardeningEvidence,
+  verifyNativeHardening,
+} from './native-build/native-hardening-core.mjs';
 
 function parsePlatform(arguments_) {
   if (arguments_.length !== 1 || !arguments_[0].startsWith('--platform=')) {
@@ -18,8 +22,10 @@ function parsePlatform(arguments_) {
 try {
   const platform = parsePlatform(process.argv.slice(2));
   const workspaceRoot = resolve(import.meta.dirname, '..', '..');
+  const windowsCudaQualification =
+    platform === 'windows' && hasWindowsCudaQualificationHardeningEvidence(workspaceRoot);
   const report = verifyNativeHardening({
-    manifest: createNativeHardeningManifest(platform),
+    manifest: createNativeHardeningManifest(platform, { windowsCudaQualification }),
     workspaceRoot,
   });
   process.stdout.write(`${JSON.stringify(report)}\n`);

@@ -158,6 +158,18 @@ test('the strict production manifest rejects duplicate and arbitrary executable 
   );
 });
 
+test('the Windows production manifest binds both exact CPU and CUDA workers', () => {
+  assert.deepEqual(
+    createNativeHardeningManifest('windows').executables.map(({ role }) => role),
+    ['fs-guard', 'launcher', 'whisper-cpp-cpu-worker', 'whisper-cpp-cuda-worker'],
+  );
+  assert.equal(
+    createNativeHardeningManifest('windows', { windowsCudaQualification: true }).executables[3].relativePath,
+    '.cache/local-whisper/whisper-cpp/build/wcuda-engine-p20w-cuda-a/bin/local-whisper-whisper-cpp-worker.exe',
+  );
+  assert.equal(createNativeHardeningManifest('linux').executables.length, 3);
+});
+
 test('the verifier rejects an expected output reached through an out-of-root parent symlink', () => {
   const workspaceRoot = mkdtempSync(resolve(tmpdir(), 'local-whisper-hardening-workspace-'));
   const escapedRoot = mkdtempSync(resolve(tmpdir(), 'local-whisper-hardening-escaped-'));

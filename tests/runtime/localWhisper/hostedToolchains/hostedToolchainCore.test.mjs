@@ -19,6 +19,7 @@ import {
 import {
   LINUX_NETWORK_DENIAL_STRATEGY,
   resolveNetworkDeniedCommand,
+  runWithRequiredCleanup,
   WINDOWS_NETWORK_DENIAL_STRATEGY,
 } from '../../../../scripts/local-whisper/native-build/network-denied-build-core.mjs';
 import { sha256 } from '../../../../scripts/local-whisper/source-import/native-source-core.mjs';
@@ -642,5 +643,35 @@ test('disconnected build commands require an OS boundary and a same-boundary pro
       arguments_: [],
       allowedPrograms: [],
     }),
+  );
+});
+
+test('network-denied lifecycle preserves the primary failure and always enforces cleanup', () => {
+  const expected = new Error('setup failed');
+  let cleanupCount = 0;
+  assert.throws(
+    () =>
+      runWithRequiredCleanup(
+        () => {
+          throw expected;
+        },
+        () => {
+          cleanupCount += 1;
+        },
+      ),
+    (error) => error === expected,
+  );
+  assert.equal(cleanupCount, 1);
+  assert.throws(
+    () =>
+      runWithRequiredCleanup(
+        () => {
+          throw expected;
+        },
+        () => {
+          throw new Error('cleanup failed');
+        },
+      ),
+    /setup failed; additionally, cleanup failed/u,
   );
 });

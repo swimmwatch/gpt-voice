@@ -159,6 +159,7 @@ interface SupervisorRequest<T> {
   readonly message: LocalWhisperWorkerClientMessage;
   readonly stage: LocalWhisperFailureStage;
   readonly successState: LocalWhisperSupervisorState;
+  readonly sendSettled?: () => void;
   readonly timeoutMs: number;
   readonly transform: (message: LocalWhisperWorkerServerMessage) => T;
   readonly validate?: (message: LocalWhisperWorkerServerMessage) => boolean;
@@ -289,6 +290,7 @@ export class LocalWhisperWorkerSupervisor {
   private stateValue: LocalWhisperSupervisorState = 'idle';
   private stickyTerminalFailure: StickyTerminalFailure | null = null;
   private terminal = false;
+  private transcriptionSendPromise: Promise<void> | null = null;
   private transport: LocalWhisperWorkerTransport | null = null;
 
   public constructor(private readonly dependencies: LocalWhisperWorkerSupervisorDependencies) {}
@@ -442,29 +444,41 @@ export class LocalWhisperWorkerSupervisor {
     }
     this.stateValue = 'transcribing';
     const requestId = this.reserveRequestId();
-    const result = await this.request({
-      afterSend: () => this.sendAudio(requestId, request.audio),
-      expectedType: 'transcript',
-      message: {
-        type: 'transcribe',
-        protocolVersion: 1,
-        requestId,
-        settingsEpoch: request.settingsEpoch,
-        audioByteLength: request.audio.byteLength,
-        options: request.options,
-      },
-      stage: 'transcription',
-      successState: 'warmed',
-      timeoutMs: getLocalWhisperTranscriptionTimeoutMs(audioDurationMs),
-      transform: (message) => (message.type === 'transcript' ? message.text : ''),
+    let resolveSend: () => void = () => undefined;
+    const sendPromise = new Promise<void>((resolve) => {
+      resolveSend = resolve;
     });
-    if (result.success && result.value.trim().length === 0) {
-      return this.failure('EMPTY_TRANSCRIPTION', 'transcription');
+    this.transcriptionSendPromise = sendPromise;
+    try {
+      const result = await this.request({
+        afterSend: () => this.sendAudio(requestId, request.audio),
+        expectedType: 'transcript',
+        message: {
+          type: 'transcribe',
+          protocolVersion: 1,
+          requestId,
+          settingsEpoch: request.settingsEpoch,
+          audioByteLength: request.audio.byteLength,
+          options: request.options,
+        },
+        stage: 'transcription',
+        successState: 'warmed',
+        sendSettled: resolveSend,
+        timeoutMs: getLocalWhisperTranscriptionTimeoutMs(audioDurationMs),
+        transform: (message) => (message.type === 'transcript' ? message.text : ''),
+      });
+      if (result.success && result.value.trim().length === 0) {
+        return this.failure('EMPTY_TRANSCRIPTION', 'transcription');
+      }
+      return result;
+    } finally {
+      resolveSend();
+      if (this.transcriptionSendPromise === sendPromise) this.transcriptionSendPromise = null;
     }
-    return result;
   }
 
   public async cancel(): Promise<LocalWhisperSupervisorResult> {
+    await this.transcriptionSendPromise;
     const transcription = [...this.pending.values()].find((request) => request.expectedType === 'transcript');
     if (!transcription || this.stateValue !== 'transcribing') {
       return this.failure('OPERATION_CONFLICT', 'cancellation');
@@ -591,6 +605,8 @@ export class LocalWhisperWorkerSupervisor {
       await request.afterSend?.();
     } catch {
       void this.failTerminal('WORKER_CRASHED', stage);
+    } finally {
+      request.sendSettled?.();
     }
     return result;
   }

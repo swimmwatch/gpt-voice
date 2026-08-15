@@ -214,6 +214,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   public readonly output = new PassThrough();
   public readonly stderr = new PassThrough();
   private readonly codec = new LocalWhisperFrameCodec();
+  private readonly completedAudioRequests = new Set<string>();
   private cancelRaceComplete = false;
   private exited = false;
   private readonly lateCancellationReady: Promise<void>;
@@ -259,6 +260,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   private onInput(chunk: Buffer): void {
     for (const frame of this.codec.push(chunk)) {
       if (frame.kind === 'audio') {
+        if (frame.chunk.final) this.completedAudioRequests.add(frame.chunk.requestId);
         if (frame.chunk.final && this.mode === 'cancelTooLate' && !this.cancelRaceComplete) {
           this.pendingTranscriptRequestId = frame.chunk.requestId;
           this.resolveLateCancellationReady?.();
@@ -376,6 +378,9 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
   }
 
   private handleCancellation(message: Extract<LocalWhisperWorkerClientMessage, { readonly type: 'cancel' }>): void {
+    if (this.mode === 'cancel' && !this.completedAudioRequests.has(message.targetRequestId)) {
+      throw new Error('Cancellation overtook the final audio frame');
+    }
     if (this.mode !== 'cancelTooLate') {
       this.respond({
         type: 'cancelled',
@@ -862,7 +867,7 @@ test('transcription deadline is duration-derived with exact floor and cap', () =
   assert.throws(() => getLocalWhisperTranscriptionTimeoutMs(-1), /Invalid/u);
 });
 
-test('confirmed cancellation discards partial output and may retain warmed worker', async () => {
+test('immediate cancellation follows the final audio frame, discards partial output, and may retain warmed worker', async () => {
   const value = await readyHarness('cancel');
   const transcription = value.supervisor.transcribe({
     audio: canonicalWav(100),
@@ -876,7 +881,6 @@ test('confirmed cancellation discards partial output and may retain warmed worke
       candidateCount: null,
     },
   });
-  await Promise.resolve();
   const cancelled = await value.supervisor.cancel();
   const result = await transcription;
   assert.equal(cancelled.success, true);

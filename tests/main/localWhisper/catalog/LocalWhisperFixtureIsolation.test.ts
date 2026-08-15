@@ -38,8 +38,11 @@ describe('Local Whisper catalog fixture isolation', () => {
       false,
     );
     assert.equal(packageJson.build?.files?.includes('!**/{__test__,__tests__,fixture,fixtures,test,tests}/**'), true);
+    const fixtureRelativePrefix = `${path.join('tests', 'fixtures')}${path.sep}`;
     assert.equal(
-      listFiles(fixtureRoot).every((filePath) => path.relative(workspaceRoot, filePath).startsWith('tests/fixtures/')),
+      listFiles(fixtureRoot).every((filePath) =>
+        path.relative(workspaceRoot, filePath).startsWith(fixtureRelativePrefix),
+      ),
       true,
     );
   });

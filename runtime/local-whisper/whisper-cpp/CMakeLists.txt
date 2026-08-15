@@ -144,10 +144,11 @@ if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
   if(NOT EXISTS "${LOCAL_WHISPER_SOURCE_ROOT}/include/whisper.h")
     message(FATAL_ERROR "LOCAL_WHISPER_SOURCE_ROOT must be the strictly patched source tree")
   endif()
-  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
+  if(LOCAL_WHISPER_BACKEND_ID STREQUAL "cuda")
     # NVCC otherwise embeds a process-derived tmpxft source name in every CUDA
     # object. Keeping intermediates beside each object gives them a stable name
-    # without retaining the intermediates or changing generated device code.
+    # on Linux and Windows without retaining the intermediates or changing
+    # generated device code.
     add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:--objdir-as-tempdir>")
   endif()
   add_subdirectory("${LOCAL_WHISPER_SOURCE_ROOT}" "${CMAKE_BINARY_DIR}/whisper-cpp" EXCLUDE_FROM_ALL)

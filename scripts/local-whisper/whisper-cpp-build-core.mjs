@@ -340,6 +340,10 @@ function profileTools(profile) {
   };
 }
 
+export function requiresPinnedWindowsToolchain(profile) {
+  return profile.target.os === 'windows' && profile.tools.some(({ role }) => role === 'cuda-compiler');
+}
+
 /** Resolves the explicit, already-initialized MSVC tools used by hosted Windows quality CI. */
 export function resolvePreparedWindowsQualityTools(environment = process.env) {
   const compiler = environment.CXX;
@@ -450,10 +454,14 @@ export function configureBuild(
   },
 ) {
   const profileTemplate = requireProfile(profileId);
+  const pinnedWindowsToolchain = requiresPinnedWindowsToolchain(profileTemplate);
   const usePreparedLinuxQuality = profileTemplate.target.os === 'linux' && preparedLinuxQuality;
-  const usePreparedWindowsQuality = profileTemplate.target.os === 'windows' && preparedWindowsQuality;
+  const usePreparedWindowsQuality =
+    profileTemplate.target.os === 'windows' && preparedWindowsQuality && !pinnedWindowsToolchain;
   const capturePreparedWindows =
-    profileTemplate.target.os === 'windows' && (captureWindowsExecutionInputs || networkDenied);
+    profileTemplate.target.os === 'windows' &&
+    (captureWindowsExecutionInputs || networkDenied) &&
+    !pinnedWindowsToolchain;
   if (threadSanitizer && profileTemplate.target.os !== 'linux') {
     throw new Error('ThreadSanitizer requires the Linux Clang worker-test graph');
   }
@@ -465,17 +473,23 @@ export function configureBuild(
   if (profileTemplate.target.os !== hostOs) {
     throw new Error(`Local configure requires a ${hostOs} profile`);
   }
-  const tools =
-    usePreparedWindowsQuality || capturePreparedWindows
+  const pinnedExecutionProfile = pinnedWindowsToolchain
+    ? captureToolchainInputLock(profileTemplate, toolchainRoot)
+    : null;
+  const tools = pinnedExecutionProfile
+    ? profileTools(pinnedExecutionProfile)
+    : usePreparedWindowsQuality || capturePreparedWindows
       ? resolvePreparedWindowsQualityTools()
       : usePreparedLinuxQuality
         ? resolvePreparedLinuxQualityTools(profileTemplate)
         : profileTools(profileTemplate);
-  const profile = capturePreparedWindows
-    ? capturePreparedWindowsInputLock(profileTemplate, { environment: process.env, toolchainRoot, tools })
-    : profileTemplate.target.os === 'windows' && !usePreparedWindowsQuality
-      ? captureToolchainInputLock(profileTemplate, toolchainRoot)
-      : profileTemplate;
+  const profile =
+    pinnedExecutionProfile ??
+    (capturePreparedWindows
+      ? capturePreparedWindowsInputLock(profileTemplate, { environment: process.env, toolchainRoot, tools })
+      : profileTemplate.target.os === 'windows' && !usePreparedWindowsQuality
+        ? captureToolchainInputLock(profileTemplate, toolchainRoot)
+        : profileTemplate);
   if (capturePreparedWindows) assertClosedHostedWindowsProfile(profile);
   verifyToolchainContract(profile, {
     allowCandidate: profile.target.os === 'windows',

@@ -39,7 +39,7 @@ function buildAndStage(profileId, backend, platform, repetition) {
   const configured = configureBuild(profileId, {
     engine: true,
     networkDenied: true,
-    rootTag: `${platform === 'win32' ? 'task24-windows' : 'task19'}-runtime-${backend}-${repetition}`,
+    rootTag: platform === 'win32' ? `p20w-${backend}-${repetition}` : `task19-runtime-${backend}-${repetition}`,
     tests: false,
   });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);

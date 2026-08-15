@@ -59,20 +59,20 @@ function runtime(
 }
 
 describe('DevelopmentActivationDescriptorProducer', () => {
-  it('persists an exact CPU-only runtime attestation for Windows execution', async () => {
+  it('persists an exact CPU and CUDA runtime attestation for Windows execution', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-development-producer-'));
     try {
-      const runtimes = [runtime('cpu', 0, 'win32')];
+      const runtimes = [runtime('cpu', 0, 'win32'), runtime('cuda', 1, 'win32')];
       const attestations = new DevelopmentRuntimeAttestationStore();
       const attestationPath = path.join(root, 'runtime-attestation.json');
       const runtimeAttestation = await attestations.load(attestationPath, runtimes);
       assert.deepEqual(
         runtimeAttestation.runtimes.map(({ backend }) => backend),
-        ['cpu'],
+        ['cpu', 'cuda'],
       );
       assert.deepEqual(await attestations.load(attestationPath, runtimes), runtimeAttestation);
       await assert.rejects(
-        () => attestations.load(attestationPath, [runtime('cuda', 1)]),
+        () => attestations.load(attestationPath, [runtime('cuda', 1, 'win32')]),
         /attestation input invalid/u,
       );
       const producer = new DevelopmentActivationDescriptorProducer();
@@ -89,7 +89,7 @@ describe('DevelopmentActivationDescriptorProducer', () => {
       };
       await producer.produce(input);
       await assert.rejects(
-        () => producer.produce({ ...input, runtimes: [...runtimes, runtime('cuda', 1, 'win32')] }),
+        () => producer.produce({ ...input, runtimes: [runtime('cpu', 0, 'win32')] }),
         /descriptor input invalid/u,
       );
     } finally {
@@ -103,7 +103,7 @@ describe('DevelopmentActivationDescriptorProducer', () => {
     try {
       const descriptorPath = path.join(root, 'activation.json');
       const platform = process.platform === 'win32' ? 'win32' : 'linux';
-      const runtimes = platform === 'win32' ? [runtime('cpu', 0)] : [runtime('cpu', 0), runtime('cuda', 1)];
+      const runtimes = [runtime('cpu', 0, platform), runtime('cuda', 1, platform)];
       const attestations = new DevelopmentRuntimeAttestationStore();
       const runtimeAttestation = await attestations.load(path.join(root, 'runtime-attestation.json'), runtimes);
       assert.deepEqual(
