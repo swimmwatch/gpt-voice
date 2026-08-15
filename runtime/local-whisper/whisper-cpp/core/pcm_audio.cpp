@@ -38,4 +38,8 @@ PcmAudio PcmAudio::from_canonical_wav(std::span<const std::uint8_t> bytes) {
 
 std::span<const float> PcmAudio::samples() const noexcept { return samples_; }
 
+PcmAudio CanonicalPcmAudioConverter::convert_canonical_wav(std::span<const std::uint8_t> bytes) {
+  return PcmAudio::from_canonical_wav(bytes);
+}
+
 } // namespace local_whisper::whisper_cpp

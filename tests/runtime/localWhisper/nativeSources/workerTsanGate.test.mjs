@@ -44,6 +44,8 @@ test('worker TSan profile pins the Linux-only isolated instrumentation and full 
     'WorkerApplication.RejectsMalformedAudioBeforeInference',
     'WorkerApplication.RejectsMalformedSettingsBeforeReadingAudioOrInference',
     'WorkerApplication.RejectsTranscriptionBeforeExplicitWarmup',
+    'WorkerApplication.ReleasesMaximumWavStorageBeforeInferenceAndPcmBeforeNextRequest',
+    'WorkerApplication.ReleasesWavStorageWhenPcmConversionFailsBeforeCleanRetry',
     'WorkerApplication.ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWarmed',
     'WorkerApplication.RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine',
     'WorkerApplication.TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate',

@@ -132,6 +132,51 @@ struct InferenceOutcome final {
   std::optional<std::string> transcript;
 };
 
+class SourceWavBuffer final {
+public:
+  SourceWavBuffer(std::vector<std::uint8_t> bytes, WorkerAudioLifetimeObserver* observer) noexcept
+      : bytes_(std::move(bytes)), observer_(observer) {}
+
+  ~SourceWavBuffer() noexcept {
+    const auto byte_length = bytes_.size();
+    const auto capacity_before_release = bytes_.capacity();
+    std::vector<std::uint8_t>().swap(bytes_);
+    if (observer_ != nullptr)
+      observer_->source_wav_released({byte_length, capacity_before_release, bytes_.capacity()});
+  }
+
+  SourceWavBuffer(const SourceWavBuffer&) = delete;
+  SourceWavBuffer& operator=(const SourceWavBuffer&) = delete;
+
+  [[nodiscard]] std::span<const std::uint8_t> bytes() const noexcept { return bytes_; }
+
+private:
+  std::vector<std::uint8_t> bytes_;
+  WorkerAudioLifetimeObserver* observer_;
+};
+
+class InferencePcmBuffer final {
+public:
+  InferencePcmBuffer(PcmAudio audio, WorkerAudioLifetimeObserver* observer)
+      : audio_(std::move(audio)), observer_(observer) {}
+
+  ~InferencePcmBuffer() noexcept {
+    const auto sample_count = audio_->samples().size();
+    audio_.reset();
+    if (observer_ != nullptr)
+      observer_->inference_pcm_released(sample_count);
+  }
+
+  InferencePcmBuffer(const InferencePcmBuffer&) = delete;
+  InferencePcmBuffer& operator=(const InferencePcmBuffer&) = delete;
+
+  [[nodiscard]] std::span<const float> samples() const noexcept { return audio_->samples(); }
+
+private:
+  std::optional<PcmAudio> audio_;
+  WorkerAudioLifetimeObserver* observer_;
+};
+
 std::string protocol_failure(FailureCode code) {
   switch (code) {
   case FailureCode::runtime_prerequisite_missing:
@@ -380,14 +425,17 @@ std::uint64_t SteadyWorkerClock::now_ticks() const noexcept {
   return static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
 }
 WorkerApplication::WorkerApplication(WorkerRunMode mode, WorkerChannel& channel,
-                                     SpeechEngine& engine, CpuProbe& probe, WorkerClock& clock,
+                                     SpeechEngine& engine, PcmAudioConverter& pcm_converter,
+                                     CpuProbe& probe, WorkerClock& clock,
                                      CancellationController& cancellation,
                                      ModelAuthorityView* model_authority,
                                      const DeviceProofAuthority* device_authority,
-                                     common::NativeLogger* native_logger)
-    : mode_(mode), channel_(channel), engine_(engine), probe_(probe), clock_(clock),
-      cancellation_(cancellation), model_authority_(model_authority),
-      device_authority_(device_authority), native_logger_(native_logger) {}
+                                     common::NativeLogger* native_logger,
+                                     WorkerAudioLifetimeObserver* audio_lifetime_observer)
+    : mode_(mode), channel_(channel), engine_(engine), pcm_converter_(pcm_converter), probe_(probe),
+      clock_(clock), cancellation_(cancellation), model_authority_(model_authority),
+      device_authority_(device_authority), native_logger_(native_logger),
+      audio_lifetime_observer_(audio_lifetime_observer) {}
 
 void WorkerApplication::require_not_cancelled() const { cancellation_.checkpoint(); }
 
@@ -597,21 +645,25 @@ int WorkerApplication::run_checked() {
         throw CoreError(FailureCode::audio_format_unsupported, "audio declaration exceeds limit");
       const auto options = parse_options(message.at("options"), probe_evidence.resolved_threads);
       log(common::NativeLogEvent::request_accepted, {std::nullopt, *current_request_id_});
-      std::vector<std::uint8_t> wav;
-      try {
-        local_whisper::common::WavAccumulator accumulator(*current_request_id_, declared_bytes);
-        while (true) {
-          auto chunk = channel_.read_audio();
-          if (accumulator.append(chunk.request_id, chunk.sequence, chunk.final, chunk.bytes))
-            break;
-        }
-        wav = accumulator.take();
-      } catch (const CoreError&) {
-        throw;
-      } catch (...) {
-        throw CoreError(FailureCode::audio_format_unsupported, "invalid streamed audio");
-      }
-      const auto audio = PcmAudio::from_canonical_wav(wav);
+      InferencePcmBuffer audio(
+          [&]() -> PcmAudio {
+            try {
+              local_whisper::common::WavAccumulator accumulator(*current_request_id_,
+                                                                declared_bytes);
+              while (true) {
+                auto chunk = channel_.read_audio();
+                if (accumulator.append(chunk.request_id, chunk.sequence, chunk.final, chunk.bytes))
+                  break;
+              }
+              SourceWavBuffer wav(accumulator.take(), audio_lifetime_observer_);
+              return pcm_converter_.convert_canonical_wav(wav.bytes());
+            } catch (const CoreError&) {
+              throw;
+            } catch (...) {
+              throw CoreError(FailureCode::audio_format_unsupported, "invalid streamed audio");
+            }
+          }(),
+          audio_lifetime_observer_);
       cancellation_.reset();
       InferenceTerminalArbiter terminal;
       InferenceOutcome inference_outcome;

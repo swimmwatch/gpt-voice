@@ -1,5 +1,6 @@
 #include "local_whisper/whisper_cpp/worker_application.hpp"
 
+#include "local_whisper/common/canonical_wav.hpp"
 #include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
@@ -7,6 +8,7 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -108,9 +110,46 @@ private:
   std::vector<std::string>* trace_;
 };
 
+class FakePcmAudioConverter final : public PcmAudioConverter {
+public:
+  [[nodiscard]] PcmAudio convert_canonical_wav(std::span<const std::uint8_t> bytes) override {
+    ++calls;
+    if (fail_conversion)
+      throw CoreError(FailureCode::allocation_failed, "fake PCM conversion failed");
+    return PcmAudio::from_canonical_wav(bytes);
+  }
+
+  std::size_t calls = 0U;
+  bool fail_conversion = false;
+};
+
+class RecordingAudioLifetimeObserver final : public WorkerAudioLifetimeObserver {
+public:
+  void source_wav_released(WavBufferReleaseEvidence evidence) noexcept override {
+    const auto index = wav_release_count.load(std::memory_order_relaxed);
+    if (index < wav_releases.size())
+      wav_releases[index] = evidence;
+    wav_release_count.store(index + 1U, std::memory_order_release);
+  }
+
+  void inference_pcm_released(std::size_t sample_count) noexcept override {
+    const auto index = pcm_release_count.load(std::memory_order_relaxed);
+    if (index < pcm_sample_counts.size())
+      pcm_sample_counts[index] = sample_count;
+    pcm_release_count.store(index + 1U, std::memory_order_release);
+  }
+
+  std::array<WavBufferReleaseEvidence, 4U> wav_releases{};
+  std::array<std::size_t, 4U> pcm_sample_counts{};
+  std::atomic_size_t wav_release_count = 0U;
+  std::atomic_size_t pcm_release_count = 0U;
+};
+
 class FakeEngine final : public SpeechEngine {
 public:
-  explicit FakeEngine(std::vector<std::string>* trace = nullptr) : trace_(trace) {}
+  explicit FakeEngine(std::vector<std::string>* trace = nullptr,
+                      RecordingAudioLifetimeObserver* lifetime_observer = nullptr)
+      : trace_(trace), lifetime_observer_(lifetime_observer) {}
 
   [[nodiscard]] EngineBackend backend() const noexcept override { return EngineBackend::cpu; }
   [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority&,
@@ -149,6 +188,12 @@ public:
     EXPECT_FALSE(samples.empty());
     EXPECT_EQ(options.language, "en");
     ++transcribe_calls;
+    if (lifetime_observer_ != nullptr &&
+        (lifetime_observer_->wav_release_count.load(std::memory_order_acquire) < transcribe_calls ||
+         lifetime_observer_->pcm_release_count.load(std::memory_order_acquire) + 1U !=
+             transcribe_calls)) {
+      lifetime_order_valid.store(false, std::memory_order_release);
+    }
     if (fail_transcription) {
       while (delay_failure && !release_delayed_failure.load(std::memory_order_acquire))
         std::this_thread::yield();
@@ -183,10 +228,12 @@ public:
   bool fail_transcription = false;
   bool fail_warm_up = false;
   std::atomic_bool release_delayed_failure = false;
+  std::atomic_bool lifetime_order_valid = true;
   std::deque<std::string> transcripts;
 
 private:
   std::vector<std::string>* trace_;
+  RecordingAudioLifetimeObserver* lifetime_observer_;
   bool loaded_ = false;
 };
 
@@ -223,8 +270,9 @@ void write_u32(std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint32
     bytes[offset + index] = static_cast<std::uint8_t>(value >> (index * 8U));
 }
 
-std::vector<std::uint8_t> wav_fixture() {
-  std::vector<std::uint8_t> bytes(46U);
+std::vector<std::uint8_t> wav_fixture(std::size_t sample_count = 1U) {
+  std::vector<std::uint8_t> bytes(local_whisper::common::kCanonicalWavHeaderBytes +
+                                  sample_count * 2U);
   for (const auto& [offset, text] : {std::pair<std::size_t, const char*>(0U, "RIFF"),
                                      {8U, "WAVE"},
                                      {12U, "fmt "},
@@ -232,7 +280,7 @@ std::vector<std::uint8_t> wav_fixture() {
     for (std::size_t index = 0; index < 4U; ++index)
       bytes[offset + index] = static_cast<std::uint8_t>(text[index]);
   }
-  write_u32(bytes, 4U, 38U);
+  write_u32(bytes, 4U, static_cast<std::uint32_t>(bytes.size() - 8U));
   write_u32(bytes, 16U, 16U);
   write_u16(bytes, 20U, 1U);
   write_u16(bytes, 22U, 1U);
@@ -240,7 +288,7 @@ std::vector<std::uint8_t> wav_fixture() {
   write_u32(bytes, 28U, 32'000U);
   write_u16(bytes, 32U, 2U);
   write_u16(bytes, 34U, 16U);
-  write_u32(bytes, 40U, 2U);
+  write_u32(bytes, 40U, static_cast<std::uint32_t>(sample_count * 2U));
   write_u16(bytes, 44U, 1U);
   return bytes;
 }
@@ -290,18 +338,22 @@ nlohmann::json transcribe_message(std::size_t audio_bytes, std::string request_i
 }
 
 struct Fixture final {
-  Fixture() : channel(&trace), engine(&trace), authority({1U, 2U, 3U, 4U}), logger(trace) {}
+  Fixture()
+      : channel(&trace), engine(&trace, &audio_lifetime), authority({1U, 2U, 3U, 4U}),
+        logger(trace) {}
 
   [[nodiscard]] int run() {
     CpuProbe probe;
-    WorkerApplication application(WorkerRunMode::load, channel, engine, probe, clock, cancellation,
-                                  &authority, nullptr, &logger);
+    WorkerApplication application(WorkerRunMode::load, channel, engine, pcm_converter, probe, clock,
+                                  cancellation, &authority, nullptr, &logger, &audio_lifetime);
     return application.run();
   }
 
   std::vector<std::string> trace;
   FakeChannel channel;
+  RecordingAudioLifetimeObserver audio_lifetime;
   FakeEngine engine;
+  FakePcmAudioConverter pcm_converter;
   FakeClock clock;
   CancellationController cancellation;
   FakeAuthority authority;
@@ -367,6 +419,85 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine
   EXPECT_LT(state_warming, warmup);
   EXPECT_LT(warmup, warmed);
   EXPECT_LT(warmed, state_warmed);
+  EXPECT_EQ(fixture.audio_lifetime.wav_release_count.load(std::memory_order_acquire), 1U);
+  EXPECT_EQ(fixture.audio_lifetime.pcm_release_count.load(std::memory_order_acquire), 1U);
+  EXPECT_TRUE(fixture.engine.lifetime_order_valid.load(std::memory_order_acquire));
+}
+
+TEST(WorkerApplication, ReleasesMaximumWavStorageBeforeInferenceAndPcmBeforeNextRequest) {
+  Fixture fixture;
+  auto maximum_wav = wav_fixture(local_whisper::common::kCanonicalWavMaxSamples);
+  const auto maximum_wav_bytes = maximum_wav.size();
+  auto second_wav = wav_fixture();
+  const auto second_wav_bytes = second_wav.size();
+  fixture.channel.controls = {
+      hello(),
+      load_message(),
+      warmup_message(),
+      transcribe_message(maximum_wav_bytes, "tx-maximum"),
+      transcribe_message(second_wav_bytes, "tx-second"),
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+  };
+  fixture.channel.audio = {{"tx-maximum", 0U, true, std::move(maximum_wav)},
+                           {"tx-second", 0U, true, std::move(second_wav)}};
+  fixture.channel.waits = {WorkerChannelWaitResult::inference_completed,
+                           WorkerChannelWaitResult::inference_completed};
+
+  EXPECT_EQ(fixture.run(), 0);
+  EXPECT_EQ(fixture.pcm_converter.calls, 2U);
+  EXPECT_EQ(fixture.engine.transcribe_calls, 2U);
+  EXPECT_TRUE(fixture.engine.lifetime_order_valid.load(std::memory_order_acquire));
+  ASSERT_EQ(fixture.audio_lifetime.wav_release_count.load(std::memory_order_acquire), 2U);
+  ASSERT_EQ(fixture.audio_lifetime.pcm_release_count.load(std::memory_order_acquire), 2U);
+  const auto maximum_release = fixture.audio_lifetime.wav_releases[0];
+  EXPECT_EQ(maximum_release.byte_length, maximum_wav_bytes);
+  EXPECT_GE(maximum_release.capacity_before_release, maximum_wav_bytes);
+  EXPECT_EQ(maximum_release.capacity_after_release, 0U);
+  const auto second_release = fixture.audio_lifetime.wav_releases[1];
+  EXPECT_EQ(second_release.byte_length, second_wav_bytes);
+  EXPECT_GE(second_release.capacity_before_release, second_wav_bytes);
+  EXPECT_EQ(second_release.capacity_after_release, 0U);
+  EXPECT_EQ(fixture.audio_lifetime.pcm_sample_counts[0],
+            local_whisper::common::kCanonicalWavMaxSamples);
+  EXPECT_EQ(fixture.audio_lifetime.pcm_sample_counts[1], 1U);
+}
+
+TEST(WorkerApplication, ReleasesWavStorageWhenPcmConversionFailsBeforeCleanRetry) {
+  Fixture failed;
+  failed.pcm_converter.fail_conversion = true;
+  auto failed_wav = wav_fixture();
+  const auto failed_wav_bytes = failed_wav.size();
+  failed.channel.controls = {hello(), load_message(), warmup_message(),
+                             transcribe_message(failed_wav_bytes)};
+  failed.channel.audio.push_back({"tx-test", 0U, true, std::move(failed_wav)});
+
+  EXPECT_EQ(failed.run(), 10);
+  EXPECT_EQ(failed.pcm_converter.calls, 1U);
+  EXPECT_EQ(failed.engine.transcribe_calls, 0U);
+  EXPECT_EQ(failed.engine.unload_calls, 1U);
+  ASSERT_EQ(failed.audio_lifetime.wav_release_count.load(std::memory_order_acquire), 1U);
+  EXPECT_EQ(failed.audio_lifetime.pcm_release_count.load(std::memory_order_acquire), 0U);
+  EXPECT_EQ(failed.audio_lifetime.wav_releases[0].byte_length, failed_wav_bytes);
+  EXPECT_GE(failed.audio_lifetime.wav_releases[0].capacity_before_release, failed_wav_bytes);
+  EXPECT_EQ(failed.audio_lifetime.wav_releases[0].capacity_after_release, 0U);
+  ASSERT_FALSE(failed.channel.sent.empty());
+  EXPECT_EQ(failed.channel.sent.back().at("type"), "failure");
+  EXPECT_EQ(failed.channel.sent.back().at("code"), "ALLOCATION_FAILED");
+
+  Fixture retry;
+  const auto retry_wav = wav_fixture();
+  retry.channel.controls = {
+      hello(),
+      load_message(),
+      warmup_message(),
+      transcribe_message(retry_wav.size()),
+      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+  };
+  retry.channel.audio.push_back({"tx-test", 0U, true, retry_wav});
+  retry.channel.waits = {WorkerChannelWaitResult::inference_completed};
+  EXPECT_EQ(retry.run(), 0);
+  EXPECT_EQ(retry.engine.transcribe_calls, 1U);
+  EXPECT_TRUE(retry.engine.lifetime_order_valid.load(std::memory_order_acquire));
 }
 
 TEST(WorkerApplication, RejectsTranscriptionBeforeExplicitWarmup) {
@@ -477,6 +608,9 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
   EXPECT_EQ(fixture.channel.sent[3].at("targetRequestId"), "tx-test");
   EXPECT_EQ(fixture.channel.sent[4].at("type"), "unloaded");
   EXPECT_EQ(fixture.channel.sent[5].at("type"), "shutdownAck");
+  EXPECT_EQ(fixture.audio_lifetime.wav_release_count.load(std::memory_order_acquire), 1U);
+  EXPECT_EQ(fixture.audio_lifetime.pcm_release_count.load(std::memory_order_acquire), 1U);
+  EXPECT_TRUE(fixture.engine.lifetime_order_valid.load(std::memory_order_acquire));
 }
 
 TEST(WorkerApplication, TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate) {
@@ -570,6 +704,9 @@ TEST(WorkerApplication,
     ASSERT_EQ(fixture.channel.sent.size(), 4U) << (delayed ? "delayed" : "immediate");
     EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
     EXPECT_EQ(fixture.channel.sent.back().at("code"), "TRANSCRIPTION_FAILED");
+    EXPECT_EQ(fixture.audio_lifetime.wav_release_count.load(std::memory_order_acquire), 1U);
+    EXPECT_EQ(fixture.audio_lifetime.pcm_release_count.load(std::memory_order_acquire), 1U);
+    EXPECT_TRUE(fixture.engine.lifetime_order_valid.load(std::memory_order_acquire));
   }
 }
 

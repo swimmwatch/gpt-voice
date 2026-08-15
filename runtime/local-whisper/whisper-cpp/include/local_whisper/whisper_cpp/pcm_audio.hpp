@@ -18,4 +18,15 @@ private:
   std::vector<float> samples_;
 };
 
+class PcmAudioConverter {
+public:
+  virtual ~PcmAudioConverter() = default;
+  [[nodiscard]] virtual PcmAudio convert_canonical_wav(std::span<const std::uint8_t> bytes) = 0;
+};
+
+class CanonicalPcmAudioConverter final : public PcmAudioConverter {
+public:
+  [[nodiscard]] PcmAudio convert_canonical_wav(std::span<const std::uint8_t> bytes) override;
+};
+
 } // namespace local_whisper::whisper_cpp

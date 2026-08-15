@@ -29,6 +29,8 @@
       "WorkerApplication.RejectsMalformedAudioBeforeInference",
       "WorkerApplication.RejectsMalformedSettingsBeforeReadingAudioOrInference",
       "WorkerApplication.RejectsTranscriptionBeforeExplicitWarmup",
+      "WorkerApplication.ReleasesMaximumWavStorageBeforeInferenceAndPcmBeforeNextRequest",
+      "WorkerApplication.ReleasesWavStorageWhenPcmConversionFailsBeforeCleanRetry",
       "WorkerApplication.ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWarmed",
       "WorkerApplication.RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine",
       "WorkerApplication.TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate",
