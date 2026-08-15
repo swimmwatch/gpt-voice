@@ -46,7 +46,7 @@ CMP-001, PERF-005, BLD-001, DEP-001, AC-AUT-014.
 
 ## Expected Files Or Components
 
-- `runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.39-v1.json`
+- `runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.51-v1.json`
 - `runtime/local-whisper/toolchains/profiles/windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json`
 - Linux CPU/CUDA profiles as read-only parity baselines unless a verifier reference must be updated
 - Native build/profile verification scripts and `tests/runtime/localWhisper/nativeSources/nativeBuildAudits.test.mjs`

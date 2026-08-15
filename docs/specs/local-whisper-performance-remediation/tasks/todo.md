@@ -1,9 +1,11 @@
 # Local Whisper Performance Remediation Todo
 
-- Plan status: Approved revision 2 on 2026-08-14
-- Execution authorization: explicitly deferred for revision 2 on 2026-08-14; no packet is authorized
+- Plan status: Approved revision 3 on 2026-08-15
+- Execution authorization: Packet 01 implementation and non-manual local verification authorized by revision 4 on
+  2026-08-15; commits, pushes, CI execution, and representative-host benchmarks remain separately gated
 
-- [ ] [01 Qualification contract and baseline](01_qualification_contract_and_baseline.md)
+- [ ] [01 Qualification contract and baseline](01_qualification_contract_and_baseline.md) — local implementation and
+      non-manual verification complete; commit, push, required CI success, and representative-host gates pending
 - [ ] [02 Launch-lease directory-result reuse](02_launch_lease_directory_result_reuse.md)
 - [ ] [03 Runtime SHA-256 dispatch](03_runtime_sha256_dispatch.md)
 - [ ] [04 Filesystem-guard protocol-v2 codec](04_fs_guard_protocol_v2_codec.md)

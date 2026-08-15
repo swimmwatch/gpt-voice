@@ -1,17 +1,19 @@
 # Local Whisper Performance Remediation Plan
 
-- Status: Approved (revision 2)
-- Previous approval: revision 1 retained as superseded history after the 2026-08-14 CI and Windows-qualification changes
-- Approval: explicit `approve` recorded in `plan:local-whisper-performance-remediation` on 2026-08-14
+- Status: Approved (revision 3)
+- Previous approvals: revisions 1 and 2 retained as superseded history
+- Approval: explicit `approve` recorded in `plan:local-whisper-performance-remediation` on 2026-08-15
 - Specification: [Approved contract](../spec.md)
 - Decision ledger: [decisions.yaml](../decisions.yaml)
-- Revision basis: `e49b5790c6b0b1a6fe417b920da8f45df365fe2f`
+- Revision basis: `1f6ce9c988a275f1ef9faa295b1bb04879943e89`
 - Execution model: one explicitly authorized packet at a time; no packet advances until its required CI checks are green and reviewed
 
-The affected production source still matches the specification revision basis. Pre-existing dirty changes in
-`.github/workflows/pr-checks.yml`, `scripts/local-whisper/ci/RunnerPolicyVerifier.ts`, and
-`tests/scripts/localWhisper/ci/RunnerPolicy.test.ts` must be preserved and reconciled when Packet 01 adds the
-performance CI lanes; they must not be overwritten or silently absorbed as packet work.
+The GAT-004 refresh at the revision basis above incorporates completed native-remediation Packet 20 and the current
+Windows validation/CI contracts. It confirms that the selected performance work remains unmet, including the 8/7
+full-model-hash baseline and immediate duplicate directory proof. The current Windows CPU profile is
+`windows-x64-cpu-msvc-19.51-v1`; the CUDA profile remains
+`windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1`. Hosted Windows validation executes CPU behavior and CUDA contract
+checks without representative CUDA hardware; direct Windows CPU/CUDA performance qualification remains in Packet 14.
 
 | Packet                                          | Outcome                                                                                                                   | Dependencies | Owned requirements and acceptance                                                                                                              |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,9 +29,9 @@ performance CI lanes; they must not be overwritten or silently absorbed as packe
 | [10](10_gpu_thread_renderer_controls.md)        | Present contextual CPU/GPU thread controls with independent draft state and accessibility.                                | 08           | SCP-002, CFG-004, MIG-003, UI-001, A11Y-001, AC-AUT-012                                                                                        |
 | [11](11_windows_backend_profile_parity.md)      | Complete Windows current-value option declarations without changing effective behavior.                                   | 01           | CMP-001, PERF-005, BLD-001, DEP-001, AC-AUT-014                                                                                                |
 | [12](12_cross_platform_integration_and_docs.md) | Integrate all changes, verify compatibility/privacy/quality, and document operation and rollback.                         | 02–11        | SCP-005, SCP-006, CMP-001–CMP-003, ARC-001, ARC-002, PRIV-002, OPS-001–OPS-003, AC-AUT-015, AC-MAN-005                                         |
-| [13](13_representative_host_qualification.md)   | Run the locked representative Linux CPU/CUDA qualification and publish only privacy-safe evidence.                       | 12           | OUT-001, SCP-001, PERF-001–PERF-005, RES-002, QUAL-001, OBS-001–OBS-003, AC-MAN-001, AC-MAN-003–AC-MAN-006                                    |
-| [14](14_windows_end_to_end_qualification.md)    | Run the complete Windows CPU/CUDA end-to-end matrix directly on the regular supported Windows computer.                  | 13           | OUT-001, SCP-001, CMP-001, PERF-001–PERF-005, RES-002, QUAL-001, OBS-001–OBS-003, AC-MAN-002–AC-MAN-006                                      |
-| [15](15_windows_final_remediation.md)           | Conditionally fix and requalify Windows-only failures discovered by Packet 14, using separate fix commits.               | 14           | CMP-001, CMP-005, PERF-001–PERF-005, RES-002, QUAL-001, AC-AUT-015, AC-MAN-002–AC-MAN-006                                                     |
+| [13](13_representative_host_qualification.md)   | Run the locked representative Linux CPU/CUDA qualification and publish only privacy-safe evidence.                        | 12           | OUT-001, SCP-001, PERF-001–PERF-005, RES-002, QUAL-001, OBS-001–OBS-003, AC-MAN-001, AC-MAN-003–AC-MAN-006                                     |
+| [14](14_windows_end_to_end_qualification.md)    | Run the complete Windows CPU/CUDA end-to-end matrix directly on the regular supported Windows computer.                   | 13           | OUT-001, SCP-001, CMP-001, PERF-001–PERF-005, RES-002, QUAL-001, OBS-001–OBS-003, AC-MAN-002–AC-MAN-006                                        |
+| [15](15_windows_final_remediation.md)           | Conditionally fix and requalify Windows-only failures discovered by Packet 14, using separate fix commits.                | 14           | CMP-001, CMP-005, PERF-001–PERF-005, RES-002, QUAL-001, AC-AUT-015, AC-MAN-002–AC-MAN-006                                                      |
 
 ## CI and commit protocol
 

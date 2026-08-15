@@ -1441,7 +1441,7 @@ decisions:
   - id: approval.plan
     revision: 2
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-performance-remediation/tasks/plan.md
@@ -1480,7 +1480,7 @@ decisions:
   - id: authorization.packet-01
     revision: 2
     category: execution
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
@@ -1508,3 +1508,166 @@ decisions:
     rationale: The user explicitly deferred execution after approving revision 2; no packet, production change, commit, or push is authorized.
     supersedes_revision: 1
     requirement_ids: [SCP-003]
+
+  - id: authorization.packet-01
+    revision: 3
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - User explicitly invoked the incremental-implementation skill on 2026-08-15.
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-03
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v3
+      last_status: answered
+    question:
+      text: Do you authorize implementation and local verification of Local Whisper performance-remediation Packet 01 now?
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Implement only Packet 01 and run its non-manual local checks; commit, push, CI waiting, and representative-host benchmarks remain separately gated.
+        - id: defer-execution
+          label: Defer execution
+          description: Keep the approved plan unchanged and make no Packet 01 implementation changes.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user explicitly authorized implementation and non-manual local verification of Packet 01; commit, push, CI execution, and representative-host benchmarks remain separately gated.
+    supersedes_revision: 2
+    requirement_ids: [SCP-003]
+
+  - id: planning.source-basis-refresh
+    revision: 1
+    category: implementation
+    state: observed
+    provenance: repository
+    evidence:
+      - Repository revision 1f6ce9c988a275f1ef9faa295b1bb04879943e89.
+      - Repository comparison e49b5790c6b0b1a6fe417b920da8f45df365fe2f..1f6ce9c988a275f1ef9faa295b1bb04879943e89.
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - runtime/local-whisper/fs-guard/src/common/protocol.cpp
+      - runtime/local-whisper/whisper-cpp/platform/windows/worker_protocol_windows.cpp
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.51-v1.json
+      - scripts/local-whisper/qualification/QualificationCatalogProducer.ts
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - refresh-execution-basis
+        - retain-eight-seven-source-counts
+        - inherit-completed-windows-validation
+        - preserve-hosted-cpu-direct-cuda-split
+      text: The execution basis advances to 1f6ce9c988a275f1ef9faa295b1bb04879943e89. The selected performance work remains unmet, the pre-change full-hash counts remain eight on Linux and seven on Windows, the Windows CPU profile is MSVC 19.51, and representative Windows CUDA remains a direct-host gate.
+    rationale: GAT-004 requires a refreshed baseline after Windows validation and native changes. Current source inspection shows those changes do not satisfy or invalidate the approved performance requirements, but they do change exact implementation inputs and CI/profile contracts.
+    supersedes_revision: null
+    requirement_ids: [BASE-001, GAT-004, QUAL-001, AC-AUT-003, AC-AUT-014, AC-AUT-015]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/11_windows_backend_profile_parity.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-03
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+    question:
+      text: Do you approve revision 3 of the Local Whisper performance-remediation plan with the refreshed 1f6ce9c9 source basis and current Windows validation/profile contracts?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 3 Approved while keeping Packet 01 execution, commits, pushes, CI, and manual benchmarks separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 3 Draft and revise the source-basis repair before another approval request.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 3 Draft and stop without authorizing it as the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 3 after the source-basis refresh; Packet 01 execution, commits, pushes, CI, and representative-host benchmarks remain separately gated.
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: authorization.packet-01
+    revision: 4
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-04
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v4
+      last_status: answered
+    question:
+      text: Do you authorize implementation and local verification of revised Local Whisper performance-remediation Packet 01 now?
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Implement only revised Packet 01 and run its non-manual local checks; commits, pushes, CI execution, and representative-host benchmarks remain separately gated.
+        - id: defer-execution
+          label: Defer execution
+          description: Keep approved plan revision 3 unchanged and make no Packet 01 implementation changes.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user explicitly authorized implementation and non-manual local verification of revised Packet 01; commits, pushes, CI execution, and representative-host benchmarks remain separately gated.
+    supersedes_revision: 3
+    requirement_ids: [SCP-003]
+
+  - id: authorization.packet-01
+    revision: 5
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-05
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v5
+      last_status: answered
+    question:
+      text: Do you authorize committing the reviewed Packet 01 implementation, pushing the current branch, and waiting for all required GitHub CI checks now?
+      kind: single
+      options:
+        - id: authorize-packet-01-commit-push-ci
+          label: Authorize commit and CI (Recommended)
+          description: Commit only Packet 01 changes, push the current branch, and wait for all five required checks; do not start Packet 02 or run representative-host benchmarks.
+        - id: defer-commit-push-ci
+          label: Defer commit and CI
+          description: Leave Packet 01 uncommitted and stop without pushing or running GitHub CI.
+    answer:
+      selected_ids: [authorize-packet-01-commit-push-ci]
+      text: ''
+    rationale: The user explicitly authorized the reviewed Packet 01 implementation commit, branch push, and waiting for all five required CI checks; Packet 02 and representative-host benchmarks remain outside this authorization.
+    supersedes_revision: 4
+    requirement_ids: [SCP-003, AC-AUT-015]

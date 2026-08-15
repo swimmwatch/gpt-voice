@@ -8,9 +8,15 @@ baseline, and select the installation pipeline window from the approved candidat
 
 ## Prerequisites
 
-- The approved specification revision basis is repository `e49b5790c6b0b1a6fe417b920da8f45df365fe2f` and native source `2304c16e6f4251e0bbf77afa96ea83a12558ff6b`.
-- Recheck affected production paths against that basis. If later native-remediation, protocol, worker, profile, or security changes are present, stop and return to planning with a refreshed source baseline.
+- The refreshed execution basis is repository `1f6ce9c988a275f1ef9faa295b1bb04879943e89`. It incorporates completed
+  native-remediation Packet 20, Windows worker/protocol remediation, MSVC 19.51 CPU profile migration, and the current
+  parallel native CI policy.
+- The GAT-004 audit at that basis confirms two acquisition-time directory inspections, two later TypeScript
+  revalidations, retained native authority proofs, and both exact worker reads: eight full hashes on Linux and seven
+  on Windows before Packet 02. Recheck those paths again immediately before implementation and stop if they drift.
 - Preserve the existing qualification-v2 graph, canonical JSON, digest, and privacy contracts.
+- Preserve the completed hosted Windows validation contract: real CPU execution and CUDA contract-only verification
+  are CI evidence, while representative Windows CPU/CUDA performance remains a direct Packet 14 manual gate.
 
 ## Owned Requirements
 
@@ -22,6 +28,8 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 - Qualification-only schemas, validators, analyzers, deterministic fixtures, and command entry points.
 - Fail-closed Linux and Windows performance CI aggregates, workflow path coverage for this specification directory,
   and runner-policy assertions that keep Windows checks on the configured Windows CI runner.
+- Qualification-only separation between hosted Windows CPU/CUDA-contract fixtures and the real-host Windows CPU/CUDA
+  matrix; do not turn hosted CUDA contract checks into a hardware-performance claim.
 - Phase duration and peak-resource evidence for directory proofs, digests, process/authority transfer, model load,
   explicit warm-up, GPU allocation, installation encode/wait/decode/write, main/guard/worker RSS, and GPU VRAM.
 - A locked paired manifest for `base/full`, `medium/full`, and `large-v3/q5_0`, minimum five successful pairs,
@@ -59,9 +67,11 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 8. Include `docs/specs/local-whisper-performance-remediation/**` in the workflow path policy so later
    qualification-evidence packets trigger CI. Hosted lanes use deterministic fixtures and authenticated test-source
    provisioning only; they must not download production models or claim representative CPU/CUDA performance.
-9. Extend the existing runner/workflow policy tests without discarding the pre-existing dirty changes in
-   `.github/workflows/pr-checks.yml`, `scripts/local-whisper/ci/RunnerPolicyVerifier.ts`, or
-   `tests/scripts/localWhisper/ci/RunnerPolicy.test.ts`.
+9. Extend the current runner/workflow policy tests while preserving the completed parallel native lanes, MSVC 19.51
+   CPU validation, CUDA contract-only hosted check, fail-closed native aggregates, and runner evidence contracts.
+10. The Windows qualification entry point must accept the specification's CPU/CUDA real-host matrix without changing
+    the existing CPU-only executable hosted-validation catalog. Use an explicit qualification mode or input contract;
+    never silently add CUDA execution to hosted CI.
 
 ## Contracts And Boundaries
 
@@ -75,8 +85,10 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 - `scripts/local-whisper/qualification/QualificationContracts.ts`
 - `scripts/local-whisper/qualification/QualificationMetrics.ts`
 - `scripts/local-whisper/qualification/QualificationResultProducer.ts`
+- `scripts/local-whisper/qualification/QualificationCatalogProducer.ts`
 - Qualification schemas under `docs/specs/local-whisper/qualification/schemas/`
 - Focused tests under `tests/scripts/localWhisper/qualification/`
+- `tests/scripts/localWhisper/qualification/QualificationCatalogProducer.test.ts`
 - A qualification-only benchmark/selection entry point under `scripts/local-whisper/qualification/`
 - Cross-platform qualification entry points exposed as `run:local-whisper:qualification:windows` and
   `verify:local-whisper:qualification:windows`, with fixture-mode coverage in hosted Windows CI and real-host mode
@@ -90,7 +102,8 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 
 - AC-AUT-001 passes for valid, missing, malformed, oversized, and sensitive fixtures.
 - AC-AUT-002 passes for qualifying, sub-threshold, uncertainty-overlap, and resource-regression fixtures.
-- Source-count fixtures reject any unexplained deviation from the 8/7 baseline.
+- Source-count fixtures reject any unexplained deviation from the refreshed 8/7 baseline at
+  `1f6ce9c988a275f1ef9faa295b1bb04879943e89`.
 - Candidate selection is reproducible, emits exactly one of 1, 2, 4, or 8 only when all gates pass, and otherwise
   fails closed.
 
