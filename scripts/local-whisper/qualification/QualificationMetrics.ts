@@ -1,6 +1,9 @@
 const TOKEN_PATTERN = /\p{L}+(?:'\p{L}+)*|\p{Nd}+/gu;
 const PEAK_QUANTUM_BYTES = 64 * 1024 * 1024;
 
+export const LOCAL_WHISPER_PERFORMANCE_MINIMUM_CONSERVATIVE_IMPROVEMENT_PERCENT = 25;
+export const LOCAL_WHISPER_PERFORMANCE_MAXIMUM_CONSERVATIVE_REGRESSION_PERCENT = 3;
+
 export type QualificationLocale = 'en_us' | 'ru_ru';
 
 function localeName(locale: QualificationLocale): string {
@@ -64,4 +67,36 @@ export function qualificationMedian(values: readonly number[]): number {
 export function roundQualificationPeakBytes(value: number): number {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error('Qualification peak is invalid');
   return Math.ceil(value / PEAK_QUANTUM_BYTES) * PEAK_QUANTUM_BYTES;
+}
+
+export interface QualificationPairedEstimate {
+  readonly pointEstimatePercent: number;
+  readonly uncertaintyPercent: number;
+}
+
+function qualificationPercentage(before: number, after: number, direction: 'improvement' | 'regression'): number {
+  if (!Number.isFinite(before) || !Number.isFinite(after) || before <= 0 || after < 0) {
+    throw new Error('Qualification paired percentage input is invalid');
+  }
+  return direction === 'improvement' ? ((before - after) / before) * 100 : ((after - before) / before) * 100;
+}
+
+export function qualificationImprovementPercentage(before: number, after: number): number {
+  return qualificationPercentage(before, after, 'improvement');
+}
+
+export function qualificationRegressionPercentage(before: number, after: number): number {
+  return qualificationPercentage(before, after, 'regression');
+}
+
+/** Uses the median paired percentage and its median absolute deviation as the frozen uncertainty method. */
+export function qualificationPairedEstimate(values: readonly number[]): QualificationPairedEstimate {
+  if (values.length === 0 || values.some((value) => !Number.isFinite(value))) {
+    throw new Error('Qualification paired estimate input is invalid');
+  }
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  const pointEstimatePercent = sorted.length % 2 === 0 ? (sorted[middle - 1]! + sorted[middle]!) / 2 : sorted[middle]!;
+  const uncertaintyPercent = qualificationMedian(values.map((value) => Math.abs(value - pointEstimatePercent)));
+  return Object.freeze({ pointEstimatePercent, uncertaintyPercent });
 }

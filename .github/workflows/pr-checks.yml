@@ -9,6 +9,7 @@ on:
       - .github/codeql-config.yml
       - .github/workflows/**
       - build/fedora-release/**
+      - docs/specs/local-whisper-performance-remediation/**
       - package-lock.json
       - package.json
       - runtime/local-whisper/**
@@ -26,6 +27,7 @@ on:
       - .github/codeql-config.yml
       - .github/workflows/**
       - build/fedora-release/**
+      - docs/specs/local-whisper-performance-remediation/**
       - package-lock.json
       - package.json
       - runtime/local-whisper/**
@@ -423,6 +425,83 @@ jobs:
         run: |
           if ($env:CORE_RESULT -ne 'success' -or $env:SHARDS_RESULT -ne 'success') {
             throw 'Windows native lanes did not all succeed'
+          }
+
+  performance-linux-fixtures:
+    name: Local Whisper Performance Linux / Contract Fixtures
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
+      - name: Prove performance qualification contracts
+        run: npm run test:local-whisper:performance-contracts
+      - name: Verify deterministic Linux performance fixtures
+        run: npm run verify:local-whisper:performance:linux
+
+  performance-linux:
+    name: Local Whisper Performance (Linux)
+    if: ${{ always() }}
+    needs:
+      - performance-linux-fixtures
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 5
+    env:
+      FIXTURE_RESULT: ${{ needs.performance-linux-fixtures.result }}
+    steps:
+      - name: Require every Linux performance lane
+        shell: bash
+        run: |
+          if [[ "$FIXTURE_RESULT" != 'success' ]]; then
+            echo "Linux performance lanes did not all pass" >&2
+            exit 1
+          fi
+
+  performance-windows-fixtures:
+    name: Local Whisper Performance Windows / Contract Fixtures
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
+      - name: Prove performance qualification contracts
+        run: npm run test:local-whisper:performance-contracts
+      - name: Verify deterministic Windows CPU and CUDA-contract fixtures
+        run: npm run verify:local-whisper:qualification:windows
+
+  performance-windows:
+    name: Local Whisper Performance (Windows)
+    if: ${{ always() }}
+    needs:
+      - performance-windows-fixtures
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 5
+    env:
+      FIXTURE_RESULT: ${{ needs.performance-windows-fixtures.result }}
+    steps:
+      - name: Require every Windows performance lane
+        shell: pwsh
+        run: |
+          if ($env:FIXTURE_RESULT -ne 'success') {
+            throw 'Windows performance lanes did not all pass'
           }
 
   quality-static:

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-sample-v1.schema.json",
+  "title": "Local Whisper performance qualification sample v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceSampleDigest",
+    "performanceManifestDigest",
+    "sampleId",
+    "candidateWindow",
+    "cacheState",
+    "pairIndex",
+    "runOrder",
+    "side",
+    "status",
+    "failureReason",
+    "endToEndNanoseconds",
+    "phases",
+    "resources"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "contractRevision": { "const": 1 },
+    "performanceSampleDigest": { "$ref": "#/$defs/sha256" },
+    "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "sampleId": { "$ref": "#/$defs/identifier" },
+    "candidateWindow": { "enum": [1, 2, 4, 8] },
+    "cacheState": { "enum": ["cold", "warm"] },
+    "pairIndex": { "type": "integer", "minimum": 1, "maximum": 64 },
+    "runOrder": { "enum": ["beforeThenAfter", "afterThenBefore"] },
+    "side": { "enum": ["before", "after"] },
+    "status": { "enum": ["success", "failed"] },
+    "failureReason": {
+      "oneOf": [{ "$ref": "#/$defs/reasonCode" }, { "type": "null" }]
+    },
+    "endToEndNanoseconds": {
+      "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, { "type": "null" }]
+    },
+    "phases": {
+      "type": "array",
+      "maxItems": 19,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sequence", "durationNanoseconds"],
+        "properties": {
+          "id": { "$ref": "#/$defs/phaseId" },
+          "sequence": { "type": "integer", "minimum": 0, "maximum": 18 },
+          "durationNanoseconds": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "peakBytes"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resourceId" },
+          "peakBytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "status": { "const": "success" },
+        "failureReason": { "type": "null" },
+        "endToEndNanoseconds": { "type": "integer", "minimum": 1 },
+        "phases": { "type": "array", "minItems": 1 },
+        "resources": { "type": "array", "minItems": 1 }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": { "const": "failed" },
+        "failureReason": { "$ref": "#/$defs/reasonCode" },
+        "endToEndNanoseconds": { "type": "null" },
+        "phases": { "type": "array", "maxItems": 0 },
+        "resources": { "type": "array", "maxItems": 0 }
+      }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "reasonCode": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "phaseId": {
+      "enum": [
+        "directoryProofRuntimeAcquisition",
+        "directoryProofModelAcquisition",
+        "directoryProofRuntimePreSpawn",
+        "directoryProofModelPreSpawn",
+        "directoryProofModelPreLoad",
+        "nativeModelGuardDigest",
+        "nativeAuthorityDigest",
+        "workerPreflightDigest",
+        "workerLoaderDigest",
+        "guardedProcessCreation",
+        "authorityTransfer",
+        "modelPreflight",
+        "whisperLoad",
+        "inferenceWarmup",
+        "gpuUploadAllocation",
+        "installationEncode",
+        "installationPipeWait",
+        "installationDecode",
+        "installationWrite"
+      ]
+    },
+    "resourceId": {
+      "enum": ["mainProcessPeakRss", "guardProcessPeakRss", "workerProcessPeakRss", "gpuPeakVram"]
+    }
+  }
+}

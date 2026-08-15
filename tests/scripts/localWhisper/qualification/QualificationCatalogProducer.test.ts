@@ -228,4 +228,26 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       /runtime matrix invalid/u,
     );
   });
+
+  it('requires an explicit representative Windows mode before accepting the CPU/CUDA matrix', () => {
+    const producer = new LocalWhisperQualificationCatalogProducer();
+    const seed = {
+      platform: 'win32',
+      candidateSemVer: '2.4.0',
+      catalogRevision: 'windows-qualification-catalog-v2.4.0',
+      qualificationKeyId: 'qualification-key-v1',
+      runtimeOriginId: 'qualification-runtime-origin',
+      runtimeOrigin: 'https://127.0.0.1:39443',
+      sourceCommit: 'a'.repeat(40),
+      runtimes: [runtime('cpu', 'win32'), runtime('cuda', 'win32')],
+      executionMode: 'representativeQualification',
+    } as const;
+    const payload = producer.produce(seed);
+    assert.deepEqual(
+      payload.runtimes.map(({ identity }) => identity.backend),
+      ['cpu', 'cuda'],
+    );
+    assert.throws(() => producer.produce({ ...seed, executionMode: 'hostedValidation' }), /runtime matrix invalid/u);
+    assert.throws(() => producer.produce({ ...seed, runtimes: [runtime('cpu', 'win32')] }), /runtime matrix invalid/u);
+  });
 });

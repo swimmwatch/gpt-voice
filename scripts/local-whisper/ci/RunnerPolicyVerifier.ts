@@ -7,6 +7,7 @@ export const NATIVE_PATH_OWNERS = [
   '.github/actions/**',
   '.github/workflows/**',
   'build/fedora-release/**',
+  'docs/specs/local-whisper-performance-remediation/**',
   'package-lock.json',
   'package.json',
   'runtime/local-whisper/**',
@@ -60,6 +61,23 @@ const PLATFORM_CONTRACTS = {
     runner: '${{ vars.CI_WINDOWS_RUNNER }}',
     shardJob: 'native-windows-shards',
     toolchain: 'windows-x64-msvc-19.51-v1',
+  },
+} as const;
+
+const PERFORMANCE_CONTRACTS = {
+  linux: {
+    laneJob: 'performance-linux-fixtures',
+    gateJob: 'performance-linux',
+    gateName: 'Local Whisper Performance (Linux)',
+    runner: '${{ vars.CI_LINUX_RUNNER }}',
+    verifierCommand: 'verify:local-whisper:performance:linux',
+  },
+  windows: {
+    laneJob: 'performance-windows-fixtures',
+    gateJob: 'performance-windows',
+    gateName: 'Local Whisper Performance (Windows)',
+    runner: '${{ vars.CI_WINDOWS_RUNNER }}',
+    verifierCommand: 'verify:local-whisper:qualification:windows',
   },
 } as const;
 
@@ -280,6 +298,49 @@ function verifyPrimaryEvidence(jobs: Record<string, WorkflowJob>): void {
   if (nativeJobs.includes('continue-on-error')) throw new Error('Native quality lanes must fail closed');
 }
 
+function verifyPerformanceQualification(jobs: Record<string, WorkflowJob>): void {
+  for (const [platform, contract] of Object.entries(PERFORMANCE_CONTRACTS)) {
+    const lane = jobs[contract.laneJob];
+    const gate = jobs[contract.gateJob];
+    if (
+      !lane ||
+      lane['runs-on'] !== contract.runner ||
+      lane.needs !== undefined ||
+      lane['timeout-minutes'] !== 15 ||
+      !exactPermissions(lane.permissions, { contents: 'read' })
+    ) {
+      throw new Error(`${platform} performance fixture lane must use its configured runner and least privilege`);
+    }
+    const laneText = jobText(lane);
+    if (
+      !laneText.includes('test:local-whisper:performance-contracts') ||
+      !laneText.includes(contract.verifierCommand) ||
+      laneText.includes('continue-on-error') ||
+      laneText.includes('materialize:local-whisper:qualification:models')
+    ) {
+      throw new Error(`${platform} performance fixture lane must run only the deterministic contract checks`);
+    }
+    if (
+      !gate ||
+      gate.name !== contract.gateName ||
+      gate.if !== '${{ always() }}' ||
+      gate['runs-on'] !== contract.runner ||
+      gate['timeout-minutes'] !== 5
+    ) {
+      throw new Error(`${contract.gateJob} must remain an always-running configured aggregate gate`);
+    }
+    exactStringSet(gate.needs, [contract.laneJob], `${contract.gateJob} must require every performance lane`);
+    const gateText = jobText(gate);
+    if (
+      !gateText.includes(`needs.${contract.laneJob}.result`) ||
+      countOccurrences(gateText, 'success') !== 1 ||
+      gateText.includes('continue-on-error')
+    ) {
+      throw new Error(`${contract.gateJob} must fail closed over every performance lane`);
+    }
+  }
+}
+
 function operatingSystemForRunner(runnerLabel: string): 'Linux' | 'Windows' {
   if (runnerLabel === REQUIRED_RUNNER_LABELS.linux) return 'Linux';
   if (runnerLabel === REQUIRED_RUNNER_LABELS.windows) return 'Windows';
@@ -306,6 +367,7 @@ export class RunnerPolicyVerifier {
     verifyConfiguredRunnerLabels(configuredRunnerLabels);
     verifyRequiredNativeParallelism(jobs);
     verifyPrimaryEvidence(jobs);
+    verifyPerformanceQualification(jobs);
   }
 
   public verifyEvidence(value: unknown): void {

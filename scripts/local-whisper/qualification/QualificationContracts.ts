@@ -17,6 +17,9 @@ const SCHEMA_FILES = Object.freeze({
   measurementSeries: 'measurement-series-v2.schema.json',
   platformResult: 'platform-result-v2.schema.json',
   evidenceIndex: 'evidence-index-v2.schema.json',
+  performanceManifest: 'performance-manifest-v1.schema.json',
+  performanceSample: 'performance-sample-v1.schema.json',
+  performanceResult: 'performance-result-v1.schema.json',
 } as const);
 
 const RETIRED_ACTIVE_SCHEMA_FILES = Object.freeze(['candidate-v2.schema.json', 'measurement-series-v1.schema.json']);
@@ -29,6 +32,9 @@ const DOCUMENT_DIGEST_FIELDS = Object.freeze({
   measurementSeries: 'seriesDigest',
   platformResult: 'resultDigest',
   evidenceIndex: 'indexDigest',
+  performanceManifest: 'performanceManifestDigest',
+  performanceSample: 'performanceSampleDigest',
+  performanceResult: 'performanceResultDigest',
 } as const);
 
 const PRIVATE_KEYS = new Set([
@@ -59,6 +65,68 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u;
+const MAXIMUM_PERFORMANCE_DOCUMENT_BYTES = 1024 * 1024;
+const PERFORMANCE_PRIVATE_KEYS = new Set([
+  'absolutePath',
+  'audio',
+  'capabilities',
+  'credentials',
+  'deviceId',
+  'deviceIdentity',
+  'environmentDump',
+  'hostName',
+  'nativeOutput',
+  'prompt',
+  'rawAudio',
+  'rawLog',
+  'transcript',
+]);
+
+export const LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION = '1f6ce9c988a275f1ef9faa295b1bb04879943e89';
+export const LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE = Object.freeze({
+  beforeOptimization: Object.freeze({ linux: 8, win32: 7 }),
+  afterDirectoryReuse: Object.freeze({ linux: 7, win32: 6 }),
+});
+
+const LOCAL_WHISPER_PERFORMANCE_PHASE_IDS = [
+  'directoryProofRuntimeAcquisition',
+  'directoryProofModelAcquisition',
+  'directoryProofRuntimePreSpawn',
+  'directoryProofModelPreSpawn',
+  'directoryProofModelPreLoad',
+  'nativeModelGuardDigest',
+  'nativeAuthorityDigest',
+  'workerPreflightDigest',
+  'workerLoaderDigest',
+  'guardedProcessCreation',
+  'authorityTransfer',
+  'modelPreflight',
+  'whisperLoad',
+  'inferenceWarmup',
+  'gpuUploadAllocation',
+  'installationEncode',
+  'installationPipeWait',
+  'installationDecode',
+  'installationWrite',
+] as const;
+
+const LOCAL_WHISPER_PERFORMANCE_RESOURCE_IDS = [
+  'mainProcessPeakRss',
+  'guardProcessPeakRss',
+  'workerProcessPeakRss',
+  'gpuPeakVram',
+] as const;
+
+export const LOCAL_WHISPER_PERFORMANCE_PHASES = Object.freeze(
+  LOCAL_WHISPER_PERFORMANCE_PHASE_IDS.map((id) => Object.freeze({ id, unit: 'nanoseconds' as const })),
+);
+
+export const LOCAL_WHISPER_PERFORMANCE_RESOURCES = Object.freeze(
+  LOCAL_WHISPER_PERFORMANCE_RESOURCE_IDS.map((id) => Object.freeze({ id, unit: 'bytes' as const })),
+);
+
+export type LocalWhisperPerformancePhaseId = (typeof LOCAL_WHISPER_PERFORMANCE_PHASE_IDS)[number];
+export type LocalWhisperPerformanceResourceId = (typeof LOCAL_WHISPER_PERFORMANCE_RESOURCE_IDS)[number];
 
 export type QualificationDocumentKind = keyof typeof SCHEMA_FILES;
 export type DigestQualificationDocumentKind = keyof typeof DOCUMENT_DIGEST_FIELDS;
@@ -116,6 +184,27 @@ export function assertQualificationPrivacySafe(value: unknown): void {
     if (!isRecord(candidate)) return;
     for (const [key, item] of Object.entries(candidate)) {
       if (PRIVATE_KEYS.has(key)) throw new Error('QUALIFICATION_PRIVATE_FIELD_REJECTED');
+      visit(item);
+    }
+  };
+  visit(value);
+}
+
+function assertPerformancePrivacySafe(value: unknown): void {
+  const visit = (candidate: unknown): void => {
+    if (
+      typeof candidate === 'string' &&
+      (path.posix.isAbsolute(candidate) || path.win32.isAbsolute(candidate) || PRIVATE_PATH_PATTERN.test(candidate))
+    ) {
+      throw new Error('QUALIFICATION_PRIVATE_VALUE_REJECTED');
+    }
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) visit(item);
+      return;
+    }
+    if (!isRecord(candidate)) return;
+    for (const [key, item] of Object.entries(candidate)) {
+      if (PERFORMANCE_PRIVATE_KEYS.has(key)) throw new Error('QUALIFICATION_PRIVATE_FIELD_REJECTED');
       visit(item);
     }
   };
@@ -223,6 +312,12 @@ export class LocalWhisperQualificationValidator {
 
   public validateDocument(kind: QualificationDocumentKind, document: unknown): void {
     assertQualificationPrivacySafe(document);
+    if (kind.startsWith('performance')) {
+      assertPerformancePrivacySafe(document);
+      if (Buffer.byteLength(qualificationCanonicalJson(document), 'utf8') > MAXIMUM_PERFORMANCE_DOCUMENT_BYTES) {
+        throw new Error('QUALIFICATION_PERFORMANCE_DOCUMENT_OVERSIZED');
+      }
+    }
     const validator = this.validators[kind];
     if (!validator(document)) throw new Error(`QUALIFICATION_${kind.toUpperCase()}_INVALID`);
     if (!isRecord(document)) throw new Error(`QUALIFICATION_${kind.toUpperCase()}_INVALID`);
@@ -234,6 +329,19 @@ export class LocalWhisperQualificationValidator {
     if (kind === 'measurementSeries') this.assertMeasurementSeries(document);
     if (kind === 'platformResult') this.assertPlatformResult(document);
     if (kind === 'evidenceIndex') this.assertEvidenceIndex(document);
+    if (kind === 'performanceManifest') this.assertPerformanceManifest(document);
+    if (kind === 'performanceSample') this.assertPerformanceSample(document);
+    if (kind === 'performanceResult') this.assertPerformanceResult(document);
+  }
+
+  public validateAndFreezeDocument(
+    kind: QualificationDocumentKind,
+    document: unknown,
+  ): Readonly<Record<string, unknown>> {
+    const copy = structuredClone(document);
+    this.validateDocument(kind, copy);
+    if (!isRecord(copy)) throw new Error(`QUALIFICATION_${kind.toUpperCase()}_INVALID`);
+    return immutableRecord(copy);
   }
 
   /** Validates every forward edge in one already-frozen platform branch. */
@@ -535,6 +643,97 @@ export class LocalWhisperQualificationValidator {
         throw new Error('QUALIFICATION_MEASUREMENT_OWNERSHIP_INVALID');
       }
       previous = elapsed;
+    }
+  }
+
+  private assertPerformanceManifest(document: Record<string, unknown>): void {
+    const models = document.modelArtifacts;
+    const requiredPhaseIds = strings(document.requiredPhaseIds, 'QUALIFICATION_PERFORMANCEMANIFEST_INVALID');
+    const requiredResourceIds = strings(document.requiredResourceIds, 'QUALIFICATION_PERFORMANCEMANIFEST_INVALID');
+    if (!Array.isArray(models)) throw new Error('QUALIFICATION_PERFORMANCEMANIFEST_INVALID');
+    const selectedModels = [
+      ['base', 'full'],
+      ['medium', 'full'],
+      ['large-v3', 'q5_0'],
+    ] as const;
+    const expectedModels = selectedModels.map(([family, variant]) => {
+      const model = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
+        (candidate) => candidate.family === family && candidate.variant === variant,
+      );
+      if (!model) throw new Error('QUALIFICATION_PERFORMANCE_MODEL_MATRIX_INVALID');
+      return `${model.family}|${model.variant}|${model.sha256}`;
+    });
+    const actualModels = models.map((entry) => {
+      const model = asRecord(entry, 'QUALIFICATION_PERFORMANCE_MODEL_MATRIX_INVALID');
+      return `${String(model.family)}|${String(model.variant)}|${String(model.sha256)}`;
+    });
+    const platform = document.platform;
+    const backend = document.backend;
+    const expectedPhaseIds = LOCAL_WHISPER_PERFORMANCE_PHASES.map(({ id }) => id).filter(
+      (id) =>
+        !(platform === 'win32' && id === 'nativeAuthorityDigest') &&
+        !(backend === 'cpu' && id === 'gpuUploadAllocation'),
+    );
+    const expectedResourceIds = LOCAL_WHISPER_PERFORMANCE_RESOURCES.map(({ id }) => id).filter(
+      (id) => !(backend === 'cpu' && id === 'gpuPeakVram'),
+    );
+    if (
+      document.sourceRevision !== LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION ||
+      JSON.stringify(document.sourceHashBaseline) !== JSON.stringify(LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE) ||
+      JSON.stringify(document.candidateWindows) !== JSON.stringify([1, 2, 4, 8]) ||
+      JSON.stringify(document.cacheStates) !== JSON.stringify(['cold', 'warm']) ||
+      JSON.stringify(actualModels) !== JSON.stringify(expectedModels) ||
+      JSON.stringify(requiredPhaseIds) !== JSON.stringify(expectedPhaseIds) ||
+      JSON.stringify(requiredResourceIds) !== JSON.stringify(expectedResourceIds) ||
+      (document.executionMode === 'hostedFixture' && document.evidenceClaim !== 'contractOnly') ||
+      (document.executionMode === 'representativeHost' && document.evidenceClaim !== 'representativePerformance')
+    ) {
+      throw new Error('QUALIFICATION_PERFORMANCEMANIFEST_CONTRACT_INVALID');
+    }
+  }
+
+  private assertPerformanceSample(document: Record<string, unknown>): void {
+    const phases = document.phases;
+    const resources = document.resources;
+    if (!Array.isArray(phases) || !Array.isArray(resources)) {
+      throw new Error('QUALIFICATION_PERFORMANCESAMPLE_INVALID');
+    }
+    const phaseIds = phases.map((entry, index) => {
+      const phase = asRecord(entry, 'QUALIFICATION_PERFORMANCESAMPLE_INVALID');
+      if (phase.sequence !== index) throw new Error('QUALIFICATION_PERFORMANCE_PHASE_ORDER_INVALID');
+      return String(phase.id);
+    });
+    const resourceIds = resources.map((entry) => String(asRecord(entry, 'QUALIFICATION_PERFORMANCESAMPLE_INVALID').id));
+    if (new Set(phaseIds).size !== phaseIds.length || new Set(resourceIds).size !== resourceIds.length) {
+      throw new Error('QUALIFICATION_PERFORMANCE_DUPLICATE_METRIC');
+    }
+  }
+
+  private assertPerformanceResult(document: Record<string, unknown>): void {
+    const candidateResults = document.candidateResults;
+    const sampleDigests = strings(document.sampleDigests, 'QUALIFICATION_PERFORMANCERESULT_INVALID');
+    const failedSamples = document.failedSamples;
+    if (!Array.isArray(candidateResults) || !Array.isArray(failedSamples)) {
+      throw new Error('QUALIFICATION_PERFORMANCERESULT_INVALID');
+    }
+    const candidateWindows = candidateResults.map(
+      (entry) => asRecord(entry, 'QUALIFICATION_PERFORMANCERESULT_INVALID').candidateWindow,
+    );
+    const failedIds = failedSamples.map((entry) =>
+      String(asRecord(entry, 'QUALIFICATION_PERFORMANCERESULT_INVALID').sampleId),
+    );
+    const selected = document.selectedInFlightWindow;
+    if (
+      JSON.stringify(candidateWindows) !== JSON.stringify([1, 2, 4, 8]) ||
+      JSON.stringify(sampleDigests) !== JSON.stringify([...sampleDigests].sort((a, b) => a.localeCompare(b, 'en'))) ||
+      JSON.stringify(failedIds) !== JSON.stringify([...failedIds].sort((a, b) => a.localeCompare(b, 'en'))) ||
+      (document.executionMode === 'hostedFixture' && selected !== null && document.selectionStatus !== 'fixtureOnly') ||
+      (document.executionMode === 'representativeHost' &&
+        selected !== null &&
+        document.selectionStatus !== 'selected') ||
+      (selected === null && document.selectionStatus !== 'blocked')
+    ) {
+      throw new Error('QUALIFICATION_PERFORMANCERESULT_CONTRACT_INVALID');
     }
   }
 

@@ -90,6 +90,44 @@ jobs:
       SHARDS_RESULT: \${{ needs.native-windows-shards.result }}
     steps:
       - run: test "$CORE_RESULT" = success && test "$SHARDS_RESULT" = success
+  performance-linux-fixtures:
+    runs-on: \${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - run: npm run test:local-whisper:performance-contracts
+      - run: npm run verify:local-whisper:performance:linux
+  performance-linux:
+    name: Local Whisper Performance (Linux)
+    if: \${{ always() }}
+    needs:
+      - performance-linux-fixtures
+    runs-on: \${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 5
+    env:
+      FIXTURE_RESULT: \${{ needs.performance-linux-fixtures.result }}
+    steps:
+      - run: test "$FIXTURE_RESULT" = success
+  performance-windows-fixtures:
+    runs-on: \${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - run: npm run test:local-whisper:performance-contracts
+      - run: npm run verify:local-whisper:qualification:windows
+  performance-windows:
+    name: Local Whisper Performance (Windows)
+    if: \${{ always() }}
+    needs:
+      - performance-windows-fixtures
+    runs-on: \${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: 5
+    env:
+      FIXTURE_RESULT: \${{ needs.performance-windows-fixtures.result }}
+    steps:
+      - run: test "$FIXTURE_RESULT" = success
 `;
 
 describe('Native CI runner policy', () => {
@@ -133,6 +171,28 @@ describe('Native CI runner policy', () => {
     assert.throws(
       () => verifier.verify(validWorkflow.replace('      - native-windows-shards\n', '')),
       /require every windows native lane/u,
+    );
+  });
+
+  it('keeps performance fixtures on configured platform runners and aggregate gates fail closed', () => {
+    const verifier = new RunnerPolicyVerifier();
+    assert.throws(
+      () =>
+        verifier.verify(
+          validWorkflow.replace(
+            '  performance-windows-fixtures:\n    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}',
+            '  performance-windows-fixtures:\n    runs-on: ${{ vars.CI_LINUX_RUNNER }}',
+          ),
+        ),
+      /windows performance fixture lane/u,
+    );
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('npm run verify:local-whisper:qualification:windows', 'npm test')),
+      /deterministic contract checks/u,
+    );
+    assert.throws(
+      () => verifier.verify(validWorkflow.replace('test "$FIXTURE_RESULT" = success', 'test -n "$FIXTURE_RESULT"')),
+      /fail closed over every performance lane/u,
     );
   });
 

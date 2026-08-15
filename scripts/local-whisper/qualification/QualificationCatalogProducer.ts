@@ -30,6 +30,7 @@ const MODEL_POLICY_ID = 'upstream-model-policy-v1';
 const RUNTIME_POLICY_ID = 'qualification-runtime-policy-v1';
 
 export type QualificationCatalogPlatform = 'linux' | 'win32';
+export type QualificationCatalogExecutionMode = 'hostedValidation' | 'representativeQualification';
 
 const RUNTIME_CONTRACTS = Object.freeze({
   linux: Object.freeze({
@@ -108,11 +109,15 @@ export interface QualificationCatalogSeed {
   readonly sourceCommit: string;
   readonly runtimes: readonly QualificationRuntimeCatalogSeed[];
   readonly qualificationStatus?: 'estimateOnly' | 'planned';
+  readonly executionMode?: QualificationCatalogExecutionMode;
 }
 
 function hasExecutableRuntimeSet(seed: QualificationCatalogSeed): boolean {
   const backends = new Set(seed.runtimes.map(({ backend }) => backend));
-  const expectedBackends = seed.platform === 'win32' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
+  const executionMode =
+    seed.executionMode ?? (seed.platform === 'win32' ? 'hostedValidation' : 'representativeQualification');
+  const expectedBackends =
+    seed.platform === 'win32' && executionMode === 'hostedValidation' ? (['cpu'] as const) : (['cpu', 'cuda'] as const);
   return seed.runtimes.length === expectedBackends.length && expectedBackends.every((backend) => backends.has(backend));
 }
 

@@ -3,7 +3,10 @@ import { describe, it } from 'node:test';
 
 import {
   qualificationEditDistance,
+  qualificationImprovementPercentage,
   qualificationMedian,
+  qualificationPairedEstimate,
+  qualificationRegressionPercentage,
   qualificationTokens,
   qualificationWerPercentage,
   roundQualificationPeakBytes,
@@ -37,5 +40,20 @@ describe('Local Whisper qualification metrics', () => {
     assert.equal(qualificationMedian([0.5, 0.1, 0.3, 0.4, 0.2]), 0.3);
     assert.equal(roundQualificationPeakBytes(1), 64 * 1024 * 1024);
     assert.equal(roundQualificationPeakBytes(64 * 1024 * 1024), 64 * 1024 * 1024);
+  });
+
+  it('uses paired percentages with median absolute deviation uncertainty', () => {
+    assert.equal(qualificationImprovementPercentage(100, 70), 30);
+    assert.equal(qualificationRegressionPercentage(100, 103), 3);
+    assert.deepEqual(qualificationPairedEstimate([10, 20, 30, 40, 50]), {
+      pointEstimatePercent: 30,
+      uncertaintyPercent: 10,
+    });
+    assert.deepEqual(qualificationPairedEstimate([-5, -1, 0, 1, 5]), {
+      pointEstimatePercent: 0,
+      uncertaintyPercent: 1,
+    });
+    assert.throws(() => qualificationImprovementPercentage(0, 1), /invalid/u);
+    assert.throws(() => qualificationPairedEstimate([Number.NaN]), /invalid/u);
   });
 });
