@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperFuzzing.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperSha256.cmake")
 
 option(LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS
        "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
@@ -29,10 +30,11 @@ add_library(local_whisper_launcher_core STATIC
 target_include_directories(local_whisper_launcher_core PUBLIC include ../common/include)
 add_library(local_whisper_common_sha256 STATIC
   ../common/src/native_logger.cpp
-  ../common/src/sha256.cpp
 )
 target_include_directories(local_whisper_common_sha256 PUBLIC ../common/include)
 local_whisper_apply_compile_hardening(local_whisper_common_sha256 LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
+local_whisper_add_sha256(local_whisper_common_sha256 "${CMAKE_CURRENT_LIST_DIR}/../common"
+  LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 target_link_libraries(local_whisper_launcher_core PUBLIC local_whisper_common_sha256)
 local_whisper_apply_compile_hardening(local_whisper_launcher_core LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)
 

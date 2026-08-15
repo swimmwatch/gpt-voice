@@ -9,6 +9,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperFuzzing.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperSha256.cmake")
+include(CTest)
 
 option(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS
        "Enable platform-supported sanitizers (ASan + UBSan on Linux; ASan on MSVC)" OFF)
@@ -39,7 +41,6 @@ add_library(local_whisper_common STATIC
   src/frame_codec.cpp
   src/model_authority.cpp
   src/native_logger.cpp
-  src/sha256.cpp
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_sources(local_whisper_common PRIVATE
@@ -50,6 +51,8 @@ endif()
 target_include_directories(local_whisper_common PUBLIC include)
 target_include_directories(local_whisper_common SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
 local_whisper_apply_compile_hardening(local_whisper_common LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+local_whisper_add_sha256(local_whisper_common "${CMAKE_CURRENT_LIST_DIR}"
+  LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
 
 if(LOCAL_WHISPER_COMMON_ENABLE_FUZZING)
   local_whisper_configure_linux_libfuzzer(LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
@@ -77,7 +80,6 @@ if(LOCAL_WHISPER_COMMON_ENABLE_FUZZING)
     local_whisper_common_fuzz_proof LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
 endif()
 
-include(CTest)
 if(BUILD_TESTING)
   if(NOT EXISTS "${LOCAL_WHISPER_GOOGLETEST_SOURCE}/CMakeLists.txt")
     message(FATAL_ERROR "LOCAL_WHISPER_GOOGLETEST_SOURCE must be the verified source root")
@@ -104,11 +106,22 @@ if(BUILD_TESTING)
 target_include_directories(local_whisper_common_tests
   SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
   target_compile_definitions(local_whisper_common_tests PRIVATE
-    LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT="${LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT}")
+    LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT="${LOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT}"
+    LOCAL_WHISPER_SHA256_TESTING=1)
+  target_compile_definitions(local_whisper_common PRIVATE LOCAL_WHISPER_SHA256_TESTING=1)
   target_link_libraries(local_whisper_common_tests
     PRIVATE local_whisper_common GTest::gtest_main)
   local_whisper_apply_test_compile_hardening(local_whisper_common_tests LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_common_tests)
+
+  add_executable(local_whisper_sha256_dispatch_concurrency_test
+    tests/sha256_dispatch_concurrency_test.cpp)
+  target_link_libraries(local_whisper_sha256_dispatch_concurrency_test PRIVATE local_whisper_common)
+  local_whisper_apply_test_compile_hardening(
+    local_whisper_sha256_dispatch_concurrency_test LOCAL_WHISPER_COMMON_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_sha256_dispatch_concurrency_test)
+  add_test(NAME Sha256Dispatch.ConcurrentFirstUse
+    COMMAND local_whisper_sha256_dispatch_concurrency_test)
 
   include(GoogleTest)
   gtest_discover_tests(local_whisper_common_tests DISCOVERY_TIMEOUT 30)

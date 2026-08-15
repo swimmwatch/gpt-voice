@@ -35,6 +35,7 @@ test('worker TSan profile pins the Linux-only isolated instrumentation and full 
   assert.equal(profile.cmakeCache.LOCAL_WHISPER_ENABLE_SANITIZERS, 'OFF');
   assert.equal(profile.cmakeCache.LOCAL_WHISPER_ENABLE_THREAD_SANITIZER, 'ON');
   assert.deepEqual(profile.suite.requiredTests, [
+    'Sha256Dispatch.ConcurrentFirstUse',
     'WorkerApplication.ControlClosureStopsAndJoinsBlockedInference',
     'WorkerApplication.CooperativeCancellationEmitsNoTranscriptOrLateSuccess',
     'WorkerApplication.ImmediateAndDelayedInferenceFailuresEmitTypedFailureWithoutAnotherControlFrame',
@@ -70,6 +71,7 @@ test('worker TSan runner bounds and sanitizes every proof and suite outcome', ()
   assert.match(runner, /Worker TSan synthetic race unexpectedly passed/u);
   assert.match(runner, /Worker TSan synthetic race report is missing or malformed/u);
   assert.match(runner, /Worker TSan concurrency matrix does not match its profile/u);
+  assert.match(runner, /local_whisper_sha256_dispatch_concurrency_test/u);
   assert.match(runner, /Worker TSan finding:/u);
   assert.match(runner, /Worker TSan profile mixes incompatible instrumentation/u);
   assert.match(runner, /quiet: true/u);

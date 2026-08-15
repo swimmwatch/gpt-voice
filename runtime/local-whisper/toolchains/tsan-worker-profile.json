@@ -17,9 +17,10 @@
     "expectedClassification": "data-race"
   },
   "suite": {
-    "testPattern": "^WorkerApplication\\.",
+    "testPattern": "^(Sha256Dispatch\\.|WorkerApplication\\.)",
     "timeoutMilliseconds": 120000,
     "requiredTests": [
+      "Sha256Dispatch.ConcurrentFirstUse",
       "WorkerApplication.ControlClosureStopsAndJoinsBlockedInference",
       "WorkerApplication.CooperativeCancellationEmitsNoTranscriptOrLateSuccess",
       "WorkerApplication.ImmediateAndDelayedInferenceFailuresEmitTypedFailureWithoutAnotherControlFrame",

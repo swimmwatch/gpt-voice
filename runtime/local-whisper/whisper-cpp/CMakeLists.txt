@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperHardening.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/LocalWhisperSha256.cmake")
 set(FETCHCONTENT_FULLY_DISCONNECTED ON CACHE BOOL "Require disconnected native builds")
 if(NOT FETCHCONTENT_FULLY_DISCONNECTED)
   message(FATAL_ERROR "Local Whisper native builds must remain disconnected")
@@ -88,7 +89,6 @@ add_library(local_whisper_worker_common STATIC
   ../common/src/frame_codec.cpp
   ../common/src/model_authority.cpp
   ../common/src/native_logger.cpp
-  ../common/src/sha256.cpp
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_sources(local_whisper_worker_common PRIVATE
@@ -103,6 +103,8 @@ endif()
 target_include_directories(local_whisper_worker_common PUBLIC ../common/include)
 target_include_directories(local_whisper_worker_common SYSTEM PRIVATE "${LOCAL_WHISPER_NLOHMANN_SOURCE}/single_include")
 local_whisper_apply_compile_hardening(local_whisper_worker_common LOCAL_WHISPER_ENABLE_SANITIZERS)
+local_whisper_add_sha256(local_whisper_worker_common "${CMAKE_CURRENT_LIST_DIR}/../common"
+  LOCAL_WHISPER_ENABLE_SANITIZERS)
 
 add_library(local_whisper_whisper_cpp_core STATIC
   amd/amd_preview.cpp
@@ -209,6 +211,7 @@ if(LOCAL_WHISPER_BUILD_ENGINE OR LOCAL_WHISPER_BUILD_DIRECT_ENGINE)
 endif()
 
 if(LOCAL_WHISPER_BUILD_TESTS)
+  include(CTest)
   if(NOT EXISTS "${LOCAL_WHISPER_GOOGLETEST_SOURCE}/CMakeLists.txt")
     message(FATAL_ERROR "LOCAL_WHISPER_GOOGLETEST_SOURCE must be verified")
   endif()
@@ -262,6 +265,16 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   local_whisper_apply_test_compile_hardening(local_whisper_whisper_cpp_cancellation_tests LOCAL_WHISPER_ENABLE_SANITIZERS)
   local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_cancellation_tests)
 
+  add_executable(local_whisper_sha256_dispatch_concurrency_test
+    ../common/tests/sha256_dispatch_concurrency_test.cpp)
+  target_link_libraries(local_whisper_sha256_dispatch_concurrency_test
+    PRIVATE local_whisper_worker_common)
+  local_whisper_apply_test_compile_hardening(
+    local_whisper_sha256_dispatch_concurrency_test LOCAL_WHISPER_ENABLE_SANITIZERS)
+  local_whisper_apply_executable_hardening(local_whisper_sha256_dispatch_concurrency_test)
+  add_test(NAME Sha256Dispatch.ConcurrentFirstUse
+    COMMAND local_whisper_sha256_dispatch_concurrency_test)
+
   if(LOCAL_WHISPER_ENABLE_THREAD_SANITIZER)
     add_executable(local_whisper_worker_tsan_race_proof
       tests/worker_tsan_race_proof.cpp)
@@ -280,7 +293,6 @@ if(LOCAL_WHISPER_BUILD_TESTS)
     local_whisper_apply_executable_hardening(local_whisper_whisper_cpp_qualification_tests)
   endif()
 
-  include(CTest)
   include(GoogleTest)
   gtest_discover_tests(local_whisper_whisper_cpp_core_tests
     PROPERTIES LABELS core DISCOVERY_TIMEOUT 30)

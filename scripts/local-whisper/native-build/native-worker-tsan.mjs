@@ -19,7 +19,10 @@ const PROFILE_SCHEMA_PATH = resolve(
   'worker-tsan-profile.schema.json',
 );
 const MAXIMUM_REPORT_BYTES = 64 * 1024;
-const WORKER_TEST_TARGET = 'local_whisper_whisper_cpp_core_tests';
+const WORKER_TEST_TARGETS = Object.freeze([
+  'local_whisper_sha256_dispatch_concurrency_test',
+  'local_whisper_whisper_cpp_core_tests',
+]);
 const TSan_ISSUE_PATTERNS = Object.freeze([
   Object.freeze({ classification: 'data-race', pattern: /WARNING: ThreadSanitizer: data race/u }),
   Object.freeze({ classification: 'lock-order', pattern: /WARNING: ThreadSanitizer: lock-order-inversion/u }),
@@ -141,7 +144,7 @@ function runProof(profile, environment) {
 
 function runSuite(profile, environment) {
   const configured = configureWorkerTsan(profile);
-  buildTargets(configured, [WORKER_TEST_TARGET]);
+  buildTargets(configured, WORKER_TEST_TARGETS);
   listWorkerTests(configured, profile, environment);
   const ctest = resolve(configured.tools.cmake, '..', 'ctest');
   const result = executeBounded(

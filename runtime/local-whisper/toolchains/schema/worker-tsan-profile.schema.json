@@ -42,13 +42,13 @@
       "additionalProperties": false,
       "required": ["requiredTests", "testPattern", "timeoutMilliseconds"],
       "properties": {
-        "testPattern": { "const": "^WorkerApplication\\." },
+        "testPattern": { "const": "^(Sha256Dispatch\\.|WorkerApplication\\.)" },
         "timeoutMilliseconds": { "type": "integer", "minimum": 1000, "maximum": 300000 },
         "requiredTests": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^WorkerApplication\\." }
+          "items": { "type": "string", "pattern": "^(Sha256Dispatch\\.|WorkerApplication\\.)" }
         }
       }
     }
