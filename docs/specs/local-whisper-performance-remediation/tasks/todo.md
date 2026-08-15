@@ -1,12 +1,13 @@
 # Local Whisper Performance Remediation Todo
 
 - Plan status: Approved revision 3 on 2026-08-15
-- Execution status: Packet 01 implementation, separate CI remediation, push, and exact-SHA CI verification completed
-  under authorization revision 6 on 2026-08-15; representative-host benchmarks remain deferred to Packets 13 and 14
+- Execution status: Packet 01 complete; Packet 02 local implementation and verification complete under the standing
+  invocation-authority decision on 2026-08-15, with commit, push, and required CI still pending
 
 - [x] [01 Qualification contract and baseline](01_qualification_contract_and_baseline.md) — implementation
       `8a808757`, separate fix `d243899f`, and all required final-SHA CI checks completed successfully
-- [ ] [02 Launch-lease directory-result reuse](02_launch_lease_directory_result_reuse.md)
+- [ ] [02 Launch-lease directory-result reuse](02_launch_lease_directory_result_reuse.md) — local implementation
+      complete with Linux/Windows full-model proof counts reduced from 8/7 to 7/6; commit, push, and CI pending
 - [ ] [03 Runtime SHA-256 dispatch](03_runtime_sha256_dispatch.md)
 - [ ] [04 Filesystem-guard protocol-v2 codec](04_fs_guard_protocol_v2_codec.md)
 - [ ] [05 Bounded installation pipeline](05_bounded_installation_pipeline.md)

@@ -281,6 +281,32 @@ describe(
       await harness.store.dispose();
     });
 
+    test('reuses one model inspection and keeps later content mutation rejection', async () => {
+      const harness = createHarness('model-launch-reuse');
+      await harness.store.initialize();
+      await installFixture(harness);
+      const inspectDirectory = harness.adapter.inspectDirectory.bind(harness.adapter);
+      let inspectionCount = 0;
+      harness.adapter.inspectDirectory = async (...arguments_) => {
+        inspectionCount += 1;
+        return inspectDirectory(...arguments_);
+      };
+
+      const launch = await harness.store.leaseInstalledModelForLaunch(harness.descriptor);
+      assert.equal(inspectionCount, 1);
+      await launch.revalidate();
+      assert.equal(inspectionCount, 2);
+
+      writeFileSync(launch.modelFilePath, Buffer.alloc(CONTENT.byteLength, 0x78), { mode: 0o600 });
+      await assert.rejects(
+        launch.revalidate(),
+        (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+      );
+      assert.equal(inspectionCount, 3);
+      assert.equal(launch.modelLease.released, true);
+      await harness.store.dispose();
+    });
+
     test('shares immutable read ownership while keeping mutation blocked until every reader releases', async () => {
       const harness = createHarness('shared-read-lock');
       await harness.store.initialize();

@@ -1695,3 +1695,45 @@ decisions:
     rationale: The user explicitly authorized the actionable CI remediation as the separate fix commit required by Packet 01; Packet 02 and representative-host benchmarks remained out of scope.
     supersedes_revision: 5
     requirement_ids: [SCP-003, AC-AUT-015]
+
+  - id: workflow.incremental-invocation-authority
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User instructed that invoking incremental-implementation authorizes the work without another permission prompt.
+      - .agents/skills/incremental-implementation/SKILL.md
+    prompt_mcp: null
+    question:
+      text: When I invoke this skill, do not ask for my permission. Do the work.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [treat-invocation-as-execution-authorization]
+      text: Execute exactly one approved packet per explicit invocation without an additional execution-authorization prompt.
+    rationale: An explicit incremental-implementation invocation is a committed user decision to execute the next approved packet; manual gates and the skill's no-push, no-publish, and one-packet boundaries remain unchanged.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.packet-02
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly invoked incremental-implementation after Packet 01 completion.
+      - docs/specs/local-whisper-performance-remediation/tasks/02_launch_lease_directory_result_reuse.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Execute the next approved incremental implementation packet without asking again.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [execute-packet-02]
+      text: Implement and locally verify Packet 02 only, update its checklist and handoff, and stop before Packet 03.
+    rationale: The explicit skill invocation authorized Packet 02 under the standing invocation-authority decision.
+    supersedes_revision: null
+    requirement_ids: [SCP-004, PERF-002, PERF-006, PERF-007, AC-AUT-003, AC-AUT-004]

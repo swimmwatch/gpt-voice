@@ -95,6 +95,11 @@ interface LeaseAuthority {
   readonly lock: ManagedArtifactLockLease | null;
 }
 
+interface InstalledArtifactAcquisition {
+  readonly entries: ReadonlyMap<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry>;
+  readonly lease: ManagedArtifactLease;
+}
+
 function sha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
@@ -536,26 +541,7 @@ export class ManagedArtifactStore {
     descriptor: ManagedArtifactDescriptor,
     purpose: Extract<ManagedArtifactLeasePurpose, 'integrity' | 'load' | 'verify'>,
   ): Promise<ManagedArtifactLease> {
-    assertDescriptor(descriptor);
-    const lock = await this.acquireLock(descriptor, purpose, 'ARTIFACT_UNPROVABLE');
-    try {
-      const native = await this.dependencies.adapter.openArtifactDirectory(
-        this.requireRoot().token,
-        descriptor.namespace,
-        descriptor.canonicalName,
-      );
-      if (!native) throw new ManagedArtifactStoreError('ARTIFACT_MISSING');
-      const lease = this.createLease(descriptor, native, purpose, lock);
-      validateDirectoryEntries(
-        descriptor,
-        await this.dependencies.adapter.inspectDirectory(native.token, expectedDirectoryEntries(descriptor)),
-      );
-      await this.dependencies.adapter.revalidate(native.token, native.identity);
-      return lease;
-    } catch (error) {
-      await lock.release();
-      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
-    }
+    return (await this.acquireInstalledArtifact(descriptor, purpose)).lease;
   }
 
   /** Resolves the one catalog-declared runtime executable while retaining its anchored directory lease. */
@@ -642,14 +628,11 @@ export class ManagedArtifactStore {
         rootResolution.availability === 'planned' ? 'PLANNED_UNAVAILABLE' : 'UNSUPPORTED_PLATFORM',
       );
     }
-    const modelLease = await this.leaseInstalledArtifact(descriptor, 'load');
+    const acquisition = await this.acquireInstalledArtifact(descriptor, 'load');
+    const modelLease = acquisition.lease;
     try {
       const authority = this.requireAuthority(modelLease, 'load');
-      const entries = validateDirectoryEntries(
-        descriptor,
-        await this.dependencies.adapter.inspectDirectory(this.token(modelLease), expectedDirectoryEntries(descriptor)),
-      );
-      const modelEntry = entries.get(modelFile.fileId);
+      const modelEntry = acquisition.entries.get(modelFile.fileId);
       if (!modelEntry || modelEntry.identity.type !== 'regular' || modelEntry.sha256 !== modelFile.sha256) {
         throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
       }
@@ -687,6 +670,7 @@ export class ManagedArtifactStore {
             }
             await this.dependencies.adapter.revalidate(this.token(modelLease), modelLease.metadata.identity);
           } catch (error) {
+            await modelLease.release().catch(() => undefined);
             throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
           }
         },
@@ -862,6 +846,40 @@ export class ManagedArtifactStore {
     );
     this.authorities.set(lease, { descriptor, lock });
     return lease;
+  }
+
+  private async acquireInstalledArtifact(
+    descriptor: ManagedArtifactDescriptor,
+    purpose: Extract<ManagedArtifactLeasePurpose, 'integrity' | 'load' | 'verify'>,
+  ): Promise<InstalledArtifactAcquisition> {
+    assertDescriptor(descriptor);
+    const lock = await this.acquireLock(descriptor, purpose, 'ARTIFACT_UNPROVABLE');
+    let native: ManagedFilesystemOpenResult | null = null;
+    let lease: ManagedArtifactLease | null = null;
+    try {
+      native = await this.dependencies.adapter.openArtifactDirectory(
+        this.requireRoot().token,
+        descriptor.namespace,
+        descriptor.canonicalName,
+      );
+      if (!native) throw new ManagedArtifactStoreError('ARTIFACT_MISSING');
+      lease = this.createLease(descriptor, native, purpose, lock);
+      const entries = validateDirectoryEntries(
+        descriptor,
+        await this.dependencies.adapter.inspectDirectory(native.token, expectedDirectoryEntries(descriptor)),
+      );
+      await this.dependencies.adapter.revalidate(native.token, native.identity);
+      return Object.freeze({ entries, lease });
+    } catch (error) {
+      if (lease) {
+        await lease.release().catch(() => undefined);
+        await lock.release().catch(() => undefined);
+      } else {
+        if (native) await this.dependencies.adapter.release(native.token).catch(() => undefined);
+        await lock.release().catch(() => undefined);
+      }
+      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+    }
   }
 
   private async writeManagedManifest(stagingToken: string, descriptor: ManagedArtifactDescriptor): Promise<void> {

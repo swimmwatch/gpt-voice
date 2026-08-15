@@ -27,6 +27,7 @@ const temporaryRoots: string[] = [];
 const clearanceIssuer = new ManagedArtifactRemovalClearanceIssuer();
 
 interface WindowsHarness {
+  readonly adapter: WindowsManagedFilesystemAdapter;
   readonly descriptor: ManagedArtifactDescriptor;
   readonly managedRoot: string;
   readonly store: ManagedArtifactStore;
@@ -100,7 +101,7 @@ async function createHarness(instance: string, sharedRoot?: string): Promise<Win
     rootResolution: resolution,
   });
   activeStores.add(store);
-  return { descriptor: createDescriptor(), managedRoot: resolution.managedRoot, store };
+  return { adapter, descriptor: createDescriptor(), managedRoot: resolution.managedRoot, store };
 }
 
 async function install(harness: WindowsHarness): Promise<void> {
@@ -173,6 +174,31 @@ describe('WindowsManagedFilesystemAdapter real handle contract', { skip: process
       harness.store.leaseInstalledArtifact(harness.descriptor, 'verify'),
       (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
     );
+  });
+
+  test('reuses one model inspection and keeps later content mutation rejection', async () => {
+    const harness = await createHarness('model-launch-reuse');
+    await harness.store.initialize();
+    await install(harness);
+    const inspectDirectory = harness.adapter.inspectDirectory.bind(harness.adapter);
+    let inspectionCount = 0;
+    harness.adapter.inspectDirectory = async (...arguments_) => {
+      inspectionCount += 1;
+      return inspectDirectory(...arguments_);
+    };
+
+    const launch = await harness.store.leaseInstalledModelForLaunch(harness.descriptor);
+    assert.equal(inspectionCount, 1);
+    await launch.revalidate();
+    assert.equal(inspectionCount, 2);
+
+    writeFileSync(launch.modelFilePath, Buffer.alloc(CONTENT.byteLength, 0x78), { mode: 0o600 });
+    await assert.rejects(
+      launch.revalidate(),
+      (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE',
+    );
+    assert.equal(inspectionCount, 3);
+    assert.equal(launch.modelLease.released, true);
   });
 
   test('serializes duplicate Windows app instances by full owner identity', async () => {

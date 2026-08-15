@@ -182,9 +182,9 @@ describe('Local Whisper performance qualification', () => {
 });
 
 describe('Local Whisper performance source baseline', () => {
-  it('pins the refreshed source basis to exactly eight Linux and seven Windows hashes', () => {
+  it('pins directory-result reuse to exactly seven Linux and six Windows hashes', () => {
     const evidence = new LocalWhisperQualificationSourceBaselineVerifier(workspaceRoot).verify();
-    assert.deepEqual(evidence.fullModelHashes, { linux: 8, win32: 7 });
+    assert.deepEqual(evidence.fullModelHashes, { linux: 7, win32: 6 });
     assert.match(evidence.sourceProofDigest, /^[a-f0-9]{64}$/u);
   });
 

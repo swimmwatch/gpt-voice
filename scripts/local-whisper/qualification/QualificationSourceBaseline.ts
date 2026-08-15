@@ -22,7 +22,7 @@ interface SourceProofPoint {
 const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   {
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    sha256: 'e194c4d68316f68817da8f43f1e8e97494ed00d5c8653266c012bf1e6b8fb044',
+    sha256: 'd04a84b6219d0d7b229f267fef9fb10aa3e9c3fe079539f6c19d172fb6816cdd',
   },
   {
     path: 'src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts',
@@ -67,13 +67,6 @@ const PROOF_POINTS: readonly SourceProofPoint[] = Object.freeze([
     id: 'managed-acquisition-directory-proof',
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
     marker: 'await this.dependencies.adapter.inspectDirectory(native.token, expectedDirectoryEntries(descriptor))',
-    platforms: ['linux', 'win32'],
-  },
-  {
-    id: 'managed-model-launch-directory-proof',
-    path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    marker:
-      'await this.dependencies.adapter.inspectDirectory(this.token(modelLease), expectedDirectoryEntries(descriptor))',
     platforms: ['linux', 'win32'],
   },
   {
@@ -138,7 +131,7 @@ export interface QualificationSourceBaselineEvidence {
   readonly fullModelHashes: Readonly<{ readonly linux: number; readonly win32: number }>;
 }
 
-/** Fails closed when any source owning the refreshed 8/7 proof inventory drifts. */
+/** Fails closed when any source owning the post-directory-reuse 7/6 proof inventory drifts. */
 export class LocalWhisperQualificationSourceBaselineVerifier {
   public constructor(
     private readonly workspaceRoot: string,
@@ -164,8 +157,8 @@ export class LocalWhisperQualificationSourceBaselineVerifier {
       for (const platform of proof.platforms) counts[platform] += 1;
     }
     if (
-      counts.linux !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.beforeOptimization.linux ||
-      counts.win32 !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.beforeOptimization.win32
+      counts.linux !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.afterDirectoryReuse.linux ||
+      counts.win32 !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.afterDirectoryReuse.win32
     ) {
       throw new Error('QUALIFICATION_SOURCE_HASH_COUNT_DRIFT');
     }
