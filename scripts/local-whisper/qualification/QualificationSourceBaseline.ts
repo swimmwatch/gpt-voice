@@ -22,7 +22,7 @@ interface SourceProofPoint {
 const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   {
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    sha256: 'd04a84b6219d0d7b229f267fef9fb10aa3e9c3fe079539f6c19d172fb6816cdd',
+    sha256: '369daa616cbbed28bdc37c5c88b9f65505326a678dc5678d04bd9669805263d3',
   },
   {
     path: 'src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts',
