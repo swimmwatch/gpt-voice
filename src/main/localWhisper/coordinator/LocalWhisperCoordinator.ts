@@ -291,6 +291,7 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
         return this.failureResult(action, 'INVALID_SETTINGS');
       }
       this.settingsValue = validated;
+      this.reconcileSelectedArtifactSetup();
       this.supportTier = this.dependencies.settings.supportTier?.(validated) ?? this.supportTier;
       this.configured = command.kind !== 'reset';
       this.bumpEpoch('configuration');
@@ -525,6 +526,15 @@ export class LocalWhisperCoordinator implements LocalWhisperCoordinatorPort {
     }
     this.failure = null;
     this.publish();
+  }
+
+  private reconcileSelectedArtifactSetup(): void {
+    const inventory = this.dependencies.inventory;
+    if (!inventory) return;
+    const setup = inventory.selectedSetup(this.settingsValue);
+    this.epochs = freezeEpochs({ ...this.epochs, inventory: setup.inventoryEpoch });
+    this.runtimeSetup = setup.runtimeSetup;
+    this.modelSetup = setup.modelSetup;
   }
 
   private async preflight(

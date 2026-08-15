@@ -269,6 +269,10 @@ function deferred<T>() {
 function harness(
   settingsPort = new FakeSettingsPort(),
   initialSupportTier: 'Production' | 'Unsupported' = 'Production',
+  initialSetup: Readonly<{
+    runtime: LocalWhisperArtifactSetupState;
+    model: LocalWhisperArtifactSetupState;
+  }> = { runtime: 'Installed', model: 'Installed' },
 ) {
   const capability = new FakeCapabilityPort();
   const workers = new FakeWorkerPort();
@@ -297,8 +301,8 @@ function harness(
       settings: settings(),
       configured: true,
       inventoryEpoch: 1,
-      runtimeSetup: 'Installed',
-      modelSetup: 'Installed',
+      runtimeSetup: initialSetup.runtime,
+      modelSetup: initialSetup.model,
       supportTier: initialSupportTier,
     },
   };
@@ -393,6 +397,33 @@ describe('LocalWhisperCoordinator', () => {
     assert.equal(saved.success, true);
     assert.equal(coordinator.snapshot.runtime.supportTier, 'Production');
     assert.equal(coordinator.snapshot.runtime.canAttempt, true);
+  });
+
+  it('reconciles installed artifact setup after saving a different selection', async () => {
+    const { coordinator } = harness(new FakeSettingsPort(), 'Production', {
+      runtime: 'Installed',
+      model: 'Missing',
+    });
+    const current = coordinator.snapshot;
+
+    const saved = await coordinator.applySettingsTransaction({
+      kind: 'save',
+      candidate: settings({
+        model: {
+          family: 'large-v3-turbo',
+          revision: revision('model-large-v3-turbo-q5-v1'),
+          variant: 'q5_0',
+        },
+      }),
+      promptMutation: { kind: 'unchanged' },
+      expectedConfigurationEpoch: current.epochs.configuration,
+      expectedInventoryEpoch: current.epochs.inventory,
+    });
+
+    assert.equal(saved.success, true);
+    assert.equal(coordinator.snapshot.runtime.runtimeSetup, 'Installed');
+    assert.equal(coordinator.snapshot.runtime.modelSetup, 'Installed');
+    await coordinator.shutdown();
   });
 
   it('projects exact preflight support and artifact failures without starting a worker', async () => {

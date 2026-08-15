@@ -1051,7 +1051,6 @@ export class ProductionLocalWhisperEnvironmentFactory {
           resourceSample(null),
         ),
       );
-      const setup = selectedArtifactSetup(settingsSnapshot.settings, inventory);
       const capabilityService = new LocalWhisperCapabilityService();
       const settingsPort: LocalWhisperCoordinatorDependencies['settings'] = Object.freeze({
         // Repository load has already shape/catalog-validated this exact default,
@@ -1286,6 +1285,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
         inventory: artifactInventory,
         service: artifactService,
       });
+      const setup = selectedArtifactSetup(settingsSnapshot.settings, artifactInventory.snapshot);
       const coordinator: LocalWhisperCoordinatorDependencies = {
         settings: settingsPort,
         capability: {
