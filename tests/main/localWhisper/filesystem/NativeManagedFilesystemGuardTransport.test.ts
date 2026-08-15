@@ -3,7 +3,7 @@ import type { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PassThrough } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 import { test } from 'node:test';
 
 import { ManagedFilesystemAdapterError } from '@main/localWhisper/filesystem/ManagedFilesystemPlatformAdapter';
@@ -22,17 +22,47 @@ import { serializeCanonicalNativeRuntimeLogRecord } from '@shared/localWhisper';
 
 const PROCESS_INSTANCE_ID = '11111111-1111-1111-8111-111111111111';
 
+class FakeGuardInput extends Writable {
+  public blockWrites = false;
+  private readonly inputChunks: Buffer[] = [];
+  private readonly blockedCallbacks: Array<(error?: Error | null) => void> = [];
+
+  public constructor() {
+    super({ highWaterMark: 1 });
+  }
+
+  public releaseBlockedWrite(error?: Error): void {
+    const callback = this.blockedCallbacks.shift();
+    if (!callback) throw new Error('No blocked guard write');
+    callback(error);
+  }
+
+  public takeInput(): Buffer {
+    const input = Buffer.concat(this.inputChunks);
+    this.inputChunks.length = 0;
+    return input;
+  }
+
+  public override _write(chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    this.inputChunks.push(Buffer.from(chunk));
+    if (this.blockWrites) {
+      this.blockedCallbacks.push(callback);
+      return;
+    }
+    callback();
+  }
+}
+
 class FakeGuardChild extends EventEmitter {
-  public readonly stdin = new PassThrough();
+  public readonly stdin: FakeGuardInput;
   public readonly stdout = new PassThrough();
   public readonly stderr = new PassThrough();
   public exitCode: number | null = null;
   public killed = false;
-  private readonly inputChunks: Buffer[] = [];
 
-  public constructor() {
+  public constructor(stdin = new FakeGuardInput()) {
     super();
-    this.stdin.on('data', (chunk: Buffer) => this.inputChunks.push(Buffer.from(chunk)));
+    this.stdin = stdin;
     this.stdin.once('finish', () => {
       if (this.exitCode !== null) return;
       this.exitCode = 0;
@@ -49,10 +79,12 @@ class FakeGuardChild extends EventEmitter {
   }
 
   public takeInput(): Buffer {
-    const input = Buffer.concat(this.inputChunks);
-    this.inputChunks.length = 0;
-    return input;
+    return this.stdin.takeInput();
   }
+}
+
+async function nextTurn(): Promise<void> {
+  await new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
 }
 
 test('pins the TypeScript mirrors to the canonical native protocol-v2 constants', () => {
@@ -122,6 +154,120 @@ test('rejects every pending request on an overlong response and starts a fresh g
   const nextRequest = transport.request('RELEASE', ['lease-3']);
   second.stdout.write('3\t2\tOK\tcmVsZWFzZQ\n');
   assert.deepEqual(await nextRequest, ['release']);
+  await transport.dispose();
+});
+
+test('queues requests after write(false) until drain and preserves issuance order', async () => {
+  const input = new FakeGuardInput();
+  input.blockWrites = true;
+  const child = new FakeGuardChild(input);
+  const transport = new NativeManagedFilesystemGuardTransport({
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+
+  const first = transport.request('RELEASE', ['lease-1']);
+  const second = transport.request('RELEASE', ['lease-2']);
+  assert.equal(child.takeInput().toString('utf8'), '1\t2\tRELEASE\tbGVhc2UtMQ\n');
+  assert.equal(child.takeInput().byteLength, 0);
+
+  input.releaseBlockedWrite();
+  await nextTurn();
+  assert.equal(child.takeInput().toString('utf8'), '2\t2\tRELEASE\tbGVhc2UtMg\n');
+  input.releaseBlockedWrite();
+  child.stdout.write('1\t2\tOK\n2\t2\tOK\n');
+
+  assert.deepEqual(await Promise.all([first, second]), [[], []]);
+  await transport.dispose();
+});
+
+test('aborting while drain is missing rejects issued work and permits a clean restart', async () => {
+  const blockedInput = new FakeGuardInput();
+  blockedInput.blockWrites = true;
+  const first = new FakeGuardChild(blockedInput);
+  const second = new FakeGuardChild();
+  const children = [first, second];
+  const transport = new NativeManagedFilesystemGuardTransport({
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => {
+      const child = children.shift();
+      if (!child) throw new Error('Unexpected guard restart');
+      return child as unknown as ChildProcessWithoutNullStreams;
+    }) as unknown as typeof spawn,
+  });
+  const controller = new AbortController();
+
+  const issued = transport.request('WRITE_FILE', ['lease-1', Uint8Array.of(1)], controller.signal);
+  const queued = transport.request('WRITE_FILE', ['lease-1', Uint8Array.of(2)], controller.signal);
+  controller.abort();
+
+  const rejected = await Promise.allSettled([issued, queued]);
+  assert.ok(
+    rejected.every(
+      (result) =>
+        result.status === 'rejected' &&
+        result.reason instanceof ManagedFilesystemAdapterError &&
+        result.reason.code === 'IO_FAILED',
+    ),
+  );
+  assert.equal(first.killed, true);
+
+  const retry = transport.request('RELEASE', ['lease-2']);
+  second.stdout.write('3\t2\tOK\n');
+  assert.deepEqual(await retry, []);
+  await transport.dispose();
+});
+
+test('a stdin callback error rejects all requests and never writes queued work', async () => {
+  const input = new FakeGuardInput();
+  input.blockWrites = true;
+  const child = new FakeGuardChild(input);
+  const transport = new NativeManagedFilesystemGuardTransport({
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+
+  const first = transport.request('RELEASE', ['lease-1']);
+  const second = transport.request('RELEASE', ['lease-2']);
+  input.releaseBlockedWrite(new Error('fixture pipe failure'));
+
+  const rejected = await Promise.allSettled([first, second]);
+  assert.ok(rejected.every((result) => result.status === 'rejected'));
+  assert.equal(child.killed, true);
+  assert.equal(child.takeInput().toString('utf8'), '1\t2\tRELEASE\tbGVhc2UtMQ\n');
+  await transport.dispose();
+});
+
+test('a duplicate response fail-stops the guard and rejects later pending work', async () => {
+  const child = new FakeGuardChild();
+  const transport = new NativeManagedFilesystemGuardTransport({
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+
+  const completed = transport.request('RELEASE', ['lease-1']);
+  const pending = transport.request('RELEASE', ['lease-2']);
+  child.stdout.write('1\t2\tOK\n');
+  assert.deepEqual(await completed, []);
+  child.stdout.write('1\t2\tOK\n');
+
+  await assert.rejects(
+    pending,
+    (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IO_FAILED',
+  );
+  assert.equal(child.killed, true);
   await transport.dispose();
 });
 

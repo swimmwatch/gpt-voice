@@ -15,13 +15,15 @@ class RecordingTransport implements ManagedFilesystemGuardTransport {
   public readonly calls: {
     readonly arguments_: readonly ManagedFilesystemGuardRequestField[];
     readonly command: string;
+    readonly signal?: AbortSignal;
   }[] = [];
 
   public async request(
     command: string,
     arguments_: readonly ManagedFilesystemGuardRequestField[],
+    signal?: AbortSignal,
   ): Promise<readonly string[]> {
-    this.calls.push({ arguments_, command });
+    this.calls.push({ arguments_, command, ...(signal ? { signal } : {}) });
     return ['lease-1', IDENTITY];
   }
 
@@ -48,13 +50,15 @@ describe('platform adapter contract', () => {
     const transport = new RecordingTransport();
     const adapter = new WindowsManagedFilesystemAdapter(transport);
     const chunk = Uint8Array.of(0x00, 0x80, 0xff);
+    const signal = new AbortController().signal;
 
-    await adapter.appendStagedFile('lease-1', chunk);
+    await adapter.appendStagedFile('lease-1', chunk, signal);
 
     assert.equal(transport.calls.length, 1);
     assert.equal(transport.calls[0]?.command, 'WRITE_FILE');
     assert.equal(transport.calls[0]?.arguments_[0], 'lease-1');
     assert.equal(transport.calls[0]?.arguments_[1], chunk);
+    assert.equal(transport.calls[0]?.signal, signal);
   });
 
   test('keeps the Windows guard on handle-relative and identity-aware primitives', () => {

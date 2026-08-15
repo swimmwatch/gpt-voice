@@ -444,11 +444,15 @@ export class ManagedArtifactStore {
     }
   }
 
-  public async appendStagedFile(fileLease: ManagedArtifactLease, chunk: Uint8Array): Promise<void> {
+  public async appendStagedFile(
+    fileLease: ManagedArtifactLease,
+    chunk: Uint8Array,
+    signal?: AbortSignal,
+  ): Promise<void> {
     this.requireAuthority(fileLease, 'staging');
     if (chunk.byteLength === 0) return;
     try {
-      await this.dependencies.adapter.appendStagedFile(this.token(fileLease), chunk);
+      await this.dependencies.adapter.appendStagedFile(this.token(fileLease), chunk, signal);
     } catch (error) {
       throw mapAdapterError(error, 'INSTALL_FAILED');
     }

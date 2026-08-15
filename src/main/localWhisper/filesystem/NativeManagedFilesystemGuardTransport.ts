@@ -30,7 +30,11 @@ export const MAX_GUARD_WRITE_FILE_CHUNK_BYTES = Math.floor((MAX_ENCODED_WRITE_FI
 export type ManagedFilesystemGuardRequestField = string | Uint8Array;
 
 export interface ManagedFilesystemGuardTransport {
-  request(command: string, arguments_: readonly ManagedFilesystemGuardRequestField[]): Promise<readonly string[]>;
+  request(
+    command: string,
+    arguments_: readonly ManagedFilesystemGuardRequestField[],
+    signal?: AbortSignal,
+  ): Promise<readonly string[]>;
   dispose(): Promise<void>;
 }
 
@@ -44,8 +48,16 @@ export interface NativeManagedFilesystemGuardTransportDependencies {
 }
 
 interface PendingRequest {
+  readonly onAbort: (() => void) | null;
   readonly reject: (error: Error) => void;
   readonly resolve: (fields: readonly string[]) => void;
+  readonly signal: AbortSignal | null;
+}
+
+interface QueuedWrite {
+  readonly child: ChildProcessWithoutNullStreams;
+  readonly line: string;
+  readonly requestId: number;
 }
 
 function encodeField(value: ManagedFilesystemGuardRequestField): string {
@@ -87,14 +99,18 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
   private nextRequestId = 1;
   private outputBytes = Buffer.alloc(0);
   private readonly pending = new Map<number, PendingRequest>();
+  private waitingForDrain = false;
+  private readonly writeQueue: QueuedWrite[] = [];
 
   public constructor(private readonly dependencies: NativeManagedFilesystemGuardTransportDependencies) {}
 
   public async request(
     command: string,
     arguments_: readonly ManagedFilesystemGuardRequestField[],
+    signal?: AbortSignal,
   ): Promise<readonly string[]> {
     if (this.disposed || !isSafeCommand(command)) throw new ManagedFilesystemAdapterError('INVALID_INPUT');
+    if (signal?.aborted) throw new ManagedFilesystemAdapterError('IO_FAILED');
     validateRequestFields(command, arguments_);
     if (this.nextRequestId >= Number.MAX_SAFE_INTEGER) throw new ManagedFilesystemAdapterError('IO_FAILED');
     const requestId = this.nextRequestId;
@@ -105,12 +121,21 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     this.nextRequestId += 1;
     const child = this.ensureStarted();
     return await new Promise<readonly string[]>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject });
-      child.stdin.write(`${line}\n`, 'utf8', (error) => {
-        if (!error) return;
-        this.pending.delete(requestId);
-        reject(new ManagedFilesystemAdapterError('IO_FAILED'));
-      });
+      const onAbort = signal
+        ? (): void => {
+            if (this.pending.has(requestId)) this.failProcess(child);
+          }
+        : null;
+      this.pending.set(requestId, { onAbort, reject, resolve, signal: signal ?? null });
+      if (signal && onAbort) {
+        signal.addEventListener('abort', onAbort, { once: true });
+        if (signal.aborted) {
+          this.failProcess(child);
+          return;
+        }
+      }
+      this.writeQueue.push({ child, line: `${line}\n`, requestId });
+      this.flushWrites(child);
     });
   }
 
@@ -121,6 +146,8 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     this.child = null;
     this.finishNativeLogDecoder();
     this.outputBytes = Buffer.alloc(0);
+    this.waitingForDrain = false;
+    this.writeQueue.length = 0;
     this.rejectAll();
     if (!child) return;
     await new Promise<void>((resolve) => {
@@ -163,6 +190,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     } else {
       child.stderr.resume();
     }
+    child.stdin.on('error', () => this.failProcess(child));
     child.stdout.on('data', (chunk: Buffer) => this.handleOutput(child, chunk));
     child.once('error', () => this.failProcess(child));
     child.once('exit', () => this.failProcess(child));
@@ -198,14 +226,14 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
       this.failProcess(child);
       return;
     }
-    this.pending.delete(requestId);
     let decoded: readonly string[];
     try {
       decoded = fields.slice(3).map(decodeField);
     } catch {
-      pending.reject(new ManagedFilesystemAdapterError('IO_FAILED'));
+      this.failProcess(child);
       return;
     }
+    this.takePending(requestId);
     if (fields[2] === 'OK') {
       pending.resolve(Object.freeze(decoded));
       return;
@@ -230,13 +258,56 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     this.child = null;
     this.finishNativeLogDecoder();
     this.outputBytes = Buffer.alloc(0);
+    this.waitingForDrain = false;
+    this.writeQueue.length = 0;
     if (child.exitCode === null && !child.killed) child.kill();
     this.rejectAll();
   }
 
   private rejectAll(): void {
-    for (const pending of this.pending.values()) pending.reject(new ManagedFilesystemAdapterError('IO_FAILED'));
+    const pendingRequests = [...this.pending.values()];
     this.pending.clear();
+    for (const pending of pendingRequests) {
+      this.removeAbortListener(pending);
+      pending.reject(new ManagedFilesystemAdapterError('IO_FAILED'));
+    }
+  }
+
+  private flushWrites(child: ChildProcessWithoutNullStreams): void {
+    if (this.child !== child || this.waitingForDrain) return;
+    while (this.writeQueue.length > 0) {
+      const queued = this.writeQueue.shift();
+      if (!queued || queued.child !== child || !this.pending.has(queued.requestId)) continue;
+      let accepted: boolean;
+      try {
+        accepted = child.stdin.write(queued.line, 'utf8', (error) => {
+          if (error) this.failProcess(child);
+        });
+      } catch {
+        this.failProcess(child);
+        return;
+      }
+      if (accepted) continue;
+      this.waitingForDrain = true;
+      child.stdin.once('drain', () => {
+        if (this.child !== child || !this.waitingForDrain) return;
+        this.waitingForDrain = false;
+        this.flushWrites(child);
+      });
+      return;
+    }
+  }
+
+  private takePending(requestId: number): PendingRequest | null {
+    const pending = this.pending.get(requestId);
+    if (!pending) return null;
+    this.pending.delete(requestId);
+    this.removeAbortListener(pending);
+    return pending;
+  }
+
+  private removeAbortListener(pending: PendingRequest): void {
+    if (pending.signal && pending.onAbort) pending.signal.removeEventListener('abort', pending.onAbort);
   }
 
   private finishNativeLogDecoder(): void {

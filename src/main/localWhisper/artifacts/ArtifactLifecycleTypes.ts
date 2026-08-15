@@ -188,7 +188,7 @@ export interface ArtifactInventoryPort {
 export interface ArtifactManagedStorePort {
   createStaging(descriptor: ManagedArtifactDescriptor): Promise<ManagedArtifactLease>;
   createStagedFile(stagingLease: ManagedArtifactLease, fileId: LocalWhisperArtifactId): Promise<ManagedArtifactLease>;
-  appendStagedFile(fileLease: ManagedArtifactLease, chunk: Uint8Array): Promise<void>;
+  appendStagedFile(fileLease: ManagedArtifactLease, chunk: Uint8Array, signal?: AbortSignal): Promise<void>;
   sealStagedFile(fileLease: ManagedArtifactLease): Promise<unknown>;
   promote(descriptor: ManagedArtifactDescriptor, stagingLease: ManagedArtifactLease): Promise<void>;
   discardStaging(stagingLease: ManagedArtifactLease): Promise<void>;

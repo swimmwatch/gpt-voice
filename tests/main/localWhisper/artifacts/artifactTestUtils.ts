@@ -24,7 +24,10 @@ import { ArtifactTransferJournalRepository } from '@main/localWhisper/artifacts/
 import { ArtifactTransferQueue } from '@main/localWhisper/artifacts/ArtifactTransferQueue';
 import { CatalogHttpTransport } from '@main/localWhisper/artifacts/CatalogHttpTransport';
 import { LocalWhisperArtifactService } from '@main/localWhisper/artifacts/LocalWhisperArtifactService';
-import { StreamingArtifactExtractor } from '@main/localWhisper/artifacts/StreamingArtifactExtractor';
+import {
+  PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+  StreamingArtifactExtractor,
+} from '@main/localWhisper/artifacts/StreamingArtifactExtractor';
 import { StreamingArtifactVerifier } from '@main/localWhisper/artifacts/StreamingArtifactVerifier';
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
 import {
@@ -469,7 +472,12 @@ export function createArtifactServiceHarness(
     catalogResolver: resolver,
     clock,
     diskSpace: disk,
-    extractor: new StreamingArtifactExtractor(store),
+    extractor: new StreamingArtifactExtractor({
+      clock,
+      maximumInFlightWrites: PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+      observePipeline: null,
+      store,
+    }),
     generateOperationId: () => `artifact-operation-${String(++operationCounter).padStart(20, '0')}`,
     inventory,
     journals,

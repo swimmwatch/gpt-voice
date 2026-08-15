@@ -45,7 +45,7 @@ export interface ManagedFilesystemPlatformAdapter {
     canonicalFileName: string,
     mode: number,
   ): Promise<ManagedFilesystemOpenResult>;
-  appendStagedFile(fileToken: string, chunk: Uint8Array): Promise<void>;
+  appendStagedFile(fileToken: string, chunk: Uint8Array, signal?: AbortSignal): Promise<void>;
   sealStagedFile(fileToken: string): Promise<ManagedArtifactIdentitySnapshot>;
   inspectDirectory(
     directoryToken: string,

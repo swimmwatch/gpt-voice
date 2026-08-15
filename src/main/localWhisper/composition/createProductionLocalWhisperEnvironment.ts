@@ -47,7 +47,10 @@ import { LocalWhisperArtifactService } from '../artifacts/LocalWhisperArtifactSe
 import { NodeArtifactDiskSpace } from '../artifacts/NodeArtifactDiskSpace';
 import { NodeArtifactHttpClient } from '../artifacts/NodeArtifactHttpClient';
 import type { ArtifactHttpClient } from '../artifacts/ArtifactLifecycleTypes';
-import { StreamingArtifactExtractor } from '../artifacts/StreamingArtifactExtractor';
+import {
+  PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+  StreamingArtifactExtractor,
+} from '../artifacts/StreamingArtifactExtractor';
 import { StreamingArtifactVerifier } from '../artifacts/StreamingArtifactVerifier';
 import type { LocalWhisperBackendProbeInput } from '../capability/LocalWhisperCapabilityAdapters';
 import { LocalWhisperSupportPolicy } from '../capability/LocalWhisperSupportPolicy';
@@ -1222,7 +1225,12 @@ export class ProductionLocalWhisperEnvironmentFactory {
         catalogResolver: new ArtifactCatalogResolver({ getCatalog: () => loaded.catalog }),
         clock: artifactClock,
         diskSpace: new NodeArtifactDiskSpace(rootResolution.managedRoot, () => artifactInventory.installedBytes),
-        extractor: new StreamingArtifactExtractor(managedStore),
+        extractor: new StreamingArtifactExtractor({
+          clock: artifactClock,
+          maximumInFlightWrites: PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+          observePipeline: null,
+          store: managedStore,
+        }),
         generateOperationId: this.dependencies.randomNonce,
         inventory: artifactInventory,
         journals: new ArtifactTransferJournalRepository(
