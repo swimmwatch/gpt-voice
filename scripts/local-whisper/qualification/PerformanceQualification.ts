@@ -86,6 +86,13 @@ export interface PerformanceQualificationRunPlan {
   readonly baselineCommit: string;
   readonly candidateCommit: string;
   readonly sourceProof: PerformancePrivateArtifact;
+  readonly qualificationCache: Readonly<{
+    readonly snapshotDigest: string;
+    readonly evidenceIdentityDigest: string;
+    readonly entryCount: number;
+    readonly fileCount: number;
+    readonly sizeBytes: number;
+  }>;
   readonly worktrees: Readonly<{
     readonly before: Readonly<{ readonly relativePath: string; readonly commit: string }>;
     readonly after: Readonly<{ readonly relativePath: string; readonly commit: string }>;

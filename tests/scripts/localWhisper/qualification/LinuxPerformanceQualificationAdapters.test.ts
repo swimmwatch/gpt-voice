@@ -9,7 +9,10 @@ import {
   LinuxPerformanceAttemptProcessAdapter,
   LinuxPerformanceCachePreparationAdapter,
 } from '@scripts/local-whisper/qualification/LinuxPerformanceQualificationAdapters';
-import type { PreparedPerformanceArtifact } from '@scripts/local-whisper/qualification/PerformanceQualificationCollector';
+import type {
+  PerformanceAttemptRequest,
+  PreparedPerformanceArtifact,
+} from '@scripts/local-whisper/qualification/PerformanceQualificationCollector';
 
 function sha256(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
@@ -72,7 +75,7 @@ else:
         executablePath: executable,
         workingDirectory: root,
         timeoutMilliseconds: 50,
-        request: { behavior: 'sleep' },
+        request: { behavior: 'sleep' } as unknown as PerformanceAttemptRequest,
       });
       await assert.rejects(timeout.complete(), /ATTEMPT_TIMEOUT/u);
       await timeout.terminate();
@@ -83,7 +86,7 @@ else:
         workingDirectory: root,
         timeoutMilliseconds: 10_000,
         signal: abort.signal,
-        request: { behavior: 'sleep' },
+        request: { behavior: 'sleep' } as unknown as PerformanceAttemptRequest,
       });
       abort.abort();
       await assert.rejects(cancelled.complete(), /COLLECTION_CANCELLED/u);
@@ -93,7 +96,7 @@ else:
         executablePath: executable,
         workingDirectory: root,
         timeoutMilliseconds: 1000,
-        request: { behavior: 'stderr' },
+        request: { behavior: 'stderr' } as unknown as PerformanceAttemptRequest,
       });
       await assert.rejects(stderr.complete(), (error: unknown) => {
         assert.equal(String(error).includes('private native output'), false);

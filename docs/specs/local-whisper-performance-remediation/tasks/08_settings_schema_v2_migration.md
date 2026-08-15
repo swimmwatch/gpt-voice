@@ -77,20 +77,12 @@ OPS-002, AC-AUT-011.
 - `npm run test:types`
 - `npm run format:check`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above. Both performance aggregates must run the v1
-  CPU/GPU to v2 migration, invalid/newer-version, target-memory, reset, and typed IPC fixtures; the Windows variants
-  execute on `${{ vars.CI_WINDOWS_RUNNER }}` rather than the Linux development host.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`, and
-  `Local Whisper Performance (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 09 remains blocked until the green result is reviewed.
+- Run only the listed Verification commands on the Linux development host. Do not push or inspect CI in this packet.
+- Packet 17 runs every deferred Windows migration and typed-IPC fixture; Packet 18 owns fixes and reruns.
+- Record local results in `handoff.md` without claiming Windows coverage; the next numbered packet becomes
+  executable after local review.
 
 ## Failure And Rollback
 

@@ -167,7 +167,7 @@ describe('Local Whisper performance qualification commands', () => {
       const after = await gitWorktree(root, 'after');
       const sourceProof = await artifact(root, 'source-proof.json', '{"proof":true}\n');
       const inputFixture = await artifact(root, 'input.wav', 'fixture-audio');
-      const modelArtifacts = [];
+      const modelArtifacts: PerformancePrivateArtifact[] = [];
       for (const [index] of performanceSelectedModels().entries()) {
         modelArtifacts.push(await artifact(root, `model-${index}.bin`, `model-${index}`));
       }
@@ -213,6 +213,13 @@ describe('Local Whisper performance qualification commands', () => {
         baselineCommit: before.commit,
         candidateCommit: after.commit,
         sourceProof,
+        qualificationCache: {
+          snapshotDigest: '1'.repeat(64),
+          evidenceIdentityDigest: '2'.repeat(64),
+          entryCount: 2,
+          fileCount: 1,
+          sizeBytes: 1,
+        },
         worktrees: {
           before: { relativePath: 'before', commit: before.commit },
           after: { relativePath: 'after', commit: after.commit },

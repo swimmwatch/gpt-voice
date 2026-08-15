@@ -81,21 +81,12 @@ AC-AUT-006.
 - `npm run typecheck`
 - `npm run format:check`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above. Linux native quality owns GCC/fuzz/sanitizer
-  coverage; Windows native quality must run `npm run test:local-whisper:fs-guard:msvc-asan` plus protocol-v2 exact
-  boundary, canonical codec, and mixed-peer fixtures on `${{ vars.CI_WINDOWS_RUNNER }}`.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`, and
-  `Local Whisper Native Quality (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 05 remains blocked until the green result is reviewed.
+- The completed Linux verification and immutable local implementation commit are sufficient to continue revision-5
+  local work. Do not push or inspect CI before Packet 17.
+- Packet 17 runs the Windows MSVC/ASan protocol-v2 boundary, canonical codec, mixed-peer, and complete exact-SHA
+  aggregate checks. Packet 18 owns separate fixes and reruns.
 
 ## Failure And Rollback
 
@@ -105,8 +96,8 @@ AC-AUT-006.
 
 ## Manual Gates
 
-- Representative real-app Windows protocol behavior is repeated in Packet 14; deterministic non-canonical,
-  mixed-peer, MSVC, and ASan cases are mandatory hosted Windows CI checks here.
+- Packet 17 owns representative real-app Windows protocol behavior and deterministic non-canonical, mixed-peer,
+  MSVC, and ASan CI cases.
 - Do not install or publish a package as part of this packet.
 
 ## References

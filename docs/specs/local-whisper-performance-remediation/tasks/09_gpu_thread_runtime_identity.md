@@ -74,21 +74,12 @@ ARC-003, THR-004, FLOW-001, OPS-001, FAIL-001, FAIL-002, FAIL-003, AC-AUT-013.
 - `npm run typecheck`
 - `npm run test:types`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above. The Windows performance and native-quality
-  aggregates must run GPU-thread validation and residency-identity fixtures plus
-  `npm run test:local-whisper:whisper-cpp:msvc-asan` without making a hosted CUDA-performance claim.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`, and
-  `Local Whisper Native Quality (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 10 remains blocked until the green result is reviewed.
+- Run only the listed Verification commands on the Linux development host. Do not push or inspect CI in this packet.
+- Packet 17 runs deferred Windows GPU-thread, residency, and MSVC/ASan checks; Packet 18 owns fixes and reruns.
+- Record local results in `handoff.md` without claiming Windows coverage; the next numbered packet becomes
+  executable after local review.
 
 ## Failure And Rollback
 
@@ -99,7 +90,7 @@ ARC-003, THR-004, FLOW-001, OPS-001, FAIL-001, FAIL-002, FAIL-003, AC-AUT-013.
 ## Manual Gates
 
 - Real GPU execution for `auto`, 1, 4, and host maximum is retained on the representative Linux CUDA host in Packet
-  13 and the regular Windows CUDA computer in Packet 14.
+  16 and the regular Windows CUDA computer in Packet 17.
 
 ## References
 

@@ -64,21 +64,12 @@ MEM-001, MEM-002, THR-006, RES-003, AC-AUT-010.
 - `npm run test:local-whisper:worker-tsan`
 - `npm run test:local-whisper:native-sanitizer-proof`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above. Linux native quality must run ASan/UBSan and
-  TSan lifetime fixtures; Windows native quality must run `npm run test:local-whisper:whisper-cpp:msvc-asan` and the
-  maximum synthetic WAV, cancellation, error, and second-request cases on `${{ vars.CI_WINDOWS_RUNNER }}`.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`, and
-  `Local Whisper Native Quality (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 08 remains blocked until the green result is reviewed.
+- Run only the listed Verification commands on the Linux development host. Do not push or inspect CI in this packet.
+- Packet 17 runs the deferred Windows MSVC/ASan WAV lifetime checks; Packet 18 owns fixes and reruns.
+- Record local results in `handoff.md` without claiming Windows coverage; the next numbered packet becomes
+  executable after local review.
 
 ## Failure And Rollback
 
@@ -88,8 +79,7 @@ MEM-001, MEM-002, THR-006, RES-003, AC-AUT-010.
 
 ## Manual Gates
 
-- Windows MSVC ASan execution is required in hosted CI; Packet 14 repeats the real Windows end-to-end audio lifetime
-  check on the regular Windows computer.
+- Packet 17 owns Windows MSVC ASan execution and the real Windows end-to-end audio lifetime check.
 - Use only deterministic synthetic or approved public fixtures; never private recordings.
 
 ## References

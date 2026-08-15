@@ -158,11 +158,7 @@ export class PerformanceQualificationPrivateRoot {
     }
   }
 
-  public async writeJsonExclusive(
-    value: string,
-    document: Readonly<Record<string, unknown>>,
-    maximumBytes: number,
-  ): Promise<void> {
+  public async writeJsonExclusive(value: string, document: unknown, maximumBytes: number): Promise<void> {
     const outputPath = this.resolveContained(value);
     const parent = await realpath(path.dirname(outputPath)).catch(invalidInput);
     this.assertContained(parent);
@@ -191,7 +187,9 @@ export class PerformanceQualificationPrivateRoot {
         await unlink(canonicalOutput).catch(() => {
           cleanupFailed = true;
         });
-        if (cleanupFailed) throw new Error('PERFORMANCE_QUALIFICATION_OUTPUT_CLEANUP_FAILED', { cause: error });
+        if (cleanupFailed) {
+          throw Object.assign(new Error('PERFORMANCE_QUALIFICATION_OUTPUT_CLEANUP_FAILED'), { cause: error });
+        }
       }
       throw error;
     } finally {

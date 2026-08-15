@@ -4,7 +4,7 @@
 
 Create a privacy-safe performance qualification layer that can lock paired before/after inputs, validate phase
 and resource evidence, enforce the 25 percent improvement and 3 percent regression rules, record the 8/7 source
-baseline, and select the installation pipeline window from the approved candidate set.
+baseline, and provide the deterministic selector used for the final installation-pipeline window.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ baseline, and select the installation pipeline window from the approved candidat
   on Windows before Packet 02. Recheck those paths again immediately before implementation and stop if they drift.
 - Preserve the existing qualification-v2 graph, canonical JSON, digest, and privacy contracts.
 - Preserve the completed hosted Windows validation contract: real CPU execution and CUDA contract-only verification
-  are CI evidence, while representative Windows CPU/CUDA performance remains a direct Packet 14 manual gate.
+  are CI evidence, while representative Windows CPU/CUDA performance remains a direct Packet 17 manual gate.
 
 ## Owned Requirements
 
@@ -35,9 +35,10 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 - A locked paired manifest for `base/full`, `medium/full`, and `large-v3/q5_0`, minimum five successful pairs,
   explicit cold/warm cache state, order, sampling interval, statistic, and uncertainty method.
 - A source-count assertion for successful model-load baselines: Linux 8 and Windows 7 full-model hashes.
-- Qualification-only measurement of fixed in-flight candidates 1, 2, 4, and 8. Select the smallest candidate
-  whose conservative installation wait/write improvement is at least 25 percent and whose end-to-end time and
-  every peak resource remain within the 3 percent guardrail. Freeze that selected integer as Packet 05 input.
+- Qualification-only measurement of fixed in-flight candidates 1, 2, 4, and 8. The selector chooses the smallest
+  candidate whose conservative installation wait/write improvement is at least 25 percent and whose end-to-end time
+  and every peak resource remain within the 3 percent guardrail. Fixture output proves the selector only; Packet 18
+  freezes a production value from Packet 16 Linux and Packet 17 Windows evidence.
 
 ## Out Of Scope
 
@@ -58,8 +59,8 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
    point estimate minus uncertainty, and reject any result below 25 percent or beyond the 3 percent guardrail.
 5. Window selection is deterministic over candidates `[1, 2, 4, 8]`; ties choose the smaller value. If no
    candidate qualifies, do not select a production value and stop the workstream for plan/spec review.
-6. Record only the selected integer and sanitized aggregate evidence needed for review. Do not commit private
-   host measurements.
+6. Fixture runs record their deterministic result explicitly as non-production. Packet 18 records only the final
+   selected integer and sanitized aggregate evidence needed for review. Do not commit private host measurements.
 7. Add exact aggregate checks named `Local Whisper Performance (Linux)` and
    `Local Whisper Performance (Windows)` to `.github/workflows/pr-checks.yml`. Run them on
    `${{ vars.CI_LINUX_RUNNER }}` and `${{ vars.CI_WINDOWS_RUNNER }}` respectively, and make each aggregate fail
@@ -92,7 +93,7 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 - A qualification-only benchmark/selection entry point under `scripts/local-whisper/qualification/`
 - Cross-platform qualification entry points exposed as `run:local-whisper:qualification:windows` and
   `verify:local-whisper:qualification:windows`, with fixture-mode coverage in hosted Windows CI and real-host mode
-  reserved for Packet 14
+  reserved for Packet 17; Packet 18 invokes the selector over combined representative-host evidence
 - `.github/workflows/pr-checks.yml`
 - `scripts/local-whisper/ci/RunnerPolicyVerifier.ts`
 - `tests/scripts/localWhisper/ci/RunnerPolicy.test.ts`
@@ -142,7 +143,7 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 ## Manual Gates
 
 - `MANUAL GATE`: run the fixed-candidate selector on supported Linux and Windows hosts or equivalent controlled
-  platform runners before accepting the selected value. Hosted evidence does not replace Packets 13 and 14
+  platform runners before accepting the selected value. Hosted evidence does not replace Packets 14 and 15
   representative-host matrices.
 - Do not download models, use private audio, or contact external services without separate authorization.
 
@@ -153,5 +154,6 @@ OBS-003, PERF-001, PERF-004, RES-002, PRIV-001, AC-AUT-001, AC-AUT-002.
 
 ## Completion And Handoff
 
-After verification, mark only Packet 01 complete in `todo.md`. Record the selected in-flight value, sanitized
-evidence digest, changed files, checks, and exact next packet in `handoff.md`, then stop for review.
+After verification, mark only Packet 01 complete in `todo.md`. Record fixture candidate results as non-production,
+the changed files, checks, and exact next packet in `handoff.md`, then stop for review. Production selection remains
+Packet 18 work.

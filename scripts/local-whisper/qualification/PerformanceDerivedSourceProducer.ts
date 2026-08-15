@@ -17,17 +17,16 @@ const MAXIMUM_ENTRY_BYTES = 64 * 1024 * 1024;
 const MAXIMUM_ENTRY_COUNT = 32_768;
 const MAXIMUM_TREE_BYTES = 512 * 1024 * 1024;
 const MAXIMUM_EXECUTABLE_BYTES = 256 * 1024 * 1024;
+const OVERLAY_MANIFEST_PATH = '.local-whisper-performance-overlay-v3.json';
+const MAXIMUM_OVERLAY_OPERATION_COUNT = 64;
 const TAR_BLOCK_BYTES = 512;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 const DESTINATION_NAME_PATTERN = /^\w[\w.-]{0,127}$/u;
 
 export class PerformanceSourceDerivationError extends Error {
-  public constructor(
-    public readonly code: string,
-    options?: ErrorOptions,
-  ) {
-    super(code, options);
+  public constructor(public readonly code: string) {
+    super(code);
     this.name = 'PerformanceSourceDerivationError';
   }
 }
@@ -92,7 +91,8 @@ interface NormalizedEntry {
 }
 
 function derivationFailure(code: string, cause?: unknown): never {
-  throw new PerformanceSourceDerivationError(code, cause === undefined ? undefined : { cause });
+  void cause;
+  throw new PerformanceSourceDerivationError(code);
 }
 
 function throwIfCancelled(signal: AbortSignal | undefined): void {
@@ -418,8 +418,11 @@ export class PerformanceDerivedSourceProducer {
       await this.verifyParent(input.parentRoot, input.parentCommit);
       const sourceArchive = await this.ports.git.exportTrackedArchive(input.parentRoot, input.parentCommit);
       throwIfCancelled(input.signal);
-      const baseEntries = this.normalizeEntries(this.ports.archive.parse(sourceArchive), false);
-      const overlayEntries = this.normalizeEntries(this.ports.archive.parse(this.overlayBytes), true);
+      let baseEntries = this.normalizeEntries(this.ports.archive.parse(sourceArchive), false);
+      const normalizedOverlay = this.normalizeEntries(this.ports.archive.parse(this.overlayBytes), true);
+      const overlayManifest = normalizedOverlay.find(({ relativePath }) => relativePath === OVERLAY_MANIFEST_PATH);
+      const overlayEntries = normalizedOverlay.filter(({ relativePath }) => relativePath !== OVERLAY_MANIFEST_PATH);
+      if (overlayManifest) baseEntries = this.applyOverlayManifest(baseEntries, overlayManifest.bytes, input.side);
       const finalEntries = this.mergeEntries(baseEntries, overlayEntries);
       await this.ports.filesystem.createTreeExclusive(treeRoot);
       created = true;
@@ -584,6 +587,107 @@ export class PerformanceDerivedSourceProducer {
     }
     return Object.freeze(
       [...merged.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath, 'en')),
+    );
+  }
+
+  private applyOverlayManifest(
+    base: readonly NormalizedEntry[],
+    bytes: Buffer,
+    side: PerformanceSide,
+  ): readonly NormalizedEntry[] {
+    let value: unknown;
+    try {
+      value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
+    } catch {
+      derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+    }
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      Array.isArray(value) ||
+      Object.keys(value).sort().join('|') !== 'operations|schemaVersion' ||
+      (value as Readonly<Record<string, unknown>>).schemaVersion !== 1 ||
+      !Array.isArray((value as Readonly<Record<string, unknown>>).operations)
+    ) {
+      derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+    }
+    const operations = (value as { readonly operations: readonly unknown[] }).operations;
+    if (operations.length === 0 || operations.length > MAXIMUM_OVERLAY_OPERATION_COUNT) {
+      derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+    }
+    const selected = operations.filter((operation) => {
+      if (typeof operation !== 'object' || operation === null || Array.isArray(operation)) {
+        derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+      }
+      return (operation as Readonly<Record<string, unknown>>).side === side;
+    });
+    if (selected.length === 0) derivationFailure('SOURCE_OVERLAY_ANCHOR_MISMATCH');
+    const entries = new Map(base.map((entry) => [entry.relativePath, entry]));
+    const targets = new Set<string>();
+    for (const raw of selected) {
+      const operation = raw as Readonly<Record<string, unknown>>;
+      if (
+        Object.keys(operation).sort().join('|') !== 'expectedSha256|replacements|side|targetPath' ||
+        operation.side !== side ||
+        typeof operation.targetPath !== 'string' ||
+        typeof operation.expectedSha256 !== 'string' ||
+        !SHA256_PATTERN.test(operation.expectedSha256) ||
+        !Array.isArray(operation.replacements) ||
+        operation.replacements.length === 0 ||
+        operation.replacements.length > 32
+      ) {
+        derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+      }
+      const targetPath = containedRelativePath(operation.targetPath);
+      if (targets.has(targetPath)) derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+      targets.add(targetPath);
+      const entry = entries.get(targetPath);
+      if (!entry || entry.type !== 'file' || entry.sha256 !== operation.expectedSha256) {
+        derivationFailure('SOURCE_OVERLAY_ANCHOR_MISMATCH');
+      }
+      let source: string;
+      try {
+        source = new TextDecoder('utf-8', { fatal: true }).decode(entry.bytes);
+      } catch {
+        derivationFailure('SOURCE_OVERLAY_TARGET_INVALID');
+      }
+      for (const rawReplacement of operation.replacements) {
+        if (
+          typeof rawReplacement !== 'object' ||
+          rawReplacement === null ||
+          Array.isArray(rawReplacement) ||
+          Object.keys(rawReplacement).sort().join('|') !== 'anchor|replacement'
+        ) {
+          derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+        }
+        const replacement = rawReplacement as Readonly<Record<string, unknown>>;
+        if (
+          typeof replacement.anchor !== 'string' ||
+          replacement.anchor.length === 0 ||
+          replacement.anchor.length > 16 * 1024 ||
+          typeof replacement.replacement !== 'string' ||
+          replacement.replacement.length > 32 * 1024
+        ) {
+          derivationFailure('SOURCE_OVERLAY_MANIFEST_INVALID');
+        }
+        const first = source.indexOf(replacement.anchor);
+        if (first < 0 || source.indexOf(replacement.anchor, first + replacement.anchor.length) >= 0) {
+          derivationFailure('SOURCE_OVERLAY_ANCHOR_MISMATCH');
+        }
+        source = `${source.slice(0, first)}${replacement.replacement}${source.slice(first + replacement.anchor.length)}`;
+      }
+      const transformed = Buffer.from(source, 'utf8');
+      entries.set(
+        targetPath,
+        Object.freeze({
+          ...entry,
+          bytes: transformed,
+          sha256: this.ports.digest.sha256(transformed),
+        }),
+      );
+    }
+    return Object.freeze(
+      [...entries.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath, 'en')),
     );
   }
 

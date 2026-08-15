@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 
-import { LinuxResourceSampler } from './LinuxResourceSampler';
+import { LinuxPerformanceResourceSampler } from './LinuxPerformanceResourceSampler';
 import {
   ContractOnlyPerformanceCacheAdapter,
   ContractOnlyPerformanceResourceAdapter,
@@ -58,8 +58,8 @@ async function main(): Promise<void> {
       resources: contractOnly
         ? new ContractOnlyPerformanceResourceAdapter()
         : new LinuxPerformanceResourceAdapter(
-            new LinuxResourceSampler(
-              path.join(workspaceRoot, 'scripts/local-whisper/qualification/linux_resource_sampler.py'),
+            new LinuxPerformanceResourceSampler(
+              path.join(workspaceRoot, 'scripts/local-whisper/qualification/linux_performance_resource_sampler.py'),
             ),
           ),
     });

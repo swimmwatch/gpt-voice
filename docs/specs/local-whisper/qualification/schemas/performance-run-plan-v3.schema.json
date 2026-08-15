@@ -18,6 +18,7 @@
     "baselineCommit",
     "candidateCommit",
     "sourceProof",
+    "qualificationCache",
     "worktrees",
     "derivedSources",
     "applicationArtifacts",
@@ -53,6 +54,18 @@
     "baselineCommit": { "$ref": "#/$defs/commit" },
     "candidateCommit": { "$ref": "#/$defs/commit" },
     "sourceProof": { "$ref": "#/$defs/artifact" },
+    "qualificationCache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["snapshotDigest", "evidenceIdentityDigest", "entryCount", "fileCount", "sizeBytes"],
+      "properties": {
+        "snapshotDigest": { "$ref": "#/$defs/sha256" },
+        "evidenceIdentityDigest": { "$ref": "#/$defs/sha256" },
+        "entryCount": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "fileCount": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 107374182400 }
+      }
+    },
     "worktrees": {
       "type": "object",
       "additionalProperties": false,

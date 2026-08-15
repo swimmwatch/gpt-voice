@@ -278,6 +278,72 @@ describe('PerformanceDerivedSourceProducer', () => {
     }
   });
 
+  it('applies only the selected side of one reviewed transform manifest and rejects source-anchor drift', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-derived-source-overlay-'));
+    try {
+      const commit = '6'.repeat(40);
+      const baseBytes = Buffer.from('const productionWindow = 1;\n', 'utf8');
+      const manifest = Buffer.from(
+        JSON.stringify({
+          schemaVersion: 1,
+          operations: [
+            {
+              side: 'before',
+              targetPath: 'src/pipeline.ts',
+              expectedSha256: digest.sha256(baseBytes),
+              replacements: [
+                {
+                  anchor: 'const productionWindow = 1;',
+                  replacement: 'const productionWindow = qualificationWindow ?? 1;',
+                },
+              ],
+            },
+            {
+              side: 'after',
+              targetPath: 'src/pipeline.ts',
+              expectedSha256: 'f'.repeat(64),
+              replacements: [{ anchor: 'never', replacement: 'selected-only-after' }],
+            },
+          ],
+        }),
+      );
+      const producer = fixtureProducer({
+        git: new FixtureGit(commit),
+        archive: new FixtureArchive(
+          [entry('src/pipeline.ts', 'file', baseBytes.toString('utf8'))],
+          [entry('.local-whisper-performance-overlay-v3.json', 'file', manifest.toString('utf8'))],
+        ),
+      });
+      const authority = await producer.derive({
+        privateRoot: root,
+        parentRoot: path.join(root, 'parent'),
+        parentCommit: commit,
+        destinationName: 'derived-before',
+        sourceProofDigest: '7'.repeat(64),
+        side: 'before',
+      });
+      assert.equal(
+        await readFile(path.join(authority.rootPath, 'src/pipeline.ts'), 'utf8'),
+        'const productionWindow = qualificationWindow ?? 1;\n',
+      );
+      await producer.bindExecutable(authority, 'src/pipeline.ts');
+
+      await assert.rejects(
+        producer.derive({
+          privateRoot: root,
+          parentRoot: path.join(root, 'parent'),
+          parentCommit: commit,
+          destinationName: 'derived-after',
+          sourceProofDigest: '7'.repeat(64),
+          side: 'after',
+        }),
+        /SOURCE_OVERLAY_ANCHOR_MISMATCH/u,
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it('invalidates the derived tree if the parent changes before settlement', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-derived-source-parent-change-'));
     try {

@@ -2,8 +2,9 @@
 
 ## Outcome
 
-Complete the Windows CPU/CUDA profile declarations for every applicable pinned upstream performance option while
-preserving the existing effective values, broad Linux declarations, backend exclusivity, and package identity.
+Prepare the Windows CPU/CUDA profile declarations for every applicable pinned upstream performance option while
+preserving the existing effective values, broad Linux declarations, backend exclusivity, and package identity;
+execute the Windows configure/build checks only in Packet 17.
 
 ## Prerequisites
 
@@ -54,8 +55,9 @@ CMP-001, PERF-005, BLD-001, DEP-001, AC-AUT-014.
 
 ## Acceptance Criteria
 
-- AC-AUT-014 proves all applicable Windows omissions are closed, platform differences are sourced, every value is
-  consumed and unchanged, Linux declarations are preserved, and no dependency/package drift occurs.
+- Linux-host static AC-AUT-014 audits show all applicable Windows declarations are present and source-consumed,
+  platform differences are sourced, and Linux declarations are preserved. Packet 17 must still prove the generated
+  Windows caches and runtime-pack manifests.
 - CPU and CUDA builds select only their intended backend and retain flash attention off.
 
 ## Verification
@@ -66,22 +68,14 @@ CMP-001, PERF-005, BLD-001, DEP-001, AC-AUT-014.
 - `npm run test:local-whisper:qualification`
 - `npm run format:check`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above. Windows native quality must configure and
-  build the CPU profile, verify the CUDA profile contract/cache without a hardware claim, and reject missing,
-  ignored, duplicated, unknown, or drifted options on `${{ vars.CI_WINDOWS_RUNNER }}`. Linux native quality proves
-  the existing Linux declarations remain unchanged.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`, and
-  `Local Whisper Native Quality (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 12 remains blocked until the green result is reviewed.
+- Run only the listed static/profile Verification commands on the Linux development host. Do not push or inspect CI
+  and do not claim that an MSVC configure or Windows runtime pack was executed.
+- Packet 17 runs the CPU configure/build, CUDA contract/cache, runtime-pack, packaging, and rejection checks on the
+  Windows runner and regular Windows computer. Packet 18 owns every resulting fix and rerun.
+- Record the inventory digest and Linux static-audit results in `handoff.md`; Packet 12 becomes executable after
+  local review.
 
 ## Failure And Rollback
 
@@ -92,10 +86,9 @@ CMP-001, PERF-005, BLD-001, DEP-001, AC-AUT-014.
 
 ## Manual Gates
 
-- Hosted Windows CI owns ordinary MSVC and contract/cache evidence. Packet 14 produces and inspects the exact CPU and
-  CUDA runtime packs on the regular Windows computer without committing generated artifacts.
+- Packet 17 owns all hosted and direct Windows MSVC, contract/cache, and runtime-pack evidence.
 - CUDA-unavailable hosted runners report hardware execution unavailable; they may not substitute a Linux cache or
-  satisfy Packet 14.
+  satisfy Packet 17.
 
 ## References
 

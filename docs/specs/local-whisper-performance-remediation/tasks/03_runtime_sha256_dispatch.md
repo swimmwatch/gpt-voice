@@ -72,24 +72,15 @@ CMP-005, CRY-001, DEP-001, THR-005, SEC-007, RES-003, AC-AUT-008.
 - `npm run test:local-whisper:native-build-audits`
 - `npm run test:local-whisper:native-sources`
 - `npm run test:local-whisper:fs-guard:gcc`
-- The Linux development host does not substitute for Windows. MSVC, Windows ASan, and Windows runtime-dispatch
-  fixtures execute through `Local Whisper Native Quality (Windows)` in CI.
+- The Linux development host does not substitute for Windows. Packet 17 executes MSVC, Windows ASan, and Windows
+  runtime-dispatch fixtures through `Local Whisper Native Quality (Windows)`.
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands include the complete Verification list above. Linux native quality owns Clang/GCC,
-  analyzer, TSan, sanitizer, and unsupported-feature fixtures; Windows native quality owns MSVC compilation, ASan,
-  concurrent first-use, and scalar-fallback fixtures.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`, and
-  `Local Whisper Native Quality (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 04 remains blocked until the green result is reviewed.
+- Local Linux verification remains the packet completion evidence. Do not inspect or rerun remote CI before Packet
+  15; the already-pushed implementation SHA is not final cross-platform acceptance evidence.
+- Packet 17 runs MSVC compilation, ASan, concurrent first-use, scalar-fallback, and the complete exact-SHA aggregate
+  checks on the accumulated candidate. Packet 18 owns separate fixes and reruns.
 
 ## Failure And Rollback
 
@@ -100,8 +91,7 @@ CMP-005, CRY-001, DEP-001, THR-005, SEC-007, RES-003, AC-AUT-008.
 
 ## Manual Gates
 
-- Representative unsupported-CPU behavior that hosted CI cannot emulate remains a direct supported-host check in
-  Packet 14; ordinary MSVC and Windows ASan evidence is mandatory CI evidence in this packet.
+- Representative unsupported-CPU behavior and ordinary MSVC/Windows ASan evidence are deferred to Packet 17.
 - No production package publication or host-specific binary commit is authorized.
 
 ## References

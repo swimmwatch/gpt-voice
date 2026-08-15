@@ -2,13 +2,15 @@
 
 ## Outcome
 
-Use the Packet 01 frozen in-flight window to pipeline installation writes with real Node stream backpressure,
-source-order completion, a 32 MiB aggregate ownership cap, and deterministic cleanup on every terminal path.
+Implement candidate-window installation pipelining with real Node stream backpressure, source-order completion, a
+32 MiB aggregate ownership cap, and deterministic cleanup while production composition remains serial until Packet
+15 freezes the measured cross-platform window.
 
 ## Prerequisites
 
 - Packets 01 and 04 are complete.
-- `handoff.md` records exactly one selected window from 1, 2, 4, or 8 plus its sanitized evidence digest.
+- Packet 01 provides deterministic candidate-window fixtures for 1, 2, 4, and 8; fixture-selected 4 is not
+  production authority.
 - Protocol v2 and its derived raw chunk bound are the only accepted app/guard wire contract.
 
 ## Owned Requirements
@@ -19,8 +21,9 @@ THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-A
 
 - Process-owned TypeScript transport/pipeline state, bounded chunk issuance, write backpressure, correlation,
   response settlement, cancellation, timeouts, EOF/process failure, and staging cleanup.
-- Deterministic slow-stream and failure fixtures for Linux and Windows transport behavior.
-- Freezing the measured window as a named production constant.
+- Deterministic platform-neutral slow-stream and failure fixtures runnable on the Linux development host.
+- A narrow injected/test candidate-window seam covering 1, 2, 4, and 8 while production composition keeps
+  current-equivalent serial issuance (`1`).
 
 ## Out Of Scope
 
@@ -31,8 +34,9 @@ THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-A
 
 ## Task Contract
 
-1. Add the selected fixed window as a named constant owned by the installation transport/pipeline. If Packet 01
-   did not produce one qualifying value, stop instead of defaulting.
+1. Implement the bounded pipeline for candidate windows 1, 2, 4, and 8, but keep production composition at
+   current-equivalent serial issuance (`1`). This is a temporary non-acceptance binding, not a measured selection or
+   runtime override. Packet 18 alone may replace it with the cross-platform evidence-selected named constant.
 2. The pipeline may have at most that many issued unsettled writes and must preserve source-order hashing and
    source-order backend writes.
 3. Track aggregate live ownership across source chunks, encoded lines, Node writable buffers, decoded command
@@ -65,8 +69,8 @@ THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-A
 
 - AC-AUT-007 covers slow output/input, `write(false)`, delayed/missing `drain`, early and mid-window failures,
   timeout, cancellation, EOF, process exit, and late/duplicate responses.
-- The selected window and 32 MiB cap are observable through deterministic test ownership counters, not production
-  telemetry.
+- Every candidate window and the 32 MiB cap are observable through deterministic test ownership counters, not
+  production telemetry; production remains serial in this packet.
 - Every case proves exact ordering, exactly-once settlement, staging removal, baseline handles/descriptors, no hang,
   and a successful clean retry.
 
@@ -79,21 +83,13 @@ THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-A
 - `npm run test:types`
 - `npm run format:check`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above plus Packet 01's deterministic pipeline-window
-  analyzer. Both performance aggregates must execute slow-input/output, backpressure, cancellation, timeout,
-  mid-window failure, late-response, and clean-retry fixtures; Windows execution must use the Windows CI runner.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`, and
-  `Local Whisper Native Quality (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 06 remains blocked until the green result is reviewed.
+- Run only the Verification commands above on the Linux development host. Do not push or inspect CI in this packet.
+- Packet 17 owns the first Windows transport execution and exact-SHA CI run. Packet 18 owns selection of the
+  production window plus every fix commit and complete rerun.
+- Record local checks and the unchanged serial production binding in `handoff.md`; do not claim Windows coverage or
+  a production window selection.
 
 ## Failure And Rollback
 
@@ -103,8 +99,8 @@ THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-A
 
 ## Manual Gates
 
-- `MANUAL GATE`: repeat real slow-pipe, cancel, and induced mid-window failure on the representative Linux host in
-  Packet 13 and the regular Windows computer in Packet 14.
+- `MANUAL GATE`: run candidate windows under real slow-pipe, cancellation, and induced mid-window failure on the
+  representative Linux host in Packet 16 and the regular Windows computer in Packet 17.
 
 ## References
 
@@ -113,5 +109,5 @@ THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-A
 
 ## Completion And Handoff
 
-After verification, update `todo.md` and `handoff.md` with the frozen window, peak test ownership, cleanup checks,
-and Packet 06 as the next ordered packet, then stop for review.
+After verification, update `todo.md` and `handoff.md` with candidate-window coverage, peak test ownership, cleanup
+checks, the retained serial production binding, and Packet 06 as the next ordered packet, then stop for review.

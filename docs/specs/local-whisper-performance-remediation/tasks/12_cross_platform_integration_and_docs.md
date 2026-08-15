@@ -2,14 +2,15 @@
 
 ## Outcome
 
-Integrate Packets 02–11 as coherent Linux/Windows compatibility sets, run the full affected automated quality
-matrix, and document user behavior, maintainer contracts, privacy, failure recovery, and rollback.
+Integrate Packets 02–11 as a coherent cross-platform candidate, run the complete Linux-host quality matrix, prepare
+the deferred Windows matrix, and document user behavior, maintainer contracts, privacy, recovery, and rollback.
 
 ## Prerequisites
 
 - Packets 02 through 11 are complete and individually reviewed.
 - No affected source has drifted from the recorded handoffs without refreshed baseline and packet repair.
-- Packet 01's performance CI lanes and preserved pre-existing runner-policy changes are present and green.
+- Packet 01's performance CI lanes and preserved pre-existing runner-policy changes remain present; revision 5 does
+  not execute them before Packet 17.
 
 ## Owned Requirements
 
@@ -42,9 +43,10 @@ AC-AUT-015, AC-MAN-005.
    logging bounds, package targets, and dependency set.
 5. Update `docs/local-whisper.md` with contextual CPU/GPU thread fields, `auto`, range, migration defaults,
    unsupported-newer recovery, and host/backend/model/cache performance dependence.
-6. Add maintainer guidance for the protocol-v2 formula and 4,096-byte margin, newline/overflow behavior, frozen
-   window and 32 MiB cap, phases/statistics, SHA fallback, profile parity, log schema v1, platform matrix, and exact
-   reset/compatible-v1-backup rollback. Never publish private paths, device identities, or raw measurements.
+6. Add maintainer guidance for the protocol-v2 formula and 4,096-byte margin, newline/overflow behavior,
+   candidate-window/serial-binding state and 32 MiB cap, Packet 18 final selection, phases/statistics, SHA fallback,
+   profile parity, log schema v1, platform matrix, and exact reset/compatible-v1-backup rollback. Never publish
+   private paths, device identities, or raw measurements.
 
 ## Contracts And Boundaries
 
@@ -62,7 +64,8 @@ AC-AUT-015, AC-MAN-005.
 
 ## Acceptance Criteria
 
-- AC-AUT-015 passes the complete affected matrix without waiver on Linux and supported Windows checks.
+- The Linux-executable portion of AC-AUT-015 passes without waiver; Packet 17 owns every supported Windows check and
+  the final cross-platform AC-AUT-015 decision.
 - AC-MAN-005 proves mixed guard peers and newer settings fail closed; explicit reset or compatible v1 backup
   recovers without deleting managed model/runtime artifacts.
 - Documentation contains every OPS-003 item and no sensitive/raw evidence.
@@ -82,22 +85,12 @@ AC-AUT-015, AC-MAN-005.
 - `npm run test:local-whisper:packaging`
 - `npm run verify:local-whisper:migration-privacy`
 
-## CI Gate And Commit Discipline
+## Deferred Windows And CI Gate
 
-- Task-specific CI commands are the complete Verification list above. The performance aggregates must run the full
-  integrated filesystem, artifact, supervisor, composition, migration, IPC, UI, qualification, privacy, and
-  documentation suites on their platform runners. Native gates own Clang/GCC/MSVC/analyzer/sanitizer/TSan coverage.
-- Required checks for the exact pushed SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`,
-  `Local Whisper Native Quality (Windows)`, `Package Smoke (Fedora Linux)`, `Package Smoke (Windows)`,
-  `Package Attestation (Fedora Linux)`, and `Package Attestation (Windows)`.
-- After local verification, stop for review and obtain explicit authorization for the implementation commit and
-  push. Push the immutable implementation commit and wait until every required check reports `success`; every other
-  conclusion is non-passing.
-- Fix an actionable CI failure only in a later explicitly authorized invocation and a separate fix commit. Never
-  amend or squash the implementation commit; push and rerun the same checks until green.
-- Record implementation/fix SHAs, workflow run ID, check names, check-run URLs or IDs, and final results in
-  `handoff.md`. Packet 13 remains blocked until the green result is reviewed.
+- Run only the listed Verification commands on the Linux development host. Do not push or inspect CI in this packet.
+- Record the exact deferred Windows filesystem, worker, migration, UI, profile, package, and privacy checks for
+  Packet 17; do not replace them with Linux simulations or mark AC-AUT-015 complete.
+- Packet 18 owns each separate fix commit and the complete Linux/Windows rerun after the production window freeze.
 
 ## Failure And Rollback
 
@@ -108,8 +101,8 @@ AC-AUT-015, AC-MAN-005.
 
 ## Manual Gates
 
-- MSVC analysis/ASan and deterministic Windows native tests are mandatory CI checks. Packet 14 repeats the disposable
-  mixed-peer/settings rollback and complete Windows end-to-end behavior on the regular Windows computer.
+- Packet 17 owns mandatory MSVC analysis/ASan, deterministic Windows native tests, disposable mixed-peer/settings
+  rollback, package checks, and complete Windows end-to-end behavior.
 - `MANUAL GATE`: translation, accessibility, and documentation review.
 - Generated binaries, packs, installers, and private diagnostic/qualification data must remain uncommitted.
 

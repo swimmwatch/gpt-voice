@@ -998,7 +998,7 @@ decisions:
       kind: single
       options:
         - id: approve
-          label: Approve
+          label: Approve (Recommended)
           description: Mark the specification Approved and stop before planning or implementation.
         - id: request-changes
           label: Request changes
@@ -1277,7 +1277,7 @@ decisions:
       - docs/specs/local-whisper-performance-remediation/tasks/todo.md
       - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
       - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
-      - docs/specs/local-whisper-performance-remediation/tasks/13_representative_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_representative_linux_host_qualification.md
     prompt_mcp:
       interview_id: plan:local-whisper-performance-remediation
       batch_id: approval-round-01
@@ -1448,9 +1448,9 @@ decisions:
       - docs/specs/local-whisper-performance-remediation/tasks/todo.md
       - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
       - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
-      - docs/specs/local-whisper-performance-remediation/tasks/13_representative_host_qualification.md
-      - docs/specs/local-whisper-performance-remediation/tasks/14_windows_end_to_end_qualification.md
-      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_final_remediation.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
     prompt_mcp:
       interview_id: plan:local-whisper-performance-remediation
       batch_id: approval-round-02
@@ -1574,7 +1574,7 @@ decisions:
   - id: approval.plan
     revision: 3
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-performance-remediation/tasks/plan.md
@@ -1737,3 +1737,307 @@ decisions:
     rationale: The explicit skill invocation authorized Packet 02 under the standing invocation-authority decision.
     supersedes_revision: null
     requirement_ids: [SCP-004, PERF-002, PERF-006, PERF-007, AC-AUT-003, AC-AUT-004]
+
+  - id: planning.windows-checks-final-phase
+    revision: 1
+    category: sequencing
+    state: answered
+    provenance: user
+    evidence:
+      - User instructed that all Windows checks be moved to the end of the plan.
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp: null
+    question:
+      text: Move all Windows checks to the end of the plan.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [defer-all-windows-checks]
+      text: Earlier packets run only Linux-development-host and Linux CI checks; the final Windows phase owns all Windows automated, native, package, and direct-host checks plus subsequent Windows remediation.
+    rationale: Consolidating Windows execution prevents earlier packets from blocking Linux-host implementation while preserving Windows acceptance as an explicit final gate.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CMP-005, QUAL-001, AC-AUT-015, AC-MAN-002]
+
+  - id: planning.pipeline-window-deferred-windows
+    revision: 1
+    category: sequencing
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#73-bounded-pipelining-and-backpressure
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/05_bounded_installation_pipeline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - Packet 01 fixture evidence selected window 4 but explicitly did not accept it as a production selection.
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: sequencing-round-04
+      question_id: planning.pipeline-window-deferred-windows
+      idempotency_key: planning.pipeline-window-deferred-windows:v1
+      last_status: answered
+    question:
+      text: How should Packet 05 select its production pipeline window now that every Windows check is deferred to the final phase?
+      kind: single
+      options:
+        - id: linux-select-windows-confirm
+          label: Linux selection, Windows confirmation
+          description: Select the smallest qualifying window from controlled Linux evidence before Packet 05, then require final Windows checks and remediation before acceptance.
+        - id: defer-pipeline-to-windows-phase
+          label: Defer the pipeline packet
+          description: Continue independent packets first, but postpone Packet 05 and every dependent integration step until final Windows selection evidence exists.
+        - id: revise-spec-for-fixture-four
+          label: Revise the specification
+          description: Return to specification work before treating fixture-selected window 4 as sufficient production authority.
+    answer:
+      selected_ids: []
+      text: At last task in plan
+    rationale: Packet 05 will make the bounded candidate pipeline testable while retaining serial production behavior. Packet 15 will select and freeze the production window from the controlled Linux and Windows evidence gathered in the final qualification phase, then rerun all required checks on the selected value.
+    supersedes_revision: null
+    requirement_ids: [GAT-002, THR-001, RES-001, PERF-001, RES-002]
+
+  - id: approval.plan
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/05_bounded_installation_pipeline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-04
+      question_id: approval.plan
+      idempotency_key: approval.plan:v4
+      last_status: answered
+    question:
+      text: Do you approve revision 4 of the Local Whisper performance-remediation plan, with all remaining Windows checks in Packets 14–15 and production pipeline-window selection in Packet 15?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 4 approved; implementation, commits, pushes, CI, and manual gates remain separately scoped.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 4 draft and revise the affected packet contracts.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 4 draft and stop without changing the execution plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 4 with all remaining Windows checks in Packets 14–15 and the production pipeline-window selection in Packet 15; implementation, commits, pushes, CI, and manual gates remain separately scoped.
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: authorization.packet-05
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly invoked incremental-implementation with auto execution after approving plan revision 4.
+      - docs/specs/local-whisper-performance-remediation/tasks/05_bounded_installation_pipeline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Execute the next approved incremental implementation packet automatically.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [execute-packet-05]
+      text: Implement and locally verify Packet 05 only, update its checklist and handoff, and stop before Packet 06 without committing, pushing, or inspecting CI.
+    rationale: The explicit incremental-implementation invocation authorizes exactly Packet 05 under the standing invocation-authority decision.
+    supersedes_revision: null
+    requirement_ids: [THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-AUT-007]
+
+  - id: authorization.packet-06
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly invoked incremental-implementation with auto execution and instructed that packets before Packet 14 run automatically without another approval prompt.
+      - docs/specs/local-whisper-performance-remediation/tasks/06_worker_warmup_and_log_ordering.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Execute approved packets before Packet 14 automatically without asking for another approval.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [execute-packet-06]
+      text: Implement and locally verify Packet 06 only, update its checklist and handoff, and stop before Packet 07 without pushing or inspecting CI.
+    rationale: The explicit invocation authorizes Packet 06 under the standing invocation-authority decision; the skill's one-packet boundary still requires a fresh invocation before Packet 07.
+    supersedes_revision: null
+    requirement_ids: [FLOW-001, WRM-001, WRM-002, IPC-002, LOG-001, PRIV-002, OPS-001, AC-AUT-009]
+
+  - id: planning.representative-collector-gap
+    revision: 1
+    category: sequencing
+    state: observed
+    provenance: repository
+    evidence:
+      - scripts/local-whisper/qualification/run-performance-qualification.ts
+      - scripts/local-whisper/qualification/run-linux-production-qualification.ts
+      - scripts/local-whisper/qualification/PerformanceQualification.ts
+      - scripts/local-whisper/qualification/QualificationContracts.ts
+      - docs/specs/local-whisper/qualification/linux-state.json
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - add-collector-before-linux
+        - keep-windows-final
+      text: Split the blocked representative-host work into schema/collector implementation, Linux execution, Windows implementation and execution, and final remediation/selection.
+    rationale: The existing command only analyzes supplied bundles, samples lack per-model identity, the candidate is not frozen, and the hosted fixtures are contract-only. A dedicated implementation packet is required before representative Linux execution; the user's final-Windows sequencing remains unchanged.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, OBS-001, OBS-002, OBS-003, PERF-001, PERF-004, RES-002, PRIV-001]
+
+  - id: approval.plan
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/13_representative_performance_collection.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-05
+      question_id: approval.plan
+      idempotency_key: approval.plan:v5
+      last_status: answered
+    question:
+      text: Do you approve revision 5 of the Local Whisper performance-remediation plan, which adds Packet 13 collection support, moves Linux qualification to Packet 14, and keeps Windows implementation, CI, direct-host checks, fixes, and final selection in Packets 15–16?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve revision 5; implementation, commits, pushes, CI, and manual gates remain separately scoped.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 5 draft and revise the affected packet contracts.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 5 draft and stop before implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 5, which repairs the collector/execution gap while preserving final-phase Windows implementation, checks, remediation, and selection.
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: planning.linux-qualification-input-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - scripts/local-whisper/qualification/LinuxProductionQualificationOrchestrator.ts
+      - scripts/local-whisper/qualification/LinuxQualificationEvidenceLoader.ts
+      - scripts/local-whisper/qualification/run-linux-production-qualification.ts
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - The revision-5 command failed safely with EEXIST before package or model execution.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - populated-read-only-qualification-cache
+        - orchestrator-owned-absent-private-child
+      text: The production cache is a validated populated immutable input; the private-run value is an absent child under a validated mode-0700 parent and is created by the orchestrator.
+    rationale: The real evidence loader immediately reads exact model, FLEURS, CPU/CUDA runtime-pack, direct-engine, and sibling native-source notice inputs, while the orchestrator owns non-recursive creation of its private run root. The revision-5 empty-cache/existing-child contract was not executable.
+    supersedes_revision: null
+    requirement_ids: [GAT-003, GAT-004, QUAL-001, OBS-003, PRIV-001]
+
+  - id: planning.representative-attempt-enablement
+    revision: 1
+    category: sequencing
+    state: observed
+    provenance: repository
+    evidence:
+      - scripts/local-whisper/qualification/LinuxPerformanceQualificationAdapters.ts
+      - scripts/local-whisper/qualification/PerformanceQualificationCollector.ts
+      - scripts/local-whisper/qualification/LinuxResourceSampler.ts
+      - scripts/local-whisper/qualification/QualificationContracts.ts
+      - runtime/local-whisper/whisper-cpp/qualification/direct_engine_main.cpp
+      - No repository executable consumes --local-whisper-performance-qualification-v2.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - add-derived-source-attempt-contract
+        - add-linux-attempt-runner-before-host-execution
+        - keep-windows-final
+      text: Add schema-v3 identical-overlay/derived-source contracts and a real Linux performance attempt runner before representative Linux execution; keep all Windows implementation, checks, fixes, and selection in the final phase.
+    rationale: Packet 13 can schedule and aggregate attempts but no executable emits the required 19 phase measurements, and its Linux resource adapter cannot produce separately attributed main, guard, worker, and GPU peaks. Representative execution would otherwise retain only failed cells and could not satisfy OBS-001 or AC-MAN-001.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        GAT-003,
+        GAT-004,
+        QUAL-001,
+        OBS-001,
+        OBS-002,
+        OBS-003,
+        PERF-001,
+        PERF-004,
+        RES-002,
+        PRIV-001,
+        AC-AUT-001,
+        AC-AUT-002,
+        AC-AUT-015,
+      ]
+
+  - id: approval.plan
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_performance_attempt_contract_and_derivation.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_linux_performance_attempt_runner.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-06
+      question_id: approval.plan
+      idempotency_key: approval.plan:v6
+      last_status: answered
+    question:
+      text: Do you approve revision 6 of the Local Whisper performance-remediation plan, which corrects production qualification input ownership, adds schema-v3 derived-source and Linux attempt-runner Packets 14–15, moves representative Linux execution to Packet 16, and keeps all Windows work in Packets 17–18?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 6
+          description: Approve the repaired executable plan; implementation, commits, pushes, CI, and manual host gates remain separately scoped.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 6 draft and revise the affected packet contracts again.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 6 draft and stop before implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 6 after the executability audit repaired production input ownership, added baseline-compatible attempt enablement, and preserved final-phase Windows implementation, checks, remediation, and selection. Implementation, commits, pushes, CI, and representative-host gates remain separately scoped.
+    supersedes_revision: 5
+    requirement_ids: []

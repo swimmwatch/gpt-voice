@@ -104,6 +104,13 @@ function representativeRunPlanSeed() {
     baselineCommit,
     candidateCommit,
     sourceProof: artifact('proof/source.json', LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST),
+    qualificationCache: {
+      snapshotDigest: 'e'.repeat(64),
+      evidenceIdentityDigest: 'f'.repeat(64),
+      entryCount: 2,
+      fileCount: 1,
+      sizeBytes: 1,
+    },
     worktrees: {
       before: { relativePath: 'parents/before', commit: baselineCommit },
       after: { relativePath: 'parents/after', commit: candidateCommit },
@@ -331,14 +338,14 @@ describe('Local Whisper performance qualification', () => {
       pairIndex: second.pairIndex,
       runOrder: second.runOrder,
       side: second.side,
-      status: second.status,
       ...(second.status === 'success'
         ? {
+            status: 'success' as const,
             endToEndNanoseconds: second.endToEndNanoseconds,
             phases: second.phases,
             resources: second.resources,
           }
-        : { failureReason: second.failureReason }),
+        : { status: 'failed' as const, failureReason: second.failureReason }),
     });
     assert.throws(
       () =>
@@ -394,14 +401,14 @@ describe('Local Whisper performance qualification', () => {
       pairIndex: first.pairIndex,
       runOrder: first.runOrder,
       side: first.side,
-      status: first.status,
       ...(first.status === 'success'
         ? {
+            status: 'success' as const,
             endToEndNanoseconds: first.endToEndNanoseconds,
             phases: first.phases,
             resources: first.resources,
           }
-        : { failureReason: first.failureReason }),
+        : { status: 'failed' as const, failureReason: first.failureReason }),
     });
     assert.throws(
       () =>

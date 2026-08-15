@@ -781,6 +781,7 @@ export class LocalWhisperQualificationValidator {
     const actualModels = models.map((entry) => this.performanceModelIdentity(entry, code));
     const expectedModels = this.expectedPerformanceModels();
     const sourceProof = asRecord(document.sourceProof, code);
+    const qualificationCache = asRecord(document.qualificationCache, code);
     const worktrees = asRecord(document.worktrees, code);
     const beforeWorktree = asRecord(worktrees.before, code);
     const afterWorktree = asRecord(worktrees.after, code);
@@ -824,6 +825,15 @@ export class LocalWhisperQualificationValidator {
       afterReceipt.sourceProofDigest !== document.sourceProofDigest ||
       beforeReceipt.instrumentationOverlaySha256 !== afterReceipt.instrumentationOverlaySha256 ||
       sourceProof.sha256 !== document.sourceProofDigest ||
+      !SHA256_PATTERN.test(String(qualificationCache.snapshotDigest)) ||
+      !SHA256_PATTERN.test(String(qualificationCache.evidenceIdentityDigest)) ||
+      !Number.isSafeInteger(qualificationCache.entryCount) ||
+      (qualificationCache.entryCount as number) < 1 ||
+      !Number.isSafeInteger(qualificationCache.fileCount) ||
+      (qualificationCache.fileCount as number) < 1 ||
+      (qualificationCache.fileCount as number) > (qualificationCache.entryCount as number) ||
+      !Number.isSafeInteger(qualificationCache.sizeBytes) ||
+      (qualificationCache.sizeBytes as number) < 1 ||
       cache.procedure !== expectedProcedure ||
       asRecord(beforeReceipt.executableArtifactIdentity, code).sha256 !== beforeApplication.sha256 ||
       asRecord(beforeReceipt.executableArtifactIdentity, code).sizeBytes !== beforeApplication.sizeBytes ||

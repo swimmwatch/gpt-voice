@@ -91,15 +91,22 @@ export interface PerformanceAttemptRequest {
   readonly pairIndex: number;
   readonly runOrder: 'beforeThenAfter' | 'afterThenBefore';
   readonly side: PerformanceSide;
-  readonly runtimePath: string;
-  readonly modelPath: string;
-  readonly inputFixturePath: string;
+  readonly runtimeArtifact: PerformanceAttemptArtifactReference;
+  readonly modelArtifact: PerformanceAttemptArtifactReference;
+  readonly inputFixture: PerformanceAttemptArtifactReference;
   readonly requiredPhaseIds: PerformanceQualificationManifest['requiredPhaseIds'];
   readonly derivedSourceReceiptDigest: string;
 }
 
+export interface PerformanceAttemptArtifactReference {
+  readonly absolutePath: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+}
+
 export interface PerformanceAttemptProcessSession {
   readonly rootPid: number;
+  readonly eventStream: NodeJS.ReadableStream;
   complete(): Promise<Buffer>;
   terminate(): Promise<void>;
 }
@@ -140,6 +147,7 @@ export interface PerformanceResourcePort {
       readonly backend: PerformanceBackend;
       readonly expectedExecutableSha256: string;
       readonly requiredResourceIds: readonly LocalWhisperPerformanceResourceId[];
+      readonly eventStream: NodeJS.ReadableStream;
     }>,
   ): PerformanceResourceSession;
 }
@@ -274,7 +282,6 @@ function validateResourceProof(
     throw new PerformanceCollectionError('RESOURCE_ATTRIBUTION_INVALID');
   }
   const pids = new Set<number>();
-  const startIdentities = new Set<string>();
   for (const [index, registration] of proof.roleRegistrations.entries()) {
     if (
       !isRecord(registration) ||
@@ -282,16 +289,16 @@ function validateResourceProof(
       registration.role !== PERFORMANCE_PROCESS_ROLES[index] ||
       !safeInteger(registration.pid, 2) ||
       (index === 0 && registration.pid !== input.rootPid) ||
+      typeof registration.processStartIdentity !== 'string' ||
       !PROCESS_START_IDENTITY.test(registration.processStartIdentity) ||
-      registration.executableSha256 !== input.expectedExecutableSha256 ||
+      typeof registration.executableSha256 !== 'string' ||
+      (index === 0 && registration.executableSha256 !== input.expectedExecutableSha256) ||
       !SHA256.test(registration.executableSha256) ||
-      pids.has(registration.pid) ||
-      startIdentities.has(registration.processStartIdentity)
+      pids.has(registration.pid)
     ) {
       throw new PerformanceCollectionError('RESOURCE_ROLE_ATTRIBUTION_INVALID');
     }
     pids.add(registration.pid);
-    startIdentities.add(registration.processStartIdentity);
   }
   const resources: PerformanceResourceMeasurement[] = [];
   for (const [index, resource] of proof.resources.entries()) {
@@ -487,9 +494,21 @@ export class LocalWhisperPerformanceCollector {
           pairIndex: input.pairIndex,
           runOrder: input.runOrder,
           side: input.side,
-          runtimePath: input.runtime.absolutePath,
-          modelPath: input.preparedModel.artifact.absolutePath,
-          inputFixturePath: input.prepared.inputFixture.absolutePath,
+          runtimeArtifact: Object.freeze({
+            absolutePath: input.runtime.absolutePath,
+            sizeBytes: input.runtime.identity.sizeBytes,
+            sha256: input.runtime.identity.sha256,
+          }),
+          modelArtifact: Object.freeze({
+            absolutePath: input.preparedModel.artifact.absolutePath,
+            sizeBytes: input.preparedModel.artifact.identity.sizeBytes,
+            sha256: input.preparedModel.artifact.identity.sha256,
+          }),
+          inputFixture: Object.freeze({
+            absolutePath: input.prepared.inputFixture.absolutePath,
+            sizeBytes: input.prepared.inputFixture.identity.sizeBytes,
+            sha256: input.prepared.inputFixture.identity.sha256,
+          }),
           requiredPhaseIds: input.manifest.requiredPhaseIds,
           derivedSourceReceiptDigest:
             input.manifest.derivedSourceReceipts[input.side].performanceDerivedSourceReceiptDigest,
@@ -500,6 +519,7 @@ export class LocalWhisperPerformanceCollector {
         backend: input.manifest.backend,
         expectedExecutableSha256: input.application.identity.sha256,
         requiredResourceIds: input.manifest.requiredResourceIds,
+        eventStream: processSession.eventStream,
       });
       resourceSession = this.ports.resources.start(resourceInput);
       const output = await processSession.complete();

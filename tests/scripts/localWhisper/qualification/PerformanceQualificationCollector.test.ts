@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
+import { Readable } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
@@ -81,6 +82,13 @@ function plan(
     baselineCommit,
     candidateCommit,
     sourceProof: artifact('proof/source.json', sourceProofDigest),
+    qualificationCache: {
+      snapshotDigest: '1'.repeat(64),
+      evidenceIdentityDigest: '2'.repeat(64),
+      entryCount: 2,
+      fileCount: 1,
+      sizeBytes: 1,
+    },
     worktrees: {
       before: { relativePath: 'parents/before', commit: baselineCommit },
       after: { relativePath: 'parents/after', commit: candidateCommit },
@@ -195,6 +203,7 @@ function output(request: PerformanceAttemptRequest): Buffer {
 
 class FakeProcessSession implements PerformanceAttemptProcessSession {
   public readonly rootPid: number;
+  public readonly eventStream = Readable.from([]);
   public terminated = false;
 
   public constructor(
@@ -268,7 +277,7 @@ class FakeResourceSession implements PerformanceResourceSession {
     if (this.failure === 'wrongExecutable') {
       roleRegistrations = Object.freeze(
         roleRegistrations.map((registration, index) =>
-          index === 2 ? Object.freeze({ ...registration, executableSha256: 'f'.repeat(64) }) : registration,
+          index === 0 ? Object.freeze({ ...registration, executableSha256: 'f'.repeat(64) }) : registration,
         ),
       );
     }

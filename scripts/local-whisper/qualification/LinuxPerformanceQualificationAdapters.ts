@@ -6,7 +6,7 @@ import { execFile } from 'node:child_process';
 
 import { withVerifiedRegularFile } from '@scripts/security/verifiedRegularFile';
 
-import { LinuxResourceSampler } from './LinuxResourceSampler';
+import { LinuxPerformanceResourceSampler } from './LinuxPerformanceResourceSampler';
 import {
   PerformanceCollectionError,
   type PerformanceAttemptRequest,
@@ -196,6 +196,7 @@ function killOwnedProcessGroup(child: ChildProcessWithoutNullStreams): void {
 
 class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcessSession {
   public readonly rootPid: number;
+  public readonly eventStream: NodeJS.ReadableStream;
   private readonly result: Promise<Buffer>;
 
   public constructor(
@@ -208,7 +209,13 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
       killOwnedProcessGroup(child);
       throw new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED');
     }
+    const eventStream = child.stdio[3] as NodeJS.ReadableStream | null;
+    if (!eventStream) {
+      killOwnedProcessGroup(child);
+      throw new PerformanceCollectionError('ATTEMPT_EVENT_CHANNEL_UNAVAILABLE');
+    }
     this.rootPid = child.pid;
+    this.eventStream = eventStream;
     this.result = new Promise<Buffer>((resolve, reject) => {
       const stdout: Buffer[] = [];
       let stdoutBytes = 0;
@@ -277,7 +284,7 @@ export class LinuxPerformanceAttemptProcessAdapter implements PerformanceAttempt
       detached: true,
       env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
       shell: false,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
     return new LinuxPerformanceAttemptProcessSession(child, input.request, input.timeoutMilliseconds, input.signal);
@@ -392,12 +399,11 @@ export class LinuxPerformanceCachePreparationAdapter implements PerformanceCache
 }
 
 class LinuxPerformanceResourceSession implements PerformanceResourceSession {
-  public constructor(private readonly session: ReturnType<LinuxResourceSampler['start']>) {}
+  public constructor(private readonly session: ReturnType<LinuxPerformanceResourceSampler['start']>) {}
 
   public async finish(): Promise<PerformanceResourceProof> {
     await this.session.ready;
-    await this.session.finish();
-    throw new PerformanceCollectionError('RESOURCE_ROLE_ATTRIBUTION_UNAVAILABLE');
+    return await this.session.finish();
   }
 
   public terminate(): void {
@@ -406,12 +412,17 @@ class LinuxPerformanceResourceSession implements PerformanceResourceSession {
 }
 
 export class LinuxPerformanceResourceAdapter implements PerformanceResourcePort {
-  public constructor(private readonly sampler: LinuxResourceSampler) {}
+  public constructor(private readonly sampler: LinuxPerformanceResourceSampler) {}
 
-  public start(
-    input: Readonly<{ readonly rootPid: number; readonly backend: PerformanceBackend }>,
-  ): PerformanceResourceSession {
-    return new LinuxPerformanceResourceSession(this.sampler.start(input.rootPid, input.backend));
+  public start(input: Parameters<PerformanceResourcePort['start']>[0]): PerformanceResourceSession {
+    return new LinuxPerformanceResourceSession(
+      this.sampler.start({
+        rootPid: input.rootPid,
+        backend: input.backend,
+        expectedMainExecutableSha256: input.expectedExecutableSha256,
+        eventStream: input.eventStream,
+      }),
+    );
   }
 }
 

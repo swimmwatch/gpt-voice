@@ -128,6 +128,7 @@ function countOccurrences(value: string, marker: string): number {
 export interface QualificationSourceBaselineEvidence {
   readonly sourceRevision: string;
   readonly sourceProofDigest: string;
+  readonly sourceProofBytes: Buffer;
   readonly fullModelHashes: Readonly<{ readonly linux: number; readonly win32: number }>;
 }
 
@@ -162,17 +163,20 @@ export class LocalWhisperQualificationSourceBaselineVerifier {
     ) {
       throw new Error('QUALIFICATION_SOURCE_HASH_COUNT_DRIFT');
     }
-    const sourceProofDigest = digest(
+    const sourceProofBytes = Buffer.from(
       JSON.stringify({
         sourceRevision: LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION,
         files: SOURCE_FILES.map(({ path: filePath }) => ({ path: filePath, sha256: actualDigests.get(filePath) })),
         proofPoints: PROOF_POINTS.map(({ id, path: filePath, platforms }) => ({ id, path: filePath, platforms })),
         counts,
       }),
+      'utf8',
     );
+    const sourceProofDigest = createHash('sha256').update(sourceProofBytes).digest('hex');
     return Object.freeze({
       sourceRevision: LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION,
       sourceProofDigest,
+      sourceProofBytes,
       fullModelHashes: Object.freeze(counts),
     });
   }
