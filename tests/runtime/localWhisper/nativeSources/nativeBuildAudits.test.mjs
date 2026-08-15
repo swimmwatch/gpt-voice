@@ -27,21 +27,40 @@ import {
 } from '../../../../scripts/local-whisper/native-build/native-toolchain-evidence-core.mjs';
 import { readSanitizerFixtureIdentity } from '../../../../scripts/local-whisper/native-build/qualification-fixture-core.mjs';
 import {
+  auditGeneratedBuildGraph,
   captureToolchainInputLock,
   qualifyToolchainProfile,
   resolveProfileTool,
 } from '../../../../scripts/local-whisper/native-build/native-toolchain-core.mjs';
 import {
+  assertPinnedWhisperCppPerformanceSources,
+  assertWhisperCppPerformanceProfile,
+  assertWhisperCppPerformanceProfileText,
+  PERFORMANCE_OPTION_INVENTORY_DIGEST,
+  PERFORMANCE_PROFILE_IDS,
+} from '../../../../scripts/local-whisper/native-build/whisper-cpp-performance-options.mjs';
+import {
   canonicalDigest,
   readJson,
   sha256,
+  verifyMaterializedSource,
 } from '../../../../scripts/local-whisper/source-import/native-source-core.mjs';
 import { getSourceDefinition } from '../../../../scripts/local-whisper/source-import/source-definitions.mjs';
 import { runNetworkIsolatedSelfTest } from '../../../../scripts/local-whisper/verify-whisper-cpp-cpu.mjs';
+import { buildIdentity } from '../../../../scripts/local-whisper/whisper-cpp-build-core.mjs';
 
 const workspaceRoot = resolve(import.meta.dirname, '..', '..', '..', '..');
 const toolchainRoot = resolve(workspaceRoot, 'runtime', 'local-whisper', 'toolchains');
 const dependencyFixtureRoot = resolve(toolchainRoot, 'fixtures', 'dependency-closure');
+const performanceProfilesRoot = resolve(toolchainRoot, 'profiles');
+const whisperCppSourceLockPath = resolve(
+  workspaceRoot,
+  'runtime',
+  'local-whisper',
+  'sources',
+  'locks',
+  'whisper-cpp-v1.9.1-f049fff.json',
+);
 const EMPTY_SHA256 = sha256(Buffer.alloc(0));
 const RUNNER_EVIDENCE_EMITTER = resolve(
   workspaceRoot,
@@ -57,6 +76,85 @@ const WINDOWS_NETWORK_DENIED_RUNNER = resolve(
   'native-build',
   'windows-network-denied-runner.mjs',
 );
+
+function performanceProfile(profileId) {
+  return readJson(resolve(performanceProfilesRoot, `${profileId}.json`));
+}
+
+function syntheticCmakeCache(profile, overrides = {}) {
+  const omitted = new Set(overrides.omitted ?? []);
+  const lines = Object.entries(profile.cmakeCache)
+    .filter(([name, value]) => !omitted.has(name) && !value.startsWith('toolchainRoot:'))
+    .map(([name, value]) => `${name}:STRING=${overrides.values?.[name] ?? value}`);
+  lines.push(...(overrides.extra ?? []));
+  return `${lines.join('\n')}\n`;
+}
+
+test('pinned whisper.cpp performance options are source-consumed and profile-exact', () => {
+  const sourceLock = readJson(whisperCppSourceLockPath);
+  const sourceRoot = verifyMaterializedSource(
+    resolve(workspaceRoot, '.cache', 'local-whisper', 'native-sources'),
+    sourceLock,
+  );
+  const sourceFiles = sourceLock.manifest
+    .filter(({ path }) => path.endsWith('CMakeLists.txt') || path.endsWith('.cmake'))
+    .map(({ path, sha256: sourceSha256 }) => ({
+      path,
+      sha256: sourceSha256,
+      text: readFileSync(resolve(sourceRoot, ...path.split('/')), 'utf8'),
+    }));
+  assert.equal(assertPinnedWhisperCppPerformanceSources(sourceLock, sourceFiles), PERFORMANCE_OPTION_INVENTORY_DIGEST);
+  for (const profileId of PERFORMANCE_PROFILE_IDS) {
+    assertWhisperCppPerformanceProfileText(readFileSync(resolve(performanceProfilesRoot, `${profileId}.json`), 'utf8'));
+  }
+});
+
+test('performance option audits reject missing, duplicated, unknown, ignored, and drifted values', () => {
+  const profile = performanceProfile('windows-x64-cpu-msvc-19.51-v1');
+  const missing = globalThis.structuredClone(profile);
+  delete missing.cmakeCache.GGML_AVX2;
+  assert.throws(() => assertWhisperCppPerformanceProfile(missing), /option missing/u);
+
+  const unknown = globalThis.structuredClone(profile);
+  unknown.cmakeCache.GGML_FUTURE_SWITCH = 'OFF';
+  assert.throws(() => assertWhisperCppPerformanceProfile(unknown), /option unknown/u);
+
+  const drifted = globalThis.structuredClone(profile);
+  drifted.cmakeCache.GGML_AVX2 = 'ON';
+  assert.throws(() => assertWhisperCppPerformanceProfile(drifted), /option drifted/u);
+  assert.notEqual(buildIdentity(profile.profileId, profile), buildIdentity(profile.profileId, drifted));
+
+  const profileText = readFileSync(resolve(performanceProfilesRoot, `${profile.profileId}.json`), 'utf8');
+  const duplicatedText = profileText.replace('"GGML_AVX2": "OFF",', '"GGML_AVX2": "OFF",\n    "GGML_AVX2": "OFF",');
+  assert.throws(() => assertWhisperCppPerformanceProfileText(duplicatedText), /option duplicated/u);
+
+  const buildRoot = mkdtempSync(resolve(tmpdir(), 'local-whisper-performance-cache-'));
+  try {
+    writeFileSync(resolve(buildRoot, 'build.ninja'), '# profile option audit fixture\n');
+    writeFileSync(resolve(buildRoot, 'CMakeCache.txt'), syntheticCmakeCache(profile));
+    auditGeneratedBuildGraph(buildRoot, profile);
+
+    writeFileSync(resolve(buildRoot, 'CMakeCache.txt'), syntheticCmakeCache(profile, { omitted: ['GGML_AVX2'] }));
+    assert.throws(() => auditGeneratedBuildGraph(buildRoot, profile), /GGML_AVX2: missing/u);
+
+    writeFileSync(resolve(buildRoot, 'CMakeCache.txt'), syntheticCmakeCache(profile, { values: { GGML_AVX2: 'ON' } }));
+    assert.throws(() => auditGeneratedBuildGraph(buildRoot, profile), /changed GGML_AVX2/u);
+
+    writeFileSync(
+      resolve(buildRoot, 'CMakeCache.txt'),
+      syntheticCmakeCache(profile, { extra: ['GGML_AVX2:BOOL=OFF'] }),
+    );
+    assert.throws(() => auditGeneratedBuildGraph(buildRoot, profile), /Duplicate effective CMake cache option/u);
+
+    writeFileSync(
+      resolve(buildRoot, 'CMakeCache.txt'),
+      syntheticCmakeCache(profile, { extra: ['GGML_FUTURE_SWITCH:BOOL=ON'] }),
+    );
+    assert.throws(() => auditGeneratedBuildGraph(buildRoot, profile), /Unknown enabled GGML/u);
+  } finally {
+    rmSync(buildRoot, { force: true, recursive: true });
+  }
+});
 
 function hasElevatedWindowsToken() {
   if (process.platform !== 'win32') return false;

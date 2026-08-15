@@ -6,7 +6,7 @@ import process from 'node:process';
 
 import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
 import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
-import { removeTaskOwnedTree, taskCacheRoot } from './whisper-cpp-build-core.mjs';
+import { buildIdentity, removeTaskOwnedTree, requireProfile, taskCacheRoot } from './whisper-cpp-build-core.mjs';
 
 export const WINDOWS_CPU_PROFILE = 'windows-x64-cpu-msvc-19.51-v1';
 export const WINDOWS_CUDA_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
@@ -47,13 +47,18 @@ export function auditWindows(profileId) {
   }
   const backend = profileId === WINDOWS_CUDA_PROFILE ? 'cuda' : 'cpu';
   const root = resolve(taskCacheRoot, 'stage', profileId);
+  const profile = requireProfile(profileId);
   const expected = readJson(resolve(root, 'expected-files.json'));
   const manifest = readJson(resolve(root, 'runtime-manifest.json'));
+  const provenance = readJson(resolve(root, 'provenance.json'));
   assert.equal(expected.schemaId, 'local-whisper-expected-files-v1');
   assert.equal(manifest.profileId, profileId);
   assert.equal(manifest.platform, 'win32');
   assert.equal(manifest.architecture, 'x64');
   assert.equal(manifest.backend, backend);
+  assert.equal(manifest.runtimeBuildDigest, buildIdentity(profileId, profile));
+  assert.equal(provenance.profileInputDigest, canonicalDigest(profile));
+  assert.equal(provenance.runtimeBuildDigest, manifest.runtimeBuildDigest);
   assert.equal(manifest.payloadManifestSha256, canonicalDigest(expected.files));
   const expectedPaths = [
     ...expected.files.map((file) => file.relativePath),

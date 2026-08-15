@@ -11,6 +11,7 @@ import {
   WHISPER_LINK_SMOKE_FIXTURE_ID,
 } from './qualification-fixture-core.mjs';
 import { qualificationInputDigest, verifyQualificationEvidence } from './native-toolchain-evidence-core.mjs';
+import { assertWhisperCppPerformanceProfile } from './whisper-cpp-performance-options.mjs';
 
 const WINDOWS_PROFILE_IDS = new Set([
   'windows-x64-cpu-msvc-19.51-v1',
@@ -65,6 +66,7 @@ function assertUnique(items, key, label) {
 
 function assertWhisperCache(profile) {
   if (profile.profileId.includes('clang-18.1.3')) return;
+  assertWhisperCppPerformanceProfile(profile);
   for (const [key, value] of Object.entries(REQUIRED_WHISPER_CACHE)) {
     if (profile.cmakeCache[key] !== value) throw new Error(`Native toolchain cache must set ${key}=${value}`);
   }
@@ -548,6 +550,7 @@ export function resolveProfileComponent(component, toolchainRoot, outputRoot = n
 }
 
 export function auditGeneratedBuildGraph(buildRoot, profile) {
+  assertWhisperCppPerformanceProfile(profile);
   const cachePath = resolve(buildRoot, 'CMakeCache.txt');
   const graphPath = resolve(buildRoot, 'build.ninja');
   const cacheText = readFileSync(cachePath, 'utf8');
@@ -555,7 +558,10 @@ export function auditGeneratedBuildGraph(buildRoot, profile) {
   const effectiveCache = new Map();
   for (const line of cacheText.split(/\r?\n/u)) {
     const match = /^([^#/:][^:]*):[^=]+=(.*)$/u.exec(line);
-    if (match) effectiveCache.set(match[1], match[2]);
+    if (match) {
+      if (effectiveCache.has(match[1])) throw new Error(`Duplicate effective CMake cache option: ${match[1]}`);
+      effectiveCache.set(match[1], match[2]);
+    }
   }
   for (const [key, configured] of Object.entries(profile.cmakeCache)) {
     const expected = configured.startsWith('toolchainRoot:') ? null : configured;
