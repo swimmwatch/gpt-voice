@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 function readProjectFile(relativePath: string): string {
-  return readFileSync(path.join(PROJECT_ROOT, relativePath), 'utf8');
+  return readFileSync(path.join(PROJECT_ROOT, relativePath), 'utf8').replace(/\r\n/gu, '\n');
 }
 
 describe('main translation Select controls', () => {
