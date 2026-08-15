@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process';
+import { execFile, spawn, type SpawnOptions } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
 import { mkdir, readFile } from 'node:fs/promises';
@@ -24,10 +24,15 @@ import { LinuxResourceSampler } from './LinuxResourceSampler';
 import { ProductionApplicationQualificationRunner } from './ProductionApplicationQualificationRunner';
 import { QualificationArtifactHttpClient } from './QualificationArtifactHttpClient';
 import type { QualificationLinuxRowEvidence } from './QualificationResultProducer';
+import {
+  QualificationWorkerProtocolObserver,
+  type QualificationWorkerProtocolObservation,
+} from './QualificationWorkerProtocolObserver';
 
 const execFileAsync = promisify(execFile);
 const NVIDIA_SMI_MAXIMUM_BUFFER_BYTES = 16 * 1024;
 const NVIDIA_SMI_TIMEOUT_MILLISECONDS = 10_000;
+const MODEL_LAUNCH_ARGUMENT = '--local-whisper-model-launch-v1';
 
 export interface LinuxApplicationQualificationExecutionInput {
   readonly bundleDirectory: string;
@@ -122,6 +127,16 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
       pathExists: fs.existsSync,
       command: nvidiaCommand,
     });
+    let protocolObservation: QualificationWorkerProtocolObservation | null = null;
+    const observedSpawn = ((command: string, arguments_: readonly string[], options: SpawnOptions) => {
+      const child = spawn(command, arguments_, options);
+      if (arguments_.includes(MODEL_LAUNCH_ARGUMENT) && child.stdout) {
+        new QualificationWorkerProtocolObserver((observation) => {
+          protocolObservation = observation;
+        }).observe(child.stdout);
+      }
+      return child;
+    }) as typeof spawn;
     const application = new ProductionApplicationQualificationRunner({
       createEnvironment: (onSessionProcessLaunched) =>
         new ProductionLocalWhisperEnvironmentFactory(
@@ -175,7 +190,7 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
             randomBytes: (size) => randomBytes(size),
             readFile: async (filePath) => await readFile(filePath),
             resourcesPath: execution.packages.resourcesPath,
-            spawnProcess: spawn,
+            spawnProcess: observedSpawn,
           },
           {
             activationPurpose: 'qualification',
@@ -189,10 +204,21 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
         await wait(milliseconds);
       },
     });
-    return await application.run({
-      ...execution.loaded.application,
-      predecessorPassed: execution.predecessorPassed,
-      stopArtifactServer: execution.stopArtifactServer,
-    });
+    try {
+      return await application.run({
+        ...execution.loaded.application,
+        predecessorPassed: execution.predecessorPassed,
+        stopArtifactServer: execution.stopArtifactServer,
+      });
+    } catch (error) {
+      if (protocolObservation && error instanceof Error && error.message.includes('WORKER_PROTOCOL_VIOLATION')) {
+        const observation: QualificationWorkerProtocolObservation = protocolObservation;
+        throw new Error(
+          `Qualification worker protocol diagnostic:${observation.stage}:${observation.messageType}:${observation.fieldNames.join(',')}`,
+          { cause: error },
+        );
+      }
+      throw error;
+    }
   }
 }
