@@ -1,7 +1,7 @@
 # Local Whisper Performance Remediation Handoff
 
-- Completed packets: Packet 01; Packet 02 local implementation and non-manual verification complete, but its commit,
-  push, and required CI result remain open
+- Completed packets: Packets 01-02; Packet 02 implementation is committed and pushed as
+  `db85c43e78995710772b0ac6e6e113a0250ce4b5`
 - Packet 02 changes: `ManagedArtifactStore` returns one operation-scoped acquisition result containing the held lease
   and validated entries; model launch reuses that entry once, keeps later fresh inspection/identity checks, and
   releases authority on every acquisition or revalidation failure
@@ -12,10 +12,17 @@
   hashes move from Linux 8 / Windows 7 to Linux 7 / Windows 6
 - Checks successful: native filesystem build and 47 filesystem tests, 131 composition tests, 17 performance contract
   tests plus runner/workflow policies, focused Linux adapter integration, cross-platform store contracts, lint,
-  typecheck, test typecheck, formatting, and `git diff --check`; the real Windows adapter test remains CI-only on Linux
-- Next action: commit only Packet 02 in the next incremental invocation, then obtain the required exact-SHA checks
-  outside this skill's no-push boundary: `Quality Gates`, `Local Whisper Performance (Linux)`, and
-  `Local Whisper Performance (Windows)`; Packet 03 remains blocked until that green result is recorded
+  typecheck, test typecheck, formatting, and `git diff --check`
+- Exact-SHA CI: Pull Request Checks run
+  [31878175958](https://github.com/swimmwatch/gpt-voice/actions/runs/31878175958) completed successfully for `db85c43e`;
+  [Quality Gates 94997073731](https://github.com/swimmwatch/gpt-voice/actions/runs/31878175958/job/94997073731),
+  [Linux performance 94996890903](https://github.com/swimmwatch/gpt-voice/actions/runs/31878175958/job/94996890903), and
+  [Windows performance 94996937634](https://github.com/swimmwatch/gpt-voice/actions/runs/31878175958/job/94996937634)
+  all completed with `success`
+- Supporting CI: JavaScript/TypeScript CodeQL job `94996849949`, Windows native-quality job `94998805407`, Linux
+  native-quality job `94999091849`, Repository Security run `31878175959`, Dependency Review run `31878175944`,
+  Fixture Packaging run `31878175929`, and workflow-lint run `31878175928` all completed with `success`
+- Next action: Packet 03, [Runtime SHA-256 dispatch](03_runtime_sha256_dispatch.md); it has not been started
 - Remaining manual gates: none for Packet 02; representative-host evidence remains deferred to Packets 13 and 14
-- Local branch state before Packet 02 review: prior local commits `4f606b3b` and `ec0f1c76` remain unpushed; Packet 02
-  implementation and ledger changes remain uncommitted
+- Local branch state after Packet 02 completion: implementation commit `db85c43e` is pushed; this post-CI checklist
+  and handoff update remains uncommitted
