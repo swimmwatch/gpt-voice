@@ -352,8 +352,18 @@ describe('Local Whisper settings contracts', () => {
 
   it('keeps prompt content private in cache contexts while comparing its injected digest', () => {
     const settings = defaultSettings();
+    assert.equal(settings.execution.target, 'gpu');
+    if (settings.execution.target !== 'gpu') return;
+    const gpuExecution = settings.execution;
     const withPrompt = { ...settings, initialPrompt: 'private-prompt-canary' } as LocalWhisperSettings;
-    const build = (promptSettings: LocalWhisperSettings) =>
+    const build = (
+      promptSettings: LocalWhisperSettings,
+      identity: {
+        readonly resolvedCpuThreads?: number;
+        readonly logicalProcessorTopologyGeneration?: number;
+        readonly configurationEpoch?: number;
+      } = {},
+    ) =>
       new LocalWhisperCacheContext({
         settings: promptSettings,
         modelIdentity: {
@@ -367,7 +377,9 @@ describe('Local Whisper settings contracts', () => {
         protocolRevision: 'protocol-v1',
         mappingRevision: 'mapping-v1',
         deviceClass: 'nvidia-cuda',
-        resolvedCpuThreads: null,
+        resolvedCpuThreads: identity.resolvedCpuThreads ?? 8,
+        logicalProcessorTopologyGeneration: identity.logicalProcessorTopologyGeneration ?? 3,
+        configurationEpoch: identity.configurationEpoch ?? 7,
         digestPrompt: (prompt) => `digest:${prompt.length}`,
       });
     const first = build(withPrompt);
@@ -375,6 +387,22 @@ describe('Local Whisper settings contracts', () => {
     const different = build({ ...withPrompt, initialPrompt: 'different' });
     assert.equal(first.equals(same), true);
     assert.equal(first.equals(different), false);
+    assert.equal(
+      first.equals(
+        build({
+          ...withPrompt,
+          execution: { ...gpuExecution, gpuCpuThreads: 8 },
+        }),
+      ),
+      false,
+    );
+    assert.equal(first.equals(build(withPrompt, { resolvedCpuThreads: 7 })), false);
+    assert.equal(first.equals(build(withPrompt, { logicalProcessorTopologyGeneration: 4 })), false);
+    assert.equal(first.equals(build(withPrompt, { configurationEpoch: 8 })), false);
+    assert.throws(
+      () => build({ ...withPrompt, execution: { ...gpuExecution, gpuCpuThreads: 4 } }, { resolvedCpuThreads: 8 }),
+      /execution identity/u,
+    );
     assert.doesNotMatch(first.toDebugString(), /private-prompt-canary|digest:/);
     assert.doesNotMatch(JSON.stringify(first.toPublicSnapshot()), /private-prompt-canary|digest:/);
   });

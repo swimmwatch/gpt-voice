@@ -1,4 +1,5 @@
 import {
+  areLocalWhisperResidencyKeysEqual,
   LOCAL_WHISPER_FAILURE_DESCRIPTORS,
   LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
@@ -183,15 +184,7 @@ function sameModelIdentity(left: LocalWhisperResidencyKey['model'], right: Local
 }
 
 function sameResidency(left: LocalWhisperResidencyKey, right: LocalWhisperResidencyKey): boolean {
-  return (
-    left.engine === right.engine &&
-    left.runtimePackRevision === right.runtimePackRevision &&
-    left.target === right.target &&
-    left.backend === right.backend &&
-    left.deviceId === right.deviceId &&
-    sameModelIdentity(left.model, right.model) &&
-    left.resolvedCpuThreads === right.resolvedCpuThreads
-  );
+  return areLocalWhisperResidencyKeysEqual(left, right);
 }
 
 function sameDeviceBinding(left: LocalWhisperWorkerDeviceBinding, right: LocalWhisperWorkerDeviceBinding): boolean {

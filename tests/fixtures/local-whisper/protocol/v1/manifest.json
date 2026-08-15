@@ -118,11 +118,14 @@
             "nativeFormat": "ggml",
             "variant": "full"
           },
-          "resolvedCpuThreads": null
+          "configuredGpuCpuThreads": "auto",
+          "resolvedCpuThreads": 4,
+          "logicalProcessorTopologyGeneration": 3,
+          "configurationEpoch": 7
         }
       },
       "binaryFile": "control/load.bin",
-      "sha256": "ecc4e408e28c82973c05c859bb0760e3b9782c14cde03dabef3ff3324e6a701e"
+      "sha256": "4e7d78a7aaaa3664b59c9b7eb08204062a98b3a4f89d442b13f138651c1f3193"
     },
     {
       "name": "loaded",
@@ -162,12 +165,15 @@
             "nativeFormat": "ggml",
             "variant": "full"
           },
-          "resolvedCpuThreads": null
+          "configuredGpuCpuThreads": "auto",
+          "resolvedCpuThreads": 4,
+          "logicalProcessorTopologyGeneration": 3,
+          "configurationEpoch": 7
         },
         "selectedDeviceModelWeightBytes": 1048576
       },
       "binaryFile": "control/loaded.bin",
-      "sha256": "ae850f501e7cfe93c9d4da52a50a5adc0422f92044b7647275217d4b8dcff0b5"
+      "sha256": "84a8ef8d0f12a6423b792cdda053c86dad08a20e8e647064ee499c89460042de"
     },
     {
       "name": "loaded-cpu",
@@ -202,11 +208,14 @@
             "nativeFormat": "ggml",
             "variant": "full"
           },
-          "resolvedCpuThreads": 4
+          "configuredGpuCpuThreads": null,
+          "resolvedCpuThreads": 4,
+          "logicalProcessorTopologyGeneration": 3,
+          "configurationEpoch": 7
         }
       },
       "binaryFile": "control/loaded-cpu.bin",
-      "sha256": "9b282fa51bce9190d54a55b7c4290267e7ff771dd9f920d0c0b64ba8e6d93cbd"
+      "sha256": "bd440b012b1a388a55fd6e01f013fa9f7baef277c0652681838c36b1d52ef23a"
     },
     {
       "name": "warmup",
@@ -386,7 +395,7 @@
     {
       "name": "cpu-gpu-residency-mismatch",
       "binaryFile": "malformed/cpu-gpu-residency-mismatch.bin",
-      "sha256": "a522726253e97a650e76d4c5b7fae8c6675e098b2664041c4865cfd357f21d06"
+      "sha256": "010bda8fc8a068ffa1aaea3449fadda94b701919480f185fb35ed5772b6a1690"
     },
     {
       "name": "trailing-control-byte",

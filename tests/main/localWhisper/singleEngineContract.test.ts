@@ -10,6 +10,7 @@ import {
   LOCAL_WHISPER_ENGINES,
   LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
+  LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   isLocalWhisperEngine,
   isLocalWhisperModelIdentity,
   isLocalWhisperWorkerClientMessage,
@@ -35,7 +36,7 @@ const VALID_MODEL = Object.freeze({
 } as const);
 
 const VALID_SETTINGS = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
   engine: 'whisperCpp',
   runtimeRevision: RUNTIME_REVISION,
   model: Object.freeze({ family: 'base', revision: MODEL_REVISION, variant: 'full' }),
@@ -52,7 +53,10 @@ const VALID_RESIDENCY = Object.freeze({
   backend: 'cuda',
   deviceId: DEVICE_ID,
   model: VALID_MODEL,
-  resolvedCpuThreads: null,
+  configuredGpuCpuThreads: 'auto',
+  resolvedCpuThreads: 4,
+  logicalProcessorTopologyGeneration: 3,
+  configurationEpoch: 7,
 } as const);
 
 function context(): LocalWhisperSettingsValidationContext {

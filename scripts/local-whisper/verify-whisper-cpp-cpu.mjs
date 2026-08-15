@@ -35,6 +35,9 @@ import {
   workspaceRoot,
 } from './whisper-cpp-build-core.mjs';
 
+const CONFIGURATION_EPOCH = 1;
+const LOGICAL_PROCESSOR_TOPOLOGY_GENERATION = 0;
+
 function assertTaskOwned(path) {
   const child = relative(taskCacheRoot, path);
   if (child.length === 0 || child.startsWith('..') || isAbsolute(child))
@@ -384,7 +387,10 @@ async function loadIntegration(binary, includeCancellation) {
       backend: 'cpu',
       deviceId: null,
       model,
+      configuredGpuCpuThreads: null,
       resolvedCpuThreads: 2,
+      logicalProcessorTopologyGeneration: LOGICAL_PROCESSOR_TOPOLOGY_GENERATION,
+      configurationEpoch: CONFIGURATION_EPOCH,
     };
     worker.sendControl({
       type: 'load',

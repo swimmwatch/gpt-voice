@@ -60,8 +60,10 @@ TEST(CpuProbe, ExecutesBoundedBaselineComputeAndValidatesThreadRange) {
   EXPECT_GT(evidence.logical_processors, 0U);
   EXPECT_EQ(evidence.resolved_threads, 1U);
   EXPECT_NE(evidence.compute_digest, 0U);
+  const auto maximum = probe.run(kMaxLogicalProcessorCount);
+  EXPECT_EQ(maximum.resolved_threads, maximum.logical_processors);
   EXPECT_THROW(static_cast<void>(probe.run(0U)), CoreError);
-  EXPECT_THROW(static_cast<void>(probe.run(257U)), CoreError);
+  EXPECT_THROW(static_cast<void>(probe.run(kMaxLogicalProcessorCount + 1U)), CoreError);
 }
 
 } // namespace

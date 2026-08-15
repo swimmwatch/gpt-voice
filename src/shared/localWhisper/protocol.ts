@@ -14,7 +14,9 @@ import {
 } from './domain';
 import {
   getLocalWhisperPromptValidationError,
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_MAX_CANDIDATE_COUNT,
+  LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT,
   LOCAL_WHISPER_MAX_TEMPERATURE_HUNDREDTHS,
   LOCAL_WHISPER_MIN_CANDIDATE_COUNT,
   LOCAL_WHISPER_TEMPERATURE_STEP_HUNDREDTHS,
@@ -259,7 +261,10 @@ const RESIDENCY_KEYS = [
   'backend',
   'deviceId',
   'model',
+  'configuredGpuCpuThreads',
   'resolvedCpuThreads',
+  'logicalProcessorTopologyGeneration',
+  'configurationEpoch',
 ] as const;
 const CPU_DEVICE_BINDING_KEYS = ['kind'] as const;
 const GPU_INDEX_DEVICE_BINDING_KEYS = ['kind', 'index'] as const;
@@ -443,11 +448,26 @@ function isResidency(value: unknown): value is LocalWhisperResidencyKey {
   if (isCpu !== (value.backend === 'cpu') || isCpu !== (value.deviceId === null)) return false;
   if (value.deviceId !== null && toLocalWhisperOpaqueDeviceId(value.deviceId) === null) return false;
   if (
-    isCpu !==
-    (Number.isSafeInteger(value.resolvedCpuThreads) &&
-      (value.resolvedCpuThreads as number) >= 1 &&
-      (value.resolvedCpuThreads as number) <= 256)
+    !Number.isSafeInteger(value.resolvedCpuThreads) ||
+    (value.resolvedCpuThreads as number) < 1 ||
+    (value.resolvedCpuThreads as number) > LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT ||
+    !Number.isSafeInteger(value.logicalProcessorTopologyGeneration) ||
+    (value.logicalProcessorTopologyGeneration as number) < 0 ||
+    !Number.isSafeInteger(value.configurationEpoch) ||
+    (value.configurationEpoch as number) < 0
   ) {
+    return false;
+  }
+  if (isCpu) return value.configuredGpuCpuThreads === null;
+  if (
+    value.configuredGpuCpuThreads !== LOCAL_WHISPER_AUTO_CPU_THREADS &&
+    (!Number.isSafeInteger(value.configuredGpuCpuThreads) ||
+      (value.configuredGpuCpuThreads as number) < 1 ||
+      (value.configuredGpuCpuThreads as number) > LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT)
+  ) {
+    return false;
+  }
+  if (typeof value.configuredGpuCpuThreads === 'number' && value.configuredGpuCpuThreads !== value.resolvedCpuThreads) {
     return false;
   }
   return true;

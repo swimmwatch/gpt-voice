@@ -8,7 +8,9 @@ import {
   getLocalWhisperMemoryConfigurationKey,
   isLocalWhisperGpuBackend,
   isValidLocalWhisperPublicSettings,
+  LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT,
   LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+  resolveLocalWhisperCpuThreads,
   validateLocalWhisperSettings,
   type LocalWhisperArtifactAction,
   type LocalWhisperArtifactProgress,
@@ -67,7 +69,10 @@ import {
   PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
   createPackagedLocalWhisperCatalogTrustPolicy,
 } from '../catalog/LocalWhisperPackagedCatalog';
-import type { LocalWhisperCoordinatorDependencies } from '../coordinator/LocalWhisperCoordinatorTypes';
+import type {
+  LocalWhisperCoordinatorDependencies,
+  LocalWhisperCoordinatorEpochs,
+} from '../coordinator/LocalWhisperCoordinatorTypes';
 import { LinuxManagedFilesystemAdapter } from '../filesystem/LinuxManagedFilesystemAdapter';
 import { ManagedArtifactLockRepository } from '../filesystem/ManagedArtifactLockRepository';
 import { ManagedArtifactPathResolver } from '../filesystem/ManagedArtifactPathResolver';
@@ -607,7 +612,10 @@ function validationContext(
   return Object.freeze({
     platform: currentPlatform,
     architecture: currentArchitecture,
-    logicalProcessorCount: Math.max(1, Math.trunc(dependencies.logicalProcessorCount)),
+    logicalProcessorCount: Math.min(
+      LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT,
+      Math.max(1, Math.trunc(dependencies.logicalProcessorCount)),
+    ),
     knownDevices: Object.freeze([...knownDevices]),
     knownRuntimeSelections: Object.freeze(
       catalog.payload.runtimes
@@ -776,7 +784,15 @@ function capabilityFingerprint(
   catalog: LocalWhisperAuthenticatedCatalog,
   settings: LocalWhisperPublicSettings,
   inventoryRevision: number,
+  logicalProcessorCount: number,
+  epochs: Pick<LocalWhisperCoordinatorEpochs, 'configuration' | 'topology'>,
 ): string {
+  const execution = settings.execution;
+  const resolvedCpuThreads = resolveLocalWhisperCpuThreads(
+    execution.target === 'cpu' ? execution.cpuThreads : execution.gpuCpuThreads,
+    logicalProcessorCount,
+  );
+  if (resolvedCpuThreads === null) throw new Error('Local Whisper execution thread identity is invalid');
   return createHash('sha256')
     .update(
       JSON.stringify({
@@ -784,7 +800,11 @@ function capabilityFingerprint(
         inventoryRevision,
         runtimeRevision: settings.runtimeRevision,
         model: settings.model,
-        execution: settings.execution,
+        execution,
+        configuredGpuCpuThreads: execution.target === 'gpu' ? execution.gpuCpuThreads : null,
+        resolvedCpuThreads,
+        logicalProcessorTopologyGeneration: epochs.topology,
+        configurationEpoch: epochs.configuration,
       }),
     )
     .digest('hex');
@@ -1401,20 +1421,37 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 freeRamBytes: Math.max(0, Math.trunc(this.dependencies.availableMemoryBytes())),
                 freeVramBytes,
               },
-              capabilityFingerprint: capabilityFingerprint(loaded.catalog, request.settings, inventory.revision),
+              capabilityFingerprint: capabilityFingerprint(
+                loaded.catalog,
+                request.settings,
+                inventory.revision,
+                context.logicalProcessorCount,
+                request.epochs,
+              ),
             });
           },
         },
         workers: workerPort,
         artifacts: artifactPort,
         cache: {
-          context: (settings, epochs) =>
-            Object.freeze([
+          context: (settings, epochs) => {
+            const execution = settings.execution;
+            const resolvedCpuThreads = resolveLocalWhisperCpuThreads(
+              execution.target === 'cpu' ? execution.cpuThreads : execution.gpuCpuThreads,
+              context.logicalProcessorCount,
+            );
+            if (resolvedCpuThreads === null) throw new Error('Local Whisper execution thread identity is invalid');
+            return Object.freeze([
               String(loaded.catalog.payload.catalogRevision),
               String(settings.runtimeRevision ?? 'none'),
               String(settings.model.revision),
               String(epochs.inventory),
-            ]),
+              String(execution.target === 'gpu' ? execution.gpuCpuThreads : 'none'),
+              String(resolvedCpuThreads),
+              String(epochs.topology),
+              String(epochs.configuration),
+            ]);
+          },
         },
         inventory: {
           selectedSetup: (settings) => {

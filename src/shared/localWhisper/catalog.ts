@@ -117,7 +117,10 @@ export interface LocalWhisperResidencyKey {
   readonly backend: LocalWhisperBackend;
   readonly deviceId: LocalWhisperOpaqueDeviceId | null;
   readonly model: LocalWhisperModelIdentity;
-  readonly resolvedCpuThreads: number | null;
+  readonly configuredGpuCpuThreads: 'auto' | number | null;
+  readonly resolvedCpuThreads: number;
+  readonly logicalProcessorTopologyGeneration: number;
+  readonly configurationEpoch: number;
 }
 
 export interface LocalWhisperCapabilityFingerprint {
@@ -374,8 +377,18 @@ export function getLocalWhisperResidencyKey(identity: LocalWhisperResidencyKey):
     identity.model.artifactRevision,
     identity.model.nativeFormat,
     identity.model.variant,
-    identity.resolvedCpuThreads ?? 'none',
+    identity.configuredGpuCpuThreads ?? 'none',
+    identity.resolvedCpuThreads,
+    identity.logicalProcessorTopologyGeneration,
+    identity.configurationEpoch,
   ].join('|');
+}
+
+export function areLocalWhisperResidencyKeysEqual(
+  left: LocalWhisperResidencyKey,
+  right: LocalWhisperResidencyKey,
+): boolean {
+  return getLocalWhisperResidencyKey(left) === getLocalWhisperResidencyKey(right);
 }
 
 export function getLocalWhisperCapabilityFingerprintKey(fingerprint: LocalWhisperCapabilityFingerprint): string {

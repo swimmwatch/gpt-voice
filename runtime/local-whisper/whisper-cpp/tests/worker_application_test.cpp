@@ -315,7 +315,10 @@ nlohmann::json load_message() {
           {"artifactRevision", "test-artifact"},
           {"nativeFormat", "ggml"},
           {"variant", "full"}}},
-        {"resolvedCpuThreads", 1U}}},
+        {"configuredGpuCpuThreads", nullptr},
+        {"resolvedCpuThreads", 1U},
+        {"logicalProcessorTopologyGeneration", 3U},
+        {"configurationEpoch", 7U}}},
   };
 }
 
@@ -375,6 +378,19 @@ bool trace_contains(const std::vector<std::string>& trace, std::string_view valu
       return true;
   }
   return false;
+}
+
+TEST(WorkerApplication, RejectsInconsistentResidencyThreadIdentityBeforeModelLoad) {
+  Fixture fixture;
+  auto invalid_load = load_message();
+  invalid_load["residency"]["configuredGpuCpuThreads"] = "auto";
+  fixture.channel.controls = {hello(), std::move(invalid_load)};
+
+  EXPECT_EQ(fixture.run(), 10);
+  EXPECT_EQ(fixture.engine.load_calls, 0U);
+  ASSERT_FALSE(fixture.channel.sent.empty());
+  EXPECT_EQ(fixture.channel.sent.back().at("type"), "failure");
+  EXPECT_EQ(fixture.channel.sent.back().at("code"), "INVALID_SETTINGS");
 }
 
 TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine) {

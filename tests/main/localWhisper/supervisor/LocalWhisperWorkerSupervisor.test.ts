@@ -104,7 +104,10 @@ function selectedResidency(): LocalWhisperResidencyKey {
       nativeFormat: 'ggml',
       variant: 'full',
     },
-    resolvedCpuThreads: null,
+    configuredGpuCpuThreads: 'auto',
+    resolvedCpuThreads: 4,
+    logicalProcessorTopologyGeneration: 3,
+    configurationEpoch: 7,
   };
 }
 
@@ -121,7 +124,10 @@ function nativeOrderedResidency(value: LocalWhisperResidencyKey): LocalWhisperRe
       sourceCheckpointRevision: value.model.sourceCheckpointRevision,
       variant: value.model.variant,
     },
+    configuredGpuCpuThreads: value.configuredGpuCpuThreads,
     resolvedCpuThreads: value.resolvedCpuThreads,
+    logicalProcessorTopologyGeneration: value.logicalProcessorTopologyGeneration,
+    configurationEpoch: value.configurationEpoch,
     runtimePackRevision: value.runtimePackRevision,
     target: value.target,
   };

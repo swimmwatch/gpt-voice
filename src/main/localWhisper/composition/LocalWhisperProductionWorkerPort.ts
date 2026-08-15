@@ -1,4 +1,4 @@
-import type { LocalWhisperWorkerDeviceBinding } from '@shared/localWhisper';
+import { resolveLocalWhisperCpuThreads, type LocalWhisperWorkerDeviceBinding } from '@shared/localWhisper';
 import type {
   LocalWhisperCoordinatorWorkerPort,
   LocalWhisperCoordinatorWorkerResult,
@@ -218,6 +218,13 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
     if (!model || !model.compatibleRuntimePackRevisions.includes(runtime.identity.packRevision)) {
       return failure('MODEL_INCOMPATIBLE');
     }
+    const execution = request.settings.execution;
+    const configuredCpuThreads = execution.target === 'cpu' ? execution.cpuThreads : execution.gpuCpuThreads;
+    const resolvedCpuThreads = resolveLocalWhisperCpuThreads(
+      configuredCpuThreads,
+      this.dependencies.logicalProcessorCount,
+    );
+    if (resolvedCpuThreads === null) return failure('INVALID_SETTINGS');
     let challengeAuthority: LocalWhisperDeviceChallengeAuthority | null = null;
     let modelAuthority: Awaited<ReturnType<LocalWhisperModelLaunchAuthorityFactory['acquire']>> | null = null;
     try {
@@ -234,12 +241,10 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         backend: runtime.identity.backend,
         deviceId: request.settings.execution.target === 'gpu' ? request.settings.execution.deviceId : null,
         model: model.identity,
-        resolvedCpuThreads:
-          request.settings.execution.target === 'cpu'
-            ? request.settings.execution.cpuThreads === 'auto'
-              ? this.dependencies.logicalProcessorCount
-              : request.settings.execution.cpuThreads
-            : null,
+        configuredGpuCpuThreads: execution.target === 'gpu' ? execution.gpuCpuThreads : null,
+        resolvedCpuThreads,
+        logicalProcessorTopologyGeneration: request.epochs.topology,
+        configurationEpoch: request.epochs.configuration,
       });
       let loadRequest: Parameters<LocalWhisperWorkerLifecycle['startFullLoad']>[1];
       let revalidateAuthority: () => Promise<boolean>;

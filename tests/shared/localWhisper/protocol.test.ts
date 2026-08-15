@@ -18,6 +18,7 @@ import {
   isLocalWhisperWorkerClientMessage,
   isLocalWhisperWorkerServerMessage,
   type LocalWhisperWorkerControlMessage,
+  type LocalWhisperWorkerClientMessage,
 } from '@shared/localWhisper';
 import { LocalWhisperFrameCodec } from '@main/localWhisper/supervisor/LocalWhisperFrameCodec';
 
@@ -72,6 +73,23 @@ test('control messages round-trip with exact authority and proof schemas', () =>
 });
 
 test('client and server validators reject path, cross-domain, and stale authority shapes', () => {
+  const gpuLoad = manifest()
+    .control.map(({ message }) => message)
+    .find(
+      (message): message is Extract<LocalWhisperWorkerClientMessage, { readonly type: 'load' }> =>
+        message.type === 'load' && message.residency.target === 'gpu',
+    );
+  assert.ok(gpuLoad);
+  assert.equal(isLocalWhisperWorkerClientMessage(gpuLoad), true);
+  for (const residency of [
+    { ...gpuLoad.residency, configuredGpuCpuThreads: 4, resolvedCpuThreads: 8 },
+    { ...gpuLoad.residency, resolvedCpuThreads: 0 },
+    { ...gpuLoad.residency, resolvedCpuThreads: 65_537 },
+    { ...gpuLoad.residency, logicalProcessorTopologyGeneration: -1 },
+    { ...gpuLoad.residency, configurationEpoch: -1 },
+  ]) {
+    assert.equal(isLocalWhisperWorkerClientMessage({ ...gpuLoad, residency }), false);
+  }
   assert.equal(
     isLocalWhisperWorkerClientMessage({
       type: 'probe',

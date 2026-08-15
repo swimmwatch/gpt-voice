@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  areLocalWhisperResidencyKeysEqual,
   getLocalWhisperFamilyGuidance,
+  getLocalWhisperResidencyKey,
   hasCompleteLocalWhisperFamilyGuidance,
   isLocalWhisperMemoryEstimateRecord,
   isLocalWhisperModelIdentity,
@@ -9,10 +11,12 @@ import {
   LOCAL_WHISPER_FAMILY_MEMORY_GUIDANCE,
   LOCAL_WHISPER_MODEL_FAMILIES,
   toLocalWhisperArtifactId,
+  toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   validateLocalWhisperMemoryEstimateMatrix,
   type LocalWhisperArtifactId,
   type LocalWhisperMemoryConfigurationIdentity,
+  type LocalWhisperResidencyKey,
   type LocalWhisperRevisionId,
 } from '@shared/localWhisper';
 
@@ -186,5 +190,35 @@ describe('Local Whisper catalog contracts', () => {
       false,
     );
     assert.equal(isLocalWhisperRuntimeIdentity({ ...runtime, url: 'https://private.example' }), false);
+  });
+
+  it('compares residency across configured, resolved, topology, and configuration thread identity', () => {
+    const deviceId = toLocalWhisperOpaqueDeviceId('fixture-gpu');
+    assert.ok(deviceId);
+    const residency: LocalWhisperResidencyKey = Object.freeze({
+      engine: 'whisperCpp',
+      runtimePackRevision: revision('runtime-cuda-v1'),
+      target: 'gpu',
+      backend: 'cuda',
+      deviceId,
+      model: MODEL_IDENTITY,
+      configuredGpuCpuThreads: 'auto',
+      resolvedCpuThreads: 8,
+      logicalProcessorTopologyGeneration: 3,
+      configurationEpoch: 7,
+    });
+    assert.equal(areLocalWhisperResidencyKeysEqual(residency, { ...residency }), true);
+    const variations: readonly LocalWhisperResidencyKey[] = [
+      { ...residency, configuredGpuCpuThreads: 8 },
+      { ...residency, configuredGpuCpuThreads: 1, resolvedCpuThreads: 1 },
+      { ...residency, configuredGpuCpuThreads: 4, resolvedCpuThreads: 4 },
+      { ...residency, resolvedCpuThreads: 7 },
+      { ...residency, logicalProcessorTopologyGeneration: 4 },
+      { ...residency, configurationEpoch: 8 },
+    ];
+    for (const variation of variations) {
+      assert.equal(areLocalWhisperResidencyKeysEqual(residency, variation), false);
+    }
+    assert.equal(new Set([residency, ...variations].map(getLocalWhisperResidencyKey)).size, variations.length + 1);
   });
 });

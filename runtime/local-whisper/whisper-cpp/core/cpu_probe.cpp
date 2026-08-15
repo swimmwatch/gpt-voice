@@ -17,7 +17,8 @@ CpuProbeEvidence CpuProbe::run(std::uint32_t requested_threads) const {
   throw CoreError(FailureCode::not_ready, "CPU baseline requires x64");
 #endif
   const auto logical_processors = std::thread::hardware_concurrency();
-  if (logical_processors == 0U || requested_threads == 0U || requested_threads > 256U)
+  if (logical_processors == 0U || requested_threads == 0U ||
+      requested_threads > kMaxLogicalProcessorCount)
     throw CoreError(FailureCode::not_ready, "CPU topology is unavailable");
   const auto resolved_threads = std::min(requested_threads, logical_processors);
   try {

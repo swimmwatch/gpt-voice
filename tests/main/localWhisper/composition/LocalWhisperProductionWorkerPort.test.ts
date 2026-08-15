@@ -693,6 +693,56 @@ describe('LocalWhisperProductionWorkerPort', () => {
     assert.equal(value.released.value, 1);
   });
 
+  it('resolves GPU CPU threads into exact reusable residency identity before launch', async () => {
+    for (const configured of [LOCAL_WHISPER_AUTO_CPU_THREADS, 1, 4, 8] as const) {
+      const value = loadHarness('cuda');
+      const model = value.selected.catalog.payload.models[0];
+      assert.ok(model);
+      const execution = value.selected.settings.execution;
+      assert.equal(execution.target, 'gpu');
+      if (execution.target !== 'gpu') return;
+      const settings = Object.freeze({
+        ...value.selected.settings,
+        execution: Object.freeze({ ...execution, gpuCpuThreads: configured }),
+      });
+      const loaded = await value.port.loadFresh(request(settings, 'cuda'));
+      assert.equal(loaded.success, true);
+      if (!loaded.success) return;
+      assert.deepEqual(value.lifecycle.loadRequests[0]?.residency, {
+        engine: 'whisperCpp',
+        runtimePackRevision: settings.runtimeRevision,
+        target: 'gpu',
+        backend: 'cuda',
+        deviceId: DEVICE_ID,
+        model: model.identity,
+        configuredGpuCpuThreads: configured,
+        resolvedCpuThreads: configured === LOCAL_WHISPER_AUTO_CPU_THREADS ? 8 : configured,
+        logicalProcessorTopologyGeneration: 1,
+        configurationEpoch: 7,
+      });
+      assert.equal(await loaded.value.terminate(), true);
+    }
+  });
+
+  it('rejects stale GPU thread values before acquiring model or worker authority', async () => {
+    const value = loadHarness('cuda');
+    const execution = value.selected.settings.execution;
+    assert.equal(execution.target, 'gpu');
+    if (execution.target !== 'gpu') return;
+    const settings = Object.freeze({
+      ...value.selected.settings,
+      execution: Object.freeze({ ...execution, gpuCpuThreads: 9 }),
+    });
+    assert.deepEqual(await value.port.loadFresh(request(settings, 'cuda')), {
+      success: false,
+      code: 'INVALID_SETTINGS',
+    });
+    assert.equal(value.modelAuthorities.calls, 0);
+    assert.equal(value.runtimeAuthorities.calls.length, 0);
+    assert.equal(value.registry.calls, 0);
+    assert.equal(value.lifecycle.loadRequests.length, 0);
+  });
+
   it('cleans the worker and model lease when warmup fails', async () => {
     const value = loadHarness('cpu', { failWarmup: true });
     assert.deepEqual(await value.port.loadFresh(request(value.selected.settings, 'cpu')), {

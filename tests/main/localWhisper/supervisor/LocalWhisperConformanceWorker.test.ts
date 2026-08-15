@@ -80,7 +80,10 @@ function residency(): LocalWhisperResidencyKey {
       nativeFormat: 'ggml',
       variant: 'full',
     },
-    resolvedCpuThreads: null,
+    configuredGpuCpuThreads: 'auto',
+    resolvedCpuThreads: 4,
+    logicalProcessorTopologyGeneration: 3,
+    configurationEpoch: 7,
   };
 }
 

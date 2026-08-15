@@ -27,6 +27,7 @@ export const LOCAL_WHISPER_TEMPERATURE_STEP_HUNDREDTHS = 5;
 export const LOCAL_WHISPER_MIN_CANDIDATE_COUNT = 1;
 export const LOCAL_WHISPER_MAX_CANDIDATE_COUNT = 10;
 export const LOCAL_WHISPER_AUTO_CPU_THREADS = 'auto' as const;
+export const LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT = 65_536;
 
 export type LocalWhisperCpuThreads = typeof LOCAL_WHISPER_AUTO_CPU_THREADS | number;
 
@@ -174,7 +175,10 @@ interface LocalWhisperCachePublicSnapshot {
   readonly temperatureHundredths: number;
   readonly strategy: LocalWhisperDecodingSettings['strategy'];
   readonly candidateCount: number | null;
-  readonly resolvedCpuThreads: number | null;
+  readonly configuredGpuCpuThreads: LocalWhisperCpuThreads | null;
+  readonly resolvedCpuThreads: number;
+  readonly logicalProcessorTopologyGeneration: number;
+  readonly configurationEpoch: number;
   readonly mappingRevision: string;
 }
 
@@ -184,7 +188,9 @@ export interface LocalWhisperCacheContextInput {
   readonly protocolRevision: string;
   readonly mappingRevision: string;
   readonly deviceClass: string;
-  readonly resolvedCpuThreads: number | null;
+  readonly resolvedCpuThreads: number;
+  readonly logicalProcessorTopologyGeneration: number;
+  readonly configurationEpoch: number;
   readonly digestPrompt: (prompt: string) => string;
 }
 
@@ -232,11 +238,22 @@ function isValidCandidateCount(value: unknown): value is number {
   );
 }
 
+export function resolveLocalWhisperCpuThreads(value: unknown, logicalProcessorCount: number): number | null {
+  if (
+    !Number.isSafeInteger(logicalProcessorCount) ||
+    logicalProcessorCount < 1 ||
+    logicalProcessorCount > LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT
+  ) {
+    return null;
+  }
+  if (value === LOCAL_WHISPER_AUTO_CPU_THREADS) return logicalProcessorCount;
+  return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= logicalProcessorCount
+    ? (value as number)
+    : null;
+}
+
 function isValidThreadCount(value: unknown, logicalProcessorCount: number): value is LocalWhisperCpuThreads {
-  return (
-    value === LOCAL_WHISPER_AUTO_CPU_THREADS ||
-    (Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) <= logicalProcessorCount)
-  );
+  return resolveLocalWhisperCpuThreads(value, logicalProcessorCount) !== null;
 }
 
 export function getLocalWhisperPromptValidationError(prompt: unknown): string | null {
@@ -661,6 +678,20 @@ export class LocalWhisperCacheContext {
       throw new Error('Invalid private Local Whisper prompt digest');
     }
     const execution = input.settings.execution;
+    if (
+      !Number.isSafeInteger(input.resolvedCpuThreads) ||
+      input.resolvedCpuThreads < 1 ||
+      input.resolvedCpuThreads > LOCAL_WHISPER_MAX_LOGICAL_PROCESSOR_COUNT ||
+      !Number.isSafeInteger(input.logicalProcessorTopologyGeneration) ||
+      input.logicalProcessorTopologyGeneration < 0 ||
+      !Number.isSafeInteger(input.configurationEpoch) ||
+      input.configurationEpoch < 0 ||
+      (execution.target === 'gpu' &&
+        execution.gpuCpuThreads !== LOCAL_WHISPER_AUTO_CPU_THREADS &&
+        execution.gpuCpuThreads !== input.resolvedCpuThreads)
+    ) {
+      throw new Error('Invalid Local Whisper cache execution identity');
+    }
     this.#publicSnapshot = Object.freeze({
       provider: 'local-whisper',
       engine: input.settings.engine,
@@ -679,7 +710,10 @@ export class LocalWhisperCacheContext {
       temperatureHundredths: input.settings.decoding.temperatureHundredths,
       strategy: input.settings.decoding.strategy,
       candidateCount: getCandidateCount(input.settings.decoding),
-      resolvedCpuThreads: execution.target === 'cpu' ? input.resolvedCpuThreads : null,
+      configuredGpuCpuThreads: execution.target === 'gpu' ? execution.gpuCpuThreads : null,
+      resolvedCpuThreads: input.resolvedCpuThreads,
+      logicalProcessorTopologyGeneration: input.logicalProcessorTopologyGeneration,
+      configurationEpoch: input.configurationEpoch,
       mappingRevision: input.mappingRevision,
     });
     this.#promptDigest = promptDigest;

@@ -230,7 +230,10 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
       backend: CUDA_BACKEND_ID,
       deviceId: 'task11-private-device-0',
       model,
-      resolvedCpuThreads: null,
+      configuredGpuCpuThreads: 4,
+      resolvedCpuThreads: 4,
+      logicalProcessorTopologyGeneration: Number(TOPOLOGY_GENERATION),
+      configurationEpoch: Number(CONFIGURATION_EPOCH),
     };
     worker.sendControl({
       type: 'load',

@@ -582,7 +582,10 @@ async function verifyLoad(
       backend: manifest.backend,
       deviceId: manifest.backend === 'cpu' ? null : 'windows-readiness-rtx-5090',
       model,
-      resolvedCpuThreads: manifest.backend === 'cpu' ? 2 : null,
+      configuredGpuCpuThreads: manifest.backend === 'cpu' ? null : 4,
+      resolvedCpuThreads: manifest.backend === 'cpu' ? 2 : 4,
+      logicalProcessorTopologyGeneration: Number(TOPOLOGY_GENERATION),
+      configurationEpoch: CONFIGURATION_EPOCH,
     };
     const load: Record<string, unknown> = {
       type: 'load',

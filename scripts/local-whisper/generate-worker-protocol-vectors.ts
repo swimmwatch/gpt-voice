@@ -6,6 +6,7 @@ import process from 'node:process';
 import { format } from 'prettier';
 
 import {
+  LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
   LOCAL_WHISPER_WAV_MAX_TOTAL_BYTES,
@@ -26,6 +27,9 @@ import {
   type LocalWhisperDeviceProofInput,
   type LocalWhisperDeviceRegistry,
 } from '@main/localWhisper/supervisor/LocalWhisperDeviceAuthority';
+
+const FIXTURE_CONFIGURATION_EPOCH = 7;
+const FIXTURE_LOGICAL_PROCESSOR_TOPOLOGY_GENERATION = 3;
 import {
   encodeLocalWhisperModelAuthorityRecord,
   type LocalWhisperModelAuthorityBinding,
@@ -104,7 +108,10 @@ function residency(target: 'cpu' | 'gpu' = 'gpu'): LocalWhisperResidencyKey {
       nativeFormat: 'ggml',
       variant: 'full',
     }),
-    resolvedCpuThreads: target === 'cpu' ? 4 : null,
+    configuredGpuCpuThreads: target === 'gpu' ? LOCAL_WHISPER_AUTO_CPU_THREADS : null,
+    resolvedCpuThreads: 4,
+    logicalProcessorTopologyGeneration: FIXTURE_LOGICAL_PROCESSOR_TOPOLOGY_GENERATION,
+    configurationEpoch: FIXTURE_CONFIGURATION_EPOCH,
   });
 }
 

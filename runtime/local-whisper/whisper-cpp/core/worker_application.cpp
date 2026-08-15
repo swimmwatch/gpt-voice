@@ -27,6 +27,7 @@ namespace {
 
 constexpr std::string_view kRuntimeRevision = LOCAL_WHISPER_RUNTIME_REVISION;
 constexpr std::string_view kRuntimeBackend = LOCAL_WHISPER_BACKEND_ID;
+constexpr std::uint64_t kMaxSafeInteger = 9'007'199'254'740'991ULL;
 
 nlohmann::json backend_capabilities(EngineBackend backend) {
   if (backend == EngineBackend::cpu)
@@ -328,7 +329,8 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
   }
   auto residency = value.at("residency");
   require_exact_keys(residency, {"engine", "runtimePackRevision", "target", "backend", "deviceId",
-                                 "model", "resolvedCpuThreads"});
+                                 "model", "configuredGpuCpuThreads", "resolvedCpuThreads",
+                                 "logicalProcessorTopologyGeneration", "configurationEpoch"});
   const bool cpu = backend == EngineBackend::cpu;
   if (residency.value("engine", "") != "whisperCpp" ||
       residency.value("target", "") != (cpu ? "cpu" : "gpu") ||
@@ -337,12 +339,27 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
       (cpu && !residency.at("deviceId").is_null()) ||
       (!cpu && (!residency.at("deviceId").is_string() ||
                 residency.at("deviceId").get<std::string>().empty())) ||
-      (cpu && !residency.at("resolvedCpuThreads").is_number_unsigned()) ||
-      (!cpu && !residency.at("resolvedCpuThreads").is_null()))
+      !residency.at("resolvedCpuThreads").is_number_unsigned() ||
+      !residency.at("logicalProcessorTopologyGeneration").is_number_unsigned() ||
+      !residency.at("configurationEpoch").is_number_unsigned())
     throw CoreError(FailureCode::invalid_settings, "invalid Whisper.cpp residency");
-  const auto threads = cpu ? residency.at("resolvedCpuThreads").get<std::uint64_t>() : 4U;
-  if (threads == 0U || threads > 256U)
+  const auto threads = residency.at("resolvedCpuThreads").get<std::uint64_t>();
+  if (threads == 0U || threads > kMaxLogicalProcessorCount ||
+      residency.at("logicalProcessorTopologyGeneration").get<std::uint64_t>() > kMaxSafeInteger ||
+      residency.at("configurationEpoch").get<std::uint64_t>() > kMaxSafeInteger)
     throw CoreError(FailureCode::invalid_settings, "invalid CPU thread count");
+  const auto& configured_gpu_threads = residency.at("configuredGpuCpuThreads");
+  if (cpu) {
+    if (!configured_gpu_threads.is_null())
+      throw CoreError(FailureCode::invalid_settings, "CPU residency contains GPU thread settings");
+  } else if (configured_gpu_threads.is_string()) {
+    if (configured_gpu_threads.get<std::string>() != "auto")
+      throw CoreError(FailureCode::invalid_settings, "invalid configured GPU CPU threads");
+  } else if (!configured_gpu_threads.is_number_unsigned() ||
+             configured_gpu_threads.get<std::uint64_t>() != threads) {
+    throw CoreError(FailureCode::invalid_settings,
+                    "configured GPU CPU threads do not match resolution");
+  }
   auto model = residency.at("model");
   require_exact_keys(model, {"engine", "logicalModel", "sourceCheckpointRevision",
                              "artifactRevision", "nativeFormat", "variant"});
@@ -566,6 +583,10 @@ int WorkerApplication::run_checked() {
   require_not_cancelled();
   const auto started = clock_.now_ticks();
   const auto probe_evidence = probe_.run(load.cpu_threads);
+  if (engine_.backend() != EngineBackend::cpu &&
+      probe_evidence.resolved_threads != load.cpu_threads) {
+    throw CoreError(FailureCode::invalid_settings, "GPU CPU thread topology changed before load");
+  }
   ExactModelReader reader(model_authority_->source(),
                           model_authority_->binding().expected_artifact_bytes,
                           model_authority_->binding().artifact_content_sha256);
