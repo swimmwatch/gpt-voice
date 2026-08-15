@@ -46,6 +46,17 @@ test('ThreadSanitizer policy is isolated to the Linux worker graph', () => {
     PATH: 'safe',
     TSAN_OPTIONS: 'halt_on_error=1:second_deadlock_stack=1',
   });
+  const inputEnvironment = Object.freeze({ LD_PRELOAD: 'codeql-tracer', PATH: 'safe', SENTINEL: 'retained' });
+  assert.deepEqual(threadSanitizerRuntimeEnvironment(inputEnvironment, 'linux'), {
+    PATH: 'safe',
+    SENTINEL: 'retained',
+    TSAN_OPTIONS: 'halt_on_error=1:second_deadlock_stack=1',
+  });
+  assert.deepEqual(inputEnvironment, {
+    LD_PRELOAD: 'codeql-tracer',
+    PATH: 'safe',
+    SENTINEL: 'retained',
+  });
   assert.throws(() => threadSanitizerRuntimeOptions('windows'));
 
   const workerTsanRunner = readFileSync(
@@ -53,6 +64,29 @@ test('ThreadSanitizer policy is isolated to the Linux worker graph', () => {
     'utf8',
   );
   assert.match(workerTsanRunner, /requireVerifiedInputs\(profile\.baseToolchainProfile\)/u);
+});
+
+test('Linux CodeQL traces TSan compilation without entering TSan runtime children', () => {
+  const buildCore = readFileSync(
+    resolve(workspaceRoot, 'scripts', 'local-whisper', 'whisper-cpp-build-core.mjs'),
+    'utf8',
+  );
+  assert.match(
+    buildCore,
+    /if \(threadSanitizer\) \{\s*arguments_\.push\('-DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST'\);\s*\}/u,
+  );
+
+  const workerTsanRunner = readFileSync(
+    resolve(workspaceRoot, 'scripts', 'local-whisper', 'native-build', 'native-worker-tsan.mjs'),
+    'utf8',
+  );
+  assert.match(workerTsanRunner, /configureWorkerTsan\(profile\);\s*buildTargets\(configured/u);
+  assert.match(
+    workerTsanRunner,
+    /const runtimeEnvironment = threadSanitizerRuntimeEnvironment\(process\.env, profile\.target\.os\)/u,
+  );
+  assert.match(workerTsanRunner, /executeBounded\([\s\S]+?runtimeEnvironment/u);
+  assert.match(workerTsanRunner, /listWorkerTests\(configured, profile, runtimeEnvironment\)/u);
 });
 
 test('all native graphs use the shared Linux sanitizer and MSVC STL policies', () => {

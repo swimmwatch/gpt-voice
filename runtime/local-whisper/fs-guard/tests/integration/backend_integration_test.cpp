@@ -395,9 +395,8 @@ TEST(RealBackendIntegrationTest, ReclaimsDescriptorWhenDirectoryStreamAcquisitio
   const std::size_t baseline = process_resource_count();
   UniqueFd descriptor(open("/dev/null", O_RDONLY | O_CLOEXEC));
   ASSERT_TRUE(descriptor.valid());
-  UniqueDir directory = open_unique_directory(std::move(descriptor), [](const int value) {
-    return fdopendir(value);
-  });
+  UniqueDir directory = open_unique_directory(std::move(descriptor),
+                                              [](const int value) { return fdopendir(value); });
   EXPECT_FALSE(directory.valid());
   EXPECT_EQ(process_resource_count(), baseline);
 }

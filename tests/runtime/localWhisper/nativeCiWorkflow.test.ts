@@ -131,8 +131,12 @@ test('Linux core preserves TSan, fuzzing, sanitizer, coverage, and CodeQL orderi
   const codeql = names.indexOf('Initialize Linux C++ CodeQL database');
   const analyze = names.indexOf('Analyze Linux C++ CodeQL database');
   const coverage = names.indexOf('Emit Linux native-quality coverage');
-  assert.ok(tsan >= 0 && fuzz >= 0 && codeql >= 0 && codeql < tsan && codeql < fuzz);
-  assert.ok(analyze > codeql && coverage > analyze);
+  assert.ok(tsan >= 0 && fuzz >= 0 && codeql >= 0 && codeql < tsan && tsan < analyze && codeql < fuzz);
+  assert.ok(coverage > analyze);
+
+  const tsanStep = namedStep('native-linux-core', 'Run Linux worker ThreadSanitizer gate');
+  const tsanEnvironment = tsanStep.env === undefined ? {} : record(tsanStep.env, 'Linux TSan step environment');
+  assert.equal(tsanEnvironment.LD_PRELOAD, undefined);
 
   const core = jobText('native-linux-core');
   assert.match(core, /LD_PRELOAD/u);

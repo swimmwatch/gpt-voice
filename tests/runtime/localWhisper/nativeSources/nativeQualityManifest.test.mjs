@@ -185,11 +185,21 @@ test('focused GCC quality reports only the compiled Linux guard, launcher, and s
   );
 });
 
-test('Linux quality compiles the Linux-only qualification test and MSVC analysis suppresses reviewed dependency false positives', () => {
+test('Linux quality compiles every configured engine target and MSVC analysis suppresses reviewed dependency false positives', () => {
   assert.match(WHISPER_CPP_CORE_VERIFIER, /tests: true/u);
   assert.match(
     WHISPER_CPP_CORE_VERIFIER,
-    /buildTargets\(engine, \['local_whisper_whisper_cpp_qualification_tests'\]\)/u,
+    /const LINUX_QUALITY_ENGINE_TARGETS = Object\.freeze\(\[\s*'local_whisper_whisper_cpp_qualification_tests',\s*'local-whisper-whisper-cpp-direct-engine',\s*'local-whisper-whisper-cpp-worker',\s*\]\)/u,
+  );
+  assert.match(WHISPER_CPP_CORE_VERIFIER, /preparedLinuxQuality && suite === 'core'/u);
+  assert.match(
+    NATIVE_TEST_CMAKE_FILES[3],
+    /add_library\(local_whisper_whisper_cpp_adapter STATIC adapter\/whisper_engine\.cpp\)/u,
+  );
+  assert.match(NATIVE_TEST_CMAKE_FILES[3], /add_executable\(local-whisper-whisper-cpp-worker core\/main\.cpp\)/u);
+  assert.match(
+    NATIVE_TEST_CMAKE_FILES[3],
+    /add_executable\(local-whisper-whisper-cpp-direct-engine\s+qualification\/direct_engine_main\.cpp\)/u,
   );
   assert.match(WHISPER_CPP_CORE_VERIFIER, /runTests\(engine, 'direct-engine'\)/u);
   assert.match(NLOHMANN_JSON_WRAPPER, /#pragma warning\(disable : 6294\)/u);

@@ -130,8 +130,6 @@ jobs:
           LD_PRELOAD: ''
         run: npm run test:local-whisper:native-sanitizer-proof -- --mode=prepared-linux-quality
       - name: Run Linux worker ThreadSanitizer gate
-        env:
-          LD_PRELOAD: ''
         run: |
           npm run test:local-whisper:worker-tsan-proof
           npm run test:local-whisper:worker-tsan

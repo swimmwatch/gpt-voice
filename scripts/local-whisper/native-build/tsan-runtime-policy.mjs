@@ -8,7 +8,9 @@ export function threadSanitizerRuntimeOptions(platform) {
   return LINUX_TSAN_OPTIONS;
 }
 
-/** Adds canonical ThreadSanitizer options without replacing unrelated environment values. */
+/** Removes injected preload tooling from TSan execution while preserving unrelated environment values. */
 export function threadSanitizerRuntimeEnvironment(environment, platform) {
-  return Object.freeze({ ...environment, ...threadSanitizerRuntimeOptions(platform) });
+  const runtimeEnvironment = { ...environment };
+  delete runtimeEnvironment.LD_PRELOAD;
+  return Object.freeze({ ...runtimeEnvironment, ...threadSanitizerRuntimeOptions(platform) });
 }
