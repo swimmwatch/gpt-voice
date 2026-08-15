@@ -12,6 +12,7 @@ import {
 import { availableParallelism, freemem, tmpdir } from 'node:os';
 import { relative, resolve } from 'node:path';
 import process from 'node:process';
+import { clearTimeout, setTimeout } from 'node:timers';
 import { fileURLToPath } from 'node:url';
 
 import { resolveNativeBuildJobs } from './native-build-parallelism.mjs';
@@ -21,10 +22,18 @@ const GIBIBYTE = 1024 ** 3;
 const MEBIBYTE = 1024 ** 2;
 export const NATIVE_FUZZ_MUTATION_SECONDS = 60;
 export const NATIVE_FUZZ_RSS_LIMIT_MB = 2 * 1024;
+export const NATIVE_FUZZ_INPUT_TIMEOUT_SECONDS = 5;
+const FUZZ_MUTATION_EXIT_GRACE_SECONDS = 5;
+export const NATIVE_FUZZ_MUTATION_DEADLINE_MILLISECONDS =
+  (NATIVE_FUZZ_MUTATION_SECONDS + FUZZ_MUTATION_EXIT_GRACE_SECONDS) * 1000;
 const FUZZ_MUTATION_SECONDS = NATIVE_FUZZ_MUTATION_SECONDS;
 const FUZZ_RSS_LIMIT_MB = NATIVE_FUZZ_RSS_LIMIT_MB;
+const FUZZ_INPUT_TIMEOUT_SECONDS = NATIVE_FUZZ_INPUT_TIMEOUT_SECONDS;
 const FUZZ_RSS_LIMIT_BYTES = FUZZ_RSS_LIMIT_MB * MEBIBYTE;
 const FUZZ_RESERVED_MEMORY_BYTES = 2 * GIBIBYTE;
+const FUZZ_BUILD_DEADLINE_MILLISECONDS = 10 * 60 * 1000;
+const FUZZ_CORPUS_DEADLINE_MILLISECONDS = 10 * 1000;
+const FUZZ_PROCESS_TERMINATION_GRACE_MILLISECONDS = 2 * 1000;
 const MAXIMUM_CONTRACT_OUTPUT_BYTES = 4 * 1024;
 const WORKSPACE_ROOT = resolve(import.meta.dirname, '..', '..', '..');
 const FIXTURE_ROOT = resolve(WORKSPACE_ROOT, 'tests', 'fixtures', 'local-whisper');
@@ -147,17 +156,69 @@ function preparedLinuxTools(environment) {
   return tools;
 }
 
-function execute(command, arguments_, { cwd = WORKSPACE_ROOT, env, stdio = 'ignore' } = {}) {
+function terminateOwnedProcess(child, signal) {
+  if (!Number.isSafeInteger(child.pid) || child.pid <= 0) return;
+  try {
+    if (process.platform === 'win32') {
+      child.kill(signal);
+    } else {
+      process.kill(-child.pid, signal);
+    }
+  } catch (error) {
+    if (error?.code !== 'ESRCH') {
+      try {
+        child.kill(signal);
+      } catch {
+        // The exit listener remains authoritative; failure is reported if the child does not exit.
+      }
+    }
+  }
+}
+
+export function executeNativeFuzzProcess(
+  command,
+  arguments_,
+  { cwd = WORKSPACE_ROOT, deadlineMilliseconds, env, stdio = 'ignore' } = {},
+) {
+  if (!Number.isSafeInteger(deadlineMilliseconds) || deadlineMilliseconds <= 0) {
+    throw new Error('Native fuzz process deadline is invalid');
+  }
   return new Promise((_resolve) => {
-    const child = spawn(command, arguments_, { cwd, env, shell: false, stdio });
-    child.once('error', () => _resolve(Object.freeze({ code: null, signal: null, started: false })));
-    child.once('exit', (code, signal) => _resolve(Object.freeze({ code, signal, started: true })));
+    let deadline;
+    let forceTermination;
+    let settled = false;
+    let timedOut = false;
+    const child = spawn(command, arguments_, {
+      cwd,
+      detached: process.platform !== 'win32',
+      env,
+      shell: false,
+      stdio,
+      windowsHide: true,
+    });
+    const resolveOnce = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      clearTimeout(forceTermination);
+      _resolve(Object.freeze({ ...result, timedOut }));
+    };
+    child.once('error', () => resolveOnce({ code: null, signal: null, started: false }));
+    child.once('exit', (code, signal) => resolveOnce({ code, signal, started: true }));
+    deadline = setTimeout(() => {
+      timedOut = true;
+      terminateOwnedProcess(child, 'SIGTERM');
+      forceTermination = setTimeout(
+        () => terminateOwnedProcess(child, 'SIGKILL'),
+        FUZZ_PROCESS_TERMINATION_GRACE_MILLISECONDS,
+      );
+    }, deadlineMilliseconds);
   });
 }
 
 async function runRequired(command, arguments_, options, label) {
-  const result = await execute(command, arguments_, options);
-  if (!result.started || result.code !== 0 || result.signal !== null) {
+  const result = await executeNativeFuzzProcess(command, arguments_, options);
+  if (result.timedOut || !result.started || result.code !== 0 || result.signal !== null) {
     throw new Error(`${label} failed without emitting attacker-controlled diagnostics`);
   }
   return result;
@@ -196,7 +257,7 @@ async function configureAndBuildProjects(tools, includeProof) {
     await runRequired(
       tools.cmake,
       configureArguments,
-      { env: process.env, stdio: 'inherit' },
+      { deadlineMilliseconds: FUZZ_BUILD_DEADLINE_MILLISECONDS, env: process.env, stdio: 'inherit' },
       `${projectId} configure`,
     );
     await runRequired(
@@ -210,7 +271,7 @@ async function configureAndBuildProjects(tools, includeProof) {
         project.contractExecutable,
         ...projectTargets(projectId, includeProof),
       ],
-      { env: process.env, stdio: 'inherit' },
+      { deadlineMilliseconds: FUZZ_BUILD_DEADLINE_MILLISECONDS, env: process.env, stdio: 'inherit' },
       `${projectId} fuzz build`,
     );
   }
@@ -241,6 +302,7 @@ function readProjectContracts(projectId) {
     env: sanitizerRuntimeEnvironment(process.env, 'linux', true),
     maxBuffer: MAXIMUM_CONTRACT_OUTPUT_BYTES,
     shell: false,
+    timeout: FUZZ_CORPUS_DEADLINE_MILLISECONDS,
   });
   if (result.error || result.status !== 0 || result.signal !== null) {
     throw new Error('Fuzz contract executable failed');
@@ -357,10 +419,15 @@ function fuzzArguments(inputLimit, corpusRoot) {
   return [
     `-max_total_time=${FUZZ_MUTATION_SECONDS}`,
     `-rss_limit_mb=${FUZZ_RSS_LIMIT_MB}`,
+    `-timeout=${FUZZ_INPUT_TIMEOUT_SECONDS}`,
     `-max_len=${inputLimit}`,
     `-artifact_prefix=${resolve(corpusRoot, 'artifacts')}/`,
     corpusRoot,
   ];
+}
+
+function corpusArguments(file) {
+  return ['-runs=1', `-rss_limit_mb=${FUZZ_RSS_LIMIT_MB}`, `-timeout=${FUZZ_INPUT_TIMEOUT_SECONDS}`, file];
 }
 
 async function runCorpusRegression(target, corpusRoot) {
@@ -371,8 +438,11 @@ async function runCorpusRegression(target, corpusRoot) {
     files.map((file) => async () => {
       await runRequired(
         executable,
-        [file],
-        { env: sanitizerRuntimeEnvironment(process.env, 'linux', true) },
+        corpusArguments(file),
+        {
+          deadlineMilliseconds: FUZZ_CORPUS_DEADLINE_MILLISECONDS,
+          env: sanitizerRuntimeEnvironment(process.env, 'linux', true),
+        },
         `Fuzz corpus regression ${target.id}`,
       );
     }),
@@ -384,7 +454,10 @@ async function runMutation(target, inputLimit, corpusRoot) {
   await runRequired(
     targetExecutable(target),
     fuzzArguments(inputLimit, corpusRoot),
-    { env: sanitizerRuntimeEnvironment(process.env, 'linux', true) },
+    {
+      deadlineMilliseconds: NATIVE_FUZZ_MUTATION_DEADLINE_MILLISECONDS,
+      env: sanitizerRuntimeEnvironment(process.env, 'linux', true),
+    },
     `Fuzz mutation ${target.id}`,
   );
 }
@@ -393,10 +466,15 @@ async function runProof(temporaryRoot) {
   const proofInput = assertWithin(temporaryRoot, resolve(temporaryRoot, 'proof.bin'), 'Fuzz proof input');
   writeFileSync(proofInput, Buffer.from([0]), { mode: 0o600 });
   const executable = targetExecutable({ executable: 'local_whisper_common_fuzz_proof', project: 'common' });
-  const result = await execute(executable, ['-runs=1', proofInput], {
-    env: sanitizerRuntimeEnvironment(process.env, 'linux', true),
-  });
-  if (!result.started || (result.code === 0 && result.signal === null)) {
+  const result = await executeNativeFuzzProcess(
+    executable,
+    ['-runs=1', `-rss_limit_mb=${FUZZ_RSS_LIMIT_MB}`, `-timeout=${FUZZ_INPUT_TIMEOUT_SECONDS}`, proofInput],
+    {
+      deadlineMilliseconds: FUZZ_CORPUS_DEADLINE_MILLISECONDS,
+      env: sanitizerRuntimeEnvironment(process.env, 'linux', true),
+    },
+  );
+  if (result.timedOut || !result.started || (result.code === 0 && result.signal === null)) {
     throw new Error('The deterministic fuzz failure proof did not fail closed');
   }
 }

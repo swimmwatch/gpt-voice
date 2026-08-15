@@ -21,21 +21,32 @@ class FakeGuardChild extends EventEmitter {
   public readonly stderr = new PassThrough();
   public exitCode: number | null = null;
   public killed = false;
+  public readonly killSignals: NodeJS.Signals[] = [];
+  public readonly pid = 42;
+  public signalCode: NodeJS.Signals | null = null;
 
-  public constructor() {
+  public constructor(
+    exitOnInputEnd = true,
+    private readonly exitOnSignal: 'always' | 'never' | 'sigkill' = 'always',
+  ) {
     super();
     this.stdin.once('finish', () => {
-      if (this.exitCode !== null) return;
+      if (!exitOnInputEnd || this.exitCode !== null) return;
       this.exitCode = 0;
       this.emit('exit', 0, null);
     });
   }
 
-  public kill(): boolean {
-    if (this.killed) return false;
+  public kill(signal: NodeJS.Signals | number = 'SIGTERM'): boolean {
+    const normalizedSignal = typeof signal === 'number' ? 'SIGTERM' : signal;
+    this.killSignals.push(normalizedSignal);
     this.killed = true;
+    if (this.exitOnSignal === 'never' || (this.exitOnSignal === 'sigkill' && normalizedSignal !== 'SIGKILL')) {
+      return true;
+    }
     this.exitCode = 1;
-    this.emit('exit', 1, null);
+    this.signalCode = normalizedSignal;
+    this.emit('exit', null, normalizedSignal);
     return true;
   }
 }
@@ -152,4 +163,76 @@ test('propagates one private process identity and forwards only matching canonic
   assert.match(messages[0] ?? '', /\[native-runtime\]/u);
   assert.doesNotMatch(messages[0] ?? '', /PRIVATE_CANARY|must-not-propagate/u);
   await transport.dispose();
+});
+
+test('bounds graceful guard disposal and terminates only its exact unresponsive child', async () => {
+  const child = new FakeGuardChild(false);
+  const transport = new NativeManagedFilesystemGuardTransport({
+    disposeTimeoutMs: 0,
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'win32',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+  const request = transport.request('RELEASE', ['lease-1']);
+  child.stdout.write('1\t1\tOK\tcmVsZWFzZQ\n');
+  await request;
+
+  await transport.dispose();
+
+  assert.equal(child.killed, true);
+  assert.equal(child.exitCode, 1);
+});
+
+test('does not replace a failed guard until its exact process has confirmed exit', async () => {
+  const child = new FakeGuardChild(false, 'sigkill');
+  let spawns = 0;
+  const transport = new NativeManagedFilesystemGuardTransport({
+    disposeTimeoutMs: 0,
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => {
+      spawns += 1;
+      return child;
+    }) as unknown as typeof spawn,
+  });
+  const firstRequest = transport.request('RELEASE', ['lease-1']);
+  child.stdout.write(Buffer.alloc(MAX_GUARD_LINE_BYTES + 1, 0x61));
+  await assert.rejects(
+    firstRequest,
+    (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IO_FAILED',
+  );
+
+  await assert.rejects(
+    () => transport.request('RELEASE', ['lease-2']),
+    (error) => error instanceof ManagedFilesystemAdapterError && error.code === 'IO_FAILED',
+  );
+  assert.equal(spawns, 1);
+  assert.equal(child.exitCode, null);
+
+  await transport.dispose();
+  assert.deepEqual(child.killSignals, ['SIGTERM', 'SIGKILL']);
+  assert.equal(child.signalCode, 'SIGKILL');
+});
+
+test('retains unconfirmed guard ownership so failed disposal can be retried deterministically', async () => {
+  const child = new FakeGuardChild(false, 'never');
+  const transport = new NativeManagedFilesystemGuardTransport({
+    disposeTimeoutMs: 0,
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+  const request = transport.request('RELEASE', ['lease-1']);
+  child.stdout.write('1\t1\tOK\tcmVsZWFzZQ\n');
+  await request;
+
+  await assert.rejects(() => transport.dispose(), /cleanup failed/u);
+  await assert.rejects(() => transport.dispose(), /cleanup failed/u);
+  assert.deepEqual(child.killSignals, ['SIGKILL', 'SIGKILL']);
 });

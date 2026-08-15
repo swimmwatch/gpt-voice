@@ -139,6 +139,7 @@ export class LocalWhisperRuntimeRegistryDiscovery {
     private readonly nativeRuntimeLogRelay?: NativeRuntimeLogRelay,
   ) {}
 
+  /** Discovers one exact registry while preserving native process and lease ownership on every failure path. */
   public async discover(
     authority: LocalWhisperWorkerLaunchAuthority,
     signal: AbortSignal,
@@ -154,11 +155,25 @@ export class LocalWhisperRuntimeRegistryDiscovery {
     this.active = true;
     let process: LocalWhisperOwnedWorkerProcess | null = null;
     let exited = false;
+    let ownershipReleased = false;
+    let cancelled = false;
+    let terminationRequest: Promise<void> | null = null;
+    const requestTermination = (): Promise<void> => {
+      if (!process) return Promise.resolve();
+      terminationRequest ??= process.requestTreeTermination().catch(() => undefined);
+      return terminationRequest;
+    };
+    const abort = (): void => {
+      cancelled = true;
+      void requestTermination();
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
     try {
       process = await this.ownership.launch(authority);
       const nativeLogDecoder = this.nativeRuntimeLogRelay
         ? new NativeRuntimeLogStreamDecoder({
-            expectedProcessInstanceId: process.nativeRuntimeProcessInstanceId,
+            expectedProcessInstanceIds: process.nativeRuntimeProcessInstanceIds,
             onRecord: (record) => this.nativeRuntimeLogRelay?.accept(record),
           })
         : null;
@@ -172,15 +187,8 @@ export class LocalWhisperRuntimeRegistryDiscovery {
         (value) => Object.freeze({ success: true as const, value }),
         (error: unknown) => Object.freeze({ success: false as const, error }),
       );
-      const abort = (): void => {
-        void process?.requestTreeTermination().catch(() => undefined);
-      };
-      signal.addEventListener('abort', abort, { once: true });
-      try {
-        exited = await process.waitForExit(REGISTRY_DISCOVERY_TIMEOUT_MS);
-      } finally {
-        signal.removeEventListener('abort', abort);
-      }
+      if (cancelled) await requestTermination();
+      exited = await process.waitForExit(REGISTRY_DISCOVERY_TIMEOUT_MS);
       if (!exited) {
         await process.requestTreeTermination().catch(() => undefined);
         exited = await process.waitForExit(REGISTRY_TERMINATION_TIMEOUT_MS).catch(() => false);
@@ -195,18 +203,29 @@ export class LocalWhisperRuntimeRegistryDiscovery {
         throw new LocalWhisperRuntimeRegistryDiscoveryError('CLEANUP_FAILED');
       }
       await this.ownership.releaseAfterConfirmedExit();
-      if (signal.aborted) throw new LocalWhisperRuntimeRegistryDiscoveryError('CANCELLED');
+      ownershipReleased = true;
+      if (cancelled) throw new LocalWhisperRuntimeRegistryDiscoveryError('CANCELLED');
       const collected = await output;
       if (!collected.success) throw collected.error;
       return parseRegistry(collected.value, authority);
     } catch (error) {
-      if (process && exited) await this.ownership.releaseAfterConfirmedExit().catch(() => undefined);
-      if (!process && !authority.runtimeLease.released) {
+      if (process && exited && !ownershipReleased) {
+        await this.ownership.releaseAfterConfirmedExit().catch(() => undefined);
+      }
+      const retainedProcess = this.ownership.process;
+      const ownershipRetained = retainedProcess !== null && retainedProcess !== undefined;
+      if (!process && !ownershipRetained && !authority.runtimeLease.released) {
         await authority.runtimeLease.release().catch(() => undefined);
       }
+      if (ownershipRetained) {
+        this.ownership.retainFailedOwnership();
+        throw new LocalWhisperRuntimeRegistryDiscoveryError('CLEANUP_FAILED');
+      }
       if (error instanceof LocalWhisperRuntimeRegistryDiscoveryError) throw error;
+      if (cancelled) throw new LocalWhisperRuntimeRegistryDiscoveryError('CANCELLED');
       throw new LocalWhisperRuntimeRegistryDiscoveryError('WORKER_START_FAILED');
     } finally {
+      signal.removeEventListener('abort', abort);
       this.active = false;
     }
   }

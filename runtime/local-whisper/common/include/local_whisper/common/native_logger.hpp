@@ -75,6 +75,11 @@ struct NativeLogConfiguration final {
   std::string process_instance_id;
 };
 
+enum class NativeLogChildProcess : std::uint8_t {
+  launcher,
+  worker,
+};
+
 struct NativeLogFields final {
   std::optional<NativeLogErrorCode> error_code;
   std::optional<std::string_view> request_id;
@@ -155,6 +160,10 @@ private:
 /** Parses only a valid private launch configuration; invalid input disables native logging. */
 [[nodiscard]] std::optional<NativeLogConfiguration>
 native_log_configuration_from_environment() noexcept;
+
+/** Parses one exact parent-authorized child identity with the inherited validated log level. */
+[[nodiscard]] std::optional<NativeLogConfiguration>
+native_child_log_configuration_from_environment(NativeLogChildProcess child) noexcept;
 
 [[nodiscard]] std::unique_ptr<NativeLogger> make_native_logger_from_environment() noexcept;
 

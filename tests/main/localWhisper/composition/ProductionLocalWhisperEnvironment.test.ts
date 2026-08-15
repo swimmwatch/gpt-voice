@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import type { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import {
@@ -16,6 +20,7 @@ import type {
 } from '@main/localWhisper/capability/NvidiaCudaRuntimeApplicability';
 import type { LocalWhisperInventorySnapshot } from '@main/localWhisper/inventory/LocalWhisperInventoryRepository';
 import {
+  serializeCanonicalLocalWhisperCatalogJson,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
   type LocalWhisperSettings,
@@ -66,6 +71,33 @@ function dependencies(calls: { reads: number; spawns: number }): LocalWhisperPro
       throw new Error('Native processes must not start');
     },
   };
+}
+
+class DisposableGuardChild extends EventEmitter {
+  public readonly stdin = new PassThrough();
+  public readonly stdout = new PassThrough();
+  public readonly stderr = new PassThrough();
+  public exitCode: number | null = null;
+  public killed = false;
+  public signalCode: NodeJS.Signals | null = null;
+  public inputEnded = false;
+
+  public constructor() {
+    super();
+    this.stdin.once('data', () => this.stdout.write('1\t1\tERR\tSU9fRkFJTEVE\n'));
+    this.stdin.once('finish', () => {
+      this.inputEnded = true;
+      this.exitCode = 0;
+      this.emit('exit', 0, null);
+    });
+  }
+
+  public kill(): boolean {
+    this.killed = true;
+    this.exitCode = 1;
+    this.emit('exit', 1, null);
+    return true;
+  }
 }
 
 describe('production Local Whisper environment activation', () => {
@@ -434,6 +466,65 @@ describe('production Local Whisper environment activation', () => {
     // catalog boundary without granting fixture or production trust.
     assert.equal(environment.facts.snapshot.catalogRevision, null);
     assert.deepEqual(calls, { reads: 1, spawns: 0 });
+    await environment.dispose();
+  });
+
+  it('disposes the exact filesystem guard when composition fails before store ownership transfers', async () => {
+    const calls = { reads: 0, spawns: 0 };
+    const child = new DisposableGuardChild();
+    const guardBytes = Buffer.from('guard-fixture', 'utf8');
+    const launcherBytes = Buffer.from('launcher-fixture', 'utf8');
+    const manifestBytes = Buffer.from(
+      serializeCanonicalLocalWhisperCatalogJson({
+        helpers: [
+          {
+            mode: 0o500,
+            name: 'fs-guard',
+            role: 'filesystem-authority-guard',
+            sha256: createHash('sha256').update(guardBytes).digest('hex'),
+            sizeBytes: guardBytes.byteLength,
+          },
+          {
+            mode: 0o500,
+            name: 'local-whisper-launcher',
+            role: 'operation-scoped-launcher',
+            sha256: createHash('sha256').update(launcherBytes).digest('hex'),
+            sizeBytes: launcherBytes.byteLength,
+          },
+        ],
+        licenseFile: 'LICENSE.txt',
+        platform: 'linux',
+        schemaVersion: 1,
+      }),
+      'utf8',
+    );
+    const environment = await new ProductionLocalWhisperEnvironmentFactory(
+      {
+        ...dependencies(calls),
+        readFile: (filePath) => {
+          calls.reads += 1;
+          if (filePath.endsWith('helpers.manifest.json')) return Promise.resolve(manifestBytes);
+          if (filePath.endsWith('fs-guard')) return Promise.resolve(guardBytes);
+          if (filePath.endsWith('local-whisper-launcher')) return Promise.resolve(launcherBytes);
+          return Promise.reject(new Error('Unexpected packaged resource'));
+        },
+        spawnProcess: (() => {
+          calls.spawns += 1;
+          return child as unknown as ChildProcessWithoutNullStreams;
+        }) as unknown as typeof spawn,
+      },
+      {
+        activationPurpose: 'qualification',
+        document: signQualificationCatalog(createQualificationCatalogPayload()),
+        trustPolicy: createQualificationCatalogTrustPolicy(),
+      },
+    ).create();
+
+    assert.equal(environment.facts.snapshot.catalogRevision, null);
+    assert.deepEqual(calls, { reads: 3, spawns: 1 });
+    assert.equal(child.inputEnded, true);
+    assert.equal(child.killed, false);
+    assert.equal(child.exitCode, 0);
     await environment.dispose();
   });
 

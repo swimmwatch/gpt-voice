@@ -24,6 +24,7 @@ const ELF_DF_TEXTREL = 0x4n;
 const ELF_DF_1_NOW = 0x1n;
 const MAX_BINARY_BYTES = 512 * 1024 * 1024;
 const PE_DLL_CHARACTERISTICS_DYNAMIC_BASE = 0x0040;
+const PE_DLL_CHARACTERISTICS_GUARD_CF = 0x4000;
 const PE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA = 0x0020;
 const PE_DLL_CHARACTERISTICS_NX_COMPAT = 0x0100;
 const PE_IMAGE_FILE_MACHINE_AMD64 = 0x8664;
@@ -38,6 +39,7 @@ const PE_OPTIONAL_HEADER_DATA_DIRECTORY_OFFSET = 112;
 const PE_OPTIONAL_HEADER_DLL_CHARACTERISTICS_OFFSET = 70;
 const PE_SECTION_HEADER_SIZE = 40;
 const PE_GUARD_CF_INSTRUMENTED = 0x00000100;
+const PE_GUARD_CF_FUNCTION_TABLE_PRESENT = 0x00000400;
 const WINDOWS_CUDA_QUALIFICATION_BUILD = 'wcuda-engine-p20w-cuda-a';
 const WINDOWS_CUDA_QUALIFICATION_PROFILE = 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
 export const WINDOWS_CUDA_QUALIFICATION_EVIDENCE_RELATIVE_PATH =
@@ -205,6 +207,9 @@ export function inspectPeHardening(bytes) {
   if ((dllCharacteristics & PE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA) === 0) {
     throw new Error('PE binary is missing high-entropy VA');
   }
+  if ((dllCharacteristics & PE_DLL_CHARACTERISTICS_GUARD_CF) === 0) {
+    throw new Error('PE binary is missing the Control Flow Guard loader characteristic');
+  }
 
   const loadConfigDirectory =
     optionalOffset + PE_OPTIONAL_HEADER_DATA_DIRECTORY_OFFSET + PE_LOAD_CONFIG_DIRECTORY_INDEX * 8;
@@ -234,7 +239,12 @@ export function inspectPeHardening(bytes) {
     'PE Guard CF function count',
   );
   const guardFlags = readU32(bytes, loadConfigOffset + PE_LOAD_CONFIG_GUARD_FLAGS_OFFSET, 'PE Guard CF flags');
-  if (guardTable === 0 || guardCount === 0 || (guardFlags & PE_GUARD_CF_INSTRUMENTED) === 0) {
+  if (
+    guardTable === 0 ||
+    guardCount === 0 ||
+    (guardFlags & PE_GUARD_CF_INSTRUMENTED) === 0 ||
+    (guardFlags & PE_GUARD_CF_FUNCTION_TABLE_PRESENT) === 0
+  ) {
     throw new Error('PE binary is missing Control Flow Guard metadata');
   }
 

@@ -230,6 +230,9 @@ if(LOCAL_WHISPER_BUILD_TESTS)
   if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_sources(local_whisper_whisper_cpp_core_tests PRIVATE
       tests/worker_protocol_windows_test.cpp)
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(local_whisper_whisper_cpp_core_tests PRIVATE
+      tests/worker_protocol_posix_test.cpp)
   endif()
   target_include_directories(local_whisper_whisper_cpp_core_tests PRIVATE tests)
   target_link_libraries(local_whisper_whisper_cpp_core_tests

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { LoggerFactory, type ElectronLogRuntime, type ScopedLogger } from '@main/logger';
 
@@ -133,21 +134,23 @@ describe('LoggerFactory', () => {
 
   it('reads only current and rotated main logs in oldest-first order without exposing paths', () => {
     const reads: string[] = [];
+    const currentLogPath = path.resolve('private', 'main.log');
+    const rotatedLogPath = path.resolve('private', 'main.old.log');
     const factory = new LoggerFactory({
       fileSystem: {
-        existsSync: (filePath) => ['/private/main.old.log', '/private/main.log'].includes(String(filePath)),
+        existsSync: (filePath) => [rotatedLogPath, currentLogPath].includes(String(filePath)),
         readFileSync: (filePath) => {
           reads.push(String(filePath));
           return String(filePath).includes('.old.') ? 'old contents' : 'current contents';
         },
       },
-      loadModule: () => createRuntime([], '/private/main.log'),
+      loadModule: () => createRuntime([], currentLogPath),
     });
 
     assert.deepEqual(factory.getMainLogFileAccessor().readRetainedLogs(), [
       { contents: 'old contents', generation: 'rotated' },
       { contents: 'current contents', generation: 'current' },
     ]);
-    assert.deepEqual(reads, ['/private/main.old.log', '/private/main.log']);
+    assert.deepEqual(reads, [rotatedLogPath, currentLogPath]);
   });
 });

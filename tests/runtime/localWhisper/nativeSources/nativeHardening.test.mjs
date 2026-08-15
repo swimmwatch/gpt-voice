@@ -56,10 +56,11 @@ function peFixture(missing = '') {
   bytes.writeUInt16LE(0xf0, coff + 16);
   const optional = coff + 20;
   bytes.writeUInt16LE(0x20b, optional);
-  let dllCharacteristics = 0x40 | 0x100 | 0x20;
+  let dllCharacteristics = 0x40 | 0x100 | 0x20 | 0x4000;
   if (missing === 'missing-aslr') dllCharacteristics &= ~0x40;
   if (missing === 'missing-nx') dllCharacteristics &= ~0x100;
   if (missing === 'missing-high-entropy-va') dllCharacteristics &= ~0x20;
+  if (missing === 'missing-cfg-dll-characteristic') dllCharacteristics &= ~0x4000;
   bytes.writeUInt16LE(dllCharacteristics, optional + 70);
   const dataDirectory = optional + 112 + 10 * 8;
   bytes.writeUInt32LE(0x1000, dataDirectory);
@@ -75,7 +76,10 @@ function peFixture(missing = '') {
   bytes.writeBigUInt64LE(missing === 'missing-stack-cookie' ? 0n : 0x1234n, loadConfiguration + 88);
   bytes.writeBigUInt64LE(0x2000n, loadConfiguration + 128);
   bytes.writeBigUInt64LE(1n, loadConfiguration + 136);
-  bytes.writeUInt32LE(missing === 'missing-cfg' ? 0 : 0x100, loadConfiguration + 144);
+  let guardFlags = 0x100 | 0x400;
+  if (missing === 'missing-cfg') guardFlags = 0;
+  if (missing === 'missing-cfg-function-table-flag') guardFlags &= ~0x400;
+  bytes.writeUInt32LE(guardFlags, loadConfiguration + 144);
   return bytes;
 }
 

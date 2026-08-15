@@ -351,6 +351,24 @@ std::optional<NativeLogConfiguration> native_log_configuration_from_environment(
   }
 }
 
+std::optional<NativeLogConfiguration>
+native_child_log_configuration_from_environment(const NativeLogChildProcess child) noexcept {
+  try {
+    const char* const identity_name = child == NativeLogChildProcess::launcher
+                                          ? "LOCAL_WHISPER_NATIVE_LAUNCHER_PROCESS_INSTANCE_ID"
+                                          : "LOCAL_WHISPER_NATIVE_WORKER_PROCESS_INSTANCE_ID";
+    const auto level = environment_value("LOCAL_WHISPER_NATIVE_LOG_LEVEL");
+    const auto process_instance_id = environment_value(identity_name);
+    if (!process_instance_id.has_value() || !is_valid_uuid(*process_instance_id))
+      return std::nullopt;
+    if (level.has_value() && *level == "debug")
+      return NativeLogConfiguration{NativeLogLevel::debug, *process_instance_id};
+    return NativeLogConfiguration{NativeLogLevel::info, *process_instance_id};
+  } catch (...) {
+    return std::nullopt;
+  }
+}
+
 std::unique_ptr<NativeLogger> make_native_logger_from_environment() noexcept {
   try {
     const auto configuration = native_log_configuration_from_environment();

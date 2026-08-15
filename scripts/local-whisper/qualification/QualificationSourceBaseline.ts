@@ -26,19 +26,19 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts',
-    sha256: '3beffd3e6e4c53a3b8838cd15dd444fb06797ca78c1d85a382c5fb7124932bd9',
+    sha256: 'd3f27397507cc003e5d16e9ca3c2cce14d0792ceb73516f45d4acbe726116383',
   },
   {
     path: 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts',
-    sha256: '1d1fb19edbc0950c1198872f6fc8eb2e616374cfff62921df5dab6a6c448bf71',
+    sha256: 'ff9330ec8558aa8b26083feedd06e09a9a8bbc0fefddbe5b7b4b10bc2747a054',
   },
   {
     path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
-    sha256: '9ac4d2749e4ae0594d35bcbeb3002276930d2d86717223d2e03b9d8ee8fa07ca',
+    sha256: '36d84b67567f77d74458b6a2d135a3816a9482c9bebf23e6b91fc640641b0aea',
   },
   {
     path: 'runtime/local-whisper/fs-guard/src/platform/windows/windows_model_launch_application.cpp',
-    sha256: '19b9156a76dd20f260d6b133e3c27cc84f34901d8edacb21c2bf600bb42ebc3a',
+    sha256: 'a101da50ccf15779bab07acfad6344f1687e186689d95f566d88bd2e445dffcc',
   },
   {
     path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp',

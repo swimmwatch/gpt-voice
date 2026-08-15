@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
+import process from 'node:process';
 import test from 'node:test';
 
 import {
   NATIVE_FUZZ_MUTATION_SECONDS,
+  NATIVE_FUZZ_INPUT_TIMEOUT_SECONDS,
+  NATIVE_FUZZ_MUTATION_DEADLINE_MILLISECONDS,
   NATIVE_FUZZ_RSS_LIMIT_MB,
   NATIVE_FUZZ_TARGETS,
+  executeNativeFuzzProcess,
   resolveNativeFuzzJobs,
 } from '../../../../scripts/local-whisper/native-build/native-fuzz-runner.mjs';
 
@@ -47,6 +51,8 @@ test('bounded native fuzzing defines exactly the seven approved Linux parser tar
     ],
   );
   assert.equal(NATIVE_FUZZ_MUTATION_SECONDS, 60);
+  assert.equal(NATIVE_FUZZ_INPUT_TIMEOUT_SECONDS, 5);
+  assert.equal(NATIVE_FUZZ_MUTATION_DEADLINE_MILLISECONDS, 65_000);
   assert.equal(NATIVE_FUZZ_RSS_LIMIT_MB, 2_048);
 });
 
@@ -87,10 +93,21 @@ test('fuzz orchestration derives input ceilings from native contracts and suppre
   assert.match(FUZZ_RUNNER, /contractExecutable/u);
   assert.match(FUZZ_RUNNER, /-max_total_time=\$\{FUZZ_MUTATION_SECONDS\}/u);
   assert.match(FUZZ_RUNNER, /-rss_limit_mb=\$\{FUZZ_RSS_LIMIT_MB\}/u);
+  assert.match(FUZZ_RUNNER, /-timeout=\$\{FUZZ_INPUT_TIMEOUT_SECONDS\}/u);
   assert.match(FUZZ_RUNNER, /-max_len=\$\{inputLimit\}/u);
   assert.match(FUZZ_RUNNER, /stdio = 'ignore'/u);
   assert.doesNotMatch(FUZZ_RUNNER, /process\.stderr\.write\(result/u);
   assert.doesNotMatch(FUZZ_RUNNER, /platform\/windows|Windows backend|overlong-line-reader/u);
+});
+
+test('fuzz orchestration terminates an exact owned child at its external deadline', async () => {
+  const startedAt = Date.now();
+  const result = await executeNativeFuzzProcess(process.execPath, ['-e', 'setInterval(() => {}, 1_000)'], {
+    deadlineMilliseconds: 50,
+  });
+  assert.equal(result.started, true);
+  assert.equal(result.timedOut, true);
+  assert.ok(Date.now() - startedAt < 5_000);
 });
 
 test('fuzz target execution parallelism respects each target RSS ceiling', () => {

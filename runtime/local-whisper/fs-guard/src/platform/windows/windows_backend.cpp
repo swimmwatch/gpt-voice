@@ -59,6 +59,8 @@ public:
       FILE_WRITE_ATTRIBUTES | READ_CONTROL | WRITE_DAC | WRITE_OWNER | DELETE | SYNCHRONIZE;
   static constexpr ACCESS_MASK kFileInspectionAccess =
       FILE_READ_DATA | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE;
+  static constexpr DWORD kPersistedFileModeMarker = SYNCHRONIZE;
+  static constexpr DWORD kPersistedFileModeBits = 0777U;
   static constexpr NTSTATUS kStatusNameCollision = static_cast<NTSTATUS>(0xC0000035L);
   static constexpr NTSTATUS kStatusNameNotFound = static_cast<NTSTATUS>(0xC0000034L);
   static constexpr NTSTATUS kStatusPathNotFound = static_cast<NTSTATUS>(0xC000003AL);
@@ -81,6 +83,20 @@ public:
 
   enum class LeaseKind { kRoot, kDirectory, kFile, kLock };
 
+  class UniqueSecurityDescriptor final {
+  public:
+    explicit UniqueSecurityDescriptor(PSECURITY_DESCRIPTOR value) noexcept : value_(value) {}
+    ~UniqueSecurityDescriptor() noexcept {
+      if (value_ != nullptr)
+        LocalFree(value_);
+    }
+    UniqueSecurityDescriptor(const UniqueSecurityDescriptor&) = delete;
+    UniqueSecurityDescriptor& operator=(const UniqueSecurityDescriptor&) = delete;
+
+  private:
+    PSECURITY_DESCRIPTOR value_;
+  };
+
   struct StableIdentity {
     std::uint64_t volume = 0;
     std::string file_id;
@@ -98,7 +114,6 @@ public:
     unsigned int mode = 0;
     bool delete_on_release = false;
     std::map<std::wstring, StableIdentity> namespace_identities;
-    std::map<std::wstring, unsigned int> file_modes;
   };
 
   std::map<std::string, Lease> leases;
@@ -272,16 +287,19 @@ public:
     return reinterpret_cast<TOKEN_USER*>(storage.data())->User.Sid;
   }
 
-  void apply_private_acl(HANDLE handle) {
+  void apply_private_acl(HANDLE handle, const std::optional<unsigned int> file_mode = std::nullopt) {
     std::vector<unsigned char> sid_storage;
     PSID sid = current_user_sid(sid_storage);
-    const DWORD acl_size =
-        sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(sid) - sizeof(DWORD);
+    const DWORD ace_size = sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(sid) - sizeof(DWORD);
+    const DWORD acl_size = sizeof(ACL) + ace_size * (file_mode.has_value() ? 2U : 1U);
     std::vector<unsigned char> acl_storage(acl_size);
     PACL acl = reinterpret_cast<PACL>(acl_storage.data());
     if (!InitializeAcl(acl, acl_size, ACL_REVISION) ||
         !AddAccessAllowedAceEx(acl, ACL_REVISION, OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE,
-                               FILE_ALL_ACCESS, sid)) {
+                               FILE_ALL_ACCESS, sid) ||
+        (file_mode.has_value() &&
+         !AddAccessAllowedAceEx(acl, ACL_REVISION, 0,
+                                kPersistedFileModeMarker | file_mode.value(), sid))) {
       throw GuardError("IO_FAILED");
     }
     const DWORD result = SetSecurityInfo(handle, SE_FILE_OBJECT,
@@ -300,19 +318,7 @@ public:
     const DWORD result = GetSecurityInfo(handle, SE_FILE_OBJECT,
                                          OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
                                          &owner, nullptr, &acl, nullptr, &descriptor);
-    class UniqueSecurityDescriptor final {
-    public:
-      explicit UniqueSecurityDescriptor(PSECURITY_DESCRIPTOR value) noexcept : value_(value) {}
-      ~UniqueSecurityDescriptor() noexcept {
-        if (value_ != nullptr)
-          LocalFree(value_);
-      }
-      UniqueSecurityDescriptor(const UniqueSecurityDescriptor&) = delete;
-      UniqueSecurityDescriptor& operator=(const UniqueSecurityDescriptor&) = delete;
-
-    private:
-      PSECURITY_DESCRIPTOR value_;
-    } owned_descriptor(descriptor);
+    UniqueSecurityDescriptor owned_descriptor(descriptor);
     if (result != ERROR_SUCCESS || owner == nullptr || acl == nullptr || acl->AceCount != 1) {
       throw GuardError("UNSAFE_ENTRY");
     }
@@ -331,6 +337,46 @@ public:
         (ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS;
     if (!valid)
       throw GuardError("UNSAFE_ENTRY");
+  }
+
+  unsigned int private_file_mode(HANDLE handle) {
+    PSID owner = nullptr;
+    PACL acl = nullptr;
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    before_resource_acquisition();
+    const DWORD result = GetSecurityInfo(handle, SE_FILE_OBJECT,
+                                         OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                                         &owner, nullptr, &acl, nullptr, &descriptor);
+    UniqueSecurityDescriptor owned_descriptor(descriptor);
+    if (result != ERROR_SUCCESS || descriptor == nullptr || owner == nullptr || acl == nullptr ||
+        acl->AceCount != 2) {
+      throw GuardError("UNSAFE_ENTRY");
+    }
+    std::vector<unsigned char> sid_storage;
+    PSID current = current_user_sid(sid_storage);
+    void* raw_owner_ace = nullptr;
+    void* raw_mode_ace = nullptr;
+    SECURITY_DESCRIPTOR_CONTROL control = 0;
+    DWORD revision = 0;
+    const bool control_ok = GetSecurityDescriptorControl(descriptor, &control, &revision) != FALSE;
+    const bool owner_ace_ok = GetAce(acl, 0, &raw_owner_ace) != FALSE;
+    const bool mode_ace_ok = GetAce(acl, 1, &raw_mode_ace) != FALSE;
+    const auto* owner_ace = static_cast<ACCESS_ALLOWED_ACE*>(raw_owner_ace);
+    const auto* mode_ace = static_cast<ACCESS_ALLOWED_ACE*>(raw_mode_ace);
+    constexpr DWORD kEncodedModeMask = kPersistedFileModeMarker | kPersistedFileModeBits;
+    const bool valid =
+        control_ok && owner_ace_ok && mode_ace_ok && EqualSid(owner, current) != FALSE &&
+        (control & SE_DACL_PROTECTED) != 0 &&
+        owner_ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
+        mode_ace->Header.AceType == ACCESS_ALLOWED_ACE_TYPE &&
+        EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&owner_ace->SidStart)), current) != FALSE &&
+        EqualSid(reinterpret_cast<PSID>(const_cast<DWORD*>(&mode_ace->SidStart)), current) != FALSE &&
+        (owner_ace->Mask & FILE_ALL_ACCESS) == FILE_ALL_ACCESS &&
+        (mode_ace->Mask & kPersistedFileModeMarker) == kPersistedFileModeMarker &&
+        (mode_ace->Mask & ~kEncodedModeMask) == 0;
+    if (!valid)
+      throw GuardError("UNSAFE_ENTRY");
+    return mode_ace->Mask & kPersistedFileModeBits;
   }
 
   UniqueHandle relative_open(HANDLE parent, const std::wstring& name, ACCESS_MASK access,
@@ -633,15 +679,12 @@ public:
                                       kFileOptions, created));
       if (!file.valid())
         throw GuardError("IDENTITY_CHANGED");
-      verify_private_acl(file.get());
+      const unsigned int mode = private_file_mode(file.get());
       const StableIdentity identity = stable_identity(file.get());
       if (identity.directory || identity.volume != directory.root_volume) {
         throw GuardError("UNSAFE_ENTRY");
       }
-      const auto known_mode = directory.file_modes.find(wide_name);
       if (require_exact_expectations) {
-        const unsigned int mode =
-            known_mode == directory.file_modes.end() ? expected->second : known_mode->second;
         if (expected->second != mode)
           throw GuardError("UNSAFE_ENTRY");
         remaining.erase(expected);
@@ -649,9 +692,6 @@ public:
                          sha256_file(file.get()));
         continue;
       }
-      if (known_mode == directory.file_modes.end())
-        throw GuardError("UNSAFE_ENTRY");
-      const unsigned int mode = known_mode->second;
       result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
                        sha256_file(file.get()));
     }
@@ -818,7 +858,7 @@ public:
         relative_open(directory.handle, name, kFileAccess, FILE_CREATE, kFileOptions, created));
     if (!file.valid())
       throw GuardError("IO_FAILED");
-    apply_private_acl(file.get());
+    apply_private_acl(file.get(), mode);
     UniqueHandle parent(duplicate_handle(directory.handle));
     const std::string identity = identity_string(file.get(), parent.get(), mode);
     const std::string token = add_lease(Lease{std::move(file),
@@ -829,7 +869,6 @@ public:
                                               mode,
                                               false,
                                               {}});
-    directory.file_modes.emplace(name, mode);
     return {token, identity};
   }
 
@@ -975,16 +1014,12 @@ public:
     if (!file.valid())
       throw GuardError("IDENTITY_CHANGED");
     const auto expected = split(command.identity, '|');
-    const unsigned int mode =
-        expected.size() == 7
-            ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
-            : 0;
+    const unsigned int mode = private_file_mode(file.get());
     if (expected.size() != 7 ||
         identity_string(file.get(), directory.handle, mode) != command.identity) {
       throw GuardError("IDENTITY_CHANGED");
     }
     set_disposition(file.get());
-    directory.file_modes.erase(utf8_to_wide(command.file_name));
     return {};
   }
 
@@ -1000,16 +1035,12 @@ public:
     if (!file.valid())
       throw GuardError("IDENTITY_CHANGED");
     const auto expected = split(command.identity, '|');
-    const unsigned int mode =
-        expected.size() == 7
-            ? static_cast<unsigned int>(std::strtoul(expected[3].c_str(), nullptr, 10))
-            : 0;
+    const unsigned int mode = private_file_mode(file.get());
     if (expected.size() != 7 ||
         identity_string(file.get(), directory.handle, mode) != command.identity) {
       throw GuardError("IDENTITY_CHANGED");
     }
     set_disposition(file.get());
-    directory.file_modes.erase(utf8_to_wide(command.file_name));
     return {};
   }
 
@@ -1041,6 +1072,8 @@ public:
 
   ResponseFields revalidate(const RevalidateCommand& command) {
     Lease& lease = require_lease(command.token);
+    if (lease.kind == LeaseKind::kFile && private_file_mode(lease.handle) != lease.mode)
+      throw GuardError("IDENTITY_CHANGED");
     const auto expected = split(command.identity, '|');
     const auto current = split(identity_string(lease.handle, lease.parent, lease.mode), '|');
     if (expected.size() != 7 || current.size() != 7)

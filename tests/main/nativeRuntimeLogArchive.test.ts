@@ -66,6 +66,35 @@ test('native runtime archive extractor retains approved development debug record
   assert.deepEqual(extraction.records, [debugRecord]);
 });
 
+test('native runtime archive keeps equal process-local sequences from distinct native processes', () => {
+  const launcher: NativeRuntimeArchiveRecord = {
+    ...RECORD,
+    native: { ...RECORD.native, component: 'launcher' },
+  };
+  const worker: NativeRuntimeArchiveRecord = {
+    ...RECORD,
+    native: {
+      ...RECORD.native,
+      processInstanceId: '22222222-2222-2222-8222-222222222222',
+    },
+  };
+  const serialized = [launcher, worker].map((record) => serializeCanonicalNativeRuntimeArchiveRecord(record));
+  assert.ok(serialized.every((record) => record !== null));
+  const prefix = '[2026-08-12 00:00:00.000] [info] (local-whisper-native-runtime) [native-runtime] ';
+  const extraction = new NativeRuntimeLogArchiveExtractor({
+    readRetainedLogs: () => [
+      {
+        contents: serialized.map((record) => `${prefix}${record}`).join('\n') + '\n',
+        generation: 'current' as const,
+      },
+    ],
+  }).extract();
+
+  assert.deepEqual(extraction.records, [launcher, worker]);
+  assert.equal(extraction.summary.duplicateRecordCount, 0);
+  assert.equal(extraction.summary.validRecordCount, 2);
+});
+
 test('native runtime archive extractor keeps the newest complete unique records at its hard record bound', () => {
   const prefix = '[2026-08-12 00:00:00.000] [info] (local-whisper-native-runtime) [native-runtime] ';
   const contents = Array.from({ length: NATIVE_RUNTIME_ARCHIVE_MAXIMUM_RECORDS + 1 }, (_value, index) => {

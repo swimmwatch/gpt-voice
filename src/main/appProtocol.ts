@@ -46,10 +46,12 @@ export function registerAppProtocolScheme(protocol: Pick<Protocol, 'registerSche
 
 /** Owns registration and teardown of the privileged app:// renderer protocol. */
 export class AppProtocolController {
+  private readonly appRoot: string;
   private handlerRegistered = false;
   private schemeRegistered: boolean;
 
   public constructor(private readonly dependencies: AppProtocolControllerDependencies) {
+    this.appRoot = path.resolve(dependencies.appRoot);
     this.schemeRegistered = dependencies.schemePreRegistered ?? false;
   }
 
@@ -69,15 +71,14 @@ export class AppProtocolController {
         }
 
         const relativePath = path.normalize(decodeURIComponent(url.pathname).replace(/^\/+/, '') || DEFAULT_APP_PATH);
-        const bundledFilePath = path.resolve(this.dependencies.appRoot, relativePath);
+        const bundledFilePath = path.resolve(this.appRoot, relativePath);
         const isInsideAppRoot =
-          bundledFilePath === this.dependencies.appRoot ||
-          bundledFilePath.startsWith(`${this.dependencies.appRoot}${path.sep}`);
+          bundledFilePath === this.appRoot || bundledFilePath.startsWith(`${this.appRoot}${path.sep}`);
         if (!isInsideAppRoot) {
           return new Response(FORBIDDEN_RESPONSE, { status: 403 });
         }
 
-        const filePath = getAppProtocolFilePath(relativePath, this.dependencies.appRoot, this.dependencies.appIconPath);
+        const filePath = getAppProtocolFilePath(relativePath, this.appRoot, this.dependencies.appIconPath);
         const body = await this.dependencies.readFile(filePath);
         return new Response(Uint8Array.from(body).buffer, {
           headers: { 'content-type': getAppProtocolContentType(filePath) },

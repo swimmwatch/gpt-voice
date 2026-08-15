@@ -22,6 +22,17 @@ const MODEL_GUARD_ARGUMENT = '--local-whisper-model-launch-v1';
 const STANDARD_LAUNCHER_ACK_TIMEOUT_MS = 10_000;
 const MAX_LAUNCHER_ACK_BYTES = 256;
 
+export function createNativeRuntimeProcessInstanceIds(generate: () => string, count: 2 | 3): readonly string[] {
+  const identities = Array.from({ length: count }, () => generate());
+  if (
+    identities.some((identity) => !isNativeRuntimeProcessInstanceId(identity)) ||
+    new Set(identities).size !== identities.length
+  ) {
+    throw new Error('Invalid Local Whisper native process instance ID');
+  }
+  return Object.freeze(identities);
+}
+
 /** Gives Linux model hashing the bounded model-load budget without relaxing ordinary launches. */
 export function getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch: boolean): number {
   return modelGuardLaunch ? LOCAL_WHISPER_LOAD_TIMEOUT_MS : STANDARD_LAUNCHER_ACK_TIMEOUT_MS;
@@ -142,12 +153,18 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
     ) {
       throw new Error('Local Whisper launcher paths must be absolute');
     }
+    const modelGuardLaunch = authority.modelGuardAuthority !== undefined;
     const spawnProcess = this.dependencies.spawnProcess ?? spawn;
-    const processInstanceId = (this.dependencies.generateProcessInstanceId ?? randomUUID)();
-    if (!isNativeRuntimeProcessInstanceId(processInstanceId)) {
+    const processInstanceIds = createNativeRuntimeProcessInstanceIds(
+      this.dependencies.generateProcessInstanceId ?? randomUUID,
+      modelGuardLaunch ? 3 : 2,
+    );
+    const processInstanceId = processInstanceIds[0];
+    const launcherProcessInstanceId = modelGuardLaunch ? processInstanceIds[1] : undefined;
+    const workerProcessInstanceId = processInstanceIds[modelGuardLaunch ? 2 : 1];
+    if (!processInstanceId || !workerProcessInstanceId) {
       throw new Error('Invalid Local Whisper native process instance ID');
     }
-    const modelGuardLaunch = authority.modelGuardAuthority !== undefined;
     const executablePath = modelGuardLaunch
       ? this.dependencies.modelGuardExecutablePath
       : this.dependencies.launcherExecutablePath;
@@ -164,6 +181,10 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         this.dependencies.platform,
         this.dependencies.environment,
         processInstanceId,
+        {
+          ...(launcherProcessInstanceId ? { launcherProcessInstanceId } : {}),
+          workerProcessInstanceId,
+        },
       ),
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
@@ -199,7 +220,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         child,
         control,
         input,
-        nativeRuntimeProcessInstanceId: processInstanceId,
+        nativeRuntimeProcessInstanceIds: processInstanceIds,
         output,
         platform: this.dependencies.platform,
         processStartIdentity,

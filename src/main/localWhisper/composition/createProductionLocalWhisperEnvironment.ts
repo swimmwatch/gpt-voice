@@ -879,7 +879,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
     }).load();
     if (!loaded.success) return deferred();
 
-    let store: ManagedArtifactStore | null = null;
+    let filesystemOwner: Pick<ManagedArtifactStore, 'dispose'> | null = null;
     let facts: LocalWhisperDynamicSnapshotFacts | null = null;
     let registryDiscovery: LocalWhisperRuntimeRegistryDiscovery | null = null;
     let topologyAuthority: LocalWhisperDeviceTopologyAuthority | null = null;
@@ -900,10 +900,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
         platform: nativePlatform,
         spawnProcess: this.dependencies.spawnProcess,
       });
-      const adapter =
+      const adapter = (filesystemOwner =
         nativePlatform === 'linux'
           ? new LinuxManagedFilesystemAdapter(transport)
-          : new WindowsManagedFilesystemAdapter(transport);
+          : new WindowsManagedFilesystemAdapter(transport));
       const rootResolution = new ManagedArtifactPathResolver({
         environment: this.dependencies.environment,
         homeDirectory: this.dependencies.homeDirectory,
@@ -911,7 +911,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
       }).resolve();
       if (rootResolution.availability !== 'available') return deferred();
       const processStartIdentity = await adapter.getProcessStartIdentity(this.dependencies.pid);
-      store = new ManagedArtifactStore({
+      const store = (filesystemOwner = new ManagedArtifactStore({
         adapter,
         generateOperationNonce: this.dependencies.randomNonce,
         lockRepository: new ManagedArtifactLockRepository({
@@ -921,7 +921,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
           pid: this.dependencies.pid,
         }),
         rootResolution,
-      });
+      }));
       await store.initialize();
       const managedStore = store;
       const removalClearanceIssuer = new ManagedArtifactRemovalClearanceIssuer();
@@ -975,9 +975,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
             },
             createTransport: (streams, callbacks) => new LocalWhisperWorkerTransport(streams, callbacks),
             nextRequestId: this.dependencies.nextRequestId,
-            createNativeRuntimeLogDecoder: (processInstanceId) =>
+            createNativeRuntimeLogDecoder: (processInstanceIds) =>
               new NativeRuntimeLogStreamDecoder({
-                ...(processInstanceId ? { expectedProcessInstanceId: processInstanceId } : {}),
+                ...(processInstanceIds ? { expectedProcessInstanceIds: processInstanceIds } : {}),
                 onRecord: (record) => nativeRuntimeLogRelay.accept(record),
               }),
             ownership: sessionOwnership,
@@ -1473,7 +1473,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
       registryDiscovery?.dispose();
       topologyAuthority?.invalidate();
       facts?.dispose();
-      await store?.dispose().catch(() => undefined);
+      await filesystemOwner?.dispose().catch(() => undefined);
       return deferred();
     }
   }

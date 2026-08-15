@@ -8,6 +8,7 @@ import {
   createFocusedGccQualityCoverageReport,
   createNativeQualityCoverageReport,
   createNativeQualityManifest,
+  manifestEntriesForFocusedGcc,
   manifestEntriesForPlatform,
 } from '../../../../scripts/local-whisper/native-build/native-quality-manifest.mjs';
 
@@ -131,14 +132,7 @@ test('native quality reports reject over-claims and expose only relative source 
 
 test('focused GCC quality reports only the compiled Linux guard, launcher, and shared dependency sources', () => {
   const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
-  const compiledPaths = manifest
-    .filter(
-      (entry) =>
-        entry.kind === 'translation-unit' &&
-        entry.platforms.includes('linux') &&
-        ['common', 'fs-guard', 'launcher'].includes(entry.project),
-    )
-    .map((entry) => entry.path);
+  const compiledPaths = manifestEntriesForFocusedGcc(manifest).map((entry) => entry.path);
   const report = createFocusedGccQualityCoverageReport({
     compilerProfile: 'linux-x64-cpu-baseline-v1',
     compiledPaths,
@@ -153,21 +147,21 @@ test('focused GCC quality reports only the compiled Linux guard, launcher, and s
     () =>
       createFocusedGccQualityCoverageReport({
         compilerProfile: 'linux-x64-cpu-baseline-v1',
-        compiledPaths: compiledPaths.filter((path) => !path.includes('/fs-guard/')),
+        compiledPaths: compiledPaths.slice(1),
         evidence: ['compile', 'execute'],
         manifest,
       }),
-    /missing fs-guard/u,
+    /missing required translation units/u,
   );
   assert.throws(
     () =>
       createFocusedGccQualityCoverageReport({
         compilerProfile: 'linux-x64-cpu-baseline-v1',
-        compiledPaths: [...compiledPaths, 'runtime/local-whisper/whisper-cpp/core/main.cpp'],
+        compiledPaths: [...compiledPaths, 'runtime/local-whisper/common/src/frame_codec.cpp'],
         evidence: ['compile', 'execute'],
         manifest,
       }),
-    /out-of-scope/u,
+    /unexpected translation units/u,
   );
 });
 

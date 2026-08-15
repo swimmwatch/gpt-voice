@@ -8,7 +8,7 @@ import { sha256Bytes } from '../../../../scripts/local-whisper/packaging/fileInt
 import { DirectEngineQualificationRunner } from '../../../../scripts/local-whisper/qualification/DirectEngineQualificationRunner';
 import { LinuxResourceSampler } from '../../../../scripts/local-whisper/qualification/LinuxResourceSampler';
 
-describe('DirectEngineQualificationRunner', () => {
+describe('DirectEngineQualificationRunner', { skip: process.platform !== 'linux' }, () => {
   it('passes exact inherited descriptors and returns only bounded transcript/resource evidence', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-direct-runner-'));
     try {

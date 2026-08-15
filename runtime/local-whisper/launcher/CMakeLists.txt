@@ -106,6 +106,11 @@ if(BUILD_TESTING)
     tests/unit/launcher_error_test.cpp
     tests/unit/launch_request_test.cpp
   )
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(local_whisper_launcher_unit_tests PRIVATE
+      tests/unit/poll_direction_test.cpp)
+    target_include_directories(local_whisper_launcher_unit_tests PRIVATE src)
+  endif()
   target_link_libraries(local_whisper_launcher_unit_tests
     PRIVATE local_whisper_launcher_core GTest::gtest_main)
   local_whisper_apply_test_compile_hardening(local_whisper_launcher_unit_tests LOCAL_WHISPER_LAUNCHER_ENABLE_SANITIZERS)

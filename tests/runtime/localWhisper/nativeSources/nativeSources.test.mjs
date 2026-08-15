@@ -713,8 +713,18 @@ test('Windows launcher preserves the bounded native logging environment for its 
     resolve(workspaceRoot, 'runtime/local-whisper/launcher/src/platform/windows/windows_launcher.cpp'),
     'utf8',
   );
-  assert.match(source, /L"LOCAL_WHISPER_NATIVE_LOG_LEVEL"/u);
-  assert.match(source, /L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID"/u);
+  assert.match(source, /std::wstring\(L"LOCAL_WHISPER_NATIVE_LOG_LEVEL="\)/u);
+  assert.match(source, /std::wstring\(L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID="\)/u);
+});
+
+test('Windows verified launcher and worker images deny concurrent mutation until process creation', () => {
+  for (const relativePath of [
+    'runtime/local-whisper/fs-guard/src/platform/windows/windows_model_launch_application.cpp',
+    'runtime/local-whisper/launcher/src/platform/windows/windows_launcher.cpp',
+  ]) {
+    const source = readFileSync(resolve(workspaceRoot, relativePath), 'utf8');
+    assert.match(source, /kVerifiedExecutableShareMode/u);
+  }
 });
 
 test('Linux Whisper.cpp quality selects explicit prepared tools for each compiler profile', () => {

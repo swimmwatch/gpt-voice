@@ -59,7 +59,7 @@ async function fixture(root: string): Promise<{
   });
 }
 
-describe('LinuxPredecessorQualifier', () => {
+describe('LinuxPredecessorQualifier', { skip: process.platform !== 'linux' }, () => {
   it('copies the exact package, isolates the profile, and emits only sanitized evidence', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-predecessor-test-'));
     try {

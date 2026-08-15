@@ -173,14 +173,15 @@ public:
     } while (result < 0 && errno == EINTR);
     if (result < 0)
       throw CoreError(FailureCode::transcription_failed, "worker wait failed");
-    if ((descriptors[1].revents & POLLIN) != 0) {
+    const bool inference_completed = (descriptors[1].revents & POLLIN) != 0;
+    if (inference_completed)
       completion_event_.consume();
-      return WorkerChannelWaitResult::inference_completed;
-    }
     if ((descriptors[0].revents & POLLIN) != 0)
       return WorkerChannelWaitResult::control_ready;
     if ((descriptors[0].revents & (POLLERR | POLLHUP | POLLNVAL)) != 0)
       return WorkerChannelWaitResult::control_closed;
+    if (inference_completed)
+      return WorkerChannelWaitResult::inference_completed;
     throw CoreError(FailureCode::transcription_failed, "worker wait returned no event");
   }
 

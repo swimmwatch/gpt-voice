@@ -9,6 +9,7 @@ import { NativeRuntimeLogStreamDecoder, type NativeRuntimeLogRelay } from '../su
 
 const GUARD_PROTOCOL_VERSION = '1';
 const MAX_GUARD_LINE_BYTES = 256 * 1024;
+const GUARD_DISPOSE_TIMEOUT_MS = 5_000;
 
 export interface ManagedFilesystemGuardTransport {
   request(command: string, arguments_: readonly string[]): Promise<readonly string[]>;
@@ -22,6 +23,9 @@ export interface NativeManagedFilesystemGuardTransportDependencies {
   readonly nativeRuntimeLogRelay?: NativeRuntimeLogRelay;
   readonly platform: 'linux' | 'win32';
   readonly spawnProcess: typeof spawn;
+  readonly clearTimeout?: (handle: unknown) => void;
+  readonly disposeTimeoutMs?: number;
+  readonly setTimeout?: (callback: () => void, milliseconds: number) => unknown;
 }
 
 interface PendingRequest {
@@ -44,6 +48,8 @@ function isSafeCommand(value: string): boolean {
 /** Owns one narrow native guard process and a bounded request/response protocol. */
 export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemGuardTransport {
   private child: ChildProcessWithoutNullStreams | null = null;
+  private childFailed = false;
+  private disposal: Promise<void> | null = null;
   private disposed = false;
   private nativeLogDecoder: NativeRuntimeLogStreamDecoder | null = null;
   private nextRequestId = 1;
@@ -73,33 +79,45 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
   }
 
   public async dispose(): Promise<void> {
-    if (this.disposed) return;
     this.disposed = true;
+    if (this.disposal) return await this.disposal;
+    const disposal = this.disposeOwnedChild();
+    this.disposal = disposal;
+    try {
+      await disposal;
+    } finally {
+      if (this.disposal === disposal) this.disposal = null;
+    }
+  }
+
+  private async disposeOwnedChild(): Promise<void> {
     const child = this.child;
-    this.child = null;
     this.finishNativeLogDecoder();
     this.outputBytes = Buffer.alloc(0);
     this.rejectAll();
     if (!child) return;
-    await new Promise<void>((resolve) => {
-      if (child.exitCode !== null) {
-        resolve();
-        return;
-      }
-      child.once('exit', () => resolve());
-      child.stdin.end();
-    });
+    child.stdin.end();
+    if (await this.waitForExit(child)) {
+      this.confirmProcessExit(child);
+      return;
+    }
+    child.kill('SIGKILL');
+    if (!(await this.waitForExit(child))) throw new Error('Local Whisper filesystem guard cleanup failed');
+    this.confirmProcessExit(child);
   }
 
   private ensureStarted(): ChildProcessWithoutNullStreams {
-    if (this.child) return this.child;
+    if (this.child) {
+      if (this.childFailed) throw new ManagedFilesystemAdapterError('IO_FAILED');
+      return this.child;
+    }
     const processInstanceId = this.dependencies.generateProcessInstanceId();
     if (!isNativeRuntimeProcessInstanceId(processInstanceId)) {
       throw new ManagedFilesystemAdapterError('IO_FAILED');
     }
     const nativeLogDecoder = this.dependencies.nativeRuntimeLogRelay
       ? new NativeRuntimeLogStreamDecoder({
-          expectedProcessInstanceId: processInstanceId,
+          expectedProcessInstanceIds: [processInstanceId],
           onRecord: (record) => this.dependencies.nativeRuntimeLogRelay?.accept(record),
         })
       : null;
@@ -114,6 +132,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
       windowsHide: true,
     });
     this.child = child;
+    this.childFailed = false;
     this.nativeLogDecoder = nativeLogDecoder;
     if (nativeLogDecoder) {
       child.stderr.on('data', (chunk: Buffer) => nativeLogDecoder.append(chunk));
@@ -123,7 +142,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     }
     child.stdout.on('data', (chunk: Buffer) => this.handleOutput(child, chunk));
     child.once('error', () => this.failProcess(child));
-    child.once('exit', () => this.failProcess(child));
+    child.once('exit', () => this.confirmProcessExit(child));
     return child;
   }
 
@@ -185,10 +204,23 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
 
   private failProcess(child: ChildProcessWithoutNullStreams): void {
     if (this.child !== child) return;
-    this.child = null;
+    if (child.pid === undefined) {
+      this.confirmProcessExit(child);
+      return;
+    }
+    this.childFailed = true;
     this.finishNativeLogDecoder();
     this.outputBytes = Buffer.alloc(0);
     if (child.exitCode === null && !child.killed) child.kill();
+    this.rejectAll();
+  }
+
+  private confirmProcessExit(child: ChildProcessWithoutNullStreams): void {
+    if (this.child !== child) return;
+    this.child = null;
+    this.childFailed = false;
+    this.finishNativeLogDecoder();
+    this.outputBytes = Buffer.alloc(0);
     this.rejectAll();
   }
 
@@ -201,5 +233,31 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     const decoder = this.nativeLogDecoder;
     this.nativeLogDecoder = null;
     decoder?.finish();
+  }
+
+  private waitForExit(child: ChildProcessWithoutNullStreams): Promise<boolean> {
+    if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true);
+    const timeoutMs = this.dependencies.disposeTimeoutMs ?? GUARD_DISPOSE_TIMEOUT_MS;
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 0) {
+      return Promise.reject(new Error('Invalid Local Whisper filesystem guard cleanup timeout'));
+    }
+    const schedule = this.dependencies.setTimeout ?? ((callback, milliseconds) => setTimeout(callback, milliseconds));
+    const cancel =
+      this.dependencies.clearTimeout ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      let timer: unknown = null;
+      const finish = (exited: boolean): void => {
+        if (settled) return;
+        settled = true;
+        child.removeListener('exit', onExit);
+        if (timer !== null) cancel(timer);
+        resolve(exited);
+      };
+      const onExit = (): void => finish(true);
+      child.once('exit', onExit);
+      timer = schedule(() => finish(false), timeoutMs);
+      if (settled) cancel(timer);
+    });
   }
 }

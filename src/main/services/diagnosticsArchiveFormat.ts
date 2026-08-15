@@ -138,6 +138,9 @@ export class DiagnosticsArchiveFormatAdapter {
   ): void {
     const actualMembers = inspectDiagnosticsArchiveForVerification(format, archiveBytes);
     if (actualMembers.size !== expectedMembers.length) throw new Error('Unexpected diagnostics member count');
+    if (![...actualMembers.keys()].every((name, index) => name === expectedMembers[index]?.name)) {
+      throw new Error('Unexpected diagnostics member order');
+    }
     for (const expected of expectedMembers) {
       const actual = actualMembers.get(expected.name);
       if (!actual || !actual.equals(expected.payload)) throw new Error('Diagnostics member verification failed');

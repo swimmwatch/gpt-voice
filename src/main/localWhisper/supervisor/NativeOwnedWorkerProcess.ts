@@ -8,7 +8,7 @@ export interface NativeOwnedWorkerProcessDependencies {
   readonly child: ChildProcess;
   readonly control: Writable;
   readonly input: Writable;
-  readonly nativeRuntimeProcessInstanceId: string;
+  readonly nativeRuntimeProcessInstanceIds: readonly string[];
   readonly output: Readable;
   readonly platform: 'linux' | 'win32';
   readonly processStartIdentity: string;
@@ -37,8 +37,8 @@ export class NativeOwnedWorkerProcess implements LocalWhisperOwnedWorkerProcess 
     return this.dependencies.processStartIdentity;
   }
 
-  public get nativeRuntimeProcessInstanceId(): string {
-    return this.dependencies.nativeRuntimeProcessInstanceId;
+  public get nativeRuntimeProcessInstanceIds(): readonly string[] {
+    return this.dependencies.nativeRuntimeProcessInstanceIds;
   }
 
   public get input(): Writable {

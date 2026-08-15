@@ -79,6 +79,10 @@ class FixtureOwnership {
     private readonly stderrText = '',
   ) {}
 
+  public get process(): LocalWhisperOwnedWorkerProcess | null {
+    return null;
+  }
+
   public launch(): Promise<LocalWhisperOwnedWorkerProcess> {
     const output = new PassThrough();
     const input = new PassThrough();
@@ -88,7 +92,7 @@ class FixtureOwnership {
       stderr.end(Buffer.from(this.stderrText, 'utf8'));
     });
     return Promise.resolve({
-      nativeRuntimeProcessInstanceId: PROCESS_INSTANCE_ID,
+      nativeRuntimeProcessInstanceIds: [PROCESS_INSTANCE_ID],
       pid: 10,
       processStartIdentity: 'fixture-process',
       input,
@@ -154,6 +158,54 @@ describe('production Local Whisper runtime registry discovery', () => {
     assert.equal(owner.retained, 0);
   });
 
+  it('observes cancellation that occurs while native launch is still pending', async () => {
+    let resolveLaunch!: (process: LocalWhisperOwnedWorkerProcess) => void;
+    const launch = new Promise<LocalWhisperOwnedWorkerProcess>((resolve) => {
+      resolveLaunch = resolve;
+    });
+    const output = new PassThrough();
+    const stderr = new PassThrough();
+    const input = new PassThrough();
+    let released = 0;
+    let terminated = 0;
+    const owner: WorkerProcessOwnership = {
+      launch: () => launch,
+      recoverBeforeLaunch: () => Promise.resolve(),
+      releaseAfterConfirmedExit: () => {
+        released += 1;
+        return Promise.resolve();
+      },
+      retainFailedOwnership: () => undefined,
+    } as unknown as WorkerProcessOwnership;
+    const controller = new AbortController();
+    const operation = new LocalWhisperRuntimeRegistryDiscovery(owner).discover(authority(), controller.signal);
+    controller.abort();
+    output.end(`${document()}\n`);
+    stderr.end();
+    resolveLaunch({
+      closeOwnershipControl: () => undefined,
+      forceTreeTermination: () => Promise.resolve(),
+      input,
+      nativeRuntimeProcessInstanceIds: [PROCESS_INSTANCE_ID],
+      output,
+      pid: 10,
+      processStartIdentity: 'fixture-process',
+      requestTreeTermination: () => {
+        terminated += 1;
+        return Promise.resolve();
+      },
+      stderr,
+      waitForExit: () => Promise.resolve(true),
+    });
+
+    await assert.rejects(
+      operation,
+      (error: unknown) => error instanceof LocalWhisperRuntimeRegistryDiscoveryError && error.code === 'CANCELLED',
+    );
+    assert.equal(terminated, 1);
+    assert.equal(released, 1);
+  });
+
   it('rejects changed identity, noncanonical output, empty GPU registries, and non-registry launch modes', async () => {
     const cases: readonly [string, LocalWhisperWorkerLaunchAuthority][] = [
       [`${document({ runtimeBuildDigest: 'b'.repeat(64) })}\n`, authority()],
@@ -178,6 +230,53 @@ describe('production Local Whisper runtime registry discovery', () => {
     assert.equal(owner.retained, 1);
     assert.equal(owner.released, 0);
     assert.equal(owner.terminated, 2);
+  });
+
+  it('does not mask an uncertain cleanup with cancellation', async () => {
+    const owner = new FixtureOwnership(`${document()}\n`, false);
+    const controller = new AbortController();
+    const operation = discovery(owner).discover(authority(), controller.signal);
+    controller.abort();
+
+    await assert.rejects(
+      operation,
+      (error: unknown) => error instanceof LocalWhisperRuntimeRegistryDiscoveryError && error.code === 'CLEANUP_FAILED',
+    );
+    assert.equal(owner.retained, 1);
+    assert.equal(owner.released, 0);
+    assert.equal(owner.terminated, 3);
+  });
+
+  it('retains a lease when cancellation intersects a launch failure with owned cleanup still uncertain', async () => {
+    let rejectLaunch!: (error: Error) => void;
+    const launch = new Promise<LocalWhisperOwnedWorkerProcess>((_resolve, reject) => {
+      rejectLaunch = reject;
+    });
+    let retained = false;
+    let retainCalls = 0;
+    const owner = {
+      launch: () => launch,
+      get process(): LocalWhisperOwnedWorkerProcess | null {
+        return retained ? ({} as LocalWhisperOwnedWorkerProcess) : null;
+      },
+      releaseAfterConfirmedExit: () => Promise.resolve(),
+      retainFailedOwnership: () => {
+        retainCalls += 1;
+      },
+    } as unknown as WorkerProcessOwnership;
+    const launchAuthority = authority();
+    const controller = new AbortController();
+    const operation = new LocalWhisperRuntimeRegistryDiscovery(owner).discover(launchAuthority, controller.signal);
+    controller.abort();
+    retained = true;
+    rejectLaunch(new Error('private launch cleanup failure'));
+
+    await assert.rejects(
+      operation,
+      (error: unknown) => error instanceof LocalWhisperRuntimeRegistryDiscoveryError && error.code === 'CLEANUP_FAILED',
+    );
+    assert.equal(launchAuthority.runtimeLease.released, false);
+    assert.equal(retainCalls, 1);
   });
 
   it('rejects native diagnostics from a different private process instance', async () => {

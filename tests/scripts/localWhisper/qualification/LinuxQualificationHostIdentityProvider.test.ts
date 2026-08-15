@@ -40,7 +40,7 @@ async function sourceFixture(root: string): Promise<LinuxQualificationSourceIden
   return Object.freeze({ candidateWorktree: root, sourceCommit: SOURCE_COMMIT });
 }
 
-describe('LinuxQualificationHostIdentityProvider', () => {
+describe('LinuxQualificationHostIdentityProvider', { skip: process.platform !== 'linux' }, () => {
   it('accepts the bounded tracked source-lock representation without rewriting its bytes', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-host-identity-test-'));
     try {
