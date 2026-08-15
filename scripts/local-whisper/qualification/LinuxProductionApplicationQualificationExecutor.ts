@@ -33,6 +33,11 @@ const execFileAsync = promisify(execFile);
 const NVIDIA_SMI_MAXIMUM_BUFFER_BYTES = 16 * 1024;
 const NVIDIA_SMI_TIMEOUT_MILLISECONDS = 10_000;
 const MODEL_LAUNCH_ARGUMENT = '--local-whisper-model-launch-v1';
+const MAXIMUM_PROTOCOL_OBSERVATIONS = 12;
+
+interface ProcessProtocolObservation extends QualificationWorkerProtocolObservation {
+  readonly processOrdinal: number;
+}
 
 export interface LinuxApplicationQualificationExecutionInput {
   readonly bundleDirectory: string;
@@ -127,12 +132,16 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
       pathExists: fs.existsSync,
       command: nvidiaCommand,
     });
-    let protocolObservation: QualificationWorkerProtocolObservation | null = null;
+    const protocolObservations: ProcessProtocolObservation[] = [];
+    let modelLaunchOrdinal = 0;
     const observedSpawn = ((command: string, arguments_: readonly string[], options: SpawnOptions) => {
       const child = spawn(command, arguments_, options);
       if (arguments_.includes(MODEL_LAUNCH_ARGUMENT) && child.stdout) {
+        modelLaunchOrdinal += 1;
+        const processOrdinal = modelLaunchOrdinal;
         new QualificationWorkerProtocolObserver((observation) => {
-          protocolObservation = observation;
+          protocolObservations.push(Object.freeze({ ...observation, processOrdinal }));
+          if (protocolObservations.length > MAXIMUM_PROTOCOL_OBSERVATIONS) protocolObservations.shift();
         }).observe(child.stdout);
       }
       return child;
@@ -211,12 +220,18 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
         stopArtifactServer: execution.stopArtifactServer,
       });
     } catch (error) {
-      if (protocolObservation && error instanceof Error && error.message.includes('WORKER_PROTOCOL_VIOLATION')) {
-        const observation: QualificationWorkerProtocolObservation = protocolObservation;
-        throw new Error(
-          `Qualification worker protocol diagnostic:${observation.stage}:${observation.messageType}:${observation.fieldNames.join(',')}`,
-          { cause: error },
-        );
+      if (
+        protocolObservations.length > 0 &&
+        error instanceof Error &&
+        error.message.includes('WORKER_PROTOCOL_VIOLATION')
+      ) {
+        const diagnostics = protocolObservations
+          .map(
+            (observation) =>
+              `${observation.processOrdinal}.${observation.stage}.${observation.messageType}.${observation.requestIdState}.${observation.failureCode}.${observation.fieldNames.join(',')}`,
+          )
+          .join(';');
+        throw new Error(`Qualification worker protocol diagnostics:${diagnostics}`, { cause: error });
       }
       throw error;
     }

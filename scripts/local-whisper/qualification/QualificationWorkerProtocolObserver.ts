@@ -5,6 +5,7 @@ import {
   LOCAL_WHISPER_FRAME_HEADER_BYTES,
   LOCAL_WHISPER_FRAME_LENGTH_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
+  isLocalWhisperFailureCode,
   isLocalWhisperWorkerServerMessage,
   parseLocalWhisperWorkerJson,
 } from '@shared/localWhisper';
@@ -17,8 +18,10 @@ export type QualificationWorkerProtocolObservationStage = 'decoded' | 'schema' |
 
 /** Contains protocol structure only; values and native output never leave the private run. */
 export interface QualificationWorkerProtocolObservation {
+  readonly failureCode: string;
   readonly fieldNames: readonly string[];
   readonly messageType: string;
+  readonly requestIdState: 'absent' | 'null' | 'string' | 'unavailable';
   readonly stage: QualificationWorkerProtocolObservationStage;
 }
 
@@ -28,7 +31,13 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function structuralObservation(value: unknown): QualificationWorkerProtocolObservation {
   if (!isRecord(value)) {
-    return { fieldNames: Object.freeze([]), messageType: 'unavailable', stage: 'schema' };
+    return {
+      failureCode: 'unavailable',
+      fieldNames: Object.freeze([]),
+      messageType: 'unavailable',
+      requestIdState: 'absent',
+      stage: 'schema',
+    };
   }
   const keys = Object.keys(value);
   const fieldNames =
@@ -36,8 +45,16 @@ function structuralObservation(value: unknown): QualificationWorkerProtocolObser
       ? Object.freeze(keys.sort())
       : Object.freeze([]);
   return {
+    failureCode: value.type === 'failure' && isLocalWhisperFailureCode(value.code) ? value.code : 'unavailable',
     fieldNames,
     messageType: typeof value.type === 'string' && PROTOCOL_IDENTIFIER.test(value.type) ? value.type : 'unavailable',
+    requestIdState: !Object.prototype.hasOwnProperty.call(value, 'requestId')
+      ? 'absent'
+      : value.requestId === null
+        ? 'null'
+        : typeof value.requestId === 'string'
+          ? 'string'
+          : 'unavailable',
     stage: isLocalWhisperWorkerServerMessage(value) ? 'decoded' : 'schema',
   };
 }
@@ -73,7 +90,13 @@ export class QualificationWorkerProtocolObserver {
         const frame = this.pending.slice(0, frameLength);
         this.pending = this.pending.slice(frameLength);
         if (view.getUint8(LOCAL_WHISPER_FRAME_LENGTH_BYTES) !== LOCAL_WHISPER_CONTROL_FRAME_KIND) {
-          this.publish({ fieldNames: Object.freeze([]), messageType: 'unavailable', stage: 'unexpectedFrame' });
+          this.publish({
+            failureCode: 'unavailable',
+            fieldNames: Object.freeze([]),
+            messageType: 'unavailable',
+            requestIdState: 'absent',
+            stage: 'unexpectedFrame',
+          });
           continue;
         }
         const message = parseLocalWhisperWorkerJson(frame.subarray(LOCAL_WHISPER_FRAME_HEADER_BYTES));
@@ -81,14 +104,26 @@ export class QualificationWorkerProtocolObserver {
       }
     } catch {
       this.terminal = true;
-      this.publish({ fieldNames: Object.freeze([]), messageType: 'unavailable', stage: 'transport' });
+      this.publish({
+        failureCode: 'unavailable',
+        fieldNames: Object.freeze([]),
+        messageType: 'unavailable',
+        requestIdState: 'absent',
+        stage: 'transport',
+      });
     }
   };
 
   private readonly onEnd = (): void => {
     if (this.terminal) return;
     if (this.pending.byteLength !== 0) {
-      this.publish({ fieldNames: Object.freeze([]), messageType: 'unavailable', stage: 'transport' });
+      this.publish({
+        failureCode: 'unavailable',
+        fieldNames: Object.freeze([]),
+        messageType: 'unavailable',
+        requestIdState: 'absent',
+        stage: 'transport',
+      });
     }
     this.terminal = true;
   };
@@ -96,7 +131,13 @@ export class QualificationWorkerProtocolObserver {
   private readonly onError = (): void => {
     if (this.terminal) return;
     this.terminal = true;
-    this.publish({ fieldNames: Object.freeze([]), messageType: 'unavailable', stage: 'transport' });
+    this.publish({
+      failureCode: 'unavailable',
+      fieldNames: Object.freeze([]),
+      messageType: 'unavailable',
+      requestIdState: 'absent',
+      stage: 'transport',
+    });
   };
 
   private publish(observation: QualificationWorkerProtocolObservation): void {

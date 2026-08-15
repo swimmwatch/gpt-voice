@@ -56,6 +56,7 @@ describe('QualificationWorkerProtocolObserver', () => {
 
     assert.deepEqual(observations, [
       {
+        failureCode: 'unavailable',
         fieldNames: [
           'backend',
           'capabilities',
@@ -68,6 +69,7 @@ describe('QualificationWorkerProtocolObserver', () => {
           'type',
         ],
         messageType: 'helloAck',
+        requestIdState: 'absent',
         stage: 'decoded',
       },
     ]);
@@ -84,8 +86,10 @@ describe('QualificationWorkerProtocolObserver', () => {
       output.end(bytes);
       await settle();
       assert.deepEqual(observations[observations.length - 1], {
+        failureCode: 'unavailable',
         fieldNames: [],
         messageType: 'unavailable',
+        requestIdState: 'absent',
         stage,
       });
     }
@@ -107,11 +111,39 @@ describe('QualificationWorkerProtocolObserver', () => {
 
     assert.deepEqual(observations, [
       {
+        failureCode: 'unavailable',
         fieldNames: ['protocolVersion', 'requestId', 'type', 'unexpectedField'],
         messageType: 'loaded',
+        requestIdState: 'string',
         stage: 'schema',
       },
     ]);
     assert.equal(JSON.stringify(observations).includes('private-fixture-value'), false);
+  });
+
+  test('retains only enum failure code and request identifier shape', async () => {
+    const output = new PassThrough();
+    const observations: QualificationWorkerProtocolObservation[] = [];
+    new QualificationWorkerProtocolObserver((observation) => observations.push(observation)).observe(output);
+    output.end(
+      rawControlFrame({
+        type: 'failure',
+        protocolVersion: 1,
+        requestId: 'private-request-value',
+        code: 'MODEL_LOAD_FAILED',
+      }),
+    );
+    await settle();
+
+    assert.deepEqual(observations, [
+      {
+        failureCode: 'MODEL_LOAD_FAILED',
+        fieldNames: ['code', 'protocolVersion', 'requestId', 'type'],
+        messageType: 'failure',
+        requestIdState: 'string',
+        stage: 'decoded',
+      },
+    ]);
+    assert.equal(JSON.stringify(observations).includes('private-request-value'), false);
   });
 });
