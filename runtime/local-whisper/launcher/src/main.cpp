@@ -14,6 +14,8 @@
 #include <io.h>
 #include <stdexcept>
 #include <string>
+#else
+#include <unistd.h>
 #endif
 
 namespace {
@@ -45,12 +47,16 @@ int inherited_descriptor(const char* argument, const std::string_view prefix) {
         "inherited handle conversion failed");
   return descriptor;
 }
+#endif
 
 void write_failure_acknowledgment(const int descriptor, const std::string_view code) noexcept {
   const std::string line = "FAILED\t" + std::string(code) + "\n";
+#ifdef _WIN32
   static_cast<void>(_write(descriptor, line.data(), static_cast<unsigned int>(line.size())));
-}
+#else
+  static_cast<void>(write(descriptor, line.data(), line.size()));
 #endif
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -68,9 +74,7 @@ int main(int argc, char** argv) {
     }
     return result;
   }
-#ifdef _WIN32
   int acknowledgment_descriptor = kAcknowledgmentDescriptor;
-#endif
   try {
 #ifdef _WIN32
     const int control_descriptor =
@@ -83,7 +87,6 @@ int main(int argc, char** argv) {
     if (argc != 2)
       return local_whisper::common::kInvalidInvocationExitCode;
     constexpr int control_descriptor = kControlDescriptor;
-    constexpr int acknowledgment_descriptor = kAcknowledgmentDescriptor;
     constexpr int authority_descriptor = kAuthorityDescriptor;
 #endif
     const local_whisper::launcher::LaunchRequest request =
@@ -94,9 +97,7 @@ int main(int argc, char** argv) {
   } catch (...) {
     const auto policy =
         local_whisper::launcher::launcher_exception_failure_policy(std::current_exception());
-#ifdef _WIN32
     write_failure_acknowledgment(acknowledgment_descriptor, policy.acknowledgment);
-#endif
     result = policy.exit_code;
   }
   if (logger) {
