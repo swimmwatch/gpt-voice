@@ -29,6 +29,7 @@ import {
 import type { DeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   serializeCanonicalLocalWhisperCatalogJson,
   toLocalWhisperArtifactId,
   toLocalWhisperOpaqueDeviceId,
@@ -215,10 +216,19 @@ interface AttemptCatalog {
   readonly artifactHttpClient: ArtifactHttpClient;
 }
 
-async function attemptCatalog(
+export interface PerformanceAttemptCatalogAuthority {
+  readonly document: Buffer;
+  readonly policy: LocalWhisperCatalogTrustPolicy;
+  readonly runtimeRevision: LocalWhisperRevisionId;
+  readonly modelRevision: LocalWhisperRevisionId;
+  readonly modelSourceUrl: string;
+}
+
+/** Creates the signed catalog and matching runtime authority for a single performance attempt. */
+export function createPerformanceAttemptCatalogAuthority(
   input: PerformanceAttemptApplicationInput,
   archive: Awaited<ReturnType<PerformanceRuntimeArchiveInspector['inspect']>>,
-): Promise<AttemptCatalog> {
+): PerformanceAttemptCatalogAuthority {
   const expectedProfile =
     input.request.backend === 'cpu' ? 'linux-x64-cpu-baseline-v1' : 'linux-x64-cuda-12.8.1-sm120a-v1';
   if (archive.profileId !== expectedProfile) throw new Error('ATTEMPT_RUNTIME_IDENTITY_INVALID');
@@ -270,6 +280,7 @@ async function attemptCatalog(
     runtimes: runtimeSeeds,
     qualificationStatus: 'planned',
     executionMode: 'representativeQualification',
+    workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   });
   const payloadBytes = Buffer.from(serializeCanonicalLocalWhisperCatalogJson(payload), 'utf8');
   const document = Buffer.from(
@@ -293,8 +304,22 @@ async function attemptCatalog(
       }),
     ]),
     appRevision,
-    workerProtocolVersion: 1,
+    workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   });
+  return Object.freeze({
+    document,
+    policy,
+    runtimeRevision: runtimeRevision(input.request.backend),
+    modelRevision: modelRevision(selectedModel.family, selectedModel.variant),
+    modelSourceUrl: localWhisperUpstreamModelUrl(selectedModel.file),
+  });
+}
+
+async function attemptCatalog(
+  input: PerformanceAttemptApplicationInput,
+  archive: Awaited<ReturnType<PerformanceRuntimeArchiveInspector['inspect']>>,
+): Promise<AttemptCatalog> {
+  const authority = createPerformanceAttemptCatalogAuthority(input, archive);
   const artifactHttpClient = await QualificationArtifactHttpClient.create(
     [
       {
@@ -304,7 +329,7 @@ async function attemptCatalog(
         sha256: input.artifacts.runtime.sha256,
       },
       {
-        url: localWhisperUpstreamModelUrl(selectedModel.file),
+        url: authority.modelSourceUrl,
         filePath: input.artifacts.model.absolutePath,
         sizeBytes: input.artifacts.model.sizeBytes,
         sha256: input.artifacts.model.sha256,
@@ -313,10 +338,10 @@ async function attemptCatalog(
     new RejectingArtifactHttpClient(),
   );
   return Object.freeze({
-    document,
-    policy,
-    runtimeRevision: runtimeRevision(input.request.backend),
-    modelRevision: modelRevision(selectedModel.family, selectedModel.variant),
+    document: authority.document,
+    policy: authority.policy,
+    runtimeRevision: authority.runtimeRevision,
+    modelRevision: authority.modelRevision,
     artifactHttpClient,
   });
 }
