@@ -525,6 +525,7 @@ export class ManagedArtifactStore {
     if (authority.descriptor.artifactId !== descriptor.artifactId || !authority.lock) {
       throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
     }
+    let promoted = false;
     try {
       const entries = await this.dependencies.adapter.inspectDirectory(
         this.token(stagingLease),
@@ -538,10 +539,11 @@ export class ManagedArtifactStore {
         descriptor.namespace,
         descriptor.canonicalName,
       );
+      promoted = true;
     } catch (error) {
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
-      await stagingLease.release();
+      if (promoted) await stagingLease.release();
     }
   }
 
@@ -555,6 +557,7 @@ export class ManagedArtifactStore {
     if (authority.descriptor.artifactId !== descriptor.artifactId || !authority.lock) {
       throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
     }
+    let promoted = false;
     try {
       const entries = await this.dependencies.adapter.inspectDirectoryMetadataOnly(
         this.token(stagingLease),
@@ -568,10 +571,11 @@ export class ManagedArtifactStore {
         descriptor.namespace,
         descriptor.canonicalName,
       );
+      promoted = true;
     } catch (error) {
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
-      await stagingLease.release();
+      if (promoted) await stagingLease.release();
     }
   }
 

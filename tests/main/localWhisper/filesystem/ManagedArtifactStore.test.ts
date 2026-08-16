@@ -206,6 +206,92 @@ function artifactUnprovable(error: unknown): boolean {
   return error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE';
 }
 
+function createPromotionFailureHarness() {
+  const descriptor = modelDescriptor();
+  const stableEntries = directoryEntries(descriptor);
+  const metadataEntries = Object.freeze(stableEntries.map((entry) => Object.freeze({ ...entry, sha256: null })));
+  const releases = new Map<string, number>();
+  let stagingInspectionCount = 0;
+  const rootNative: ManagedFilesystemOpenResult = Object.freeze({
+    identity: identity('root-directory', 'directory', 0o700, 0),
+    token: 'root-token',
+  });
+  const lockNative: ManagedFilesystemOpenResult = Object.freeze({
+    identity: identity('lock-file', 'regular', 0o600, 1),
+    token: 'lock-token',
+  });
+  const stagingNative: ManagedFilesystemOpenResult = Object.freeze({
+    identity: identity('staging-directory', 'directory', 0o700, 0),
+    token: 'staging-token',
+  });
+  const manifestNative: ManagedFilesystemOpenResult = Object.freeze({
+    identity: identity('manifest-file', 'regular', MANAGED_MANIFEST_MODE, 0),
+    token: 'manifest-token',
+  });
+  const adapter = {
+    acquireArtifactLock: async () => lockNative,
+    appendStagedFile: async () => undefined,
+    createStagedFile: async () => manifestNative,
+    createStagingDirectory: async () => stagingNative,
+    deleteStagingFile: async () => undefined,
+    dispose: async () => undefined,
+    initialize: async () => rootNative,
+    inspectDirectory: async () => {
+      stagingInspectionCount += 1;
+      return stagingInspectionCount === 1 ? stableEntries : [];
+    },
+    inspectDirectoryMetadataOnly: async () => metadataEntries,
+    promoteStagingDirectory: async () => {
+      throw new ManagedFilesystemAdapterError('IO_FAILED');
+    },
+    release: async (token: string) => {
+      releases.set(token, (releases.get(token) ?? 0) + 1);
+    },
+    removeEmptyStagingDirectory: async () => undefined,
+    revalidate: async () => undefined,
+    sealStagedFile: async () => manifestNative.identity,
+  } as Pick<
+    ManagedFilesystemPlatformAdapter,
+    | 'acquireArtifactLock'
+    | 'appendStagedFile'
+    | 'createStagedFile'
+    | 'createStagingDirectory'
+    | 'deleteStagingFile'
+    | 'dispose'
+    | 'initialize'
+    | 'inspectDirectory'
+    | 'inspectDirectoryMetadataOnly'
+    | 'promoteStagingDirectory'
+    | 'release'
+    | 'removeEmptyStagingDirectory'
+    | 'revalidate'
+    | 'sealStagedFile'
+  > as ManagedFilesystemPlatformAdapter;
+  const lockRepository = new ManagedArtifactLockRepository({
+    adapter,
+    appInstanceNonce: 'app-instance-00000001',
+    osProcessStartIdentity: 'process-start',
+    pid: 42,
+  });
+  const store = new ManagedArtifactStore({
+    adapter,
+    generateOperationNonce: () => 'operation-00000000000001',
+    lockRepository,
+    rootResolution: Object.freeze({
+      availability: 'available',
+      baseDirectory: '/managed/linux',
+      managedRoot: '/managed/linux/local-whisper',
+      platform: 'linux',
+      sanitizedLabel: 'Local Whisper managed storage',
+    }),
+  });
+  return Object.freeze({
+    descriptor,
+    releaseCount: (token: string) => releases.get(token) ?? 0,
+    store,
+  });
+}
+
 describe('ManagedArtifactStore model launch acquisition', () => {
   for (const platform of PLATFORMS) {
     it(`reuses the acquisition directory result on ${platform} and keeps the later fresh inspection`, async () => {
@@ -277,4 +363,24 @@ describe('ManagedArtifactStore model launch acquisition', () => {
       });
     }
   }
+});
+
+describe('ManagedArtifactStore staging promotion', () => {
+  it('retains a failed metadata-only staging lease until the extractor can discard it', async () => {
+    const harness = createPromotionFailureHarness();
+    await harness.store.initialize();
+    const staging = await harness.store.createStaging(harness.descriptor);
+
+    await assert.rejects(
+      harness.store.promoteMetadataOnlyModel(harness.descriptor, staging),
+      (error: unknown) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
+    );
+    assert.equal(staging.released, false);
+    assert.equal(harness.releaseCount('staging-token'), 0);
+
+    await harness.store.discardStaging(staging);
+    assert.equal(staging.released, true);
+    assert.equal(harness.releaseCount('staging-token'), 1);
+    assert.equal(harness.releaseCount('lock-token'), 1);
+  });
 });
