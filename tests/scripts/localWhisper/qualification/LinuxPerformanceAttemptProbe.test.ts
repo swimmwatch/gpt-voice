@@ -139,18 +139,18 @@ describe('Linux performance attempt probe', () => {
     }
   });
 
-  it('records only a recognized content-free model-guard failure acknowledgment', async () => {
+  it('records only a recognized content-free native launch failure acknowledgment', async () => {
     const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined);
     const child = probe.instrumentedSpawn()(
       process.execPath,
-      ['-e', fixtureScript('', 'FAILED\tMODEL_FILE_OPEN_FAILED\n')],
+      ['-e', fixtureScript('', 'FAILED\tWORKER_OPEN_FAILED\n')],
       { stdio: ['pipe', 'pipe', 'pipe', 'ignore', 'pipe'] },
     );
     try {
       const acknowledgment = child.stdio[4];
       assert.ok(acknowledgment);
       await once(acknowledgment, 'data');
-      assert.equal(probe.modelGuardFailureCode, 'MODEL_FILE_OPEN_FAILED');
+      assert.equal(probe.nativeLaunchFailureCode, 'WORKER_OPEN_FAILED');
     } finally {
       await stopChild(child);
     }

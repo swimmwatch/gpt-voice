@@ -529,8 +529,9 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
     await atAttemptApplicationStage('LOAD', async () => {
       probe.beginLoadProofs();
       const result = await coordinator.loadNow();
-      if (!result.success && result.error.code === 'WORKER_START_FAILED' && probe.modelGuardFailureCode !== null) {
-        throw new AttemptApplicationFailure(`ATTEMPT_LOAD_MODEL_GUARD_${probe.modelGuardFailureCode}`);
+      if (!result.success && result.error.code === 'WORKER_START_FAILED' && probe.nativeLaunchFailureCode !== null) {
+        const component = probe.nativeLaunchFailureCode.startsWith('MODEL_') ? 'MODEL_GUARD' : 'LAUNCHER';
+        throw new AttemptApplicationFailure(`ATTEMPT_LOAD_${component}_${probe.nativeLaunchFailureCode}`);
       }
       requireSuccess(result, `ATTEMPT_LOAD_${loadStage}`);
     });
