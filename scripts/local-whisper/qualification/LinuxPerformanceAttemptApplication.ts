@@ -69,14 +69,24 @@ type AttemptApplicationStage =
   | 'SHUTDOWN'
   | 'CLEANUP';
 
+const SAFE_LOCAL_WHISPER_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,31}$/u;
+
+class AttemptApplicationFailure extends Error {
+  public constructor(code: string) {
+    super(code);
+    this.name = 'AttemptApplicationFailure';
+  }
+}
+
 async function atAttemptApplicationStage<T>(
   stage: AttemptApplicationStage,
   operation: () => Promise<T>,
 ): Promise<T> {
   try {
     return await operation();
-  } catch {
-    throw new Error(`ATTEMPT_APPLICATION_${stage}_FAILED`);
+  } catch (error) {
+    if (error instanceof AttemptApplicationFailure) throw error;
+    throw new AttemptApplicationFailure(`ATTEMPT_APPLICATION_${stage}_FAILED`);
   }
 }
 
@@ -125,8 +135,15 @@ function modelRevision(family: string, variant: string): LocalWhisperRevisionId 
 
 function requireSuccess<T>(
   result: { readonly success: true; readonly value: T } | { readonly success: false; readonly error: { code: string } },
+  failureCodePrefix: 'ATTEMPT_LOAD' | 'ATTEMPT_SETTINGS',
 ): T {
-  if (!result.success) throw new Error(`ATTEMPT_APPLICATION_FAILED:${result.error.code}`);
+  if (!result.success) {
+    const code = result.error.code;
+    if (!SAFE_LOCAL_WHISPER_FAILURE_CODE.test(code)) {
+      throw new AttemptApplicationFailure('ATTEMPT_APPLICATION_RESULT_INVALID');
+    }
+    throw new AttemptApplicationFailure(`${failureCodePrefix}_${code}`);
+  }
   return result.value;
 }
 
@@ -474,11 +491,12 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
             expectedConfigurationEpoch: current.epochs.configuration,
             expectedInventoryEpoch: current.epochs.inventory,
           }),
+          'ATTEMPT_SETTINGS',
         );
       });
       await atAttemptApplicationStage('LOAD', async () => {
         probe.beginLoadProofs();
-        requireSuccess(await coordinator.loadNow());
+        requireSuccess(await coordinator.loadNow(), 'ATTEMPT_LOAD');
       });
       const endToEndNanoseconds = Number(process.hrtime.bigint() - started);
       if (!Number.isSafeInteger(endToEndNanoseconds) || endToEndNanoseconds < 1) {
