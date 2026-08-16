@@ -89,6 +89,9 @@ async function atAttemptApplicationStage<T>(
     return await operation();
   } catch (error) {
     if (error instanceof AttemptApplicationFailure) throw error;
+    if (error instanceof Error && SAFE_ATTEMPT_FAILURE_CODE.test(error.message)) {
+      throw new AttemptApplicationFailure(error.message);
+    }
     throw new AttemptApplicationFailure(`ATTEMPT_APPLICATION_${stage}_FAILED`);
   }
 }
