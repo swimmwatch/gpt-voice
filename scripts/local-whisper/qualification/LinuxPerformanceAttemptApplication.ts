@@ -213,7 +213,17 @@ async function installArtifact(
     expectedInventoryEpoch: epochs.inventory,
   });
   if (!started.success) throw new Error('ATTEMPT_ARTIFACT_START_FAILED');
-  await waitForArtifact(environment, current.id);
+  try {
+    await waitForArtifact(environment, current.id);
+  } catch (error) {
+    const sourceCode =
+      error instanceof Error && SAFE_ATTEMPT_FAILURE_CODE.test(error.message)
+        ? error.message
+        : 'ATTEMPT_ARTIFACT_INSTALL_FAILED';
+    const failureCode = `ATTEMPT_${kind.toUpperCase()}_${sourceCode.slice('ATTEMPT_'.length)}`;
+    if (SAFE_ATTEMPT_FAILURE_CODE.test(failureCode)) throw new AttemptApplicationFailure(failureCode);
+    throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_INSTALL_FAILED');
+  }
 }
 
 interface AttemptCatalog {
