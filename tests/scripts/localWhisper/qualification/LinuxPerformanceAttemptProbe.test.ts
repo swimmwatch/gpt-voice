@@ -25,7 +25,7 @@ const NATIVE_PHASES = Object.freeze([
   'installationWrite',
 ]);
 
-function fixtureScript(nativePayload: string): string {
+function fixtureScript(nativePayload: string, modelGuardAcknowledgment = ''): string {
   return `
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
@@ -34,6 +34,7 @@ const worker = payload.includes('__WORKER_PID__')
   ? spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })
   : null;
 fs.writeSync(5, payload.replace('__WORKER_PID__', String(worker?.pid ?? process.pid)));
+if (${JSON.stringify(modelGuardAcknowledgment)}) fs.writeSync(4, ${JSON.stringify(modelGuardAcknowledgment)});
 let pending = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
@@ -135,6 +136,23 @@ describe('Linux performance attempt probe', () => {
     } finally {
       if (child.exitCode === null && !child.killed) child.kill('SIGKILL');
       if (child.exitCode === null && child.signalCode === null) await once(child, 'exit');
+    }
+  });
+
+  it('records only a recognized content-free model-guard failure acknowledgment', async () => {
+    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined);
+    const child = probe.instrumentedSpawn()(
+      process.execPath,
+      ['-e', fixtureScript('', 'FAILED\tMODEL_FILE_OPEN_FAILED\n')],
+      { stdio: ['pipe', 'pipe', 'pipe', 'ignore', 'pipe'] },
+    );
+    try {
+      const acknowledgment = child.stdio[4];
+      assert.ok(acknowledgment);
+      await once(acknowledgment, 'data');
+      assert.equal(probe.modelGuardFailureCode, 'MODEL_FILE_OPEN_FAILED');
+    } finally {
+      await stopChild(child);
     }
   });
 });

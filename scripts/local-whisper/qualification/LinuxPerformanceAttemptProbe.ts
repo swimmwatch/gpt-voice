@@ -11,6 +11,7 @@ import type { PerformanceBackend } from './PerformanceQualification';
 const NATIVE_FRAME_LIMIT = 128;
 const NATIVE_BYTE_LIMIT = 64 * 1024;
 const NATIVE_FRAME = /^LWQP1\t(phase|worker)\t([A-Za-z][A-Za-z0-9]{1,63})\t([1-9]\d*)$/u;
+const MODEL_GUARD_FAILURE = /^FAILED\t(MODEL_(?:PATH_INVALID|DIRECTORY_OPEN_FAILED|FILE_OPEN_FAILED|IDENTITY_REJECTED|DIGEST_REJECTED|LAUNCHER_CREATION_FAILED|JOB_OWNERSHIP_FAILED|HANDLE_POLICY_FAILED|PIPE_IO_FAILED|LAUNCHER_RESUME_FAILED|BOOTSTRAP_REJECTED))\n$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 
 export interface PerformanceAttemptProcessIdentity {
@@ -101,6 +102,7 @@ export class LinuxPerformanceAttemptProbe {
   private workerPid: number | null = null;
   private workerPublished = false;
   private workerRegistration: Promise<void> | null = null;
+  private modelGuardFailure: string | null = null;
   private guardPublished = false;
   private guardRegistration: Promise<void> | null = null;
   private terminal = false;
@@ -144,6 +146,11 @@ export class LinuxPerformanceAttemptProbe {
   public beginLoadProofs(): void {
     if (this.loadProofsActive) fail();
     this.loadProofsActive = true;
+  }
+
+  /** Returns only a native model-guard's closed, content-free failure vocabulary. */
+  public get modelGuardFailureCode(): string | null {
+    return this.modelGuardFailure;
   }
 
   public async finish(): Promise<void> {
@@ -213,6 +220,7 @@ export class LinuxPerformanceAttemptProbe {
       });
       native.on('error', (error: Error) => this.recordFailure(error));
       this.observeGuardProtocol(child);
+      this.observeModelGuardAcknowledgment(child);
       return child;
     };
     return instrument as typeof spawn;
@@ -269,6 +277,24 @@ export class LinuxPerformanceAttemptProbe {
           this.directoryProofDurations.push(positiveNanoseconds(duration));
         }
       }
+    });
+  }
+
+  private observeModelGuardAcknowledgment(child: ChildProcess): void {
+    const acknowledgment = child.stdio[4];
+    if (!acknowledgment || typeof acknowledgment !== 'object' || !('on' in acknowledgment)) return;
+    let pending = Buffer.alloc(0);
+    acknowledgment.on('data', (chunk: Buffer | string) => {
+      if (this.modelGuardFailure !== null) return;
+      pending = Buffer.concat([pending, Buffer.from(chunk)]);
+      if (pending.byteLength > 256) {
+        pending = Buffer.alloc(0);
+        return;
+      }
+      const match = MODEL_GUARD_FAILURE.exec(pending.toString('ascii'));
+      const failureCode = match?.[1];
+      if (failureCode) this.modelGuardFailure = failureCode;
+      if (pending.includes(0x0a)) pending = Buffer.alloc(0);
     });
   }
 

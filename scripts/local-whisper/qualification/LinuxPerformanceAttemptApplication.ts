@@ -75,7 +75,7 @@ const SAFE_LOCAL_WHISPER_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,31}$/u;
 const SAFE_ATTEMPT_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
 
 class AttemptApplicationFailure extends Error {
-  public constructor(code: string) {
+  public constructor(public readonly code: string) {
     super(code);
     this.name = 'AttemptApplicationFailure';
   }
@@ -526,10 +526,14 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           'ATTEMPT_SETTINGS',
         );
       });
-      await atAttemptApplicationStage('LOAD', async () => {
-        probe.beginLoadProofs();
-        requireSuccess(await coordinator.loadNow(), `ATTEMPT_LOAD_${loadStage}`);
-      });
+    await atAttemptApplicationStage('LOAD', async () => {
+      probe.beginLoadProofs();
+      const result = await coordinator.loadNow();
+      if (!result.success && result.error.code === 'WORKER_START_FAILED' && probe.modelGuardFailureCode !== null) {
+        throw new AttemptApplicationFailure(`ATTEMPT_LOAD_MODEL_GUARD_${probe.modelGuardFailureCode}`);
+      }
+      requireSuccess(result, `ATTEMPT_LOAD_${loadStage}`);
+    });
       const endToEndNanoseconds = Number(process.hrtime.bigint() - started);
       if (!Number.isSafeInteger(endToEndNanoseconds) || endToEndNanoseconds < 1) {
         throw new Error('ATTEMPT_DURATION_INVALID');
