@@ -196,6 +196,7 @@ async function installArtifact(
   kind: 'model' | 'runtime',
   revision: LocalWhisperRevisionId,
   primaryFailureCode?: () => string | null,
+  stagingCleanupStep?: () => string | null,
 ): Promise<void> {
   const current = environment.facts.snapshot.artifacts.find(
     (artifact) => artifact.kind === kind && artifact.revision === revision,
@@ -222,12 +223,18 @@ async function installArtifact(
         ? error.message
         : 'ATTEMPT_ARTIFACT_INSTALL_FAILED';
     const primaryCode = primaryFailureCode?.();
+    const cleanupStep = stagingCleanupStep?.();
     const failureCode =
       sourceCode === 'ATTEMPT_ARTIFACT_CLEANUP_FAILED' &&
       primaryCode !== null &&
       primaryCode !== undefined &&
       SAFE_LOCAL_WHISPER_FAILURE_CODE.test(primaryCode)
-        ? `ATTEMPT_${kind.toUpperCase()}_ARTIFACT_PRIMARY_${primaryCode}`
+        ? primaryCode === 'CLEANUP_FAILED' &&
+          cleanupStep !== null &&
+          cleanupStep !== undefined &&
+          /^[A-Z]+$/u.test(cleanupStep)
+          ? `ATTEMPT_${kind.toUpperCase()}_STAGING_${cleanupStep}_FAILED`
+          : `ATTEMPT_${kind.toUpperCase()}_ARTIFACT_PRIMARY_${primaryCode}`
         : `ATTEMPT_${kind.toUpperCase()}_${sourceCode.slice('ATTEMPT_'.length)}`;
     if (SAFE_ATTEMPT_FAILURE_CODE.test(failureCode)) throw new AttemptApplicationFailure(failureCode);
     throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_INSTALL_FAILED');
@@ -438,12 +445,16 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       });
       let sequence = 0;
       let artifactPrimaryFailure: string | null = null;
+      let stagingCleanupStep: string | null = null;
       const started = process.hrtime.bigint();
       const qualificationHooks = {
         artifactHttpClient: catalog.artifactHttpClient,
         performanceInstallationWindow: input.effectiveInstallationWindow,
         onArtifactTransferFailure: ({ primaryCode }: { readonly primaryCode: string }) => {
           artifactPrimaryFailure = primaryCode;
+        },
+        onStagingCleanupStep: (step: 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove') => {
+          stagingCleanupStep = step.toUpperCase();
         },
         onSessionProcessLaunched: (
           event: Parameters<
@@ -511,6 +522,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       if (environment.facts.snapshot.catalogRevision === null) throw new Error('ATTEMPT_ENVIRONMENT_UNAVAILABLE');
       coordinator = new LocalWhisperCoordinator(environment.coordinator);
       artifactPrimaryFailure = null;
+      stagingCleanupStep = null;
       await atAttemptApplicationStage(
         'RUNTIME_INSTALL',
         async () =>
@@ -520,13 +532,22 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
             'runtime',
             catalog.runtimeRevision,
             () => artifactPrimaryFailure,
+            () => stagingCleanupStep,
           ),
       );
       artifactPrimaryFailure = null;
+      stagingCleanupStep = null;
       await atAttemptApplicationStage(
         'MODEL_INSTALL',
         async () =>
-          await installArtifact(environment, coordinator, 'model', catalog.modelRevision, () => artifactPrimaryFailure),
+          await installArtifact(
+            environment,
+            coordinator,
+            'model',
+            catalog.modelRevision,
+            () => artifactPrimaryFailure,
+            () => stagingCleanupStep,
+          ),
       );
       let deviceId = null;
       if (input.request.backend === 'cuda') {

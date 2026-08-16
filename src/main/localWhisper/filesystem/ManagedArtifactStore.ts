@@ -68,6 +68,9 @@ export interface ManagedArtifactStoreDependencies {
   readonly adapter: ManagedFilesystemPlatformAdapter;
   readonly generateOperationNonce: () => string;
   readonly lockRepository: ManagedArtifactLockRepository;
+  readonly onStagingCleanupStep?: (
+    step: 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove',
+  ) => void;
   readonly rootResolution: ManagedArtifactRootResolution;
 }
 
@@ -576,6 +579,7 @@ export class ManagedArtifactStore {
     const authority = this.requireAuthority(stagingLease, 'staging');
     if (!authority.lock) throw new ManagedArtifactStoreError('INVALID_LEASE');
     try {
+      this.dependencies.onStagingCleanupStep?.('inspect');
       const entries = await this.dependencies.adapter.inspectDirectory(this.token(stagingLease));
       const expectedByName = new Map<string, ManagedArtifactExpectedFile | null>([
         [MANAGED_MANIFEST_NAME, null],
@@ -583,6 +587,7 @@ export class ManagedArtifactStore {
           (expected) => [descriptorFileName(authority.descriptor, expected), expected] as const,
         ),
       ]);
+      this.dependencies.onStagingCleanupStep?.('validate');
       for (const entry of entries) {
         const expected = expectedByName.get(entry.canonicalName);
         const expectedMode = expected === null ? MANAGED_MANIFEST_MODE : expected?.mode;
@@ -599,17 +604,21 @@ export class ManagedArtifactStore {
           throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
         }
       }
+      this.dependencies.onStagingCleanupStep?.('revalidate');
       await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
       for (const entry of entries) {
+        this.dependencies.onStagingCleanupStep?.('delete');
         await this.dependencies.adapter.deleteStagingFile(
           this.token(stagingLease),
           entry.canonicalName,
           entry.identity,
         );
       }
+      this.dependencies.onStagingCleanupStep?.('confirm');
       if ((await this.dependencies.adapter.inspectDirectory(this.token(stagingLease))).length !== 0) {
         throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
       }
+      this.dependencies.onStagingCleanupStep?.('remove');
       await this.dependencies.adapter.removeEmptyStagingDirectory(this.requireRoot().token, this.token(stagingLease));
     } catch (error) {
       throw mapAdapterError(error, 'INSTALL_FAILED');

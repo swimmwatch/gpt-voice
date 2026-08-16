@@ -165,6 +165,9 @@ export interface LocalWhisperProductionEnvironmentDependencies {
         readonly primaryCode: LocalWhisperFailureCode;
       }>,
     ) => void;
+    readonly onStagingCleanupStep?: (
+      step: 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove',
+    ) => void;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
     readonly onLoadStage?: (
@@ -978,6 +981,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
           osProcessStartIdentity: processStartIdentity,
           pid: this.dependencies.pid,
         }),
+        ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onStagingCleanupStep
+          ? { onStagingCleanupStep: this.dependencies.qualificationHooks.onStagingCleanupStep }
+          : {}),
         rootResolution,
       });
       await store.initialize();
