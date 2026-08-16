@@ -85,6 +85,7 @@ import {
   createManagedRuntimeDescriptor,
   type ManagedArtifactStagingCleanupFailure,
   type ManagedArtifactStagingCleanupStep,
+  type ManagedArtifactStagingPromotionFailure,
 } from '../filesystem/ManagedArtifactStore';
 import { NativeManagedFilesystemGuardTransport } from '../filesystem/NativeManagedFilesystemGuardTransport';
 import { WindowsManagedFilesystemAdapter } from '../filesystem/WindowsManagedFilesystemAdapter';
@@ -169,6 +170,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
     ) => void;
     readonly onStagingCleanupStep?: (step: ManagedArtifactStagingCleanupStep) => void;
     readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
+    readonly onStagingPromotionFailure?: (failure: ManagedArtifactStagingPromotionFailure) => void;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
     readonly onLoadStage?: (
@@ -987,6 +989,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
           : {}),
         ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onStagingCleanupFailure
           ? { onStagingCleanupFailure: this.dependencies.qualificationHooks.onStagingCleanupFailure }
+          : {}),
+        ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onStagingPromotionFailure
+          ? { onStagingPromotionFailure: this.dependencies.qualificationHooks.onStagingPromotionFailure }
           : {}),
         rootResolution,
       });

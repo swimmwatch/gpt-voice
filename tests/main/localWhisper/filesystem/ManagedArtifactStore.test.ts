@@ -12,6 +12,7 @@ import {
   getManagedArtifactStorageFileName,
   type ManagedArtifactDescriptor,
   type ManagedArtifactStagingCleanupFailure,
+  type ManagedArtifactStagingPromotionFailure,
 } from '@main/localWhisper/filesystem/ManagedArtifactStore';
 import {
   ManagedFilesystemAdapterError,
@@ -212,6 +213,7 @@ function createPromotionFailureHarness(
   options: Readonly<{
     readonly cleanupFailureCode?: ManagedFilesystemAdapterFailureCode;
     readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
+    readonly onStagingPromotionFailure?: (failure: ManagedArtifactStagingPromotionFailure) => void;
   }> = {},
 ) {
   const descriptor = modelDescriptor();
@@ -291,6 +293,7 @@ function createPromotionFailureHarness(
     generateOperationNonce: () => 'operation-00000000000001',
     lockRepository,
     ...(options.onStagingCleanupFailure ? { onStagingCleanupFailure: options.onStagingCleanupFailure } : {}),
+    ...(options.onStagingPromotionFailure ? { onStagingPromotionFailure: options.onStagingPromotionFailure } : {}),
     rootResolution: Object.freeze({
       availability: 'available',
       baseDirectory: '/managed/linux',
@@ -401,6 +404,23 @@ describe('ManagedArtifactStore staging promotion', () => {
 
     assert.deepEqual(cleanupFailures, [{ failureCode: 'IO_FAILED', step: 'remove' }]);
     assert.equal(staging.released, true);
+  });
+
+  it('reports a closed promotion failure code before staging cleanup', async () => {
+    const promotionFailures: ManagedArtifactStagingPromotionFailure[] = [];
+    const harness = createPromotionFailureHarness({
+      onStagingPromotionFailure: (failure) => promotionFailures.push(failure),
+    });
+    await harness.store.initialize();
+    const staging = await harness.store.createStaging(harness.descriptor);
+
+    await assert.rejects(
+      harness.store.promoteMetadataOnlyModel(harness.descriptor, staging),
+      (error: unknown) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
+    );
+
+    assert.deepEqual(promotionFailures, [{ failureCode: 'IO_FAILED' }]);
+    await harness.store.discardStaging(staging);
   });
 
   it('retains a failed metadata-only staging lease until the extractor can discard it', async () => {

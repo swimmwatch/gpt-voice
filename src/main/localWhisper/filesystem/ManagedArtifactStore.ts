@@ -70,6 +70,7 @@ export interface ManagedArtifactStoreDependencies {
   readonly generateOperationNonce: () => string;
   readonly lockRepository: ManagedArtifactLockRepository;
   readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
+  readonly onStagingPromotionFailure?: (failure: ManagedArtifactStagingPromotionFailure) => void;
   readonly onStagingCleanupStep?: (step: ManagedArtifactStagingCleanupStep) => void;
   readonly rootResolution: ManagedArtifactRootResolution;
 }
@@ -80,6 +81,11 @@ export type ManagedArtifactStagingCleanupStep = 'inspect' | 'validate' | 'revali
 export interface ManagedArtifactStagingCleanupFailure {
   readonly failureCode: ManagedFilesystemAdapterFailureCode | 'STORE' | 'UNKNOWN';
   readonly step: ManagedArtifactStagingCleanupStep;
+}
+
+/** Qualification-only, closed diagnostic data that is safe to retain outside a native error. */
+export interface ManagedArtifactStagingPromotionFailure {
+  readonly failureCode: ManagedFilesystemAdapterFailureCode | 'STORE' | 'UNKNOWN';
 }
 
 export interface ManagedRuntimeLaunchLease {
@@ -554,6 +560,7 @@ export class ManagedArtifactStore {
       );
       promoted = true;
     } catch (error) {
+      this.dependencies.onStagingPromotionFailure?.(Object.freeze({ failureCode: stagingCleanupFailureCode(error) }));
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       if (promoted) await stagingLease.release();
@@ -585,6 +592,7 @@ export class ManagedArtifactStore {
       );
       promoted = true;
     } catch (error) {
+      this.dependencies.onStagingPromotionFailure?.(Object.freeze({ failureCode: stagingCleanupFailureCode(error) }));
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       if (promoted) await stagingLease.release();
