@@ -81,10 +81,7 @@ class AttemptApplicationFailure extends Error {
   }
 }
 
-async function atAttemptApplicationStage<T>(
-  stage: AttemptApplicationStage,
-  operation: () => Promise<T>,
-): Promise<T> {
+async function atAttemptApplicationStage<T>(stage: AttemptApplicationStage, operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
   } catch (error) {
@@ -175,8 +172,16 @@ async function waitForArtifact(
       const artifact = facts.artifacts.find(({ id }) => id === artifactId);
       const progress = facts.progress.find((entry) => entry.artifactId === artifactId);
       if (artifact?.state === 'Installed') finish();
-      else if (progress?.failure) finish(new Error('ATTEMPT_ARTIFACT_INSTALL_FAILED'));
-      else if (artifact && ['Blocked', 'Corrupt', 'Failed'].includes(artifact.state)) {
+      else if (progress?.failure) {
+        const code = progress.failure.code;
+        finish(
+          new Error(
+            SAFE_LOCAL_WHISPER_FAILURE_CODE.test(code) && SAFE_ATTEMPT_FAILURE_CODE.test(`ATTEMPT_ARTIFACT_${code}`)
+              ? `ATTEMPT_ARTIFACT_${code}`
+              : 'ATTEMPT_ARTIFACT_INSTALL_FAILED',
+          ),
+        );
+      } else if (artifact && ['Blocked', 'Corrupt', 'Failed'].includes(artifact.state)) {
         finish(new Error('ATTEMPT_ARTIFACT_INSTALL_FAILED'));
       }
     };
@@ -436,56 +441,60 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           loadStage = stage;
         },
       };
-      environment = await atAttemptApplicationStage('ENVIRONMENT', async () =>
-        await new ProductionLocalWhisperEnvironmentFactory(
-          {
-            appRevision: String(catalog.policy.appRevision),
-            architecture: 'x64',
-            availableMemoryBytes: freemem,
-            availableVramBytes: (identity) => vram.sample(identity),
-            configurationRoot,
-            environment: Object.freeze({
-              HOME: homeRoot,
-              XDG_DATA_HOME: dataRoot,
-              LANG: 'C.UTF-8',
-              LC_ALL: 'C.UTF-8',
-              PATH: '/usr/bin:/bin',
-            }),
-            fileSystem: {
-              chmodSync: fs.chmodSync,
-              existsSync: fs.existsSync,
-              mkdirSync: fs.mkdirSync,
-              readFileSync: fs.readFileSync,
-              renameSync: fs.renameSync,
-              rmSync: fs.rmSync,
-              unlinkSync: fs.unlinkSync,
-              writeFileSync: fs.writeFileSync,
+      environment = await atAttemptApplicationStage(
+        'ENVIRONMENT',
+        async () =>
+          await new ProductionLocalWhisperEnvironmentFactory(
+            {
+              appRevision: String(catalog.policy.appRevision),
+              architecture: 'x64',
+              availableMemoryBytes: freemem,
+              availableVramBytes: (identity) => vram.sample(identity),
+              configurationRoot,
+              environment: Object.freeze({
+                HOME: homeRoot,
+                XDG_DATA_HOME: dataRoot,
+                LANG: 'C.UTF-8',
+                LC_ALL: 'C.UTF-8',
+                PATH: '/usr/bin:/bin',
+              }),
+              fileSystem: {
+                chmodSync: fs.chmodSync,
+                existsSync: fs.existsSync,
+                mkdirSync: fs.mkdirSync,
+                readFileSync: fs.readFileSync,
+                renameSync: fs.renameSync,
+                rmSync: fs.rmSync,
+                unlinkSync: fs.unlinkSync,
+                writeFileSync: fs.writeFileSync,
+              },
+              homeDirectory: () => homeRoot,
+              logicalProcessorCount: availableParallelism(),
+              nextRequestId: () => `performance-attempt-${++sequence}`,
+              now: Date.now,
+              openPath: () => Promise.resolve(''),
+              pid: process.pid,
+              platform: 'linux',
+              qualificationHooks,
+              randomNonce: () => randomBytes(24).toString('base64url'),
+              randomBytes: (size) => randomBytes(size),
+              readNvidiaInventory: () => inventory.read(),
+              readFile: async (filePath) => await readFile(filePath),
+              resourcesPath: path.join(path.dirname(process.execPath), 'resources'),
+              spawnProcess: probe.instrumentedSpawn(),
             },
-            homeDirectory: () => homeRoot,
-            logicalProcessorCount: availableParallelism(),
-            nextRequestId: () => `performance-attempt-${++sequence}`,
-            now: Date.now,
-            openPath: () => Promise.resolve(''),
-            pid: process.pid,
-            platform: 'linux',
-            qualificationHooks,
-            randomNonce: () => randomBytes(24).toString('base64url'),
-            randomBytes: (size) => randomBytes(size),
-            readNvidiaInventory: () => inventory.read(),
-            readFile: async (filePath) => await readFile(filePath),
-            resourcesPath: path.join(path.dirname(process.execPath), 'resources'),
-            spawnProcess: probe.instrumentedSpawn(),
-          },
-          { activationPurpose: 'qualification', document: catalog.document, trustPolicy: catalog.policy },
-        ).create(),
+            { activationPurpose: 'qualification', document: catalog.document, trustPolicy: catalog.policy },
+          ).create(),
       );
       if (environment.facts.snapshot.catalogRevision === null) throw new Error('ATTEMPT_ENVIRONMENT_UNAVAILABLE');
       coordinator = new LocalWhisperCoordinator(environment.coordinator);
-      await atAttemptApplicationStage('RUNTIME_INSTALL', async () =>
-        await installArtifact(environment, coordinator, 'runtime', catalog.runtimeRevision),
+      await atAttemptApplicationStage(
+        'RUNTIME_INSTALL',
+        async () => await installArtifact(environment, coordinator, 'runtime', catalog.runtimeRevision),
       );
-      await atAttemptApplicationStage('MODEL_INSTALL', async () =>
-        await installArtifact(environment, coordinator, 'model', catalog.modelRevision),
+      await atAttemptApplicationStage(
+        'MODEL_INSTALL',
+        async () => await installArtifact(environment, coordinator, 'model', catalog.modelRevision),
       );
       let deviceId = null;
       if (input.request.backend === 'cuda') {
@@ -529,15 +538,15 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           'ATTEMPT_SETTINGS',
         );
       });
-    await atAttemptApplicationStage('LOAD', async () => {
-      probe.beginLoadProofs();
-      const result = await coordinator.loadNow();
-      if (!result.success && result.error.code === 'WORKER_START_FAILED' && probe.nativeLaunchFailureCode !== null) {
-        const component = probe.nativeLaunchFailureCode.startsWith('MODEL_') ? 'MODEL_GUARD' : 'LAUNCHER';
-        throw new AttemptApplicationFailure(`ATTEMPT_LOAD_${component}_${probe.nativeLaunchFailureCode}`);
-      }
-      requireSuccess(result, `ATTEMPT_LOAD_${loadStage}`);
-    });
+      await atAttemptApplicationStage('LOAD', async () => {
+        probe.beginLoadProofs();
+        const result = await coordinator.loadNow();
+        if (!result.success && result.error.code === 'WORKER_START_FAILED' && probe.nativeLaunchFailureCode !== null) {
+          const component = probe.nativeLaunchFailureCode.startsWith('MODEL_') ? 'MODEL_GUARD' : 'LAUNCHER';
+          throw new AttemptApplicationFailure(`ATTEMPT_LOAD_${component}_${probe.nativeLaunchFailureCode}`);
+        }
+        requireSuccess(result, `ATTEMPT_LOAD_${loadStage}`);
+      });
       const endToEndNanoseconds = Number(process.hrtime.bigint() - started);
       if (!Number.isSafeInteger(endToEndNanoseconds) || endToEndNanoseconds < 1) {
         throw new Error('ATTEMPT_DURATION_INVALID');
