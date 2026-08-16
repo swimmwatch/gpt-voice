@@ -63,6 +63,13 @@ export interface LocalWhisperArtifactServiceDependencies {
   readonly inventory: ArtifactInventoryPort;
   readonly journals: ArtifactTransferJournalRepository;
   readonly logger: ArtifactSafeLogger;
+  readonly onTransferFailure?: (
+    event: Readonly<{
+      readonly artifactId: LocalWhisperArtifactId;
+      readonly cleanupFailed: boolean;
+      readonly primaryCode: LocalWhisperFailureCode;
+    }>,
+  ) => void;
   readonly progress: ArtifactProgressStore;
   readonly queue: ArtifactTransferQueue;
   readonly store: ArtifactManagedStorePort;
@@ -336,6 +343,9 @@ export class LocalWhisperArtifactService {
         finalCode = 'CLEANUP_FAILED';
       }
     }
+    this.dependencies.onTransferFailure?.(
+      Object.freeze({ artifactId: spec.artifactId, cleanupFailed: finalCode === 'CLEANUP_FAILED', primaryCode: code }),
+    );
     const state = finalCode === 'DOWNLOAD_CANCELLED' ? 'Cancelled' : 'Failed';
     this.publishFailure(operationId, spec.artifactId, mode, finalCode, state, journal?.receivedLength ?? 0, spec);
     this.dependencies.logger.warn('local-whisper-artifact-transfer-failed', {

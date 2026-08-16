@@ -158,9 +158,18 @@ export interface LocalWhisperProductionEnvironmentDependencies {
   /** Accepted only by an explicitly qualification-purpose factory input. */
   readonly qualificationHooks?: {
     readonly artifactHttpClient?: ArtifactHttpClient;
+    readonly onArtifactTransferFailure?: (
+      event: Readonly<{
+        readonly artifactId: string;
+        readonly cleanupFailed: boolean;
+        readonly primaryCode: LocalWhisperFailureCode;
+      }>,
+    ) => void;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
-    readonly onLoadStage?: (stage: import('./LocalWhisperProductionWorkerPort').LocalWhisperQualificationLoadStage) => void;
+    readonly onLoadStage?: (
+      stage: import('./LocalWhisperProductionWorkerPort').LocalWhisperQualificationLoadStage,
+    ) => void;
   };
 }
 
@@ -1292,6 +1301,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
           info: () => undefined,
           warn: () => undefined,
         }),
+        ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onArtifactTransferFailure
+          ? { onTransferFailure: this.dependencies.qualificationHooks.onArtifactTransferFailure }
+          : {}),
         progress: artifactProgressStore,
         queue: new ArtifactTransferQueue(),
         store: managedStore,
