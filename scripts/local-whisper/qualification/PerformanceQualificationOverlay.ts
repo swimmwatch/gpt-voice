@@ -6,17 +6,31 @@ import { qualificationCanonicalJson } from './QualificationContracts';
 
 const TAR_BLOCK_BYTES = 512;
 const BASELINE_COMPOSITION_SHA256 = '8e1fcdc8493bfdcf9d880fd63d5a0c6680830526b55e8c8a2b40628377abb7f1';
-const CANDIDATE_COMPOSITION_SHA256 = '3aa7b20fdab848cde74541cc48de2508e258ce5c61e9e0404d8387057b9e5c2f';
+const CANDIDATE_COMPOSITION_SHA256 = '402410348392d67487de3554dc25833675788744c163ae549a417efb7d46b12d';
 const COMPOSITION_PATH = 'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts';
-const HOOK_ANCHOR = `  readonly qualificationHooks?: {
+const BEFORE_HOOK_ANCHOR = `  readonly qualificationHooks?: {
     readonly artifactHttpClient?: ArtifactHttpClient;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
   };`;
-const HOOK_REPLACEMENT = `  readonly qualificationHooks?: {
+const BEFORE_HOOK_REPLACEMENT = `  readonly qualificationHooks?: {
     readonly artifactHttpClient?: ArtifactHttpClient;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
+    /** Private derived-build control; absent from ordinary production composition. */
+    readonly performanceInstallationWindow?: 1 | 2 | 4 | 8;
+  };`;
+const AFTER_HOOK_ANCHOR = `  readonly qualificationHooks?: {
+    readonly artifactHttpClient?: ArtifactHttpClient;
+    readonly trustedCertificateAuthorities?: readonly string[];
+    readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
+    readonly onLoadStage?: (stage: import('./LocalWhisperProductionWorkerPort').LocalWhisperQualificationLoadStage) => void;
+  };`;
+const AFTER_HOOK_REPLACEMENT = `  readonly qualificationHooks?: {
+    readonly artifactHttpClient?: ArtifactHttpClient;
+    readonly trustedCertificateAuthorities?: readonly string[];
+    readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
+    readonly onLoadStage?: (stage: import('./LocalWhisperProductionWorkerPort').LocalWhisperQualificationLoadStage) => void;
     /** Private derived-build control; absent from ordinary production composition. */
     readonly performanceInstallationWindow?: 1 | 2 | 4 | 8;
   };`;
@@ -37,7 +51,7 @@ const NATIVE_TARGETS = Object.freeze({
   modelLaunch: Object.freeze({
     path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
     beforeSha256: '9ac4d2749e4ae0594d35bcbeb3002276930d2d86717223d2e03b9d8ee8fa07ca',
-    afterSha256: '9ac4d2749e4ae0594d35bcbeb3002276930d2d86717223d2e03b9d8ee8fa07ca',
+    afterSha256: '5f7d9598923fc1717cf02c687e77f80f854bbf322ebc9be144479521a187e15c',
   }),
   authority: Object.freeze({
     path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp',
@@ -47,7 +61,7 @@ const NATIVE_TARGETS = Object.freeze({
   launcher: Object.freeze({
     path: 'runtime/local-whisper/launcher/src/platform/linux/linux_launcher.cpp',
     beforeSha256: '511e0e25e50fdac1883983946202352ea09f482584f57d7dceffe94af7754146',
-    afterSha256: '511e0e25e50fdac1883983946202352ea09f482584f57d7dceffe94af7754146',
+    afterSha256: 'fc3970f983e72fe2de49adb40850ead1f16ad5641ebf6f5a54c4b2a0ba8d96b2',
   }),
   engine: Object.freeze({
     path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',
@@ -57,7 +71,7 @@ const NATIVE_TARGETS = Object.freeze({
   worker: Object.freeze({
     path: 'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
     beforeSha256: 'aef50d73ca50d01115349183c4a30cca07fc37e6f98b7e8450a274adff86cce4',
-    afterSha256: '83343e2e80c74bcff2f9a8ba4eb147299afc3548c5681f04c5c2afb5f445cb34',
+    afterSha256: 'de2fc5208cdd13b16808d6a181675045a35bcd398fa45e46f0dab39ff918de8f',
   }),
 });
 
@@ -278,10 +292,10 @@ function transformManifest(): Readonly<Record<string, unknown>> {
     schemaVersion: 1,
     operations: Object.freeze([
       operation('before', COMPOSITION_PATH, BASELINE_COMPOSITION_SHA256, [
-        Object.freeze({ anchor: HOOK_ANCHOR, replacement: HOOK_REPLACEMENT }),
+        Object.freeze({ anchor: BEFORE_HOOK_ANCHOR, replacement: BEFORE_HOOK_REPLACEMENT }),
       ]),
       operation('after', COMPOSITION_PATH, CANDIDATE_COMPOSITION_SHA256, [
-        Object.freeze({ anchor: HOOK_ANCHOR, replacement: HOOK_REPLACEMENT }),
+        Object.freeze({ anchor: AFTER_HOOK_ANCHOR, replacement: AFTER_HOOK_REPLACEMENT }),
         Object.freeze({ anchor: PIPELINE_ANCHOR, replacement: PIPELINE_REPLACEMENT }),
       ]),
       ...(['before', 'after'] as const).flatMap((side) => [
