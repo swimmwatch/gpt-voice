@@ -129,6 +129,23 @@ const MODEL_DIGEST_REPLACEMENT = `  const local_whisper::common::PerformanceQual
   if (!model_digest_timer.emit())
     throw ModelLaunchError(ModelLaunchErrorCode::kDigestRejected,
                            "model launch performance probe failed");`;
+const MODEL_EVENT_DESCRIPTOR_ANCHOR = `    map_descriptor(acknowledgment_descriptor, kLauncherAcknowledgmentDescriptor);
+    map_descriptor(launcher_authority.get(), kLauncherAuthorityDescriptor);`;
+const MODEL_EVENT_DESCRIPTOR_REPLACEMENT = `    map_descriptor(acknowledgment_descriptor, kLauncherAcknowledgmentDescriptor);
+    map_descriptor(local_whisper::common::kPerformanceQualificationProbeSourceDescriptor,
+                   local_whisper::common::kPerformanceQualificationProbeDescriptor);
+    map_descriptor(launcher_authority.get(), kLauncherAuthorityDescriptor);`;
+const BEFORE_MODEL_EVENT_DESCRIPTOR_ANCHOR = `    map_descriptor(acknowledgment_descriptor, 4);
+    map_descriptor(launcher_authority.get(), kLauncherAuthorityDescriptor);`;
+const BEFORE_MODEL_EVENT_DESCRIPTOR_REPLACEMENT = `    map_descriptor(acknowledgment_descriptor, 4);
+    map_descriptor(local_whisper::common::kPerformanceQualificationProbeSourceDescriptor,
+                   local_whisper::common::kPerformanceQualificationProbeDescriptor);
+    map_descriptor(launcher_authority.get(), kLauncherAuthorityDescriptor);`;
+const MODEL_CLOSE_RANGE_ANCHOR = `    if (syscall(SYS_close_range, 7U, std::numeric_limits<unsigned int>::max(), 0U) != 0)`;
+const MODEL_CLOSE_RANGE_REPLACEMENT = `    if (syscall(SYS_close_range,
+                static_cast<unsigned int>(
+                    local_whisper::common::kPerformanceQualificationProbeDescriptor + 1),
+                std::numeric_limits<unsigned int>::max(), 0U) != 0)`;
 
 const AUTHORITY_DIGEST_ANCHOR = `  validate_regular_file_evidence(model_descriptor_, expected_binding_);`;
 const AUTHORITY_DIGEST_REPLACEMENT = `  const local_whisper::common::PerformanceQualificationTimer digest_timer(
@@ -307,6 +324,12 @@ function transformManifest(): Readonly<Record<string, unknown>> {
         native(side, NATIVE_TARGETS.modelLaunch, [
           include(INCLUDE_ANCHORS.modelLaunch),
           Object.freeze({ anchor: MODEL_DIGEST_ANCHOR, replacement: MODEL_DIGEST_REPLACEMENT }),
+          Object.freeze({
+            anchor: side === 'before' ? BEFORE_MODEL_EVENT_DESCRIPTOR_ANCHOR : MODEL_EVENT_DESCRIPTOR_ANCHOR,
+            replacement:
+              side === 'before' ? BEFORE_MODEL_EVENT_DESCRIPTOR_REPLACEMENT : MODEL_EVENT_DESCRIPTOR_REPLACEMENT,
+          }),
+          Object.freeze({ anchor: MODEL_CLOSE_RANGE_ANCHOR, replacement: MODEL_CLOSE_RANGE_REPLACEMENT }),
         ]),
         native(side, NATIVE_TARGETS.authority, [
           include(INCLUDE_ANCHORS.authority),

@@ -12,7 +12,12 @@
 
 namespace local_whisper::common {
 
-inline constexpr int kPerformanceQualificationProbeDescriptor = 5;
+// The model guard receives the inherited Node event pipe at descriptor 5, but
+// reuses that descriptor for its launcher authority socket. The derived
+// qualification launch path moves the pipe to the worker-only descriptor
+// before that hand-off.
+inline constexpr int kPerformanceQualificationProbeSourceDescriptor = 5;
+inline constexpr int kPerformanceQualificationProbeDescriptor = 7;
 
 inline bool emit_performance_qualification_probe(std::string_view kind, std::string_view value,
                                                  std::uint64_t measurement) noexcept {
