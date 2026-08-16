@@ -44,8 +44,8 @@
     {
       "patchId": "standard-file-eof-v1",
       "relativePath": "core/0003-standard-file-eof.patch",
-      "sizeBytes": 779,
-      "sha256": "f6a86eceaf0e5bf828670ac6f4f564c20d56baa2b605259a5dbedb6404fceae2",
+      "sizeBytes": 770,
+      "sha256": "02a9cc84d686ee8ac8e24130ffd730c1ec2275c46617fbd9248be6fe579b7dfe",
       "allowedTouchedPaths": ["src/whisper.cpp"]
     }
   ],

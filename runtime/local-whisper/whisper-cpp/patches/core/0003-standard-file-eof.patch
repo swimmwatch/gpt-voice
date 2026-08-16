@@ -1,24 +1,22 @@
+diff --git a/src/whisper.cpp b/src/whisper.cpp
+index 19222c4..f24f1b8 100644
 --- a/src/whisper.cpp
 +++ b/src/whisper.cpp
-@@ -3694,9 +3694,9 @@ struct whisper_context * whisper_init_from_file_with_params_no_state(const char
-         return read_size;
-     };
+@@ -3696,7 +3696,7 @@ struct whisper_context * whisper_init_from_file_with_params_no_state(const char
 
-    loader.eof = [](void * ctx) {
+     loader.eof = [](void * ctx) {
          std::ifstream * fin = (std::ifstream*)ctx;
 -        return fin->eof();
 +        return fin->peek() == std::ifstream::traits_type::eof();
      };
 
-    loader.close = [](void * ctx) {
-@@ -4884,9 +4884,9 @@ struct whisper_vad_context * whisper_vad_init_from_file_with_params(const char *
-         return read_size;
-     };
+     loader.close = [](void * ctx) {
+@@ -4886,7 +4886,7 @@ struct whisper_vad_context * whisper_vad_init_from_file_with_params(
 
-    loader.eof = [](void * ctx) {
+     loader.eof = [](void * ctx) {
          std::ifstream * fin = (std::ifstream*)ctx;
 -        return fin->eof();
 +        return fin->peek() == std::ifstream::traits_type::eof();
      };
 
-    loader.close = [](void * ctx) {
+     loader.close = [](void * ctx) {
