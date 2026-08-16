@@ -160,6 +160,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
     readonly artifactHttpClient?: ArtifactHttpClient;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
+    readonly onLoadStage?: (stage: import('./LocalWhisperProductionWorkerPort').LocalWhisperQualificationLoadStage) => void;
   };
 }
 
@@ -1184,6 +1185,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
             ),
           );
         },
+        ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onLoadStage
+          ? { onQualificationLoadStage: this.dependencies.qualificationHooks.onLoadStage }
+          : {}),
         platform: context.platform,
         randomBytes: this.dependencies.randomBytes,
         registryDiscovery,

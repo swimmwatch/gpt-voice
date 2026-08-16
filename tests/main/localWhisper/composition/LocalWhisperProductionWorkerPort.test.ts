@@ -514,6 +514,7 @@ function loadHarness(
     readonly failRuntimeAcquisition?: boolean;
     readonly failWarmup?: boolean;
     readonly onLoadStarted?: () => void;
+    readonly onQualificationLoadStage?: (stage: string) => void;
   } = {},
 ) {
   const selected = values(backend);
@@ -539,6 +540,7 @@ function loadHarness(
     logicalProcessorCount: 8,
     modelAuthorities,
     onTopology: () => undefined,
+    ...(options.onQualificationLoadStage ? { onQualificationLoadStage: options.onQualificationLoadStage } : {}),
     platform: 'linux',
     randomBytes: (size) => Uint8Array.from({ length: size }, (_value, index) => index + 1),
     registryDiscovery: registry,
@@ -655,6 +657,22 @@ describe('LocalWhisperProductionWorkerPort', () => {
     assert.deepEqual(await loaded.value.unload(), { success: true, value: undefined });
     assert.deepEqual(value.lifecycle.session.calls, ['warmup', 'transcribe', 'cancel', 'shutdown']);
     assert.equal(value.released.value, 1);
+  });
+
+  it('reports only qualification-safe load stages without altering the CPU lifecycle', async () => {
+    const stages: string[] = [];
+    const value = loadHarness('cpu', { onQualificationLoadStage: (stage) => stages.push(stage) });
+
+    const loaded = await value.port.loadFresh(request(value.selected.settings, 'cpu'));
+
+    assert.equal(loaded.success, true);
+    assert.deepEqual(stages, [
+      'MODEL_AUTHORITY',
+      'RUNTIME_AUTHORITY',
+      'WORKER_START',
+      'WARMUP',
+      'AUTHORITY_REVALIDATION',
+    ]);
   });
 
   it('revalidates exact GPU registry and proof before returning a CUDA resident worker', async () => {

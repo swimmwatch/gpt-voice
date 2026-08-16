@@ -35,6 +35,13 @@ import type { LocalWhisperWorkerLifecycle } from '../supervisor/LocalWhisperWork
 
 const RUNTIME_REGISTRY_DISCOVERY_ATTEMPTS = 3;
 
+export type LocalWhisperQualificationLoadStage =
+  | 'MODEL_AUTHORITY'
+  | 'RUNTIME_AUTHORITY'
+  | 'WORKER_START'
+  | 'WARMUP'
+  | 'AUTHORITY_REVALIDATION';
+
 export interface LocalWhisperProductionWorkerPortDependencies {
   readonly architecture: 'x64' | 'arm64' | 'other';
   readonly catalog: LocalWhisperAuthenticatedCatalog;
@@ -45,6 +52,8 @@ export interface LocalWhisperProductionWorkerPortDependencies {
   readonly logicalProcessorCount: number;
   readonly modelAuthorities: Pick<LocalWhisperModelPathLoadAuthorityFactory, 'acquire'>;
   readonly onTopology: (snapshot: LocalWhisperDeviceTopologySnapshot) => void;
+  /** Qualification-only, content-free progress signal. Production callers do not supply it. */
+  readonly onQualificationLoadStage?: (stage: LocalWhisperQualificationLoadStage) => void;
   readonly platform: 'linux' | 'win32' | 'darwin' | 'other';
   readonly randomBytes: (size: number) => Uint8Array;
   readonly registryDiscovery: Pick<LocalWhisperRuntimeRegistryDiscovery, 'discover'>;
@@ -59,6 +68,17 @@ type LocalWhisperCoordinatorWorkerFailure = Extract<
 
 function failure(code: LocalWhisperCoordinatorWorkerFailure['code']): LocalWhisperCoordinatorWorkerFailure {
   return Object.freeze({ success: false, code });
+}
+
+function reportQualificationLoadStage(
+  callback: LocalWhisperProductionWorkerPortDependencies['onQualificationLoadStage'],
+  stage: LocalWhisperQualificationLoadStage,
+): void {
+  try {
+    callback?.(stage);
+  } catch {
+    // Qualification diagnostics must not affect a production-equivalent worker lifecycle.
+  }
 }
 
 function runtimeFor(
@@ -228,6 +248,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
     let challengeAuthority: LocalWhisperDeviceChallengeAuthority | null = null;
     let modelAuthority: Awaited<ReturnType<LocalWhisperModelPathLoadAuthorityFactory['acquire']>> | null = null;
     try {
+      reportQualificationLoadStage(this.dependencies.onQualificationLoadStage, 'MODEL_AUTHORITY');
       modelAuthority = await this.dependencies.modelAuthorities.acquire(this.dependencies.catalog, model);
       const operationAuthority = new LocalWhisperDeviceChallengeAuthority(
         this.dependencies.randomBytes,
@@ -361,6 +382,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         };
       }
 
+      reportQualificationLoadStage(this.dependencies.onQualificationLoadStage, 'RUNTIME_AUTHORITY');
       const runtimeAuthority = await this.dependencies.runtimeAuthorities.acquire({
         catalog: this.dependencies.catalog,
         runtime,
@@ -374,6 +396,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
       };
       request.signal.addEventListener('abort', cancelStartup, { once: true });
       try {
+        reportQualificationLoadStage(this.dependencies.onQualificationLoadStage, 'WORKER_START');
         const loaded = await this.dependencies.lifecycle.startFullLoad(authority, loadRequest);
         if (request.signal.aborted) {
           return await this.cleanupAfterCancellation();
@@ -381,6 +404,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         if (!loaded.success) return failure(loaded.error.code);
         const session = this.dependencies.lifecycle.activeFullLoadSession;
         if (!session) return failure('MODEL_LOAD_FAILED');
+        reportQualificationLoadStage(this.dependencies.onQualificationLoadStage, 'WARMUP');
         const warmed = await session.warmup(request.epochs.configuration);
         if (request.signal.aborted) {
           return await this.cleanupAfterCancellation();
@@ -392,6 +416,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         }
         let authorityRemainsValid = false;
         try {
+          reportQualificationLoadStage(this.dependencies.onQualificationLoadStage, 'AUTHORITY_REVALIDATION');
           authorityRemainsValid = await revalidateAuthority();
         } catch {
           authorityRemainsValid = false;

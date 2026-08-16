@@ -36,6 +36,7 @@ import {
   type LocalWhisperPublicSettings,
   type LocalWhisperRevisionId,
 } from '@shared/localWhisper';
+import type { LocalWhisperQualificationLoadStage } from '@main/localWhisper/composition/LocalWhisperProductionWorkerPort';
 
 import { QualificationArtifactHttpClient } from './QualificationArtifactHttpClient';
 import { LocalWhisperQualificationCatalogProducer } from './QualificationCatalogProducer';
@@ -70,6 +71,7 @@ type AttemptApplicationStage =
   | 'CLEANUP';
 
 const SAFE_LOCAL_WHISPER_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,31}$/u;
+const SAFE_ATTEMPT_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
 
 class AttemptApplicationFailure extends Error {
   public constructor(code: string) {
@@ -135,14 +137,15 @@ function modelRevision(family: string, variant: string): LocalWhisperRevisionId 
 
 function requireSuccess<T>(
   result: { readonly success: true; readonly value: T } | { readonly success: false; readonly error: { code: string } },
-  failureCodePrefix: 'ATTEMPT_LOAD' | 'ATTEMPT_SETTINGS',
+  failureCodePrefix: string,
 ): T {
   if (!result.success) {
     const code = result.error.code;
-    if (!SAFE_LOCAL_WHISPER_FAILURE_CODE.test(code)) {
+    const failureCode = `${failureCodePrefix}_${code}`;
+    if (!SAFE_LOCAL_WHISPER_FAILURE_CODE.test(code) || !SAFE_ATTEMPT_FAILURE_CODE.test(failureCode)) {
       throw new AttemptApplicationFailure('ATTEMPT_APPLICATION_RESULT_INVALID');
     }
-    throw new AttemptApplicationFailure(`${failureCodePrefix}_${code}`);
+    throw new AttemptApplicationFailure(failureCode);
   }
   return result.value;
 }
@@ -336,6 +339,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       throw new Error('ATTEMPT_PLATFORM_INVALID');
     }
     const probe = new LinuxPerformanceAttemptProbe(input.request.backend, input.publishEvent);
+    let loadStage: LocalWhisperQualificationLoadStage = 'MODEL_AUTHORITY';
     await atAttemptApplicationStage('PROBE', async () => await probe.registerMain());
     const archive = await atAttemptApplicationStage(
       'RUNTIME_ARCHIVE',
@@ -399,6 +403,9 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
             throw new Error('ATTEMPT_PROCESS_ROLE_INVALID');
           }
           void probe.registerGuard(event.pid);
+        },
+        onLoadStage: (stage: LocalWhisperQualificationLoadStage) => {
+          loadStage = stage;
         },
       };
       environment = await atAttemptApplicationStage('ENVIRONMENT', async () =>
@@ -496,7 +503,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       });
       await atAttemptApplicationStage('LOAD', async () => {
         probe.beginLoadProofs();
-        requireSuccess(await coordinator.loadNow(), 'ATTEMPT_LOAD');
+        requireSuccess(await coordinator.loadNow(), `ATTEMPT_LOAD_${loadStage}`);
       });
       const endToEndNanoseconds = Number(process.hrtime.bigint() - started);
       if (!Number.isSafeInteger(endToEndNanoseconds) || endToEndNanoseconds < 1) {
