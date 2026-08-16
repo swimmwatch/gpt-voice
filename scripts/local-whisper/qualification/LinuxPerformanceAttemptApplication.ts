@@ -55,6 +55,31 @@ const ATTEMPT_VERSION = '3.0.0';
 const ARTIFACT_TIMEOUT_MILLISECONDS = 60 * 60 * 1000;
 const MAXIMUM_PRIVATE_CLEANUP_ENTRIES = 100_000;
 
+type AttemptApplicationStage =
+  | 'PROBE'
+  | 'RUNTIME_ARCHIVE'
+  | 'CATALOG'
+  | 'PRIVATE_ROOT'
+  | 'ENVIRONMENT'
+  | 'RUNTIME_INSTALL'
+  | 'MODEL_INSTALL'
+  | 'CUDA_DEVICE'
+  | 'SETTINGS'
+  | 'LOAD'
+  | 'SHUTDOWN'
+  | 'CLEANUP';
+
+async function atAttemptApplicationStage<T>(
+  stage: AttemptApplicationStage,
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch {
+    throw new Error(`ATTEMPT_APPLICATION_${stage}_FAILED`);
+  }
+}
+
 class RejectingArtifactHttpClient implements ArtifactHttpClient {
   public async open(_request: ArtifactHttpClientRequest): Promise<never> {
     throw new Error('ATTEMPT_NETWORK_ACCESS_REJECTED');
@@ -294,29 +319,38 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       throw new Error('ATTEMPT_PLATFORM_INVALID');
     }
     const probe = new LinuxPerformanceAttemptProbe(input.request.backend, input.publishEvent);
-    await probe.registerMain();
-    const archive = await new PerformanceRuntimeArchiveInspector().inspect(input.artifacts.runtime.absolutePath);
-    const catalog = await attemptCatalog(input, archive);
-    const privateRoot = await mkdtemp(path.join(path.dirname(process.execPath), '.attempt-'));
+    await atAttemptApplicationStage('PROBE', async () => await probe.registerMain());
+    const archive = await atAttemptApplicationStage(
+      'RUNTIME_ARCHIVE',
+      async () => await new PerformanceRuntimeArchiveInspector().inspect(input.artifacts.runtime.absolutePath),
+    );
+    const catalog = await atAttemptApplicationStage('CATALOG', async () => await attemptCatalog(input, archive));
+    const privateRoot = await atAttemptApplicationStage(
+      'PRIVATE_ROOT',
+      async () => await mkdtemp(path.join(path.dirname(process.execPath), '.attempt-')),
+    );
     const resolvedPrivateRoot = path.resolve(privateRoot);
     const privatePrefix = `${path.dirname(process.execPath)}${path.sep}.attempt-`;
     if (!resolvedPrivateRoot.startsWith(privatePrefix)) {
-      await rm(privateRoot, { force: true, recursive: true });
+      await atAttemptApplicationStage('CLEANUP', async () => await rm(privateRoot, { force: true, recursive: true }));
       throw new Error('ATTEMPT_PRIVATE_ROOT_INVALID');
     }
     let environment: DeferredLocalWhisperEnvironment | null = null;
     let coordinator: LocalWhisperCoordinator | null = null;
     try {
-      await fs.promises.chmod(privateRoot, 0o700);
-      const configurationRoot = path.join(privateRoot, 'config');
-      const homeRoot = path.join(privateRoot, 'home');
-      const dataRoot = path.join(privateRoot, 'data');
-      await Promise.all(
-        [configurationRoot, homeRoot, dataRoot].map(async (directory) => {
-          await mkdir(directory, { recursive: true, mode: 0o700 });
-          await fs.promises.chmod(directory, 0o700);
-        }),
-      );
+      const { configurationRoot, homeRoot, dataRoot } = await atAttemptApplicationStage('PRIVATE_ROOT', async () => {
+        await fs.promises.chmod(privateRoot, 0o700);
+        const configurationRoot = path.join(privateRoot, 'config');
+        const homeRoot = path.join(privateRoot, 'home');
+        const dataRoot = path.join(privateRoot, 'data');
+        await Promise.all(
+          [configurationRoot, homeRoot, dataRoot].map(async (directory) => {
+            await mkdir(directory, { recursive: true, mode: 0o700 });
+            await fs.promises.chmod(directory, 0o700);
+          }),
+        );
+        return Object.freeze({ configurationRoot, homeRoot, dataRoot });
+      });
       const command = { run: nvidiaCommand };
       const inventory = new NvidiaSmiHostInventory({
         platform: 'linux',
@@ -350,59 +384,68 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           void probe.registerGuard(event.pid);
         },
       };
-      environment = await new ProductionLocalWhisperEnvironmentFactory(
-        {
-          appRevision: String(catalog.policy.appRevision),
-          architecture: 'x64',
-          availableMemoryBytes: freemem,
-          availableVramBytes: (identity) => vram.sample(identity),
-          configurationRoot,
-          environment: Object.freeze({
-            HOME: homeRoot,
-            XDG_DATA_HOME: dataRoot,
-            LANG: 'C.UTF-8',
-            LC_ALL: 'C.UTF-8',
-            PATH: '/usr/bin:/bin',
-          }),
-          fileSystem: {
-            chmodSync: fs.chmodSync,
-            existsSync: fs.existsSync,
-            mkdirSync: fs.mkdirSync,
-            readFileSync: fs.readFileSync,
-            renameSync: fs.renameSync,
-            rmSync: fs.rmSync,
-            unlinkSync: fs.unlinkSync,
-            writeFileSync: fs.writeFileSync,
+      environment = await atAttemptApplicationStage('ENVIRONMENT', async () =>
+        await new ProductionLocalWhisperEnvironmentFactory(
+          {
+            appRevision: String(catalog.policy.appRevision),
+            architecture: 'x64',
+            availableMemoryBytes: freemem,
+            availableVramBytes: (identity) => vram.sample(identity),
+            configurationRoot,
+            environment: Object.freeze({
+              HOME: homeRoot,
+              XDG_DATA_HOME: dataRoot,
+              LANG: 'C.UTF-8',
+              LC_ALL: 'C.UTF-8',
+              PATH: '/usr/bin:/bin',
+            }),
+            fileSystem: {
+              chmodSync: fs.chmodSync,
+              existsSync: fs.existsSync,
+              mkdirSync: fs.mkdirSync,
+              readFileSync: fs.readFileSync,
+              renameSync: fs.renameSync,
+              rmSync: fs.rmSync,
+              unlinkSync: fs.unlinkSync,
+              writeFileSync: fs.writeFileSync,
+            },
+            homeDirectory: () => homeRoot,
+            logicalProcessorCount: availableParallelism(),
+            nextRequestId: () => `performance-attempt-${++sequence}`,
+            now: Date.now,
+            openPath: () => Promise.resolve(''),
+            pid: process.pid,
+            platform: 'linux',
+            qualificationHooks,
+            randomNonce: () => randomBytes(24).toString('base64url'),
+            randomBytes: (size) => randomBytes(size),
+            readNvidiaInventory: () => inventory.read(),
+            readFile: async (filePath) => await readFile(filePath),
+            resourcesPath: path.join(path.dirname(process.execPath), 'resources'),
+            spawnProcess: probe.instrumentedSpawn(),
           },
-          homeDirectory: () => homeRoot,
-          logicalProcessorCount: availableParallelism(),
-          nextRequestId: () => `performance-attempt-${++sequence}`,
-          now: Date.now,
-          openPath: () => Promise.resolve(''),
-          pid: process.pid,
-          platform: 'linux',
-          qualificationHooks,
-          randomNonce: () => randomBytes(24).toString('base64url'),
-          randomBytes: (size) => randomBytes(size),
-          readNvidiaInventory: () => inventory.read(),
-          readFile: async (filePath) => await readFile(filePath),
-          resourcesPath: path.join(path.dirname(process.execPath), 'resources'),
-          spawnProcess: probe.instrumentedSpawn(),
-        },
-        { activationPurpose: 'qualification', document: catalog.document, trustPolicy: catalog.policy },
-      ).create();
+          { activationPurpose: 'qualification', document: catalog.document, trustPolicy: catalog.policy },
+        ).create(),
+      );
       if (environment.facts.snapshot.catalogRevision === null) throw new Error('ATTEMPT_ENVIRONMENT_UNAVAILABLE');
       coordinator = new LocalWhisperCoordinator(environment.coordinator);
-      await installArtifact(environment, coordinator, 'runtime', catalog.runtimeRevision);
-      await installArtifact(environment, coordinator, 'model', catalog.modelRevision);
+      await atAttemptApplicationStage('RUNTIME_INSTALL', async () =>
+        await installArtifact(environment, coordinator, 'runtime', catalog.runtimeRevision),
+      );
+      await atAttemptApplicationStage('MODEL_INSTALL', async () =>
+        await installArtifact(environment, coordinator, 'model', catalog.modelRevision),
+      );
       let deviceId = null;
       if (input.request.backend === 'cuda') {
-        await environment.refreshDevices(coordinator.snapshot.epochs.configuration);
-        const device = environment.facts.snapshot.options.find(
-          (option) => option.group === 'device' && option.available,
-        );
-        deviceId = device ? toLocalWhisperOpaqueDeviceId(device.id) : null;
-        if (!deviceId) throw new Error('ATTEMPT_CUDA_DEVICE_UNAVAILABLE');
+        deviceId = await atAttemptApplicationStage('CUDA_DEVICE', async () => {
+          await environment.refreshDevices(coordinator.snapshot.epochs.configuration);
+          const device = environment.facts.snapshot.options.find(
+            (option) => option.group === 'device' && option.available,
+          );
+          const deviceId = device ? toLocalWhisperOpaqueDeviceId(device.id) : null;
+          if (!deviceId) throw new Error('ATTEMPT_CUDA_DEVICE_UNAVAILABLE');
+          return deviceId;
+        });
       }
       const current = coordinator.snapshot;
       const gpuExecution =
@@ -422,33 +465,37 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
         execution:
           input.request.backend === 'cpu' ? { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' } : gpuExecution,
       } as unknown as LocalWhisperPublicSettings;
-      requireSuccess(
-        await coordinator.applySettingsTransaction({
-          kind: 'save',
-          candidate,
-          promptMutation: { kind: 'clear' },
-          expectedConfigurationEpoch: current.epochs.configuration,
-          expectedInventoryEpoch: current.epochs.inventory,
-        }),
-      );
-      probe.beginLoadProofs();
-      requireSuccess(await coordinator.loadNow());
+      await atAttemptApplicationStage('SETTINGS', async () => {
+        requireSuccess(
+          await coordinator.applySettingsTransaction({
+            kind: 'save',
+            candidate,
+            promptMutation: { kind: 'clear' },
+            expectedConfigurationEpoch: current.epochs.configuration,
+            expectedInventoryEpoch: current.epochs.inventory,
+          }),
+        );
+      });
+      await atAttemptApplicationStage('LOAD', async () => {
+        probe.beginLoadProofs();
+        requireSuccess(await coordinator.loadNow());
+      });
       const endToEndNanoseconds = Number(process.hrtime.bigint() - started);
       if (!Number.isSafeInteger(endToEndNanoseconds) || endToEndNanoseconds < 1) {
         throw new Error('ATTEMPT_DURATION_INVALID');
       }
-      await coordinator.shutdown();
-      await environment.dispose();
+      await atAttemptApplicationStage('SHUTDOWN', async () => {
+        await coordinator.shutdown();
+        await environment.dispose();
+      });
       coordinator = null;
       environment = null;
-      await probe.finish();
+      await atAttemptApplicationStage('PROBE', async () => await probe.finish());
       return Object.freeze({ endToEndNanoseconds });
     } finally {
       await coordinator?.shutdown().catch(() => undefined);
       await environment?.dispose().catch(() => undefined);
-      await removeAttemptPrivateRoot(resolvedPrivateRoot).catch(() => {
-        throw new Error('ATTEMPT_PRIVATE_CLEANUP_FAILED');
-      });
+      await atAttemptApplicationStage('CLEANUP', async () => await removeAttemptPrivateRoot(resolvedPrivateRoot));
     }
   }
 }

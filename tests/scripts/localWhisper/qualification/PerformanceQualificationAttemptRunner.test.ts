@@ -181,4 +181,24 @@ describe('performance qualification attempt runner', () => {
       await rm(root, { force: true, recursive: true });
     }
   });
+
+  it('preserves privacy-safe application-stage failure codes', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-attempt-stage-failure-'));
+    try {
+      const fixture = await fixtureRequest(root);
+      const runner = new PerformanceQualificationAttemptRunner({
+        run: async () => {
+          throw new Error('ATTEMPT_APPLICATION_ENVIRONMENT_FAILED');
+        },
+      });
+
+      const response = await runner.run(fixture.bytes, () => undefined);
+
+      assert.equal(response.status, 'failed');
+      assert.equal(response.failureReason, 'ATTEMPT_APPLICATION_ENVIRONMENT_FAILED');
+      assert.doesNotMatch(JSON.stringify(response), /local-whisper-attempt-stage-failure/u);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
 });
