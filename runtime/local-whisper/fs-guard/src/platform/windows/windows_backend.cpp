@@ -933,9 +933,11 @@ public:
     }
     UniqueHandle destination(
         open_namespace(root, utf8_to_wide(std::string(command.namespace_name.text()))));
+    // Construct the complete response before rename: a post-rename allocation or identity failure
+    // must never report promotion as failed while leaving the held directory at its destination.
+    ResponseFields response{identity_string(staging.handle, destination.get(), 0700)};
     rename_handle(staging.handle, destination.get(), utf8_to_wide(command.artifact_name));
-    const std::string result = identity_string(staging.handle, destination.get(), 0700);
-    return {result};
+    return response;
   }
 
   ResponseFields quarantine(const QuarantineCommand& command) {

@@ -721,12 +721,14 @@ public:
       throw GuardError("IDENTITY_CHANGED");
     }
     UniqueFd final_parent(open_namespace(root, std::string(command.namespace_name.text())));
+    // Construct the complete response before rename: a post-rename allocation or identity failure
+    // must never report promotion as failed while leaving the held directory at its destination.
+    ResponseFields response{identity_string(staging.fd.get(), final_parent.get())};
     if (syscall(SYS_renameat2, staging.parent_fd.get(), staging.name.c_str(), final_parent.get(),
                 command.artifact_name.c_str(), RENAME_NOREPLACE) != 0) {
       throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
     }
-    const std::string result = identity_string(staging.fd.get(), final_parent.get());
-    return {result};
+    return response;
   }
 
   ResponseFields quarantine(const QuarantineCommand& command) {

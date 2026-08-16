@@ -518,6 +518,9 @@ describe(
         (error) => error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT',
       );
       assert.equal(readFileSync(installedFilePath(harness), 'utf8'), CONTENT.toString('utf8'));
+      assert.equal(staging.released, false);
+      await harness.store.discardStaging(staging);
+      assert.deepEqual(readdirSync(path.join(harness.managedRoot, 'staging')), []);
       await harness.store.dispose();
     });
 
