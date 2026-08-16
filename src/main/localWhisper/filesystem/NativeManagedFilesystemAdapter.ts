@@ -171,8 +171,12 @@ export abstract class NativeManagedFilesystemAdapter implements ManagedFilesyste
     canonicalArtifactName: string,
   ): Promise<ManagedArtifactIdentitySnapshot> {
     const fields = await this.transport.request('PROMOTE', [rootToken, stagingToken, namespace, canonicalArtifactName]);
-    if (fields.length !== 1) throw new ManagedFilesystemAdapterError('IO_FAILED');
-    return parseIdentity(fields[0]);
+    if (fields.length !== 1) throw new ManagedFilesystemAdapterError('IO_FAILED', 'INVALID_RESPONSE');
+    try {
+      return parseIdentity(fields[0]);
+    } catch {
+      throw new ManagedFilesystemAdapterError('IO_FAILED', 'INVALID_RESPONSE');
+    }
   }
 
   public async quarantineArtifactDirectory(
