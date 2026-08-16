@@ -15,8 +15,6 @@ import {
   captureWorkerRegistry,
   canonicalSilence,
   mediumModelIdentity,
-  modelBindingBytes,
-  modelTransferBytes,
   sha256File,
   transcriptionOptions,
   WhisperCppWorkerProcess,
@@ -37,11 +35,24 @@ import {
 
 const CONFIGURATION_EPOCH = 1;
 const LOGICAL_PROCESSOR_TOPOLOGY_GENERATION = 0;
+const WORKER_PROTOCOL_VERSION = 2;
 
 function assertTaskOwned(path) {
   const child = relative(taskCacheRoot, path);
   if (child.length === 0 || child.startsWith('..') || isAbsolute(child))
     throw new Error('Whisper.cpp verification path escaped private task root');
+}
+
+function stripCppComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/\/\/.*$/gmu, '');
+}
+
+function sourceBetween(source, start, end) {
+  const startOffset = source.indexOf(start);
+  const endOffset = source.indexOf(end, startOffset + start.length);
+  assert.notEqual(startOffset, -1, `Missing source anchor: ${start}`);
+  assert.notEqual(endOffset, -1, `Missing source anchor: ${end}`);
+  return source.slice(startOffset, endOffset);
 }
 
 function allFiles(root) {
@@ -247,13 +258,36 @@ function verifyLinux(profileId) {
   assert.doesNotMatch(engine, /ggml_backend_load_all/u);
   assert.match(engine, /parameters\.use_gpu = kGpuWorker/u);
   assert.match(engine, /parameters\.vad_model_path = nullptr/u);
+  const standardLoad = stripCppComments(
+    sourceBetween(
+      engine,
+      'void load(const std::string& model_path',
+      'void load_legacy_authenticated(ExactModelReader& reader',
+    ),
+  );
+  assert.equal((standardLoad.match(/whisper_init_from_file_with_params\s*\(/gu) ?? []).length, 1);
+  assert.doesNotMatch(
+    standardLoad,
+    /ExactModelReader|ModelFormatPreflight|whisper_model_loader|whisper_init_with_params|whisper_init_from_loader_with_params/u,
+  );
+  assert.match(engine, /Deprecated authenticated custom-loader callbacks retained for rollback\/reference tests only/u);
   const main = readFileSync(resolve(whisperCppRoot, 'core', 'main.cpp'), 'utf8');
   const application = readFileSync(resolve(whisperCppRoot, 'core', 'worker_application.cpp'), 'utf8');
   const linuxAuthority = readFileSync(resolve(whisperCppRoot, 'core', 'model_authority_linux.cpp'), 'utf8');
+  const modelValidator = readFileSync(resolve(whisperCppRoot, 'core', 'model_file_validator_linux.cpp'), 'utf8');
   for (const source of [main, application, linuxAuthority]) {
     assert.doesNotMatch(source, /\b(?:CreateFileA|CreateFileW|fopen|freopen|getenv|ifstream|std::filesystem)\b/u);
   }
-  assert.doesNotMatch(application, /modelPath|model_path/u);
+  assert.doesNotMatch(modelValidator, /\b(?:CreateFileA|CreateFileW|fopen|freopen|getenv|ifstream)\b/u);
+  const activeApplication = stripCppComments(application);
+  assert.match(activeApplication, /engine_\.load\(load\.model_path, load\.expected_model_bytes/u);
+  assert.doesNotMatch(
+    activeApplication,
+    /engine_\.load_legacy_authenticated|ExactModelReader reader|modelSha256|artifact_content_sha256/u,
+  );
+  assert.match(modelValidator, /O_NOFOLLOW/u);
+  assert.match(modelValidator, /fstat/u);
+  assert.match(modelValidator, /S_ISREG/u);
   const provisioner = readFileSync(
     resolve(workspaceRoot, 'scripts', 'local-whisper', 'provision-native-test-sources.mjs'),
     'utf8',
@@ -337,11 +371,11 @@ function verifyWindowsPack(profileId) {
 
 async function probeIntegration(binary) {
   const worker = WhisperCppWorkerProcess.probe(binary);
-  worker.sendControl({ type: 'hello', protocolVersion: 1 });
+  worker.sendControl({ type: 'hello', protocolVersion: WORKER_PROTOCOL_VERSION });
   assert.equal((await worker.readControl()).type, 'helloAck');
   worker.sendControl({
     type: 'probe',
-    protocolVersion: 1,
+    protocolVersion: WORKER_PROTOCOL_VERSION,
     requestId: 'probe-cpu-task11',
     authorityId: Buffer.alloc(16, 9).toString('base64url'),
     deviceBinding: { kind: 'cpu' },
@@ -368,13 +402,9 @@ async function loadIntegration(binary, includeCancellation) {
   assert.equal(metadata.size, approvedMediumModel.sizeBytes);
   assert.equal(sha256File(approvedMediumModel.path), approvedMediumModel.sha256);
   const operationNonce = Buffer.from('000102030405060708090a0b0c0d0e0f', 'hex');
-  const binding = modelBindingBytes(operationNonce);
-  const worker = WhisperCppWorkerProcess.load(binary, approvedMediumModel.path);
+  const worker = WhisperCppWorkerProcess.load(binary);
   try {
-    worker.write(modelTransferBytes(binding));
-    await worker.readModelAuthorityAcknowledgment(binding);
-    worker.write(Buffer.from([1]));
-    worker.sendControl({ type: 'hello', protocolVersion: 1 });
+    worker.sendControl({ type: 'hello', protocolVersion: WORKER_PROTOCOL_VERSION });
     const hello = await worker.readControl();
     assert.equal(hello.type, 'helloAck');
     assert.equal(hello.backend, 'cpu');
@@ -394,23 +424,36 @@ async function loadIntegration(binary, includeCancellation) {
     };
     worker.sendControl({
       type: 'load',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: 'load-medium-task11',
       authorityId,
       deviceBinding: { kind: 'cpu' },
+      modelPath: approvedMediumModel.path,
+      expectedModelBytes: approvedMediumModel.sizeBytes,
       residency,
     });
     const loaded = await worker.readControl();
-    assert.equal(loaded.type, 'loaded');
-    assert.equal(loaded.modelSha256, approvedMediumModel.sha256);
+    assert.equal(
+      loaded.type,
+      'loaded',
+      `CPU load failed: ${JSON.stringify({ code: loaded.code, requestId: loaded.requestId, type: loaded.type })}`,
+    );
+    assert.equal(loaded.metadataOnly, true);
+    assert.equal(loaded.modelFileSizeBytes, approvedMediumModel.sizeBytes);
+    assert.equal(Object.hasOwn(loaded, 'modelSha256'), false);
     assert.equal(loaded.effectiveBackend, 'cpu');
     assert.equal(loaded.primaryStateOwnership, 'worker');
-    worker.sendControl({ type: 'warmup', protocolVersion: 1, requestId: 'warm-task11' });
-    assert.equal((await worker.readControl()).type, 'warmed');
+    worker.sendControl({ type: 'warmup', protocolVersion: WORKER_PROTOCOL_VERSION, requestId: 'warm-task11' });
+    const warmed = await worker.readControl();
+    if (warmed.type !== 'warmed') {
+      throw new Error(
+        `CPU warm-up failed: ${JSON.stringify({ code: warmed.code, requestId: warmed.requestId, type: warmed.type })}`,
+      );
+    }
     const wav = canonicalSilence();
     worker.sendControl({
       type: 'transcribe',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: 'tx-task11',
       settingsEpoch: 9,
       audioByteLength: wav.length,
@@ -420,17 +463,11 @@ async function loadIntegration(binary, includeCancellation) {
     const transcript = await worker.readControl();
     assert.equal(transcript.type, 'transcript');
     assert.equal(typeof transcript.text, 'string');
-    worker.sendControl({
-      type: 'warmup',
-      protocolVersion: 1,
-      requestId: 'post-tx-warm-task11',
-    });
-    assert.equal((await worker.readControl()).type, 'warmed');
     if (includeCancellation) {
       const cancellationAudio = canonicalSilence(480_000);
       worker.sendControl({
         type: 'transcribe',
-        protocolVersion: 1,
+        protocolVersion: WORKER_PROTOCOL_VERSION,
         requestId: 'tx-cancel-task11',
         settingsEpoch: 9,
         audioByteLength: cancellationAudio.length,
@@ -439,7 +476,7 @@ async function loadIntegration(binary, includeCancellation) {
       worker.sendAudio('tx-cancel-task11', cancellationAudio);
       worker.sendControl({
         type: 'cancel',
-        protocolVersion: 1,
+        protocolVersion: WORKER_PROTOCOL_VERSION,
         requestId: 'cancel-task11',
         targetRequestId: 'tx-cancel-task11',
       });
@@ -447,9 +484,9 @@ async function loadIntegration(binary, includeCancellation) {
       assert.equal(cancelled.type, 'cancelled');
       assert.equal(cancelled.targetRequestId, 'tx-cancel-task11');
     }
-    worker.sendControl({ type: 'unload', protocolVersion: 1, requestId: 'unload-task11' });
+    worker.sendControl({ type: 'unload', protocolVersion: WORKER_PROTOCOL_VERSION, requestId: 'unload-task11' });
     assert.equal((await worker.readControl()).type, 'unloaded');
-    worker.sendControl({ type: 'shutdown', protocolVersion: 1, requestId: 'shutdown-task11' });
+    worker.sendControl({ type: 'shutdown', protocolVersion: WORKER_PROTOCOL_VERSION, requestId: 'shutdown-task11' });
     assert.equal((await worker.readControl()).type, 'shutdownAck');
     worker.closeInput();
     assert.deepEqual(await worker.waitForExit(), { code: 0, signal: null });

@@ -112,17 +112,10 @@ export class WhisperCppWorkerProcess {
     return worker;
   }
 
-  static load(binary, modelPath, deviceAuthority = null) {
-    const descriptor = openSync(modelPath, 'r');
-    try {
-      const worker = new WhisperCppWorkerProcess(
-        spawn(binary, ['--load'], { stdio: ['pipe', 'pipe', 'ignore', descriptor] }),
-      );
-      if (deviceAuthority !== null) worker.write(deviceAuthority);
-      return worker;
-    } finally {
-      closeSync(descriptor);
-    }
+  static load(binary, deviceAuthority = null) {
+    const worker = new WhisperCppWorkerProcess(spawn(binary, ['--load'], { stdio: ['pipe', 'pipe', 'ignore'] }));
+    if (deviceAuthority !== null) worker.write(deviceAuthority);
+    return worker;
   }
 
   write(bytes) {
@@ -144,6 +137,7 @@ export class WhisperCppWorkerProcess {
     return JSON.parse(body.toString('utf8'));
   }
 
+  /** @deprecated Retained only for authenticated-loader rollback/reference tests. */
   async readModelAuthorityAcknowledgment(binding) {
     const acknowledgment = await this.reader.exact(284);
     assert.equal(acknowledgment.subarray(0, 8).toString('binary'), 'LWAA1\0\0\0');

@@ -1,4 +1,4 @@
-import type { LocalWhisperBackend } from '@shared/localWhisper';
+import { LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, type LocalWhisperBackend } from '@shared/localWhisper';
 
 import {
   getLocalWhisperRuntimeIdentityKey,
@@ -23,7 +23,7 @@ export interface LocalWhisperRuntimeLaunchLeasePort {
 
 function expectedCapabilities(backend: LocalWhisperBackend): readonly string[] {
   if (backend === 'cpu') {
-    return Object.freeze(['cpu-baseline', 'exact-model-authority', 'cooperative-cancellation']);
+    return Object.freeze(['cpu-baseline', 'standard-model-path', 'cooperative-cancellation']);
   }
   const backendCapability =
     backend === 'cuda'
@@ -34,7 +34,7 @@ function expectedCapabilities(backend: LocalWhisperBackend): readonly string[] {
           ? 'vulkan-1.3-amd-preview'
           : null;
   if (!backendCapability) throw new Error('Local Whisper runtime backend unavailable');
-  return Object.freeze([backendCapability, 'exact-device-proof', 'exact-model-authority', 'cooperative-cancellation']);
+  return Object.freeze([backendCapability, 'exact-device-proof', 'standard-model-path', 'cooperative-cancellation']);
 }
 
 /** Acquires an anchored installed runtime and binds it to one exact worker launch. */
@@ -53,7 +53,7 @@ export class LocalWhisperRuntimeLaunchAuthorityFactory {
       !Number.isSafeInteger(input.configurationEpoch) ||
       input.configurationEpoch < 0 ||
       identity.engine !== 'whisperCpp' ||
-      identity.protocolVersion !== 1 ||
+      identity.protocolVersion !== LOCAL_WHISPER_WORKER_PROTOCOL_VERSION ||
       !SHA256_PATTERN.test(identity.buildRevision)
     ) {
       throw new Error('Local Whisper runtime launch identity invalid');

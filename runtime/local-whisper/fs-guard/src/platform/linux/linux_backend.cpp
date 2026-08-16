@@ -448,8 +448,9 @@ public:
     throw GuardError("CONFLICT");
   }
 
-  std::vector<std::string>
-  list_directory(Lease& lease, const std::map<std::string, unsigned int>& expected_modes) {
+  std::vector<std::string> list_directory(Lease& lease,
+                                          const std::map<std::string, unsigned int>& expected_modes,
+                                          bool include_content_hash = true) {
     if (lease.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
     const bool require_exact_expectations = !expected_modes.empty();
@@ -491,7 +492,7 @@ public:
         remaining.erase(expected);
       }
       result.push_back(name + "~" + identity_string(fd.get(), lease.fd.get()) + "~" +
-                       hash_file(fd.get()));
+                       (include_content_hash ? hash_file(fd.get()) : std::string{}));
     }
     if (require_exact_expectations && !remaining.empty())
       throw GuardError("UNSAFE_ENTRY");
@@ -665,6 +666,14 @@ public:
       expected_modes.emplace(expected.name, expected.mode.value());
     }
     return list_directory(require_lease(command.directory_token), expected_modes);
+  }
+
+  ResponseFields list_metadata(const ListMetadataCommand& command) {
+    std::map<std::string, unsigned int> expected_modes;
+    for (const ExpectedEntry& expected : command.expected_entries) {
+      expected_modes.emplace(expected.name, expected.mode.value());
+    }
+    return list_directory(require_lease(command.directory_token), expected_modes, false);
   }
 
   ResponseFields list_namespace_command(const ListNamespaceCommand& command) {
@@ -906,6 +915,9 @@ ResponseFields LinuxBackend::seal_file(const SealFileCommand& command) {
 }
 
 ResponseFields LinuxBackend::list(const ListCommand& command) { return impl_->list(command); }
+ResponseFields LinuxBackend::list_metadata(const ListMetadataCommand& command) {
+  return impl_->list_metadata(command);
+}
 
 ResponseFields LinuxBackend::list_namespace(const ListNamespaceCommand& command) {
   return impl_->list_namespace_command(command);

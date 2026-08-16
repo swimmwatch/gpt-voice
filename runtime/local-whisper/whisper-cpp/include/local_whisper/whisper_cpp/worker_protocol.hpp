@@ -9,6 +9,8 @@
 
 namespace local_whisper::whisper_cpp {
 
+inline constexpr std::uint8_t kWorkerProtocolVersion = 2U;
+
 struct WorkerAudioChunk final {
   std::string request_id;
   std::uint32_t sequence;

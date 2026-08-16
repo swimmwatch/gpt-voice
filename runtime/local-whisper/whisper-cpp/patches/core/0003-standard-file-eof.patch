@@ -1,0 +1,24 @@
+--- a/src/whisper.cpp
++++ b/src/whisper.cpp
+@@ -3694,9 +3694,9 @@ struct whisper_context * whisper_init_from_file_with_params_no_state(const char
+         return read_size;
+     };
+
+    loader.eof = [](void * ctx) {
+         std::ifstream * fin = (std::ifstream*)ctx;
+-        return fin->eof();
++        return fin->peek() == std::ifstream::traits_type::eof();
+     };
+
+    loader.close = [](void * ctx) {
+@@ -4884,9 +4884,9 @@ struct whisper_vad_context * whisper_vad_init_from_file_with_params(const char *
+         return read_size;
+     };
+
+    loader.eof = [](void * ctx) {
+         std::ifstream * fin = (std::ifstream*)ctx;
+-        return fin->eof();
++        return fin->peek() == std::ifstream::traits_type::eof();
+     };
+
+    loader.close = [](void * ctx) {

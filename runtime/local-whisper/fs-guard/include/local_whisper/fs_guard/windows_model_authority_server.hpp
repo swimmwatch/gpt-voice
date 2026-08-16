@@ -9,6 +9,7 @@
 
 namespace local_whisper::fs_guard {
 
+/** Deprecated handle model-authority server retained for whole-build rollback/reference only. */
 class WindowsModelAuthorityServer final {
 public:
   [[nodiscard]] static local_whisper::common::AuthorityTransfer

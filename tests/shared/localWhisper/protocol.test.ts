@@ -42,7 +42,7 @@ interface GoldenManifest {
   readonly streams: readonly { readonly frameNames: readonly string[]; readonly name: string }[];
 }
 
-const GOLDEN_DIRECTORY = 'tests/fixtures/local-whisper/protocol/v1';
+const GOLDEN_DIRECTORY = 'tests/fixtures/local-whisper/protocol/v2';
 const AUTHORITY_ID = 'AAECAwQFBgcICQoLDA0ODw';
 const CHALLENGE = 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8';
 
@@ -68,11 +68,11 @@ test('control messages round-trip with exact authority and proof schemas', () =>
     assert.equal(getLocalWhisperFrameKind(frame), LOCAL_WHISPER_CONTROL_FRAME_KIND);
     assert.deepEqual(decodeLocalWhisperControlFrame(frame), vector.message, vector.name);
     assert.deepEqual(readFileSync(`${GOLDEN_DIRECTORY}/${vector.binaryFile}`), Buffer.from(frame), vector.name);
-    assert.equal(JSON.stringify(vector.message).includes('modelPath'), false, vector.name);
+    assert.equal(JSON.stringify(vector.message).includes('modelPath'), vector.message.type === 'load', vector.name);
   }
 });
 
-test('client and server validators reject path, cross-domain, and stale authority shapes', () => {
+test('client and server validators enforce private model path, cross-domain, and stale authority shapes', () => {
   const gpuLoad = manifest()
     .control.map(({ message }) => message)
     .find(
@@ -81,6 +81,12 @@ test('client and server validators reject path, cross-domain, and stale authorit
     );
   assert.ok(gpuLoad);
   assert.equal(isLocalWhisperWorkerClientMessage(gpuLoad), true);
+  for (const modelPath of ['', 'bad\0path', 'bad\npath', '\ud800', 'x'.repeat(131_073)]) {
+    assert.equal(isLocalWhisperWorkerClientMessage({ ...gpuLoad, modelPath }), false);
+  }
+  for (const expectedModelBytes of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.equal(isLocalWhisperWorkerClientMessage({ ...gpuLoad, expectedModelBytes }), false);
+  }
   for (const residency of [
     { ...gpuLoad.residency, configuredGpuCpuThreads: 4, resolvedCpuThreads: 8 },
     { ...gpuLoad.residency, resolvedCpuThreads: 0 },
@@ -93,7 +99,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerClientMessage({
       type: 'probe',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'probe-1',
       authorityId: AUTHORITY_ID,
       deviceBinding: { kind: 'gpuIndex', index: 0 },
@@ -105,7 +111,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerClientMessage({
       type: 'probe',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'probe-1',
       authorityId: AUTHORITY_ID,
       deviceBinding: { kind: 'cpu' },
@@ -116,7 +122,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerClientMessage({
       type: 'load',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'load-1',
       authorityId: AUTHORITY_ID,
       deviceBinding: { kind: 'cpu' },
@@ -127,7 +133,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerServerMessage({
       type: 'probed',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'probe-1',
       authorityId: AUTHORITY_ID,
       deviceBinding: { kind: 'gpuIndex', index: 0 },
@@ -143,7 +149,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
     assert.equal(
       isLocalWhisperWorkerClientMessage({
         type: 'probe',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'probe-invalid',
         authorityId: AUTHORITY_ID,
         deviceBinding: { kind: 'gpuIndex', index },
@@ -156,7 +162,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerServerMessage({
       type: 'helloAck',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       engine: 'whisperCpp',
       runtimeRevision: 'runtime-pack-v1',
       runtimeBuildDigest: 'a'.repeat(64),
@@ -170,7 +176,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerServerMessage({
       type: 'cancelTooLate',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'cancel-1',
       targetRequestId: 'tx-1',
     }),
@@ -179,7 +185,7 @@ test('client and server validators reject path, cross-domain, and stale authorit
   assert.equal(
     isLocalWhisperWorkerServerMessage({
       type: 'cancelTooLate',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: 'cancel-1',
       targetRequestId: 'tx-1',
       unexpected: true,
@@ -190,20 +196,23 @@ test('client and server validators reject path, cross-domain, and stale authorit
 
 test('control decoding rejects duplicate keys, numeric spelling, invalid UTF-8, and trailing bytes', () => {
   for (const json of [
-    '{"type":"hello","type":"hello","protocolVersion":1}',
-    '{"type":"hello","protocolVersion":01}',
-    '{"type":"hello","protocolVersion":1.0}',
-    '{"type":"hello","protocolVersion":1e0}',
+    '{"type":"hello","type":"hello","protocolVersion":2}',
+    '{"type":"hello","protocolVersion":02}',
+    '{"type":"hello","protocolVersion":2.0}',
+    '{"type":"hello","protocolVersion":2e0}',
   ]) {
     assert.throws(() => decodeLocalWhisperControlFrame(controlFrameFromJson(json)), /Malformed/u);
   }
-  const unknownKind = controlFrameFromJson('{"type":"hello","protocolVersion":1}', 0x7f);
+  const unknownKind = controlFrameFromJson('{"type":"hello","protocolVersion":2}', 0x7f);
   assert.throws(() => getLocalWhisperFrameKind(unknownKind), /Unknown/u);
   const invalidUtf8 = new Uint8Array([0, 0, 0, 1, LOCAL_WHISPER_CONTROL_FRAME_KIND, 0xff]);
   assert.throws(() => decodeLocalWhisperControlFrame(invalidUtf8), /Malformed/u);
-  const nonJsonWhitespace = controlFrameFromJson('\u00a0{"type":"hello","protocolVersion":1}');
+  const nonJsonWhitespace = controlFrameFromJson('\u00a0{"type":"hello","protocolVersion":2}');
   assert.throws(() => decodeLocalWhisperControlFrame(nonJsonWhitespace), /Malformed/u);
-  const valid = encodeLocalWhisperControlFrame({ type: 'hello', protocolVersion: 1 });
+  const valid = encodeLocalWhisperControlFrame({
+    type: 'hello',
+    protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+  });
   const trailing = new Uint8Array(valid.byteLength + 1);
   trailing.set(valid);
   assert.throws(() => decodeLocalWhisperControlFrame(trailing), /Malformed/u);

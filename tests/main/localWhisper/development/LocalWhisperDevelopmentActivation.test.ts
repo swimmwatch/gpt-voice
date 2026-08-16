@@ -12,7 +12,11 @@ import {
   openLocalWhisperActivationFile,
 } from '@main/localWhisper/development/LocalWhisperDevelopmentActivation';
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
-import { serializeCanonicalLocalWhisperCatalogJson, toLocalWhisperArtifactId } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+  serializeCanonicalLocalWhisperCatalogJson,
+  toLocalWhisperArtifactId,
+} from '@shared/localWhisper';
 import { FIXTURE_CATALOG_PUBLIC_KEY_PEM } from '../../../fixtures/local-whisper/catalog/fixtureCatalogSigner';
 import {
   QUALIFICATION_APP_REVISION,
@@ -26,7 +30,9 @@ let certificatePem = '';
 
 async function descriptor(overrides: Readonly<Record<string, unknown>> = {}): Promise<string> {
   const catalogEnvelope = JSON.parse(
-    Buffer.from(signQualificationCatalog(createQualificationCatalogPayload(), KEY_ID)).toString('utf8'),
+    Buffer.from(signQualificationCatalog(createQualificationCatalogPayload(LOCAL_WHISPER_WORKER_PROTOCOL_VERSION), KEY_ID)).toString(
+      'utf8',
+    ),
   ) as unknown;
   const filePath = path.join(root, `activation-${Math.random().toString(16).slice(2)}.json`);
   await writeFile(
@@ -36,7 +42,7 @@ async function descriptor(overrides: Readonly<Record<string, unknown>> = {}): Pr
       mode: 'local-whisper-development-activation',
       purpose: 'qualification',
       appRevision: QUALIFICATION_APP_REVISION,
-      workerProtocolVersion: 1,
+      workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       resourcesPath: path.join(root, 'resources'),
       catalogEnvelope,
       publicKeys: [{ keyId: KEY_ID, publicKeyPem: FIXTURE_CATALOG_PUBLIC_KEY_PEM }],

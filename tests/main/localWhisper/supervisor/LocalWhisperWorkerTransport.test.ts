@@ -3,6 +3,7 @@ import { PassThrough } from 'node:stream';
 import { test } from 'node:test';
 
 import {
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   encodeLocalWhisperAudioFrame,
   encodeLocalWhisperControlFrame,
   toLocalWhisperRevisionId,
@@ -18,7 +19,7 @@ function helloAck(): LocalWhisperWorkerServerMessage {
   if (!runtimeRevision) throw new Error('Invalid fixture revision');
   return {
     type: 'helloAck',
-    protocolVersion: 1,
+    protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
     engine: 'whisperCpp',
     runtimeRevision,
     runtimeBuildDigest: 'a'.repeat(64),
@@ -44,10 +45,15 @@ test('transport parses server frames and serializes client writes', async () => 
     },
   );
   output.write(encodeLocalWhisperControlFrame(helloAck()));
-  await transport.sendControl({ type: 'hello', protocolVersion: 1 });
+  await transport.sendControl({ type: 'hello', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION });
   assert.deepEqual(messages, [helloAck()]);
   assert.equal(written.length, 1);
-  assert.deepEqual(written[0], Buffer.from(encodeLocalWhisperControlFrame({ type: 'hello', protocolVersion: 1 })));
+  assert.deepEqual(
+    written[0],
+    Buffer.from(
+      encodeLocalWhisperControlFrame({ type: 'hello', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION }),
+    ),
+  );
   assert.deepEqual(terminal, []);
   transport.dispose();
 });
@@ -62,7 +68,7 @@ test('transport accepts the private cancel-too-late server frame', () => {
   );
   const message = {
     type: 'cancelTooLate' as const,
-    protocolVersion: 1 as const,
+    protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
     requestId: 'cancel-1',
     targetRequestId: 'tx-1',
   };

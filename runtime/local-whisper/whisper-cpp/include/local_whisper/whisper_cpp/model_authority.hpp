@@ -7,6 +7,7 @@
 
 namespace local_whisper::whisper_cpp {
 
+/** Deprecated descriptor/handle model authority retained for rollback/reference tests only. */
 class ModelAuthorityView {
 public:
   virtual ~ModelAuthorityView() = default;

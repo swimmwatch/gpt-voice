@@ -105,7 +105,7 @@ describe('LocalWhisperArtifactService lifecycle', () => {
     assert.equal(harness.progress.get(result.operationId)?.receivedBytes, transfer.byteLength);
   });
 
-  test('installs exact signed model and runtime revisions and refreshes inventory', async () => {
+  test('installs a metadata-only model and exact signed runtime then refreshes inventory', async () => {
     const harness = createArtifactServiceHarness();
     const model = harness.service.startDownload({
       artifactId: harness.catalogFixture.model.artifactId,
@@ -132,15 +132,14 @@ describe('LocalWhisperArtifactService lifecycle', () => {
     );
     assert.equal(harness.store.promotions, 2);
     assert.equal(harness.inventory.revision, 3);
-    assert.equal(harness.signatureVerifier.calls.length, 2);
-    assert.equal(harness.signatureVerifier.calls[0].digest, harness.catalogFixture.model.expectedTransferSha256);
-    assert.equal(harness.signatureVerifier.calls[1].digest, harness.catalogFixture.runtime.expectedTransferSha256);
+    assert.equal(harness.signatureVerifier.calls.length, 1);
+    assert.equal(harness.signatureVerifier.calls[0].digest, harness.catalogFixture.runtime.expectedTransferSha256);
     const snapshot = harness.progress.get(runtime.operationId);
     assert.equal(snapshot?.state, 'Installed');
     assert.equal(Object.isFrozen(snapshot), true);
   });
 
-  test('keeps installed siblings unchanged across length, hash, and signature failures', async () => {
+  test('keeps installed siblings across size and authenticated runtime failures while ignoring model digests', async () => {
     const lengthClient = new RecordingArtifactHttpClient(async () => ({
       status: 200,
       body: emptyStream(),
@@ -177,19 +176,13 @@ describe('LocalWhisperArtifactService lifecycle', () => {
       artifactId: hashHarness.catalogFixture.model.artifactId,
       expectedInventoryRevision: hashHarness.inventory.revision,
     }).completion;
-    assertFailure(hash, 'HASH_MISMATCH', 'Failed');
-    if (!hash.success) {
-      assert.equal(hash.error.retryable, false);
-      assert.equal(hash.error.recoveryAction, 'discard-and-fetch-trusted-revision');
-    }
-    assert.deepEqual(hashHarness.store.installed, new Set([hashHarness.catalogFixture.runtime.artifactId]));
-    hashHarness.worker.fixtures.set(hashHarness.catalogFixture.model.artifactId, hashFixture);
-    const retried = await hashHarness.service.retry({
-      artifactId: hashHarness.catalogFixture.model.artifactId,
-      expectedInventoryRevision: hashHarness.inventory.revision,
-    }).completion;
-    assert.equal(retried.success, true);
-    assert.equal(hashHarness.client.requests.length, 2);
+    assert.equal(hash.success, true);
+    assert.deepEqual(
+      hashHarness.store.installed,
+      new Set([hashHarness.catalogFixture.runtime.artifactId, hashHarness.catalogFixture.model.artifactId]),
+    );
+    assert.equal(hashHarness.signatureVerifier.calls.length, 0);
+    assert.equal(hashHarness.client.requests.length, 1);
 
     const signatureHarness = createArtifactServiceHarness();
     signatureHarness.store.installed.add(signatureHarness.catalogFixture.model.artifactId);

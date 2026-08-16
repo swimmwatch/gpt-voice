@@ -2,6 +2,7 @@ import {
   LOCAL_WHISPER_LANGUAGE_CATALOG,
   LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
   LOCAL_WHISPER_MODEL_FAMILIES,
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
   type LocalWhisperMemoryEstimateRecord,
@@ -28,6 +29,7 @@ const MODEL_ORIGIN_ID = 'public-hugging-face-model-origin';
 const MODEL_ORIGIN = 'https://huggingface.co';
 const MODEL_POLICY_ID = 'upstream-model-policy-v1';
 const RUNTIME_POLICY_ID = 'qualification-runtime-policy-v1';
+const LEGACY_WORKER_PROTOCOL_VERSION = 1 as const;
 
 export type QualificationCatalogPlatform = 'linux' | 'win32';
 export type QualificationCatalogExecutionMode = 'hostedValidation' | 'representativeQualification';
@@ -110,6 +112,7 @@ export interface QualificationCatalogSeed {
   readonly runtimes: readonly QualificationRuntimeCatalogSeed[];
   readonly qualificationStatus?: 'estimateOnly' | 'planned';
   readonly executionMode?: QualificationCatalogExecutionMode;
+  readonly workerProtocolVersion?: typeof LEGACY_WORKER_PROTOCOL_VERSION | typeof LOCAL_WHISPER_WORKER_PROTOCOL_VERSION;
 }
 
 function hasExecutableRuntimeSet(seed: QualificationCatalogSeed): boolean {
@@ -173,6 +176,13 @@ export class LocalWhisperQualificationCatalogProducer {
     if (!hasExecutableRuntimeSet(seed)) {
       throw new Error('Qualification catalog runtime matrix invalid');
     }
+    const workerProtocolVersion = seed.workerProtocolVersion ?? LEGACY_WORKER_PROTOCOL_VERSION;
+    if (
+      workerProtocolVersion !== LEGACY_WORKER_PROTOCOL_VERSION &&
+      workerProtocolVersion !== LOCAL_WHISPER_WORKER_PROTOCOL_VERSION
+    ) {
+      throw new Error('Qualification catalog worker protocol invalid');
+    }
     const appRevision = revisionId(seed.appRevision ?? `app-v${seed.candidateSemVer}`);
     const catalogRevision = revisionId(seed.catalogRevision);
     const signingKeyId = artifactId(seed.qualificationKeyId);
@@ -210,7 +220,7 @@ export class LocalWhisperQualificationCatalogProducer {
           upstreamRevision: revisionId('whisper-cpp-v1.9.1-f049fff'),
           buildRevision: revisionId(runtime.buildRevision),
           computeTargets: contract.computeTargets,
-          protocolVersion: 1,
+          protocolVersion: workerProtocolVersion,
           packRevision: revisionId(runtime.packRevision),
           catalogRevision,
           appRevision,
@@ -293,7 +303,7 @@ export class LocalWhisperQualificationCatalogProducer {
             : 'Single-use catalog for Windows development readiness.',
       },
       compatibleAppRevisions: [appRevision],
-      workerProtocolVersion: 1,
+      workerProtocolVersion,
       languageCatalogRevision: LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
       languages: LOCAL_WHISPER_LANGUAGE_CATALOG,
       modelFamilies: LOCAL_WHISPER_MODEL_FAMILIES,

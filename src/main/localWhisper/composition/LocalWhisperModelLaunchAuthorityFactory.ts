@@ -19,7 +19,7 @@ export interface LocalWhisperModelLaunchAuthorityFactoryDependencies {
   readonly store: LocalWhisperModelLaunchLeasePort;
 }
 
-/** Binds one authenticated catalog model to an exact held ggml file authority. */
+/** @deprecated Retained for rollback/reference tests; production uses metadata-only path load authority. */
 export class LocalWhisperModelLaunchAuthorityFactory {
   public constructor(private readonly dependencies: LocalWhisperModelLaunchAuthorityFactoryDependencies) {}
 

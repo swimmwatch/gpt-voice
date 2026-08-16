@@ -19,97 +19,98 @@ interface SourceProofPoint {
   readonly platforms: readonly ('linux' | 'win32')[];
 }
 
+interface ActivePathPoint {
+  readonly id: string;
+  readonly path: string;
+  readonly marker: string;
+  readonly expectedOccurrences: number;
+}
+
 const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   {
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    sha256: '369daa616cbbed28bdc37c5c88b9f65505326a678dc5678d04bd9669805263d3',
+    sha256: '9f036e4a488c7d8c03210de606c20741bc1a11eea8a31179c43a69ebe92c6c3a',
   },
   {
-    path: 'src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts',
-    sha256: '3beffd3e6e4c53a3b8838cd15dd444fb06797ca78c1d85a382c5fb7124932bd9',
+    path: 'src/main/localWhisper/composition/LocalWhisperModelPathLoadAuthorityFactory.ts',
+    sha256: 'fc47576c6c8632b97114ca4dbb1254d44967815c7b954007d5e7073316272ae0',
+  },
+  {
+    path: 'src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts',
+    sha256: 'f3875c1b9efdf02dfe9c930824c8084321603d42e5a8f83314e39ba9a0e6e362',
   },
   {
     path: 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts',
-    sha256: 'e931d705c7fdb6eced9587b32bc4af911c24ef377e4fcd2ea760242d28d5fb91',
-  },
-  {
-    path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
-    sha256: '9ac4d2749e4ae0594d35bcbeb3002276930d2d86717223d2e03b9d8ee8fa07ca',
-  },
-  {
-    path: 'runtime/local-whisper/fs-guard/src/platform/windows/windows_model_launch_application.cpp',
-    sha256: '19b9156a76dd20f260d6b133e3c27cc84f34901d8edacb21c2bf600bb42ebc3a',
-  },
-  {
-    path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp',
-    sha256: 'f24c3cdffc2e8c466d99f71ce8b2599704793ca2d1ce459aaaa736d1ed487d88',
+    sha256: '21c84282671834377a79e685a93318c67edbe321c255a10728c45d4e396759ef',
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',
-    sha256: 'b82a16e04941dc10af0d327fc18fbe1ddfbebe98789cd289cceb7ad8a0f0d8b8',
-  },
-  {
-    path: 'runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp',
-    sha256: 'b260bca6ffbc164672dd5abbaab30a2dba6afba569a3a5bfa33b3bfbc3f5dd6d',
-  },
-  {
-    path: 'runtime/local-whisper/whisper-cpp/core/model_format_preflight.cpp',
-    sha256: '535f7af8865514c4e63573b6c0ce92a8fb5e0b2855d8996598fc4b4e323af85b',
+    sha256: '0ac520da531e98e3c125ec92f77004e02aa6d60ef16117589a8dfd692dafd3f9',
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
-    sha256: 'fcb82dce33ae36ad92d891958436dd31962efff2b85f643fc12bff4bda12ef62',
+    sha256: '83343e2e80c74bcff2f9a8ba4eb147299afc3548c5681f04c5c2afb5f445cb34',
+  },
+  {
+    path: 'runtime/local-whisper/whisper-cpp/core/model_file_validator_linux.cpp',
+    sha256: 'ccf85cb47d4eed82cca8dc6b8278db63db50874a5ace3ae065ef613ad770adcd',
+  },
+  {
+    path: 'runtime/local-whisper/whisper-cpp/patches/core/0003-standard-file-eof.patch',
+    sha256: 'f6a86eceaf0e5bf828670ac6f4f564c20d56baa2b605259a5dbedb6404fceae2',
   },
 ]);
 
-const PROOF_POINTS: readonly SourceProofPoint[] = Object.freeze([
+const MODEL_CONTENT_PROOF_POINTS: readonly SourceProofPoint[] = Object.freeze([]);
+
+const ACTIVE_PATH_POINTS: readonly ActivePathPoint[] = Object.freeze([
   {
-    id: 'managed-acquisition-directory-proof',
+    id: 'metadata-only-installation',
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    marker: 'await this.dependencies.adapter.inspectDirectory(native.token, expectedDirectoryEntries(descriptor))',
-    platforms: ['linux', 'win32'],
+    marker: "validation: descriptor.kind === 'model' ? 'metadataOnly' : 'authenticated',",
+    expectedOccurrences: 2,
   },
   {
-    id: 'native-launch-model-revalidation',
-    path: 'src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts',
-    marker: 'await authority.modelGuardAuthority?.revalidate();',
-    platforms: ['linux', 'win32'],
+    id: 'catalog-model-path-lease',
+    path: 'src/main/localWhisper/composition/LocalWhisperModelPathLoadAuthorityFactory.ts',
+    marker: 'const leased = await this.dependencies.store.leaseInstalledModelPathForLoad(',
+    expectedOccurrences: 1,
   },
   {
-    id: 'worker-load-model-revalidation',
+    id: 'production-private-model-path-transfer',
+    path: 'src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts',
+    marker: 'modelPath: modelAuthority.modelFilePath,',
+    expectedOccurrences: 2,
+  },
+  {
+    id: 'supervisor-metadata-only-evidence',
     path: 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts',
-    marker: 'await request.revalidate();',
-    platforms: ['linux', 'win32'],
+    marker: '!message.metadataOnly ||',
+    expectedOccurrences: 1,
   },
   {
-    id: 'linux-model-guard-digest',
-    path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
-    marker: 'hash_descriptor(model.file.get(), request.model_size_bytes) != request.model_sha256',
-    platforms: ['linux'],
+    id: 'worker-standard-engine-load',
+    path: 'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
+    marker: 'engine_.load(load.model_path, load.expected_model_bytes, load.device_authority, cancellation_);',
+    expectedOccurrences: 1,
   },
   {
-    id: 'windows-model-guard-digest',
-    path: 'runtime/local-whisper/fs-guard/src/platform/windows/windows_model_launch_application.cpp',
-    marker: 'hash_handle(model.file.get(), request.model_size_bytes) != request.model_sha256',
-    platforms: ['win32'],
-  },
-  {
-    id: 'linux-authority-server-digest',
-    path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp',
-    marker: 'digest.finish() != binding.artifact_content_sha256',
-    platforms: ['linux'],
-  },
-  {
-    id: 'worker-preflight-exact-read',
+    id: 'engine-standard-path-api',
     path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',
-    marker: 'reader.rewind_after_verified_pass();',
-    platforms: ['linux', 'win32'],
+    marker: 'whisper_context* loaded = whisper_init_from_file_with_params(model_path.c_str(), parameters);',
+    expectedOccurrences: 1,
   },
   {
-    id: 'worker-loader-exact-read',
-    path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',
-    marker: 'whisper_model_loader loader{&reader, exact_loader_read, exact_loader_eof, exact_loader_close};',
-    platforms: ['linux', 'win32'],
+    id: 'linux-final-component-no-follow',
+    path: 'runtime/local-whisper/whisper-cpp/core/model_file_validator_linux.cpp',
+    marker: 'O_PATH | O_CLOEXEC | O_NOFOLLOW',
+    expectedOccurrences: 1,
+  },
+  {
+    id: 'standard-file-exact-eof',
+    path: 'runtime/local-whisper/whisper-cpp/patches/core/0003-standard-file-eof.patch',
+    marker: 'return fin->peek() == std::ifstream::traits_type::eof();',
+    expectedOccurrences: 2,
   },
 ]);
 
@@ -125,6 +126,17 @@ function countOccurrences(value: string, marker: string): number {
   return value.split(marker).length - 1;
 }
 
+function stripCppComments(value: string): string {
+  return value.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/\/\/.*$/gmu, '');
+}
+
+function sourceBetween(value: string, start: string, end: string): string {
+  const startOffset = value.indexOf(start);
+  const endOffset = value.indexOf(end, startOffset + start.length);
+  if (startOffset === -1 || endOffset === -1) throw new Error('QUALIFICATION_STANDARD_LOAD_SOURCE_DRIFT');
+  return value.slice(startOffset, endOffset);
+}
+
 export interface QualificationSourceBaselineEvidence {
   readonly sourceRevision: string;
   readonly sourceProofDigest: string;
@@ -132,7 +144,7 @@ export interface QualificationSourceBaselineEvidence {
   readonly fullModelHashes: Readonly<{ readonly linux: number; readonly win32: number }>;
 }
 
-/** Fails closed when any source owning the post-directory-reuse 7/6 proof inventory drifts. */
+/** Fails closed when the candidate standard loader or its zero-content-proof inventory drifts. */
 export class LocalWhisperQualificationSourceBaselineVerifier {
   public constructor(
     private readonly workspaceRoot: string,
@@ -149,8 +161,49 @@ export class LocalWhisperQualificationSourceBaselineVerifier {
       actualDigests.set(contract.path, actual);
       if (actual !== contract.sha256) throw new Error(`QUALIFICATION_SOURCE_BASIS_DRIFT:${contract.path}`);
     }
+    for (const point of ACTIVE_PATH_POINTS) {
+      const source = sources.get(point.path);
+      if (!source || countOccurrences(source, point.marker) !== point.expectedOccurrences) {
+        throw new Error(`QUALIFICATION_ACTIVE_PATH_DRIFT:${point.id}`);
+      }
+    }
+    const productionPort = sources.get('src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts');
+    const application = sources.get('runtime/local-whisper/whisper-cpp/core/worker_application.cpp');
+    const engine = sources.get('runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp');
+    if (!productionPort || !application || !engine) throw new Error('QUALIFICATION_STANDARD_LOAD_SOURCE_DRIFT');
+    if (/modelGuardAuthority|LocalWhisperModelLaunchAuthorityFactory/u.test(productionPort)) {
+      throw new Error('QUALIFICATION_LEGACY_MODEL_AUTHORITY_ACTIVE');
+    }
+    if (
+      /ExactModelReader reader|engine_\.load_legacy_authenticated|artifact_content_sha256/u.test(
+        stripCppComments(application),
+      )
+    ) {
+      throw new Error('QUALIFICATION_LEGACY_WORKER_LOAD_ACTIVE');
+    }
+    const standardEngineLoad = stripCppComments(
+      sourceBetween(
+        engine,
+        'void load(const std::string& model_path',
+        'void load_legacy_authenticated(ExactModelReader& reader',
+      ),
+    );
+    if (
+      countOccurrences(standardEngineLoad, 'whisper_init_from_file_with_params(') !== 1 ||
+      /ExactModelReader|ModelFormatPreflight|whisper_model_loader|whisper_init_with_params/u.test(standardEngineLoad)
+    ) {
+      throw new Error('QUALIFICATION_STANDARD_LOAD_SOURCE_DRIFT');
+    }
+    if (
+      !engine.includes(
+        'Deprecated authenticated custom-loader callbacks retained for rollback/reference tests only.',
+      ) ||
+      !engine.includes('void load_legacy_authenticated(ExactModelReader& reader')
+    ) {
+      throw new Error('QUALIFICATION_LEGACY_REFERENCE_MISSING');
+    }
     const counts = { linux: 0, win32: 0 };
-    for (const proof of PROOF_POINTS) {
+    for (const proof of MODEL_CONTENT_PROOF_POINTS) {
       const source = sources.get(proof.path);
       if (!source || countOccurrences(source, proof.marker) !== 1) {
         throw new Error(`QUALIFICATION_SOURCE_PROOF_DRIFT:${proof.id}`);
@@ -158,8 +211,8 @@ export class LocalWhisperQualificationSourceBaselineVerifier {
       for (const platform of proof.platforms) counts[platform] += 1;
     }
     if (
-      counts.linux !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.afterDirectoryReuse.linux ||
-      counts.win32 !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.afterDirectoryReuse.win32
+      counts.linux !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.standardPathLoader.linux ||
+      counts.win32 !== LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE.standardPathLoader.win32
     ) {
       throw new Error('QUALIFICATION_SOURCE_HASH_COUNT_DRIFT');
     }
@@ -167,7 +220,16 @@ export class LocalWhisperQualificationSourceBaselineVerifier {
       JSON.stringify({
         sourceRevision: LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION,
         files: SOURCE_FILES.map(({ path: filePath }) => ({ path: filePath, sha256: actualDigests.get(filePath) })),
-        proofPoints: PROOF_POINTS.map(({ id, path: filePath, platforms }) => ({ id, path: filePath, platforms })),
+        activePathPoints: ACTIVE_PATH_POINTS.map(({ id, path: filePath, expectedOccurrences }) => ({
+          id,
+          path: filePath,
+          expectedOccurrences,
+        })),
+        modelContentProofPoints: MODEL_CONTENT_PROOF_POINTS.map(({ id, path: filePath, platforms }) => ({
+          id,
+          path: filePath,
+          platforms,
+        })),
         counts,
       }),
       'utf8',

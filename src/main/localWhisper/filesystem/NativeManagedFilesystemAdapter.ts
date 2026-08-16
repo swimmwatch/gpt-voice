@@ -138,6 +138,16 @@ export abstract class NativeManagedFilesystemAdapter implements ManagedFilesyste
     );
   }
 
+  public async inspectDirectoryMetadataOnly(
+    directoryToken: string,
+    expectedEntries: readonly ManagedFilesystemExpectedEntry[] = [],
+  ): Promise<readonly ManagedFilesystemDirectoryEntry[]> {
+    const expectedFields = expectedEntries.map(({ canonicalName, mode }) => `${canonicalName}|${mode}`);
+    return Object.freeze(
+      (await this.transport.request('LIST_METADATA', [directoryToken, ...expectedFields])).map(parseDirectoryEntry),
+    );
+  }
+
   public async listArtifactDirectoryNames(
     rootToken: string,
     namespace: ManagedArtifactNamespace,

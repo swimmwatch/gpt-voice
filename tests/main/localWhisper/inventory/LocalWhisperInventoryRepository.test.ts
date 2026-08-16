@@ -64,6 +64,7 @@ function installedRuntimeEvidence(catalog: LocalWhisperAuthenticatedCatalog): Lo
     manifestIdentityKey: getLocalWhisperRuntimeIdentityKey(identity),
     manifestValid: true,
     files: identity.expectedFiles,
+    validation: 'authenticated',
   };
 }
 
@@ -74,6 +75,7 @@ function installedModelEvidence(catalog: LocalWhisperAuthenticatedCatalog): Loca
     manifestIdentityKey: getLocalWhisperModelIdentityKey(entry.identity),
     manifestValid: true,
     files: entry.expectedFiles,
+    validation: 'metadataOnly',
   };
 }
 

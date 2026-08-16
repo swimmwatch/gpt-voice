@@ -36,7 +36,7 @@ import {
   type LocalWhisperModelAuthorityRecord,
 } from '@main/localWhisper/supervisor/LocalWhisperModelAuthorityRecord';
 
-const OUTPUT_DIRECTORY = resolve('tests/fixtures/local-whisper/protocol/v1');
+const OUTPUT_DIRECTORY = resolve('tests/fixtures/local-whisper/protocol/v2');
 const OUTPUT_PATH = resolve(OUTPUT_DIRECTORY, 'manifest.json');
 const CHECK_CLEAN = process.argv.includes('--check-clean');
 const CPU_DEVICE_BINDING = Object.freeze({ kind: 'cpu' }) satisfies LocalWhisperWorkerDeviceBinding;
@@ -148,8 +148,9 @@ function proofInput(challenge: string, weightBytes: bigint): LocalWhisperDeviceP
 function loadedModelEvidence() {
   return Object.freeze({
     effectiveBackend: 'cuda' as const,
+    metadataOnly: true as const,
     model: residency().model,
-    modelSha256: 'b'.repeat(64),
+    modelFileSizeBytes: 1_048_576,
     primaryStateOwnership: 'worker' as const,
   });
 }
@@ -159,12 +160,12 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
   const probeProof = createLocalWhisperDeviceProof('probe', proofInput(PROBE_CHALLENGE, 0n));
   const loadProof = createLocalWhisperDeviceProof('load', proofInput(LOAD_CHALLENGE, 1_048_576n));
   return [
-    ['hello', { type: 'hello', protocolVersion: 1 }],
+    ['hello', { type: 'hello', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION }],
     [
       'helloAck',
       {
         type: 'helloAck',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         engine: 'whisperCpp',
         runtimeRevision: revision('runtime-pack-v1'),
         runtimeBuildDigest: 'a'.repeat(64),
@@ -178,7 +179,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'probe',
       {
         type: 'probe',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'probe-1',
         authorityId: AUTHORITY_ID,
         deviceBinding: GPU_DEVICE_BINDING,
@@ -190,7 +191,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'probed',
       {
         type: 'probed',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'probe-1',
         activatedOrdinal: 0,
         actualNativeIdentity: '0000:01:00.0',
@@ -205,7 +206,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'probe-cpu',
       {
         type: 'probe',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'probe-cpu-1',
         authorityId: AUTHORITY_ID,
         deviceBinding: CPU_DEVICE_BINDING,
@@ -215,7 +216,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'probed-cpu',
       {
         type: 'probed',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'probe-cpu-1',
         authorityId: AUTHORITY_ID,
         deviceBinding: CPU_DEVICE_BINDING,
@@ -225,7 +226,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'probe-gpu-max',
       {
         type: 'probe',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'probe-gpu-max-1',
         authorityId: AUTHORITY_ID,
         deviceBinding: MAX_GPU_DEVICE_BINDING,
@@ -237,11 +238,13 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'load',
       {
         type: 'load',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'load-1',
         authorityId: AUTHORITY_ID,
         deviceBinding: GPU_DEVICE_BINDING,
+        expectedModelBytes: 1_048_576,
         loadChallenge: LOAD_CHALLENGE,
+        modelPath: '/managed/models/model.bin',
         registryFingerprint,
         residency: residency(),
       },
@@ -250,7 +253,7 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'loaded',
       {
         type: 'loaded',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'load-1',
         activatedOrdinal: 0,
         actualNativeIdentity: '0000:01:00.0',
@@ -268,24 +271,25 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
       'loaded-cpu',
       {
         type: 'loaded',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'load-cpu-1',
         authorityId: AUTHORITY_ID,
         deviceBinding: CPU_DEVICE_BINDING,
         effectiveBackend: 'cpu',
+        metadataOnly: true,
         model: residency('cpu').model,
-        modelSha256: 'b'.repeat(64),
+        modelFileSizeBytes: 1_048_576,
         primaryStateOwnership: 'worker',
         residency: residency('cpu'),
       },
     ],
-    ['warmup', { type: 'warmup', protocolVersion: 1, requestId: 'warm-1' }],
-    ['warmed', { type: 'warmed', protocolVersion: 1, requestId: 'warm-1' }],
+    ['warmup', { type: 'warmup', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'warm-1' }],
+    ['warmed', { type: 'warmed', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'warm-1' }],
     [
       'transcribe',
       {
         type: 'transcribe',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'tx-1',
         settingsEpoch: 9,
         audioByteLength: 46,
@@ -298,15 +302,58 @@ function messages(): readonly [name: string, message: LocalWhisperWorkerControlM
         },
       },
     ],
-    ['transcript', { type: 'transcript', protocolVersion: 1, requestId: 'tx-1', text: 'synthetic result' }],
-    ['cancel', { type: 'cancel', protocolVersion: 1, requestId: 'cancel-1', targetRequestId: 'tx-1' }],
-    ['cancelled', { type: 'cancelled', protocolVersion: 1, requestId: 'cancel-1', targetRequestId: 'tx-1' }],
-    ['cancel-too-late', { type: 'cancelTooLate', protocolVersion: 1, requestId: 'cancel-1', targetRequestId: 'tx-1' }],
-    ['unload', { type: 'unload', protocolVersion: 1, requestId: 'free-1' }],
-    ['unloaded', { type: 'unloaded', protocolVersion: 1, requestId: 'free-1' }],
-    ['shutdown', { type: 'shutdown', protocolVersion: 1, requestId: 'stop-1' }],
-    ['shutdownAck', { type: 'shutdownAck', protocolVersion: 1, requestId: 'stop-1' }],
-    ['failure', { type: 'failure', protocolVersion: 1, requestId: 'load-1', code: 'MODEL_LOAD_FAILED' }],
+    [
+      'transcript',
+      {
+        type: 'transcript',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: 'tx-1',
+        text: 'synthetic result',
+      },
+    ],
+    [
+      'cancel',
+      {
+        type: 'cancel',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: 'cancel-1',
+        targetRequestId: 'tx-1',
+      },
+    ],
+    [
+      'cancelled',
+      {
+        type: 'cancelled',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: 'cancel-1',
+        targetRequestId: 'tx-1',
+      },
+    ],
+    [
+      'cancel-too-late',
+      {
+        type: 'cancelTooLate',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: 'cancel-1',
+        targetRequestId: 'tx-1',
+      },
+    ],
+    ['unload', { type: 'unload', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'free-1' }],
+    ['unloaded', { type: 'unloaded', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'free-1' }],
+    ['shutdown', { type: 'shutdown', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'stop-1' }],
+    [
+      'shutdownAck',
+      { type: 'shutdownAck', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId: 'stop-1' },
+    ],
+    [
+      'failure',
+      {
+        type: 'failure',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: 'load-1',
+        code: 'MODEL_LOAD_FAILED',
+      },
+    ],
   ];
 }
 
@@ -484,24 +531,24 @@ async function buildOutputs(): Promise<void> {
       frame(0x02, new Uint8Array(), 1 + 1 + 4 + 2 + 128 + LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES + 1),
     ],
     ['invalid-control-utf8', frame(0x01, Uint8Array.from([0xff]))],
-    ['duplicate-control-key', controlJson('{"type":"hello","type":"hello","protocolVersion":1}')],
-    ['unknown-control-key', controlJson('{"type":"hello","protocolVersion":1,"unknown":true}')],
+    ['duplicate-control-key', controlJson('{"type":"hello","type":"hello","protocolVersion":2}')],
+    ['unknown-control-key', controlJson('{"type":"hello","protocolVersion":2,"unknown":true}')],
     [
       'negative-device-index',
       controlJson(
-        `{"type":"probe","protocolVersion":1,"requestId":"bad","authorityId":"${AUTHORITY_ID}","deviceBinding":{"kind":"gpuIndex","index":-1},"probeChallenge":"${PROBE_CHALLENGE}","registryFingerprint":"${'a'.repeat(64)}"}`,
+        `{"type":"probe","protocolVersion":2,"requestId":"bad","authorityId":"${AUTHORITY_ID}","deviceBinding":{"kind":"gpuIndex","index":-1},"probeChallenge":"${PROBE_CHALLENGE}","registryFingerprint":"${'a'.repeat(64)}"}`,
       ),
     ],
     [
       'fractional-device-index',
       controlJson(
-        `{"type":"probe","protocolVersion":1,"requestId":"bad","authorityId":"${AUTHORITY_ID}","deviceBinding":{"kind":"gpuIndex","index":0.5},"probeChallenge":"${PROBE_CHALLENGE}","registryFingerprint":"${'a'.repeat(64)}"}`,
+        `{"type":"probe","protocolVersion":2,"requestId":"bad","authorityId":"${AUTHORITY_ID}","deviceBinding":{"kind":"gpuIndex","index":0.5},"probeChallenge":"${PROBE_CHALLENGE}","registryFingerprint":"${'a'.repeat(64)}"}`,
       ),
     ],
     [
       'oversized-device-index',
       controlJson(
-        `{"type":"probe","protocolVersion":1,"requestId":"bad","authorityId":"${AUTHORITY_ID}","deviceBinding":{"kind":"gpuIndex","index":256},"probeChallenge":"${PROBE_CHALLENGE}","registryFingerprint":"${'a'.repeat(64)}"}`,
+        `{"type":"probe","protocolVersion":2,"requestId":"bad","authorityId":"${AUTHORITY_ID}","deviceBinding":{"kind":"gpuIndex","index":256},"probeChallenge":"${PROBE_CHALLENGE}","registryFingerprint":"${'a'.repeat(64)}"}`,
       ),
     ],
     [
@@ -509,7 +556,7 @@ async function buildOutputs(): Promise<void> {
       controlJson(
         JSON.stringify({
           type: 'load',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId: 'bad',
           authorityId: AUTHORITY_ID,
           deviceBinding: CPU_DEVICE_BINDING,
@@ -519,12 +566,18 @@ async function buildOutputs(): Promise<void> {
     ],
     [
       'trailing-control-byte',
-      Uint8Array.from([...encodeLocalWhisperControlFrame({ type: 'hello', protocolVersion: 1 }), 0]),
+      Uint8Array.from([
+        ...encodeLocalWhisperControlFrame({
+          type: 'hello',
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        }),
+        0,
+      ]),
     ],
-    ['invalid-audio-version', changed(firstAudio, 5, 2)],
+    ['invalid-audio-version', changed(firstAudio, 5, 1)],
     ['invalid-audio-final-flag', changed(firstAudio, 6, 2)],
     ['empty-audio-request-id', changed(changed(firstAudio, 11, 0), 12, 0)],
-    ['nonterminal-empty-audio', frame(0x02, Uint8Array.from([1, 0, 0, 0, 0, 0, 0, 4, 0x74, 0x78, 0x2d, 0x31]))],
+    ['nonterminal-empty-audio', frame(0x02, Uint8Array.from([2, 0, 0, 0, 0, 0, 0, 4, 0x74, 0x78, 0x2d, 0x31]))],
   ];
   const malformed = malformedEntries.map(([name, bytes]) => ({ name, ...addBinary('malformed', name, bytes) }));
   const lexical = jsonLimitVectors().map((vector) => ({

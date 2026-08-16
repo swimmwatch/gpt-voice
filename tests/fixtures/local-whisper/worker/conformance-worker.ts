@@ -6,6 +6,7 @@ import process from 'node:process';
 import {
   LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   decodeLocalWhisperAudioFrame,
   encodeLocalWhisperControlFrame,
   isLocalWhisperWorkerClientMessage,
@@ -41,7 +42,7 @@ interface GoldenManifest {
   readonly streams: readonly { readonly frameNames: readonly string[]; readonly name: string }[];
 }
 
-const PROTOCOL_DIRECTORY = resolve('tests/fixtures/local-whisper/protocol/v1');
+const PROTOCOL_DIRECTORY = resolve('tests/fixtures/local-whisper/protocol/v2');
 const MANIFEST_PATH = resolve(PROTOCOL_DIRECTORY, 'manifest.json');
 function fixtureRevision(value: string) {
   const parsed = toLocalWhisperRevisionId(value);
@@ -143,7 +144,11 @@ class ConformanceWorker {
     if (message.type === 'probe') {
       if (this.state !== 'handshaken') return this.exit(11);
       if (this.mode === 'out-of-order') {
-        this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
+        this.respond({
+          type: 'warmed',
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+          requestId: message.requestId,
+        });
         return;
       }
       this.probedDeviceBinding = message.deviceBinding;
@@ -151,7 +156,7 @@ class ConformanceWorker {
       if ('registryFingerprint' in message) {
         this.respond({
           type: 'probed',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId: message.requestId,
           activatedOrdinal: message.deviceBinding.index,
           actualNativeIdentity: '0000:01:00.0',
@@ -164,7 +169,7 @@ class ConformanceWorker {
       } else {
         this.respond({
           type: 'probed',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId: message.requestId,
           authorityId: message.authorityId,
           deviceBinding: message.deviceBinding,
@@ -185,15 +190,16 @@ class ConformanceWorker {
       this.state = 'loaded';
       const modelEvidence = {
         effectiveBackend: message.residency.backend,
+        metadataOnly: true as const,
         model: message.residency.model,
-        modelSha256: 'b'.repeat(64),
+        modelFileSizeBytes: message.expectedModelBytes,
         primaryStateOwnership: 'worker' as const,
         residency: message.residency,
       };
       if ('registryFingerprint' in message) {
         this.respond({
           type: 'loaded',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId: message.requestId,
           activatedOrdinal: message.deviceBinding.index,
           actualNativeIdentity: '0000:01:00.0',
@@ -208,7 +214,7 @@ class ConformanceWorker {
       } else {
         this.respond({
           type: 'loaded',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId: message.requestId,
           authorityId: message.authorityId,
           deviceBinding: message.deviceBinding,
@@ -220,7 +226,11 @@ class ConformanceWorker {
     if (message.type === 'warmup') {
       if (this.state !== 'loaded') return this.exit(11);
       this.state = 'warmed';
-      this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
+      this.respond({
+        type: 'warmed',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: message.requestId,
+      });
       return;
     }
     if (message.type === 'transcribe') {
@@ -238,12 +248,20 @@ class ConformanceWorker {
       if (this.state !== 'loaded' && this.state !== 'warmed') return this.exit(11);
       this.residency = null;
       this.state = 'probed';
-      this.respond({ type: 'unloaded', protocolVersion: 1, requestId: message.requestId });
+      this.respond({
+        type: 'unloaded',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: message.requestId,
+      });
       return;
     }
     if (message.type === 'shutdown') {
       if (this.state === 'spawned') return this.exit(11);
-      this.respond({ type: 'shutdownAck', protocolVersion: 1, requestId: message.requestId });
+      this.respond({
+        type: 'shutdownAck',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: message.requestId,
+      });
       process.stdout.write('', () => this.exit(0));
     }
   }
@@ -254,13 +272,13 @@ class ConformanceWorker {
       this.cancelRaceComplete = true;
       this.respond({
         type: 'transcript',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: message.targetRequestId,
         text: 'synthetic conformance transcript',
       });
       this.respond({
         type: 'cancelTooLate',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: message.requestId,
         targetRequestId: message.targetRequestId,
       });
@@ -270,7 +288,7 @@ class ConformanceWorker {
     this.activeRequestId = null;
     this.respond({
       type: 'cancelled',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: message.requestId,
       targetRequestId: message.targetRequestId,
     });
@@ -291,7 +309,7 @@ class ConformanceWorker {
     this.state = 'handshaken';
     const acknowledgment: LocalWhisperWorkerServerMessage = {
       type: 'helloAck',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       engine: 'whisperCpp',
       runtimeRevision,
       runtimeBuildDigest: 'a'.repeat(64),
@@ -306,7 +324,7 @@ class ConformanceWorker {
           Array.from({ length: 300 }, (_, index) =>
             encodeLocalWhisperControlFrame({
               type: 'probed',
-              protocolVersion: 1,
+              protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
               requestId: `flood-${index}`,
               activatedOrdinal: 0,
               actualNativeIdentity: '0000:01:00.0',
@@ -353,7 +371,7 @@ class ConformanceWorker {
     }
     this.respond({
       type: 'transcript',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId,
       text: 'synthetic conformance transcript',
     });

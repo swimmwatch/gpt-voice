@@ -14,7 +14,7 @@ import type {
   ManagedArtifactDescriptor,
   ManagedRuntimeLaunchLease,
 } from '@main/localWhisper/filesystem/ManagedArtifactStore';
-import type { LocalWhisperRevisionId } from '@shared/localWhisper';
+import { LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, type LocalWhisperRevisionId } from '@shared/localWhisper';
 import { createFixtureCatalogPayload } from '../../../fixtures/local-whisper/catalog/fixtureCatalogSigner';
 
 const RUNTIME_DIGEST = 'a'.repeat(64);
@@ -32,6 +32,7 @@ function fixture(buildRevision = RUNTIME_DIGEST): {
     identity: Object.freeze({
       ...sourceRuntime.identity,
       buildRevision: buildRevision as LocalWhisperRevisionId,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
     }),
   });
   const payload = Object.freeze({ ...sourcePayload, runtimes: Object.freeze([runtime]) });
@@ -116,7 +117,7 @@ describe('LocalWhisperRuntimeLaunchAuthorityFactory', () => {
     assert.equal(authority.workerFileSha256, WORKER_DIGEST);
     assert.deepEqual(authority.expectedHandshake.capabilities, [
       'cpu-baseline',
-      'exact-model-authority',
+      'standard-model-path',
       'cooperative-cancellation',
     ]);
     assert.equal(authority.launchMode, 'registry');

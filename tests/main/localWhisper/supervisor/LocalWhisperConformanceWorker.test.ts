@@ -49,7 +49,9 @@ function bindingAuthority() {
   return {
     authorityId: 'AAECAwQFBgcICQoLDA0ODw',
     deviceBinding: GPU_DEVICE_BINDING,
+    expectedModelBytes: 100,
     loadChallenge: 'QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8',
+    modelPath: '/managed/models/model.bin',
     probeChallenge: 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8',
     registryFingerprint: 'e'.repeat(64),
     revalidateDeviceBinding: async () => GPU_DEVICE_BINDING,

@@ -108,6 +108,14 @@ async function* oneChunk(value: Uint8Array): AsyncIterable<Uint8Array> {
   yield value;
 }
 
+function metadataOnlyModelEntry(
+  name: string,
+  contents: Uint8Array,
+  overrides: Partial<Omit<StreamingArtifactEntry, 'chunks' | 'name'>> = {},
+): StreamingArtifactEntry {
+  return entry(name, contents, { sha256: null, ...overrides });
+}
+
 async function expectArchiveInvalid(
   spec: LocalWhisperArtifactDownloadSpec,
   entries: readonly StreamingArtifactEntry[],
@@ -215,7 +223,7 @@ function pipelineFixture(chunkCount: number): {
   readonly entry: StreamingArtifactEntry;
   readonly spec: LocalWhisperArtifactDownloadSpec;
 } {
-  const base = createArtifactServiceHarness().catalogFixture.model;
+  const base = createArtifactServiceHarness().catalogFixture.runtime;
   const chunks = Object.freeze(Array.from({ length: chunkCount }, (_, index) => Uint8Array.of(index + 1)));
   const contents = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
   const expected = Object.freeze({
@@ -248,7 +256,7 @@ describe('StreamingArtifactExtractor manifest-first boundary', () => {
   test('rejects traversal, absolute paths, and undeclared names before staging', async () => {
     const base = createArtifactServiceHarness().catalogFixture.model;
     for (const name of ['../outside', '/absolute', String.raw`C:\absolute`, 'unexpected-file']) {
-      await expectArchiveInvalid(base, [entry(name, MODEL_FILE)]);
+      await expectArchiveInvalid(base, [metadataOnlyModelEntry(name, MODEL_FILE)]);
     }
   });
 
@@ -257,13 +265,16 @@ describe('StreamingArtifactExtractor manifest-first boundary', () => {
     const second = secondExpectedFile();
     const duplicateSpec = withExpectedFiles(base, [...base.expectedFiles, second]);
     await expectArchiveInvalid(duplicateSpec, [
-      entry(base.expectedFiles[0].fileId, MODEL_FILE),
-      entry(base.expectedFiles[0].fileId, SECOND_FILE),
+      metadataOnlyModelEntry(base.expectedFiles[0].fileId, MODEL_FILE),
+      metadataOnlyModelEntry(base.expectedFiles[0].fileId, SECOND_FILE),
     ]);
 
     const caseId = String(base.expectedFiles[0].fileId).toUpperCase();
     const caseSpec = withExpectedFiles(base, [...base.expectedFiles, secondExpectedFile(caseId)]);
-    await expectArchiveInvalid(caseSpec, [entry(base.expectedFiles[0].fileId, MODEL_FILE), entry(caseId, SECOND_FILE)]);
+    await expectArchiveInvalid(caseSpec, [
+      metadataOnlyModelEntry(base.expectedFiles[0].fileId, MODEL_FILE),
+      metadataOnlyModelEntry(caseId, SECOND_FILE),
+    ]);
   });
 
   test('rejects every link, special-file, and sparse entry type', async () => {
@@ -279,34 +290,40 @@ describe('StreamingArtifactExtractor manifest-first boundary', () => {
       'sparse',
     ];
     for (const type of unsupportedTypes) {
-      await expectArchiveInvalid(base, [entry(base.expectedFiles[0].fileId, MODEL_FILE, { type })]);
+      await expectArchiveInvalid(base, [metadataOnlyModelEntry(base.expectedFiles[0].fileId, MODEL_FILE, { type })]);
     }
   });
 
   test('rejects wrong mode, declared size, declared hash, and expanded-size evidence', async () => {
     const base = createArtifactServiceHarness().catalogFixture.model;
     const expected = base.expectedFiles[0];
-    await expectArchiveInvalid(base, [entry(expected.fileId, MODEL_FILE, { mode: 0o755 })]);
-    await expectArchiveInvalid(base, [entry(expected.fileId, MODEL_FILE, { sizeBytes: MODEL_FILE.byteLength + 1 })]);
-    await expectArchiveInvalid(base, [entry(expected.fileId, MODEL_FILE, { sha256: sha256(Buffer.from('wrong')) })]);
+    await expectArchiveInvalid(base, [metadataOnlyModelEntry(expected.fileId, MODEL_FILE, { mode: 0o755 })]);
+    await expectArchiveInvalid(base, [
+      metadataOnlyModelEntry(expected.fileId, MODEL_FILE, { sizeBytes: MODEL_FILE.byteLength + 1 }),
+    ]);
+    await expectArchiveInvalid(base, [
+      metadataOnlyModelEntry(expected.fileId, MODEL_FILE, { sha256: sha256(Buffer.from('wrong')) }),
+    ]);
     await expectArchiveInvalid(Object.freeze({ ...base, expandedSizeBytes: base.expandedSizeBytes + 1 }), [
-      entry(expected.fileId, MODEL_FILE),
+      metadataOnlyModelEntry(expected.fileId, MODEL_FILE),
     ]);
   });
 
-  test('streams and independently rejects truncated or content-mismatched declared files', async () => {
-    const base = createArtifactServiceHarness().catalogFixture.model;
-    const valid = entry(base.expectedFiles[0].fileId, MODEL_FILE);
+  test('rejects truncated model files but accepts a same-size replacement without hashing', async () => {
+    const harness = createArtifactServiceHarness();
+    const base = harness.catalogFixture.model;
+    const valid = metadataOnlyModelEntry(base.expectedFiles[0].fileId, MODEL_FILE);
     await expectArchiveInvalid(base, [{ ...valid, chunks: noChunks() }]);
 
     const wrongContents = Buffer.alloc(MODEL_FILE.byteLength, 0x78);
-    await expectArchiveInvalid(base, [
-      {
-        ...valid,
-        chunks: oneChunk(wrongContents),
-        sha256: base.expectedFiles[0].sha256,
-      },
-    ]);
+    await new StreamingArtifactExtractor({
+      clock: realClock(),
+      maximumInFlightWrites: PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+      observePipeline: null,
+      store: harness.store,
+    }).install(base, [{ ...valid, chunks: oneChunk(wrongContents) }], new AbortController().signal);
+    assert.deepEqual(harness.store.installed, new Set([base.artifactId]));
+    assert.equal(harness.store.promotions, 1);
   });
 });
 

@@ -16,6 +16,7 @@ struct ModelFormatEvidence final {
   std::uint64_t tensor_payload_bytes;
 };
 
+/** Deprecated custom model preflight retained for focused rollback/reference tests only. */
 class ModelFormatPreflight final {
 public:
   explicit ModelFormatPreflight(LoaderLimits limits);

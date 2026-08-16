@@ -241,6 +241,9 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
 
   public async process(input: ArtifactWorkerProcessInput): Promise<ArtifactWorkerProcessResult> {
     if (this.active.has(input.operationId)) throw new LocalWhisperArtifactLifecycleError('OPERATION_CONFLICT');
+    if (input.validationMode === 'metadataOnlyModel' && input.transferProfile !== 'pinned-raw-model-v1') {
+      throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+    }
     const controller = new AbortController();
     const abort = (): void => controller.abort();
     input.signal.addEventListener('abort', abort, { once: true });
@@ -296,10 +299,10 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
     input: ArtifactWorkerProcessInput,
     spoolPath: string,
     signal: AbortSignal,
-  ): Promise<{ readonly digest: string; readonly peakBufferedBytes: number; readonly receivedBytes: number }> {
-    const hash = createHash('sha256');
+  ): Promise<{ readonly digest: string | null; readonly peakBufferedBytes: number; readonly receivedBytes: number }> {
+    const hash = input.validationMode === 'authenticated' ? createHash('sha256') : null;
     let received = input.resume?.offset ?? 0;
-    if (input.resume) await this.hashExistingPrefix(spoolPath, received, hash, signal);
+    if (input.resume && hash) await this.hashExistingPrefix(spoolPath, received, hash, signal);
     const handle = await open(spoolPath, input.resume ? 'r+' : 'wx', 0o600);
     let peakBufferedBytes = 0;
     try {
@@ -314,7 +317,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
           throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
         }
         await handle.write(chunk, 0, chunk.byteLength, received);
-        hash.update(chunk);
+        hash?.update(chunk);
         received = next;
         peakBufferedBytes = Math.max(peakBufferedBytes, chunk.byteLength);
         await input.onProgress(received);
@@ -323,7 +326,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
     } finally {
       await handle.close();
     }
-    return Object.freeze({ digest: hash.digest('hex'), peakBufferedBytes, receivedBytes: received });
+    return Object.freeze({ digest: hash?.digest('hex') ?? null, peakBufferedBytes, receivedBytes: received });
   }
 
   private async hashExistingPrefix(
@@ -355,7 +358,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
       input.expectedFiles.length !== 1 ||
       !expected ||
       expected.sizeBytes !== input.expectedTransferSizeBytes ||
-      expected.sha256 !== input.expectedTransferSha256
+      (input.validationMode === 'authenticated' && expected.sha256 !== input.expectedTransferSha256)
     ) {
       throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
     }
@@ -364,7 +367,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
         chunks: this.fileChunks(spoolPath, signal),
         mode: expected.mode,
         name: expected.fileId,
-        sha256: expected.sha256,
+        sha256: input.validationMode === 'authenticated' ? expected.sha256 : null,
         sizeBytes: expected.sizeBytes,
         type: 'regular' as const,
       }),

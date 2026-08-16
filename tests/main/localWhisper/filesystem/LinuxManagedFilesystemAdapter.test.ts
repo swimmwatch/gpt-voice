@@ -472,7 +472,8 @@ describe(
       assert.equal(model.kind, 'installed');
       if (model.kind === 'installed') {
         assert.equal(model.manifestValid, true);
-        assert.equal(model.files[0].sha256, sha256(CONTENT));
+        assert.equal(model.validation, 'metadataOnly');
+        assert.equal(model.files[0].sha256, null);
       }
       assert.deepEqual(evidence.listUnmanagedEvidence(), [
         { recoveryLabel: 'Unmanaged Local Whisper storage entry' },
@@ -497,6 +498,7 @@ describe(
         manifestIdentityKey: descriptor.identityKey,
         manifestValid: false,
         files: [],
+        validation: 'metadataOnly',
       });
       assert.deepEqual(evidence.listUnmanagedEvidence(), [{ recoveryLabel: 'Unmanaged Local Whisper storage entry' }]);
       await harness.store.dispose();

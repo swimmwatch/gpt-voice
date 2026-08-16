@@ -34,7 +34,7 @@ export interface LocalWhisperManagedFileEvidence {
   readonly kind: 'executable' | 'library' | 'data' | 'config' | 'tokenizer' | 'license' | 'notice';
   readonly mode: number;
   readonly sizeBytes: number;
-  readonly sha256: string;
+  readonly sha256: string | null;
 }
 
 export type LocalWhisperManagedArtifactEvidence =
@@ -44,6 +44,7 @@ export type LocalWhisperManagedArtifactEvidence =
       readonly manifestIdentityKey: string;
       readonly manifestValid: boolean;
       readonly files: readonly LocalWhisperManagedFileEvidence[];
+      readonly validation: 'authenticated' | 'metadataOnly';
     }
   | {
       readonly kind: 'staging';
@@ -142,6 +143,7 @@ type ExpectedFile =
 function filesMatch(
   expectedFiles: readonly ExpectedFile[],
   actualFiles: readonly LocalWhisperManagedFileEvidence[],
+  metadataOnlyAllowed: boolean,
 ): boolean {
   if (expectedFiles.length !== actualFiles.length) return false;
   const actualById = new Map(actualFiles.map((file) => [file.fileId, file]));
@@ -152,7 +154,7 @@ function filesMatch(
       actual?.kind === expected.kind &&
       actual.mode === expected.mode &&
       actual.sizeBytes === expected.sizeBytes &&
-      actual.sha256 === expected.sha256
+      (actual.sha256 === expected.sha256 || (metadataOnlyAllowed && actual.sha256 === null))
     );
   });
 }
@@ -162,6 +164,7 @@ function classifyEvidence(
   identityKey: string,
   expectedFiles: readonly ExpectedFile[],
   blocked: boolean,
+  metadataOnlyAllowed: boolean,
 ): LocalWhisperArtifactSetupState {
   if (blocked) return 'Blocked';
   if (evidence.kind === 'missing') return 'Missing';
@@ -170,7 +173,8 @@ function classifyEvidence(
   }
   return evidence.manifestValid &&
     evidence.manifestIdentityKey === identityKey &&
-    filesMatch(expectedFiles, evidence.files)
+    (evidence.validation === 'authenticated' || (metadataOnlyAllowed && evidence.validation === 'metadataOnly')) &&
+    filesMatch(expectedFiles, evidence.files, metadataOnlyAllowed)
     ? 'Installed'
     : 'Corrupt';
 }
@@ -222,6 +226,7 @@ function projectRuntime(
     identityKey,
     identity.expectedFiles,
     catalog.isRuntimeDenylisted(identityKey),
+    false,
   );
   return Object.freeze({
     kind: 'runtime',
@@ -262,6 +267,7 @@ function projectModel(
     identityKey,
     entry.expectedFiles,
     catalog.isModelDenylisted(identityKey),
+    true,
   );
   return Object.freeze({
     kind: 'model',

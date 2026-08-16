@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { LOCAL_WHISPER_CONTROL_FRAME_KIND, encodeLocalWhisperControlFrame } from '@shared/localWhisper';
+import {
+  LOCAL_WHISPER_CONTROL_FRAME_KIND,
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+  encodeLocalWhisperControlFrame,
+} from '@shared/localWhisper';
 import { LocalWhisperFrameCodec } from '@main/localWhisper/supervisor/LocalWhisperFrameCodec';
 
-const HELLO = { type: 'hello', protocolVersion: 1 } as const;
+const HELLO = { type: 'hello', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION } as const;
 
 test('incremental codec handles fragmented and coalesced frames', () => {
   const frame = encodeLocalWhisperControlFrame(HELLO);

@@ -25,7 +25,7 @@ import type {
   LocalWhisperDeviceTopologyAuthority,
 } from './LocalWhisperDeviceTopologyAuthority';
 import type { LocalWhisperRuntimeLaunchAuthorityFactory } from './LocalWhisperRuntimeLaunchAuthorityFactory';
-import type { LocalWhisperModelLaunchAuthorityFactory } from './LocalWhisperModelLaunchAuthorityFactory';
+import type { LocalWhisperModelPathLoadAuthorityFactory } from './LocalWhisperModelPathLoadAuthorityFactory';
 import { LocalWhisperProductionResidentWorkerLease } from './LocalWhisperProductionResidentWorkerLease';
 import {
   LocalWhisperRuntimeRegistryDiscoveryError,
@@ -43,7 +43,7 @@ export interface LocalWhisperProductionWorkerPortDependencies {
     'activeFullLoadSession' | 'forceCleanupFullLoad' | 'probeOnce' | 'shutdownFullLoad' | 'startFullLoad'
   >;
   readonly logicalProcessorCount: number;
-  readonly modelAuthorities: Pick<LocalWhisperModelLaunchAuthorityFactory, 'acquire'>;
+  readonly modelAuthorities: Pick<LocalWhisperModelPathLoadAuthorityFactory, 'acquire'>;
   readonly onTopology: (snapshot: LocalWhisperDeviceTopologySnapshot) => void;
   readonly platform: 'linux' | 'win32' | 'darwin' | 'other';
   readonly randomBytes: (size: number) => Uint8Array;
@@ -226,7 +226,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
     );
     if (resolvedCpuThreads === null) return failure('INVALID_SETTINGS');
     let challengeAuthority: LocalWhisperDeviceChallengeAuthority | null = null;
-    let modelAuthority: Awaited<ReturnType<LocalWhisperModelLaunchAuthorityFactory['acquire']>> | null = null;
+    let modelAuthority: Awaited<ReturnType<LocalWhisperModelPathLoadAuthorityFactory['acquire']>> | null = null;
     try {
       modelAuthority = await this.dependencies.modelAuthorities.acquire(this.dependencies.catalog, model);
       const operationAuthority = new LocalWhisperDeviceChallengeAuthority(
@@ -255,6 +255,8 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
           authorityId: operationAuthority.authorityId,
           configurationEpoch: request.epochs.configuration,
           deviceBinding: Object.freeze({ kind: 'cpu' as const }),
+          expectedModelBytes: modelAuthority.modelFileSizeBytes,
+          modelPath: modelAuthority.modelFilePath,
           modelLease: modelAuthority.modelLease,
           residency,
           revalidate: modelAuthority.revalidate,
@@ -265,7 +267,8 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
                 evidence.deviceBinding.kind === 'cpu' &&
                 evidence.effectiveBackend === 'cpu' &&
                 sameModel(evidence.model, model.identity) &&
-                evidence.modelSha256 === modelAuthority?.modelFileSha256 &&
+                evidence.metadataOnly &&
+                evidence.modelFileSizeBytes === modelAuthority?.modelFileSizeBytes &&
                 evidence.primaryStateOwnership === 'worker',
             ),
         };
@@ -292,7 +295,9 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
           authorityId: operationAuthority.authorityId,
           configurationEpoch: request.epochs.configuration,
           deviceBinding: Object.freeze({ kind: 'gpuIndex' as const, index: selected.ordinal }),
+          expectedModelBytes: modelAuthority.modelFileSizeBytes,
           loadChallenge: challenge,
+          modelPath: modelAuthority.modelFilePath,
           modelLease: modelAuthority.modelLease,
           registryFingerprint: first.registryFingerprint,
           residency,
@@ -323,7 +328,8 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
               evidence.selectedDeviceModelWeightBytes > 0 &&
               evidence.effectiveBackend === runtime.identity.backend &&
               sameModel(evidence.model, model.identity) &&
-              evidence.modelSha256 === modelAuthority?.modelFileSha256 &&
+              evidence.metadataOnly &&
+              evidence.modelFileSizeBytes === modelAuthority?.modelFileSizeBytes &&
               evidence.primaryStateOwnership === 'worker' &&
               evidence.loadProof ===
                 createLocalWhisperDeviceProof('load', {
@@ -362,7 +368,7 @@ export class LocalWhisperProductionWorkerPort implements LocalWhisperCoordinator
         launchMode: 'fullLoad',
         ...(workerInputBootstrap ? { workerInputBootstrap } : {}),
       });
-      const authority = Object.freeze({ ...runtimeAuthority, modelGuardAuthority: modelAuthority });
+      const authority = runtimeAuthority;
       const cancelStartup = (): void => {
         void this.dependencies.lifecycle.forceCleanupFullLoad().catch(() => undefined);
       };

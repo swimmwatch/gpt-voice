@@ -217,6 +217,8 @@ function createLoadMessage(request: LocalWhisperLoadRequest, requestId: string):
     return {
       authorityId: request.authorityId,
       deviceBinding: request.deviceBinding,
+      expectedModelBytes: request.expectedModelBytes,
+      modelPath: request.modelPath,
       protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId,
       residency: request.residency,
@@ -226,7 +228,9 @@ function createLoadMessage(request: LocalWhisperLoadRequest, requestId: string):
   return {
     authorityId: request.authorityId,
     deviceBinding: request.deviceBinding,
+    expectedModelBytes: request.expectedModelBytes,
     loadChallenge: request.loadChallenge,
+    modelPath: request.modelPath,
     protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
     registryFingerprint: request.registryFingerprint,
     requestId,
@@ -254,7 +258,9 @@ function matchesLoadEvidence(message: LocalWhisperWorkerServerMessage, request: 
     message.type !== 'loaded' ||
     message.authorityId !== request.authorityId ||
     !sameDeviceBinding(message.deviceBinding, request.deviceBinding) ||
-    !sameResidency(message.residency, request.residency)
+    !sameResidency(message.residency, request.residency) ||
+    !message.metadataOnly ||
+    message.modelFileSizeBytes !== request.expectedModelBytes
   ) {
     return false;
   }
@@ -415,7 +421,7 @@ export class LocalWhisperWorkerSupervisor {
     const requestId = this.reserveRequestId();
     return this.request({
       expectedType: 'warmed',
-      message: { type: 'warmup', protocolVersion: 1, requestId },
+      message: { type: 'warmup', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId },
       stage: 'warmup',
       successState: 'warmed',
       timeoutMs: LOCAL_WHISPER_WARMUP_TIMEOUT_MS,
@@ -448,7 +454,7 @@ export class LocalWhisperWorkerSupervisor {
         expectedType: 'transcript',
         message: {
           type: 'transcribe',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId,
           settingsEpoch: request.settingsEpoch,
           audioByteLength: request.audio.byteLength,
@@ -483,7 +489,7 @@ export class LocalWhisperWorkerSupervisor {
       expectedType: 'cancelled',
       message: {
         type: 'cancel',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId,
         targetRequestId: transcription.requestId,
       },
@@ -514,7 +520,7 @@ export class LocalWhisperWorkerSupervisor {
     const requestId = this.reserveRequestId();
     const unloaded = await this.request({
       expectedType: 'unloaded',
-      message: { type: 'unload', protocolVersion: 1, requestId },
+      message: { type: 'unload', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId },
       stage: 'cleanup',
       successState: 'probed',
       timeoutMs: LOCAL_WHISPER_UNLOAD_TIMEOUT_MS,
@@ -625,8 +631,17 @@ export class LocalWhisperWorkerSupervisor {
       this.handleHandshake(message);
       return;
     }
-    if (message.type === 'failure' && message.requestId === null && this.handshake) {
-      void this.failTerminal(message.code, 'workerStart');
+    if (message.type === 'failure' && message.requestId === null) {
+      if (this.handshake) {
+        void this.failTerminal(message.code, 'workerStart');
+        return;
+      }
+      const pending = this.pending.size === 1 ? this.pending.values().next().value : undefined;
+      if (pending && this.pendingRevalidations.size === 0) {
+        void this.failTerminal(message.code, pending.stage);
+        return;
+      }
+      void this.failTerminal('WORKER_PROTOCOL_VIOLATION', 'protocol');
       return;
     }
     if (!('requestId' in message) || message.requestId === null) {
@@ -749,7 +764,7 @@ export class LocalWhisperWorkerSupervisor {
     const requestId = this.reserveRequestId();
     const acknowledged = await this.request({
       expectedType: 'shutdownAck',
-      message: { type: 'shutdown', protocolVersion: 1, requestId },
+      message: { type: 'shutdown', protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, requestId },
       stage: 'cleanup',
       successState: this.stateValue,
       timeoutMs: LOCAL_WHISPER_UNLOAD_TIMEOUT_MS,

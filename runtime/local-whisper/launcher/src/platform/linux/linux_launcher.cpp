@@ -256,6 +256,7 @@ void write_exact(const int descriptor, std::span<const std::uint8_t> bytes) {
   }
 }
 
+/** @deprecated Used only by the inactive model-authority rollback path. */
 std::vector<std::uint8_t> read_exact(const int descriptor, const std::size_t size) {
   std::vector<std::uint8_t> bytes(size);
   std::size_t offset = 0;
@@ -350,6 +351,7 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
   }
 }
 
+/** @deprecated Used only by the inactive model-authority rollback path. */
 local_whisper::common::AuthorityBinding model_binding(const LaunchRequest& request) {
   try {
     const auto decoded =
@@ -424,17 +426,21 @@ public:
     UniqueDescriptor worker_output_read;
     UniqueDescriptor worker_output_write;
     const bool full_load = request.launch_mode == WorkerLaunchMode::full_load;
+    const bool legacy_model_authority = !request.model_authority_request.empty();
     local_whisper::common::AuthorityBinding authority_binding{};
     if (full_load) {
-      authority_binding = model_binding(request);
-      LinuxModelAuthorityClient authority_client;
-      try {
-        model_authority.emplace(authority_client.acquire(authority_descriptor, authority_binding));
-      } catch (const LauncherError&) {
-        throw;
-      } catch (...) {
-        throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
-                            "launcher model authority acquire failed");
+      if (legacy_model_authority) {
+        authority_binding = model_binding(request);
+        LinuxModelAuthorityClient authority_client;
+        try {
+          model_authority.emplace(
+              authority_client.acquire(authority_descriptor, authority_binding));
+        } catch (const LauncherError&) {
+          throw;
+        } catch (...) {
+          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                              "launcher model authority acquire failed");
+        }
       }
       static_cast<void>(close(authority_descriptor));
       std::array<int, 2> input_pipe{};
@@ -473,8 +479,9 @@ public:
         }
         worker_input_read.reset();
         worker_output_write.reset();
-        if (!model_authority.has_value() ||
-            LinuxModelAuthorityClient::install_at_logical_slot(std::move(*model_authority)) != 3) {
+        if (legacy_model_authority &&
+            (!model_authority.has_value() || LinuxModelAuthorityClient::install_at_logical_slot(
+                                                 std::move(*model_authority)) != 3)) {
           _exit(common::kChildExecBootstrapFailureExitCode);
         }
       }
@@ -497,21 +504,23 @@ public:
         worker_output_write.reset();
         full_load_input = std::move(worker_input_write);
         full_load_output = std::move(worker_output_read);
-        model_authority.reset();
-        if (request.worker_bootstrap_bytes > 0U) {
-          const auto device_bootstrap = read_exact(STDIN_FILENO, request.worker_bootstrap_bytes);
-          write_exact(full_load_input.get(), device_bootstrap);
-        }
-        try {
-          local_whisper::common::authorize_worker_model_bootstrap(
-              full_load_input.get(), full_load_output.get(), authority_binding,
-              static_cast<std::uint64_t>(child),
-              local_whisper::common::linux_process_start_identity_sha256(child));
-        } catch (const LauncherError&) {
-          throw;
-        } catch (...) {
-          throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
-                              "launcher worker authority bootstrap failed");
+        if (legacy_model_authority) {
+          model_authority.reset();
+          if (request.worker_bootstrap_bytes > 0U) {
+            const auto device_bootstrap = read_exact(STDIN_FILENO, request.worker_bootstrap_bytes);
+            write_exact(full_load_input.get(), device_bootstrap);
+          }
+          try {
+            local_whisper::common::authorize_worker_model_bootstrap(
+                full_load_input.get(), full_load_output.get(), authority_binding,
+                static_cast<std::uint64_t>(child),
+                local_whisper::common::linux_process_start_identity_sha256(child));
+          } catch (const LauncherError&) {
+            throw;
+          } catch (...) {
+            throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
+                                "launcher worker authority bootstrap failed");
+          }
         }
       }
       worker.reset();

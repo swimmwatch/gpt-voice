@@ -1110,6 +1110,9 @@ ResponseFields WindowsBackend::seal_file(const SealFileCommand& command) {
 }
 
 ResponseFields WindowsBackend::list(const ListCommand& command) { return impl_->list(command); }
+ResponseFields WindowsBackend::list_metadata(const ListMetadataCommand&) {
+  throw GuardError("UNSUPPORTED");
+}
 
 ResponseFields WindowsBackend::list_namespace(const ListNamespaceCommand& command) {
   return impl_->list_namespace_command(command);

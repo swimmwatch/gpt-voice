@@ -104,8 +104,6 @@ TEST(LaunchRequestParserTest, AcceptsOnlyFixedWorkerLaunchModes) {
     std::string line = valid_line();
     const std::size_t mode_offset = line.find("\tprobe\t");
     line.replace(mode_offset + 1U, std::string("probe").size(), mode);
-    if (mode == "fullLoad")
-      line += "\t" + base64url(std::string(234, 'x')) + "\t0";
     EXPECT_NO_THROW(static_cast<void>(LaunchRequestParser{}.parse(line)));
   }
   std::string invalid = valid_line();
@@ -114,16 +112,15 @@ TEST(LaunchRequestParserTest, AcceptsOnlyFixedWorkerLaunchModes) {
   EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(invalid)), std::runtime_error);
 }
 
-TEST(LaunchRequestParserTest, FullLoadRequiresExactAuthorityAndWorkerBootstrapLength) {
-  std::string missing = valid_line();
-  const std::size_t mode_offset = missing.find("\tprobe\t");
-  missing.replace(mode_offset + 1U, std::string("probe").size(), "fullLoad");
-  EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(missing)), std::runtime_error);
+TEST(LaunchRequestParserTest,
+     FullLoadUsesTheStandardPathEnvelopeAndRetainsLegacyAuthorityReferenceFrames) {
+  std::string standard = valid_line();
+  const std::size_t mode_offset = standard.find("\tprobe\t");
+  standard.replace(mode_offset + 1U, std::string("probe").size(), "fullLoad");
+  EXPECT_NO_THROW(static_cast<void>(LaunchRequestParser{}.parse(standard)));
 
-  std::string valid = missing + "\t" + base64url(std::string(234, 'x')) + "\t40";
-  EXPECT_NO_THROW(static_cast<void>(LaunchRequestParser{}.parse(valid)));
-  valid.replace(valid.size() - 2U, 2U, "41");
-  EXPECT_THROW(static_cast<void>(LaunchRequestParser{}.parse(valid)), std::runtime_error);
+  const std::string legacy = standard + "\t" + base64url(std::string(234, 'x')) + "\t40";
+  EXPECT_NO_THROW(static_cast<void>(LaunchRequestParser{}.parse(legacy)));
 }
 
 TEST(LaunchRequestParserTest, RejectsNonCanonicalBase64AndNumericOverflow) {

@@ -23,7 +23,7 @@ import {
 } from './settings';
 import { parseLocalWhisperWorkerJson } from './workerJson';
 
-export const LOCAL_WHISPER_WORKER_PROTOCOL_VERSION = 1 as const;
+export const LOCAL_WHISPER_WORKER_PROTOCOL_VERSION = 2 as const;
 export const LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES = 1024 * 1024;
 export const LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES = 1024 * 1024;
 export const LOCAL_WHISPER_FRAME_LENGTH_BYTES = 4;
@@ -34,6 +34,7 @@ export const LOCAL_WHISPER_AUDIO_FRAME_KIND = 0x02 as const;
 export const LOCAL_WHISPER_MAX_REQUEST_ID_BYTES = 128;
 export const LOCAL_WHISPER_MAX_CAPABILITY_COUNT = 32;
 export const LOCAL_WHISPER_MAX_CAPABILITY_BYTES = 64;
+export const LOCAL_WHISPER_MAX_MODEL_PATH_BYTES = 131_072;
 
 const AUDIO_BODY_FIXED_BYTES = 1 + 1 + 4 + 2;
 const AUDIO_BODY_VERSION_OFFSET = LOCAL_WHISPER_FRAME_HEADER_BYTES;
@@ -67,11 +68,15 @@ export type LocalWhisperWorkerLoadAuthority =
   | {
       readonly authorityId: string;
       readonly deviceBinding: { readonly kind: 'cpu' };
+      readonly expectedModelBytes: number;
+      readonly modelPath: string;
     }
   | {
       readonly authorityId: string;
       readonly deviceBinding: { readonly kind: 'gpuIndex'; readonly index: number };
+      readonly expectedModelBytes: number;
       readonly loadChallenge: string;
+      readonly modelPath: string;
       readonly registryFingerprint: string;
     };
 
@@ -108,8 +113,9 @@ export type LocalWhisperWorkerLoadEvidence =
 
 export interface LocalWhisperWorkerLoadedModelEvidence {
   readonly effectiveBackend: LocalWhisperBackend;
+  readonly metadataOnly: true;
   readonly model: LocalWhisperModelIdentity;
-  readonly modelSha256: string;
+  readonly modelFileSizeBytes: number;
   readonly primaryStateOwnership: 'worker';
 }
 
@@ -196,12 +202,21 @@ const PROBE_GPU_KEYS = [
   'probeChallenge',
   'registryFingerprint',
 ] as const;
-const LOAD_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding', 'residency'] as const;
+const LOAD_CPU_KEYS = [
+  ...REQUEST_KEYS,
+  'authorityId',
+  'deviceBinding',
+  'expectedModelBytes',
+  'modelPath',
+  'residency',
+] as const;
 const LOAD_GPU_KEYS = [
   ...REQUEST_KEYS,
   'authorityId',
   'deviceBinding',
+  'expectedModelBytes',
   'loadChallenge',
+  'modelPath',
   'registryFingerprint',
   'residency',
 ] as const;
@@ -229,7 +244,13 @@ const PROBED_GPU_KEYS = [
   'probeProof',
   'registryFingerprint',
 ] as const;
-const LOADED_COMMON_KEYS = ['effectiveBackend', 'model', 'modelSha256', 'primaryStateOwnership'] as const;
+const LOADED_COMMON_KEYS = [
+  'effectiveBackend',
+  'metadataOnly',
+  'model',
+  'modelFileSizeBytes',
+  'primaryStateOwnership',
+] as const;
 const LOADED_CPU_KEYS = [...REQUEST_KEYS, 'authorityId', 'deviceBinding', ...LOADED_COMMON_KEYS, 'residency'] as const;
 const LOADED_GPU_KEYS = [
   ...REQUEST_KEYS,
@@ -284,6 +305,19 @@ function hasProtocolVersion(value: Record<string, unknown>): boolean {
 
 function utf8Length(value: string): number {
   return new TextEncoder().encode(value).byteLength;
+}
+
+function isModelPath(value: unknown): value is string {
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    utf8Length(value) > LOCAL_WHISPER_MAX_MODEL_PATH_BYTES ||
+    hasLocalWhisperControlCharacter(value)
+  ) {
+    return false;
+  }
+  const encoded = new TextEncoder().encode(value);
+  return new TextDecoder('utf-8', { fatal: true }).decode(encoded) === value;
 }
 
 function isRequestId(value: unknown): value is string {
@@ -345,6 +379,9 @@ function isLoadAuthority(value: Record<string, unknown>): boolean {
   if (
     !isAuthorityId(value.authorityId) ||
     !isLocalWhisperWorkerDeviceBinding(value.deviceBinding) ||
+    !isModelPath(value.modelPath) ||
+    !Number.isSafeInteger(value.expectedModelBytes) ||
+    (value.expectedModelBytes as number) <= 0 ||
     !isResidency(value.residency) ||
     !isDeviceBindingCompatibleWithResidency(value.deviceBinding, value.residency)
   ) {
@@ -380,7 +417,9 @@ function isLoadedModelEvidence(value: Record<string, unknown>, residency: LocalW
     value.model.artifactRevision === residency.model.artifactRevision &&
     value.model.nativeFormat === residency.model.nativeFormat &&
     value.model.variant === residency.model.variant &&
-    isSha256(value.modelSha256) &&
+    value.metadataOnly === true &&
+    Number.isSafeInteger(value.modelFileSizeBytes) &&
+    (value.modelFileSizeBytes as number) > 0 &&
     value.primaryStateOwnership === 'worker'
   );
 }

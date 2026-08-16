@@ -162,6 +162,7 @@ function validateEntries(
   spec: LocalWhisperArtifactDownloadSpec,
   entries: readonly StreamingArtifactEntry[],
 ): ReadonlyMap<LocalWhisperArtifactId, StreamingArtifactEntry> {
+  const metadataOnlyModel = spec.transferProfile === 'pinned-raw-model-v1';
   if (entries.length !== spec.expectedFiles.length) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
   const byName = new Map<string, StreamingArtifactEntry>();
   const caseFolded = new Set<string>();
@@ -177,7 +178,9 @@ function validateEntries(
       !Number.isSafeInteger(entry.mode) ||
       entry.mode < 0 ||
       entry.mode > 0o777 ||
-      !SHA256_PATTERN.test(entry.sha256)
+      (metadataOnlyModel
+        ? entry.sha256 !== null
+        : typeof entry.sha256 !== 'string' || !SHA256_PATTERN.test(entry.sha256))
     ) {
       throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
     }
@@ -192,7 +195,7 @@ function validateEntries(
       !entry ||
       entry.mode !== expected.mode ||
       entry.sizeBytes !== expected.sizeBytes ||
-      entry.sha256 !== expected.sha256
+      (metadataOnlyModel ? entry.sha256 !== null : entry.sha256 !== expected.sha256)
     ) {
       throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
     }
@@ -236,6 +239,7 @@ export class StreamingArtifactExtractor {
     signal: AbortSignal,
   ): Promise<void> {
     const validated = validateEntries(spec, entries);
+    const metadataOnlyModel = spec.transferProfile === 'pinned-raw-model-v1';
     const pipeline = new BoundedArtifactWritePipeline(this.dependencies, signal);
     let staging: ManagedArtifactLease | null = null;
     let promoted = false;
@@ -248,7 +252,7 @@ export class StreamingArtifactExtractor {
         if (!entry) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
         const fileLease = await this.dependencies.store.createStagedFile(staging, expected.fileId);
         let written = 0;
-        const hash = createHash('sha256');
+        const hash = metadataOnlyModel ? null : createHash('sha256');
         try {
           for await (const chunk of entry.chunks) {
             if (signal.aborted) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED');
@@ -260,11 +264,11 @@ export class StreamingArtifactExtractor {
             if (!Number.isSafeInteger(written) || written > expected.sizeBytes) {
               throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
             }
-            hash.update(chunk);
+            hash?.update(chunk);
             await pipeline.enqueue(fileLease, chunk);
           }
           await pipeline.finish();
-          if (written !== expected.sizeBytes || hash.digest('hex') !== expected.sha256) {
+          if (written !== expected.sizeBytes || (!metadataOnlyModel && hash?.digest('hex') !== expected.sha256)) {
             throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
           }
           await this.dependencies.store.sealStagedFile(fileLease);
@@ -275,7 +279,8 @@ export class StreamingArtifactExtractor {
           throw error;
         }
       }
-      await this.dependencies.store.promote(spec.descriptor, staging);
+      if (metadataOnlyModel) await this.dependencies.store.promoteMetadataOnlyModel(spec.descriptor, staging);
+      else await this.dependencies.store.promote(spec.descriptor, staging);
       promoted = true;
     } catch (error) {
       await pipeline.settle();

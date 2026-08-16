@@ -13,6 +13,7 @@ import {
   LOCAL_WHISPER_CATALOG_SIGNATURE_ALGORITHM,
 } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import {
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   serializeCanonicalLocalWhisperCatalogJson,
   toLocalWhisperArtifactId,
   toLocalWhisperRevisionId,
@@ -70,6 +71,7 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
       runtimeOriginId: 'qualification-runtime-origin',
       runtimeOrigin: 'https://127.0.0.1:39443',
       sourceCommit: 'a'.repeat(40),
+      workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       runtimes: [runtime('cuda'), runtime('cpu')],
     });
     const keys = generateKeyPairSync('ed25519');
@@ -92,12 +94,17 @@ describe('LocalWhisperQualificationCatalogProducer', () => {
         publicKeys: [{ keyId: toLocalWhisperArtifactId('qualification-key-v1')!, publicKeyPem: publicPem }],
         origins: payload.origins,
         appRevision: toLocalWhisperRevisionId('app-v2.4.0')!,
-        workerProtocolVersion: 1,
+        workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       },
     }).load();
     if (!loaded.success) assert.fail(loaded.code);
     assert.equal(payload.models.length, 6);
     assert.equal(payload.runtimes.length, 2);
+    assert.equal(payload.workerProtocolVersion, LOCAL_WHISPER_WORKER_PROTOCOL_VERSION);
+    assert.equal(
+      payload.runtimes.every(({ identity }) => identity.protocolVersion === LOCAL_WHISPER_WORKER_PROTOCOL_VERSION),
+      true,
+    );
     assert.equal(payload.memoryEstimates.length, 12);
     assert.equal(payload.runtimes[0].identity.backend, 'cpu');
     assert.equal(payload.runtimes[0].qualificationProfileDigest, undefined);

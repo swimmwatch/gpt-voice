@@ -152,6 +152,10 @@ struct ListCommand {
   std::string directory_token;
   std::vector<ExpectedEntry> expected_entries;
 };
+struct ListMetadataCommand {
+  std::string directory_token;
+  std::vector<ExpectedEntry> expected_entries;
+};
 struct ListNamespaceCommand {
   std::string root_token;
   ArtifactNamespace namespace_name;
@@ -203,9 +207,9 @@ struct ReleaseCommand {
 using Command =
     std::variant<ProcessIdentityCommand, InitCommand, LockCommand, CreateStagingCommand,
                  CreateFileCommand, WriteFileCommand, SealFileCommand, ListCommand,
-                 ListNamespaceCommand, OpenArtifactCommand, PromoteCommand, QuarantineCommand,
-                 DeleteFileCommand, DeleteStagingFileCommand, RemoveQuarantineCommand,
-                 RemoveStagingCommand, RevalidateCommand, ReleaseCommand>;
+                 ListMetadataCommand, ListNamespaceCommand, OpenArtifactCommand, PromoteCommand,
+                 QuarantineCommand, DeleteFileCommand, DeleteStagingFileCommand,
+                 RemoveQuarantineCommand, RemoveStagingCommand, RevalidateCommand, ReleaseCommand>;
 
 [[nodiscard]] Command parse_command(const std::string& name, std::vector<std::string> arguments);
 

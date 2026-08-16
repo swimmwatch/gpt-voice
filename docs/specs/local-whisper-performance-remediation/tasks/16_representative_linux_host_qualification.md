@@ -1,154 +1,182 @@
-# 16 Representative Linux Host Qualification
+# 16 Linux Standard Loader Implementation
 
 ## Outcome
 
-Freeze the exact candidate and run the schema-v3 paired baseline/candidate matrix on representative Linux CPU/CUDA
-hardware for every model and pipeline window. Retain only privacy-safe aggregate evidence for the later Windows
-comparison and mandatory final selection.
+Replace the active Linux ordinary model install/load path with bounded metadata validation followed by one
+standard path-based `whisper.cpp` initialization call. Preserve the former authenticated reader, preflight,
+model-authority handoff, and model-download proof code in source as deprecated and inactive.
 
 ## Prerequisites
 
-- Packets 13–15 are complete, reviewed, and committed. Their collector, derived-source contract, attempt runner,
-  analyzer, per-model identity, and role-aware Linux resource adapter pass all local checks.
-- The baseline commit is `1f6ce9c988a275f1ef9faa295b1bb04879943e89`. The candidate commit is the exact clean
-  full SHA containing Packets 01–15; record it before preparing artifacts and never mix later work into the run.
-- The operator has authenticated release-1 catalog/model/runtime inputs, the approved predecessor AppImage and
-  advisory evidence, representative Linux x64 CPU/CUDA hardware, and one validated disposable run root. None of
-  these private paths or artifacts is retained in the repository.
-- The current source proof is seven Linux/six Windows full-model hashes with digest
-  `a8a6ede6a48ce6d8b591a46e77867ca0e2a26b5a75084b401d9159b4cdd363ee`.
+- Approved specification revision 6 and approved plan revision 7.
+- Packets 01–15 remain complete; do not rewrite their history.
+- Start from the current working tree without overwriting unrelated supervisor/test changes or any private
+  qualification/runtime artifacts.
+- Linux x64 development host with the existing pinned CPU/CUDA native source and toolchains available for
+  the applicable local checks.
 
 ## Owned Requirements
 
-OUT-001, SCP-001, PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, RES-002, QUAL-001, OBS-001, OBS-002,
-OBS-003, AC-MAN-001, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006.
+OUT-001, OUT-003, SCP-001–SCP-009, BASE-001, CMP-001–CMP-009, IPC-001–IPC-005, SEC-001–SEC-012,
+ARC-001, ARC-002, ARC-005, ARC-006, CRY-001, CODEC-001, CODEC-002, INST-001, INST-002, FLOW-001,
+FLOW-002, WRM-001, WRM-002, LOG-001, MEM-001, MEM-002, CFG-001–CFG-004, MIG-001–MIG-003,
+UI-001, A11Y-001, BLD-001, DEP-001, THR-001–THR-006, RES-001, RES-003, RES-004, PRIV-001,
+PRIV-002, FAIL-001–FAIL-005, OPS-001, OPS-002, OPS-004, AC-AUT-003–AC-AUT-020 (shared/Linux portions).
 
 ## In Scope
 
-- Candidate freeze through the production Linux qualification command and schema-v2 state verification.
-- Six planned paired attempts, with at least five successful pairs, for each `base/full`, `medium/full`, and
-  `large-v3/q5_0` × CPU/CUDA × window 1/2/4/8 × cold/warm cell that the support contract marks eligible.
-- Component gains, end-to-end/resource guardrails, source proof count, effective backend options, real install
-  failure/retry, GPU-thread behavior, mixed-peer and settings rollback checks, and evidence privacy inspection.
-- Sanitized aggregate Linux result documents and explicit content-free unsupported/unavailable/blocker records.
+- Main-owned catalog selection, managed-root path resolution, metadata-only lease/revalidation, and private
+  path transfer for ordinary model loads.
+- Worker protocol v2 rollout as one main/launcher/worker compatibility set.
+- Linux native regular-file, link, path, and exact-size validation immediately before `whisper.cpp` load.
+- Standard CPU/CUDA engine initialization, failure cleanup, cancellation, warm-up, unload, and retry.
+- Model installation through approved HTTPS temporary-file/expected-size/atomic-promotion checks without
+  model SHA-256, signature, snapshot, or custom reader work.
+- Retention and explicit deprecation of the old model-content proof implementation and its focused unit tests.
+- Linux local automated tests, native sanitizers, and source/behavior assertions.
 
 ## Out Of Scope
 
-- Collector/schema implementation, Windows code or execution, CI inspection, branch push, performance tuning,
-  replacing failed samples, changing thresholds/support, selecting the production window, publication, upload, or
-  retention of private plans, raw samples, paths, models, packages, logs, audio, or transcripts.
+- Deleting legacy loader/model-authority source or tests; enabling it as a fallback; feature flags that can
+  reactivate it; runtime model-content verification or repair scans.
+- Windows platform implementation, compilation, CI, package/E2E checks, simulation, or representative runs.
+- Representative Linux qualification, production installation-window selection, commits, pushes, CI
+  inspection, release work, or private evidence cleanup.
+- New dependencies, GPU architecture families, backend option changes, flash attention, concurrency changes,
+  or a five-second runtime timeout.
 
 ## Task Contract
 
-1. Verify that the baseline and candidate worktrees are clean and resolve to their exact full SHAs. Re-run
-   `verify:local-whisper:qualification:inputs` and reject any source-proof, catalog, artifact, profile, or fixture
-   drift before building or measuring.
-2. Prepare the production Linux qualification invocation with all ten existing arguments. Each value has one source:
-   `advisory-evidence-dir` is the validated native advisory evidence directory; `cache-root` is an existing populated
-   private qualification cache validated by Packet 15's read-only preflight, containing exact model/FLEURS,
-   CPU/CUDA runtime-pack, direct-engine, and sibling native-source notice inputs; `candidate-semver` is the exact
-   `package.json` version at the candidate SHA; `candidate-worktree` is the clean candidate worktree; `evidence-root`
-   is the canonical Local Whisper qualification evidence root; `freeze-timestamp-utc` is one whole-second UTC
-   timestamp fixed before building; `predecessor-appimage` is the approved authenticated predecessor;
-   `private-run-root` is an absent child path under an existing validated mode-0700 disposable parent and is created
-   mode 0700 by the orchestrator; `source-commit` is the candidate full SHA; and `workspace-root` is the candidate
-   worktree root. The cache is input, not the performance cold/warm cache, and remains byte-identical throughout.
-3. Run the exact command below with all placeholders resolved locally. Do not preserve the expanded command or path
-   values in repository evidence. A missing required input, pre-existing private-run child, duplicated, changed,
-   non-absolute, unsafe, or identity-mismatched value blocks the run. If a failed run created its private child,
-   retain it as private evidence and retry only with a new absent sibling:
-   `npm run run:local-whisper:qualification:linux -- --advisory-evidence-dir=<absolute-validated-directory> --cache-root=<absolute-validated-populated-qualification-cache> --candidate-semver=<candidate-package-version> --candidate-worktree=<absolute-clean-candidate-worktree> --evidence-root=<absolute-canonical-evidence-root> --freeze-timestamp-utc=<YYYY-MM-DDTHH:MM:SSZ> --predecessor-appimage=<absolute-authenticated-appimage> --private-run-root=<absolute-absent-private-run-child> --source-commit=<candidate-full-sha> --workspace-root=<absolute-clean-candidate-worktree>`.
-4. Run `verify:local-whisper:qualification:linux`. Continue only when the schema-v2 state reports `candidateState:
-Frozen`, binds the candidate SHA and expected artifact/result/evidence digests, and still reports representative
-   Windows execution as not run.
-5. Under the disposable root, use Packet 15's producer to create one schema-v3 performance run plan for Linux CPU and
-   one for Linux CUDA. Both plans bind the same baseline/candidate SHAs, exact derived-source receipt and identical
-   instrumentation-overlay digest, exact attempt/runtime/model artifacts, model matrix, cold/warm method, fixed
-   six-pair alternating order, 100 ms interval, statistic, uncertainty, and source proof. Execute, for each backend:
-   `npm run collect:local-whisper:qualification:performance -- --platform=linux --backend=<cpu|cuda> --mode=representativeHost --root=<absolute-disposable-root> --input=<root-relative-run-plan> --output=<root-relative-private-bundle>`.
-6. Analyze each private bundle with Packet 13's generic aggregate command, writing a new root-contained aggregate
-   output exclusively. Require all three model identities and every window/cache cell. Keep failed attempts in place;
-   do not add replacements or rerun a subset to manufacture a pass.
-7. For every already-selected performance component, require point estimate minus uncertainty of at least 25 percent.
-   For every window, report the same component gate and reject any applicable end-to-end or peak-resource regression
-   over 3 percent after uncertainty. Keep `selectionStatus: awaitingCrossPlatform` and the production value null.
-8. Confirm exactly seven Linux full-model proofs remain; every later freshness, authority, preflight, and
-   loader-consumption proof executes. Confirm backend option work has zero unexplained effective-value drift.
-9. Run windows 1/2/4/8 against maximum-artifact normal, slow-pipe, cancellation, and induced mid-window failure.
-   Publication is exact or staging is absent, owned processes settle, and retry succeeds without manual cleanup.
-10. Exercise GPU CPU threads `auto`, 1, 4, and host maximum; target switching; restart; available topology change;
-    warm-up failure/retry; stale-residency rejection; mixed protocol peers; and schema-v2 rollback in disposable data.
-11. Inspect the proposed aggregate result and handoff text for prohibited content before retaining them. Record only
-    content-free blockers, aggregate outcomes, and SHA-256 digests of sanitized documents.
+1. Add a metadata-only main-owned model load authority that returns the catalog-selected canonical model path,
+   expected byte count, active managed lease, and revalidation callback. It must validate that the path is an
+   absolute canonical child of the configured managed model root, names the selected catalog entry, and is a
+   final regular file with exact catalog size. Reject traversal, symlink/junction/reparse, directory, device,
+   FIFO, socket, missing, stale-generation, stale-lease, and size-mismatch cases without reading model bytes.
+2. Route ordinary full-load composition through the runtime-authenticated launcher path with no
+   `modelGuardAuthority`, descriptor/handle transfer, model digest, or model identity acknowledgment. Retain
+   runtime-pack/executable/dependency/process identity validation and process-tree ownership unchanged.
+3. Advance the private worker control protocol from v1 to v2 as one compatibility set. The `load` request gains
+   required main-produced `modelPath` and `expectedModelBytes` fields. `modelPath` must be valid non-empty UTF-8,
+   contain no NUL/control character, and be at most 131,072 UTF-8 bytes; `expectedModelBytes` must be a positive
+   safe integer converted to checked `uint64_t`. Neither field may originate in renderer/preload IPC.
+4. Remove `modelSha256` from v2 loaded evidence. Return only bounded non-authenticating evidence needed by the
+   existing residency/device contract, including exact size and an explicit `metadataOnly` validation marker.
+   Mixed v1/v2 peers must fail closed before opening the model.
+5. Add a Linux model-file validator behind a narrow platform interface. Immediately before the upstream call,
+   validate canonical absolute form, final-component `O_NOFOLLOW` open, `fstat` regular type, and exact size;
+   reject link/type/path failures. Close the metadata descriptor deterministically. Do not read payload bytes.
+   The accepted revision-6 race after this check and before the upstream reopen remains documented.
+6. Change `SpeechEngine`/`WhisperCppEngine` production load input to the canonical path and expected metadata.
+   Preserve current backend parameters, RAII context ownership, cancellation checkpoints, and GPU ownership
+   proof. The production call must invoke pinned `whisper_init_from_file_with_params` exactly once and must not
+   call `whisper_init_from_loader_with_params` or any custom loader/preflight/snapshot/digest path.
+7. At the former worker/engine invocation site, retain the old invocation only as a concise commented reference
+   adjacent to the replacement. Mark `ExactModelReader`, `ModelFormatPreflight`, descriptor/handle model
+   authority, and authenticated model-download proof owners with clear source documentation that they are
+   deprecated and retained only for reference/whole-build rollback. Do not use `[[deprecated]]` where existing
+   legacy unit tests would turn the warning into a warning-as-error failure.
+8. Do not delete or hollow out legacy implementations or their focused tests. Add active-path source and
+   behavior tests proving ordinary installation/load code cannot construct or fall back to them, including when
+   standard parsing, allocation, backend activation, timeout, or cancellation fails.
+9. Add a metadata-only raw-model download request/worker path. It accepts only approved HTTPS source policy,
+   expected transfer/file size, temporary destination, cancellation/retry, disk-space/stale-temporary handling,
+   and atomic promotion. It performs zero model digest/signature updates or comparisons. Keep runtime-pack and
+   other non-model SHA/signature behavior unchanged; retain old authenticated model download code deprecated.
+10. Preserve `loaded` before explicit real-inference `warmup`, stable content-free errors, no late success after
+    terminal cancellation/timeout, full context/backend cleanup, unload/retry, early WAV release, schema-2
+    settings, and current CPU/CUDA thread/backend option behavior.
+11. Update protocol vectors, generated checked-in fixtures where already repository-owned, TypeScript/native
+    decoders, composition, supervisor validation, qualification source-count assertions, and focused tests. Do
+    not commit generated native binaries, runtime packs, packages, caches, or private evidence.
 
 ## Contracts And Boundaries
 
-- The disposable run root must not be a filesystem root or user-data root. It contains private worktrees, artifacts,
-  run plans, cache receipts, and raw bundles and is never committed, uploaded, or pasted into logs/handoff.
-- The populated qualification cache is a separate authenticated read-only input. Packet 15's preflight must validate
-  every referenced identity and the required sibling model-notice source before the production command. Neither the
-  production freeze nor performance cold/warm preparation may create, replace, chmod, or delete cache entries.
-- The production private-run parent must exist as a nonsymlink mode-0700 directory, while the exact child passed to
-  the orchestrator must not exist. Any created child is owned by that attempt and is never reused after failure.
-- Qualification may output bounded durations, counts, model family/variant, anonymized platform/backend class,
-  candidate-window gates, and aggregate resources. It must not output private paths, host/device-native identities,
-  model content, audio, transcript, prompt, credential, capability/environment dump, or raw native output.
-- Cold-cache preparation is the fixed Packet 13 Linux adapter procedure. If it cannot produce its bounded receipt,
-  report the cell blocked; do not use privileged global cache dropping or substitute another procedure.
-- A valid failure is evidence. It cannot weaken security, privacy, correctness, compatibility, thresholds, or the
-  requirement for Windows evidence before selection.
+- The path is private main-to-worker control data only. It must never appear in argv, environment variables,
+  renderer/preload IPC, logs, diagnostics, error text, crash attachments, qualification output, or handoff text.
+- Main retains managed-root/catalog authority. The worker trusts neither renderer data nor ambient `PATH` and
+  repeats bounded native metadata checks before the upstream call.
+- Standard `whisper.cpp` parsing owns model-byte validation and allocation. A same-size parseable local
+  replacement may load undetected and must not be described as authenticated.
+- Five seconds is measured acceptance, not a supervisor/native timeout. Existing safe load timeout remains.
+- No mutable global runtime state, shell execution, raw resource ownership, or concurrent model load/inference
+  is introduced.
 
 ## Expected Files Or Components
 
-- Canonical schema-v2 Linux qualification state/result/evidence index
-- A privacy-safe Linux aggregate evidence document under this specification's qualification evidence directory
-- `tasks/todo.md` and `tasks/handoff.md`
-- No production source file, generated package, model, runtime pack, raw sample, private run plan, or cache receipt
+- `src/shared/localWhisper/protocol.ts` and protocol codec/vector fixtures.
+- Main composition, artifact-store/installer, model authority factory, worker lifecycle/supervisor boundaries
+  under `src/main/localWhisper/` and their focused tests.
+- `runtime/local-whisper/whisper-cpp/` engine, worker application, Linux model-file validator, build definitions,
+  and native tests.
+- Existing launcher/fs-guard/model-authority and exact-reader/preflight sources receive deprecation comments
+  only where needed; they are not deleted.
+- Qualification source-count/behavior tests and only documentation inside this specification bundle that must
+  reflect the candidate contract.
 
 ## Acceptance Criteria
 
-- AC-MAN-001 executes the exact Linux CPU/CUDA matrix; every applicable cell has six planned attempts, at least five
-  successful pairs, every required phase/resource, and an aggregate pass/fail/blocker result for each window.
-- Linux portions of AC-MAN-003 through AC-MAN-005 pass the real install, failure/retry, GPU-setting, mixed-peer, and
-  rollback procedures or retain an explicit content-free blocker.
-- Every selected component meets the 25 percent conservative gate and no applicable end-to-end/resource regression
-  exceeds 3 percent after uncertainty. Candidate windows remain individually reported and unselected.
-- AC-MAN-006 confirms every retained document and handoff is privacy-safe and bound by digest to the exact candidate.
+- AC-AUT-005 proves one standard path initialization call for a valid load; AC-AUT-006 proves zero active
+  ExactModelReader/preflight/custom-loader/snapshot/model SHA/signature operations in ordinary install/load.
+- AC-AUT-003 reports candidate model-content proof counts `0/0`; historical `8/7` and `7/6` fixtures remain
+  attributable rather than rewritten.
+- AC-AUT-004, AC-AUT-018, AC-AUT-019, and AC-AUT-020 cover path/type/size/stale/protocol failures, sanitized
+  cleanup without fallback, accepted same-size replacement, and path non-disclosure.
+- Model installation completes by expected size and atomic promotion with zero model-content proof; failure,
+  cancellation, retry, cleanup, and serial production pipeline behavior remain deterministic.
+- Linux CPU and CUDA native builds/tests preserve pinned backend options, runtime authentication, thread safety,
+  warm-up ordering, resource cleanup, and no five-second timeout.
 
 ## Verification
 
-- `npm run verify:local-whisper:qualification:inputs`
-- Packet 15's read-only populated-cache/private-parent preflight command
-- The fully populated ten-argument `npm run run:local-whisper:qualification:linux -- ...` command from Task Contract 3
-- `npm run verify:local-whisper:qualification:linux`
-- Both CPU/CUDA collector invocations from Task Contract 5
-- Packet 13's aggregate command for each private bundle
-- Real install, GPU-thread, mixed-peer, rollback, cleanup/retry, and evidence-privacy procedures from this packet
+Run the smallest focused check after each change, then the applicable local Linux set:
+
+- `npm run test:local-whisper:worker-codec`
+- `npm run test:local-whisper:worker-proof-vectors`
+- `npm run test:local-whisper:supervisor`
+- `npm run test:local-whisper:composition`
+- `npm run test:local-whisper:filesystem`
+- `npm run test:local-whisper:artifacts`
+- `npm run test:local-whisper:qualification`
+- `npm run test:local-whisper:whisper-cpp-core`
+- `npm run test:local-whisper:whisper-cpp-loader`
+- `npm run test:local-whisper:whisper-cpp-cancellation`
+- `npm run test:local-whisper:worker-tsan`
+- `npm run test:local-whisper:native-hardening`
+- `npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1`
+- `npm run test:local-whisper:whisper-cpp-cpu-integration`
+- Run CUDA build/integration checks only when the authorized Linux host has the real supported CUDA toolchain;
+  record unavailable hardware as a Packet 17 gate, never simulate it.
+- `npm run lint`
+- `npx prettier --check docs/specs/local-whisper-performance-remediation`
+- `git diff --check`
+
+No CI check is run or inspected in this packet.
 
 ## Failure And Rollback
 
-- Missing freeze identity, invalid samples, unavailable required phases/resources, threshold failure, resource
-  regression, cleanup failure, or privacy/security issue leaves Packet 16 unchecked and records a bounded blocker.
-- Rollback means reject the candidate evidence and retain the last coherent approved app/guard/settings/runtime set.
-  Do not delete managed models, runtime artifacts, settings, user data, or valid failure evidence.
+- Any payload read before upstream initialization, path disclosure, legacy fallback, runtime-authentication
+  weakening, mixed-protocol acceptance, cleanup failure, or test regression leaves Packet 16 unchecked.
+- Repair local failures inside Packet 16 and rerun the originating check plus affected aggregate checks. Do not
+  create a commit unless separately authorized.
+- Rollback is the complete pre-candidate app/runtime set. Do not reactivate the commented legacy call or select
+  it dynamically.
 
 ## Manual Gates
 
-- `MANUAL GATE`: the operator authorizes representative Linux CPU/CUDA use, authenticated local artifacts, package
-  installation, fixed cache preparation, disposable settings/data, induced failures, and topology changes.
-- `MANUAL GATE`: destructive cleanup is limited to the exact validated disposable run root after required private
-  evidence has been summarized and reviewed. No broad recursive action or user-data cleanup is permitted.
-- No push or CI inspection occurs. Upload, publication, release, and external sharing remain unauthorized.
+- None for ordinary local verification. CUDA-only local checks may be explicitly unavailable and remain a
+  Packet 17 representative-host obligation.
+- Commits, pushes, CI, package installation, representative workloads, and deletion of private evidence are not
+  authorized by this packet.
 
 ## References
 
-- Specification Sections 4, 5, 13, 14.2, and 16.
-- Packets 13–15's collector, derived-source, attempt-runner, and input-preflight contracts, plus Packet 12's
-  operational/rollback documentation.
+- Specification Sections 3, 4, 6–13, 14.1, and 16.
+- `docs/agent-guides/project-conventions.md` C++, runtime/provider, privacy, and verification sections.
+- Packets 03–06, 11, and 15 only for retained contracts and qualification integration points.
 
 ## Completion And Handoff
 
-After valid Linux evidence is reviewed, mark Packet 16 complete, record the exact candidate SHA, sanitized evidence
-digest, per-window outcomes, and any content-free blocker. Name
-[17 Windows End-To-End Qualification](17_windows_end_to_end_qualification.md) as the exact next packet and stop. Do
-not push, inspect CI, implement Windows APIs, run Windows checks, or select a production window.
+After every applicable local Linux check passes, update `todo.md` and `handoff.md` with changed components,
+content-free results, exact blockers, and [Packet 17](17_windows_end_to_end_qualification.md) as the sole next
+packet. Stop without commit, push, CI inspection, representative qualification, Windows work, or evidence
+deletion.

@@ -90,6 +90,14 @@ export interface ManagedModelLaunchLease {
   readonly revalidate: () => Promise<void>;
 }
 
+export interface ManagedModelPathLoadLease {
+  readonly modelLease: ManagedArtifactLease;
+  readonly modelFilePath: string;
+  readonly modelFileIdentity: ManagedArtifactIdentitySnapshot;
+  readonly modelFileSizeBytes: number;
+  readonly revalidate: () => Promise<void>;
+}
+
 interface LeaseAuthority {
   readonly descriptor: ManagedArtifactDescriptor;
   readonly lock: ManagedArtifactLockLease | null;
@@ -321,6 +329,44 @@ function validateDirectoryEntries(
   return validated;
 }
 
+function validateDirectoryMetadata(
+  descriptor: ManagedArtifactDescriptor,
+  entries: readonly ManagedFilesystemDirectoryEntry[],
+): ReadonlyMap<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry> {
+  if (entries.length !== descriptor.expectedFiles.length + 1) {
+    throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+  }
+  const entriesByName = new Map(entries.map((entry) => [entry.canonicalName, entry]));
+  if (entriesByName.size !== entries.length) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+  const manifest = entriesByName.get(MANAGED_MANIFEST_NAME);
+  if (
+    !manifest ||
+    manifest.identity.type !== 'regular' ||
+    manifest.identity.linkCount !== 1 ||
+    manifest.identity.mode !== MANAGED_MANIFEST_MODE ||
+    manifest.identity.sizeBytes !== managedManifestBytes(descriptor).byteLength ||
+    manifest.sha256 !== null
+  ) {
+    throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+  }
+  const validated = new Map<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry>();
+  for (const expected of descriptor.expectedFiles) {
+    const entry = entriesByName.get(descriptorFileName(descriptor, expected));
+    if (
+      !entry ||
+      entry.identity.type !== 'regular' ||
+      entry.identity.linkCount !== 1 ||
+      entry.identity.mode !== expected.mode ||
+      entry.identity.sizeBytes !== expected.sizeBytes ||
+      entry.sha256 !== null
+    ) {
+      throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    }
+    validated.set(expected.fileId, entry);
+  }
+  return validated;
+}
+
 function expectedDirectoryEntries(descriptor: ManagedArtifactDescriptor) {
   return [
     Object.freeze({ canonicalName: MANAGED_MANIFEST_NAME, mode: MANAGED_MANIFEST_MODE }),
@@ -339,7 +385,7 @@ function toManagedFileEvidence(
     kind: expected.kind,
     mode: entry.identity.mode,
     sizeBytes: entry.identity.sizeBytes,
-    sha256: entry.sha256 ?? '',
+    sha256: entry.sha256,
   });
 }
 
@@ -357,6 +403,7 @@ function corruptEvidence(descriptor: ManagedArtifactDescriptor): LocalWhisperMan
     manifestIdentityKey: descriptor.identityKey,
     manifestValid: false,
     files: Object.freeze([]),
+    validation: descriptor.kind === 'model' ? 'metadataOnly' : 'authenticated',
   });
 }
 
@@ -495,6 +542,36 @@ export class ManagedArtifactStore {
     }
   }
 
+  public async promoteMetadataOnlyModel(
+    descriptor: ManagedArtifactDescriptor,
+    stagingLease: ManagedArtifactLease,
+  ): Promise<void> {
+    assertDescriptor(descriptor);
+    if (descriptor.kind !== 'model') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    const authority = this.requireAuthority(stagingLease, 'staging');
+    if (authority.descriptor.artifactId !== descriptor.artifactId || !authority.lock) {
+      throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    }
+    try {
+      const entries = await this.dependencies.adapter.inspectDirectoryMetadataOnly(
+        this.token(stagingLease),
+        expectedDirectoryEntries(descriptor),
+      );
+      validateDirectoryMetadata(descriptor, entries);
+      await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
+      await this.dependencies.adapter.promoteStagingDirectory(
+        this.requireRoot().token,
+        this.token(stagingLease),
+        descriptor.namespace,
+        descriptor.canonicalName,
+      );
+    } catch (error) {
+      throw mapAdapterError(error, 'INSTALL_FAILED');
+    } finally {
+      await stagingLease.release();
+    }
+  }
+
   public async discardStaging(stagingLease: ManagedArtifactLease): Promise<void> {
     const authority = this.requireAuthority(stagingLease, 'staging');
     if (!authority.lock) throw new ManagedArtifactStoreError('INVALID_LEASE');
@@ -619,7 +696,73 @@ export class ManagedArtifactStore {
     }
   }
 
-  /** Resolves the one catalog-declared ggml data file while retaining its anchored directory lease. */
+  /** Resolves one catalog-selected model through metadata-only managed storage checks. */
+  public async leaseInstalledModelPathForLoad(
+    descriptor: ManagedArtifactDescriptor,
+  ): Promise<ManagedModelPathLoadLease> {
+    if (descriptor.kind !== 'model') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    const modelFiles = descriptor.expectedFiles.filter(({ kind }) => kind === 'data');
+    if (modelFiles.length !== 1) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    const modelFile = modelFiles[0];
+    if (!modelFile) throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+    const rootResolution = this.dependencies.rootResolution;
+    if (rootResolution.availability !== 'available') {
+      throw new ManagedArtifactStoreError(
+        rootResolution.availability === 'planned' ? 'PLANNED_UNAVAILABLE' : 'UNSUPPORTED_PLATFORM',
+      );
+    }
+    const acquisition = await this.acquireInstalledArtifactMetadataOnly(descriptor, 'load');
+    const modelLease = acquisition.lease;
+    try {
+      const authority = this.requireAuthority(modelLease, 'load');
+      const modelEntry = acquisition.entries.get(modelFile.fileId);
+      if (
+        !modelEntry ||
+        modelEntry.identity.type !== 'regular' ||
+        modelEntry.identity.sizeBytes !== modelFile.sizeBytes
+      ) {
+        throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+      }
+      await this.dependencies.adapter.revalidate(this.token(modelLease), modelLease.metadata.identity);
+      const modelFilePath = join(
+        rootResolution.managedRoot,
+        authority.descriptor.namespace,
+        authority.descriptor.canonicalName,
+        descriptorFileName(descriptor, modelFile),
+      );
+      return Object.freeze({
+        modelLease,
+        modelFilePath,
+        modelFileIdentity: modelEntry.identity,
+        modelFileSizeBytes: modelFile.sizeBytes,
+        revalidate: async () => {
+          try {
+            modelLease.assertActive();
+            const currentEntries = validateDirectoryMetadata(
+              descriptor,
+              await this.dependencies.adapter.inspectDirectoryMetadataOnly(
+                this.token(modelLease),
+                expectedDirectoryEntries(descriptor),
+              ),
+            );
+            const currentModel = currentEntries.get(modelFile.fileId);
+            if (!currentModel || !sameIdentity(currentModel.identity, modelEntry.identity)) {
+              throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
+            }
+            await this.dependencies.adapter.revalidate(this.token(modelLease), modelLease.metadata.identity);
+          } catch (error) {
+            await modelLease.release().catch(() => undefined);
+            throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+          }
+        },
+      });
+    } catch (error) {
+      await modelLease.release().catch(() => undefined);
+      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+    }
+  }
+
+  /** @deprecated Retained for rollback/reference tests; ordinary loads use metadata-only path authority. */
   public async leaseInstalledModelForLaunch(descriptor: ManagedArtifactDescriptor): Promise<ManagedModelLaunchLease> {
     if (descriptor.kind !== 'model') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
     const modelFiles = descriptor.expectedFiles.filter(({ kind }) => kind === 'data');
@@ -798,14 +941,23 @@ export class ManagedArtifactStore {
       if (!opened) return Object.freeze({ kind: 'missing' });
       let entries: readonly ManagedFilesystemDirectoryEntry[];
       try {
-        entries = await this.dependencies.adapter.inspectDirectory(opened.token, expectedDirectoryEntries(descriptor));
+        entries =
+          descriptor.kind === 'model'
+            ? await this.dependencies.adapter.inspectDirectoryMetadataOnly(
+                opened.token,
+                expectedDirectoryEntries(descriptor),
+              )
+            : await this.dependencies.adapter.inspectDirectory(opened.token, expectedDirectoryEntries(descriptor));
       } catch (error) {
         if (isUnsafeEvidenceError(error)) return corruptEvidence(descriptor);
         throw error;
       }
       let proven: ReadonlyMap<LocalWhisperArtifactId, ManagedFilesystemDirectoryEntry>;
       try {
-        proven = validateDirectoryEntries(descriptor, entries);
+        proven =
+          descriptor.kind === 'model'
+            ? validateDirectoryMetadata(descriptor, entries)
+            : validateDirectoryEntries(descriptor, entries);
       } catch {
         return corruptEvidence(descriptor);
       }
@@ -813,6 +965,7 @@ export class ManagedArtifactStore {
         kind: 'installed',
         manifestIdentityKey: descriptor.identityKey,
         manifestValid: true,
+        validation: descriptor.kind === 'model' ? 'metadataOnly' : 'authenticated',
         files: Object.freeze(
           descriptor.expectedFiles.map((expected) => {
             const entry = proven.get(expected.fileId);
@@ -871,6 +1024,44 @@ export class ManagedArtifactStore {
       const entries = validateDirectoryEntries(
         descriptor,
         await this.dependencies.adapter.inspectDirectory(native.token, expectedDirectoryEntries(descriptor)),
+      );
+      await this.dependencies.adapter.revalidate(native.token, native.identity);
+      return Object.freeze({ entries, lease });
+    } catch (error) {
+      if (lease) {
+        await lease.release().catch(() => undefined);
+        await lock.release().catch(() => undefined);
+      } else {
+        if (native) await this.dependencies.adapter.release(native.token).catch(() => undefined);
+        await lock.release().catch(() => undefined);
+      }
+      throw mapAdapterError(error, 'ARTIFACT_UNPROVABLE');
+    }
+  }
+
+  private async acquireInstalledArtifactMetadataOnly(
+    descriptor: ManagedArtifactDescriptor,
+    purpose: Extract<ManagedArtifactLeasePurpose, 'integrity' | 'load' | 'verify'>,
+  ): Promise<InstalledArtifactAcquisition> {
+    assertDescriptor(descriptor);
+    if (descriptor.kind !== 'model') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
+    const lock = await this.acquireLock(descriptor, purpose, 'ARTIFACT_UNPROVABLE');
+    let native: ManagedFilesystemOpenResult | null = null;
+    let lease: ManagedArtifactLease | null = null;
+    try {
+      native = await this.dependencies.adapter.openArtifactDirectory(
+        this.requireRoot().token,
+        descriptor.namespace,
+        descriptor.canonicalName,
+      );
+      if (!native) throw new ManagedArtifactStoreError('ARTIFACT_MISSING');
+      lease = this.createLease(descriptor, native, purpose, lock);
+      const entries = validateDirectoryMetadata(
+        descriptor,
+        await this.dependencies.adapter.inspectDirectoryMetadataOnly(
+          native.token,
+          expectedDirectoryEntries(descriptor),
+        ),
       );
       await this.dependencies.adapter.revalidate(native.token, native.identity);
       return Object.freeze({ entries, lease });

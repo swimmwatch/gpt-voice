@@ -6,7 +6,7 @@ import { qualificationCanonicalJson } from './QualificationContracts';
 
 const TAR_BLOCK_BYTES = 512;
 const BASELINE_COMPOSITION_SHA256 = '8e1fcdc8493bfdcf9d880fd63d5a0c6680830526b55e8c8a2b40628377abb7f1';
-const CANDIDATE_COMPOSITION_SHA256 = 'bba32aeca990781c9dab0c62de0435ee10fd60be77ba60e233b3bdcc14046302';
+const CANDIDATE_COMPOSITION_SHA256 = '3aa7b20fdab848cde74541cc48de2508e258ce5c61e9e0404d8387057b9e5c2f';
 const COMPOSITION_PATH = 'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts';
 const HOOK_ANCHOR = `  readonly qualificationHooks?: {
     readonly artifactHttpClient?: ArtifactHttpClient;
@@ -32,7 +32,7 @@ const NATIVE_TARGETS = Object.freeze({
   guardApplication: Object.freeze({
     path: 'runtime/local-whisper/fs-guard/src/common/guard_application.cpp',
     beforeSha256: '9a7f4655d4b25b4a7f41a0aa5409beb8b4738a712025ca8a32db42e8514a0d63',
-    afterSha256: '8d895a241b9d6ebd85f8e7ad30737c64cbb73b79aa6e83d7daddd810fa0c42cd',
+    afterSha256: '6295d5f765407a3bcda39aeee7ee38826d268ecb2bc19afbf71cf92297351734',
   }),
   modelLaunch: Object.freeze({
     path: 'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
@@ -52,12 +52,12 @@ const NATIVE_TARGETS = Object.freeze({
   engine: Object.freeze({
     path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',
     beforeSha256: 'b82a16e04941dc10af0d327fc18fbe1ddfbebe98789cd289cceb7ad8a0f0d8b8',
-    afterSha256: 'b82a16e04941dc10af0d327fc18fbe1ddfbebe98789cd289cceb7ad8a0f0d8b8',
+    afterSha256: '0ac520da531e98e3c125ec92f77004e02aa6d60ef16117589a8dfd692dafd3f9',
   }),
   worker: Object.freeze({
     path: 'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
     beforeSha256: 'aef50d73ca50d01115349183c4a30cca07fc37e6f98b7e8450a274adff86cce4',
-    afterSha256: 'fcb82dce33ae36ad92d891958436dd31962efff2b85f643fc12bff4bda12ef62',
+    afterSha256: '83343e2e80c74bcff2f9a8ba4eb147299afc3548c5681f04c5c2afb5f445cb34',
   }),
 });
 
@@ -165,7 +165,22 @@ const ENGINE_LOADER_ANCHOR = `    whisper_model_loader loader{&reader, exact_loa
 const ENGINE_LOADER_REPLACEMENT = `    whisper_model_loader loader{&reader, exact_loader_read, exact_loader_eof, exact_loader_close};
     const local_whisper::common::PerformanceQualificationTimer loader_timer("whisperLoad");
     whisper_context* loaded = whisper_init_with_params(&loader, parameters);`;
+const STANDARD_ENGINE_LOADER_ANCHOR = `    whisper_context* loaded = whisper_init_from_file_with_params(model_path.c_str(), parameters);`;
+const STANDARD_ENGINE_LOADER_REPLACEMENT = `    const local_whisper::common::PerformanceQualificationTimer loader_timer(
+        "whisperLoad");
+    whisper_context* loaded = whisper_init_from_file_with_params(model_path.c_str(), parameters);`;
 const ENGINE_CONTEXT_ANCHOR = `    context_.reset(loaded);`;
+const STANDARD_ENGINE_CONTEXT_ANCHOR = `    context_.reset(loaded);
+  }
+
+  void load_legacy_authenticated`;
+const STANDARD_ENGINE_CONTEXT_REPLACEMENT = `    context_.reset(loaded);
+    if (!loader_timer.emit()) {
+      throw CoreError(FailureCode::model_load_failed, "worker model-load performance probe failed");
+    }
+  }
+
+  void load_legacy_authenticated`;
 const ENGINE_CONTEXT_REPLACEMENT = `    context_.reset(loaded);
     const auto loader_nanoseconds = loader_timer.elapsed_nanoseconds();
     if (!local_whisper::common::emit_performance_qualification_probe(
@@ -291,9 +306,21 @@ function transformManifest(): Readonly<Record<string, unknown>> {
         ]),
         native(side, NATIVE_TARGETS.engine, [
           include(INCLUDE_ANCHORS.engine),
-          Object.freeze({ anchor: ENGINE_PREFLIGHT_ANCHOR, replacement: ENGINE_PREFLIGHT_REPLACEMENT }),
-          Object.freeze({ anchor: ENGINE_LOADER_ANCHOR, replacement: ENGINE_LOADER_REPLACEMENT }),
-          Object.freeze({ anchor: ENGINE_CONTEXT_ANCHOR, replacement: ENGINE_CONTEXT_REPLACEMENT }),
+          ...(side === 'before'
+            ? [
+                Object.freeze({ anchor: ENGINE_PREFLIGHT_ANCHOR, replacement: ENGINE_PREFLIGHT_REPLACEMENT }),
+                Object.freeze({ anchor: ENGINE_LOADER_ANCHOR, replacement: ENGINE_LOADER_REPLACEMENT }),
+              ]
+            : [
+                Object.freeze({
+                  anchor: STANDARD_ENGINE_LOADER_ANCHOR,
+                  replacement: STANDARD_ENGINE_LOADER_REPLACEMENT,
+                }),
+              ]),
+          Object.freeze({
+            anchor: side === 'before' ? ENGINE_CONTEXT_ANCHOR : STANDARD_ENGINE_CONTEXT_ANCHOR,
+            replacement: side === 'before' ? ENGINE_CONTEXT_REPLACEMENT : STANDARD_ENGINE_CONTEXT_REPLACEMENT,
+          }),
         ]),
         native(side, NATIVE_TARGETS.worker, [
           include(INCLUDE_ANCHORS.worker),

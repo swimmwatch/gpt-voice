@@ -442,19 +442,22 @@ describe('Local Whisper performance qualification', () => {
 });
 
 describe('Local Whisper performance source baseline', () => {
-  it('pins directory-result reuse to exactly seven Linux and six Windows hashes', () => {
+  it('pins the standard path loader to zero Linux and Windows model-content hashes', () => {
     const evidence = new LocalWhisperQualificationSourceBaselineVerifier(workspaceRoot).verify();
-    assert.deepEqual(evidence.fullModelHashes, { linux: 7, win32: 6 });
+    assert.deepEqual(evidence.fullModelHashes, { linux: 0, win32: 0 });
     assert.equal(evidence.sourceProofDigest, LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST);
   });
 
   it('rejects an unexplained affected-source drift', () => {
     const verifier = new LocalWhisperQualificationSourceBaselineVerifier(workspaceRoot, (filePath) => {
       const source = readFileSync(filePath, 'utf8');
-      return filePath.endsWith('NativeLauncherProcessOwner.ts')
-        ? source.replace('await authority.modelGuardAuthority?.revalidate();', 'await Promise.resolve();')
+      return filePath.endsWith('worker_application.cpp')
+        ? source.replace(
+            'engine_.load(load.model_path, load.expected_model_bytes, load.device_authority, cancellation_);',
+            'engine_.load_legacy_authenticated(reader, family, variant, authority, cancellation_);',
+          )
         : source;
     });
-    assert.throws(() => verifier.verify(), /SOURCE_BASIS_DRIFT|SOURCE_PROOF_DRIFT/u);
+    assert.throws(() => verifier.verify(), /SOURCE_BASIS_DRIFT|ACTIVE_PATH_DRIFT/u);
   });
 });

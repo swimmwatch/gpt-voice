@@ -56,7 +56,7 @@ public:
   [[nodiscard]] virtual EngineBackend backend() const noexcept = 0;
   [[nodiscard]] virtual DeviceProbeEvidence probe_device(const DeviceOperationAuthority& authority,
                                                          const CancellationToken& cancellation) = 0;
-  virtual void load(ExactModelReader& reader, const std::string& family, const std::string& variant,
+  virtual void load(const std::string& model_path, std::uint64_t expected_model_bytes,
                     const std::optional<DeviceOperationAuthority>& authority,
                     const CancellationToken& cancellation) = 0;
   virtual void warm_up(std::uint32_t cpu_threads, const CancellationToken& cancellation) = 0;
@@ -81,9 +81,14 @@ public:
   [[nodiscard]] EngineBackend backend() const noexcept override;
   [[nodiscard]] DeviceProbeEvidence probe_device(const DeviceOperationAuthority& authority,
                                                  const CancellationToken& cancellation) override;
-  void load(ExactModelReader& reader, const std::string& family, const std::string& variant,
+  void load(const std::string& model_path, std::uint64_t expected_model_bytes,
             const std::optional<DeviceOperationAuthority>& authority,
             const CancellationToken& cancellation) override;
+  /** Deprecated authenticated reader retained for direct qualification and rollback tests only. */
+  void load_legacy_authenticated(ExactModelReader& reader, const std::string& family,
+                                 const std::string& variant,
+                                 const std::optional<DeviceOperationAuthority>& authority,
+                                 const CancellationToken& cancellation);
   void warm_up(std::uint32_t cpu_threads, const CancellationToken& cancellation) override;
   [[nodiscard]] DeviceLoadEvidence
   load_evidence(const DeviceOperationAuthority& authority) const override;

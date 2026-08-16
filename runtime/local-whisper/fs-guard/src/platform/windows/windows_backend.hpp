@@ -26,6 +26,7 @@ public:
   ResponseFields write_file(const WriteFileCommand& command) override;
   ResponseFields seal_file(const SealFileCommand& command) override;
   ResponseFields list(const ListCommand& command) override;
+  ResponseFields list_metadata(const ListMetadataCommand& command) override;
   ResponseFields list_namespace(const ListNamespaceCommand& command) override;
   ResponseFields open_artifact(const OpenArtifactCommand& command) override;
   ResponseFields promote(const PromoteCommand& command) override;

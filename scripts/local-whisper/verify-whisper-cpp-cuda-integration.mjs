@@ -13,8 +13,6 @@ import {
   captureWorkerRegistry,
   deviceAuthorityBytes,
   mediumModelIdentity,
-  modelBindingBytes,
-  modelTransferBytes,
   sha256File,
   transcriptionOptions,
   WhisperCppWorkerProcess,
@@ -27,6 +25,7 @@ const CUDA_BACKEND_ID = 'cuda';
 const ENGINE_ID = 'whisperCpp';
 const LIFECYCLE_REPETITIONS = 3;
 const NVIDIA_SMI = '/usr/bin/nvidia-smi';
+const WORKER_PROTOCOL_VERSION = 2;
 
 /** Independently constructs the language-neutral device-proof SHA-256 preimage. */
 class CanonicalDigest {
@@ -162,14 +161,14 @@ async function probeIntegration(binary, runtimeBuildDigest, device) {
     deviceAuthorityBytes(authorityBytes, CONFIGURATION_EPOCH, TOPOLOGY_GENERATION),
   );
   try {
-    worker.sendControl({ type: 'hello', protocolVersion: 1 });
+    worker.sendControl({ type: 'hello', protocolVersion: WORKER_PROTOCOL_VERSION });
     const hello = await worker.readControl();
     assert.equal(hello.type, 'helloAck');
     assert.equal(hello.backend, CUDA_BACKEND_ID);
     assert.equal(hello.runtimeBuildDigest, runtimeBuildDigest);
     worker.sendControl({
       type: 'probe',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: 'probe-cuda-task11',
       authorityId,
       deviceBinding: { kind: 'gpuIndex', index: 0 },
@@ -207,17 +206,12 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
   const operationNonce = Buffer.alloc(16, 0x31 + repetition);
   const authorityId = operationNonce.toString('base64url');
   const challenge = Buffer.alloc(32, 0x41 + repetition).toString('base64url');
-  const binding = modelBindingBytes(operationNonce);
   const worker = WhisperCppWorkerProcess.load(
     binary,
-    approvedMediumModel.path,
     deviceAuthorityBytes(operationNonce, CONFIGURATION_EPOCH, TOPOLOGY_GENERATION),
   );
   try {
-    worker.write(modelTransferBytes(binding));
-    await worker.readModelAuthorityAcknowledgment(binding);
-    worker.write(Buffer.from([1]));
-    worker.sendControl({ type: 'hello', protocolVersion: 1 });
+    worker.sendControl({ type: 'hello', protocolVersion: WORKER_PROTOCOL_VERSION });
     const hello = await worker.readControl();
     assert.equal(hello.type, 'helloAck');
     assert.equal(hello.backend, CUDA_BACKEND_ID);
@@ -237,10 +231,12 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
     };
     worker.sendControl({
       type: 'load',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: `load-cuda-task11-${repetition}`,
       authorityId,
       deviceBinding: { kind: 'gpuIndex', index: 0 },
+      modelPath: approvedMediumModel.path,
+      expectedModelBytes: approvedMediumModel.sizeBytes,
       loadChallenge: challenge,
       registryFingerprint: fingerprint,
       residency,
@@ -251,7 +247,9 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
       'loaded',
       `CUDA load failed: ${JSON.stringify({ code: loaded.code, requestId: loaded.requestId, type: loaded.type })}`,
     );
-    assert.equal(loaded.modelSha256, approvedMediumModel.sha256);
+    assert.equal(loaded.metadataOnly, true);
+    assert.equal(loaded.modelFileSizeBytes, approvedMediumModel.sizeBytes);
+    assert.equal(Object.hasOwn(loaded, 'modelSha256'), false);
     assert.equal(loaded.effectiveBackend, CUDA_BACKEND_ID);
     assert.equal(loaded.primaryStateOwnership, 'worker');
     assert.deepEqual(loaded.model, model);
@@ -273,7 +271,7 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
     assert.equal(loaded.loadProof, expectedProof);
     worker.sendControl({
       type: 'warmup',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: `warm-cuda-task11-${repetition}`,
     });
     assert.equal((await worker.readControl()).type, 'warmed');
@@ -285,7 +283,7 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
     const transcriptionId = `tx-cuda-task11-${repetition}`;
     worker.sendControl({
       type: 'transcribe',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: transcriptionId,
       settingsEpoch: 9,
       audioByteLength: audio.length,
@@ -295,7 +293,7 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
     if (cancellationRun) {
       worker.sendControl({
         type: 'cancel',
-        protocolVersion: 1,
+        protocolVersion: WORKER_PROTOCOL_VERSION,
         requestId: `cancel-cuda-task11-${repetition}`,
         targetRequestId: transcriptionId,
       });
@@ -306,22 +304,16 @@ async function loadCycle(binary, runtimeBuildDigest, device, fingerprint, repeti
       const transcript = await worker.readControl();
       assert.equal(transcript.type, 'transcript');
       assert.equal(typeof transcript.text, 'string');
-      worker.sendControl({
-        type: 'warmup',
-        protocolVersion: 1,
-        requestId: `post-tx-warm-cuda-task11-${repetition}`,
-      });
-      assert.equal((await worker.readControl()).type, 'warmed');
     }
     worker.sendControl({
       type: 'unload',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: `unload-cuda-task11-${repetition}`,
     });
     assert.equal((await worker.readControl()).type, 'unloaded');
     worker.sendControl({
       type: 'shutdown',
-      protocolVersion: 1,
+      protocolVersion: WORKER_PROTOCOL_VERSION,
       requestId: `shutdown-cuda-task11-${repetition}`,
     });
     assert.equal((await worker.readControl()).type, 'shutdownAck');

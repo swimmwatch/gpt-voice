@@ -37,6 +37,10 @@ export class MacOSManagedFilesystemAdapter implements ManagedFilesystemPlatformA
     return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
   }
 
+  public inspectDirectoryMetadataOnly(): Promise<never> {
+    return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
+  }
+
   public listArtifactDirectoryNames(): Promise<never> {
     return Promise.reject(new ManagedFilesystemAdapterError('UNSUPPORTED'));
   }

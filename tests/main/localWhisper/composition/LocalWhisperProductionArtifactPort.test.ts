@@ -50,12 +50,14 @@ function installedEvidence(
     readonly sizeBytes: number;
     readonly sha256: string;
   }[],
+  validation: 'authenticated' | 'metadataOnly',
 ): LocalWhisperManagedArtifactEvidence {
   return Object.freeze({
     kind: 'installed',
     manifestIdentityKey,
     manifestValid: true,
     files: Object.freeze(expectedFiles.map((file) => Object.freeze({ ...file }))),
+    validation,
   });
 }
 
@@ -69,14 +71,14 @@ class Evidence implements LocalWhisperManagedStorageEvidencePort {
     const runtime = this.catalogValue.payload.runtimes[0];
     return this.missingKind === 'runtime'
       ? Object.freeze({ kind: 'missing' })
-      : installedEvidence(identityKey, runtime.identity.expectedFiles);
+      : installedEvidence(identityKey, runtime.identity.expectedFiles, 'authenticated');
   }
 
   public getModelEvidence(identityKey: string): LocalWhisperManagedArtifactEvidence {
     const model = this.catalogValue.payload.models[0];
     return this.missingKind === 'model'
       ? Object.freeze({ kind: 'missing' })
-      : installedEvidence(identityKey, model.expectedFiles);
+      : installedEvidence(identityKey, model.expectedFiles, 'metadataOnly');
   }
 
   public listUnmanagedEvidence(): readonly [] {

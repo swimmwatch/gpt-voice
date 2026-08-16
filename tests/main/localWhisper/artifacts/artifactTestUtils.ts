@@ -141,11 +141,14 @@ export class FixtureStreamingArtifactWorker implements ArtifactStreamingWorker {
         await Promise.resolve();
       }
       return Object.freeze({
-        entries: fixture.entries,
+        entries:
+          input.validationMode === 'authenticated'
+            ? fixture.entries
+            : fixture.entries.map((entry) => Object.freeze({ ...entry, sha256: null })),
         peakBufferedBytes: fixture.peakBufferedBytes ?? this.maximumObservedChunkBytes,
         receivedBytes: received,
         spoolId,
-        transferSha256: fixture.transferSha256,
+        transferSha256: input.validationMode === 'authenticated' ? fixture.transferSha256 : null,
       });
     } finally {
       this.active -= 1;
@@ -233,6 +236,25 @@ export class RecordingManagedArtifactStore {
       if (value.byteLength !== expected.sizeBytes || sha256(value) !== expected.sha256) {
         throw new Error('staged file mismatch');
       }
+    }
+    this.installed.add(descriptor.artifactId);
+    this.promotions += 1;
+    await stagingLease.release();
+  }
+
+  public async promoteMetadataOnlyModel(
+    descriptor: ManagedArtifactDescriptor,
+    stagingLease: ManagedArtifactLease,
+  ): Promise<void> {
+    const record = this.staging.get(stagingLease);
+    if (!record || record.descriptor !== descriptor || descriptor.kind !== 'model') {
+      throw new Error('invalid staging lease');
+    }
+    for (const expected of descriptor.expectedFiles) {
+      const chunks = record.files.get(expected.fileId);
+      if (!chunks) throw new Error('missing staged file');
+      const value = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+      if (value.byteLength !== expected.sizeBytes) throw new Error('staged file mismatch');
     }
     this.installed.add(descriptor.artifactId);
     this.promotions += 1;

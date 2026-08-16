@@ -24,6 +24,7 @@ public:
   FS_GUARD_RECORD(create_file, CreateFileCommand)
   FS_GUARD_RECORD(seal_file, SealFileCommand)
   FS_GUARD_RECORD(list, ListCommand)
+  FS_GUARD_RECORD(list_metadata, ListMetadataCommand)
   FS_GUARD_RECORD(list_namespace, ListNamespaceCommand)
   FS_GUARD_RECORD(open_artifact, OpenArtifactCommand)
   FS_GUARD_RECORD(promote, PromoteCommand)

@@ -29,7 +29,7 @@ import { ArtifactTransferJournalRepository, isStrongArtifactValidator } from './
 import { ArtifactTransferQueue } from './ArtifactTransferQueue';
 import { CatalogHttpTransport } from './CatalogHttpTransport';
 import { StreamingArtifactExtractor } from './StreamingArtifactExtractor';
-import { StreamingArtifactVerifier } from './StreamingArtifactVerifier';
+import { StreamingArtifactVerifier, type StreamingArtifactVerificationInput } from './StreamingArtifactVerifier';
 
 const OPERATION_ID_PATTERN = /^[\w-]{16,128}$/u;
 // A crash may safely replay the bounded tail because resume truncates to the authenticated journal offset.
@@ -237,7 +237,7 @@ export class LocalWhisperArtifactService {
         state: 'Downloading',
         updatedAtMs: this.dependencies.clock.now(),
       });
-      const processed = await this.dependencies.verifier.verify({
+      const verification: StreamingArtifactVerificationInput = {
         operationId,
         spec,
         transport,
@@ -256,7 +256,10 @@ export class LocalWhisperArtifactService {
           }
           this.publish(operationId, spec, mode, 'Downloading', receivedBytes, null, false);
         },
-      });
+      };
+      const processed = await (spec.transferProfile === 'pinned-raw-model-v1'
+        ? this.dependencies.verifier.verifyMetadataOnlyModel(verification)
+        : this.dependencies.verifier.verify(verification));
       if (processed.spoolId !== journal.spoolId) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
       this.publish(operationId, spec, mode, 'Verifying', processed.receivedBytes, null, true);
       this.publish(operationId, spec, mode, 'Installing', processed.receivedBytes, null, true);

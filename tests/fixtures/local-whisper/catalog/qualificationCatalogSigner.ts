@@ -105,7 +105,7 @@ function memoryEstimate(
   };
 }
 
-export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload {
+export function createQualificationCatalogPayload(workerProtocolVersion = 1): LocalWhisperCatalogPayload {
   const models = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.map(modelEntry);
   return structuredClone({
     schemaVersion: LOCAL_WHISPER_CATALOG_SCHEMA_VERSION,
@@ -116,7 +116,7 @@ export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload 
       summary: 'Deterministic schema-v2 catalog used only for qualification contract tests.',
     },
     compatibleAppRevisions: [QUALIFICATION_APP_REVISION],
-    workerProtocolVersion: 1,
+    workerProtocolVersion,
     languageCatalogRevision: LOCAL_WHISPER_LANGUAGE_CATALOG_REVISION,
     languages: LOCAL_WHISPER_LANGUAGE_CATALOG,
     modelFamilies: LOCAL_WHISPER_MODEL_FAMILIES,
@@ -160,7 +160,7 @@ export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload 
           upstreamRevision: toLocalWhisperRevisionId('whisper-cpp-upstream-v1')!,
           buildRevision: toLocalWhisperRevisionId('qualification-build-v1')!,
           computeTargets: ['x86-64-v2'],
-          protocolVersion: 1,
+      protocolVersion: workerProtocolVersion,
           packRevision: QUALIFICATION_RUNTIME_REVISION,
           catalogRevision: QUALIFICATION_CATALOG_REVISION,
           appRevision: QUALIFICATION_APP_REVISION,
@@ -208,7 +208,7 @@ export function createQualificationCatalogPayload(): LocalWhisperCatalogPayload 
           upstreamRevision: toLocalWhisperRevisionId('whisper-cpp-upstream-v1')!,
           buildRevision: toLocalWhisperRevisionId('qualification-cuda-build-v1')!,
           computeTargets: ['sm_120a-real'],
-          protocolVersion: 1,
+          protocolVersion: workerProtocolVersion,
           packRevision: QUALIFICATION_CUDA_RUNTIME_REVISION,
           catalogRevision: QUALIFICATION_CATALOG_REVISION,
           appRevision: QUALIFICATION_APP_REVISION,

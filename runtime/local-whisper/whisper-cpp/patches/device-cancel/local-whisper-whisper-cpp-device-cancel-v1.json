@@ -8,6 +8,10 @@
     {
       "afterPatchId": "exact-loader-reads-v1",
       "manifestSha256": "22067a89df003e5b603f34c74cd6c84fc8698efe8a4c55d09523090d390fdc3e"
+    },
+    {
+      "afterPatchId": "exact-device-cancellation-v1",
+      "manifestSha256": "a6215efee754e586d7346a1d6716e3ccc4426cf38efb211c4397789fc2127404"
     }
   ],
   "licenseProvenance": [
@@ -36,6 +40,13 @@
       "sizeBytes": 20582,
       "sha256": "57dd199f02d05062ef25d6599f3ff626dc30faf02c86e1de47235445ea04821b",
       "allowedTouchedPaths": ["include/whisper.h", "src/whisper.cpp"]
+    },
+    {
+      "patchId": "standard-file-eof-v1",
+      "relativePath": "core/0003-standard-file-eof.patch",
+      "sizeBytes": 779,
+      "sha256": "f6a86eceaf0e5bf828670ac6f4f564c20d56baa2b605259a5dbedb6404fceae2",
+      "allowedTouchedPaths": ["src/whisper.cpp"]
     }
   ],
   "application": {
@@ -46,6 +57,6 @@
     "allowOffsets": false
   },
   "expectedRejectCount": 0,
-  "finalManifestSha256": "a6215efee754e586d7346a1d6716e3ccc4426cf38efb211c4397789fc2127404",
+  "finalManifestSha256": "fd8b9c8ebbdcf4a0d176e248cf5f9d480d927041453c6d4e7229b098dd0a28c3",
   "reviewStatus": "approved"
 }

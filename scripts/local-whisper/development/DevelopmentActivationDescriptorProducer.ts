@@ -78,6 +78,7 @@ export class DevelopmentActivationDescriptorProducer {
       sourceCommit: input.sourceCommit,
       qualificationStatus: 'estimateOnly',
       executionMode: 'representativeQualification',
+      workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       runtimes: input.runtimes.map((runtime) => ({
         ...runtime.catalog,
         archiveFileName: path.basename(runtime.archivePath),

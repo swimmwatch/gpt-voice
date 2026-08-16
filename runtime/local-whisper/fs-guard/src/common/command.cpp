@@ -243,7 +243,7 @@ Command parse_command(const std::string& name, std::vector<std::string> argument
     require_count(arguments, 1);
     return SealFileCommand{arguments[0]};
   }
-  if (name == "LIST") {
+  if (name == "LIST" || name == "LIST_METADATA") {
     if (arguments.empty())
       invalid_input();
     std::vector<ExpectedEntry> expected;
@@ -256,6 +256,8 @@ Command parse_command(const std::string& name, std::vector<std::string> argument
         invalid_input();
       expected.push_back({fields[0], FileMode(fields[1])});
     }
+    if (name == "LIST_METADATA")
+      return ListMetadataCommand{arguments[0], std::move(expected)};
     return ListCommand{arguments[0], std::move(expected)};
   }
   if (name == "LIST_NAMESPACE") {

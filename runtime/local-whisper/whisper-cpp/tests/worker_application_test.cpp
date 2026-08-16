@@ -27,6 +27,7 @@ namespace {
 using test_support::MemoryModelSource;
 
 constexpr std::string_view kAuthorityId = "AAAAAAAAAAAAAAAAAAAAAA";
+constexpr int kProtocolVersion = 2;
 
 class FakeAuthority final : public ModelAuthorityView {
 public:
@@ -156,15 +157,12 @@ public:
                                                  const CancellationToken&) override {
     throw std::logic_error("CPU fake cannot probe a GPU");
   }
-  void load(ExactModelReader& reader, const std::string& family, const std::string& variant,
+  void load(const std::string& model_path, std::uint64_t expected_model_bytes,
             const std::optional<DeviceOperationAuthority>& authority,
             const CancellationToken&) override {
-    EXPECT_EQ(family, "tiny");
-    EXPECT_EQ(variant, "full");
+    EXPECT_EQ(model_path, "/managed/models/model.bin");
+    EXPECT_EQ(expected_model_bytes, 4U);
     EXPECT_FALSE(authority.has_value());
-    reader.skip_exact(reader.expected_bytes());
-    reader.verify_complete();
-    reader.close();
     loaded_ = true;
     ++load_calls;
     if (trace_ != nullptr)
@@ -293,15 +291,17 @@ std::vector<std::uint8_t> wav_fixture(std::size_t sample_count = 1U) {
   return bytes;
 }
 
-nlohmann::json hello() { return {{"type", "hello"}, {"protocolVersion", 1}}; }
+nlohmann::json hello() { return {{"type", "hello"}, {"protocolVersion", kProtocolVersion}}; }
 
 nlohmann::json load_message() {
   return {
       {"type", "load"},
-      {"protocolVersion", 1},
+      {"protocolVersion", kProtocolVersion},
       {"requestId", "load-test"},
       {"authorityId", kAuthorityId},
       {"deviceBinding", {{"kind", "cpu"}}},
+      {"modelPath", "/managed/models/model.bin"},
+      {"expectedModelBytes", 4U},
       {"residency",
        {{"engine", "whisperCpp"},
         {"runtimePackRevision", LOCAL_WHISPER_RUNTIME_REVISION},
@@ -323,12 +323,12 @@ nlohmann::json load_message() {
 }
 
 nlohmann::json warmup_message() {
-  return {{"type", "warmup"}, {"protocolVersion", 1}, {"requestId", "warm-test"}};
+  return {{"type", "warmup"}, {"protocolVersion", kProtocolVersion}, {"requestId", "warm-test"}};
 }
 
 nlohmann::json transcribe_message(std::size_t audio_bytes, std::string request_id = "tx-test") {
   return {{"type", "transcribe"},
-          {"protocolVersion", 1},
+          {"protocolVersion", kProtocolVersion},
           {"requestId", std::move(request_id)},
           {"settingsEpoch", 1U},
           {"audioByteLength", audio_bytes},
@@ -401,8 +401,8 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine
       load_message(),
       warmup_message(),
       transcribe_message(wav.size()),
-      {{"type", "unload"}, {"protocolVersion", 1}, {"requestId", "unload-test"}},
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+      {{"type", "unload"}, {"protocolVersion", kProtocolVersion}, {"requestId", "unload-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", kProtocolVersion}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
   fixture.channel.waits = {WorkerChannelWaitResult::inference_completed};
@@ -422,8 +422,8 @@ TEST(WorkerApplication, RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine
   EXPECT_EQ(fixture.channel.sent[5].at("type"), "shutdownAck");
   EXPECT_EQ(fixture.channel.sent[5].at("requestId"), "shutdown-test");
   EXPECT_EQ(common::kNativeRuntimeLogSchemaVersion, 1U);
-  EXPECT_EQ(fixture.channel.sent[1].at("protocolVersion"), 1);
-  EXPECT_EQ(fixture.channel.sent[2].at("protocolVersion"), 1);
+  EXPECT_EQ(fixture.channel.sent[1].at("protocolVersion"), kProtocolVersion);
+  EXPECT_EQ(fixture.channel.sent[2].at("protocolVersion"), kProtocolVersion);
   const auto loaded = trace_index(fixture.trace, "send:loaded");
   const auto model_load_completed = trace_index(fixture.trace, "modelLoadCompleted");
   const auto state_warming = trace_index(fixture.trace, "stateWarming");
@@ -452,7 +452,7 @@ TEST(WorkerApplication, ReleasesMaximumWavStorageBeforeInferenceAndPcmBeforeNext
       warmup_message(),
       transcribe_message(maximum_wav_bytes, "tx-maximum"),
       transcribe_message(second_wav_bytes, "tx-second"),
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", kProtocolVersion}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio = {{"tx-maximum", 0U, true, std::move(maximum_wav)},
                            {"tx-second", 0U, true, std::move(second_wav)}};
@@ -507,7 +507,7 @@ TEST(WorkerApplication, ReleasesWavStorageWhenPcmConversionFailsBeforeCleanRetry
       load_message(),
       warmup_message(),
       transcribe_message(retry_wav.size()),
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", kProtocolVersion}, {"requestId", "shutdown-test"}},
   };
   retry.channel.audio.push_back({"tx-test", 0U, true, retry_wav});
   retry.channel.waits = {WorkerChannelWaitResult::inference_completed};
@@ -560,11 +560,12 @@ TEST(WorkerApplication, WarmupFailureUnloadsAndReturnsTypedFailureBeforeCleanRet
   EXPECT_FALSE(trace_contains(failed.trace, "stateWarmed"));
 
   Fixture retry;
-  retry.channel.controls = {
-      hello(),
-      load_message(),
-      warmup_message(),
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}}};
+  retry.channel.controls = {hello(),
+                            load_message(),
+                            warmup_message(),
+                            {{"type", "shutdown"},
+                             {"protocolVersion", kProtocolVersion},
+                             {"requestId", "shutdown-test"}}};
   EXPECT_EQ(retry.run(), 0);
   EXPECT_EQ(retry.engine.warm_up_calls, 1U);
   EXPECT_EQ(retry.channel.sent[2].at("type"), "warmed");
@@ -606,11 +607,11 @@ TEST(WorkerApplication, CooperativeCancellationEmitsNoTranscriptOrLateSuccess) {
       warmup_message(),
       transcribe_message(wav.size()),
       {{"type", "cancel"},
-       {"protocolVersion", 1},
+       {"protocolVersion", kProtocolVersion},
        {"requestId", "cancel-test"},
        {"targetRequestId", "tx-test"}},
-      {{"type", "unload"}, {"protocolVersion", 1}, {"requestId", "unload-test"}},
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+      {{"type", "unload"}, {"protocolVersion", kProtocolVersion}, {"requestId", "unload-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", kProtocolVersion}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
   fixture.channel.waits = {WorkerChannelWaitResult::control_ready};
@@ -639,11 +640,11 @@ TEST(WorkerApplication, TranscriptCommitBeforeCancellationEmitsTranscriptAndCanc
       warmup_message(),
       transcribe_message(wav.size(), "tx-first"),
       {{"type", "cancel"},
-       {"protocolVersion", 1},
+       {"protocolVersion", kProtocolVersion},
        {"requestId", "cancel-first"},
        {"targetRequestId", "tx-first"}},
       transcribe_message(wav.size(), "tx-second"),
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", kProtocolVersion}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio = {{"tx-first", 0U, true, wav}, {"tx-second", 0U, true, wav}};
   fixture.channel.waits = {WorkerChannelWaitResult::control_ready,
@@ -672,7 +673,7 @@ TEST(WorkerApplication, InvalidCancellationStopsAndJoinsBlockedInference) {
       load_message(),
       warmup_message(),
       transcribe_message(wav.size()),
-      {{"type", "cancel"}, {"protocolVersion", 1}, {"requestId", "cancel-test"}},
+      {{"type", "cancel"}, {"protocolVersion", kProtocolVersion}, {"requestId", "cancel-test"}},
   };
   fixture.channel.audio.push_back({"tx-test", 0U, true, wav});
   fixture.channel.waits = {WorkerChannelWaitResult::control_ready};
@@ -737,7 +738,7 @@ TEST(WorkerApplication, ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWa
       warmup_message(),
       transcribe_message(wav.size(), "tx-split"),
       transcribe_message(wav.size(), "tx-second"),
-      {{"type", "shutdown"}, {"protocolVersion", 1}, {"requestId", "shutdown-test"}},
+      {{"type", "shutdown"}, {"protocolVersion", kProtocolVersion}, {"requestId", "shutdown-test"}},
   };
   fixture.channel.audio = {{"tx-split", 0U, true, wav}, {"tx-second", 0U, true, wav}};
   fixture.channel.waits = {WorkerChannelWaitResult::inference_completed,

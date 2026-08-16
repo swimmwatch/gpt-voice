@@ -22,6 +22,7 @@ public:
                                                            std::span<std::uint8_t> destination) = 0;
 };
 
+/** Deprecated authenticated model reader retained for focused rollback/reference tests only. */
 class ExactModelReader final {
 public:
   ExactModelReader(RandomAccessModelSource& source, std::uint64_t expected_bytes,

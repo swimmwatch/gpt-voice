@@ -99,7 +99,7 @@ int run() {
   local_whisper::whisper_cpp::CancellationController cancellation;
   WhisperCppEngine engine;
   const auto authority = device_authority(engine, command, cancellation);
-  engine.load(model, command.family, command.variant, authority, cancellation);
+  engine.load_legacy_authenticated(model, command.family, command.variant, authority, cancellation);
   engine.warm_up(command.cpu_threads, cancellation);
   if (authority.has_value())
     static_cast<void>(engine.load_evidence(*authority));

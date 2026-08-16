@@ -78,10 +78,8 @@ int main(int argc, char** argv) {
     if constexpr (std::string_view(LOCAL_WHISPER_BACKEND_ID) != "cpu")
       device_authority.emplace(
           local_whisper::whisper_cpp::DeviceAuthority::receive_from_standard_channel());
-    std::optional<local_whisper::whisper_cpp::ModelAuthority> authority;
-    if (mode == "--load")
-      authority.emplace(
-          local_whisper::whisper_cpp::ModelAuthority::receive_from_standard_channels());
+    // Deprecated descriptor/handle model-authority bootstrap retained for rollback only:
+    // ModelAuthority authority = ModelAuthority::receive_from_standard_channels();
     local_whisper::whisper_cpp::NativeWorkerChannel channel;
     local_whisper::whisper_cpp::SteadyWorkerClock clock;
     local_whisper::whisper_cpp::CancellationController cancellation;
@@ -89,8 +87,7 @@ int main(int argc, char** argv) {
     local_whisper::whisper_cpp::WorkerApplication application(
         mode == "--probe" ? local_whisper::whisper_cpp::WorkerRunMode::probe
                           : local_whisper::whisper_cpp::WorkerRunMode::load,
-        channel, engine, pcm_converter, probe, clock, cancellation,
-        authority.has_value() ? &authority.value() : nullptr,
+        channel, engine, pcm_converter, probe, clock, cancellation, nullptr,
         device_authority.has_value() ? &device_authority->proof() : nullptr, logger.get());
     return finish(application.run());
   } catch (...) {

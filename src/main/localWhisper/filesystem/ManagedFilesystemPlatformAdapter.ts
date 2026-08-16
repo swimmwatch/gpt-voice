@@ -51,6 +51,10 @@ export interface ManagedFilesystemPlatformAdapter {
     directoryToken: string,
     expectedEntries?: readonly ManagedFilesystemExpectedEntry[],
   ): Promise<readonly ManagedFilesystemDirectoryEntry[]>;
+  inspectDirectoryMetadataOnly(
+    directoryToken: string,
+    expectedEntries?: readonly ManagedFilesystemExpectedEntry[],
+  ): Promise<readonly ManagedFilesystemDirectoryEntry[]>;
   listArtifactDirectoryNames(rootToken: string, namespace: ManagedArtifactNamespace): Promise<readonly string[]>;
   openArtifactDirectory(
     rootToken: string,

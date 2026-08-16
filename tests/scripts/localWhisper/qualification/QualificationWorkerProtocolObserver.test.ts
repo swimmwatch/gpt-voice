@@ -7,6 +7,7 @@ import {
   LOCAL_WHISPER_FRAME_HEADER_BYTES,
   LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   encodeLocalWhisperControlFrame,
   toLocalWhisperRevisionId,
 } from '@shared/localWhisper';
@@ -42,7 +43,7 @@ describe('QualificationWorkerProtocolObserver', () => {
     output.end(
       encodeLocalWhisperControlFrame({
         type: 'helloAck',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         engine: 'whisperCpp',
         runtimeRevision: revision('runtime-v1'),
         runtimeBuildDigest: 'a'.repeat(64),
@@ -102,7 +103,7 @@ describe('QualificationWorkerProtocolObserver', () => {
     output.end(
       rawControlFrame({
         type: 'loaded',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'fixture-request',
         unexpectedField: 'private-fixture-value',
       }),
@@ -128,7 +129,7 @@ describe('QualificationWorkerProtocolObserver', () => {
     output.end(
       rawControlFrame({
         type: 'failure',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: 'private-request-value',
         code: 'MODEL_LOAD_FAILED',
       }),

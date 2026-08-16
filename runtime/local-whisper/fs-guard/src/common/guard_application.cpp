@@ -33,6 +33,8 @@ ResponseFields dispatch_command(Backend& backend, const Command& command) {
           return backend.seal_file(typed_command);
         } else if constexpr (std::is_same_v<T, ListCommand>) {
           return backend.list(typed_command);
+        } else if constexpr (std::is_same_v<T, ListMetadataCommand>) {
+          return backend.list_metadata(typed_command);
         } else if constexpr (std::is_same_v<T, ListNamespaceCommand>) {
           return backend.list_namespace(typed_command);
         } else if constexpr (std::is_same_v<T, OpenArtifactCommand>) {

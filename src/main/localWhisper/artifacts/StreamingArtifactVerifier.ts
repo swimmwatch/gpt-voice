@@ -58,7 +58,22 @@ export interface StreamingArtifactVerificationInput {
 export class StreamingArtifactVerifier {
   public constructor(private readonly dependencies: StreamingArtifactVerifierDependencies) {}
 
-  public async verify(input: StreamingArtifactVerificationInput): Promise<ArtifactWorkerProcessResult> {
+  /** @deprecated Retained for authenticated runtime packs and rollback/reference model tests. */
+  public verify(input: StreamingArtifactVerificationInput): Promise<ArtifactWorkerProcessResult> {
+    return this.verifyWithMode(input, 'authenticated');
+  }
+
+  public verifyMetadataOnlyModel(input: StreamingArtifactVerificationInput): Promise<ArtifactWorkerProcessResult> {
+    if (input.spec.transferProfile !== 'pinned-raw-model-v1') {
+      return Promise.reject(new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID'));
+    }
+    return this.verifyWithMode(input, 'metadataOnlyModel');
+  }
+
+  private async verifyWithMode(
+    input: StreamingArtifactVerificationInput,
+    validationMode: 'authenticated' | 'metadataOnlyModel',
+  ): Promise<ArtifactWorkerProcessResult> {
     const work = this.dependencies.worker.process({
       artifactId: input.spec.artifactId,
       expectedFiles: input.spec.expectedFiles,
@@ -69,6 +84,7 @@ export class StreamingArtifactVerifier {
       signal: input.signal,
       stream: input.transport.body,
       transferProfile: input.spec.transferProfile,
+      validationMode,
       onProgress: input.onProgress,
     });
     let rejectCancellation: (error: LocalWhisperArtifactLifecycleError) => void = () => undefined;
@@ -88,7 +104,7 @@ export class StreamingArtifactVerifier {
       if (result.receivedBytes !== input.spec.expectedTransferSizeBytes) {
         throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
       }
-      if (result.transferSha256 !== input.spec.expectedTransferSha256) {
+      if (validationMode === 'authenticated' && result.transferSha256 !== input.spec.expectedTransferSha256) {
         throw new LocalWhisperArtifactLifecycleError('HASH_MISMATCH');
       }
       if (
@@ -98,16 +114,19 @@ export class StreamingArtifactVerifier {
       ) {
         throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_FAILED');
       }
-      const signature = input.spec.artifactSignature;
-      if (
-        signature &&
-        !(await this.dependencies.signatureVerifier.verify({
-          digest: result.transferSha256,
-          keyId: signature.keyId,
-          signatureBase64: signature.signatureBase64,
-        }))
-      ) {
-        throw new LocalWhisperArtifactLifecycleError('SIGNATURE_INVALID');
+      if (validationMode === 'authenticated') {
+        const signature = input.spec.artifactSignature;
+        if (
+          signature &&
+          result.transferSha256 !== null &&
+          !(await this.dependencies.signatureVerifier.verify({
+            digest: result.transferSha256,
+            keyId: signature.keyId,
+            signatureBase64: signature.signatureBase64,
+          }))
+        ) {
+          throw new LocalWhisperArtifactLifecycleError('SIGNATURE_INVALID');
+        }
       }
       return result;
     } catch (error) {

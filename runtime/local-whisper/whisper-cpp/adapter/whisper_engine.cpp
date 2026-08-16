@@ -3,7 +3,9 @@
 #include "local_whisper/common/device_proof.hpp"
 #include "local_whisper/whisper_cpp/device_registry.hpp"
 #include "local_whisper/whisper_cpp/error.hpp"
+#include "local_whisper/whisper_cpp/exact_model_reader.hpp"
 #include "local_whisper/whisper_cpp/loader_limits.hpp"
+#include "local_whisper/whisper_cpp/model_file_validator.hpp"
 #include "local_whisper/whisper_cpp/model_format_preflight.hpp"
 
 #include <ggml-backend.h>
@@ -51,14 +53,19 @@ constexpr EngineBackend engine_backend() {
 
 void discard_upstream_log(enum ggml_log_level, const char*, void*) {}
 
-std::size_t exact_loader_read(void* context, void* output, std::size_t size) {
+// Deprecated authenticated custom-loader callbacks retained for rollback/reference tests only.
+[[maybe_unused]] std::size_t exact_loader_read(void* context, void* output, std::size_t size) {
   auto& reader = *static_cast<ExactModelReader*>(context);
   reader.read_exact(std::span<std::uint8_t>(static_cast<std::uint8_t*>(output), size));
   return size;
 }
 
-bool exact_loader_eof(void* context) { return static_cast<ExactModelReader*>(context)->eof(); }
-void exact_loader_close(void* context) { static_cast<ExactModelReader*>(context)->close(); }
+[[maybe_unused]] bool exact_loader_eof(void* context) {
+  return static_cast<ExactModelReader*>(context)->eof();
+}
+[[maybe_unused]] void exact_loader_close(void* context) {
+  static_cast<ExactModelReader*>(context)->close();
+}
 
 bool abort_requested(void* context) noexcept {
   return static_cast<const CancellationToken*>(context)->requested();
@@ -311,9 +318,51 @@ public:
     return evidence;
   }
 
-  void load(ExactModelReader& reader, const std::string& family, const std::string& variant,
+  void load(const std::string& model_path, std::uint64_t expected_model_bytes,
             const std::optional<DeviceOperationAuthority>& authority,
             const CancellationToken& cancellation) {
+    if (context_.get() != nullptr)
+      throw CoreError(FailureCode::model_load_failed, "engine already loaded");
+    if (kGpuWorker != authority.has_value())
+      throw CoreError(FailureCode::invalid_settings, "worker backend and load authority differ");
+    cancellation_checkpoint(cancellation);
+    whisper_context_params parameters = whisper_context_default_params();
+    parameters.use_gpu = kGpuWorker;
+    parameters.flash_attn = false;
+    parameters.gpu_device = authority.has_value() ? authority->selected_ordinal : 0;
+    parameters.local_whisper_require_gpu = kGpuWorker;
+    if (authority.has_value()) {
+      selected_ = registry_.resolve(authority->selected_ordinal, authority->registry_fingerprint);
+      parameters.local_whisper_selected_device = reinterpret_cast<void*>(selected_->native_token);
+    } else {
+      parameters.local_whisper_selected_device = nullptr;
+    }
+    parameters.dtw_token_timestamps = false;
+    model_file_validator_.validate(model_path, expected_model_bytes);
+    cancellation_checkpoint(cancellation);
+    // Deprecated authenticated-loader reference retained for rollback only:
+    // whisper_context* loaded = whisper_init_with_params(&loader, parameters);
+    whisper_context* loaded = whisper_init_from_file_with_params(model_path.c_str(), parameters);
+    if (loaded == nullptr) {
+      selected_.reset();
+      throw CoreError(kGpuWorker ? FailureCode::backend_init_failed
+                                 : FailureCode::model_load_failed,
+                      "Whisper.cpp rejected model or exact backend");
+    }
+    try {
+      cancellation_checkpoint(cancellation);
+    } catch (...) {
+      whisper_free(loaded);
+      selected_.reset();
+      throw;
+    }
+    context_.reset(loaded);
+  }
+
+  void load_legacy_authenticated(ExactModelReader& reader, const std::string& family,
+                                 const std::string& variant,
+                                 const std::optional<DeviceOperationAuthority>& authority,
+                                 const CancellationToken& cancellation) {
     if (context_.get() != nullptr)
       throw CoreError(FailureCode::model_load_failed, "engine already loaded");
     if (kGpuWorker != authority.has_value())
@@ -451,6 +500,7 @@ private:
   GgmlDeviceDiscovery discovery_;
   DeviceRegistry registry_;
   ContextOwner context_;
+  PlatformModelFileValidator model_file_validator_;
   std::optional<SelectedDevice> selected_;
 };
 
@@ -468,12 +518,21 @@ DeviceProbeEvidence WhisperCppEngine::probe_device(const DeviceOperationAuthorit
     throw CoreError(FailureCode::allocation_failed, "device probe allocation failed");
   }
 }
-void WhisperCppEngine::load(ExactModelReader& reader, const std::string& family,
-                            const std::string& variant,
+void WhisperCppEngine::load(const std::string& model_path, std::uint64_t expected_model_bytes,
                             const std::optional<DeviceOperationAuthority>& authority,
                             const CancellationToken& cancellation) {
   try {
-    impl_->load(reader, family, variant, authority, cancellation);
+    impl_->load(model_path, expected_model_bytes, authority, cancellation);
+  } catch (const std::bad_alloc&) {
+    throw CoreError(FailureCode::allocation_failed, "engine allocation failed");
+  }
+}
+void WhisperCppEngine::load_legacy_authenticated(
+    ExactModelReader& reader, const std::string& family, const std::string& variant,
+    const std::optional<DeviceOperationAuthority>& authority,
+    const CancellationToken& cancellation) {
+  try {
+    impl_->load_legacy_authenticated(reader, family, variant, authority, cancellation);
   } catch (const std::bad_alloc&) {
     throw CoreError(FailureCode::allocation_failed, "engine allocation failed");
   }

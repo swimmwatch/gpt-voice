@@ -145,7 +145,7 @@ public:
     const auto frame = read_frame(STDIN_FILENO);
     const auto view = local_whisper::common::decode_frame(frame);
     if (view.kind != local_whisper::common::FrameKind::audio || view.body.size() < 8U ||
-        view.body[0] != 1U || view.body[1] > 1U) {
+        view.body[0] != kWorkerProtocolVersion || view.body[1] > 1U) {
       throw CoreError(FailureCode::audio_format_unsupported, "invalid audio frame");
     }
     const auto sequence = read_big_u32(std::span<const std::uint8_t, 4>(view.body.data() + 2, 4));

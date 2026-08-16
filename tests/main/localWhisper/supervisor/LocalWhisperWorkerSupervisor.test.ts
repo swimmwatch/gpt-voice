@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import {
   LOCAL_WHISPER_MAX_AUDIO_CHUNK_BYTES,
   LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES,
+  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
   encodeLocalWhisperControlFrame,
   toLocalWhisperArtifactId,
   toLocalWhisperOpaqueDeviceId,
@@ -38,6 +39,7 @@ type WorkerMode =
   | 'cancel'
   | 'cancelTooLate'
   | 'cleanupFailure'
+  | 'failLoadBeforeRequestBinding'
   | 'failWarmup'
   | 'handshakeMismatch'
   | 'hangHandshake'
@@ -66,7 +68,9 @@ function bindingAuthority(
   return {
     authorityId: AUTHORITY_ID,
     deviceBinding: GPU_DEVICE_BINDING,
+    expectedModelBytes: 100,
     loadChallenge: LOAD_CHALLENGE,
+    modelPath: '/managed/models/model.bin',
     probeChallenge: PROBE_CHALLENGE,
     registryFingerprint: REGISTRY_FINGERPRINT,
     revalidateDeviceBinding,
@@ -276,7 +280,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
         } else if (frame.chunk.final && (this.mode === 'happy' || this.mode === 'cancelTooLate')) {
           this.respond({
             type: 'transcript',
-            protocolVersion: 1,
+            protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
             requestId: frame.chunk.requestId,
             text: 'fixture transcript',
           });
@@ -298,12 +302,21 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
         break;
       case 'load': {
         if (this.mode === 'hangLoad') break;
+        if (this.mode === 'failLoadBeforeRequestBinding') {
+          this.respond({
+            type: 'failure',
+            protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+            requestId: null,
+            code: 'INVALID_SETTINGS',
+          });
+          break;
+        }
         if (!('registryFingerprint' in message)) throw new Error('Expected GPU load fixture');
         const residency =
           this.mode === 'nativeObjectOrder' ? nativeOrderedResidency(message.residency) : message.residency;
         this.respond({
           type: 'loaded',
-          protocolVersion: 1,
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
           requestId: message.requestId,
           activatedOrdinal: this.mode === 'loadBindingMismatch' ? 1 : message.deviceBinding.index,
           actualNativeIdentity: '0000:01:00.0',
@@ -311,8 +324,9 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
           deviceBinding: this.mode === 'loadBindingMismatch' ? { kind: 'gpuIndex', index: 1 } : message.deviceBinding,
           effectiveBackend: residency.backend,
           loadProof: 'd'.repeat(64),
+          metadataOnly: true,
           model: residency.model,
-          modelSha256: 'b'.repeat(64),
+          modelFileSizeBytes: message.expectedModelBytes,
           primaryExecutionNativeIdentity: '0000:01:00.0',
           primaryStateOwnership: 'worker',
           registryFingerprint: message.registryFingerprint,
@@ -326,23 +340,35 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
         if (this.mode === 'failWarmup') {
           this.respond({
             type: 'failure',
-            protocolVersion: 1,
+            protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
             requestId: message.requestId,
             code: 'WARMUP_FAILED',
           });
           break;
         }
-        this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
+        this.respond({
+          type: 'warmed',
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+          requestId: message.requestId,
+        });
         break;
       case 'cancel':
         this.handleCancellation(message);
         break;
       case 'unload':
         if (this.mode === 'hangUnload') break;
-        this.respond({ type: 'unloaded', protocolVersion: 1, requestId: message.requestId });
+        this.respond({
+          type: 'unloaded',
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+          requestId: message.requestId,
+        });
         break;
       case 'shutdown':
-        this.respond({ type: 'shutdownAck', protocolVersion: 1, requestId: message.requestId });
+        this.respond({
+          type: 'shutdownAck',
+          protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+          requestId: message.requestId,
+        });
         if (this.mode !== 'cleanupFailure') this.exited = true;
         break;
       case 'transcribe':
@@ -354,7 +380,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
     if (this.mode === 'hangHandshake') return;
     this.respond({
       type: 'helloAck',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       engine: 'whisperCpp',
       runtimeRevision: revision(this.mode === 'handshakeMismatch' ? 'wrong-v1' : 'runtime-v1'),
       runtimeBuildDigest: this.mode === 'runtimeBuildMismatch' ? 'b'.repeat(64) : 'a'.repeat(64),
@@ -373,13 +399,17 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
       return;
     }
     if (this.mode === 'outOfOrder') {
-      this.respond({ type: 'warmed', protocolVersion: 1, requestId: message.requestId });
+      this.respond({
+        type: 'warmed',
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+        requestId: message.requestId,
+      });
       return;
     }
     if (!('registryFingerprint' in message)) throw new Error('Expected GPU probe fixture');
     this.respond({
       type: 'probed',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: message.requestId,
       activatedOrdinal: this.mode === 'bindingMismatch' ? 1 : message.deviceBinding.index,
       actualNativeIdentity: '0000:01:00.0',
@@ -402,7 +432,7 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
     if (this.mode !== 'cancelTooLate') {
       this.respond({
         type: 'cancelled',
-        protocolVersion: 1,
+        protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
         requestId: message.requestId,
         targetRequestId: message.targetRequestId,
       });
@@ -415,13 +445,13 @@ class ScriptedWorkerProcess implements LocalWhisperOwnedWorkerProcess {
     this.cancelRaceComplete = true;
     this.respond({
       type: 'transcript',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: message.targetRequestId,
       text: 'fixture transcript',
     });
     this.respond({
       type: 'cancelTooLate',
-      protocolVersion: 1,
+      protocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
       requestId: message.requestId,
       targetRequestId: message.targetRequestId,
     });
@@ -639,7 +669,7 @@ test('fresh full-load worker loads without upgrading a probe process', async () 
   assert.equal(value.releasedRuntime.value, 1);
 });
 
-test('load reaches loaded before the explicit protocol-v1 warmup transition', async () => {
+test('load reaches loaded before the explicit protocol-v2 warmup transition', async () => {
   const value = harness('happy');
   assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
   const loaded = await value.supervisor.load({
@@ -656,7 +686,9 @@ test('load reaches loaded before the explicit protocol-v1 warmup transition', as
     process.receivedMessages.map(({ type }) => type),
     ['hello', 'load'],
   );
-  assert.ok(process.receivedMessages.every(({ protocolVersion }) => protocolVersion === 1));
+  assert.ok(
+    process.receivedMessages.every(({ protocolVersion }) => protocolVersion === LOCAL_WHISPER_WORKER_PROTOCOL_VERSION),
+  );
 
   assert.deepEqual(await value.supervisor.warmup(7), { success: true, state: 'warmed', value: undefined });
   assert.deepEqual(
@@ -827,6 +859,27 @@ test('supervisor cleans up changed or disappeared binding authority and rejects 
     if (!peerResult.success) assert.equal(peerResult.error.code, 'WORKER_PROTOCOL_VIOLATION', mode);
     assert.equal(peer.releasedRuntime.value, 1, mode);
   }
+});
+
+test('supervisor attributes a pre-binding worker failure to the only pending request', async () => {
+  const value = harness('failLoadBeforeRequestBinding');
+  assert.equal((await value.supervisor.startAndHandshake(value.authority)).success, true);
+  assert.equal((await value.supervisor.probe(probeRequest(7))).success, true);
+  const result = await value.supervisor.load({
+    ...bindingAuthority(),
+    configurationEpoch: 7,
+    modelLease: value.modelLease,
+    residency: selectedResidency(),
+    revalidate: async () => undefined,
+  });
+  assert.equal(result.success, false);
+  if (!result.success) {
+    assert.equal(result.error.code, 'INVALID_SETTINGS');
+    assert.equal(result.error.stage, 'modelLoad');
+  }
+  assert.equal(value.releasedRuntime.value, 1);
+  assert.equal(value.releasedModel.value, 1);
+  assert.equal(value.recordStore.record, null);
 });
 
 test('supervisor rejects mixed protocol-v1 runtime identities and out-of-order stage results', async () => {

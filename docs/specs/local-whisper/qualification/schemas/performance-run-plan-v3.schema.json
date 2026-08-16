@@ -275,7 +275,7 @@
     "sourceHashBaseline": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["beforeOptimization", "afterDirectoryReuse"],
+      "required": ["beforeOptimization", "afterDirectoryReuse", "standardPathLoader"],
       "properties": {
         "beforeOptimization": {
           "type": "object",
@@ -288,6 +288,12 @@
           "additionalProperties": false,
           "required": ["linux", "win32"],
           "properties": { "linux": { "const": 7 }, "win32": { "const": 6 } }
+        },
+        "standardPathLoader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 0 }, "win32": { "const": 0 } }
         }
       }
     }

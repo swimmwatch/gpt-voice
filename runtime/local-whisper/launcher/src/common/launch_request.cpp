@@ -18,7 +18,7 @@ namespace local_whisper::launcher {
 namespace {
 
 constexpr std::size_t kBaseFieldCount = 20;
-constexpr std::size_t kFullLoadFieldCount = 22;
+constexpr std::size_t kLegacyFullLoadFieldCount = 22;
 constexpr std::size_t kAuthorityRequestBytes = 234;
 std::vector<std::string> split_fields(const std::string& line) {
   std::vector<std::string> fields;
@@ -30,7 +30,7 @@ std::vector<std::string> split_fields(const std::string& line) {
       break;
     start = separator + 1;
   }
-  if (fields.size() != kBaseFieldCount && fields.size() != kFullLoadFieldCount)
+  if (fields.size() != kBaseFieldCount && fields.size() != kLegacyFullLoadFieldCount)
     throw std::runtime_error("invalid launch field count");
   return fields;
 }
@@ -163,9 +163,10 @@ LaunchRequest LaunchRequestParser::parse(const std::string& line) const {
   request.directory_identity = parse_identity(fields, 13);
   if (request.worker_identity.directory || !request.directory_identity.directory)
     throw std::runtime_error("invalid launcher identity kinds");
-  if (request.launch_mode == WorkerLaunchMode::full_load) {
-    if (fields.size() != kFullLoadFieldCount)
-      throw std::runtime_error("missing model launch authority");
+  if (request.launch_mode == WorkerLaunchMode::full_load &&
+      fields.size() == kLegacyFullLoadFieldCount) {
+    // Deprecated model-authority frames remain parseable only for focused
+    // rollback/reference coverage. The active v2 path uses the base envelope.
     request.model_authority_request = decode_base64url_bytes(fields.at(20));
     request.worker_bootstrap_bytes = parse_number<std::uint32_t>(fields.at(21));
     if (request.model_authority_request.size() != kAuthorityRequestBytes ||

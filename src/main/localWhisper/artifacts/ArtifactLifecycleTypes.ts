@@ -110,7 +110,7 @@ export interface StreamingArtifactEntry {
   readonly chunks: AsyncIterable<Uint8Array>;
   readonly mode: number;
   readonly name: string;
-  readonly sha256: string;
+  readonly sha256: string | null;
   readonly sizeBytes: number;
   readonly type: ArtifactEntryType;
 }
@@ -125,6 +125,7 @@ export interface ArtifactWorkerProcessInput {
   readonly signal: AbortSignal;
   readonly stream: AsyncIterable<Uint8Array>;
   readonly transferProfile: LocalWhisperTransferProfile;
+  readonly validationMode: 'authenticated' | 'metadataOnlyModel';
   readonly onProgress: (receivedBytes: number) => Promise<void>;
 }
 
@@ -133,7 +134,7 @@ export interface ArtifactWorkerProcessResult {
   readonly peakBufferedBytes: number;
   readonly receivedBytes: number;
   readonly spoolId: string;
-  readonly transferSha256: string;
+  readonly transferSha256: string | null;
 }
 
 export interface ArtifactStreamingWorker {
@@ -191,6 +192,7 @@ export interface ArtifactManagedStorePort {
   appendStagedFile(fileLease: ManagedArtifactLease, chunk: Uint8Array, signal?: AbortSignal): Promise<void>;
   sealStagedFile(fileLease: ManagedArtifactLease): Promise<unknown>;
   promote(descriptor: ManagedArtifactDescriptor, stagingLease: ManagedArtifactLease): Promise<void>;
+  promoteMetadataOnlyModel(descriptor: ManagedArtifactDescriptor, stagingLease: ManagedArtifactLease): Promise<void>;
   discardStaging(stagingLease: ManagedArtifactLease): Promise<void>;
   deleteArtifact(descriptor: ManagedArtifactDescriptor, clearance: ManagedArtifactRemovalClearance): Promise<void>;
 }

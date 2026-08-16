@@ -32,11 +32,11 @@ constexpr std::uint64_t kMaxSafeInteger = 9'007'199'254'740'991ULL;
 nlohmann::json backend_capabilities(EngineBackend backend) {
   if (backend == EngineBackend::cpu)
     return nlohmann::json::array(
-        {"cpu-baseline", "exact-model-authority", "cooperative-cancellation"});
+        {"cpu-baseline", "standard-model-path", "cooperative-cancellation"});
   const std::string backend_capability = backend == EngineBackend::cuda  ? "cuda-sm-120a"
                                          : backend == EngineBackend::hip ? "hip-exact-row"
                                                                          : "vulkan-1.3-amd-preview";
-  return nlohmann::json::array({backend_capability, "exact-device-proof", "exact-model-authority",
+  return nlohmann::json::array({backend_capability, "exact-device-proof", "standard-model-path",
                                 "cooperative-cancellation"});
 }
 
@@ -53,7 +53,8 @@ void require_exact_keys(const nlohmann::json& value,
 void require_protocol(const nlohmann::json& value, std::string_view type) {
   if (!value.contains("type") || !value["type"].is_string() ||
       value["type"].get<std::string>() != type || !value.contains("protocolVersion") ||
-      !value["protocolVersion"].is_number_integer() || value["protocolVersion"].get<int>() != 1) {
+      !value["protocolVersion"].is_number_integer() ||
+      value["protocolVersion"].get<int>() != kWorkerProtocolVersion) {
     throw CoreError(FailureCode::invalid_settings, "invalid worker protocol message");
   }
 }
@@ -71,11 +72,58 @@ std::string require_string(const nlohmann::json& value, std::string_view key,
   return result;
 }
 
+bool is_valid_utf8(const std::string& value) {
+  for (std::size_t index = 0; index < value.size();) {
+    const auto first = static_cast<unsigned char>(value[index]);
+    if (first <= 0x7fU) {
+      ++index;
+      continue;
+    }
+    std::size_t continuation_count = 0;
+    std::uint32_t code_point = 0;
+    if (first >= 0xc2U && first <= 0xdfU) {
+      continuation_count = 1;
+      code_point = first & 0x1fU;
+    } else if (first >= 0xe0U && first <= 0xefU) {
+      continuation_count = 2;
+      code_point = first & 0x0fU;
+    } else if (first >= 0xf0U && first <= 0xf4U) {
+      continuation_count = 3;
+      code_point = first & 0x07U;
+    } else {
+      return false;
+    }
+    if (index + continuation_count >= value.size())
+      return false;
+    for (std::size_t offset = 1; offset <= continuation_count; ++offset) {
+      const auto continuation = static_cast<unsigned char>(value[index + offset]);
+      if ((continuation & 0xc0U) != 0x80U)
+        return false;
+      code_point = (code_point << 6U) | (continuation & 0x3fU);
+    }
+    if ((continuation_count == 2 && code_point < 0x800U) ||
+        (continuation_count == 3 && code_point < 0x10000U) ||
+        (code_point >= 0xd800U && code_point <= 0xdfffU) || code_point > 0x10ffffU) {
+      return false;
+    }
+    index += continuation_count + 1U;
+  }
+  return true;
+}
+
+std::string require_model_path(const nlohmann::json& value) {
+  const auto path = require_string(value, "modelPath", 131'072U);
+  if (!is_valid_utf8(path))
+    throw CoreError(FailureCode::invalid_settings, "invalid model path encoding");
+  return path;
+}
+
 std::string request_id(const nlohmann::json& value) {
   return require_string(value, "requestId", 128U);
 }
 
-std::string hex_digest(const std::array<std::uint8_t, 32>& bytes) {
+// Deprecated model-content evidence helper retained for rollback/reference tests only.
+[[maybe_unused]] std::string hex_digest(const std::array<std::uint8_t, 32>& bytes) {
   constexpr std::string_view alphabet = "0123456789abcdef";
   std::string result;
   result.reserve(64U);
@@ -86,7 +134,7 @@ std::string hex_digest(const std::array<std::uint8_t, 32>& bytes) {
   return result;
 }
 
-std::string base64url(std::span<const std::uint8_t> bytes) {
+[[maybe_unused]] std::string base64url(std::span<const std::uint8_t> bytes) {
   constexpr std::string_view alphabet =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
   std::string result;
@@ -298,8 +346,8 @@ std::string require_challenge(const nlohmann::json& value, std::string_view key)
 struct LoadContract final {
   std::string authority_id;
   std::string request_id;
-  std::string family;
-  std::string variant;
+  std::string model_path;
+  std::uint64_t expected_model_bytes;
   std::uint32_t cpu_threads;
   nlohmann::json residency;
   nlohmann::json model;
@@ -310,12 +358,18 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
                         const DeviceProofAuthority* device_authority) {
   if (backend == EngineBackend::cpu)
     require_exact_keys(value, {"type", "protocolVersion", "requestId", "authorityId",
-                               "deviceBinding", "residency"});
+                               "deviceBinding", "expectedModelBytes", "modelPath", "residency"});
   else
-    require_exact_keys(value,
-                       {"type", "protocolVersion", "requestId", "authorityId", "deviceBinding",
-                        "loadChallenge", "registryFingerprint", "residency"});
+    require_exact_keys(value, {"type", "protocolVersion", "requestId", "authorityId",
+                               "deviceBinding", "expectedModelBytes", "loadChallenge", "modelPath",
+                               "registryFingerprint", "residency"});
   require_protocol(value, "load");
+  if (!value.at("expectedModelBytes").is_number_unsigned())
+    throw CoreError(FailureCode::invalid_settings, "invalid expected model size");
+  const auto expected_model_bytes = value.at("expectedModelBytes").get<std::uint64_t>();
+  if (expected_model_bytes == 0U || expected_model_bytes > kMaxSafeInteger)
+    throw CoreError(FailureCode::invalid_settings, "invalid expected model size");
+  const auto model_path = require_model_path(value);
   std::optional<DeviceOperationAuthority> operation_authority;
   if (backend == EngineBackend::cpu) {
     require_cpu_binding(value.at("deviceBinding"));
@@ -379,8 +433,8 @@ LoadContract parse_load(const nlohmann::json& value, EngineBackend backend,
     throw CoreError(FailureCode::device_proof_failed, "accelerator authority identity mismatch");
   return {authority_id,
           request_id(value),
-          family,
-          variant,
+          model_path,
+          expected_model_bytes,
           static_cast<std::uint32_t>(threads),
           std::move(residency),
           std::move(model),
@@ -498,7 +552,7 @@ int WorkerApplication::run() noexcept {
     try {
       channel_.send_control(
           {{"type", "failure"},
-           {"protocolVersion", 1},
+           {"protocolVersion", kWorkerProtocolVersion},
            {"requestId", current_request_id_.has_value() ? nlohmann::json(*current_request_id_)
                                                          : nlohmann::json(nullptr)},
            {"code", protocol_failure(error.code())}});
@@ -519,7 +573,7 @@ int WorkerApplication::run_checked() {
   require_exact_keys(hello, {"type", "protocolVersion"});
   require_protocol(hello, "hello");
   channel_.send_control({{"type", "helloAck"},
-                         {"protocolVersion", 1},
+                         {"protocolVersion", kWorkerProtocolVersion},
                          {"engine", "whisperCpp"},
                          {"runtimeRevision", kRuntimeRevision},
                          {"runtimeBuildDigest", LOCAL_WHISPER_RUNTIME_BUILD_DIGEST},
@@ -546,7 +600,7 @@ int WorkerApplication::run_checked() {
       require_cpu_binding(message.at("deviceBinding"));
       const auto evidence = probe_.run(4U);
       channel_.send_control({{"type", "probed"},
-                             {"protocolVersion", 1},
+                             {"protocolVersion", kWorkerProtocolVersion},
                              {"requestId", *current_request_id_},
                              {"authorityId", authority_id},
                              {"deviceBinding", {{"kind", "cpu"}}}});
@@ -561,7 +615,7 @@ int WorkerApplication::run_checked() {
     const auto evidence = engine_.probe_device(authority, cancellation_);
     channel_.send_control(
         {{"type", "probed"},
-         {"protocolVersion", 1},
+         {"protocolVersion", kWorkerProtocolVersion},
          {"requestId", *current_request_id_},
          {"authorityId", authority_id},
          {"deviceBinding", {{"kind", "gpuIndex"}, {"index", ordinal}}},
@@ -573,13 +627,9 @@ int WorkerApplication::run_checked() {
     return 0;
   }
 
-  if (model_authority_ == nullptr)
-    throw CoreError(FailureCode::model_authority_invalid, "load worker lacks model authority");
   const auto load = parse_load(channel_.read_control(), engine_.backend(), device_authority_);
   current_request_id_ = load.request_id;
   log(common::NativeLogEvent::model_load_started, {std::nullopt, *current_request_id_});
-  if (load.authority_id != base64url(model_authority_->binding().operation_nonce))
-    throw CoreError(FailureCode::model_authority_invalid, "model authority ID mismatch");
   require_not_cancelled();
   const auto started = clock_.now_ticks();
   const auto probe_evidence = probe_.run(load.cpu_threads);
@@ -587,15 +637,14 @@ int WorkerApplication::run_checked() {
       probe_evidence.resolved_threads != load.cpu_threads) {
     throw CoreError(FailureCode::invalid_settings, "GPU CPU thread topology changed before load");
   }
-  ExactModelReader reader(model_authority_->source(),
-                          model_authority_->binding().expected_artifact_bytes,
-                          model_authority_->binding().artifact_content_sha256);
-  engine_.load(reader, load.family, load.variant, load.device_authority, cancellation_);
+  // Deprecated authenticated-reader reference retained for rollback only:
+  // ExactModelReader reader(model_authority_->source(), expected_bytes, expected_sha256);
+  engine_.load(load.model_path, load.expected_model_bytes, load.device_authority, cancellation_);
   if (clock_.now_ticks() < started)
     throw CoreError(FailureCode::model_load_failed, "worker clock moved backwards");
   nlohmann::json loaded{
       {"type", "loaded"},
-      {"protocolVersion", 1},
+      {"protocolVersion", kWorkerProtocolVersion},
       {"requestId", load.request_id},
       {"authorityId", load.authority_id},
       {"deviceBinding", engine_.backend() == EngineBackend::cpu
@@ -605,7 +654,8 @@ int WorkerApplication::run_checked() {
       {"residency", load.residency},
       {"effectiveBackend", kRuntimeBackend},
       {"model", load.model},
-      {"modelSha256", hex_digest(model_authority_->binding().artifact_content_sha256)},
+      {"metadataOnly", true},
+      {"modelFileSizeBytes", load.expected_model_bytes},
       {"primaryStateOwnership", "worker"}};
   if (load.device_authority.has_value()) {
     const auto evidence = engine_.load_evidence(*load.device_authority);
@@ -645,8 +695,9 @@ int WorkerApplication::run_checked() {
         throw CoreError(FailureCode::warmup_failed, "worker warm-up failed");
       }
       warmed = true;
-      channel_.send_control(
-          {{"type", "warmed"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
+      channel_.send_control({{"type", "warmed"},
+                             {"protocolVersion", kWorkerProtocolVersion},
+                             {"requestId", *current_request_id_}});
       log(common::NativeLogEvent::state_warmed, {std::nullopt, *current_request_id_});
       continue;
     }
@@ -726,7 +777,7 @@ int WorkerApplication::run_checked() {
                           "inference completed without transcript");
         }
         channel_.send_control({{"type", "transcript"},
-                               {"protocolVersion", 1},
+                               {"protocolVersion", kWorkerProtocolVersion},
                                {"requestId", transcription_request_id},
                                {"text", *inference_outcome.transcript}});
         log(common::NativeLogEvent::inference_completed, {std::nullopt, transcription_request_id});
@@ -759,7 +810,7 @@ int WorkerApplication::run_checked() {
       if (cancellation_won) {
         current_request_id_ = cancel_request_id;
         channel_.send_control({{"type", "cancelled"},
-                               {"protocolVersion", 1},
+                               {"protocolVersion", kWorkerProtocolVersion},
                                {"requestId", *current_request_id_},
                                {"targetRequestId", transcription_request_id}});
         log(common::NativeLogEvent::request_cancelled, {std::nullopt, transcription_request_id});
@@ -774,14 +825,14 @@ int WorkerApplication::run_checked() {
                         "inference completed without terminal outcome");
       }
       channel_.send_control({{"type", "transcript"},
-                             {"protocolVersion", 1},
+                             {"protocolVersion", kWorkerProtocolVersion},
                              {"requestId", transcription_request_id},
                              {"text", *inference_outcome.transcript}});
       log(common::NativeLogEvent::inference_completed, {std::nullopt, transcription_request_id});
       log(common::NativeLogEvent::request_completed, {std::nullopt, transcription_request_id});
       current_request_id_ = cancel_request_id;
       channel_.send_control({{"type", "cancelTooLate"},
-                             {"protocolVersion", 1},
+                             {"protocolVersion", kWorkerProtocolVersion},
                              {"requestId", *current_request_id_},
                              {"targetRequestId", transcription_request_id}});
       log(common::NativeLogEvent::request_cancel_too_late,
@@ -793,8 +844,9 @@ int WorkerApplication::run_checked() {
       require_exact_keys(message, {"type", "protocolVersion", "requestId"});
       require_protocol(message, "unload");
       cleanup_engine();
-      channel_.send_control(
-          {{"type", "unloaded"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
+      channel_.send_control({{"type", "unloaded"},
+                             {"protocolVersion", kWorkerProtocolVersion},
+                             {"requestId", *current_request_id_}});
       continue;
     }
     if (type == "shutdown") {
@@ -802,8 +854,9 @@ int WorkerApplication::run_checked() {
       require_protocol(message, "shutdown");
       if (engine_.loaded())
         cleanup_engine();
-      channel_.send_control(
-          {{"type", "shutdownAck"}, {"protocolVersion", 1}, {"requestId", *current_request_id_}});
+      channel_.send_control({{"type", "shutdownAck"},
+                             {"protocolVersion", kWorkerProtocolVersion},
+                             {"requestId", *current_request_id_}});
       log(common::NativeLogEvent::state_stopping);
       return 0;
     }

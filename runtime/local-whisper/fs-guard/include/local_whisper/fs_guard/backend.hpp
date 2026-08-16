@@ -25,6 +25,7 @@ public:
   virtual ResponseFields write_file(const WriteFileCommand& command) = 0;
   virtual ResponseFields seal_file(const SealFileCommand& command) = 0;
   virtual ResponseFields list(const ListCommand& command) = 0;
+  virtual ResponseFields list_metadata(const ListMetadataCommand& command) = 0;
   virtual ResponseFields list_namespace(const ListNamespaceCommand& command) = 0;
   virtual ResponseFields open_artifact(const OpenArtifactCommand& command) = 0;
   virtual ResponseFields promote(const PromoteCommand& command) = 0;

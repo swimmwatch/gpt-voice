@@ -104,7 +104,7 @@ import {
 } from '../settings/LocalWhisperSettingsRepository';
 import { LocalWhisperDynamicSnapshotFacts } from './LocalWhisperDynamicSnapshotFacts';
 import { LocalWhisperDeviceTopologyAuthority } from './LocalWhisperDeviceTopologyAuthority';
-import { LocalWhisperModelLaunchAuthorityFactory } from './LocalWhisperModelLaunchAuthorityFactory';
+import { LocalWhisperModelPathLoadAuthorityFactory } from './LocalWhisperModelPathLoadAuthorityFactory';
 import {
   LocalWhisperProductionArtifactInventory,
   LocalWhisperProductionArtifactPort,
@@ -1043,7 +1043,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
       const deviceTopologyAuthority = new LocalWhisperDeviceTopologyAuthority(deviceIdentities);
       topologyAuthority = deviceTopologyAuthority;
       const runtimeAuthorityFactory = new LocalWhisperRuntimeLaunchAuthorityFactory(managedStore);
-      const modelAuthorityFactory = new LocalWhisperModelLaunchAuthorityFactory({
+      const modelAuthorityFactory = new LocalWhisperModelPathLoadAuthorityFactory({
         randomBytes: this.dependencies.randomBytes,
         store: managedStore,
       });

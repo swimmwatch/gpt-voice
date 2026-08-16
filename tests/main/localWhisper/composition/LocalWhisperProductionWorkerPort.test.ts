@@ -11,6 +11,7 @@ import {
   LocalWhisperProductionWorkerPort,
   type LocalWhisperProductionWorkerPortDependencies,
 } from '@main/localWhisper/composition/LocalWhisperProductionWorkerPort';
+import type { LocalWhisperModelPathLoadAuthority } from '@main/localWhisper/composition/LocalWhisperModelPathLoadAuthorityFactory';
 import { LocalWhisperRuntimeRegistryDiscoveryError } from '@main/localWhisper/composition/LocalWhisperRuntimeRegistryDiscovery';
 import {
   createLocalWhisperDeviceProof,
@@ -23,10 +24,7 @@ import type {
   LocalWhisperTranscriptionRequest,
 } from '@main/localWhisper/supervisor/LocalWhisperWorkerSupervisor';
 import type { LocalWhisperWorkerLifecycleSession } from '@main/localWhisper/supervisor/LocalWhisperWorkerLifecycle';
-import type {
-  LocalWhisperModelGuardLaunchAuthority,
-  LocalWhisperWorkerLaunchAuthority,
-} from '@main/localWhisper/supervisor/WorkerProcessOwnership';
+import type { LocalWhisperWorkerLaunchAuthority } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 import {
   LOCAL_WHISPER_AUTO_CPU_THREADS,
   LOCAL_WHISPER_SETTINGS_SCHEMA_VERSION,
@@ -329,8 +327,9 @@ class LoadLifecycle {
             authorityId: request.authorityId,
             deviceBinding: request.deviceBinding,
             effectiveBackend: 'cpu',
+            metadataOnly: true,
             model: this.modelIdentity,
-            modelSha256: MODEL_DIGEST,
+            modelFileSizeBytes: request.expectedModelBytes,
             primaryStateOwnership: 'worker',
           } as never)
         : ({
@@ -354,8 +353,9 @@ class LoadLifecycle {
               selectedOrdinal: ENTRY.ordinal,
               topologyGeneration: 3n,
             }),
+            metadataOnly: true,
             model: this.modelIdentity,
-            modelSha256: MODEL_DIGEST,
+            modelFileSizeBytes: request.expectedModelBytes,
             primaryExecutionNativeIdentity: ENTRY.nativeIdentity,
             primaryStateOwnership: 'worker',
             registryFingerprint: REGISTRY_FINGERPRINT,
@@ -433,25 +433,13 @@ class LoadModelAuthorities {
     );
   }
 
-  public acquire(): Promise<LocalWhisperModelGuardLaunchAuthority> {
+  public acquire(): Promise<LocalWhisperModelPathLoadAuthority> {
     this.calls += 1;
     return Promise.resolve(
       Object.freeze({
-        modelFileIdentity: Object.freeze({
-          deviceOrVolumeId: '1',
-          fileId: '3',
-          linkCount: 1,
-          mode: 0o400,
-          parentFileId: '2',
-          sizeBytes: 200,
-          type: 'regular' as const,
-        }),
         modelFilePath: '/managed/models/model/file-model',
-        modelFileSha256: MODEL_DIGEST,
         modelFileSizeBytes: 200,
-        modelIdentityKey: 'fixture-model',
         modelLease: this.lease,
-        modelLeaseTokenDigest: 'f'.repeat(64),
         operationNonce: Uint8Array.from({ length: 16 }, (_value, index) => index + 1),
         revalidate: () => {
           this.revalidationCalls += 1;
@@ -647,11 +635,9 @@ describe('LocalWhisperProductionWorkerPort', () => {
       ['fullLoad'],
     );
     const authority = value.lifecycle.authorities[0];
-    assert.ok(authority?.modelGuardAuthority);
-    assert.equal(
-      value.lifecycle.loadRequests[0]?.authorityId,
-      Buffer.from(authority.modelGuardAuthority.operationNonce).toString('base64url'),
-    );
+    assert.equal(authority?.modelGuardAuthority, undefined);
+    assert.equal(value.lifecycle.loadRequests[0]?.modelPath, '/managed/models/model/file-model');
+    assert.equal(value.lifecycle.loadRequests[0]?.expectedModelBytes, 200);
     assert.deepEqual(value.lifecycle.session.calls, ['warmup']);
     assert.equal(value.modelAuthorities.revalidationCalls, 2);
     assert.deepEqual(
@@ -682,10 +668,13 @@ describe('LocalWhisperProductionWorkerPort', () => {
       ['registry', 'fullLoad', 'registry', 'registry', 'registry'],
     );
     const authority = value.lifecycle.authorities[0];
-    assert.ok(authority?.modelGuardAuthority);
+    assert.equal(authority?.modelGuardAuthority, undefined);
     assert.ok(authority.workerInputBootstrap);
     assert.equal(authority.workerInputBootstrap.byteLength, 40);
-    assert.deepEqual(authority.workerInputBootstrap.subarray(8, 24), authority.modelGuardAuthority.operationNonce);
+    assert.equal(
+      Buffer.from(authority.workerInputBootstrap.subarray(8, 24)).toString('base64url'),
+      value.lifecycle.loadRequests[0]?.authorityId,
+    );
     assert.equal(await loaded.value.revalidate(), true);
     assert.equal(value.registry.calls, 5);
     assert.equal(await loaded.value.terminate(), true);
