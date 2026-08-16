@@ -25,6 +25,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include <fcntl.h>
@@ -43,6 +44,7 @@ namespace {
 
 constexpr int kLauncherAuthorityDescriptor = 5;
 constexpr int kLauncherExecutableDescriptor = 6;
+constexpr int kLauncherAcknowledgmentDescriptor = 4;
 constexpr auto kPollInterval = std::chrono::milliseconds(50);
 constexpr auto kTerminationBudget = std::chrono::seconds(5);
 
@@ -336,7 +338,7 @@ int run_linux_model_launch(const int control_descriptor, const int acknowledgmen
                            "model launch fork failed");
   if (launcher_pid == 0) {
     map_descriptor(launcher_control_read.get(), 3);
-    map_descriptor(acknowledgment_descriptor, 4);
+    map_descriptor(acknowledgment_descriptor, kLauncherAcknowledgmentDescriptor);
     map_descriptor(launcher_authority.get(), kLauncherAuthorityDescriptor);
     if (launcher.file.get() != kLauncherExecutableDescriptor) {
       if (dup3(launcher.file.get(), kLauncherExecutableDescriptor, O_CLOEXEC) !=
@@ -351,6 +353,8 @@ int run_linux_model_launch(const int control_descriptor, const int acknowledgmen
     std::array<char*, 3> environment = {const_cast<char*>("LANG=C"), const_cast<char*>("LC_ALL=C"),
                                         nullptr};
     fexecve(kLauncherExecutableDescriptor, arguments.data(), environment.data());
+    constexpr std::string_view failure = "FAILED\tMODEL_LAUNCHER_RESUME_FAILED\n";
+    static_cast<void>(write(kLauncherAcknowledgmentDescriptor, failure.data(), failure.size()));
     _exit(common::kChildExecBootstrapFailureExitCode);
   }
 
