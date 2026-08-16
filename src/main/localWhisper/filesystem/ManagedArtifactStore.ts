@@ -30,6 +30,7 @@ import { ManagedArtifactStoreError, type ManagedArtifactStoreErrorCode } from '.
 import {
   ManagedFilesystemAdapterError,
   type ManagedArtifactNamespace,
+  type ManagedFilesystemAdapterFailureCode,
   type ManagedFilesystemDirectoryEntry,
   type ManagedFilesystemOpenResult,
   type ManagedFilesystemPlatformAdapter,
@@ -68,10 +69,17 @@ export interface ManagedArtifactStoreDependencies {
   readonly adapter: ManagedFilesystemPlatformAdapter;
   readonly generateOperationNonce: () => string;
   readonly lockRepository: ManagedArtifactLockRepository;
-  readonly onStagingCleanupStep?: (
-    step: 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove',
-  ) => void;
+  readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
+  readonly onStagingCleanupStep?: (step: ManagedArtifactStagingCleanupStep) => void;
   readonly rootResolution: ManagedArtifactRootResolution;
+}
+
+export type ManagedArtifactStagingCleanupStep = 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove';
+
+/** Qualification-only, closed diagnostic data that is safe to retain outside a native error. */
+export interface ManagedArtifactStagingCleanupFailure {
+  readonly failureCode: ManagedFilesystemAdapterFailureCode | 'STORE' | 'UNKNOWN';
+  readonly step: ManagedArtifactStagingCleanupStep;
 }
 
 export interface ManagedRuntimeLaunchLease {
@@ -400,6 +408,12 @@ function mapAdapterError(error: unknown, fallback: ManagedArtifactStoreErrorCode
   return new ManagedArtifactStoreError(fallback);
 }
 
+function stagingCleanupFailureCode(error: unknown): ManagedArtifactStagingCleanupFailure['failureCode'] {
+  if (error instanceof ManagedFilesystemAdapterError) return error.code;
+  if (error instanceof ManagedArtifactStoreError) return 'STORE';
+  return 'UNKNOWN';
+}
+
 function corruptEvidence(descriptor: ManagedArtifactDescriptor): LocalWhisperManagedArtifactEvidence {
   return Object.freeze({
     kind: 'installed',
@@ -578,7 +592,12 @@ export class ManagedArtifactStore {
   }
 
   public async discardStaging(stagingLease: ManagedArtifactLease): Promise<void> {
-    this.dependencies.onStagingCleanupStep?.('inspect');
+    let cleanupStep: ManagedArtifactStagingCleanupStep = 'inspect';
+    const atCleanupStep = (step: ManagedArtifactStagingCleanupStep): void => {
+      cleanupStep = step;
+      this.dependencies.onStagingCleanupStep?.(step);
+    };
+    atCleanupStep('inspect');
     const authority = this.requireAuthority(stagingLease, 'staging');
     if (!authority.lock) throw new ManagedArtifactStoreError('INVALID_LEASE');
     try {
@@ -589,7 +608,7 @@ export class ManagedArtifactStore {
           (expected) => [descriptorFileName(authority.descriptor, expected), expected] as const,
         ),
       ]);
-      this.dependencies.onStagingCleanupStep?.('validate');
+      atCleanupStep('validate');
       for (const entry of entries) {
         const expected = expectedByName.get(entry.canonicalName);
         const expectedMode = expected === null ? MANAGED_MANIFEST_MODE : expected?.mode;
@@ -607,20 +626,23 @@ export class ManagedArtifactStore {
         }
       }
       for (const entry of entries) {
-        this.dependencies.onStagingCleanupStep?.('delete');
+        atCleanupStep('delete');
         await this.dependencies.adapter.deleteStagingFile(
           this.token(stagingLease),
           entry.canonicalName,
           entry.identity,
         );
       }
-      this.dependencies.onStagingCleanupStep?.('confirm');
+      atCleanupStep('confirm');
       if ((await this.dependencies.adapter.inspectDirectory(this.token(stagingLease))).length !== 0) {
         throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
       }
-      this.dependencies.onStagingCleanupStep?.('remove');
+      atCleanupStep('remove');
       await this.dependencies.adapter.removeEmptyStagingDirectory(this.requireRoot().token, this.token(stagingLease));
     } catch (error) {
+      this.dependencies.onStagingCleanupFailure?.(
+        Object.freeze({ failureCode: stagingCleanupFailureCode(error), step: cleanupStep }),
+      );
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       await stagingLease.release().catch(() => undefined);

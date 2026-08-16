@@ -11,9 +11,11 @@ import {
   ManagedArtifactStoreError,
   getManagedArtifactStorageFileName,
   type ManagedArtifactDescriptor,
+  type ManagedArtifactStagingCleanupFailure,
 } from '@main/localWhisper/filesystem/ManagedArtifactStore';
 import {
   ManagedFilesystemAdapterError,
+  type ManagedFilesystemAdapterFailureCode,
   type ManagedFilesystemDirectoryEntry,
   type ManagedFilesystemOpenResult,
   type ManagedFilesystemPlatformAdapter,
@@ -206,7 +208,12 @@ function artifactUnprovable(error: unknown): boolean {
   return error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_UNPROVABLE';
 }
 
-function createPromotionFailureHarness() {
+function createPromotionFailureHarness(
+  options: Readonly<{
+    readonly cleanupFailureCode?: ManagedFilesystemAdapterFailureCode;
+    readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
+  }> = {},
+) {
   const descriptor = modelDescriptor();
   const stableEntries = directoryEntries(descriptor);
   const metadataEntries = Object.freeze(stableEntries.map((entry) => Object.freeze({ ...entry, sha256: null })));
@@ -249,7 +256,9 @@ function createPromotionFailureHarness() {
     release: async (token: string) => {
       releases.set(token, (releases.get(token) ?? 0) + 1);
     },
-    removeEmptyStagingDirectory: async () => undefined,
+    removeEmptyStagingDirectory: async () => {
+      if (options.cleanupFailureCode) throw new ManagedFilesystemAdapterError(options.cleanupFailureCode);
+    },
     revalidate: async () => {
       throw new ManagedFilesystemAdapterError('IDENTITY_CHANGED');
     },
@@ -281,6 +290,7 @@ function createPromotionFailureHarness() {
     adapter,
     generateOperationNonce: () => 'operation-00000000000001',
     lockRepository,
+    ...(options.onStagingCleanupFailure ? { onStagingCleanupFailure: options.onStagingCleanupFailure } : {}),
     rootResolution: Object.freeze({
       availability: 'available',
       baseDirectory: '/managed/linux',
@@ -371,6 +381,28 @@ describe('ManagedArtifactStore model launch acquisition', () => {
 });
 
 describe('ManagedArtifactStore staging promotion', () => {
+  it('reports a closed cleanup failure code without native error details', async () => {
+    const cleanupFailures: ManagedArtifactStagingCleanupFailure[] = [];
+    const harness = createPromotionFailureHarness({
+      cleanupFailureCode: 'IO_FAILED',
+      onStagingCleanupFailure: (failure) => cleanupFailures.push(failure),
+    });
+    await harness.store.initialize();
+    const staging = await harness.store.createStaging(harness.descriptor);
+
+    await assert.rejects(
+      harness.store.promoteMetadataOnlyModel(harness.descriptor, staging),
+      (error: unknown) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
+    );
+    await assert.rejects(
+      harness.store.discardStaging(staging),
+      (error: unknown) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
+    );
+
+    assert.deepEqual(cleanupFailures, [{ failureCode: 'IO_FAILED', step: 'remove' }]);
+    assert.equal(staging.released, true);
+  });
+
   it('retains a failed metadata-only staging lease until the extractor can discard it', async () => {
     const harness = createPromotionFailureHarness();
     await harness.store.initialize();
