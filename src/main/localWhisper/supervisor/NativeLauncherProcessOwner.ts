@@ -22,6 +22,19 @@ const MODEL_GUARD_ARGUMENT = '--local-whisper-model-launch-v1';
 const STANDARD_LAUNCHER_ACK_TIMEOUT_MS = 10_000;
 const MAX_LAUNCHER_ACK_BYTES = 256;
 
+export const NATIVE_LAUNCHER_ACKNOWLEDGMENT_OUTCOMES = [
+  'ready',
+  'rejected',
+  'malformed',
+  'closed',
+  'error',
+  'exited',
+  'timeout',
+] as const;
+
+/** Closed protocol outcome suitable for qualification-only diagnostics. */
+export type NativeLauncherAcknowledgmentOutcome = (typeof NATIVE_LAUNCHER_ACKNOWLEDGMENT_OUTCOMES)[number];
+
 /** Gives Linux model hashing the bounded model-load budget without relaxing ordinary launches. */
 export function getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch: boolean): number {
   return modelGuardLaunch ? LOCAL_WHISPER_LOAD_TIMEOUT_MS : STANDARD_LAUNCHER_ACK_TIMEOUT_MS;
@@ -34,6 +47,7 @@ export interface NativeLauncherProcessOwnerDependencies {
   readonly launcherExecutablePath: string;
   readonly launcherExecutableSha256?: string;
   readonly modelGuardExecutablePath?: string;
+  readonly onAcknowledgmentOutcome?: (outcome: NativeLauncherAcknowledgmentOutcome) => void;
   readonly platform: 'linux' | 'win32';
   readonly spawnProcess?: typeof spawn;
 }
@@ -194,6 +208,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         child,
         acknowledgment,
         getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch),
+        this.dependencies.onAcknowledgmentOutcome,
       );
       return new NativeOwnedWorkerProcess({
         child,
@@ -244,12 +259,21 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
     });
   }
 
-  private waitForAcknowledgment(child: ChildProcess, stream: Readable, timeoutMilliseconds: number): Promise<number> {
+  private waitForAcknowledgment(
+    child: ChildProcess,
+    stream: Readable,
+    timeoutMilliseconds: number,
+    onOutcome: ((outcome: NativeLauncherAcknowledgmentOutcome) => void) | undefined,
+  ): Promise<number> {
     return new Promise<number>((resolve, reject) => {
       let bytes = Buffer.alloc(0);
       let settled = false;
       let timer: NodeJS.Timeout | null = null;
-      const finish = (workerProcessGroupId: number | null, error?: Error): void => {
+      const finish = (
+        workerProcessGroupId: number | null,
+        outcome: NativeLauncherAcknowledgmentOutcome,
+        error?: Error,
+      ): void => {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
@@ -257,13 +281,18 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         stream.off('end', onStreamEnd);
         child.off('error', onChildError);
         child.off('exit', onChildExit);
+        try {
+          onOutcome?.(outcome);
+        } catch {
+          // Qualification diagnostics never change launcher lifecycle behavior.
+        }
         if (error || workerProcessGroupId === null) reject(error ?? new Error('Invalid launcher acknowledgment'));
         else resolve(workerProcessGroupId);
       };
       const onData = (chunk: Buffer): void => {
         bytes = Buffer.concat([bytes, chunk]);
         if (bytes.byteLength > MAX_LAUNCHER_ACK_BYTES) {
-          finish(null, new Error('Local Whisper launcher acknowledgment exceeded'));
+          finish(null, 'malformed', new Error('Local Whisper launcher acknowledgment exceeded'));
           return;
         }
         const newline = bytes.indexOf(0x0a);
@@ -271,25 +300,25 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         const line = bytes.subarray(0, newline).toString('utf8');
         const failure = /^FAILED\t([A-Z][A-Z0-9_]{0,63})$/u.exec(line);
         if (failure && newline === bytes.byteLength - 1) {
-          finish(null, new Error(`Local Whisper launcher rejected: ${failure[1]}`));
+          finish(null, 'rejected', new Error(`Local Whisper launcher rejected: ${failure[1]}`));
           return;
         }
         if (!/^READY\t[1-9]\d{0,19}$/u.test(line) || newline !== bytes.byteLength - 1) {
-          finish(null, new Error('Invalid Local Whisper launcher acknowledgment'));
+          finish(null, 'malformed', new Error('Invalid Local Whisper launcher acknowledgment'));
           return;
         }
         const workerProcessGroupId = Number(line.slice('READY\t'.length));
         if (!Number.isSafeInteger(workerProcessGroupId) || workerProcessGroupId > 0xffff_ffff) {
-          finish(null, new Error('Invalid Local Whisper launcher process identity'));
+          finish(null, 'malformed', new Error('Invalid Local Whisper launcher process identity'));
           return;
         }
-        finish(workerProcessGroupId);
+        finish(workerProcessGroupId, 'ready');
       };
-      const onChildError = (): void => finish(null, new Error('Local Whisper launcher failed'));
-      const onChildExit = (): void => finish(null, new Error('Local Whisper launcher exited'));
-      const onStreamEnd = (): void => finish(null, new Error('Local Whisper launcher acknowledgment closed'));
+      const onChildError = (): void => finish(null, 'error', new Error('Local Whisper launcher failed'));
+      const onChildExit = (): void => finish(null, 'exited', new Error('Local Whisper launcher exited'));
+      const onStreamEnd = (): void => finish(null, 'closed', new Error('Local Whisper launcher acknowledgment closed'));
       timer = setTimeout(
-        () => finish(null, new Error('Local Whisper launcher acknowledgment timed out')),
+        () => finish(null, 'timeout', new Error('Local Whisper launcher acknowledgment timed out')),
         timeoutMilliseconds,
       );
       stream.on('data', onData);
@@ -297,7 +326,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
       child.once('error', onChildError);
       child.once('exit', onChildExit);
       if (child.exitCode !== null || child.signalCode !== null || stream.readableEnded) {
-        finish(null, new Error('Local Whisper launcher exited'));
+        finish(null, 'exited', new Error('Local Whisper launcher exited'));
       }
     });
   }

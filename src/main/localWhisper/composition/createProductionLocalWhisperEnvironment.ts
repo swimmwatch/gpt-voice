@@ -171,6 +171,9 @@ export interface LocalWhisperProductionEnvironmentDependencies {
     readonly onStagingCleanupStep?: (step: ManagedArtifactStagingCleanupStep) => void;
     readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
     readonly onStagingPromotionFailure?: (failure: ManagedArtifactStagingPromotionFailure) => void;
+    readonly onNativeLauncherAcknowledgment?: (
+      outcome: 'ready' | 'rejected' | 'malformed' | 'closed' | 'error' | 'exited' | 'timeout',
+    ) => void;
     readonly trustedCertificateAuthorities?: readonly string[];
     readonly onSessionProcessLaunched?: (event: LocalWhisperWorkerProcessLaunchEvent) => void;
     readonly onLoadStage?: (
@@ -1008,6 +1011,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
               launcherExecutableSha256: resources.launcherSha256,
               modelGuardExecutablePath: resources.filesystemGuardExecutable,
               spawnProcess: this.dependencies.spawnProcess,
+              ...(activationPurpose === 'qualification' &&
+              this.dependencies.qualificationHooks?.onNativeLauncherAcknowledgment
+                ? { onAcknowledgmentOutcome: this.dependencies.qualificationHooks.onNativeLauncherAcknowledgment }
+                : {}),
             })
           : new WindowsJobObjectOwner({
               environment: this.dependencies.environment,
@@ -1016,6 +1023,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
               launcherExecutableSha256: resources.launcherSha256,
               modelGuardExecutablePath: resources.filesystemGuardExecutable,
               spawnProcess: this.dependencies.spawnProcess,
+              ...(activationPurpose === 'qualification' &&
+              this.dependencies.qualificationHooks?.onNativeLauncherAcknowledgment
+                ? { onAcknowledgmentOutcome: this.dependencies.qualificationHooks.onNativeLauncherAcknowledgment }
+                : {}),
             });
       const createWorkerOwnership = (role: 'registry' | 'session'): WorkerProcessOwnership =>
         new WorkerProcessOwnership({
