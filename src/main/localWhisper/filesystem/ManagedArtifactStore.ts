@@ -576,10 +576,10 @@ export class ManagedArtifactStore {
   }
 
   public async discardStaging(stagingLease: ManagedArtifactLease): Promise<void> {
+    this.dependencies.onStagingCleanupStep?.('inspect');
     const authority = this.requireAuthority(stagingLease, 'staging');
     if (!authority.lock) throw new ManagedArtifactStoreError('INVALID_LEASE');
     try {
-      this.dependencies.onStagingCleanupStep?.('inspect');
       const entries = await this.dependencies.adapter.inspectDirectory(this.token(stagingLease));
       const expectedByName = new Map<string, ManagedArtifactExpectedFile | null>([
         [MANAGED_MANIFEST_NAME, null],
