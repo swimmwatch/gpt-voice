@@ -726,7 +726,20 @@ public:
     ResponseFields response{identity_string(staging.fd.get(), final_parent.get())};
     if (syscall(SYS_renameat2, staging.parent_fd.get(), staging.name.c_str(), final_parent.get(),
                 command.artifact_name.c_str(), RENAME_NOREPLACE) != 0) {
-      throw GuardError(errno == EEXIST ? "CONFLICT" : "IO_FAILED");
+      const int failure = errno;
+      if (failure == EEXIST || failure == ENOTEMPTY)
+        throw GuardError("CONFLICT");
+      if (failure == EACCES || failure == EPERM)
+        throw GuardError(ErrorCode::kIoFailed, "ACCESS_DENIED");
+      if (failure == EBUSY)
+        throw GuardError(ErrorCode::kIoFailed, "BUSY");
+      if (failure == EXDEV)
+        throw GuardError(ErrorCode::kIoFailed, "CROSS_DEVICE");
+      if (failure == ENOENT)
+        throw GuardError(ErrorCode::kIoFailed, "NOT_FOUND");
+      if (failure == EINVAL || failure == ENOSYS || failure == EOPNOTSUPP)
+        throw GuardError(ErrorCode::kIoFailed, "UNSUPPORTED");
+      throw GuardError(ErrorCode::kIoFailed, "OTHER");
     }
     return response;
   }

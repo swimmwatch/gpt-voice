@@ -3,6 +3,19 @@
 #include <string>
 
 namespace local_whisper::fs_guard {
+namespace {
+
+bool is_safe_diagnostic(const std::string_view value) noexcept {
+  if (value.empty() || value.size() > 32U)
+    return false;
+  for (const char character : value) {
+    if ((character < 'A' || character > 'Z') && character != '_')
+      return false;
+  }
+  return true;
+}
+
+} // namespace
 
 std::string_view to_string(const ErrorCode code) noexcept {
   switch (code) {
@@ -39,8 +52,14 @@ ErrorCode normalize_error_code(const std::string_view code) noexcept {
 GuardError::GuardError(const ErrorCode code)
     : std::runtime_error(std::string(to_string(code))), code_(code) {}
 
+GuardError::GuardError(const ErrorCode code, const std::string_view diagnostic)
+    : std::runtime_error(std::string(to_string(code))),
+      code_(code),
+      diagnostic_(is_safe_diagnostic(diagnostic) ? diagnostic : "") {}
+
 GuardError::GuardError(const std::string_view code) : GuardError(normalize_error_code(code)) {}
 
 std::string_view GuardError::code() const noexcept { return to_string(code_); }
+std::string_view GuardError::diagnostic() const noexcept { return diagnostic_; }
 
 } // namespace local_whisper::fs_guard

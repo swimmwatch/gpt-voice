@@ -1,6 +1,10 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
-import { ManagedFilesystemAdapterError } from './ManagedFilesystemPlatformAdapter';
+import {
+  MANAGED_FILESYSTEM_PROMOTION_DIAGNOSTIC_CODES,
+  ManagedFilesystemAdapterError,
+  type ManagedFilesystemPromotionDiagnosticCode,
+} from './ManagedFilesystemPlatformAdapter';
 import {
   createNativeRuntimeLogLaunchEnvironment,
   isNativeRuntimeProcessInstanceId,
@@ -26,6 +30,12 @@ const WRITE_FILE_FIXED_PAYLOAD_BYTES =
 const MAX_ENCODED_WRITE_FILE_CHUNK_BYTES =
   MAX_GUARD_REQUEST_PAYLOAD_BYTES - GUARD_PROTOCOL_FUTURE_HEADROOM_BYTES - WRITE_FILE_FIXED_PAYLOAD_BYTES;
 export const MAX_GUARD_WRITE_FILE_CHUNK_BYTES = Math.floor((MAX_ENCODED_WRITE_FILE_CHUNK_BYTES * 3) / 4);
+
+function promotionDiagnosticCode(value: string | undefined): ManagedFilesystemPromotionDiagnosticCode | undefined {
+  return MANAGED_FILESYSTEM_PROMOTION_DIAGNOSTIC_CODES.includes(value as ManagedFilesystemPromotionDiagnosticCode)
+    ? (value as ManagedFilesystemPromotionDiagnosticCode)
+    : undefined;
+}
 
 export type ManagedFilesystemGuardRequestField = string | Uint8Array;
 
@@ -239,6 +249,11 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
       return;
     }
     const code = decoded[0];
+    const diagnostic = code === 'IO_FAILED' ? promotionDiagnosticCode(decoded[1]) : undefined;
+    if (decoded.length !== 1 && (decoded.length !== 2 || !diagnostic)) {
+      this.failProcess(child);
+      return;
+    }
     pending.reject(
       new ManagedFilesystemAdapterError(
         code === 'CONFLICT' ||
@@ -249,6 +264,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
           code === 'UNSUPPORTED'
           ? code
           : 'IO_FAILED',
+        diagnostic,
       ),
     );
   }

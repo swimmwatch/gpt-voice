@@ -75,7 +75,11 @@ int GuardApplication::run(std::istream& input, std::ostream& output) {
       const Request request = parse_request(line.payload, request_id);
       output << serialize_response(request.id, true, dispatch_command(backend_, request.command));
     } catch (const GuardError& error) {
-      output << serialize_response(request_id, false, {std::string(error.code())});
+      const std::string_view diagnostic = error.diagnostic();
+      output << serialize_response(request_id, false,
+                                   diagnostic.empty()
+                                       ? ResponseFields{std::string(error.code())}
+                                       : ResponseFields{std::string(error.code()), std::string(diagnostic)});
     } catch (...) {
       output << serialize_response(request_id, false, {"IO_FAILED"});
     }

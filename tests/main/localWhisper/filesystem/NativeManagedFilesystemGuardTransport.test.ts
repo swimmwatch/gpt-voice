@@ -121,6 +121,30 @@ test('accepts a CRLF-terminated guard response', async () => {
   await transport.dispose();
 });
 
+test('retains only a closed staging-promotion diagnostic from an IO failure', async () => {
+  const child = new FakeGuardChild();
+  const transport = new NativeManagedFilesystemGuardTransport({
+    environment: {},
+    executablePath: 'ignored-by-test',
+    generateProcessInstanceId: () => PROCESS_INSTANCE_ID,
+    platform: 'linux',
+    spawnProcess: (() => child) as unknown as typeof spawn,
+  });
+
+  const request = transport.request('PROMOTE', ['root-token', 'staging-token', 'runtimes', 'runtime-name']);
+  child.stdout.write('1\t2\tERR\tSU9fRkFJTEVE\tQlVTWQ\n');
+
+  await assert.rejects(
+    request,
+    (error) =>
+      error instanceof ManagedFilesystemAdapterError &&
+      error.code === 'IO_FAILED' &&
+      error.promotionDiagnosticCode === 'BUSY',
+  );
+  assert.equal(child.killed, false);
+  await transport.dispose();
+});
+
 test('rejects every pending request on an overlong response and starts a fresh guard', async () => {
   const first = new FakeGuardChild();
   const second = new FakeGuardChild();

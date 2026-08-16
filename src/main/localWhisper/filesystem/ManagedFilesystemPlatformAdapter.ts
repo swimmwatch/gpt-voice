@@ -2,6 +2,18 @@ import type { ManagedArtifactIdentitySnapshot, ManagedArtifactKind } from './Man
 
 export type ManagedArtifactNamespace = 'models' | 'runtimes';
 
+/** Closed, path-free diagnostics emitted only for a failed Linux staging promotion. */
+export const MANAGED_FILESYSTEM_PROMOTION_DIAGNOSTIC_CODES = [
+  'ACCESS_DENIED',
+  'BUSY',
+  'CROSS_DEVICE',
+  'NOT_FOUND',
+  'OTHER',
+  'UNSUPPORTED',
+] as const;
+
+export type ManagedFilesystemPromotionDiagnosticCode = (typeof MANAGED_FILESYSTEM_PROMOTION_DIAGNOSTIC_CODES)[number];
+
 export interface ManagedFilesystemLockMetadata {
   readonly appInstanceNonce: string;
   readonly artifactId: string;
@@ -96,7 +108,10 @@ export type ManagedFilesystemAdapterFailureCode =
 
 /** Stable error emitted by platform adapters; native paths and OS messages stay private. */
 export class ManagedFilesystemAdapterError extends Error {
-  public constructor(public readonly code: ManagedFilesystemAdapterFailureCode) {
+  public constructor(
+    public readonly code: ManagedFilesystemAdapterFailureCode,
+    public readonly promotionDiagnosticCode?: ManagedFilesystemPromotionDiagnosticCode,
+  ) {
     super(code);
     this.name = 'ManagedFilesystemAdapterError';
   }

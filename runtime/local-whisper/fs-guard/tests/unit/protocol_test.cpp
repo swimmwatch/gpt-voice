@@ -43,6 +43,16 @@ TEST(Base64UrlTest, DecodesTheCompleteAlphabetThroughTheInverseTable) {
   EXPECT_EQ(base64url_encode(base64url_decode(encoded)), encoded);
 }
 
+TEST(GuardErrorTest, RetainsOnlyClosedDiagnosticCodes) {
+  const GuardError safe(ErrorCode::kIoFailed, "BUSY");
+  const GuardError unsafe(ErrorCode::kIoFailed, "errno=16");
+
+  EXPECT_EQ(safe.code(), "IO_FAILED");
+  EXPECT_EQ(safe.diagnostic(), "BUSY");
+  EXPECT_EQ(unsafe.code(), "IO_FAILED");
+  EXPECT_TRUE(unsafe.diagnostic().empty());
+}
+
 TEST(Base64UrlTest, RejectsPaddingAlphabetAndNonCanonicalTailBits) {
   EXPECT_THROW(static_cast<void>(base64url_decode("Zg==")), GuardError);
   EXPECT_THROW(static_cast<void>(base64url_decode("Zg/")), GuardError);

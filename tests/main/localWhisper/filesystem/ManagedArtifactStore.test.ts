@@ -212,6 +212,7 @@ function artifactUnprovable(error: unknown): boolean {
 function createPromotionFailureHarness(
   options: Readonly<{
     readonly cleanupFailureCode?: ManagedFilesystemAdapterFailureCode;
+    readonly promotionDiagnosticCode?: 'BUSY';
     readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
     readonly onStagingPromotionFailure?: (failure: ManagedArtifactStagingPromotionFailure) => void;
   }> = {},
@@ -253,7 +254,7 @@ function createPromotionFailureHarness(
     inspectDirectoryMetadataOnly: async () => metadataEntries,
     promoteStagingDirectory: async () => {
       promotionAttempts += 1;
-      throw new ManagedFilesystemAdapterError('IO_FAILED');
+      throw new ManagedFilesystemAdapterError('IO_FAILED', options.promotionDiagnosticCode);
     },
     release: async (token: string) => {
       releases.set(token, (releases.get(token) ?? 0) + 1);
@@ -420,6 +421,21 @@ describe('ManagedArtifactStore staging promotion', () => {
     );
 
     assert.deepEqual(promotionFailures, [{ failureCode: 'IO_FAILED' }]);
+    await harness.store.discardStaging(staging);
+  });
+
+  it('retains only the closed promotion diagnostic code', async () => {
+    const promotionFailures: ManagedArtifactStagingPromotionFailure[] = [];
+    const harness = createPromotionFailureHarness({
+      onStagingPromotionFailure: (failure) => promotionFailures.push(failure),
+      promotionDiagnosticCode: 'BUSY',
+    });
+    await harness.store.initialize();
+    const staging = await harness.store.createStaging(harness.descriptor);
+
+    await assert.rejects(harness.store.promoteMetadataOnlyModel(harness.descriptor, staging));
+
+    assert.deepEqual(promotionFailures, [{ failureCode: 'IO_FAILED', promotionDiagnosticCode: 'BUSY' }]);
     await harness.store.discardStaging(staging);
   });
 

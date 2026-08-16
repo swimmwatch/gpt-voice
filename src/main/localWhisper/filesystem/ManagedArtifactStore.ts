@@ -34,6 +34,7 @@ import {
   type ManagedFilesystemDirectoryEntry,
   type ManagedFilesystemOpenResult,
   type ManagedFilesystemPlatformAdapter,
+  type ManagedFilesystemPromotionDiagnosticCode,
 } from './ManagedFilesystemPlatformAdapter';
 
 export { ManagedArtifactRemovalClearance } from './ManagedArtifactRemovalClearance';
@@ -86,6 +87,7 @@ export interface ManagedArtifactStagingCleanupFailure {
 /** Qualification-only, closed diagnostic data that is safe to retain outside a native error. */
 export interface ManagedArtifactStagingPromotionFailure {
   readonly failureCode: ManagedFilesystemAdapterFailureCode | 'STORE' | 'UNKNOWN';
+  readonly promotionDiagnosticCode?: ManagedFilesystemPromotionDiagnosticCode;
 }
 
 export interface ManagedRuntimeLaunchLease {
@@ -420,6 +422,16 @@ function stagingCleanupFailureCode(error: unknown): ManagedArtifactStagingCleanu
   return 'UNKNOWN';
 }
 
+function stagingPromotionFailure(error: unknown): ManagedArtifactStagingPromotionFailure {
+  if (error instanceof ManagedFilesystemAdapterError) {
+    return Object.freeze({
+      failureCode: error.code,
+      ...(error.promotionDiagnosticCode ? { promotionDiagnosticCode: error.promotionDiagnosticCode } : {}),
+    });
+  }
+  return Object.freeze({ failureCode: stagingCleanupFailureCode(error) });
+}
+
 function corruptEvidence(descriptor: ManagedArtifactDescriptor): LocalWhisperManagedArtifactEvidence {
   return Object.freeze({
     kind: 'installed',
@@ -560,7 +572,7 @@ export class ManagedArtifactStore {
       );
       promoted = true;
     } catch (error) {
-      this.dependencies.onStagingPromotionFailure?.(Object.freeze({ failureCode: stagingCleanupFailureCode(error) }));
+      this.dependencies.onStagingPromotionFailure?.(stagingPromotionFailure(error));
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       if (promoted) await stagingLease.release();
@@ -592,7 +604,7 @@ export class ManagedArtifactStore {
       );
       promoted = true;
     } catch (error) {
-      this.dependencies.onStagingPromotionFailure?.(Object.freeze({ failureCode: stagingCleanupFailureCode(error) }));
+      this.dependencies.onStagingPromotionFailure?.(stagingPromotionFailure(error));
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       if (promoted) await stagingLease.release();
