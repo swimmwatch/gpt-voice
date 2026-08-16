@@ -17,14 +17,20 @@
 
 #if defined(_WIN32)
 #include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace {
 void write_model_launch_failure(const std::string_view code) noexcept {
   const std::string line = "FAILED\t" + std::string(code) + "\n";
+#if defined(_WIN32)
   static_cast<void>(_write(4, line.data(), static_cast<unsigned int>(line.size())));
+#else
+  static_cast<void>(write(4, line.data(), line.size()));
+#endif
 }
 } // namespace
-#endif
 
 int main(int argc, char** argv) {
   std::ios::sync_with_stdio(false);
@@ -45,9 +51,7 @@ int main(int argc, char** argv) {
     } catch (...) {
       const auto policy =
           local_whisper::fs_guard::model_launch_exception_failure_policy(std::current_exception());
-#if defined(_WIN32)
       write_model_launch_failure(policy.acknowledgment);
-#endif
       result = policy.exit_code;
     }
   } else if (argc == 1) {
