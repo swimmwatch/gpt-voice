@@ -77,6 +77,7 @@ export interface ManagedArtifactStoreDependencies {
 }
 
 export type ManagedArtifactStagingCleanupStep = 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove';
+export type ManagedArtifactStagingPromotionStep = 'inspect' | 'validate' | 'promote';
 
 /** Qualification-only, closed diagnostic data that is safe to retain outside a native error. */
 export interface ManagedArtifactStagingCleanupFailure {
@@ -88,6 +89,7 @@ export interface ManagedArtifactStagingCleanupFailure {
 export interface ManagedArtifactStagingPromotionFailure {
   readonly failureCode: ManagedFilesystemAdapterFailureCode | 'STORE' | 'UNKNOWN';
   readonly promotionDiagnosticCode?: ManagedFilesystemPromotionDiagnosticCode;
+  readonly step: ManagedArtifactStagingPromotionStep;
 }
 
 export interface ManagedRuntimeLaunchLease {
@@ -422,14 +424,18 @@ function stagingCleanupFailureCode(error: unknown): ManagedArtifactStagingCleanu
   return 'UNKNOWN';
 }
 
-function stagingPromotionFailure(error: unknown): ManagedArtifactStagingPromotionFailure {
+function stagingPromotionFailure(
+  error: unknown,
+  step: ManagedArtifactStagingPromotionStep,
+): ManagedArtifactStagingPromotionFailure {
   if (error instanceof ManagedFilesystemAdapterError) {
     return Object.freeze({
       failureCode: error.code,
       ...(error.promotionDiagnosticCode ? { promotionDiagnosticCode: error.promotionDiagnosticCode } : {}),
+      step,
     });
   }
-  return Object.freeze({ failureCode: stagingCleanupFailureCode(error) });
+  return Object.freeze({ failureCode: stagingCleanupFailureCode(error), step });
 }
 
 function corruptEvidence(descriptor: ManagedArtifactDescriptor): LocalWhisperManagedArtifactEvidence {
@@ -558,12 +564,15 @@ export class ManagedArtifactStore {
       throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
     }
     let promoted = false;
+    let promotionStep: ManagedArtifactStagingPromotionStep = 'inspect';
     try {
       const entries = await this.dependencies.adapter.inspectDirectory(
         this.token(stagingLease),
         expectedDirectoryEntries(descriptor),
       );
+      promotionStep = 'validate';
       validateDirectoryEntries(descriptor, entries);
+      promotionStep = 'promote';
       await this.dependencies.adapter.promoteStagingDirectory(
         this.requireRoot().token,
         this.token(stagingLease),
@@ -572,7 +581,7 @@ export class ManagedArtifactStore {
       );
       promoted = true;
     } catch (error) {
-      this.dependencies.onStagingPromotionFailure?.(stagingPromotionFailure(error));
+      this.dependencies.onStagingPromotionFailure?.(stagingPromotionFailure(error, promotionStep));
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       if (promoted) await stagingLease.release();
@@ -590,12 +599,15 @@ export class ManagedArtifactStore {
       throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
     }
     let promoted = false;
+    let promotionStep: ManagedArtifactStagingPromotionStep = 'inspect';
     try {
       const entries = await this.dependencies.adapter.inspectDirectoryMetadataOnly(
         this.token(stagingLease),
         expectedDirectoryEntries(descriptor),
       );
+      promotionStep = 'validate';
       validateDirectoryMetadata(descriptor, entries);
+      promotionStep = 'promote';
       await this.dependencies.adapter.promoteStagingDirectory(
         this.requireRoot().token,
         this.token(stagingLease),
@@ -604,7 +616,7 @@ export class ManagedArtifactStore {
       );
       promoted = true;
     } catch (error) {
-      this.dependencies.onStagingPromotionFailure?.(stagingPromotionFailure(error));
+      this.dependencies.onStagingPromotionFailure?.(stagingPromotionFailure(error, promotionStep));
       throw mapAdapterError(error, 'INSTALL_FAILED');
     } finally {
       if (promoted) await stagingLease.release();

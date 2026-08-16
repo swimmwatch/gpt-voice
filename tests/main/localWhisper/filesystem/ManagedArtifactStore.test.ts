@@ -420,7 +420,7 @@ describe('ManagedArtifactStore staging promotion', () => {
       (error: unknown) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
     );
 
-    assert.deepEqual(promotionFailures, [{ failureCode: 'IO_FAILED' }]);
+    assert.deepEqual(promotionFailures, [{ failureCode: 'IO_FAILED', step: 'promote' }]);
     await harness.store.discardStaging(staging);
   });
 
@@ -435,7 +435,9 @@ describe('ManagedArtifactStore staging promotion', () => {
 
     await assert.rejects(harness.store.promoteMetadataOnlyModel(harness.descriptor, staging));
 
-    assert.deepEqual(promotionFailures, [{ failureCode: 'IO_FAILED', promotionDiagnosticCode: 'BUSY' }]);
+    assert.deepEqual(promotionFailures, [
+      { failureCode: 'IO_FAILED', promotionDiagnosticCode: 'BUSY', step: 'promote' },
+    ]);
     await harness.store.discardStaging(staging);
   });
 
