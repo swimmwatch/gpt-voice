@@ -211,6 +211,7 @@ function createPromotionFailureHarness() {
   const stableEntries = directoryEntries(descriptor);
   const metadataEntries = Object.freeze(stableEntries.map((entry) => Object.freeze({ ...entry, sha256: null })));
   const releases = new Map<string, number>();
+  let promotionAttempts = 0;
   let stagingInspectionCount = 0;
   const rootNative: ManagedFilesystemOpenResult = Object.freeze({
     identity: identity('root-directory', 'directory', 0o700, 0),
@@ -242,13 +243,16 @@ function createPromotionFailureHarness() {
     },
     inspectDirectoryMetadataOnly: async () => metadataEntries,
     promoteStagingDirectory: async () => {
+      promotionAttempts += 1;
       throw new ManagedFilesystemAdapterError('IO_FAILED');
     },
     release: async (token: string) => {
       releases.set(token, (releases.get(token) ?? 0) + 1);
     },
     removeEmptyStagingDirectory: async () => undefined,
-    revalidate: async () => undefined,
+    revalidate: async () => {
+      throw new ManagedFilesystemAdapterError('IDENTITY_CHANGED');
+    },
     sealStagedFile: async () => manifestNative.identity,
   } as Pick<
     ManagedFilesystemPlatformAdapter,
@@ -287,6 +291,7 @@ function createPromotionFailureHarness() {
   });
   return Object.freeze({
     descriptor,
+    promotionAttempts: () => promotionAttempts,
     releaseCount: (token: string) => releases.get(token) ?? 0,
     store,
   });
@@ -375,6 +380,7 @@ describe('ManagedArtifactStore staging promotion', () => {
       harness.store.promoteMetadataOnlyModel(harness.descriptor, staging),
       (error: unknown) => error instanceof ManagedArtifactStoreError && error.code === 'INSTALL_FAILED',
     );
+    assert.equal(harness.promotionAttempts(), 1);
     assert.equal(staging.released, false);
     assert.equal(harness.releaseCount('staging-token'), 0);
 

@@ -532,7 +532,6 @@ export class ManagedArtifactStore {
         expectedDirectoryEntries(descriptor),
       );
       validateDirectoryEntries(descriptor, entries);
-      await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
       await this.dependencies.adapter.promoteStagingDirectory(
         this.requireRoot().token,
         this.token(stagingLease),
@@ -564,7 +563,6 @@ export class ManagedArtifactStore {
         expectedDirectoryEntries(descriptor),
       );
       validateDirectoryMetadata(descriptor, entries);
-      await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
       await this.dependencies.adapter.promoteStagingDirectory(
         this.requireRoot().token,
         this.token(stagingLease),
@@ -608,8 +606,6 @@ export class ManagedArtifactStore {
           throw new ManagedArtifactStoreError('ARTIFACT_UNPROVABLE');
         }
       }
-      this.dependencies.onStagingCleanupStep?.('revalidate');
-      await this.dependencies.adapter.revalidate(this.token(stagingLease), stagingLease.metadata.identity);
       for (const entry of entries) {
         this.dependencies.onStagingCleanupStep?.('delete');
         await this.dependencies.adapter.deleteStagingFile(
