@@ -79,7 +79,7 @@ describe('main translation Select controls', () => {
     assert.match(handler, /requestId !== translationSettingsRequestRef\.current/u);
     assert.doesNotMatch(
       handler,
-      /translateText|providerLogin|getBgBrowserStatus|checkSession|navigate|clear|probe|createTranslationProvider/u,
+      /translateText|providerLogin|getBgBrowserStatus|checkSession|navigate|clearProvider|probe|createTranslationProvider/u,
     );
     assert.match(app, /disposed \|\| translationSettingsRequestId !== translationSettingsRequestRef\.current/u);
     assert.match(app, /translationSettingsRequestRef\.current \+= 1/u);

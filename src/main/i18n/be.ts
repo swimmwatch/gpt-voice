@@ -6,6 +6,12 @@ export default {
   ...getPrettifyProfileSettingsTranslations('be'),
   'translate.provider': 'Пастаўшчык перакладу',
   'translate.saving': 'Захаванне...',
+  'providerHotkeyDemo.fixtureControls': 'Элементы кіравання дэманстрацыяй',
+  'providerHotkeyDemo.fixture': 'Сцэнарый',
+  'providerHotkeyDemo.advanceClock': 'Перавесці гадзіннік дэманстрацыі наперад',
+  'providerHotkeyDemo.clearLock': 'Зняць блакіроўку дэманстрацыі',
+  'providerHotkeyDemo.ownerlessLock': 'Блакіроўка без уладальніка',
+  'providerHotkeyDemo.statusDetailPriority': 'Прыярытэт дэталяў стану',
   'translate.settingsSaveFailed': 'Не ўдалося захаваць налады перакладу',
 
   // Status messages
@@ -136,6 +142,8 @@ export default {
   // App settings
   'appSettings.open': 'Налады праграмы',
   'settings.blockedWhileOpen': 'Закрыйце налады, каб працягнуць працу з GPT-Voice.',
+  'settings.opening': 'Адкрыццё налад…',
+  'settings.show': 'Паказаць налады',
   'settings.blockedWhileRecording': 'Спыніце запіс перад адкрыццём налад.',
   'settings.blockedWhileOperationActive': 'Дачакайцеся завяршэння бягучай аперацыі перад адкрыццём налад.',
   'appSettings.title': 'Налады',
@@ -227,6 +235,7 @@ export default {
   // Model memory
   'modelMemory.title': 'Памяць мадэлі',
   'modelMemory.ollamaGpu': 'Мадэль паляпшэння тэксту',
+  'modelMemory.ram': 'АЗП',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Загружана',
   'modelMemory.notLoaded': 'Не загружана',
@@ -497,6 +506,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
+  'error.selectedProviderNotReady': 'Абраны правайдар не гатовы.',
   'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
   'error.chatGptConnectionInterrupted': 'Распазнаванне праз ChatGPT было перапынена. Паўтарыце спробу.',
@@ -693,4 +703,16 @@ export default {
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Паказаць',
   'tray.quit': 'Выхад',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Незалежная настольная праграма для галасавой транскрыпцыі праз вэб-сеансы GPT.',
+  'nativeMenu.file': 'Файл',
+  'nativeMenu.edit': 'Праўка',
+  'nativeMenu.view': 'Выгляд',
+  'nativeMenu.help': 'Даведка',
+  'nativeMenu.projectOnGitHub': 'Праект на GitHub',
+  'nativeMenu.aboutApp': 'Пра {app}',
+  'prettify.providerUnavailable': 'Пастаўшчык Prettify недаступны.',
+  'prettify.modelLoadUnavailable': 'Загрузка мадэлі недаступная для гэтага пастаўшчыка.',
+  'prettify.modelUnloadUnavailable': 'Выгрузка мадэлі недаступная для гэтага пастаўшчыка.',
+  'prettify.instructionInvalid': 'Запыт Prettify некарэктны.',
 } as const;

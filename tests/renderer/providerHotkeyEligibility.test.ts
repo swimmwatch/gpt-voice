@@ -311,10 +311,10 @@ describe('deriveProviderHotkeyPresentation', () => {
     assert.equal(deriveProviderHotkeyPresentation(releasedMainLock).eligibility.prettify.locked, true);
   });
 
-  it('does not use provider connection appearance as eligibility input', () => {
-    const presentation = deriveProviderHotkeyPresentation(createInput());
+  it('keeps Voice locked while the provider readiness snapshot is unavailable', () => {
+    const presentation = deriveProviderHotkeyPresentation(createInput({ voiceProviderAvailable: false }));
 
-    assert.equal(presentation.eligibility.voice.locked, false);
+    assert.equal(presentation.eligibility.voice.locked, true);
     assert.equal(presentation.eligibility.prettify.locked, false);
     assert.equal(presentation.eligibility.translation.locked, false);
   });

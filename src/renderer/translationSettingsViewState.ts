@@ -4,6 +4,7 @@ import type {
   TranslationSettings,
   TranslationSettingsSaveResult,
 } from '@shared/translationProvider';
+import { TRANSLATION_PROVIDER_CONNECTION_STATUSES } from '@shared/translationProvider';
 
 export interface TranslationSettingsViewState {
   readonly confirmedSettings: TranslationSettings;
@@ -47,6 +48,17 @@ export function doesTranslationConnectionMatchSettings(
     connectionState.providerId === null ||
     (connectionState.providerId === settings.providerId &&
       connectionState.targetLanguage === settings.targetLanguageByProvider[settings.providerId])
+  );
+}
+
+/** Accepts only a ready connection result for the Translation settings currently shown to the user. */
+export function isTranslationProviderConnected(
+  connectionState: TranslationProviderConnectionState | null,
+  settings: TranslationSettings,
+): boolean {
+  return (
+    connectionState?.status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected &&
+    doesTranslationConnectionMatchSettings(connectionState, settings)
   );
 }
 

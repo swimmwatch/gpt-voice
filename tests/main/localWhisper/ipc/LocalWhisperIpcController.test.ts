@@ -6,6 +6,7 @@ import { LocalWhisperIpcController } from '@main/localWhisper/ipc/LocalWhisperIp
 import {
   LOCAL_WHISPER_IPC_CHANNELS,
   createLocalWhisperRendererSafeFailure,
+  type LocalWhisperFailureCode,
   type LocalWhisperSettingsCommand,
 } from '@shared/localWhisper';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
@@ -43,6 +44,7 @@ function createHarness(
   let openSettingsCalls = 0;
   let refreshSettingsCalls = 0;
   let activeProviderId = initialProviderId;
+  const modelLoadFailureCodes: LocalWhisperFailureCode[] = [];
   const controller = new LocalWhisperIpcController({
     audit,
     transport,
@@ -50,6 +52,9 @@ function createHarness(
     coordinator,
     artifacts: privileged.artifacts,
     mainInteractionLock,
+    modelLoadFailureNotifier: {
+      notify: (code) => modelLoadFailureCodes.push(code),
+    },
     managedFolder: privileged.folder,
     references: privileged.references,
     snapshots,
@@ -73,6 +78,7 @@ function createHarness(
     controller,
     getOpenSettingsCalls: () => openSettingsCalls,
     getRefreshSettingsCalls: () => refreshSettingsCalls,
+    modelLoadFailureCodes,
     setActiveProviderId: (providerId: string) => {
       activeProviderId = providerId;
     },
@@ -137,6 +143,7 @@ describe('LocalWhisperIpcController', () => {
       coordinator,
       artifacts: privileged.artifacts,
       mainInteractionLock,
+      modelLoadFailureNotifier: { notify: () => undefined },
       managedFolder: privileged.folder,
       references: privileged.references,
       snapshots,
@@ -320,6 +327,47 @@ describe('LocalWhisperIpcController', () => {
     finishLoad();
     await first;
     assert.equal(harness.coordinator.unloadCalls, 0);
+  });
+
+  it('notifies once for every failed delegated model load without notifying rejected preconditions', async () => {
+    const harness = createHarness();
+    const rejected = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      { kind: 'load', expectedSnapshotRevision: harness.snapshots.mainStatus.snapshotRevision },
+    );
+    assert.equal((rejected as { readonly success: boolean }).success, false);
+    assert.deepEqual(harness.modelLoadFailureCodes, []);
+
+    harness.coordinator.loadNow = async () => ({
+      success: false as const,
+      error: { code: 'INSUFFICIENT_RAM' as const },
+    });
+    const settingsResult = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.settingsCommand,
+      fakeEvent('settings'),
+      { kind: 'load', ...expected(harness.snapshots) },
+    );
+    assert.equal((settingsResult as { readonly success: boolean }).success, false);
+    assert.deepEqual(harness.modelLoadFailureCodes, ['INSUFFICIENT_RAM']);
+
+    harness.coordinator.emit(
+      coordinatorSnapshot({
+        snapshotRevision: 2,
+        runtime: Object.freeze({
+          ...harness.coordinator.snapshot.runtime,
+          residency: 'Unloaded',
+          operationalStatus: 'ValidatedUnloaded',
+        }),
+      }),
+    );
+    const mainResult = await harness.transport.invoke(
+      LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand,
+      fakeEvent('main'),
+      { kind: 'load', expectedSnapshotRevision: harness.snapshots.mainStatus.snapshotRevision },
+    );
+    assert.equal((mainResult as { readonly success: boolean }).success, false);
+    assert.deepEqual(harness.modelLoadFailureCodes, ['INSUFFICIENT_RAM', 'INSUFFICIENT_RAM']);
   });
 
   it('rejects main residency commands while a settings window owns the interaction lock', async () => {

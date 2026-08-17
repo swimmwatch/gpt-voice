@@ -1,4 +1,6 @@
 export default {
+  'localWhisper.settings.hostCpu': 'ЦП · {count} лагічных працэсараў',
+  'localWhisper.settings.hostAppleSilicon': 'Apple Silicon · Local Whisper запланаваны',
   'localWhisper.settings.title': 'Лакальны Whisper',
   'localWhisper.settings.pageDescription':
     'Запусціце Whisper.cpp лакальна з выразнымі элементамі кіравання мадэллю, бэкэндам і жыццёвым цыклам памяці.',

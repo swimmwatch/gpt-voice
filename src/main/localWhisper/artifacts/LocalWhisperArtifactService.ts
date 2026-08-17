@@ -29,6 +29,7 @@ import { ArtifactTransferJournalRepository, isStrongArtifactValidator } from './
 import { ArtifactTransferQueue } from './ArtifactTransferQueue';
 import { CatalogHttpTransport } from './CatalogHttpTransport';
 import { StreamingArtifactExtractor } from './StreamingArtifactExtractor';
+import type { ArtifactInstallationDiagnosticStage } from './StreamingArtifactExtractor';
 import { StreamingArtifactVerifier, type StreamingArtifactVerificationInput } from './StreamingArtifactVerifier';
 
 const OPERATION_ID_PATTERN = /^[\w-]{16,128}$/u;
@@ -70,6 +71,8 @@ export interface LocalWhisperArtifactServiceDependencies {
       readonly primaryCode: LocalWhisperFailureCode;
     }>,
   ) => void;
+  /** Present only in the isolated qualification composition; observer failures are ignored. */
+  readonly onInstallationStage?: (stage: ArtifactInstallationDiagnosticStage) => void;
   readonly progress: ArtifactProgressStore;
   readonly queue: ArtifactTransferQueue;
   readonly store: ArtifactManagedStorePort;
@@ -271,12 +274,19 @@ export class LocalWhisperArtifactService {
       this.publish(operationId, spec, mode, 'Verifying', processed.receivedBytes, null, true);
       this.publish(operationId, spec, mode, 'Installing', processed.receivedBytes, null, true);
       await this.dependencies.extractor.install(spec, processed.entries, signal);
+      this.observeInstallationStage('journalRemovalStarted');
       await this.dependencies.journals.remove(spec.artifactId);
+      this.observeInstallationStage('journalRemoved');
+      this.observeInstallationStage('spoolDiscardStarted');
       await this.dependencies.verifier.discard(processed.spoolId);
+      this.observeInstallationStage('spoolDiscarded');
+      this.observeInstallationStage('inventoryRefreshStarted');
       const inventoryRevision = await this.dependencies.inventory.refresh(
         this.dependencies.catalogResolver.getCatalog(),
       );
+      this.observeInstallationStage('inventoryRefreshed');
       this.publish(operationId, spec, mode, 'Installed', processed.receivedBytes, null, true);
+      this.observeInstallationStage('installedPublished');
       this.dependencies.logger.info('local-whisper-artifact-installed', {
         artifactId: spec.artifactId,
         bytes: processed.receivedBytes,
@@ -354,6 +364,14 @@ export class LocalWhisperArtifactService {
       operationId,
     });
     return this.failure(operationId, spec.artifactId, finalCode, state);
+  }
+
+  private observeInstallationStage(stage: ArtifactInstallationDiagnosticStage): void {
+    try {
+      this.dependencies.onInstallationStage?.(stage);
+    } catch {
+      // Qualification diagnostics must not alter the transfer outcome.
+    }
   }
 
   private async discardClassification(

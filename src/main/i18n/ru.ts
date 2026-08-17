@@ -6,6 +6,12 @@ export default {
   ...getPrettifyProfileSettingsTranslations('ru'),
   'translate.provider': 'Провайдер перевода',
   'translate.saving': 'Сохранение...',
+  'providerHotkeyDemo.fixtureControls': 'Элементы управления демонстрацией',
+  'providerHotkeyDemo.fixture': 'Сценарий',
+  'providerHotkeyDemo.advanceClock': 'Переместить часы демонстрации',
+  'providerHotkeyDemo.clearLock': 'Снять блокировку демонстрации',
+  'providerHotkeyDemo.ownerlessLock': 'Блокировка без владельца',
+  'providerHotkeyDemo.statusDetailPriority': 'Приоритет детали статуса',
   'translate.settingsSaveFailed': 'Не удалось сохранить настройки перевода',
 
   // Status messages
@@ -137,6 +143,8 @@ export default {
   // App settings
   'appSettings.open': 'Настройки приложения',
   'settings.blockedWhileOpen': 'Закройте настройки, чтобы продолжить работу с GPT-Voice.',
+  'settings.opening': 'Открываем настройки…',
+  'settings.show': 'Показать настройки',
   'settings.blockedWhileRecording': 'Остановите запись перед открытием настроек.',
   'settings.blockedWhileOperationActive': 'Дождитесь завершения текущей операции перед открытием настроек.',
   'appSettings.title': 'Настройки',
@@ -228,6 +236,7 @@ export default {
   // Model memory
   'modelMemory.title': 'Память модели',
   'modelMemory.ollamaGpu': 'Модель улучшения текста',
+  'modelMemory.ram': 'ОЗУ',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Загружена',
   'modelMemory.notLoaded': 'Не загружена',
@@ -498,6 +507,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',
+  'error.selectedProviderNotReady': 'Выбранный провайдер не готов.',
   'error.noAccessToken': 'Нет токена доступа или API key. Настройте провайдера и повторите попытку.',
   'error.chatGptAsrFailure': 'ChatGPT не смог обработать записанный звук ({mimeType}). Попробуйте записать снова.',
   'error.chatGptConnectionInterrupted': 'Распознавание через ChatGPT было прервано. Повторите попытку.',
@@ -693,4 +703,16 @@ export default {
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показать',
   'tray.quit': 'Выход',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Независимое настольное приложение для голосовой транскрибации через веб-сессии GPT.',
+  'nativeMenu.file': 'Файл',
+  'nativeMenu.edit': 'Правка',
+  'nativeMenu.view': 'Вид',
+  'nativeMenu.help': 'Справка',
+  'nativeMenu.projectOnGitHub': 'Проект на GitHub',
+  'nativeMenu.aboutApp': 'О приложении {app}',
+  'prettify.providerUnavailable': 'Провайдер Prettify недоступен.',
+  'prettify.modelLoadUnavailable': 'Загрузка модели недоступна для этого провайдера.',
+  'prettify.modelUnloadUnavailable': 'Выгрузка модели недоступна для этого провайдера.',
+  'prettify.instructionInvalid': 'Запрос Prettify некорректен.',
 } as const;

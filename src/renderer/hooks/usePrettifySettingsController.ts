@@ -33,10 +33,6 @@ interface UsePrettifySettingsControllerOptions {
   t: Translate;
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function getConfiguredPrettifyModel(settings: PrettifySettingsDraft, providerId: PrettifyProviderId): string {
   switch (providerId) {
     case 'ollama':
@@ -139,7 +135,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
           }
           return current;
         });
-      } catch (error: unknown) {
+      } catch {
         if (!disposedRef.current && requestId === modelRequestRef.current) {
           setProviderModelStates((current) => ({
             ...current,
@@ -149,7 +145,7 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
               checkStatus: 'unavailable',
             },
           }));
-          setModelError(getErrorMessage(error));
+          setModelError(t('prettify.modelsRefreshFailed'));
         }
       } finally {
         if (!disposedRef.current && requestId === modelRequestRef.current) setIsLoadingModels(false);
@@ -337,8 +333,8 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
         ],
       }));
       setModelLoadStatus(t('prettify.modelLoaded', { model: result.model || selectedModel }));
-    } catch (error: unknown) {
-      setModelLoadError(getErrorMessage(error));
+    } catch {
+      setModelLoadError(t('prettify.modelLoadFailed'));
     } finally {
       setIsLoadingModel(false);
     }
@@ -379,8 +375,8 @@ export function usePrettifySettingsController({ setFieldErrors, t }: UsePrettify
         ollama: current.ollama.map((option) => (option.id === selectedModel ? { ...option, isLoaded: false } : option)),
       }));
       setModelLoadStatus(t('prettify.modelFreed', { model: result.model || selectedModel }));
-    } catch (error: unknown) {
-      setModelLoadError(getErrorMessage(error));
+    } catch {
+      setModelLoadError(t('prettify.modelUnloadFailed'));
     } finally {
       setIsLoadingModel(false);
     }

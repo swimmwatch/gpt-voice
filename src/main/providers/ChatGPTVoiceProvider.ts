@@ -31,6 +31,7 @@ import type { RendererSafeVoiceProviderInfo } from '@shared/voiceProvider';
 const CHATGPT_URL = 'https://chatgpt.com';
 const CHATGPT_NAVIGATION_TIMEOUT_MS = 60000;
 const AUTH_SESSION_TIMEOUT_MS = 15000;
+const AUTH_SESSION_RECOVERY_TIMEOUT_MS = 15000;
 const TRANSCRIPTION_MAX_ATTEMPTS = 2;
 const TRANSCRIPTION_REQUEST_TIMEOUT_MS = 20000;
 const TRANSCRIPTION_PAGE_RECOVERY_TIMEOUT_MS = 15000;
@@ -145,11 +146,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
 
     await this.navigateToChatGPT();
 
-    // Load token: try cache first, then fetch from page
-    this.accessToken = this.loadCachedToken();
-    if (!this.accessToken) {
-      this.accessToken = await this.fetchAccessToken();
-    }
+    await this.loadInitialAccessToken();
   }
 
   getLoginUrl(): string {
@@ -352,6 +349,22 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
       }
     }, AUTH_SESSION_TIMEOUT_MS);
     return typeof token === 'string' ? token : '';
+  }
+
+  /** Recovers one transient session-endpoint miss without discarding the saved browser session. */
+  private async loadInitialAccessToken(): Promise<void> {
+    this.accessToken = this.loadCachedToken();
+    if (this.accessToken || !this.page) return;
+
+    this.accessToken = await this.fetchAccessToken();
+    if (this.accessToken || !this.page) return;
+
+    try {
+      await this.deps.reloadPage(this.page, AUTH_SESSION_RECOVERY_TIMEOUT_MS);
+      this.accessToken = await this.fetchAccessToken();
+    } catch {
+      this.deps.logger.warn('ChatGPT access-token recovery did not complete');
+    }
   }
 
   /** Runs the existing bounded authentication retry under one audit operation. */

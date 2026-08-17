@@ -148,6 +148,7 @@ export interface PerformanceResourcePort {
       readonly expectedExecutableSha256: string;
       readonly requiredResourceIds: readonly LocalWhisperPerformanceResourceId[];
       readonly eventStream: NodeJS.ReadableStream;
+      readonly completionTimeoutMilliseconds: number;
     }>,
   ): PerformanceResourceSession;
 }
@@ -520,13 +521,13 @@ export class LocalWhisperPerformanceCollector {
         expectedExecutableSha256: input.application.identity.sha256,
         requiredResourceIds: input.manifest.requiredResourceIds,
         eventStream: processSession.eventStream,
+        completionTimeoutMilliseconds: input.plan.attemptTimeoutMilliseconds,
       });
       resourceSession = this.ports.resources.start(resourceInput);
       const output = await processSession.complete();
       const outcome = this.ports.phases.parse(output, input.manifest);
-      const resourceProof = await resourceSession.finish();
-      const resources = validateResourceProof(resourceProof, resourceInput);
       if (outcome.status === 'failed') {
+        resourceSession.terminate();
         return documents.produceSample(input.manifest, {
           cacheReceiptDigest: input.cacheReceiptDigest,
           sampleId: input.sampleId,
@@ -540,6 +541,8 @@ export class LocalWhisperPerformanceCollector {
           failureReason: outcome.failureReason,
         });
       }
+      const resourceProof = await resourceSession.finish();
+      const resources = validateResourceProof(resourceProof, resourceInput);
       return documents.produceSample(input.manifest, {
         cacheReceiptDigest: input.cacheReceiptDigest,
         sampleId: input.sampleId,

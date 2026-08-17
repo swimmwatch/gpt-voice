@@ -5,6 +5,7 @@ import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebCo
 import { AboutWindowController } from '@main/aboutWindowController';
 import { ProviderSettingsWindowController } from '@main/providerSettingsWindowController';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS } from '@shared/settingsPresentation';
 import { WindowManager } from '@main/window';
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
@@ -24,6 +25,7 @@ class RecordingBrowserWindow {
   public enabled = true;
   public focusCount = 0;
   public hideCount = 0;
+  public loadFailure: Error | null = null;
   public loadUrls: string[] = [];
   public minimized = false;
   public restoreCount = 0;
@@ -109,6 +111,9 @@ class RecordingBrowserWindow {
     this.frameUrl = url;
     this.webContentsUrl = url;
     this.loadUrls.push(url);
+    const failure = this.loadFailure;
+    this.loadFailure = null;
+    if (failure) return Promise.reject(failure);
     return Promise.resolve();
   }
 
@@ -157,6 +162,10 @@ class RecordingBrowserWindow {
     this.close();
   }
 
+  public triggerReadyToShow(): void {
+    this.emit('ready-to-show');
+  }
+
   private addListener(listeners: Map<string, WindowListener[]>, event: string, listener: WindowListener): void {
     listeners.set(event, [...(listeners.get(event) ?? []), listener]);
   }
@@ -174,12 +183,15 @@ class RecordingBrowserWindow {
 
 class WindowManagerHarness {
   public readonly created: RecordingBrowserWindow[] = [];
+  public nextLoadFailure: Error | null = null;
   public operationActive = false;
   public readonly mainInteractionLock = new MainInteractionLock(() => this.operationActive);
   public readonly manager = new WindowManager({
     createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
     createBrowserWindow: (options) => {
       const window = new RecordingBrowserWindow(this.created.length + 1, options);
+      window.loadFailure = this.nextLoadFailure;
+      this.nextLoadFailure = null;
       this.created.push(window);
       return window as unknown as BrowserWindow;
     },
@@ -190,6 +202,7 @@ class WindowManagerHarness {
       }) as unknown as NativeImage,
     getAppIconPath: () => '/assets/icon.png',
     getAppUrl: (pathname = 'index.html') => `app://gpt-voice/${pathname}`,
+    localization: { translate: (key) => key },
     logger: { debug: () => undefined, warn: () => undefined },
     mainInteractionLock: this.mainInteractionLock,
     openExternal: async () => undefined,
@@ -382,9 +395,13 @@ describe('WindowManager', () => {
     });
     const localWhisperWindow = harness.created[0];
     assert.ok(localWhisperWindow);
+    assert.equal(harness.manager.settingsPresentation, 'opening');
+    localWhisperWindow.triggerReadyToShow();
+    assert.equal(harness.manager.settingsPresentation, 'open');
 
     localWhisperWindow.triggerClose();
     assert.equal(localWhisperWindow.destroyed, false);
+    assert.equal(harness.manager.settingsPresentation, 'open');
     assert.deepEqual(localWhisperWindow.sent, [[PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested]]);
 
     localWhisperWindow.throwOnDestroyedWebContentsAccess = true;
@@ -392,6 +409,7 @@ describe('WindowManager', () => {
       assert.equal(harness.manager.closeProviderSettingsWindow(localWhisperWindow.webContents), true);
     });
     assert.equal(localWhisperWindow.destroyed, true);
+    assert.equal(harness.manager.settingsPresentation, 'idle');
 
     assert.deepEqual(harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI'), { success: true });
     const openAiWindow = harness.created[1];
@@ -412,7 +430,7 @@ describe('WindowManager', () => {
     assert.deepEqual(localWhisperWindow.sent, []);
   });
 
-  it('disables non-owner windows for the settings lease and restores them after close', () => {
+  it('keeps windows enabled while publishing the visible settings presentation', () => {
     const harness = new WindowManagerHarness();
     harness.manager.createMainWindow();
     harness.manager.showHistoryWindow();
@@ -428,15 +446,44 @@ describe('WindowManager', () => {
     assert.deepEqual(harness.manager.showSettingsWindow(), { success: true });
     const settingsWindow = harness.created[3];
     assert.ok(settingsWindow);
-    assert.equal(mainWindow.enabled, false);
-    assert.equal(historyWindow.enabled, false);
-    assert.equal(aboutWindow.enabled, false);
-    assert.equal(settingsWindow.enabled, true);
-
-    harness.manager.closeSettingsWindow();
+    assert.equal(harness.manager.settingsPresentation, 'opening');
     assert.equal(mainWindow.enabled, true);
     assert.equal(historyWindow.enabled, true);
     assert.equal(aboutWindow.enabled, true);
+    assert.equal(settingsWindow.enabled, true);
+    assert.equal(
+      mainWindow.sent.some(
+        ([channel, state]) => channel === SETTINGS_PRESENTATION_IPC_CHANNELS.changed && state === 'opening',
+      ),
+      true,
+    );
+
+    settingsWindow.triggerReadyToShow();
+    assert.equal(harness.manager.settingsPresentation, 'open');
+    harness.manager.showMainWindow();
+    assert.equal(settingsWindow.focusCount, 1);
+
+    harness.manager.closeSettingsWindow();
+    assert.equal(harness.manager.settingsPresentation, 'idle');
+    assert.equal(
+      mainWindow.sent.some(
+        ([channel, state]) => channel === SETTINGS_PRESENTATION_IPC_CHANNELS.changed && state === 'idle',
+      ),
+      true,
+    );
+  });
+
+  it('clears a settings presentation after settings content fails to load', async () => {
+    const harness = new WindowManagerHarness();
+    harness.nextLoadFailure = new Error('settings load failed');
+
+    assert.deepEqual(harness.manager.showSettingsWindow(), { success: true });
+    assert.equal(harness.manager.settingsPresentation, 'opening');
+    await Promise.resolve();
+
+    assert.equal(harness.created[0]?.destroyed, true);
+    assert.equal(harness.manager.settingsPresentation, 'idle');
+    assert.equal(harness.mainInteractionLock.locked, false);
   });
 
   it('refuses settings windows while recording is active', () => {
@@ -489,8 +536,7 @@ describe('WindowManager', () => {
     const settingsWindow = harness.created[1];
     assert.ok(mainWindow);
     assert.ok(settingsWindow);
-    assert.equal(mainWindow.enabled, false);
-    assert.equal(settingsWindow.enabled, true);
+    assert.equal(harness.manager.settingsPresentation, 'opening');
     assert.equal(
       harness.manager.getTrustedSettingsWindow(settingsWindow.webContents, settingsWindow.loadUrls[0] ?? ''),
       settingsWindow as unknown as BrowserWindow,
@@ -499,10 +545,10 @@ describe('WindowManager', () => {
     harness.manager.showHistoryWindow();
     harness.manager.showAboutWindow();
     harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');
-    assert.equal(harness.created.length, 2);
+    assert.equal(harness.created.length, 4);
 
     harness.manager.closeSettingsWindow();
-    assert.equal(mainWindow.enabled, true);
+    assert.equal(harness.manager.settingsPresentation, 'idle');
     harness.manager.showHistoryWindow();
     harness.manager.showAboutWindow();
     harness.manager.showProviderSettingsWindow('openai-api', 'OpenAI');

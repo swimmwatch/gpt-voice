@@ -34,10 +34,18 @@ import {
   toLocalWhisperArtifactId,
   toLocalWhisperOpaqueDeviceId,
   toLocalWhisperRevisionId,
+  type LocalWhisperFailureCode,
   type LocalWhisperPublicSettings,
   type LocalWhisperRevisionId,
 } from '@shared/localWhisper';
 import type { LocalWhisperQualificationLoadStage } from '@main/localWhisper/composition/LocalWhisperProductionWorkerPort';
+import type { ArtifactInstallationDiagnosticStage } from '@main/localWhisper/artifacts/StreamingArtifactExtractor';
+import type {
+  ManagedArtifactStagingCleanupFailure,
+  ManagedArtifactStagingCleanupStep,
+  ManagedArtifactStagingPromotionFailure,
+  ManagedArtifactStagingPromotionStep,
+} from '@main/localWhisper/filesystem/ManagedArtifactStore';
 
 import { QualificationArtifactHttpClient } from './QualificationArtifactHttpClient';
 import { LocalWhisperQualificationCatalogProducer } from './QualificationCatalogProducer';
@@ -47,6 +55,11 @@ import type {
   PerformanceAttemptApplicationResult,
 } from './PerformanceQualificationAttemptRunner';
 import { LinuxPerformanceAttemptProbe } from './LinuxPerformanceAttemptProbe';
+import {
+  PERFORMANCE_ATTEMPT_DIAGNOSTIC_DESCRIPTOR,
+  performanceAttemptArtifactInstallationDiagnosticFrame,
+  type PerformanceAttemptDiagnosticArtifactKind,
+} from './PerformanceAttemptDiagnosticProtocol';
 import { PerformanceRuntimeArchiveInspector } from './PerformanceRuntimeArchiveInspector';
 
 const execFileAsync = promisify(execFile);
@@ -54,7 +67,6 @@ const RUNTIME_ORIGIN = 'https://127.0.0.1:44391';
 const RUNTIME_FILE = 'performance-runtime.tar.gz';
 const SOURCE_COMMIT = 'f049fff95a089aa9969deb009cdd4892b3e74916';
 const ATTEMPT_VERSION = '3.0.0';
-const ARTIFACT_TIMEOUT_MILLISECONDS = 60 * 60 * 1000;
 const MAXIMUM_PRIVATE_CLEANUP_ENTRIES = 100_000;
 
 type AttemptApplicationStage =
@@ -73,6 +85,35 @@ type AttemptApplicationStage =
 
 const SAFE_LOCAL_WHISPER_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,31}$/u;
 const SAFE_ATTEMPT_FAILURE_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
+const STAGING_CLEANUP_STEPS: readonly ManagedArtifactStagingCleanupStep[] = [
+  'inspect',
+  'validate',
+  'revalidate',
+  'delete',
+  'confirm',
+  'remove',
+];
+const STAGING_CLEANUP_FAILURE_CODES: readonly ManagedArtifactStagingCleanupFailure['failureCode'][] = [
+  'CONFLICT',
+  'IDENTITY_CHANGED',
+  'INVALID_INPUT',
+  'NOT_FOUND',
+  'UNSAFE_ENTRY',
+  'UNSUPPORTED',
+  'IO_FAILED',
+  'STORE',
+  'UNKNOWN',
+];
+const STAGING_PROMOTION_DIAGNOSTIC_CODES = [
+  'ACCESS_DENIED',
+  'BUSY',
+  'CROSS_DEVICE',
+  'INVALID_RESPONSE',
+  'NOT_FOUND',
+  'OTHER',
+  'UNSUPPORTED',
+] as const;
+const STAGING_PROMOTION_STEPS: readonly ManagedArtifactStagingPromotionStep[] = ['inspect', 'validate', 'promote'];
 
 class AttemptApplicationFailure extends Error {
   public constructor(public readonly code: string) {
@@ -101,6 +142,57 @@ class RejectingArtifactHttpClient implements ArtifactHttpClient {
 
 function digest(value: string | Buffer): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+/** Emits only fixed qualification state to the private parent and never lets logging affect an attempt. */
+function publishArtifactInstallationDiagnostic(
+  artifactKind: PerformanceAttemptDiagnosticArtifactKind,
+  stage: ArtifactInstallationDiagnosticStage,
+): void {
+  try {
+    fs.writeSync(
+      PERFORMANCE_ATTEMPT_DIAGNOSTIC_DESCRIPTOR,
+      performanceAttemptArtifactInstallationDiagnosticFrame({ artifactKind, stage }),
+    );
+  } catch {
+    // The isolated runner may be invoked without its optional private diagnostic pipe.
+  }
+}
+
+function diagnosticStageForLoadStage(stage: LocalWhisperQualificationLoadStage): ArtifactInstallationDiagnosticStage {
+  switch (stage) {
+    case 'MODEL_AUTHORITY':
+      return 'modelAuthorityStarted';
+    case 'RUNTIME_AUTHORITY':
+      return 'runtimeAuthorityStarted';
+    case 'WORKER_START':
+      return 'workerStartRequested';
+    case 'WARMUP':
+      return 'warmupStarted';
+    case 'AUTHORITY_REVALIDATION':
+      return 'authorityRevalidationStarted';
+  }
+}
+
+function diagnosticStageForLaunchAcknowledgment(
+  outcome: Parameters<LinuxPerformanceAttemptProbe['recordNativeLaunchAcknowledgment']>[0],
+): ArtifactInstallationDiagnosticStage {
+  switch (outcome) {
+    case 'ready':
+      return 'nativeLaunchReady';
+    case 'rejected':
+      return 'nativeLaunchRejected';
+    case 'closed':
+      return 'nativeLaunchClosed';
+    case 'malformed':
+      return 'nativeLaunchMalformed';
+    case 'error':
+      return 'nativeLaunchError';
+    case 'exited':
+      return 'nativeLaunchExited';
+    case 'timeout':
+      return 'nativeLaunchTimeout';
+  }
 }
 
 async function removeAttemptPrivateRoot(privateRoot: string): Promise<void> {
@@ -151,43 +243,61 @@ function requireSuccess<T>(
   return result.value;
 }
 
-async function waitForArtifact(
-  environment: DeferredLocalWhisperEnvironment,
-  artifactId: (typeof environment.facts.snapshot.artifacts)[number]['id'],
-): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    let settled = false;
-    let unsubscribe = (): void => undefined;
-    const finish = (error?: Error): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      unsubscribe();
-      if (error) reject(error);
-      else resolve();
-    };
-    const timer = setTimeout(() => finish(new Error('ATTEMPT_ARTIFACT_TIMEOUT')), ARTIFACT_TIMEOUT_MILLISECONDS);
-    timer.unref();
-    const inspect = (facts: DeferredLocalWhisperEnvironment['facts']['snapshot']): void => {
-      const artifact = facts.artifacts.find(({ id }) => id === artifactId);
-      const progress = facts.progress.find((entry) => entry.artifactId === artifactId);
-      if (artifact?.state === 'Installed') finish();
-      else if (progress?.failure) {
-        const code = progress.failure.code;
-        finish(
-          new Error(
-            SAFE_LOCAL_WHISPER_FAILURE_CODE.test(code) && SAFE_ATTEMPT_FAILURE_CODE.test(`ATTEMPT_ARTIFACT_${code}`)
-              ? `ATTEMPT_ARTIFACT_${code}`
-              : 'ATTEMPT_ARTIFACT_INSTALL_FAILED',
-          ),
-        );
-      } else if (artifact && ['Blocked', 'Corrupt', 'Failed'].includes(artifact.state)) {
-        finish(new Error('ATTEMPT_ARTIFACT_INSTALL_FAILED'));
+interface PerformanceArtifactOperationCompletion {
+  readonly failureCode: LocalWhisperFailureCode | null;
+  readonly operationId: string;
+  readonly success: boolean;
+}
+
+/** Records one safe terminal artifact outcome for one private qualification attempt. */
+class PerformanceArtifactOperationTracker {
+  private readonly completed = new Map<string, PerformanceArtifactOperationCompletion>();
+  private readonly waiters = new Map<string, (completion: PerformanceArtifactOperationCompletion) => void>();
+
+  public record(completion: PerformanceArtifactOperationCompletion): void {
+    if (
+      !/^[A-Za-z0-9_-]{1,128}$/u.test(completion.operationId) ||
+      (!completion.success && (completion.failureCode === null || !SAFE_LOCAL_WHISPER_FAILURE_CODE.test(completion.failureCode)))
+    ) {
+      throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_COMPLETION_INVALID');
+    }
+    const normalized = Object.freeze({
+      failureCode: completion.success ? null : completion.failureCode,
+      operationId: completion.operationId,
+      success: completion.success,
+    });
+    if (this.completed.has(normalized.operationId)) return;
+    this.completed.set(normalized.operationId, normalized);
+    const waiter = this.waiters.get(normalized.operationId);
+    if (waiter) {
+      this.waiters.delete(normalized.operationId);
+      waiter(normalized);
+    }
+  }
+
+  public async waitFor(operationId: string): Promise<void> {
+    if (!/^[A-Za-z0-9_-]{1,128}$/u.test(operationId)) {
+      throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_COMPLETION_INVALID');
+    }
+    const completion = this.completed.get(operationId) ?? (await this.awaitCompletion(operationId));
+    if (completion.success) return;
+    const failureCode = completion.failureCode;
+    if (!failureCode || !SAFE_ATTEMPT_FAILURE_CODE.test(`ATTEMPT_ARTIFACT_${failureCode}`)) {
+      throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_INSTALL_FAILED');
+    }
+    throw new AttemptApplicationFailure(`ATTEMPT_ARTIFACT_${failureCode}`);
+  }
+
+  private async awaitCompletion(operationId: string): Promise<PerformanceArtifactOperationCompletion> {
+    return await new Promise<PerformanceArtifactOperationCompletion>((resolve) => {
+      this.waiters.set(operationId, resolve);
+      const completed = this.completed.get(operationId);
+      if (completed) {
+        this.waiters.delete(operationId);
+        resolve(completed);
       }
-    };
-    unsubscribe = environment.facts.subscribe(inspect);
-    inspect(environment.facts.snapshot);
-  });
+    });
+  }
 }
 
 async function installArtifact(
@@ -195,8 +305,11 @@ async function installArtifact(
   coordinator: LocalWhisperCoordinator,
   kind: 'model' | 'runtime',
   revision: LocalWhisperRevisionId,
+  tracker: PerformanceArtifactOperationTracker,
   primaryFailureCode?: () => string | null,
   stagingCleanupStep?: () => string | null,
+  stagingCleanupFailure?: () => ManagedArtifactStagingCleanupFailure | null,
+  stagingPromotionFailure?: () => ManagedArtifactStagingPromotionFailure | null,
 ): Promise<void> {
   const current = environment.facts.snapshot.artifacts.find(
     (artifact) => artifact.kind === kind && artifact.revision === revision,
@@ -214,9 +327,9 @@ async function installArtifact(
     expectedConfigurationEpoch: epochs.configuration,
     expectedInventoryEpoch: epochs.inventory,
   });
-  if (!started.success) throw new Error('ATTEMPT_ARTIFACT_START_FAILED');
+  if (!started.success || !started.operationId) throw new Error('ATTEMPT_ARTIFACT_START_FAILED');
   try {
-    await waitForArtifact(environment, current.id);
+    await tracker.waitFor(started.operationId);
   } catch (error) {
     const sourceCode =
       error instanceof Error && SAFE_ATTEMPT_FAILURE_CODE.test(error.message)
@@ -224,8 +337,26 @@ async function installArtifact(
         : 'ATTEMPT_ARTIFACT_INSTALL_FAILED';
     const primaryCode = primaryFailureCode?.();
     const cleanupStep = stagingCleanupStep?.();
+    const cleanupFailure = stagingCleanupFailure?.();
+    const promotionFailure = stagingPromotionFailure?.();
+    const isSafeCleanupFailure =
+      cleanupFailure !== null &&
+      cleanupFailure !== undefined &&
+      STAGING_CLEANUP_STEPS.includes(cleanupFailure.step) &&
+      STAGING_CLEANUP_FAILURE_CODES.includes(cleanupFailure.failureCode);
+    const isSafePromotionFailure =
+      promotionFailure !== null &&
+      promotionFailure !== undefined &&
+      STAGING_CLEANUP_FAILURE_CODES.includes(promotionFailure.failureCode);
+    const promotionDiagnosticCode = promotionFailure?.promotionDiagnosticCode;
+    const promotionStep = promotionFailure?.step;
+    const isSafePromotionStep = promotionStep !== undefined && STAGING_PROMOTION_STEPS.includes(promotionStep);
+    const isSafePromotionDiagnostic =
+      promotionDiagnosticCode !== undefined && STAGING_PROMOTION_DIAGNOSTIC_CODES.includes(promotionDiagnosticCode);
+    const artifactTransferFailure =
+      sourceCode === 'ATTEMPT_ARTIFACT_CLEANUP_FAILED' || sourceCode === 'ATTEMPT_ARTIFACT_INSTALL_FAILED';
     const failureCode =
-      sourceCode === 'ATTEMPT_ARTIFACT_CLEANUP_FAILED' &&
+      artifactTransferFailure &&
       primaryCode !== null &&
       primaryCode !== undefined &&
       SAFE_LOCAL_WHISPER_FAILURE_CODE.test(primaryCode)
@@ -233,7 +364,15 @@ async function installArtifact(
           cleanupStep !== null &&
           cleanupStep !== undefined &&
           /^[A-Z]+$/u.test(cleanupStep)
-          ? `ATTEMPT_${kind.toUpperCase()}_STAGING_${cleanupStep}_FAILED`
+          ? isSafePromotionFailure
+            ? isSafePromotionStep
+              ? isSafePromotionDiagnostic
+                ? `ATTEMPT_${kind.toUpperCase()}_STAGING_${promotionStep.toUpperCase()}_${promotionDiagnosticCode}_FAILED`
+                : `ATTEMPT_${kind.toUpperCase()}_STAGING_${promotionStep.toUpperCase()}_${promotionFailure.failureCode}_FAILED`
+              : `ATTEMPT_${kind.toUpperCase()}_STAGING_PROMOTE_${promotionFailure.failureCode}_FAILED`
+            : isSafeCleanupFailure
+              ? `ATTEMPT_${kind.toUpperCase()}_STAGING_${cleanupFailure.step.toUpperCase()}_${cleanupFailure.failureCode}_FAILED`
+              : `ATTEMPT_${kind.toUpperCase()}_STAGING_${cleanupStep}_FAILED`
           : `ATTEMPT_${kind.toUpperCase()}_ARTIFACT_PRIMARY_${primaryCode}`
         : `ATTEMPT_${kind.toUpperCase()}_${sourceCode.slice('ATTEMPT_'.length)}`;
     if (SAFE_ATTEMPT_FAILURE_CODE.test(failureCode)) throw new AttemptApplicationFailure(failureCode);
@@ -396,7 +535,9 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
     if (process.platform !== 'linux' || input.request.platform !== 'linux') {
       throw new Error('ATTEMPT_PLATFORM_INVALID');
     }
-    const probe = new LinuxPerformanceAttemptProbe(input.request.backend, input.publishEvent);
+    const probe = new LinuxPerformanceAttemptProbe(input.request.backend, input.publishEvent, (stage) =>
+      publishArtifactInstallationDiagnostic('model', stage),
+    );
     let loadStage: LocalWhisperQualificationLoadStage = 'MODEL_AUTHORITY';
     await atAttemptApplicationStage('PROBE', async () => await probe.registerMain());
     const archive = await atAttemptApplicationStage(
@@ -445,16 +586,61 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       });
       let sequence = 0;
       let artifactPrimaryFailure: string | null = null;
+      let artifactInstallationKind: PerformanceAttemptDiagnosticArtifactKind | null = null;
       let stagingCleanupStep: string | null = null;
+      let stagingCleanupFailure: ManagedArtifactStagingCleanupFailure | null = null;
+      let stagingPromotionFailure: ManagedArtifactStagingPromotionFailure | null = null;
+      const artifactOperationTracker = new PerformanceArtifactOperationTracker();
       const started = process.hrtime.bigint();
-      const qualificationHooks = {
+        const qualificationHooks = {
         artifactHttpClient: catalog.artifactHttpClient,
-        performanceInstallationWindow: input.effectiveInstallationWindow,
         onArtifactTransferFailure: ({ primaryCode }: { readonly primaryCode: string }) => {
           artifactPrimaryFailure = primaryCode;
         },
+          onArtifactInstallationStage: (stage: ArtifactInstallationDiagnosticStage) => {
+            publishArtifactInstallationDiagnostic(artifactInstallationKind ?? 'model', stage);
+          },
+        onArtifactOperationCompleted: (event: PerformanceArtifactOperationCompletion) => {
+          if (artifactInstallationKind) {
+            publishArtifactInstallationDiagnostic(artifactInstallationKind, 'operationCompletionObserved');
+          }
+          artifactOperationTracker.record(event);
+          if (artifactInstallationKind) {
+            publishArtifactInstallationDiagnostic(artifactInstallationKind, 'operationCompletionRecorded');
+          }
+        },
         onStagingCleanupStep: (step: 'inspect' | 'validate' | 'revalidate' | 'delete' | 'confirm' | 'remove') => {
           stagingCleanupStep = step.toUpperCase();
+        },
+        onStagingCleanupFailure: (failure: ManagedArtifactStagingCleanupFailure) => {
+          if (
+            STAGING_CLEANUP_STEPS.includes(failure.step) &&
+            STAGING_CLEANUP_FAILURE_CODES.includes(failure.failureCode)
+          ) {
+            stagingCleanupFailure = Object.freeze({
+              failureCode: failure.failureCode,
+              step: failure.step,
+            });
+          }
+        },
+        onStagingPromotionFailure: (failure: ManagedArtifactStagingPromotionFailure) => {
+          if (
+            STAGING_CLEANUP_FAILURE_CODES.includes(failure.failureCode) &&
+            STAGING_PROMOTION_STEPS.includes(failure.step)
+          ) {
+            stagingPromotionFailure = Object.freeze({
+              failureCode: failure.failureCode,
+              step: failure.step,
+              ...(failure.promotionDiagnosticCode &&
+              STAGING_PROMOTION_DIAGNOSTIC_CODES.includes(failure.promotionDiagnosticCode)
+                ? { promotionDiagnosticCode: failure.promotionDiagnosticCode }
+                : {}),
+            });
+          }
+        },
+        onNativeLauncherAcknowledgment: (outcome) => {
+          probe.recordNativeLaunchAcknowledgment(outcome);
+          publishArtifactInstallationDiagnostic('model', diagnosticStageForLaunchAcknowledgment(outcome));
         },
         onSessionProcessLaunched: (
           event: Parameters<
@@ -468,10 +654,12 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           if (event.backend !== input.request.backend || event.launchMode !== 'fullLoad') {
             throw new Error('ATTEMPT_PROCESS_ROLE_INVALID');
           }
+          publishArtifactInstallationDiagnostic('model', 'sessionProcessLaunched');
           void probe.registerGuard(event.pid);
         },
         onLoadStage: (stage: LocalWhisperQualificationLoadStage) => {
           loadStage = stage;
+          publishArtifactInstallationDiagnostic('model', diagnosticStageForLoadStage(stage));
         },
       };
       environment = await atAttemptApplicationStage(
@@ -523,32 +711,54 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       coordinator = new LocalWhisperCoordinator(environment.coordinator);
       artifactPrimaryFailure = null;
       stagingCleanupStep = null;
-      await atAttemptApplicationStage(
-        'RUNTIME_INSTALL',
-        async () =>
-          await installArtifact(
-            environment,
-            coordinator,
-            'runtime',
-            catalog.runtimeRevision,
-            () => artifactPrimaryFailure,
-            () => stagingCleanupStep,
-          ),
-      );
+      stagingCleanupFailure = null;
+      stagingPromotionFailure = null;
+      artifactInstallationKind = 'runtime';
+      try {
+        await atAttemptApplicationStage(
+          'RUNTIME_INSTALL',
+          async () =>
+            await installArtifact(
+              environment,
+              coordinator,
+              'runtime',
+              catalog.runtimeRevision,
+              artifactOperationTracker,
+              () => artifactPrimaryFailure,
+              () => stagingCleanupStep,
+              () => stagingCleanupFailure,
+              () => stagingPromotionFailure,
+            ),
+        );
+        publishArtifactInstallationDiagnostic('runtime', 'operationCompletionAwaited');
+      } finally {
+        artifactInstallationKind = null;
+      }
       artifactPrimaryFailure = null;
       stagingCleanupStep = null;
-      await atAttemptApplicationStage(
-        'MODEL_INSTALL',
-        async () =>
-          await installArtifact(
-            environment,
-            coordinator,
-            'model',
-            catalog.modelRevision,
-            () => artifactPrimaryFailure,
-            () => stagingCleanupStep,
-          ),
-      );
+      stagingCleanupFailure = null;
+      stagingPromotionFailure = null;
+      artifactInstallationKind = 'model';
+      try {
+        await atAttemptApplicationStage(
+          'MODEL_INSTALL',
+          async () =>
+            await installArtifact(
+              environment,
+              coordinator,
+              'model',
+              catalog.modelRevision,
+              artifactOperationTracker,
+              () => artifactPrimaryFailure,
+              () => stagingCleanupStep,
+              () => stagingCleanupFailure,
+              () => stagingPromotionFailure,
+            ),
+        );
+        publishArtifactInstallationDiagnostic('model', 'operationCompletionAwaited');
+      } finally {
+        artifactInstallationKind = null;
+      }
       let deviceId = null;
       if (input.request.backend === 'cuda') {
         deviceId = await atAttemptApplicationStage('CUDA_DEVICE', async () => {
@@ -579,6 +789,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
         execution:
           input.request.backend === 'cpu' ? { target: 'cpu', backend: 'cpu', cpuThreads: 'auto' } : gpuExecution,
       } as unknown as LocalWhisperPublicSettings;
+      publishArtifactInstallationDiagnostic('model', 'settingsApplyStarted');
       await atAttemptApplicationStage('SETTINGS', async () => {
         requireSuccess(
           await coordinator.applySettingsTransaction({
@@ -591,12 +802,28 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           'ATTEMPT_SETTINGS',
         );
       });
+      publishArtifactInstallationDiagnostic('model', 'settingsApplied');
       await atAttemptApplicationStage('LOAD', async () => {
-        probe.beginLoadProofs();
-        const result = await coordinator.loadNow();
-        if (!result.success && result.error.code === 'WORKER_START_FAILED' && probe.nativeLaunchFailureCode !== null) {
-          const component = probe.nativeLaunchFailureCode.startsWith('MODEL_') ? 'MODEL_GUARD' : 'LAUNCHER';
-          throw new AttemptApplicationFailure(`ATTEMPT_LOAD_${component}_${probe.nativeLaunchFailureCode}`);
+        publishArtifactInstallationDiagnostic('model', 'loadRequested');
+          probe.beginLoadProofs();
+          const result = await coordinator.loadNow();
+          if (!result.success) {
+            publishArtifactInstallationDiagnostic('model', 'nativeDiagnosticsFlushStarted');
+            const nativeDiagnostics = await probe.flushNativeDiagnostics();
+            publishArtifactInstallationDiagnostic(
+              'model',
+              nativeDiagnostics === 'settled' ? 'nativeDiagnosticsFlushCompleted' : 'nativeDiagnosticsFlushTimedOut',
+            );
+          }
+        if (!result.success && result.error.code === 'WORKER_START_FAILED') {
+          throw new AttemptApplicationFailure(
+            `ATTEMPT_LOAD_ACK_${probe.nativeLaunchAcknowledgmentState.toUpperCase()}_${probe.nativeLaunchDiagnostic.toUpperCase()}`,
+          );
+        }
+        if (!result.success && result.error.code === 'WORKER_CRASHED') {
+          throw new AttemptApplicationFailure(
+            `ATTEMPT_LOAD_WORKER_CRASHED_${probe.nativeLaunchAcknowledgmentState.toUpperCase()}_${probe.nativeLaunchDiagnostic.toUpperCase()}_${probe.nativeWorkerExecution.toUpperCase()}_${probe.nativeWorkerDiagnostic.toUpperCase()}`,
+          );
         }
         requireSuccess(result, `ATTEMPT_LOAD_${loadStage}`);
       });

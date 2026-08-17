@@ -98,11 +98,11 @@ describe('provider hotkey browser demo', () => {
     const demo = readProjectFile('src/renderer/ProviderHotkeyDemo.tsx');
     const styles = readProjectFile('src/renderer/styles/providerHotkeyDemo.css');
 
-    assert.match(demo, /aria-label="Demo fixture controls"/u);
-    assert.match(demo, /aria-label="Demo fixture"/u);
+    assert.match(demo, /aria-label=\{t\('providerHotkeyDemo\.fixtureControls'\)\}/u);
+    assert.match(demo, /aria-label=\{t\('providerHotkeyDemo\.fixture'\)\}/u);
     assert.match(demo, /name="fixture"/u);
-    assert.match(demo, /Advance demo clock/u);
-    assert.match(demo, /Clear demo key lock/u);
+    assert.match(demo, /t\('providerHotkeyDemo\.advanceClock'\)/u);
+    assert.match(demo, /t\('providerHotkeyDemo\.clearLock'\)/u);
     assert.match(styles, /\.provider-hotkey-demo-controls \{/u);
     assert.match(styles, /\.provider-hotkey-demo-controls:focus-within \{/u);
     assert.match(styles, /clip-path: inset\(50%\);/u);

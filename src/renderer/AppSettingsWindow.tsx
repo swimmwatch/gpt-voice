@@ -66,10 +66,6 @@ function getInitialSettingsSection(): SettingsSectionId {
   return isAppSettingsSectionId(section) ? section : 'shortcuts';
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function generateFingerprintSeed(): string {
   return String(Math.floor(Math.random() * 90000) + 10000);
 }
@@ -290,9 +286,9 @@ const AppSettingsWindow: React.FC = () => {
         setInitialDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
         setHotkeySettings(nextHotkeySettings);
         setPlatform(nextPlatform);
-      } catch (loadError: unknown) {
+      } catch {
         if (!disposed) {
-          setError(getErrorMessage(loadError));
+          setError(t('appSettings.saveFailed'));
         }
       }
     };
@@ -302,7 +298,7 @@ const AppSettingsWindow: React.FC = () => {
     return () => {
       disposed = true;
     };
-  }, [desktopApi]);
+  }, [desktopApi, t]);
 
   useEffect(() => {
     return () => {
@@ -406,8 +402,8 @@ const AppSettingsWindow: React.FC = () => {
       }
       setHotkeyTarget(target);
       setShowHotkeyModal(true);
-    } catch (hotkeyError: unknown) {
-      setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
+    } catch {
+      setError(t('appSettings.saveFailed'));
     }
   };
 
@@ -425,8 +421,8 @@ const AppSettingsWindow: React.FC = () => {
       } else {
         setError(result.error || t('appSettings.saveFailed'));
       }
-    } catch (hotkeyError: unknown) {
-      setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
+    } catch {
+      setError(t('appSettings.saveFailed'));
     } finally {
       closeHotkeyModal();
     }

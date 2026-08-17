@@ -1,4 +1,6 @@
 export default {
+  'localWhisper.settings.hostCpu': 'CPU · {count} 个逻辑处理器',
+  'localWhisper.settings.hostAppleSilicon': 'Apple Silicon · 已计划支持 Local Whisper',
   'localWhisper.settings.title': '本地 Whisper',
   'localWhisper.settings.pageDescription': '使用显式模型、后端和内存生命周期控制在本地运行 Whisper.cpp。',
   'localWhisper.settings.privacyTooltip': '本地处理将音频和文字记录保留在此设备上。',

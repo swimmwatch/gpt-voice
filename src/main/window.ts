@@ -1,5 +1,6 @@
 import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents, WebFrameMain } from 'electron';
 import { AboutWindowController } from './aboutWindowController';
+import type { I18nService } from './i18n';
 import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { AppSettingsSectionId } from '@shared/appSettings';
@@ -10,6 +11,7 @@ import {
   MainInteractionLock,
 } from '@shared/mainInteractionLock';
 import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS, type SettingsPresentationState } from '@shared/settingsPresentation';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
@@ -40,6 +42,7 @@ export interface WindowManagerDependencies {
   readonly getAppIcon: () => NativeImage;
   readonly getAppIconPath: () => string;
   readonly getAppUrl: (pathname?: string) => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: WindowManagerLogger;
   readonly mainInteractionLock: MainInteractionLock;
   readonly openExternal: (url: string) => Promise<void>;
@@ -71,6 +74,9 @@ export class WindowManager {
   private readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
   private quitting = false;
   private settingsCloseConfirmed = false;
+  private settingsPresentationState: SettingsPresentationState = 'idle';
+  private settingsPresentationWindow: BrowserWindow | null = null;
+  private readonly settingsPresentationListeners = new Set<(state: SettingsPresentationState) => void>();
   private settingsWindow: BrowserWindow | null = null;
 
   public constructor(private readonly dependencies: WindowManagerDependencies) {
@@ -96,8 +102,17 @@ export class WindowManager {
     return this.mainInteractionLock.locked;
   }
 
+  public get settingsPresentation(): SettingsPresentationState {
+    return this.settingsPresentationState;
+  }
+
   public isMainInteractionLockOwner(webContents: Pick<WebContents, 'id' | 'isDestroyed'>): boolean {
     return !webContents.isDestroyed() && this.interactionLockedWindowIds.has(webContents.id);
+  }
+
+  public subscribeSettingsPresentation(listener: (state: SettingsPresentationState) => void): () => void {
+    this.settingsPresentationListeners.add(listener);
+    return () => this.settingsPresentationListeners.delete(listener);
   }
 
   public setQuitting(value: boolean): void {
@@ -222,6 +237,7 @@ export class WindowManager {
     });
     this.mainWindow = window;
     this.applyMainInteractionLock(this.mainInteractionLock.locked);
+    this.publishSettingsPresentation();
 
     const applyWindowIcon = (): void => {
       if (this.mainWindow !== window || window.isDestroyed() || this.dependencies.platform === 'darwin') return;
@@ -248,6 +264,7 @@ export class WindowManager {
   }
 
   public showMainWindow(): void {
+    if (this.focusSettingsWindow()) return;
     const window = this.mainWindow;
     if (!window || window.isDestroyed()) {
       this.createMainWindow();
@@ -260,6 +277,7 @@ export class WindowManager {
     const existing = this.settingsWindow;
     if (existing && !existing.isDestroyed()) {
       this.showAndFocus(existing);
+      this.updateSettingsPresentation('open', existing);
       if (section) existing.webContents.send('app-settings-section-requested', section);
       return Object.freeze({ success: true });
     }
@@ -267,6 +285,7 @@ export class WindowManager {
     const acquisition = this.mainInteractionLock.acquire();
     const lease = acquisition.lease;
     if (!lease) return this.createBlockedSettingsWindowResult(acquisition.result);
+    this.beginSettingsPresentation();
 
     let window: BrowserWindow;
     try {
@@ -278,22 +297,25 @@ export class WindowManager {
         autoHideMenuBar: true,
         backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
         show: true,
-        title: 'Settings',
+        title: this.dependencies.localization.translate('appSettings.title'),
         webPreferences: this.createWebPreferences(),
         icon: this.dependencies.getAppIconPath(),
       });
     } catch (error: unknown) {
+      this.clearSettingsPresentation();
       lease.release();
       throw error;
     }
     this.settingsWindow = window;
+    this.attachSettingsPresentationWindow(window);
     const webContentsId = window.webContents.id;
     this.registerInteractionLockedWindow(webContentsId);
     window.setMenuBarVisibility(false);
     this.applyNavigationGuards(window);
     const settingsUrl = new URL(this.dependencies.getAppUrl('settings.html'));
     if (section) settingsUrl.searchParams.set('section', section);
-    void window.loadURL(settingsUrl.toString());
+    void window.loadURL(settingsUrl.toString()).catch(() => this.closeSettingsWindowAfterLoadFailure(window));
+    window.once('ready-to-show', () => this.updateSettingsPresentation('open', window));
 
     window.on('close', (event) => {
       if (this.quitting || this.settingsCloseConfirmed) return;
@@ -303,6 +325,7 @@ export class WindowManager {
     window.on('closed', () => {
       if (this.settingsWindow === window) this.settingsWindow = null;
       this.settingsCloseConfirmed = false;
+      this.clearSettingsPresentation(window);
       this.releaseInteractionLockedWindow(webContentsId, lease);
     });
     return Object.freeze({ success: true });
@@ -316,7 +339,6 @@ export class WindowManager {
   }
 
   public showHistoryWindow(): void {
-    if (this.mainInteractionLock.locked) return;
     const existing = this.historyWindow;
     if (existing && !existing.isDestroyed()) {
       this.showAndFocus(existing);
@@ -331,7 +353,7 @@ export class WindowManager {
       autoHideMenuBar: true,
       backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
       show: true,
-      title: 'History',
+      title: this.dependencies.localization.translate('history.title'),
       webPreferences: this.createWebPreferences(),
       icon: this.dependencies.getAppIconPath(),
     });
@@ -345,7 +367,6 @@ export class WindowManager {
   }
 
   public showAboutWindow(): void {
-    if (this.mainInteractionLock.locked) return;
     this.aboutWindowController.show();
   }
 
@@ -359,12 +380,14 @@ export class WindowManager {
       if (existing.isMinimized()) existing.restore();
       existing.show();
       existing.focus();
+      this.updateSettingsPresentation('open', existing);
       return Object.freeze({ success: true });
     }
 
     const acquisition = this.mainInteractionLock.acquire();
     const lease = acquisition.lease;
     if (!lease) return this.createBlockedSettingsWindowResult(acquisition.result);
+    this.beginSettingsPresentation();
     const isLocalWhisperSettings = providerId === LOCAL_WHISPER_PROVIDER_ID;
     let webContentsId: number | null = null;
     try {
@@ -389,7 +412,9 @@ export class WindowManager {
           });
           window.setMenuBarVisibility(false);
           this.applyNavigationGuards(window);
-          void window.loadURL(providerSettingsUrl.toString());
+          void window
+            .loadURL(providerSettingsUrl.toString())
+            .catch(() => this.closeProviderSettingsWindowAfterLoadFailure(window));
           return window;
         },
         {
@@ -403,19 +428,24 @@ export class WindowManager {
                 },
               }
             : {}),
-          onClosed: () => {
+          onClosed: (closedWindow) => {
+            this.clearSettingsPresentation(closedWindow);
             if (webContentsId !== null) this.releaseInteractionLockedWindow(webContentsId, lease);
           },
         },
       );
       if (!shown.created) {
+        this.clearSettingsPresentation();
         lease.release();
         return Object.freeze({ success: true });
       }
       webContentsId = shown.window.webContents.id;
       this.registerInteractionLockedWindow(webContentsId);
+      this.attachSettingsPresentationWindow(shown.window);
+      shown.window.once('ready-to-show', () => this.updateSettingsPresentation('open', shown.window));
       return Object.freeze({ success: true });
     } catch (error: unknown) {
+      this.clearSettingsPresentation();
       lease.release();
       throw error;
     }
@@ -423,6 +453,13 @@ export class WindowManager {
 
   public closeProviderSettingsWindow(webContents: WebContents): boolean {
     return this.providerSettingsWindowController.closeForWebContents(webContents);
+  }
+
+  public focusSettingsWindow(): boolean {
+    const window = this.settingsPresentationWindow;
+    if (!window || window.isDestroyed()) return false;
+    this.showAndFocus(window);
+    return true;
   }
 
   public dispose(): void {
@@ -437,6 +474,8 @@ export class WindowManager {
     this.settingsWindow = null;
     this.historyWindow = null;
     this.interactionLockedWindowIds.clear();
+    this.clearSettingsPresentation();
+    this.settingsPresentationListeners.clear();
     this.aboutWindowController.dispose();
     this.providerSettingsWindowController.dispose();
   }
@@ -452,10 +491,6 @@ export class WindowManager {
   }
 
   private readonly applyMainInteractionLock = (locked: boolean): void => {
-    for (const window of this.getAllWindows()) {
-      if (!window || window.isDestroyed()) continue;
-      window.setEnabled(!locked || this.interactionLockedWindowIds.has(window.webContents.id));
-    }
     const mainWindow = this.mainWindow;
     if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
     mainWindow.webContents.send(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, locked);
@@ -478,6 +513,53 @@ export class WindowManager {
     lease.release();
   }
 
+  private closeSettingsWindowAfterLoadFailure(window: BrowserWindow): void {
+    if (window.isDestroyed() || this.settingsWindow !== window) return;
+    this.settingsCloseConfirmed = true;
+    window.close();
+  }
+
+  private closeProviderSettingsWindowAfterLoadFailure(window: BrowserWindow): void {
+    if (window.isDestroyed()) return;
+    this.providerSettingsWindowController.closeForWebContents(window.webContents);
+  }
+
+  private beginSettingsPresentation(): void {
+    this.settingsPresentationWindow = null;
+    if (this.settingsPresentationState === 'opening') return;
+    this.settingsPresentationState = 'opening';
+    this.publishSettingsPresentation();
+  }
+
+  private attachSettingsPresentationWindow(window: BrowserWindow): void {
+    this.settingsPresentationWindow = window;
+  }
+
+  private updateSettingsPresentation(state: Exclude<SettingsPresentationState, 'idle'>, window: BrowserWindow): void {
+    if (this.settingsPresentationWindow && this.settingsPresentationWindow !== window) return;
+    this.settingsPresentationWindow = window;
+    if (this.settingsPresentationState === state) return;
+    this.settingsPresentationState = state;
+    this.publishSettingsPresentation();
+  }
+
+  private clearSettingsPresentation(window?: BrowserWindow): void {
+    if (window && this.settingsPresentationWindow !== window) return;
+    this.settingsPresentationWindow = null;
+    if (this.settingsPresentationState === 'idle') return;
+    this.settingsPresentationState = 'idle';
+    this.publishSettingsPresentation();
+  }
+
+  private publishSettingsPresentation(): void {
+    const state = this.settingsPresentationState;
+    const mainWindow = this.mainWindow;
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, state);
+    }
+    for (const listener of [...this.settingsPresentationListeners]) listener(state);
+  }
+
   private readonly createAboutWindow = (): BrowserWindow => {
     const window = this.dependencies.createBrowserWindow({
       width: 420,
@@ -490,7 +572,7 @@ export class WindowManager {
       show: true,
       maximizable: false,
       resizable: false,
-      title: 'About GPT-Voice',
+      title: this.dependencies.localization.translate('about.open'),
       webPreferences: this.createWebPreferences(),
       icon: this.dependencies.getAppIconPath(),
     });

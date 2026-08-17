@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserWindow, Menu, MenuItemConstructorOptions, Session, WebContents } from 'electron';
 import { DesktopRuntimeController, type DesktopRuntimeApplication } from '@main/desktopRuntimeController';
+import { I18nService } from '@main/i18n';
 
 type PermissionCheckHandler = NonNullable<Parameters<Session['setPermissionCheckHandler']>[0]>;
 type PermissionRequestHandler = NonNullable<Parameters<Session['setPermissionRequestHandler']>[0]>;
@@ -76,6 +77,7 @@ class DesktopRuntimeHarness {
   public createController(
     options: {
       readonly arguments?: readonly string[];
+      readonly locale?: 'en' | 'ru';
       readonly platform?: NodeJS.Platform;
     } = {},
   ): DesktopRuntimeController {
@@ -92,6 +94,7 @@ class DesktopRuntimeHarness {
         this.exitCode = code;
       },
       getAppIconPath: () => '/assets/icon.png',
+      localization: new I18nService(options.locale),
       openExternal: async () => undefined,
       platform: options.platform ?? 'linux',
       schedule: (callback) => {
@@ -197,6 +200,20 @@ describe('DesktopRuntimeController', () => {
     );
     assert.equal(microphoneGranted, true);
     assert.equal(controller.getAppInfo().version, '1.4.0');
+  });
+
+  it('uses the selected locale for native menu and About-panel text', () => {
+    const harness = new DesktopRuntimeHarness();
+    const controller = harness.createController({ locale: 'ru' });
+
+    controller.configureNativeMetadata();
+
+    assert.equal(harness.menuTemplate[0]?.label, 'Файл');
+    assert.equal(harness.menuTemplate[harness.menuTemplate.length - 1]?.label, 'Справка');
+    assert.equal(
+      (harness.app.aboutOptions as { credits?: string }).credits,
+      'Независимое настольное приложение для голосовой транскрибации через веб-сессии GPT.',
+    );
   });
 
   it('reports the startup benchmark marker after the renderer shell mounts', async () => {

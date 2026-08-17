@@ -7,6 +7,12 @@ export default {
   ...getPrettifyProfileSettingsTranslations('uk'),
   'translate.provider': 'Постачальник перекладу',
   'translate.saving': 'Збереження...',
+  'providerHotkeyDemo.fixtureControls': 'Елементи керування демонстрацією',
+  'providerHotkeyDemo.fixture': 'Сценарій',
+  'providerHotkeyDemo.advanceClock': 'Перемістити годинник демонстрації вперед',
+  'providerHotkeyDemo.clearLock': 'Зняти блокування демонстрації',
+  'providerHotkeyDemo.ownerlessLock': 'Блокування без власника',
+  'providerHotkeyDemo.statusDetailPriority': 'Пріоритет деталей статусу',
   'translate.settingsSaveFailed': 'Не вдалося зберегти налаштування перекладу',
 
   // Status messages
@@ -138,6 +144,8 @@ export default {
   // App settings
   'appSettings.open': 'Налаштування застосунку',
   'settings.blockedWhileOpen': 'Закрийте налаштування, щоб продовжити роботу з GPT-Voice.',
+  'settings.opening': 'Відкриття налаштувань…',
+  'settings.show': 'Показати налаштування',
   'settings.blockedWhileRecording': 'Зупиніть запис перед відкриттям налаштувань.',
   'settings.blockedWhileOperationActive': 'Дочекайтеся завершення поточної операції перед відкриттям налаштувань.',
   'appSettings.title': 'Налаштування',
@@ -229,6 +237,7 @@ export default {
   // Model memory
   'modelMemory.title': 'Памʼять моделі',
   'modelMemory.ollamaGpu': 'Модель покращення тексту',
+  'modelMemory.ram': 'ОЗП',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Завантажено',
   'modelMemory.notLoaded': 'Не завантажено',
@@ -497,6 +506,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
+  'error.selectedProviderNotReady': 'Вибраний провайдер не готовий.',
   'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не зміг обробити записаний звук ({mimeType}). Спробуйте записати ще раз.',
   'error.chatGptConnectionInterrupted': 'Розпізнавання через ChatGPT було перервано. Повторіть спробу.',
@@ -694,4 +704,16 @@ export default {
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показати',
   'tray.quit': 'Вихід',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Незалежна настільна програма для голосової транскрипції через вебсеанси GPT.',
+  'nativeMenu.file': 'Файл',
+  'nativeMenu.edit': 'Редагування',
+  'nativeMenu.view': 'Вигляд',
+  'nativeMenu.help': 'Довідка',
+  'nativeMenu.projectOnGitHub': 'Проєкт на GitHub',
+  'nativeMenu.aboutApp': 'Про {app}',
+  'prettify.providerUnavailable': 'Постачальник Prettify недоступний.',
+  'prettify.modelLoadUnavailable': 'Завантаження моделі недоступне для цього постачальника.',
+  'prettify.modelUnloadUnavailable': 'Вивантаження моделі недоступне для цього постачальника.',
+  'prettify.instructionInvalid': 'Запит Prettify некоректний.',
 } as const;

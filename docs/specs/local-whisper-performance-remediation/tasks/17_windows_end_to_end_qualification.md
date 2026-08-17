@@ -1,169 +1,171 @@
-# 17 Windows End-To-End Qualification
+# 17 Focused Linux Base Qualification
 
 ## Outcome
 
-Complete the qualification-owned Windows collection adapter on the regular Windows host, run every deferred Windows
-automated check and the complete locked CPU/CUDA end-to-end matrix, measure pipeline windows 1, 2, 4, and 8 without
-freezing one, and route all evidence and failures to Packet 18.
+Make the qualification tooling executable under specification revision 7, then qualify the Packet 16 candidate
+on representative Linux x64 CPU/CUDA hardware using only `base/full`, three unpaired candidate loads per
+cold/warm cell, and one focused packaged lifecycle/privacy flow per backend. Remediate only Linux-specific or
+qualification-tool defects and retain sanitized aggregate Linux evidence.
 
 ## Prerequisites
 
-- Packet 16 and all earlier packets are complete, locally verified, and reviewed; accumulated commits have not been
-  pushed for revision-5 validation.
-- Packet 13's schema-v2 run-plan, per-model sample, collector, analyzer, and Linux adapter contracts are green. Packet
-  16 provides the locked Linux procedure and pre-Windows-adapter evidence for all candidate windows.
-- The ordinary Windows computer is not a CI runner. It has the approved MSVC/CUDA toolchains, supported CPU/GPU,
-  authenticated release-1 model/runtime artifacts, and sufficient disposable private data roots.
-- The exact baseline and candidate commits, runtime packs, model artifacts, manifest, input, cache procedures, run ordering,
-  sampling interval, statistic, and uncertainty method are frozen before the first sample.
-- Explicit authorization exists to push the accumulated immutable commits and run the final-phase CI checks.
+- Packet 16 is locally complete and reviewed; its applicable Linux automated checks pass.
+- An exact candidate source/runtime/package identity can be recorded. A Git commit is used only if commit creation
+  has been separately authorized; an uncommitted candidate must instead use an immutable bounded source manifest
+  and artifact digests and cannot be represented as a commit SHA.
+- The approved release-1 `base/full` artifact is available privately with exact size 147,951,465 bytes, together
+  with candidate CPU/CUDA runtime packs, one private transcription fixture, a validated private mode-0700 parent,
+  and representative supported Linux CPU/CUDA hardware.
+- Existing private qualification evidence and generated artifacts remain private and must not be deleted.
 
 ## Owned Requirements
 
-OUT-001, SCP-001, CMP-001, PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, RES-002, QUAL-001, OBS-001,
-OBS-002, OBS-003, AC-AUT-003 through AC-AUT-015, AC-MAN-002, AC-MAN-003, AC-MAN-004,
-AC-MAN-005, AC-MAN-006.
+OUT-002, GAT-001–GAT-004, QUAL-001, QUAL-002, OBS-001–OBS-005, PERF-001, PERF-004,
+PERF-008–PERF-012, RES-002, PRIV-001, PRIV-002, OPS-003, AC-AUT-001, AC-AUT-002,
+AC-AUT-016, AC-AUT-017, AC-MAN-001–AC-MAN-008 (Linux portions).
 
 ## In Scope
 
-- Minimum-five paired cold/warm measurements for `base/full`, `medium/full`, and `large-v3/q5_0` on eligible
-  Windows x64 CPU and CUDA configurations using exact MSVC-built helpers and workers.
-- A qualification-only Windows process/resource sampler and collection adapter implementing Packet 13's frozen
-  interfaces with Windows job/process identity, RAM ownership, and CUDA VRAM ownership checks. It must be developed
-  and verified on the regular Windows host; Linux fixtures do not claim that platform behavior.
-- Real app-to-guard maximum-model installation, slow-pipe, cancellation, induced mid-window failure, clean retry,
-  worker load/warm-up, GPU thread values, stale-residency rejection, UI accessibility, mixed-peer failure, settings
-  rollback, package smoke, and evidence-privacy checks.
-- All Windows TypeScript, MSVC/native, profile, runtime-pack, packaging, migration, IPC, UI, privacy, and fixture
-  checks deferred by Packets 05–16.
-- One complete Packet 16 Linux rerun on the exact Windows-adapter commit before direct Windows measurements, so the
-  combined selector never consumes different candidate SHAs.
-- Separate controlled measurements for pipeline windows 1, 2, 4, and 8 while production composition remains serial.
-- Content-free blocker/failure records that identify the owning component and originating packet without exposing
-  paths, device identity, native output, model content, audio, transcripts, credentials, or environment dumps.
-- Privacy-safe aggregate evidence for Packet 18's mandatory production-window selection and remediation decision.
+- Qualification contract/schema/command/test changes needed to express a candidate-only revision-7 run.
+- Candidate package only; no baseline build, package, installation, or execution.
+- Linux CPU/CUDA cold-cache and warm-cache Base measurements: four cells and exactly three successful candidate
+  loads per cell, for 12 successful timed model loads total.
+- One sequential packaged lifecycle flow per backend: load, explicit warm-up, successful transcription,
+  cancellation, unload, retry, and process-tree cleanup.
+- Real CUDA ownership/no-silent-fallback confirmation, bounded RAM/VRAM evidence, one OS-level privacy inspection,
+  Linux-only fixes, focused reruns, and sanitized aggregate evidence.
 
 ## Out Of Scope
 
-- Fixing, tuning, or improving production code in this packet. The planned qualification-only Windows collection
-  adapter is the sole implementation scope.
-- Turning the regular Windows computer into a self-hosted CI runner, weakening thresholds, replacing failed samples,
-  changing support claims, publishing a release, uploading evidence, or retaining raw/private inputs.
+- Windows source, adapters, compilation, CI, package/E2E, host checks, or Windows claims based on Linux evidence.
+- Paired baseline/candidate measurements; `medium`, `large-v3`, or `large-v3-turbo`; p95, variance, uncertainty,
+  relative speedup, 25-percent component, 3-percent resource/end-to-end, or absolute timing gates.
+- Suspend/resume, unavailable-device, CPU-thread-count, topology/model-switch, delete/redownload, or installation-
+  window manual matrices. Existing automated coverage remains unchanged.
+- Production installation-window selection, new loader optimization, shared production-contract changes, release
+  publication, artifact/evidence upload, private evidence deletion, or a five-second timeout.
 
 ## Task Contract
 
-1. On the regular Windows host, implement the narrow Packet 13 Windows collection adapter without changing runtime
-   behavior or the evidence schema. Add deterministic process-tree, PID-reuse, process-exit, RAM/VRAM ownership,
-   cancellation, timeout, output-bound, and privacy tests. Commit it as one separately authorized qualification-only
-   change; any failure or required follow-up is recorded for Packet 18 rather than repaired here.
-2. Push the accumulated reviewed candidate only after explicit authorization. Wait for `Quality Gates`, both Local
-   Whisper Performance checks, both Local Whisper Native Quality checks, and applicable Windows package checks on
-   that exact SHA. Record every non-success result without fixing it in this packet and stop before direct-host
-   execution; Packet 18 must repair CI in a separate commit and finish the missing qualification.
-3. After CI is green, rerun Packet 16's complete Linux CPU/CUDA matrix on the exact Windows-adapter commit. Preserve
-   the earlier Linux result as historical evidence, but use only the current-SHA result for cross-platform analysis.
-   A missing, partial, blocked, or different-SHA Linux rerun stops this packet before direct Windows execution.
-4. Verify the checked-out candidate SHA and authenticated artifact digests before building or running. Produce exact
-   Windows CPU and CUDA runtime packs with approved toolchains; do not commit generated packs or binaries.
-5. Use the locked schema-v2 run plan for every before/after pair and retain failed samples with content-free reasons. Never
-   rerun selectively to manufacture a pass.
-6. Record all required phases and resources with units. Apply the 25 percent improvement and 3 percent guardrail to
-   every candidate, but do not name the production pipeline window in this packet.
-7. Confirm the successful Windows model-load count is 6 after directory-result reuse and every later freshness,
-   authority, preflight, and loader-consumption proof remains.
-8. Confirm Windows CPU/CUDA profile values have zero unexplained effective drift. Exercise `gpuCpuThreads` values
-   `auto`, 1, 4, and host maximum, target switching, restart, warm-up failure/retry, and stale-residency rejection.
-9. Run every pipeline window against the maximum release-1 artifact under normal, slow-pipe, cancellation, and
-   induced mid-window failure paths. The artifact publishes at the authenticated identity or staging is absent; the
-   next retry succeeds without manual process cleanup.
-10. Exercise protocol-v2 mixed peers, schema-v2 rollback with disposable settings, packaged application startup, and
-    keyboard/screen-reader behavior directly on Windows.
-11. Inspect all retained benchmark, test, CI, crash, package, and diagnostic evidence for prohibited content before
-    adding any sanitized aggregate document to the workstream.
-12. Record every CI/direct-host failure and all candidate-window results without production changes. Packet 18 is
-    always mandatory because it alone selects and freezes the production window.
+1. Audit the current qualification schemas, contracts, producers, collectors, analyzers, validators, commands,
+   and tests. Add one explicit revision-7 candidate-only mode that accepts only `base/full`, candidate artifacts,
+   and exactly three successful samples per cell. Historical paired evidence may remain readable, but revision-7
+   commands and acceptance must not require or synthesize a baseline side.
+2. Remove active assumptions that require four selected models, five or six successful pairs, paired ordering,
+   p95/variance/uncertainty, relative speedup, component/resource thresholds, or installation-window selection.
+   Keep deterministic validation for sample count, declared ordering, cold/warm cache preparation, phase bounds,
+   resource bounds, exact identities, privacy, failures, and evidence digests.
+3. Preserve qualification-input authentication as private harness behavior only. It may establish that the same
+   exact Base bytes are used across attempts, but ordinary production install/load must still report zero model
+   SHA-256/signature/preflight/snapshot/custom-loader work and one standard path-based load call.
+4. Bind one immutable manifest to the exact candidate source, runtime, package, Base model bytes, backend,
+   configuration, CPU-thread value, hardware profile, cache procedure, run ordering, attempt roots, and timeout.
+   Never label a hosted fixture or a dirty source state as a direct-host commit result.
+5. Install only the candidate package. Use a fresh absent child under the validated private parent for every
+   attempt. The qualification cache is read-only input; it is distinct from the measured cold/warm OS cache state.
+   Preserve every failed attempt with a content-free reason. A replacement attempt uses a fresh root and is
+   disclosed; never select runs to manufacture a preferred timing.
+6. Run, in the locked order, CPU cold, CPU warm, CUDA cold, and CUDA warm cells for the exact 147,951,465-byte
+   `base/full` artifact. Each cell completes only with exactly three successful candidate model loads. Measure
+   OBS-004 from accepted `load` through main-validated `loaded`; exclude installation, earlier worker handshake,
+   and later explicit real-inference warm-up from this interval.
+7. For every cell retain bounded aggregate sample count, ordering, three durations, median, minimum, maximum,
+   distance from 5,000 ms, phase attribution, peak main/guard/worker RSS, and CUDA VRAM where applicable. Elapsed
+   time or resource magnitude alone cannot fail the focused gate; missing, unsafe, malformed, or incomplete
+   evidence does fail it.
+8. After timed loads, run one sequential packaged flow per backend: load, explicit real-inference warm-up,
+   successful transcription, cancel one active request and observe one terminal outcome, unload, retry from a
+   known clean state, and confirm owned process/resource cleanup. Confirm the CUDA flow owns the selected GPU and
+   never silently falls back to CPU.
+9. Inspect bounded logs, diagnostics, errors/crash surfaces, and retained evidence once for Linux. No model path,
+   model/audio/transcript content, raw native output, environment/capability dump, or device-native identity may
+   enter retained source-controlled evidence.
+10. If qualification tooling fails its new contract, make the smallest tooling/schema/test correction and rerun
+    the affected contract checks before representative execution. If valid host evidence exposes a Linux-only
+    production defect, make the smallest Linux fix, run focused local checks, and rerun every affected cell/flow.
+    Preserve failed private evidence. Stop for planning if a fix changes shared production behavior or the
+    approved qualification contract.
+11. Write only privacy-safe aggregate Linux results, exact non-sensitive candidate/evidence identities, and gate
+    outcomes in the specification bundle. Do not commit generated packages, models, runtime packs, raw samples,
+    private manifests, caches, paths, or hardware/device identities.
 
 ## Contracts And Boundaries
 
-- The regular Windows computer is a direct manual acceptance host, not a CI runner and not an evidence uploader.
-- Qualification records contain only bounded durations, counts, anonymized platform/backend class, aggregate
-  resources, stable content-free outcomes, and digests of sanitized documents.
-- No credentials, private paths, device-native identities, model/audio/transcript/prompt content, unrestricted logs,
-  capability dumps, or environment dumps enter repository files, console captures, commits, or handoffs.
-- A failure is evidence and a Packet 18 input; it is never permission to weaken security, correctness, privacy,
-  compatibility, or acceptance thresholds.
+- The representative host is a supported regular Linux computer; fixtures cannot claim CPU/CUDA host acceptance.
+- Model load/inference stays single-owner and non-concurrent. Native resources use RAII and deterministic cleanup.
+- The private model path remains absent from argv, environment, renderer/preload IPC, retained logs, diagnostics,
+  errors, crash output, and aggregate evidence.
+- Qualification-only input digests never become ordinary production model authentication.
+- A failed load has no legacy fallback, no late success, and no reusable uncertain residency.
 
 ## Expected Files Or Components
 
-- Packet 13's collector/run-plan interfaces and a Windows-specific sampler/adapter under
-  `scripts/local-whisper/qualification/`, with focused tests under `tests/scripts/localWhisper/qualification/`
-- `package.json` command entry points for the Windows collector and analyzer
-- Privacy-safe Windows aggregate evidence under this specification's qualification evidence directory
-- `tasks/todo.md` and `tasks/handoff.md`
-- No production source file
+- `scripts/local-whisper/qualification/` contracts, document producers, run-plan/attempt runners, collectors,
+  aggregators, validators, and commands that currently encode paired-baseline assumptions.
+- `docs/specs/local-whisper/qualification/schemas/` performance manifest, run-plan, and result schemas when the
+  candidate-only contract requires schema changes.
+- Focused tests under `tests/scripts/localWhisper/qualification/`.
+- Privacy-safe aggregate Linux evidence inside this specification bundle plus `tasks/todo.md` and
+  `tasks/handoff.md`.
+- Linux-only production files only when representative evidence proves a defect.
 
 ## Acceptance Criteria
 
-- AC-MAN-002 executes the exact representative Windows CPU/CUDA matrix and every cell either passes or has an
-  explicit content-free failure/blocker.
-- Windows portions of AC-MAN-003 through AC-MAN-005 execute through real app, guard, worker, UI, settings, runtime
-  pack, and package mechanisms.
-- AC-MAN-006 confirms every retained document and handoff is privacy-safe.
-- Each pipeline candidate has a complete pass/fail record for the 25 percent improvement and 3 percent guardrail;
-  none is represented as the production selection.
-- The retained current Linux and Windows aggregates bind the same exact Windows-adapter candidate SHA, baseline SHA,
-  source proof, model identities, run contract, and statistic/uncertainty method.
-- A valid passing or failing result completes evidence collection but not specification acceptance; Packet 18
-  remains mandatory.
+- Candidate-only schemas and validators accept no baseline side and reject a wrong model/size, wrong sample count,
+  inconsistent ordering/cache/identity, timing-gate semantics, missing resource data, and privacy-unsafe evidence.
+- The exact Base artifact completes CPU/CUDA cold/warm qualification with three successful candidate loads per
+  cell. Every cell reports median, minimum, maximum, and distance from five seconds without timing pass/fail.
+- Candidate package CPU and CUDA flows pass load, warm-up, transcription, cancellation, unload, retry, cleanup,
+  zero ordinary model-content proofs, one standard path API call, and no legacy fallback.
+- CUDA ownership is real and explicit; no CPU fallback is accepted as CUDA evidence.
+- Bounded RAM/VRAM and Linux privacy evidence is complete, sanitized, bound to exact candidate identity, and all
+  private evidence remains retained outside source control.
 
 ## Verification
 
+Run the smallest applicable checks after each tooling change, then the focused Linux set:
+
+- `npm run test:local-whisper:performance-contracts`
+- `npm run test:local-whisper:performance-runner`
+- `npm run test:local-whisper:qualification`
 - `npm run verify:local-whisper:qualification:inputs`
-- Repeat Packet 16's production freeze, CPU/CUDA collector, analyzer, and manual matrix on the Windows-adapter SHA
-- `npm run produce:local-whisper:windows-runtime-pack:cpu`
-- `npm run produce:local-whisper:windows-runtime-pack:cuda`
-- `npm run collect:local-whisper:qualification:performance -- --platform=win32 --backend=<cpu|cuda> --mode=representativeHost --root=<validated-disposable-root> --input=<root-relative-run-plan> --output=<root-relative-private-bundle>`
-- `npm run run:local-whisper:qualification:windows`
-- `npm run verify:local-whisper:qualification:windows`
-- `npm run test:local-whisper:windows-application-smoke`
-- Run Packet 01's paired analyzer for every Windows CPU/CUDA matrix cell and pipeline window 1, 2, 4, and 8.
-- Run the real installation, GPU-thread, warm-up, mixed-peer, rollback, accessibility, package, and privacy
-  procedures above on the regular Windows computer.
+- `npm run verify:local-whisper:qualification:linux-private-inputs`
+- `npm run produce:local-whisper:qualification:linux-performance-plans`
+- `npm run run:local-whisper:qualification:linux`
+- `npm run verify:local-whisper:qualification:linux`
+- `npm run verify:local-whisper:performance:linux`
+- Candidate-package CPU/CUDA procedures in Task Contract 6–9.
+- `npx prettier --check docs/specs/local-whisper-performance-remediation scripts/local-whisper/qualification tests/scripts/localWhisper/qualification`
+- `git diff --check`
 
-## CI Gate And Commit Discipline
-
-- Required checks for the exact pushed accumulated candidate SHA: `Quality Gates`, `Local Whisper Performance (Linux)`,
-  `Local Whisper Performance (Windows)`, `Local Whisper Native Quality (Linux)`,
-  `Local Whisper Native Quality (Windows)`, `Package Smoke (Windows)`, and `Package Attestation (Windows)`.
-- Push only after explicit authorization and wait until every required check reports `success`; failed, skipped,
-  cancelled, neutral, action-required, stale, and timed-out results are non-passing.
-- Do not fix any CI, production, or Windows behavior failure in this packet. Packet 18 owns every separate fix commit
-  and rerun. Never amend or squash an accumulated implementation commit.
-- Retain only sanitized aggregate evidence and content-free failures. Record candidate SHA, run ID, check names,
-  URLs or IDs, final results, and the sanitized Windows evidence digest in `handoff.md`.
+Commands that consume private arguments run only after their private-input preflight succeeds. No CI or Windows
+check is run or inspected in this packet.
 
 ## Failure And Rollback
 
-- Missing phases, invalid samples, threshold failures, resource regressions, security/privacy problems, package
-  failures, or unavailable required cells remain visible and activate Packet 18 or block acceptance.
-- Rollback means reject the candidate and retain the last coherent approved app/guard/settings/runtime set. Do not
-  delete managed models, runtime artifacts, user data, or the failing evidence, and do not publish a release.
+- Missing hardware/artifacts, invalid identity, partial cells, wrong sample counts, malformed/missing evidence,
+  CUDA fallback, lifecycle/cleanup failure, privacy leakage, or unsafe retry leaves Packet 17 unchecked.
+- Keep failed private evidence. Retry only from a new safe attempt root after resources reach a known clean state.
+- Revert qualification-tool edits if the candidate-only contract cannot be made backward-safe. Reject the
+  candidate for a production defect; never activate the deprecated loader as fallback.
 
 ## Manual Gates
 
-- `MANUAL GATE`: the operator explicitly authorizes use of the regular Windows CPU/CUDA computer, approved local
-  artifacts, disposable settings roots, package installation, induced failures, and GPU topology changes.
-- Do not request or store credentials in the task bundle. Do not upload or externally share the results.
+- `MANUAL GATE`: private model/fixture/runtime/package access, candidate package installation, cache preparation,
+  representative Linux CPU/CUDA execution, induced cancellation, and private evidence retention.
+- `MANUAL GATE`: any commit requires separate authorization. No push, CI, external upload, publication, release,
+  or private evidence deletion is authorized in this packet.
 
 ## References
 
-- Specification Sections 4, 5, 10, 13, 14.2, and 16.
-- Packet 01's locked analyzer, Packet 12's operational documentation, Packets 14–15's attempt contract/runner, and Packet 16's
-  Linux evidence.
+- Specification Sections 4, 5, 12–16.
+- Packets 13–16 for the retained private evidence, attempt-runner, and standard-loader foundations.
+- `docs/agent-guides/project-conventions.md` sections “Tests And Documentation” and “Git And Releases”.
 
 ## Completion And Handoff
 
-After the deferred checks either execute or are explicitly blocked by the first non-success prerequisite, review the
-evidence and mark Packet 17 complete as evidence collection. List every content-free failure, unrun dependent check,
-and available candidate-window result with its owning component, then stop with mandatory Packet 18 as the exact
-next packet. Packet 18 must repair the blocker and complete all missing checks before selection or acceptance.
+After all Linux gates pass, mark Packet 17 complete and update `todo.md` and `handoff.md` with the exact
+non-sensitive candidate identity, sanitized aggregate evidence digest, four cell outcomes, lifecycle/CUDA/
+resource/privacy outcomes, changed files, and verification results. Name
+[Packet 18](18_windows_final_remediation.md) as the sole next packet and stop without Windows work, push, CI,
+publication, installation-window selection, or private evidence deletion.

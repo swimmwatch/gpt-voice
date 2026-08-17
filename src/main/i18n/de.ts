@@ -6,6 +6,12 @@ export default {
   ...getPrettifyProfileSettingsTranslations('de'),
   'translate.provider': 'Übersetzungsanbieter',
   'translate.saving': 'Wird gespeichert...',
+  'providerHotkeyDemo.fixtureControls': 'Steuerelemente für das Demo-Szenario',
+  'providerHotkeyDemo.fixture': 'Szenario',
+  'providerHotkeyDemo.advanceClock': 'Demo-Uhr vorstellen',
+  'providerHotkeyDemo.clearLock': 'Demo-Sperre aufheben',
+  'providerHotkeyDemo.ownerlessLock': 'Sperre ohne Besitzer',
+  'providerHotkeyDemo.statusDetailPriority': 'Priorität der Statusdetails',
   'translate.settingsSaveFailed': 'Übersetzungseinstellungen konnten nicht gespeichert werden',
 
   'status.pressToRecord': 'Drücken Sie {hotkey}, um die Aufnahme zu starten',
@@ -130,6 +136,8 @@ export default {
     'Sie müssen sich erneut anmelden oder einen Schlüssel eingeben, um diesen Anbieter zu verwenden.',
   'appSettings.open': 'App-Einstellungen',
   'settings.blockedWhileOpen': 'Schließen Sie die Einstellungen, um GPT-Voice weiter zu verwenden.',
+  'settings.opening': 'Einstellungen werden geöffnet…',
+  'settings.show': 'Einstellungen anzeigen',
   'settings.blockedWhileRecording': 'Beenden Sie die Aufnahme, bevor Sie die Einstellungen öffnen.',
   'settings.blockedWhileOperationActive':
     'Warten Sie, bis der aktuelle Vorgang beendet ist, bevor Sie die Einstellungen öffnen.',
@@ -217,6 +225,7 @@ export default {
   'recording.capturedAudioDuration': 'Aufgenommener Ton: {duration}',
   'modelMemory.title': 'Modell-Speicher',
   'modelMemory.ollamaGpu': 'Verbesserungsmodell',
+  'modelMemory.ram': 'RAM',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Geladen',
   'modelMemory.notLoaded': 'Nicht geladen',
@@ -474,6 +483,7 @@ export default {
   'prettify.vllmGpuReleaseWarning':
     'Der Anbieter wurde geändert, aber vLLM konnte den GPU-Speicher nicht freigeben. Aktivieren Sie den vLLM-Ruhemodus.',
   'error.notLoggedIn': 'Nicht angemeldet. Bitte melden Sie sich zuerst an.',
+  'error.selectedProviderNotReady': 'Anbieter nicht bereit.',
   'error.noAccessToken':
     'Kein Zugriffstoken oder API-Schlüssel vorhanden. Konfigurieren Sie den Anbieter und versuchen Sie es erneut.',
   'error.chatGptAsrFailure':
@@ -685,4 +695,16 @@ export default {
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Zeigen',
   'tray.quit': 'Beenden',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Unabhängige Desktop-App zur Sprachtranskription über GPT-Websitzungen.',
+  'nativeMenu.file': 'Datei',
+  'nativeMenu.edit': 'Bearbeiten',
+  'nativeMenu.view': 'Ansicht',
+  'nativeMenu.help': 'Hilfe',
+  'nativeMenu.projectOnGitHub': 'Projekt auf GitHub',
+  'nativeMenu.aboutApp': 'Über {app}',
+  'prettify.providerUnavailable': 'Der Prettify-Anbieter ist nicht verfügbar.',
+  'prettify.modelLoadUnavailable': 'Das Laden von Modellen ist für diesen Anbieter nicht verfügbar.',
+  'prettify.modelUnloadUnavailable': 'Das Freigeben von Modellen ist für diesen Anbieter nicht verfügbar.',
+  'prettify.instructionInvalid': 'Die Prettify-Anfrage ist ungültig.',
 } as const;

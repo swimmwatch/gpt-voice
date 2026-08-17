@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/focused-performance-bundle-v4.schema.json",
+  "title": "Local Whisper revision-7 focused candidate bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "focusedPerformanceBundleDigest",
+    "focusedPerformanceRunPlanDigest",
+    "focusedPerformanceManifestDigest",
+    "platform",
+    "backend",
+    "manifest",
+    "cacheReceipts",
+    "samples"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 4 },
+    "contractRevision": { "const": 7 },
+    "focusedPerformanceBundleDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "platform": { "const": "linux" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "manifest": { "type": "object" },
+    "cacheReceipts": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "type": "object" } },
+    "samples": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "type": "object" } }
+  },
+  "$defs": { "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

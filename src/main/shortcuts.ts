@@ -14,6 +14,9 @@ import {
   canStopRecording,
   isRecordingLifecycleBusy,
   type RecordingLifecycleState,
+  type VoiceRecordingStartResult,
+  type VoiceRecordingStartRejectionReason,
+  VOICE_RECORDING_IPC_CHANNELS,
 } from '@shared/recordingLifecycle';
 import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
 import {
@@ -61,6 +64,17 @@ export interface ShortcutSettingsSnapshot extends HotkeySettings {
   readonly translateEnabled: boolean;
 }
 
+export interface VoiceRecordingProviderReadiness {
+  isReady(): boolean;
+}
+
+const RECORDING_START_ACCEPTED = Object.freeze({ accepted: true }) satisfies VoiceRecordingStartResult;
+const RECORDING_START_REJECTED = Object.freeze({ accepted: false }) satisfies VoiceRecordingStartResult;
+const PROVIDER_NOT_CONNECTED_REJECTION = Object.freeze({
+  accepted: false,
+  reason: 'provider-not-connected',
+}) satisfies VoiceRecordingStartResult;
+
 export interface ShortcutControllerDependencies {
   readonly config: Pick<AppConfigStore, 'getSnapshot'>;
   readonly globalShortcut: {
@@ -87,6 +101,7 @@ export interface ShortcutControllerDependencies {
   >;
   readonly selectedTextTranslationService: SelectedTextTranslationShortcutService;
   readonly trayController: Pick<TrayController, 'updateIcon'>;
+  readonly voiceRecordingProviderReadiness: VoiceRecordingProviderReadiness;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
 }
 
@@ -145,6 +160,27 @@ export class ShortcutController {
     this.setSuspension('hotkey-capture', suspended);
   }
 
+  /** Authoritatively starts recording only when the active Voice Provider can transcribe. */
+  public requestRecordingStart(): VoiceRecordingStartResult {
+    if (
+      this.dependencies.mainInteractionLock.locked ||
+      !canStartRecording(this.recordingLifecycleState) ||
+      this.dependencies.selectedTextActionGate.getActive()
+    ) {
+      return RECORDING_START_REJECTED;
+    }
+    if (!this.dependencies.voiceRecordingProviderReadiness.isReady()) {
+      this.dependencies.logger.info('Recording start rejected because Voice Provider is not connected');
+      this.sendRecordingStartRejected('provider-not-connected');
+      this.showVoiceProviderNotReadyNotification();
+      return PROVIDER_NOT_CONNECTED_REJECTION;
+    }
+
+    this.setRecordingLifecycleState('starting');
+    this.dependencies.windowManager.getMainWindow()?.webContents.send('toggle-recording', true);
+    return RECORDING_START_ACCEPTED;
+  }
+
   private setSuspension(reason: ShortcutSuspensionReason, suspended: boolean): void {
     if (this.disposed) return;
     const wasSuspended = this.shortcutsSuspended;
@@ -190,9 +226,8 @@ export class ShortcutController {
     const recordRegistered = this.registerConfiguredShortcut('record', recordHotkey, () => {
       const window = this.dependencies.windowManager.getMainWindow();
       if (canStartRecording(this.recordingLifecycleState) && !this.dependencies.selectedTextActionGate.getActive()) {
-        this.dependencies.logger.info(`${recordHotkey} pressed, starting recording`);
-        this.setRecordingLifecycleState('starting');
-        window?.webContents.send('toggle-recording', true);
+        const result = this.requestRecordingStart();
+        if (result.accepted) this.dependencies.logger.info(`${recordHotkey} pressed, starting recording`);
       } else if (canPauseRecording(this.recordingLifecycleState)) {
         this.dependencies.logger.info(`${recordHotkey} pressed, pausing recording`);
         this.setRecordingLifecycleState('paused');
@@ -306,6 +341,11 @@ export class ShortcutController {
   }
 
   private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string): void {
+    if (this.dependencies.mainInteractionLock.locked) {
+      this.dependencies.logger.info(`${hotkey} pressed while settings lock is active`, { target });
+      return;
+    }
+
     if (target === 'prettify') {
       const result = this.dependencies.providerHomeActionDispatcher.dispatch(
         { action: 'start', provider: 'prettify' },
@@ -421,6 +461,12 @@ export class ShortcutController {
     this.dependencies.windowManager.getMainWindow()?.webContents.send('translation-status', status);
   }
 
+  private sendRecordingStartRejected(reason: VoiceRecordingStartRejectionReason): void {
+    this.dependencies.windowManager
+      .getMainWindow()
+      ?.webContents.send(VOICE_RECORDING_IPC_CHANNELS.startRejected, reason);
+  }
+
   private sendTextActionActivity(active: boolean): void {
     this.dependencies.windowManager
       .getMainWindow()
@@ -440,6 +486,17 @@ export class ShortcutController {
       this.dependencies.notification.show('GPT-Voice', `${failure}: ${disconnected}`);
     } catch {
       this.dependencies.logger.warn('Failed to show disconnected Prettify provider notification');
+    }
+  }
+
+  private showVoiceProviderNotReadyNotification(): void {
+    try {
+      this.dependencies.notification.show(
+        'GPT-Voice',
+        this.dependencies.localization.translate('error.selectedProviderNotReady'),
+      );
+    } catch {
+      this.dependencies.logger.warn('Failed to show Voice Provider readiness notification');
     }
   }
 

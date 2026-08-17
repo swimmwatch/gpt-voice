@@ -7,6 +7,8 @@ import TranslateSection from '@renderer/components/TranslateSection';
 import HotkeyActionButton from '@renderer/components/HotkeyActionButton';
 import { Button } from '@renderer/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
+import type { TranslationKey } from '@main/i18n';
+import { useI18n } from '@renderer/hooks/useI18n';
 import type { CapturedAudioClock } from '@renderer/recordingElapsedTime';
 import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
 import { translatedStatus, type RendererStatus } from '@renderer/statusPresentation';
@@ -35,18 +37,18 @@ const DEMO_HOTKEYS = Object.freeze({
 });
 
 const DEMO_FIXTURE_OPTIONS = [
-  { id: 'idle', label: 'Idle' },
-  { id: 'starting', label: 'Voice — Starting' },
-  { id: 'recording', label: 'Voice — Recording' },
-  { id: 'paused', label: 'Voice — Paused' },
-  { id: 'stopping', label: 'Voice — Stopping' },
-  { id: 'transcribing', label: 'Voice — Transcribing' },
-  { id: 'retrying', label: 'Voice — Retrying' },
-  { id: 'prettify', label: 'Prettify owner' },
-  { id: 'translation', label: 'Translation owner' },
-  { id: 'unknown-owner', label: 'Ownerless lock' },
-  { id: 'priority-status', label: 'Status detail priority' },
-] as const;
+  { id: 'idle', labelKey: 'indicator.idle' },
+  { id: 'starting', labelKey: 'recording.starting' },
+  { id: 'recording', labelKey: 'status.recording' },
+  { id: 'paused', labelKey: 'status.paused' },
+  { id: 'stopping', labelKey: 'status.stopping' },
+  { id: 'transcribing', labelKey: 'status.transcribing' },
+  { id: 'retrying', labelKey: 'status.resendingTranscription' },
+  { id: 'prettify', labelKey: 'prettify.provider' },
+  { id: 'translation', labelKey: 'translate.provider' },
+  { id: 'unknown-owner', labelKey: 'providerHotkeyDemo.ownerlessLock' },
+  { id: 'priority-status', labelKey: 'providerHotkeyDemo.statusDetailPriority' },
+] as const satisfies readonly { readonly id: string; readonly labelKey: TranslationKey }[];
 
 type DemoFixtureId = (typeof DEMO_FIXTURE_OPTIONS)[number]['id'];
 
@@ -172,6 +174,7 @@ function createContextualAction(
 function getDemoContextualActions(
   fixtureId: DemoFixtureId,
   onFixtureChange: (nextFixtureId: DemoFixtureId) => void,
+  translate: ReturnType<typeof useI18n>['t'],
 ): readonly ProviderHotkeyContextualAction[] {
   const setFixtureForAction = (action: ProviderContextualAction): void => {
     onFixtureChange(getFixtureAfterContextualAction(action));
@@ -180,29 +183,41 @@ function getDemoContextualActions(
 
   switch (fixtureId) {
     case 'starting':
-      return [createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, 'Cancel', cancelVoice)];
+      return [createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice)];
     case 'recording':
       return [
-        createContextualAction('pause', 'voice', DEMO_HOTKEYS.voice, 'Pause', () => setFixtureForAction('pause')),
-        createContextualAction('stop', 'voice', DEMO_HOTKEYS.stop, 'Stop', () => setFixtureForAction('stop')),
-        createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, 'Cancel', cancelVoice),
+        createContextualAction('pause', 'voice', DEMO_HOTKEYS.voice, translate('recording.pause'), () =>
+          setFixtureForAction('pause'),
+        ),
+        createContextualAction('stop', 'voice', DEMO_HOTKEYS.stop, translate('recording.stop'), () =>
+          setFixtureForAction('stop'),
+        ),
+        createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice),
       ];
     case 'paused':
       return [
-        createContextualAction('resume', 'voice', DEMO_HOTKEYS.voice, 'Resume', () => setFixtureForAction('resume')),
-        createContextualAction('stop', 'voice', DEMO_HOTKEYS.stop, 'Stop', () => setFixtureForAction('stop')),
-        createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, 'Cancel', cancelVoice),
+        createContextualAction('resume', 'voice', DEMO_HOTKEYS.voice, translate('recording.resume'), () =>
+          setFixtureForAction('resume'),
+        ),
+        createContextualAction('stop', 'voice', DEMO_HOTKEYS.stop, translate('recording.stop'), () =>
+          setFixtureForAction('stop'),
+        ),
+        createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice),
       ];
     case 'transcribing':
     case 'retrying':
-      return [createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, 'Cancel', cancelVoice)];
+      return [createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice)];
     case 'prettify':
       return [
-        createContextualAction('cancel', 'prettify', DEMO_HOTKEYS.cancel, 'Cancel', () => onFixtureChange('idle')),
+        createContextualAction('cancel', 'prettify', DEMO_HOTKEYS.cancel, translate('recording.cancel'), () =>
+          onFixtureChange('idle'),
+        ),
       ];
     case 'translation':
       return [
-        createContextualAction('cancel', 'translation', DEMO_HOTKEYS.cancel, 'Cancel', () => onFixtureChange('idle')),
+        createContextualAction('cancel', 'translation', DEMO_HOTKEYS.cancel, translate('recording.cancel'), () =>
+          onFixtureChange('idle'),
+        ),
       ];
     case 'idle':
     case 'stopping':
@@ -239,14 +254,19 @@ function useDemoClock(): { readonly advance: () => void; readonly clock: Capture
 
 /** Deterministic, capability-free rendering of the completed 620 × 292 home screen. */
 export default function ProviderHotkeyDemo(): React.JSX.Element {
+  const { t } = useI18n();
   const [fixtureId, setFixtureId] = useState<DemoFixtureId>('idle');
   const [transientLockedOwner, setTransientLockedOwner] = useState<ProviderHomeAction | null>(null);
   const { advance, clock } = useDemoClock();
   const fixture = getDemoFixture(fixtureId);
-  const contextualActions = getDemoContextualActions(fixtureId, (nextFixtureId) => {
-    setTransientLockedOwner(null);
-    setFixtureId(nextFixtureId);
-  });
+  const contextualActions = getDemoContextualActions(
+    fixtureId,
+    (nextFixtureId) => {
+      setTransientLockedOwner(null);
+      setFixtureId(nextFixtureId);
+    },
+    t,
+  );
   const lockOwner = (owner: ProviderHomeAction): void => setTransientLockedOwner(owner);
   const isLocked = (owner: ProviderHomeAction): boolean =>
     fixture.locked || transientLockedOwner !== null || (fixture.activeOwner !== null && fixture.activeOwner !== owner);
@@ -261,7 +281,7 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         <MainToolbar
           actionControl={
             <HotkeyActionButton
-              actionLabel="Use Voice provider"
+                actionLabel={t('recording.startCommand')}
               active={fixture.activeOwner === 'voice'}
               hotkey={DEMO_HOTKEYS.voice}
               locked={isLocked('voice')}
@@ -295,7 +315,7 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         <MainPrettifyProviderBand
           actionControl={
             <HotkeyActionButton
-              actionLabel="Use Prettify provider"
+                actionLabel={t('prettify.provider')}
               active={fixture.activeOwner === 'prettify'}
               hotkey={DEMO_HOTKEYS.prettify}
               locked={isLocked('prettify')}
@@ -319,7 +339,7 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         <TranslateSection
           actionControl={
             <HotkeyActionButton
-              actionLabel="Use Translation provider"
+                actionLabel={t('translate.provider')}
               active={fixture.activeOwner === 'translation'}
               hotkey={DEMO_HOTKEYS.translation}
               locked={isLocked('translation')}
@@ -338,18 +358,18 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  aria-label="Open Translation settings"
+                  aria-label={t('navigation.openProviderSettings', { provider: t('translate.provider') })}
                   className="command-dock-translation-settings-shortcut command-dock-settings-shortcut"
                   disabled={fixture.locked}
                   onClick={NO_DEMO_ACTION}
                   size="icon"
-                  title="Open Translation settings"
+                  title={t('navigation.openProviderSettings', { provider: t('translate.provider') })}
                   variant="outline"
                 >
                   <Settings aria-hidden="true" strokeWidth={1.75} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Open Translation settings</TooltipContent>
+              <TooltipContent>{t('navigation.openProviderSettings', { provider: t('translate.provider') })}</TooltipContent>
             </Tooltip>
           }
         />
@@ -362,27 +382,27 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         />
       </main>
 
-      <aside aria-label="Demo fixture controls" className="provider-hotkey-demo-controls">
+      <aside aria-label={t('providerHotkeyDemo.fixtureControls')} className="provider-hotkey-demo-controls">
         <label>
-          Fixture
+          {t('providerHotkeyDemo.fixture')}
           <select
-            aria-label="Demo fixture"
+            aria-label={t('providerHotkeyDemo.fixture')}
             name="fixture"
             onChange={(event) => selectFixture(event.target.value as DemoFixtureId)}
             value={fixtureId}
           >
             {DEMO_FIXTURE_OPTIONS.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
         </label>
         <button onClick={advance} type="button">
-          Advance demo clock
+          {t('providerHotkeyDemo.advanceClock')}
         </button>
         <button onClick={() => setTransientLockedOwner(null)} type="button">
-          Clear demo key lock
+          {t('providerHotkeyDemo.clearLock')}
         </button>
       </aside>
     </div>

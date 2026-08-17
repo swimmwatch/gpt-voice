@@ -24,6 +24,12 @@ const SCHEMA_FILES = Object.freeze({
   performanceSample: 'performance-sample-v3.schema.json',
   performanceBundle: 'performance-bundle-v3.schema.json',
   performanceResult: 'performance-result-v3.schema.json',
+  focusedPerformanceRunPlan: 'focused-performance-run-plan-v4.schema.json',
+  focusedPerformanceManifest: 'focused-performance-manifest-v4.schema.json',
+  focusedPerformanceCacheReceipt: 'focused-performance-cache-receipt-v4.schema.json',
+  focusedPerformanceSample: 'focused-performance-sample-v4.schema.json',
+  focusedPerformanceBundle: 'focused-performance-bundle-v4.schema.json',
+  focusedPerformanceResult: 'focused-performance-result-v4.schema.json',
 } as const);
 const PERFORMANCE_TRANSPORT_SCHEMA_FILES = Object.freeze(['performance-attempt-response-v3.schema.json']);
 
@@ -56,6 +62,12 @@ const DOCUMENT_DIGEST_FIELDS = Object.freeze({
   performanceSample: 'performanceSampleDigest',
   performanceBundle: 'performanceBundleDigest',
   performanceResult: 'performanceResultDigest',
+  focusedPerformanceRunPlan: 'focusedPerformanceRunPlanDigest',
+  focusedPerformanceManifest: 'focusedPerformanceManifestDigest',
+  focusedPerformanceCacheReceipt: 'focusedPerformanceCacheReceiptDigest',
+  focusedPerformanceSample: 'focusedPerformanceSampleDigest',
+  focusedPerformanceBundle: 'focusedPerformanceBundleDigest',
+  focusedPerformanceResult: 'focusedPerformanceResultDigest',
 } as const);
 
 const PRIVATE_KEYS = new Set([
@@ -109,7 +121,7 @@ const PERFORMANCE_PRIVATE_KEYS = new Set([
 
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION = '1f6ce9c988a275f1ef9faa295b1bb04879943e89';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST =
-  'ab379661e9607faabdb564741323a7b794bb704b50535678236796cfc80ddcea';
+  '9f24505609148dbeb379586b56781ca279cbc068f388c1a76e1a6329ff839ffc';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE = Object.freeze({
   beforeOptimization: Object.freeze({ linux: 8, win32: 7 }),
   afterDirectoryReuse: Object.freeze({ linux: 7, win32: 6 }),
@@ -394,6 +406,12 @@ export class LocalWhisperQualificationValidator {
     if (kind === 'performanceSample') this.assertPerformanceSample(document);
     if (kind === 'performanceBundle') this.assertPerformanceBundle(document);
     if (kind === 'performanceResult') this.assertPerformanceResult(document);
+    if (kind === 'focusedPerformanceRunPlan') this.assertFocusedPerformanceRunPlan(document);
+    if (kind === 'focusedPerformanceManifest') this.assertFocusedPerformanceManifest(document);
+    if (kind === 'focusedPerformanceCacheReceipt') this.assertFocusedPerformanceCacheReceipt(document);
+    if (kind === 'focusedPerformanceSample') this.assertFocusedPerformanceSample(document);
+    if (kind === 'focusedPerformanceBundle') this.assertFocusedPerformanceBundle(document);
+    if (kind === 'focusedPerformanceResult') this.assertFocusedPerformanceResult(document);
   }
 
   public validateAndFreezeDocument(
@@ -1073,6 +1091,272 @@ export class LocalWhisperQualificationValidator {
       (document.evidenceClaim === 'representativePerformance' && document.selectionStatus !== 'awaitingCrossPlatform')
     ) {
       throw new Error('QUALIFICATION_PERFORMANCERESULT_CONTRACT_INVALID');
+    }
+  }
+
+  private assertFocusedPerformanceModel(value: unknown, code: string): void {
+    const model = asRecord(value, code);
+    const expected = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
+      (candidate) => candidate.family === 'base' && candidate.variant === 'full',
+    );
+    if (
+      !expected ||
+      model.family !== 'base' ||
+      model.variant !== 'full' ||
+      model.sha256 !== expected.sha256 ||
+      model.sizeBytes !== expected.sizeBytes
+    ) {
+      throw new Error(code);
+    }
+  }
+
+  private hasFocusedPerformanceSourceHashBaseline(value: unknown, code: string): boolean {
+    const actual = asRecord(value, code);
+    const expected = LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE;
+    const expectedStages = Object.keys(expected);
+    if (Object.keys(actual).length !== expectedStages.length || expectedStages.some((stage) => !(stage in actual))) {
+      return false;
+    }
+    return expectedStages.every((stage) => {
+      const expectedCounts = expected[stage as keyof typeof expected];
+      const actualCounts = asRecord(actual[stage], code);
+      return (
+        Object.keys(actualCounts).length === 2 &&
+        actualCounts.linux === expectedCounts.linux &&
+        actualCounts.win32 === expectedCounts.win32
+      );
+    });
+  }
+
+  private assertFocusedPerformanceMetrics(document: Record<string, unknown>, code: string): void {
+    const expectedPhases = LOCAL_WHISPER_PERFORMANCE_PHASES.map(({ id }) => id).filter(
+      (id) => !(document.backend === 'cpu' && id === 'gpuUploadAllocation'),
+    );
+    const expectedResources = LOCAL_WHISPER_PERFORMANCE_RESOURCES.map(({ id }) => id).filter(
+      (id) => !(document.backend === 'cpu' && id === 'gpuPeakVram'),
+    );
+    if (
+      document.platform !== 'linux' ||
+      document.architecture !== 'x64' ||
+      !['cpu', 'cuda'].includes(String(document.backend)) ||
+      document.executionMode !== 'representativeHost' ||
+      document.evidenceClaim !== 'representativePerformance' ||
+      document.successfulSamplesPerCell !== 3 ||
+      document.runOrdering !== 'coldThenWarm' ||
+      document.statistic !== 'medianMinimumMaximum' ||
+      document.fiveSecondObjectiveMilliseconds !== 5000 ||
+      JSON.stringify(document.cacheStates) !== JSON.stringify(['cold', 'warm']) ||
+      JSON.stringify(document.requiredPhaseIds) !== JSON.stringify(expectedPhases) ||
+      JSON.stringify(document.requiredResourceIds) !== JSON.stringify(expectedResources) ||
+      !this.hasFocusedPerformanceSourceHashBaseline(document.sourceHashBaseline, code)
+    ) {
+      throw new Error(code);
+    }
+  }
+
+  private assertFocusedPerformanceRunPlan(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_FOCUSEDPERFORMANCERUNPLAN_CONTRACT_INVALID';
+    this.assertFocusedPerformanceMetrics(document, code);
+    this.assertFocusedPerformanceModel(document.model, code);
+    const source = asRecord(document.candidateSource, code);
+    const application = asRecord(document.applicationArtifact, code);
+    const runtime = asRecord(document.runtimeArtifact, code);
+    const model = asRecord(document.model, code);
+    const modelArtifact = asRecord(model.artifact, code);
+    const cache = asRecord(document.qualificationCache, code);
+    if (
+      !COMMIT_PATTERN.test(String(document.candidateCommit)) ||
+      document.sourceRevision !== document.candidateCommit ||
+      source.commit !== document.candidateCommit ||
+      !SHA256_PATTERN.test(String(document.sourceProofDigest)) ||
+      source.sourceProofDigest !== document.sourceProofDigest ||
+      !SHA256_PATTERN.test(String(source.instrumentationOverlaySha256)) ||
+      !SHA256_PATTERN.test(String(source.derivedTreeManifestSha256)) ||
+      !SHA256_PATTERN.test(String(source.executableArtifactSha256)) ||
+      source.executableArtifactSha256 !== application.sha256 ||
+      !performancePathIsContained(source.relativePath, application.relativePath) ||
+      !performancePathIsContained(source.relativePath, runtime.relativePath) ||
+      !SHA256_PATTERN.test(String(application.sha256)) ||
+      !SHA256_PATTERN.test(String(runtime.sha256)) ||
+      modelArtifact.sha256 !== model.sha256 ||
+      modelArtifact.sizeBytes !== model.sizeBytes ||
+      !SHA256_PATTERN.test(String(cache.snapshotDigest)) ||
+      !SHA256_PATTERN.test(String(cache.evidenceIdentityDigest)) ||
+      !Number.isSafeInteger(cache.entryCount) ||
+      !Number.isSafeInteger(cache.fileCount) ||
+      !Number.isSafeInteger(cache.sizeBytes) ||
+      (cache.entryCount as number) < 1 ||
+      (cache.fileCount as number) < 1 ||
+      (cache.sizeBytes as number) < 1 ||
+      document.cachePreparationProcedure !== 'linuxFileAdviceV1'
+    ) {
+      throw new Error(code);
+    }
+  }
+
+  private assertFocusedPerformanceManifest(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_FOCUSEDPERFORMANCEMANIFEST_CONTRACT_INVALID';
+    this.assertFocusedPerformanceMetrics(document, code);
+    this.assertFocusedPerformanceModel(document.model, code);
+    if (
+      !COMMIT_PATTERN.test(String(document.candidateCommit)) ||
+      document.sourceRevision !== document.candidateCommit ||
+      !SHA256_PATTERN.test(String(document.sourceProofDigest)) ||
+      !SHA256_PATTERN.test(String(document.instrumentationOverlaySha256))
+    ) {
+      throw new Error(code);
+    }
+  }
+
+  private assertFocusedPerformanceCacheReceipt(document: Record<string, unknown>): void {
+    if (
+      !['cold', 'warm'].includes(String(document.cacheState)) ||
+      !Number.isSafeInteger(document.sampleIndex) ||
+      (document.sampleIndex as number) < 1 ||
+      (document.sampleIndex as number) > 3 ||
+      (document.status === 'prepared' && document.reasonCode !== null) ||
+      (document.status === 'failed' && typeof document.reasonCode !== 'string')
+    ) {
+      throw new Error('QUALIFICATION_FOCUSEDPERFORMANCECACHERECEIPT_CONTRACT_INVALID');
+    }
+  }
+
+  private assertFocusedPerformanceSample(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_FOCUSEDPERFORMANCESAMPLE_CONTRACT_INVALID';
+    this.assertFocusedPerformanceModel(document.model, code);
+    if (
+      !['cold', 'warm'].includes(String(document.cacheState)) ||
+      !Number.isSafeInteger(document.sampleIndex) ||
+      (document.sampleIndex as number) < 1 ||
+      (document.sampleIndex as number) > 3
+    ) {
+      throw new Error(code);
+    }
+    this.assertPerformanceSample(document);
+  }
+
+  private assertFocusedPerformanceBundle(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_FOCUSEDPERFORMANCEBUNDLE_CONTRACT_INVALID';
+    const manifest = asRecord(document.manifest, code);
+    const samples = document.samples;
+    const receipts = document.cacheReceipts;
+    if (!Array.isArray(samples) || !Array.isArray(receipts) || samples.length !== 6 || receipts.length !== 6) {
+      throw new Error(code);
+    }
+    this.validateDocument('focusedPerformanceManifest', manifest);
+    const expectedCells = ['cold', 'warm'].flatMap((cacheState) =>
+      [1, 2, 3].map((sampleIndex) => `${cacheState}-${String(sampleIndex).padStart(2, '0')}`),
+    );
+    const actualCells = samples.map((value) => {
+      const sample = asRecord(value, code);
+      this.validateDocument('focusedPerformanceSample', sample);
+      return `${String(sample.cacheState)}-${String(sample.sampleIndex).padStart(2, '0')}`;
+    });
+    for (let index = 0; index < samples.length; index += 1) {
+      const sample = asRecord(samples[index], code);
+      const receipt = asRecord(receipts[index], code);
+      const expectedSampleId = `base-full-${String(sample.cacheState)}-${String(sample.sampleIndex).padStart(2, '0')}`;
+      if (
+        sample.sampleId !== expectedSampleId ||
+        receipt.sampleId !== expectedSampleId ||
+        receipt.cacheState !== sample.cacheState ||
+        receipt.sampleIndex !== sample.sampleIndex ||
+        sample.focusedPerformanceCacheReceiptDigest !== receipt.focusedPerformanceCacheReceiptDigest ||
+        sample.focusedPerformanceRunPlanDigest !== manifest.focusedPerformanceRunPlanDigest ||
+        sample.focusedPerformanceManifestDigest !== manifest.focusedPerformanceManifestDigest ||
+        sample.candidateCommit !== manifest.candidateCommit ||
+        sample.platform !== manifest.platform ||
+        sample.backend !== manifest.backend ||
+        this.performanceModelIdentity(sample.model, code) !== this.performanceModelIdentity(manifest.model, code) ||
+        receipt.focusedPerformanceRunPlanDigest !== manifest.focusedPerformanceRunPlanDigest ||
+        receipt.focusedPerformanceManifestDigest !== manifest.focusedPerformanceManifestDigest ||
+        receipt.procedure !== manifest.cachePreparationProcedure ||
+        (receipt.status === 'failed' && (sample.status !== 'failed' || sample.failureReason !== receipt.reasonCode))
+      ) {
+        throw new Error(code);
+      }
+      if (sample.status === 'success') {
+        const phaseIds = (sample.phases as readonly unknown[]).map((phase) => asRecord(phase, code).id);
+        const resourceIds = (sample.resources as readonly unknown[]).map((resource) => asRecord(resource, code).id);
+        if (
+          sample.failureReason !== null ||
+          sample.endToEndNanoseconds === null ||
+          JSON.stringify(phaseIds) !== JSON.stringify(manifest.requiredPhaseIds) ||
+          JSON.stringify(resourceIds) !== JSON.stringify(manifest.requiredResourceIds)
+        ) {
+          throw new Error(code);
+        }
+      } else if (
+        typeof sample.failureReason !== 'string' ||
+        sample.endToEndNanoseconds !== null ||
+        (sample.phases as readonly unknown[]).length !== 0 ||
+        (sample.resources as readonly unknown[]).length !== 0
+      ) {
+        throw new Error(code);
+      }
+    }
+    if (
+      JSON.stringify(actualCells) !== JSON.stringify(expectedCells) ||
+      JSON.stringify(
+        receipts.map((value) => {
+          const receipt = asRecord(value, code);
+          this.validateDocument('focusedPerformanceCacheReceipt', receipt);
+          return `${String(receipt.cacheState)}-${String(receipt.sampleIndex).padStart(2, '0')}`;
+        }),
+      ) !== JSON.stringify(expectedCells) ||
+      document.focusedPerformanceRunPlanDigest !== manifest.focusedPerformanceRunPlanDigest ||
+      document.focusedPerformanceManifestDigest !== manifest.focusedPerformanceManifestDigest ||
+      document.platform !== manifest.platform ||
+      document.backend !== manifest.backend
+    ) {
+      throw new Error(code);
+    }
+  }
+
+  private assertFocusedPerformanceResult(document: Record<string, unknown>): void {
+    const code = 'QUALIFICATION_FOCUSEDPERFORMANCERESULT_CONTRACT_INVALID';
+    const cells = document.cells;
+    if (!Array.isArray(cells) || cells.length !== 2) throw new Error(code);
+    if (JSON.stringify(cells.map((cell) => asRecord(cell, code).cacheState)) !== JSON.stringify(['cold', 'warm'])) {
+      throw new Error(code);
+    }
+    for (const value of cells) {
+      const cell = asRecord(value, code);
+      const durations = cell.durationsNanoseconds;
+      const successfulSampleCount = cell.successfulSampleCount;
+      const failedSampleCount = cell.failedSampleCount;
+      const complete = successfulSampleCount === 3;
+      if (
+        !Array.isArray(durations) ||
+        !Number.isSafeInteger(successfulSampleCount) ||
+        !Number.isSafeInteger(failedSampleCount) ||
+        (successfulSampleCount as number) < 0 ||
+        (successfulSampleCount as number) > 3 ||
+        failedSampleCount !== 3 - (successfulSampleCount as number) ||
+        durations.length !== successfulSampleCount ||
+        durations.some((duration) => !Number.isSafeInteger(duration) || (duration as number) < 1) ||
+        cell.sampleCount !== 3 ||
+        !Number.isSafeInteger(cell.medianNanoseconds) ||
+        !Number.isSafeInteger(cell.minimumNanoseconds) ||
+        !Number.isSafeInteger(cell.maximumNanoseconds) ||
+        !Number.isSafeInteger(cell.distanceFromFiveSecondsNanoseconds) ||
+        cell.timingGate !== 'informationalOnly' ||
+        cell.status !== (complete ? 'Pass' : 'Fail') ||
+        (complete
+          ? cell.minimumNanoseconds !== Math.min(...durations) ||
+            cell.maximumNanoseconds !== Math.max(...durations) ||
+            cell.medianNanoseconds !== [...durations].sort((left, right) => left - right)[1] ||
+            cell.distanceFromFiveSecondsNanoseconds !== Math.abs((cell.medianNanoseconds as number) - 5_000_000_000)
+          : cell.minimumNanoseconds !== 0 ||
+            cell.maximumNanoseconds !== 0 ||
+            cell.medianNanoseconds !== 0 ||
+            cell.distanceFromFiveSecondsNanoseconds !== 5_000_000_000)
+      ) {
+        throw new Error(code);
+      }
+    }
+    if (document.status !== (cells.every((cell) => asRecord(cell, code).status === 'Pass') ? 'Pass' : 'Fail')) {
+      throw new Error(code);
     }
   }
 

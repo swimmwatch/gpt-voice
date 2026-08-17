@@ -29,6 +29,7 @@ import {
   type LocalWhisperArtifactReferencePort,
   type LocalWhisperManagedFolderPort,
 } from '../localWhisper/ipc/LocalWhisperIpcController';
+import { LocalWhisperModelLoadFailureNotifier } from '../localWhisper/ipc/LocalWhisperModelLoadFailureNotifier';
 import { ElectronLocalWhisperSenderAuthority } from '../localWhisper/ipc/ElectronLocalWhisperSenderAuthority';
 import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
 import { PROVIDER_AUDIT_SCHEMA_VERSION, type ProviderAuditDependencies } from '../providerAudit';
@@ -319,7 +320,7 @@ export interface MainProcessDesktopControllerEnvironment {
   readonly appProtocol: Omit<AppProtocolControllerDependencies, 'appIconPath' | 'appRoot' | 'logger'>;
   readonly desktopRuntime: Omit<
     DesktopRuntimeControllerDependencies,
-    'getAppIconPath' | 'openExternal' | 'windowManager'
+    'getAppIconPath' | 'localization' | 'openExternal' | 'windowManager'
   >;
   readonly linuxDesktopIntegration: Omit<
     LinuxDesktopIntegrationControllerDependencies,
@@ -332,6 +333,7 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'selectedTextPrettifyService'
     | 'selectedTextTranslationService'
     | 'trayController'
+    | 'voiceRecordingProviderReadiness'
     | 'windowManager'
     | 'config'
     | 'localization'
@@ -350,6 +352,7 @@ export interface MainProcessDesktopControllerEnvironment {
     | 'createAboutWindowController'
     | 'getAppIcon'
     | 'getAppIconPath'
+    | 'localization'
     | 'logger'
     | 'mainInteractionLock'
     | 'openExternal'
@@ -668,6 +671,7 @@ export class MainProcessCompositionRoot {
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
       getAppIcon: () => desktopEnvironment.tray.createNativeImage(assetPaths.getAppIconPath()),
       getAppIconPath: assetPaths.getAppIconPath,
+      localization,
       logger: loggerFactory.getLogger('window'),
       mainInteractionLock,
       openExternal: electronRuntime.openExternal,
@@ -680,6 +684,11 @@ export class MainProcessCompositionRoot {
       coordinator: localWhisperCoordinator,
       artifacts: this.environment.localWhisper.artifacts,
       mainInteractionLock,
+      modelLoadFailureNotifier: new LocalWhisperModelLoadFailureNotifier({
+        localization,
+        logger: loggerFactory.getLogger('local-whisper-notification'),
+        notification: { show: electronRuntime.showSystemNotification },
+      }),
       managedFolder: this.environment.localWhisper.managedFolder,
       references: this.environment.localWhisper.references,
       refreshSettingsFacts: this.environment.localWhisper.refreshDevices,
@@ -696,6 +705,7 @@ export class MainProcessCompositionRoot {
       createBrowserWindow: desktopEnvironment.window.createBrowserWindow,
       getAppIconPath: assetPaths.getAppIconPath,
       getAppUrl: desktopEnvironment.window.getAppUrl,
+      localization,
       logger: loggerFactory.getLogger('prettify-profile-chooser'),
       openExternal: electronRuntime.openExternal,
       randomUUID: this.environment.randomUUID,
@@ -791,6 +801,7 @@ export class MainProcessCompositionRoot {
       selectedTextPrettifyService,
       selectedTextTranslationService,
       trayController,
+      voiceRecordingProviderReadiness: backgroundBrowserService,
       windowManager,
       logger: loggerFactory.getLogger('shortcuts'),
       mainInteractionLock,
@@ -837,6 +848,7 @@ export class MainProcessCompositionRoot {
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,
         getAppIconPath: assetPaths.getAppIconPath,
+        localization,
         openExternal: electronRuntime.openExternal,
         windowManager,
       }),

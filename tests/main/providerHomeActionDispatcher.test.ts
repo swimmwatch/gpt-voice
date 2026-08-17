@@ -9,6 +9,7 @@ interface Harness {
   readonly dispatcher: ProviderHomeActionDispatcher;
   readonly focusCalls: { count: number };
   readonly gate: SelectedTextActionGate;
+  readonly mainInteractionLock: { locked: boolean };
   readonly publications: unknown[];
   recordingState: RecordingLifecycleState;
   readonly settings: {
@@ -23,6 +24,7 @@ function createHarness(): Harness {
   const publications: unknown[] = [];
   const cancelCalls: string[] = [];
   const focusCalls = { count: 0 };
+  const mainInteractionLock = { locked: false };
   const settings = {
     prettifyEnabled: true,
     prettifyQuickEnabled: true,
@@ -35,6 +37,7 @@ function createHarness(): Harness {
     },
     focusCalls,
     gate,
+    mainInteractionLock,
     publications,
     recordingState: 'idle',
     settings,
@@ -47,7 +50,7 @@ function createHarness(): Harness {
     getRecordingLifecycleState: () => harness.recordingState,
     localization: { translate: (key: string) => key },
     logger: { info: () => {}, warn: () => {} },
-    mainInteractionLock: { locked: false },
+    mainInteractionLock,
     notification: { show: () => {} },
     prettifyRuntime: { isProviderConnected: () => true },
     selectedTextActionGate: gate,
@@ -144,6 +147,20 @@ describe('ProviderHomeActionDispatcher', () => {
       harness.dispatcher.dispatch({ action: 'start', provider: 'translation' }, 'provider-home').accepted,
       false,
     );
+  });
+
+  it('rejects Translation and normal Prettify starts while settings hold Provider Lock', () => {
+    const harness = createHarness();
+    harness.mainInteractionLock.locked = true;
+
+    assert.deepEqual(harness.dispatcher.dispatch({ action: 'start', provider: 'translation' }, 'provider-home'), {
+      accepted: false,
+    });
+    assert.deepEqual(harness.dispatcher.dispatch({ action: 'start', provider: 'prettify' }, 'provider-home'), {
+      accepted: false,
+    });
+    assert.equal(harness.gate.getActive(), null);
+    assert.equal(harness.focusCalls.count, 0);
   });
 
   it('rejects post-disposal commands without republishing renderer state', () => {

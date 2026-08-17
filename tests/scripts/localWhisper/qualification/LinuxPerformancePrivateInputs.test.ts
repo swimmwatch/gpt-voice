@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 
 import type { LoadedLinuxQualificationEvidence } from '@scripts/local-whisper/qualification/LinuxQualificationEvidenceLoader';
 import {
+  FocusedLinuxPerformancePrivateInputPreflight,
   LinuxPerformancePrivateInputPreflight,
   snapshotLinuxPerformanceCache,
 } from '@scripts/local-whisper/qualification/LinuxPerformancePrivateInputs';
@@ -56,6 +57,29 @@ async function fixtureRoot(): Promise<{
 }
 
 describe('Linux performance private input preflight', () => {
+  it('rejects a focused cache whose Base file is not the pinned artifact without loading the retired cache', async () => {
+    if (process.platform !== 'linux') return;
+    const fixture = await fixtureRoot();
+    try {
+      await writeFile(path.join(fixture.cache, 'ggml-base.bin'), Buffer.alloc(1));
+      await writeFile(
+        path.join(fixture.cache, 'qualification-input.wav'),
+        Buffer.concat([Buffer.from('RIFF\x24\x00\x00\x00WAVEfmt ', 'binary'), Buffer.alloc(32)]),
+      );
+      await assert.rejects(
+        new FocusedLinuxPerformancePrivateInputPreflight().verify({
+          workspaceRoot: path.resolve('.'),
+          cacheRoot: fixture.cache,
+          privateParent: fixture.parent,
+          privateRunRoot: fixture.child,
+        }),
+        /FOCUSED_PRIVATE_INPUT_MODEL_INVALID/u,
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
   it('snapshots a populated cache, invokes the evidence loader read-only, and keeps the private child absent', async () => {
     if (process.platform !== 'linux') return;
     const fixture = await fixtureRoot();

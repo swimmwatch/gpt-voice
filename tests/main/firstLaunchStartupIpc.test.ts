@@ -17,6 +17,7 @@ import {
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS, type SettingsPresentationState } from '@shared/settingsPresentation';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
 
 type IpcHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
@@ -24,6 +25,7 @@ type IpcHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 interface MainIpcControllerTestHook {
   registerFirstLaunchStartupIpc(): void;
   registerMainInteractionLockIpc(): void;
+  registerSettingsPresentationIpc(): void;
 }
 
 class RecordingTransport implements MainIpcTransport {
@@ -73,6 +75,20 @@ class RejectingStartupCoordinatorDouble extends StartupCoordinatorDouble {
   public override retry(): Promise<FirstLaunchStartupSnapshot> {
     this.retryCalls += 1;
     return Promise.reject(new Error('First-launch startup coordinator is disposed'));
+  }
+}
+
+class SettingsPresentationWindowManagerDouble {
+  public focusCalls = 0;
+  public settingsPresentation: SettingsPresentationState = 'idle';
+
+  public focusSettingsWindow(): boolean {
+    this.focusCalls += 1;
+    return this.settingsPresentation !== 'idle';
+  }
+
+  public isTrustedAppWindow(_sender: WebContents, _url: string): boolean {
+    return true;
   }
 }
 
@@ -159,21 +175,26 @@ function createHarness(
   const transport = new RecordingTransport();
   const coordinator = options.coordinator ?? new StartupCoordinatorDouble(options.snapshot ?? createPendingSnapshot());
   const mainInteractionLock = new MainInteractionLock(() => options.operationActive ?? false);
+  const windowManager = new SettingsPresentationWindowManagerDouble();
   const registrar = new TrustedIpcRegistrar(
     transport,
     { error: () => undefined, info: () => undefined, warn: () => undefined },
     {
-      isTrustedAppWindow: (_sender: WebContents, _url: string) => options.trusted ?? true,
+      isTrustedAppWindow: (sender: WebContents, url: string) => {
+        return (options.trusted ?? true) && windowManager.isTrustedAppWindow(sender, url);
+      },
     } as unknown as MainIpcControllerDependencies['windowManager'],
   );
   const controller = new MainIpcController({
     firstLaunchStartupCoordinator: coordinator,
     mainInteractionLock,
     trustedIpc: registrar,
+    windowManager,
   } as unknown as MainIpcControllerDependencies);
   (controller as unknown as MainIpcControllerTestHook).registerFirstLaunchStartupIpc();
   (controller as unknown as MainIpcControllerTestHook).registerMainInteractionLockIpc();
-  return { coordinator, mainInteractionLock, transport };
+  (controller as unknown as MainIpcControllerTestHook).registerSettingsPresentationIpc();
+  return { coordinator, mainInteractionLock, transport, windowManager };
 }
 
 describe('first-launch startup IPC', () => {
@@ -214,6 +235,26 @@ describe('first-launch startup IPC', () => {
     const untrusted = createHarness({ trusted: false }).transport.handlers.get(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query);
     assert.ok(untrusted);
     assert.throws(() => untrusted(createEvent()));
+  });
+
+  it('exposes settings presentation only through trusted zero-argument IPC', () => {
+    const { transport, windowManager } = createHarness();
+    const query = transport.handlers.get(SETTINGS_PRESENTATION_IPC_CHANNELS.query);
+    const focus = transport.handlers.get(SETTINGS_PRESENTATION_IPC_CHANNELS.focus);
+    assert.ok(query && focus);
+
+    windowManager.settingsPresentation = 'open';
+    assert.equal(query(createEvent()), 'open');
+    assert.equal(focus(createEvent()), true);
+    assert.equal(windowManager.focusCalls, 1);
+    assert.throws(() => query(createEvent(), 'forged'), /Unexpected IPC arguments/u);
+    assert.throws(() => focus(createEvent(), 'forged'), /Unexpected IPC arguments/u);
+
+    const untrustedQuery = createHarness({ trusted: false }).transport.handlers.get(
+      SETTINGS_PRESENTATION_IPC_CHANNELS.query,
+    );
+    assert.ok(untrustedQuery);
+    assert.throws(() => untrustedQuery(createEvent()));
   });
 
   it('returns the current safe snapshot through the trusted zero-argument query', () => {

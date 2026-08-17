@@ -26,6 +26,7 @@ import {
 interface UseMainPrettifyHomeProviderOptions {
   readonly desktopApi: ElectronAPI;
   readonly isSharedProviderChangesLocked: boolean;
+  readonly onConnectionRecovered: () => void;
   readonly translate: (key: string) => string;
 }
 
@@ -48,6 +49,7 @@ export interface MainPrettifyHomeProvider {
 export function useMainPrettifyHomeProvider({
   desktopApi,
   isSharedProviderChangesLocked,
+  onConnectionRecovered,
   translate,
 }: UseMainPrettifyHomeProviderOptions): MainPrettifyHomeProvider {
   const [prettifyProviderSelection, dispatchPrettifyProviderSelection] = useReducer(
@@ -61,7 +63,8 @@ export function useMainPrettifyHomeProvider({
   const prettifySettings = prettifyProviderSelection.settings;
   const isProviderChangeSaving = prettifyProviderSelection.pendingRequestId !== null;
   const [ollamaModels, setOllamaModels] = useState<PrettifyModelOption[]>([]);
-  const [isModelActionRunning, setIsModelActionRunning] = useState(false);
+  const [isOllamaModelActionRunning, setIsOllamaModelActionRunning] = useState(false);
+  const [isVllmModelLoadRunning, setIsVllmModelLoadRunning] = useState(false);
   const [modelActionError, setModelActionError] = useState('');
   const [connectionError, setConnectionError] = useState('');
   const [httpConnection, setHttpConnection] = useState<MainPrettifyHttpConnectionState | null>(null);
@@ -75,19 +78,22 @@ export function useMainPrettifyHomeProvider({
       check: (providerId) => desktopApi.checkPrettifyCliConnection(providerId),
       update: (connection) => {
         setCliConnection(connection);
+        if (connection?.status === 'connected') onConnectionRecovered();
         if (connection !== null && connection.status !== 'checking') {
           setIsInitialLoading(false);
         }
       },
     }),
   );
+  const isModelActionRunning = isOllamaModelActionRunning || isVllmModelLoadRunning;
   const isProviderChangesLocked = isSharedProviderChangesLocked || isProviderChangeSaving || isModelActionRunning;
 
   const refreshProviderState = useCallback(
     async (settings: PrettifySettings): Promise<void> => {
       const refreshId = ++prettifyModelRefreshIdRef.current;
       dispatchPrettifyProviderSelection({ settings, type: 'snapshot' });
-      setIsModelActionRunning(false);
+      setIsOllamaModelActionRunning(false);
+      setIsVllmModelLoadRunning(settings.providerId === 'vllm');
       setModelActionError('');
       setConnectionError('');
 
@@ -106,10 +112,12 @@ export function useMainPrettifyHomeProvider({
         const result = await desktopApi.listPrettifyModels(providerId, createPrettifyProviderSettingsInput(settings));
         if (refreshId === prettifyModelRefreshIdRef.current) {
           setOllamaModels(providerId === 'ollama' && result.success ? result.models : []);
+          const status = getMainPrettifyHttpConnectionStatus(settings, result.success);
           setHttpConnection({
             providerId,
-            status: getMainPrettifyHttpConnectionStatus(settings, result.success),
+            status,
           });
+          if (status === MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES.Connected) onConnectionRecovered();
           setConnectionError(
             result.success
               ? ''
@@ -128,9 +136,11 @@ export function useMainPrettifyHomeProvider({
           });
           setConnectionError(translate('error.notificationUnknown'));
         }
+      } finally {
+        if (refreshId === prettifyModelRefreshIdRef.current) setIsVllmModelLoadRunning(false);
       }
     },
-    [desktopApi, translate],
+    [desktopApi, onConnectionRecovered, translate],
   );
 
   useEffect(() => {
@@ -205,8 +215,11 @@ export function useMainPrettifyHomeProvider({
 
       const requestId = ++prettifyProviderChangeRequestRef.current;
       const previousSettings = prettifySettings;
+      prettifyModelRefreshIdRef.current += 1;
+      cliConnectionCoordinator.refresh(null);
       dispatchPrettifyProviderSelection({ providerId, requestId, type: 'begin' });
-      setIsModelActionRunning(false);
+      setIsOllamaModelActionRunning(false);
+      setIsVllmModelLoadRunning(false);
       setModelActionError('');
 
       try {
@@ -232,7 +245,14 @@ export function useMainPrettifyHomeProvider({
         });
       }
     },
-    [desktopApi, isProviderChangeSaving, isProviderChangesLocked, prettifySettings, translate],
+    [
+      cliConnectionCoordinator,
+      desktopApi,
+      isProviderChangeSaving,
+      isProviderChangesLocked,
+      prettifySettings,
+      translate,
+    ],
   );
 
   const onModelAction = useCallback(async (): Promise<void> => {
@@ -241,7 +261,7 @@ export function useMainPrettifyHomeProvider({
 
     const refreshId = prettifyModelRefreshIdRef.current;
     const { model, isLoaded } = ollamaModelControl;
-    setIsModelActionRunning(true);
+    setIsOllamaModelActionRunning(true);
     setModelActionError('');
 
     try {
@@ -286,7 +306,7 @@ export function useMainPrettifyHomeProvider({
         );
       }
     } finally {
-      if (refreshId === prettifyModelRefreshIdRef.current) setIsModelActionRunning(false);
+      if (refreshId === prettifyModelRefreshIdRef.current) setIsOllamaModelActionRunning(false);
     }
   }, [desktopApi, isModelActionRunning, isProviderChangesLocked, ollamaModels, prettifySettings, translate]);
 

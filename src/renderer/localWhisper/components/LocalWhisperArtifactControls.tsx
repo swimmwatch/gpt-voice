@@ -32,6 +32,7 @@ import {
   formatLocalWhisperFailureCode,
   formatLocalWhisperRecoveryAction,
   getLocalWhisperArtifactProgressPresentation,
+  translateLocalWhisperRendererLabel,
 } from '../LocalWhisperPresentation';
 
 function actionLabel(action: LocalWhisperArtifactAction, translate: ReturnType<typeof useI18n>['t']): string {
@@ -102,7 +103,7 @@ export function LocalWhisperArtifactProgressCard({
   const transferProgress = progress?.state === 'Downloading' && progress.totalBytes > 0 ? progress : null;
   const presentation = getLocalWhisperArtifactProgressPresentation(artifact, progress, t);
   const progressLabel = t('localWhisper.settings.transferProgress', {
-    artifact: artifact.label,
+    artifact: translateLocalWhisperRendererLabel(artifact.label, t),
     action: progress ? actionLabel(progress.action, t).toLocaleLowerCase() : t('localWhisper.settings.transfer'),
   });
 
@@ -201,7 +202,9 @@ export function LocalWhisperArtifactOverflowMenu({
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
               <button
-                aria-label={t('localWhisper.settings.manageArtifact', { artifact: artifact.label })}
+                aria-label={t('localWhisper.settings.manageArtifact', {
+                  artifact: translateLocalWhisperRendererLabel(artifact.label, t),
+                })}
                 className="lw-icon-button lw-menu-trigger"
                 disabled={actionsDisabledReason !== null}
                 ref={triggerRef}
@@ -212,7 +215,10 @@ export function LocalWhisperArtifactOverflowMenu({
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>
-            {actionsDisabledReason ?? t('localWhisper.settings.manageArtifact', { artifact: artifact.label })}
+              {actionsDisabledReason ??
+                t('localWhisper.settings.manageArtifact', {
+                  artifact: translateLocalWhisperRendererLabel(artifact.label, t),
+                })}
           </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end">
@@ -223,7 +229,7 @@ export function LocalWhisperArtifactOverflowMenu({
               ) : (
                 <PiInfo aria-hidden="true" />
               )}
-              {reference.label}
+              {translateLocalWhisperRendererLabel(reference.label, t)}
             </DropdownMenuItem>
           ))}
           {artifact.references.length > 0 && secondaryActions.length > 0 ? <DropdownMenuSeparator /> : null}
@@ -255,7 +261,7 @@ export function LocalWhisperArtifactOverflowMenu({
         onOpenChange={handleRemoveOpenChange}
         open={removeOpen}
         title={t('localWhisper.settings.removeDialogTitle', {
-          artifact: artifact.label,
+          artifact: translateLocalWhisperRendererLabel(artifact.label, t),
           kind: artifactKindLabel(artifact.kind, t),
         })}
         tone="destructive"

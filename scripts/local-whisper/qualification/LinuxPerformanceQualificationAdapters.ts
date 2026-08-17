@@ -8,6 +8,11 @@ import { withVerifiedRegularFile } from '@scripts/security/verifiedRegularFile';
 
 import { LinuxPerformanceResourceSampler } from './LinuxPerformanceResourceSampler';
 import {
+  parsePerformanceAttemptArtifactInstallationDiagnostic,
+  type PerformanceAttemptArtifactInstallationDiagnostic,
+} from './PerformanceAttemptDiagnosticProtocol';
+import { qualificationCanonicalJson } from './QualificationContracts';
+import {
   PerformanceCollectionError,
   type PerformanceAttemptRequest,
   type PerformanceAttemptProcessInput,
@@ -23,6 +28,7 @@ import {
   type PreparedPerformanceInputs,
 } from './PerformanceQualificationCollector';
 import { PerformanceQualificationPrivateRoot } from './PerformanceQualificationCommand';
+import type { FocusedPerformanceRunPlan } from './FocusedPerformanceQualification';
 import type {
   PerformanceBackend,
   PerformancePrivateArtifact,
@@ -33,6 +39,7 @@ const execFileAsync = promisify(execFile);
 const MAXIMUM_GIT_OUTPUT_BYTES = 64 * 1024;
 const MAXIMUM_CACHE_HELPER_OUTPUT_BYTES = 4096;
 const MAXIMUM_ATTEMPT_OUTPUT_BYTES = 1024 * 1024;
+const MAXIMUM_ATTEMPT_DIAGNOSTIC_BYTES = 4 * 1024;
 const CACHE_PREPARATION_TIMEOUT_MILLISECONDS = 60 * 60 * 1000;
 const ATTEMPT_ARGUMENT = '--local-whisper-performance-qualification-v3';
 
@@ -171,6 +178,28 @@ export class LinuxPerformanceCollectionPlatformAdapter implements PerformanceCol
     for (const artifact of artifacts) await digestVerifiedFile(artifact.absolutePath, artifact.identity);
   }
 
+  /** Authenticates the single candidate graph used by the revision-7 focused collector. */
+  public async prepareFocused(plan: FocusedPerformanceRunPlan): Promise<FocusedPreparedPerformanceInputs> {
+    if (process.platform !== 'linux' || plan.platform !== 'linux') {
+      throw new PerformanceCollectionError('PLATFORM_ADAPTER_MISMATCH');
+    }
+    // The reviewed derivation intentionally emits an archive tree, not a mutable Git worktree.
+    const candidateSource = await this.root.resolveExistingDirectory(plan.candidateSource.relativePath);
+    return Object.freeze({
+      candidateSource,
+      application: await this.prepareArtifact(plan.applicationArtifact, true),
+      runtime: await this.prepareArtifact(plan.runtimeArtifact),
+      model: await this.prepareArtifact(plan.model.artifact),
+      inputFixture: await this.prepareArtifact(plan.inputFixture),
+    });
+  }
+
+  public async verifyFocused(plan: FocusedPerformanceRunPlan, inputs: FocusedPreparedPerformanceInputs): Promise<void> {
+    for (const artifact of [inputs.application, inputs.runtime, inputs.model, inputs.inputFixture]) {
+      await digestVerifiedFile(artifact.absolutePath, artifact.identity);
+    }
+  }
+
   private async prepareArtifact(
     identity: PerformancePrivateArtifact,
     executable = false,
@@ -183,6 +212,14 @@ export class LinuxPerformanceCollectionPlatformAdapter implements PerformanceCol
     }
     return Object.freeze({ absolutePath, identity });
   }
+}
+
+export interface FocusedPreparedPerformanceInputs {
+  readonly candidateSource: string;
+  readonly application: PreparedPerformanceArtifact;
+  readonly runtime: PreparedPerformanceArtifact;
+  readonly model: PreparedPerformanceArtifact;
+  readonly inputFixture: PreparedPerformanceArtifact;
 }
 
 function killOwnedProcessGroup(child: ChildProcessWithoutNullStreams): void {
@@ -198,6 +235,10 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
   public readonly rootPid: number;
   public readonly eventStream: NodeJS.ReadableStream;
   private readonly result: Promise<Buffer>;
+  private diagnosticBytes = 0;
+  private diagnosticPending = Buffer.alloc(0);
+  private diagnosticOutputInvalid = false;
+  private latestInstallationDiagnostic: PerformanceAttemptArtifactInstallationDiagnostic | null = null;
 
   public constructor(
     private readonly child: ChildProcessWithoutNullStreams,
@@ -214,17 +255,27 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
       killOwnedProcessGroup(child);
       throw new PerformanceCollectionError('ATTEMPT_EVENT_CHANNEL_UNAVAILABLE');
     }
+    const diagnosticStream = (child.stdio as readonly (NodeJS.ReadableStream | NodeJS.WritableStream | null)[])[4] as
+      | NodeJS.ReadableStream
+      | null;
+    if (!diagnosticStream) {
+      killOwnedProcessGroup(child);
+      throw new PerformanceCollectionError('ATTEMPT_DIAGNOSTIC_CHANNEL_UNAVAILABLE');
+    }
     this.rootPid = child.pid;
     this.eventStream = eventStream;
     this.result = new Promise<Buffer>((resolve, reject) => {
       const stdout: Buffer[] = [];
       let stdoutBytes = 0;
       let stderrBytes = 0;
+      let unexpectedStderr = false;
       let settled = false;
+      let exitPoll: NodeJS.Timeout | undefined;
       const finish = (error: PerformanceCollectionError | null, output?: Buffer): void => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        if (exitPoll) clearInterval(exitPoll);
         signal?.removeEventListener('abort', abort);
         if (error) {
           killOwnedProcessGroup(child);
@@ -233,8 +284,21 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
           resolve(output ?? Buffer.alloc(0));
         }
       };
+      const finishOnExit = (code: number | null, exitSignal: NodeJS.Signals | null): void => {
+        if (code === null && exitSignal === null) return;
+        if (code !== 0 || exitSignal !== null || unexpectedStderr || !this.finishDiagnostics()) {
+          finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED'));
+          return;
+        }
+        // The application emits its bounded response before exiting. Do not wait for `close` or
+        // `stdout.end`: a descendant can retain either auxiliary descriptor after the root exits.
+        setImmediate(() => finish(null, Buffer.concat(stdout)));
+      };
       const abort = (): void => finish(new PerformanceCollectionError('COLLECTION_CANCELLED'));
-      const timer = setTimeout(() => finish(new PerformanceCollectionError('ATTEMPT_TIMEOUT')), timeoutMilliseconds);
+      const timer = setTimeout(
+        () => finish(new PerformanceCollectionError(this.timeoutFailureCode())),
+        timeoutMilliseconds,
+      );
       timer.unref();
       signal?.addEventListener('abort', abort, { once: true });
       child.stdout.on('data', (chunk: Buffer | string) => {
@@ -248,22 +312,25 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
       });
       child.stderr.on('data', (chunk: Buffer | string) => {
         stderrBytes += Buffer.byteLength(chunk);
+        unexpectedStderr = true;
         if (stderrBytes > MAXIMUM_ATTEMPT_OUTPUT_BYTES) {
           finish(new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID'));
         }
       });
+      diagnosticStream.on('data', (chunk: Buffer | string) => {
+        if (!this.consumeDiagnostics(Buffer.from(chunk))) {
+          finish(new PerformanceCollectionError('ATTEMPT_OUTPUT_INVALID'));
+        }
+      });
+      diagnosticStream.once('error', () => finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED')));
       child.stdin.once('error', () => finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED')));
       child.once('error', () => finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED')));
-      child.once('close', (code, closeSignal) => {
-        if (code !== 0 || closeSignal !== null || stderrBytes !== 0) {
-          finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED'));
-          return;
-        }
-        finish(null, Buffer.concat(stdout));
-      });
+      child.once('exit', finishOnExit);
+      exitPoll = setInterval(() => finishOnExit(child.exitCode, child.signalCode), 100);
+      exitPoll.unref();
     });
     if (signal?.aborted) killOwnedProcessGroup(child);
-    child.stdin.end(`${JSON.stringify(request)}\n`);
+    child.stdin.end(`${qualificationCanonicalJson(request)}\n`);
   }
 
   public async complete(): Promise<Buffer> {
@@ -272,7 +339,39 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
 
   public async terminate(): Promise<void> {
     killOwnedProcessGroup(this.child);
+    this.eventStream.destroy();
     await this.result.catch(() => undefined);
+  }
+
+  private consumeDiagnostics(chunk: Buffer): boolean {
+    this.diagnosticBytes += chunk.byteLength;
+    if (this.diagnosticBytes > MAXIMUM_ATTEMPT_DIAGNOSTIC_BYTES) return false;
+    this.diagnosticPending = Buffer.concat([this.diagnosticPending, chunk]);
+    while (true) {
+      const newline = this.diagnosticPending.indexOf(0x0a);
+      if (newline < 0) break;
+      const frame = this.diagnosticPending.subarray(0, newline + 1);
+      this.diagnosticPending = this.diagnosticPending.subarray(newline + 1);
+      const diagnostic = parsePerformanceAttemptArtifactInstallationDiagnostic(frame);
+      if (!diagnostic) {
+        this.diagnosticOutputInvalid = true;
+        return false;
+      }
+      this.latestInstallationDiagnostic = diagnostic;
+    }
+    return this.diagnosticPending.byteLength <= MAXIMUM_ATTEMPT_DIAGNOSTIC_BYTES;
+  }
+
+  private finishDiagnostics(): boolean {
+    return !this.diagnosticOutputInvalid && this.diagnosticPending.byteLength === 0;
+  }
+
+  private timeoutFailureCode(): string {
+    const diagnostic = this.latestInstallationDiagnostic;
+    if (!diagnostic) return 'ATTEMPT_TIMEOUT';
+    return `ATTEMPT_${diagnostic.artifactKind.toUpperCase()}_INSTALL_${diagnostic.stage
+      .replace(/([A-Z])/gu, '_$1')
+      .toUpperCase()}_TIMEOUT`;
   }
 }
 
@@ -284,7 +383,7 @@ export class LinuxPerformanceAttemptProcessAdapter implements PerformanceAttempt
       detached: true,
       env: { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' },
       shell: false,
-      stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
       windowsHide: true,
     });
     return new LinuxPerformanceAttemptProcessSession(child, input.request, input.timeoutMilliseconds, input.signal);
@@ -421,6 +520,7 @@ export class LinuxPerformanceResourceAdapter implements PerformanceResourcePort 
         backend: input.backend,
         expectedMainExecutableSha256: input.expectedExecutableSha256,
         eventStream: input.eventStream,
+        completionTimeoutMilliseconds: input.completionTimeoutMilliseconds,
       }),
     );
   }

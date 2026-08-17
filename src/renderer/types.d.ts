@@ -6,6 +6,7 @@ import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@share
 import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type { OpenAIApiTranscriptionLanguage, OpenAIApiTranscriptionModel } from '@shared/openaiApiTranscription';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
@@ -17,7 +18,11 @@ import type {
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
-import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import type {
+  RecordingLifecycleState,
+  VoiceRecordingStartRejectionReason,
+  VoiceRecordingStartResult,
+} from '@shared/recordingLifecycle';
 import type {
   TranscriptionHistoryClearResult,
   TranscriptionHistoryCopyResult,
@@ -136,11 +141,16 @@ export interface ElectronAPI {
   retryFirstLaunchStartup: () => Promise<FirstLaunchStartupSnapshot>;
   onFirstLaunchStartupSnapshot: (callback: (snapshot: FirstLaunchStartupSnapshot) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
+  requestRecordingStart: () => Promise<VoiceRecordingStartResult>;
+  onRecordingStartRejected: (callback: (reason: VoiceRecordingStartRejectionReason) => void) => () => void;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
   getMainInteractionLocked: () => Promise<boolean>;
   onMainInteractionLockChanged: (callback: (locked: boolean) => void) => () => void;
+  getSettingsPresentation: () => Promise<SettingsPresentationState>;
+  onSettingsPresentationChanged: (callback: (state: SettingsPresentationState) => void) => () => void;
+  focusSettingsWindow: () => Promise<boolean>;
   getTextActionActivity: () => Promise<boolean>;
   onTextActionActivityChanged: (callback: (active: boolean) => void) => () => void;
   providerLogin: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;

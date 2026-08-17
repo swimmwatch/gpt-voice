@@ -1,5 +1,6 @@
 import type { AboutPanelOptionsOptions, Menu, MenuItemConstructorOptions, Session } from 'electron';
 import { APP_COPYRIGHT, APP_ID, APP_NAME, APP_WEBSITE, createAppInfo } from './appMetadata';
+import type { I18nService } from './i18n';
 import type { WindowManager } from './window';
 import type { AppInfo } from '@shared/appInfo';
 
@@ -37,6 +38,7 @@ export interface DesktopRuntimeControllerDependencies {
   readonly environment: NodeJS.ProcessEnv;
   readonly exit: (code: number) => void;
   readonly getAppIconPath: () => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly openExternal: (url: string) => Promise<void>;
   readonly platform: NodeJS.Platform;
   readonly preReadyConfigurationComplete?: boolean;
@@ -98,13 +100,13 @@ export class DesktopRuntimeController {
 
   /** Configures the OS-native About panel and application menu. */
   public configureNativeMetadata(): void {
-    const { app } = this.dependencies;
+    const { app, localization } = this.dependencies;
     app.setAboutPanelOptions({
       applicationName: APP_NAME,
       applicationVersion: app.getVersion(),
       version: `Electron ${this.dependencies.electronVersion}`,
       copyright: APP_COPYRIGHT,
-      credits: 'Independent desktop voice transcription app powered by GPT web sessions.',
+      credits: localization.translate('about.panelCredits'),
       authors: ['Dmitry Vasiliev'],
       website: APP_WEBSITE,
       iconPath: this.dependencies.getAppIconPath(),
@@ -112,7 +114,7 @@ export class DesktopRuntimeController {
 
     const helpSubmenu: MenuItemConstructorOptions[] = [
       {
-        label: 'Project on GitHub',
+        label: localization.translate('nativeMenu.projectOnGitHub'),
         click: () => {
           void this.dependencies.openExternal(APP_WEBSITE);
         },
@@ -122,7 +124,7 @@ export class DesktopRuntimeController {
       helpSubmenu.push(
         { type: 'separator' },
         {
-          label: `About ${APP_NAME}`,
+          label: localization.translate('nativeMenu.aboutApp', { app: APP_NAME }),
           click: () => app.showAboutPanel(),
         },
       );
@@ -148,7 +150,7 @@ export class DesktopRuntimeController {
           ]
         : [
             {
-              label: 'File',
+              label: localization.translate('nativeMenu.file'),
               submenu: [{ role: 'quit' }],
             },
           ];
@@ -157,7 +159,7 @@ export class DesktopRuntimeController {
       this.dependencies.buildMenu([
         ...appMenu,
         {
-          label: 'Edit',
+          label: localization.translate('nativeMenu.edit'),
           submenu: [
             { role: 'undo' },
             { role: 'redo' },
@@ -169,7 +171,7 @@ export class DesktopRuntimeController {
           ],
         },
         {
-          label: 'View',
+          label: localization.translate('nativeMenu.view'),
           submenu: [
             { role: 'reload' },
             { role: 'forceReload' },
@@ -184,7 +186,7 @@ export class DesktopRuntimeController {
         },
         { role: 'windowMenu' },
         {
-          label: 'Help',
+          label: localization.translate('nativeMenu.help'),
           submenu: helpSubmenu,
         },
       ]),

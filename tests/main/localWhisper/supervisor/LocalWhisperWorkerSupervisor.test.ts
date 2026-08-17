@@ -924,7 +924,6 @@ test('supervisor enforces exact handshake, load, warm-up, inference, and unload 
     assert.equal(handshakeFailure.error.code, 'OPERATION_TIMEOUT');
     assert.equal(handshakeFailure.error.stage, 'workerStart');
   }
-
   const load = harness('hangLoad');
   assert.equal((await load.supervisor.startAndHandshake(load.authority)).success, true);
   assert.equal((await load.supervisor.probe(probeRequest(7))).success, true);

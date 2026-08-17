@@ -8,8 +8,11 @@ import {
   UstarPerformanceSourceArchiveAdapter,
 } from './PerformanceDerivedSourceProducer';
 import { createLinuxPerformanceAttemptBuildAdapter } from './LinuxPerformanceAttemptBuildAdapter';
-import { LinuxPerformancePrivateInputPreflight } from './LinuxPerformancePrivateInputs';
-import { LinuxPerformanceRunPlanCommand } from './LinuxPerformanceRunPlanCommand';
+import {
+  FocusedLinuxPerformancePrivateInputPreflight,
+  LinuxPerformancePrivateInputPreflight,
+} from './LinuxPerformancePrivateInputs';
+import { FocusedLinuxPerformanceRunPlanCommand } from './FocusedLinuxPerformanceRunPlanCommand';
 import { LinuxPerformanceRunPlanProducer } from './LinuxPerformanceRunPlanProducer';
 import { LinuxQualificationEvidenceLoader } from './LinuxQualificationEvidenceLoader';
 import { PerformanceQualificationOverlayProducer } from './PerformanceQualificationOverlay';
@@ -17,7 +20,7 @@ import { LocalWhisperQualificationValidator } from './QualificationContracts';
 import { LocalWhisperQualificationSourceBaselineVerifier } from './QualificationSourceBaseline';
 
 async function main(): Promise<void> {
-  const command = LinuxPerformanceRunPlanCommand.parse(process.argv.slice(2));
+  const command = FocusedLinuxPerformanceRunPlanCommand.parse(process.argv.slice(2));
   const qualificationRoot = path.join(command.workspaceRoot, 'docs/specs/local-whisper/qualification');
   const validator = new LocalWhisperQualificationValidator(qualificationRoot);
   const abort = new AbortController();
@@ -27,6 +30,7 @@ async function main(): Promise<void> {
   try {
     const producer = new LinuxPerformanceRunPlanProducer(validator, {
       preflight: new LinuxPerformancePrivateInputPreflight(new LinuxQualificationEvidenceLoader()),
+      focusedPreflight: new FocusedLinuxPerformancePrivateInputPreflight(),
       overlay: new PerformanceQualificationOverlayProducer(),
       sourceBaseline: new LocalWhisperQualificationSourceBaselineVerifier(command.workspaceRoot),
       createDerivation: (overlay) =>
@@ -42,14 +46,14 @@ async function main(): Promise<void> {
         ),
       builder: createLinuxPerformanceAttemptBuildAdapter(command.workspaceRoot),
     });
-    const result = await producer.produce({ ...command, signal: abort.signal });
+    const result = await producer.produceFocused({ ...command, signal: abort.signal });
     process.stdout.write(
       `${JSON.stringify({
         status: 'produced',
         overlaySha256: result.overlaySha256,
         overlayManifestSha256: result.overlayManifestSha256,
-        cpuPerformanceRunPlanDigest: result.plans.cpu.performanceRunPlanDigest,
-        cudaPerformanceRunPlanDigest: result.plans.cuda.performanceRunPlanDigest,
+        cpuFocusedPerformanceRunPlanDigest: result.plans.cpu.focusedPerformanceRunPlanDigest,
+        cudaFocusedPerformanceRunPlanDigest: result.plans.cuda.focusedPerformanceRunPlanDigest,
       })}\n`,
     );
   } finally {

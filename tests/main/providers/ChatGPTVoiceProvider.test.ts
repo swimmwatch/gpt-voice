@@ -123,6 +123,33 @@ describe('ChatGPTVoiceProvider transcription recovery', () => {
     localization.setLocale('en');
   });
 
+  it('retries the access-token lookup after the initial page check misses a transient session', async () => {
+    const page = createFakePage(['', 'recovered-synthetic-token']);
+    const reloadTimeouts: number[] = [];
+    const provider = new ChatGPTVoiceProvider({
+      audit: new RecordingVoiceProviderAudit(),
+      localization,
+      logger: { info: () => undefined, warn: () => undefined },
+      now: () => 0,
+      reloadPage: async (_page, timeoutMs) => {
+        reloadTimeouts.push(timeoutMs);
+      },
+      sessionStore: new TestChatGPTSessionStore(),
+      writeClipboardText: () => undefined,
+    });
+    Object.assign(page.page, {
+      goto: async () => ({ status: () => Number(StatusCodes.OK) }),
+      route: async () => undefined,
+      waitForLoadState: async () => undefined,
+    });
+
+    await provider.initPage({ newPage: async () => page.page } as unknown as import('playwright-core').BrowserContext);
+
+    assert.equal(provider.isReady(), true);
+    assert.deepEqual(reloadTimeouts, [15000]);
+    assert.equal(page.evaluationArguments.length, 2);
+  });
+
   it('does not automatically replay an ambiguous page-side request failure', async () => {
     const harness = createHarness([
       { kind: 'request-failed' },

@@ -4,6 +4,7 @@ import { getTrayIconFilename } from './trayIconState';
 import type { WindowManager } from './window';
 import type { I18nService } from './i18n';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 
 const TRAY_ICON_SIZE = 22;
 
@@ -24,6 +25,7 @@ export interface TrayControllerDependencies {
 /** Owns the native tray resource, its menu, and current icon state. */
 export class TrayController {
   private mainInteractionLockUnsubscribe: (() => void) | null = null;
+  private settingsPresentationUnsubscribe: (() => void) | null = null;
   private tray: Tray | null = null;
 
   public constructor(private readonly dependencies: TrayControllerDependencies) {}
@@ -35,6 +37,9 @@ export class TrayController {
     this.tray = tray;
     tray.setToolTip(this.dependencies.localization.translate('tray.tooltip'));
     this.mainInteractionLockUnsubscribe = this.dependencies.mainInteractionLock.subscribe(() => {
+      this.updateContextMenu();
+    });
+    this.settingsPresentationUnsubscribe = this.dependencies.windowManager.subscribeSettingsPresentation(() => {
       this.updateContextMenu();
     });
     this.updateContextMenu();
@@ -50,6 +55,8 @@ export class TrayController {
   public dispose(): void {
     this.mainInteractionLockUnsubscribe?.();
     this.mainInteractionLockUnsubscribe = null;
+    this.settingsPresentationUnsubscribe?.();
+    this.settingsPresentationUnsubscribe = null;
     const tray = this.tray;
     this.tray = null;
     if (tray && !tray.isDestroyed()) tray.destroy();
@@ -70,52 +77,40 @@ export class TrayController {
   }
 
   private showFromMenu(): void {
-    if (this.dependencies.mainInteractionLock.locked) return;
-    const window = this.dependencies.windowManager.getMainWindow();
-    if (!window) {
-      this.dependencies.windowManager.createMainWindow();
-      return;
-    }
-    window.show();
-    window.focus();
+    this.dependencies.windowManager.showMainWindow();
   }
 
   private handleTrayClick(): void {
-    if (this.dependencies.mainInteractionLock.locked) return;
-    const window = this.dependencies.windowManager.getMainWindow();
-    if (!window) {
-      this.dependencies.windowManager.createMainWindow();
-      return;
-    }
-    if (!window.isVisible()) window.show();
-    window.focus();
+    this.dependencies.windowManager.showMainWindow();
   }
 
   private updateContextMenu(): void {
     const tray = this.tray;
     if (!tray || tray.isDestroyed()) return;
-    const enabled = !this.dependencies.mainInteractionLock.locked;
+    const presentation = this.dependencies.windowManager.settingsPresentation;
+    const opening = presentation === 'opening';
+    const primaryItem = this.createPrimaryMenuItem(presentation);
     tray.setContextMenu(
       this.dependencies.buildMenu([
-        {
-          label: this.dependencies.localization.translate('tray.show'),
-          click: () => this.showFromMenu(),
-          enabled,
-        },
+        primaryItem,
         {
           label: this.dependencies.localization.translate('appSettings.open'),
-          click: () => this.dependencies.windowManager.showSettingsWindow(),
-          enabled,
+          click: () => {
+            if (!this.dependencies.windowManager.focusSettingsWindow()) {
+              this.dependencies.windowManager.showSettingsWindow();
+            }
+          },
+          enabled: !opening,
         },
         {
           label: this.dependencies.localization.translate('history.open'),
           click: () => this.dependencies.windowManager.showHistoryWindow(),
-          enabled,
+          enabled: true,
         },
         {
           label: this.dependencies.localization.translate('about.open'),
           click: () => this.dependencies.windowManager.showAboutWindow(),
-          enabled,
+          enabled: true,
         },
         { type: 'separator' },
         {
@@ -128,5 +123,26 @@ export class TrayController {
         },
       ]),
     );
+  }
+
+  private createPrimaryMenuItem(presentation: SettingsPresentationState): MenuItemConstructorOptions {
+    if (presentation === 'opening') {
+      return {
+        label: this.dependencies.localization.translate('settings.opening'),
+        enabled: false,
+      };
+    }
+    if (presentation === 'open') {
+      return {
+        label: this.dependencies.localization.translate('settings.show'),
+        click: () => this.dependencies.windowManager.focusSettingsWindow(),
+        enabled: true,
+      };
+    }
+    return {
+      label: this.dependencies.localization.translate('tray.show'),
+      click: () => this.showFromMenu(),
+      enabled: true,
+    };
   }
 }

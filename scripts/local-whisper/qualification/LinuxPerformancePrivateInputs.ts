@@ -3,6 +3,7 @@ import { constants, type Stats } from 'node:fs';
 import { lstat, open, opendir, realpath } from 'node:fs/promises';
 import * as path from 'node:path';
 
+import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
 import { hasSameVerifiedFileIdentity } from '../../security/verifiedRegularFile';
 import type {
   LinuxQualificationEvidenceLoader,
@@ -14,6 +15,10 @@ const MAXIMUM_CACHE_ENTRY_COUNT = 100_000;
 const MAXIMUM_CACHE_BYTES = 100 * 1024 ** 3;
 const HASH_BUFFER_BYTES = 1024 * 1024;
 const SHA256 = /^[a-f0-9]{64}$/u;
+const FOCUSED_MODEL_FILE_NAME = 'ggml-base.bin';
+const FOCUSED_FIXTURE_FILE_NAME = 'qualification-input.wav';
+const MINIMUM_FOCUSED_FIXTURE_BYTES = 44;
+const MAXIMUM_FOCUSED_FIXTURE_BYTES = 64 * 1024 * 1024;
 
 export interface LinuxPerformanceCacheSnapshot {
   readonly schemaVersion: 1;
@@ -27,6 +32,17 @@ export interface LinuxPerformancePrivateInputProof {
   readonly cacheSnapshot: LinuxPerformanceCacheSnapshot;
   readonly evidenceIdentityDigest: string;
   readonly loaded: LoadedLinuxQualificationEvidence;
+  readonly privateParent: string;
+  readonly privateRunRoot: string;
+}
+
+/** Minimal read-only input graph for the Base-only representative performance path. */
+export interface FocusedLinuxPerformancePrivateInputProof {
+  readonly cacheSnapshot: LinuxPerformanceCacheSnapshot;
+  readonly evidenceIdentityDigest: string;
+  readonly loaded: Readonly<{
+    readonly application: Pick<LoadedLinuxQualificationEvidence['application'], 'models' | 'performanceFixtures'>;
+  }>;
   readonly privateParent: string;
   readonly privateRunRoot: string;
 }
@@ -174,6 +190,72 @@ function evidenceDigest(loaded: LoadedLinuxQualificationEvidence): string {
   return createHash('sha256').update(qualificationCanonicalJson(identity), 'utf8').digest('hex');
 }
 
+function focusedBaseModel() {
+  const model = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
+    (candidate) => candidate.family === 'base' && candidate.variant === 'full',
+  );
+  if (!model || model.sizeBytes !== 147_951_465 || !SHA256.test(model.sha256)) {
+    fail('FOCUSED_PRIVATE_INPUT_MODEL_INVALID');
+  }
+  return model;
+}
+
+async function focusedFixture(
+  filePath: string,
+): Promise<LoadedLinuxQualificationEvidence['application']['performanceFixtures'][number]> {
+  const metadata = await lstat(filePath).catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
+  if (
+    !metadata.isFile() ||
+    metadata.isSymbolicLink() ||
+    metadata.size < MINIMUM_FOCUSED_FIXTURE_BYTES ||
+    metadata.size > MAXIMUM_FOCUSED_FIXTURE_BYTES
+  ) {
+    fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
+  }
+  const header = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW)
+    .then(async (handle) => {
+      try {
+        const bytes = Buffer.allocUnsafe(12);
+        const { bytesRead } = await handle.read(bytes, 0, bytes.byteLength, 0);
+        return bytesRead === bytes.byteLength ? bytes : null;
+      } finally {
+        await handle.close().catch(() => undefined);
+      }
+    })
+    .catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
+  if (
+    !header ||
+    header.subarray(0, 4).toString('ascii') !== 'RIFF' ||
+    header.subarray(8, 12).toString('ascii') !== 'WAVE'
+  ) {
+    fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
+  }
+  return Object.freeze({
+    id: 'focused-linux-performance-input-v1',
+    filePath,
+    sizeBytes: metadata.size,
+    sha256: await hashDescriptor(filePath, metadata),
+    durationNanoseconds: 0,
+    language: 'en',
+    locale: 'en_us',
+  });
+}
+
+function focusedEvidenceDigest(
+  model: LoadedLinuxQualificationEvidence['application']['models'][number],
+  fixture: LoadedLinuxQualificationEvidence['application']['performanceFixtures'][number],
+): string {
+  return createHash('sha256')
+    .update(
+      qualificationCanonicalJson({
+        fixture: { sizeBytes: fixture.sizeBytes, sha256: fixture.sha256 },
+        model: { sizeBytes: model.sizeBytes, sha256: model.sha256 },
+      }),
+      'utf8',
+    )
+    .digest('hex');
+}
+
 async function authenticatePrivateTarget(
   privateParent: string,
   privateRunRoot: string,
@@ -234,6 +316,66 @@ export class LinuxPerformancePrivateInputPreflight {
       cacheSnapshot: before,
       evidenceIdentityDigest: identity,
       loaded,
+      privateParent: target.parent,
+      privateRunRoot: target.child,
+    });
+  }
+}
+
+/** Authenticates only Base and one WAV fixture; it intentionally does not revive the retired multi-model qualification cache. */
+export class FocusedLinuxPerformancePrivateInputPreflight {
+  public async verify(
+    input: Readonly<{
+      readonly workspaceRoot: string;
+      readonly cacheRoot: string;
+      readonly privateParent: string;
+      readonly privateRunRoot: string;
+    }>,
+  ): Promise<FocusedLinuxPerformancePrivateInputProof> {
+    if (process.platform !== 'linux' || !path.isAbsolute(input.workspaceRoot)) {
+      fail('FOCUSED_PRIVATE_INPUT_PLATFORM_INVALID');
+    }
+    const target = await authenticatePrivateTarget(input.privateParent, input.privateRunRoot);
+    const before = await snapshotLinuxPerformanceCache(input.cacheRoot);
+    const cacheRoot = path.resolve(input.cacheRoot);
+    const expectedModel = focusedBaseModel();
+    const modelPath = path.join(cacheRoot, FOCUSED_MODEL_FILE_NAME);
+    const modelMetadata = await lstat(modelPath).catch(() => fail('FOCUSED_PRIVATE_INPUT_MODEL_INVALID'));
+    if (
+      !modelMetadata.isFile() ||
+      modelMetadata.isSymbolicLink() ||
+      modelMetadata.size !== expectedModel.sizeBytes ||
+      (await hashDescriptor(modelPath, modelMetadata)) !== expectedModel.sha256
+    ) {
+      fail('FOCUSED_PRIVATE_INPUT_MODEL_INVALID');
+    }
+    const fixture = await focusedFixture(path.join(cacheRoot, FOCUSED_FIXTURE_FILE_NAME));
+    const after = await snapshotLinuxPerformanceCache(input.cacheRoot);
+    if (
+      before.digest !== after.digest ||
+      before.entryCount !== after.entryCount ||
+      before.fileCount !== after.fileCount ||
+      before.sizeBytes !== after.sizeBytes
+    ) {
+      fail('PRIVATE_INPUT_CACHE_CHANGED');
+    }
+    const model = Object.freeze({
+      family: expectedModel.family,
+      variant: expectedModel.variant,
+      artifactRevision: 'whisper-cpp-base-full-v1',
+      filePath: modelPath,
+      sizeBytes: expectedModel.sizeBytes,
+      sha256: expectedModel.sha256,
+    }) as LoadedLinuxQualificationEvidence['application']['models'][number];
+    const identity = focusedEvidenceDigest(model, fixture);
+    if (!SHA256.test(identity)) fail('FOCUSED_PRIVATE_INPUT_EVIDENCE_INVALID');
+    await authenticatePrivateTarget(target.parent, target.child);
+    return Object.freeze({
+      cacheSnapshot: before,
+      evidenceIdentityDigest: identity,
+      loaded: Object.freeze({
+        application: Object.freeze({ models: Object.freeze([model]), performanceFixtures: Object.freeze([fixture]) }),
+      }),
       privateParent: target.parent,
       privateRunRoot: target.child,
     });

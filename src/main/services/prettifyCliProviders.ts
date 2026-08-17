@@ -95,7 +95,7 @@ function getClaudeCliModelOptions(configuredModel: string): PrettifyModelOption[
 /** Capability-gated Claude CLI provider. */
 export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
   public constructor(private readonly dependencies: ClaudeCliPrettifyProviderDependencies) {
-    super('claude-cli', dependencies.audit);
+    super('claude-cli', dependencies.audit, dependencies.localization);
   }
 
   public async checkAvailability(
@@ -203,6 +203,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
         prepared: new OneShotPrettifyExecution('claude-cli', result.prepared.cacheContext, instruction, {
           audit,
           diagnosticCapture: this.dependencies.diagnosticCapture,
+          localization: this.dependencies.localization,
           execute: async (text, executionContext) => {
             executionContext.lifecycle.phaseEntered('submission');
             try {
@@ -252,7 +253,7 @@ export class ClaudeCliPrettifyProvider extends BasePrettifyProvider {
 /** Capability-gated experimental Codex CLI provider. */
 export class CodexCliPrettifyProvider extends BasePrettifyProvider {
   public constructor(private readonly dependencies: CodexCliPrettifyProviderDependencies) {
-    super('codex-cli', dependencies.audit);
+    super('codex-cli', dependencies.audit, dependencies.localization);
   }
 
   public async checkAvailability(
@@ -376,6 +377,7 @@ export class CodexCliPrettifyProvider extends BasePrettifyProvider {
         prepared: new OneShotPrettifyExecution('codex-cli', result.prepared.cacheContext, instruction, {
           audit,
           diagnosticCapture: this.dependencies.diagnosticCapture,
+          localization: this.dependencies.localization,
           execute: async (text, executionContext) => {
             executionContext.lifecycle.phaseEntered('submission');
             try {

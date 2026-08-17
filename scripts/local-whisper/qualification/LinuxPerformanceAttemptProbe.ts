@@ -4,15 +4,116 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { Writable } from 'node:stream';
 
+import type { ArtifactInstallationDiagnosticStage } from '@main/localWhisper/artifacts/StreamingArtifactExtractor';
+import type { NativeLauncherAcknowledgmentOutcome } from '@main/localWhisper/supervisor/NativeLauncherProcessOwner';
+import { NativeRuntimeLogStreamDecoder } from '@main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder';
+
+import type { NativeRuntimeLogRecord } from '@shared/localWhisper';
+
 import type { LocalWhisperPerformancePhaseId } from './QualificationContracts';
 import { PerformanceQualificationEventWriter } from './PerformanceQualificationEventProtocol';
 import type { PerformanceBackend } from './PerformanceQualification';
 
 const NATIVE_FRAME_LIMIT = 128;
 const NATIVE_BYTE_LIMIT = 64 * 1024;
-const NATIVE_FRAME = /^LWQP1\t(phase|worker)\t([A-Za-z][A-Za-z0-9]{1,63})\t([1-9]\d*)$/u;
-const NATIVE_LAUNCH_FAILURE = /^FAILED\t((?:MODEL_(?:PATH_INVALID|DIRECTORY_OPEN_FAILED|FILE_OPEN_FAILED|IDENTITY_REJECTED|DIGEST_REJECTED|LAUNCHER_CREATION_FAILED|JOB_OWNERSHIP_FAILED|HANDLE_POLICY_FAILED|PIPE_IO_FAILED|LAUNCHER_RESUME_FAILED|BOOTSTRAP_REJECTED))|(?:PATH_INVALID|WORKER_PATH_INVALID|VOLUME_OPEN_FAILED|DIRECTORY_OPEN_FAILED|IDENTITY_REJECTED|WORKER_OPEN_FAILED|DIGEST_REJECTED|WORKER_CREATION_FAILED|JOB_OWNERSHIP_FAILED|MODEL_AUTHORITY_REJECTED|WORKER_PROCESS_IDENTITY_REJECTED|INHERITED_HANDLE_REJECTED|PIPE_IO_FAILED|WORKER_RESUME_FAILED|HANDLE_POLICY_FAILED|ACKNOWLEDGMENT_FAILED|BOOTSTRAP_REJECTED))\n$/u;
+const NATIVE_STREAM_SETTLEMENT_TIMEOUT_MILLISECONDS = 500;
+const NATIVE_FRAME = /^LWQP1\t(phase|stage|worker)\t([A-Za-z][A-Za-z0-9]{1,63})\t([1-9]\d*)$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
+
+export const LINUX_PERFORMANCE_LAUNCH_ACKNOWLEDGMENT_STATES = [
+  'unobserved',
+  'ready',
+  'rejected',
+  'closed',
+  'malformed',
+  'error',
+  'exited',
+  'timeout',
+] as const;
+
+export type LinuxPerformanceLaunchAcknowledgmentState = (typeof LINUX_PERFORMANCE_LAUNCH_ACKNOWLEDGMENT_STATES)[number];
+
+export const LINUX_PERFORMANCE_LAUNCH_DIAGNOSTIC_STAGES = [
+  'unobserved',
+  'modelGuardEntered',
+  'launcherExecRequested',
+  'entered',
+  'workerVerified',
+  'workerCreated',
+  'acknowledged',
+] as const;
+
+export type LinuxPerformanceLaunchDiagnosticStage = (typeof LINUX_PERFORMANCE_LAUNCH_DIAGNOSTIC_STAGES)[number];
+
+const LAUNCHER_DIAGNOSTIC_STAGE_BY_FRAME = Object.freeze({
+  launcherAcknowledged: 'acknowledged',
+  launcherEntered: 'entered',
+  launcherWorkerCreated: 'workerCreated',
+  launcherWorkerVerified: 'workerVerified',
+  modelGuardEntered: 'modelGuardEntered',
+  modelLauncherExecRequested: 'launcherExecRequested',
+} as const satisfies Readonly<Record<string, Exclude<LinuxPerformanceLaunchDiagnosticStage, 'unobserved'>>>);
+const INSTALLATION_STAGE_BY_LAUNCH_DIAGNOSTIC = Object.freeze({
+  modelGuardEntered: 'nativeModelGuardEntered',
+  launcherExecRequested: 'nativeLauncherExecRequested',
+  entered: 'nativeLauncherEntered',
+  workerVerified: 'nativeLauncherWorkerVerified',
+  workerCreated: 'nativeLauncherWorkerCreated',
+  acknowledged: 'nativeLauncherAcknowledged',
+} as const satisfies Readonly<
+  Record<Exclude<LinuxPerformanceLaunchDiagnosticStage, 'unobserved'>, ArtifactInstallationDiagnosticStage>
+>);
+
+export const LINUX_PERFORMANCE_WORKER_DIAGNOSTIC_STAGES = [
+  'unobserved',
+  'started',
+  'ready',
+  'loadStarted',
+  'loadFailed',
+  'nativeFailure',
+] as const;
+
+export type LinuxPerformanceWorkerDiagnosticStage = (typeof LINUX_PERFORMANCE_WORKER_DIAGNOSTIC_STAGES)[number];
+
+export const LINUX_PERFORMANCE_WORKER_EXECUTION_STAGES = [
+  'unobserved',
+  'childStarted',
+  'execRequested',
+  'entered',
+] as const;
+
+export type LinuxPerformanceWorkerExecutionStage = (typeof LINUX_PERFORMANCE_WORKER_EXECUTION_STAGES)[number];
+
+const WORKER_DIAGNOSTIC_STAGE_BY_EVENT = Object.freeze({
+  modelLoadFailed: 'loadFailed',
+  modelLoadStarted: 'loadStarted',
+  nativeFailure: 'nativeFailure',
+  processReady: 'ready',
+  processStarted: 'started',
+  stateCold: 'started',
+} as const satisfies Readonly<Record<string, Exclude<LinuxPerformanceWorkerDiagnosticStage, 'unobserved'>>>);
+const INSTALLATION_STAGE_BY_WORKER_DIAGNOSTIC = Object.freeze({
+  started: 'nativeWorkerProcessStarted',
+  ready: 'nativeWorkerProcessReady',
+  loadStarted: 'nativeWorkerModelLoadStarted',
+  loadFailed: 'nativeWorkerModelLoadFailed',
+  nativeFailure: 'nativeWorkerFailure',
+} as const satisfies Readonly<
+  Record<Exclude<LinuxPerformanceWorkerDiagnosticStage, 'unobserved'>, ArtifactInstallationDiagnosticStage>
+>);
+
+const WORKER_EXECUTION_STAGE_BY_FRAME = Object.freeze({
+  workerChildStarted: 'childStarted',
+  workerEntered: 'entered',
+  workerExecRequested: 'execRequested',
+} as const satisfies Readonly<Record<string, Exclude<LinuxPerformanceWorkerExecutionStage, 'unobserved'>>>);
+const INSTALLATION_STAGE_BY_WORKER_EXECUTION = Object.freeze({
+  childStarted: 'nativeWorkerChildStarted',
+  execRequested: 'nativeWorkerExecRequested',
+  entered: 'nativeWorkerEntered',
+} as const satisfies Readonly<
+  Record<Exclude<LinuxPerformanceWorkerExecutionStage, 'unobserved'>, ArtifactInstallationDiagnosticStage>
+>);
 
 export interface PerformanceAttemptProcessIdentity {
   readonly pid: number;
@@ -95,6 +196,7 @@ export class LinuxPerformanceAttemptProbe {
   private readonly phaseTotals = new Map<LocalWhisperPerformancePhaseId, number>();
   private readonly pendingGuardRequests = new Map<number, PendingGuardRequest>();
   private readonly directoryProofDurations: number[] = [];
+  private readonly nativeStreamSettlements: Promise<void>[] = [];
   private nativeBytes = 0;
   private nativeFrames = 0;
   private nativePending = Buffer.alloc(0);
@@ -102,7 +204,10 @@ export class LinuxPerformanceAttemptProbe {
   private workerPid: number | null = null;
   private workerPublished = false;
   private workerRegistration: Promise<void> | null = null;
-  private nativeLaunchFailure: string | null = null;
+  private nativeLaunchAcknowledgment: LinuxPerformanceLaunchAcknowledgmentState = 'unobserved';
+  private nativeLaunchDiagnosticStage: LinuxPerformanceLaunchDiagnosticStage = 'unobserved';
+  private nativeWorkerDiagnosticStage: LinuxPerformanceWorkerDiagnosticStage = 'unobserved';
+  private nativeWorkerExecutionStage: LinuxPerformanceWorkerExecutionStage = 'unobserved';
   private guardPublished = false;
   private guardRegistration: Promise<void> | null = null;
   private terminal = false;
@@ -111,6 +216,7 @@ export class LinuxPerformanceAttemptProbe {
   public constructor(
     private readonly backend: PerformanceBackend,
     publishEvent: (frame: Buffer) => void,
+    private readonly publishDiagnosticStage: ((stage: ArtifactInstallationDiagnosticStage) => void) | null = null,
   ) {
     this.writer = new PerformanceQualificationEventWriter(
       new Writable({
@@ -148,9 +254,42 @@ export class LinuxPerformanceAttemptProbe {
     this.loadProofsActive = true;
   }
 
-  /** Returns only the model guard and launcher closed, content-free failure vocabulary. */
-  public get nativeLaunchFailureCode(): string | null {
-    return this.nativeLaunchFailure;
+  /** Exposes only a closed acknowledgment state, never launcher output or host details. */
+  public get nativeLaunchAcknowledgmentState(): LinuxPerformanceLaunchAcknowledgmentState {
+    return this.nativeLaunchAcknowledgment;
+  }
+
+  /** Records the primary launch owner's one closed acknowledgment outcome without observing its pipe. */
+  public recordNativeLaunchAcknowledgment(outcome: NativeLauncherAcknowledgmentOutcome): void {
+    if (this.nativeLaunchAcknowledgment === 'unobserved') this.nativeLaunchAcknowledgment = outcome;
+  }
+
+  /** Exposes the latest closed, content-free qualification launcher milestone. */
+  public get nativeLaunchDiagnostic(): LinuxPerformanceLaunchDiagnosticStage {
+    return this.nativeLaunchDiagnosticStage;
+  }
+
+  /** Exposes the latest closed worker lifecycle marker without retaining native output. */
+  public get nativeWorkerDiagnostic(): LinuxPerformanceWorkerDiagnosticStage {
+    return this.nativeWorkerDiagnosticStage;
+  }
+
+  /** Distinguishes a failed exec boundary without retaining native output. */
+  public get nativeWorkerExecution(): LinuxPerformanceWorkerExecutionStage {
+    return this.nativeWorkerExecutionStage;
+  }
+
+  /** Waits for bounded native event pipes to close before classifying a terminal launch failure. */
+  public async flushNativeDiagnostics(): Promise<'settled' | 'timedOut'> {
+    let timer: NodeJS.Timeout | null = null;
+    const outcome = await Promise.race([
+      Promise.all(this.nativeStreamSettlements).then(() => 'settled' as const),
+      new Promise<'timedOut'>((resolve) => {
+        timer = setTimeout(() => resolve('timedOut'), NATIVE_STREAM_SETTLEMENT_TIMEOUT_MILLISECONDS);
+      }),
+    ]);
+    if (timer) clearTimeout(timer);
+    return outcome;
   }
 
   public async finish(): Promise<void> {
@@ -194,8 +333,10 @@ export class LinuxPerformanceAttemptProbe {
         ? (maybeOptions ?? {})
         : ((argumentsOrOptions as SpawnOptions | undefined) ?? {});
       const stdio = Array.isArray(options.stdio) ? [...options.stdio] : ['pipe', 'pipe', 'pipe'];
-      while (stdio.length < 5) stdio.push('ignore');
+      while (stdio.length <= 7) stdio.push('ignore');
+      stdio[4] = 'pipe';
       stdio[5] = 'pipe';
+      stdio[7] = 'pipe';
       const spawnConcrete = spawn as unknown as (
         executable: string,
         arguments_: readonly string[],
@@ -205,22 +346,46 @@ export class LinuxPerformanceAttemptProbe {
         ...options,
         stdio: stdio as SpawnOptions['stdio'],
       });
-      const native = (child.stdio as readonly unknown[])[5];
-      if (!native || typeof native !== 'object' || !('on' in native) || typeof native.on !== 'function') {
+      const nativeStreams = [5, 7].map((descriptor) => (child.stdio as readonly unknown[])[descriptor]);
+      if (
+        nativeStreams.some(
+          (native) => !native || typeof native !== 'object' || !('on' in native) || typeof native.on !== 'function',
+        )
+      ) {
         child.kill('SIGKILL');
         fail();
       }
-      native.on('data', (chunk: Buffer | string) => {
-        try {
-          this.consumeNative(Buffer.from(chunk));
-        } catch (error) {
-          this.recordFailure(error);
-          if (child.exitCode === null && !child.killed) child.kill('SIGKILL');
-        }
+      for (const native of nativeStreams) {
+        this.nativeStreamSettlements.push(
+          new Promise<void>((resolve) => {
+            let settled = false;
+            const finish = (): void => {
+              if (settled) return;
+              settled = true;
+              resolve();
+            };
+            native.once('close', finish);
+            native.once('end', finish);
+            native.once('error', finish);
+          }),
+        );
+        native.on('data', (chunk: Buffer | string) => {
+          try {
+            this.consumeNative(Buffer.from(chunk));
+          } catch (error) {
+            this.recordFailure(error);
+            if (child.exitCode === null && !child.killed) child.kill('SIGKILL');
+          }
+        });
+        native.on('error', (error: Error) => this.recordFailure(error));
+      }
+      const nativeLogDecoder = new NativeRuntimeLogStreamDecoder({
+        onRecord: (record) => this.recordNativeWorkerDiagnostic(record),
       });
-      native.on('error', (error: Error) => this.recordFailure(error));
+      child.stderr?.on('data', (chunk: Buffer | string) => nativeLogDecoder.append(Buffer.from(chunk)));
+      child.stderr?.once('end', () => nativeLogDecoder.finish());
+      child.stderr?.once('error', () => nativeLogDecoder.finish());
       this.observeGuardProtocol(child);
-      this.observeNativeLaunchAcknowledgment(child);
       return child;
     };
     return instrument as typeof spawn;
@@ -280,24 +445,6 @@ export class LinuxPerformanceAttemptProbe {
     });
   }
 
-  private observeNativeLaunchAcknowledgment(child: ChildProcess): void {
-    const acknowledgment = child.stdio[4];
-    if (!acknowledgment || typeof acknowledgment !== 'object' || !('on' in acknowledgment)) return;
-    let pending = Buffer.alloc(0);
-    acknowledgment.on('data', (chunk: Buffer | string) => {
-      if (this.nativeLaunchFailure !== null) return;
-      pending = Buffer.concat([pending, Buffer.from(chunk)]);
-      if (pending.byteLength > 256) {
-        pending = Buffer.alloc(0);
-        return;
-      }
-      const match = NATIVE_LAUNCH_FAILURE.exec(pending.toString('ascii'));
-      const failureCode = match?.[1];
-      if (failureCode) this.nativeLaunchFailure = failureCode;
-      if (pending.includes(0x0a)) pending = Buffer.alloc(0);
-    });
-  }
-
   private consumeNative(chunk: Buffer): void {
     if (this.terminal || this.probeFailure) fail();
     this.nativeBytes += chunk.byteLength;
@@ -319,6 +466,9 @@ export class LinuxPerformanceAttemptProbe {
         if (match[2] !== 'pid' || this.workerPid !== null) fail();
         this.workerPid = value;
         void this.publishWorkerIfReady();
+      } else if (match[1] === 'stage') {
+        if (WORKER_EXECUTION_STAGE_BY_FRAME[match[2]]) this.recordNativeWorkerExecution(match[2]);
+        else this.recordNativeLaunchStage(match[2]);
       } else if (NATIVE_PHASE_SET.has(match[2] as LocalWhisperPerformancePhaseId)) {
         this.add(match[2] as LocalWhisperPerformancePhaseId, value);
       } else {
@@ -326,6 +476,46 @@ export class LinuxPerformanceAttemptProbe {
       }
     }
     if (this.nativePending.byteLength > 1024) fail();
+  }
+
+  private recordNativeLaunchStage(frameValue: string): void {
+    const next = LAUNCHER_DIAGNOSTIC_STAGE_BY_FRAME[frameValue];
+    if (!next) fail();
+    const current = LINUX_PERFORMANCE_LAUNCH_DIAGNOSTIC_STAGES.indexOf(this.nativeLaunchDiagnosticStage);
+    const nextIndex = LINUX_PERFORMANCE_LAUNCH_DIAGNOSTIC_STAGES.indexOf(next);
+    if (nextIndex !== current + 1) fail();
+    this.nativeLaunchDiagnosticStage = next;
+    this.publishDiagnostic(INSTALLATION_STAGE_BY_LAUNCH_DIAGNOSTIC[next]);
+  }
+
+  private recordNativeWorkerExecution(frameValue: string): void {
+    const next = WORKER_EXECUTION_STAGE_BY_FRAME[frameValue];
+    if (!next) fail();
+    const current = LINUX_PERFORMANCE_WORKER_EXECUTION_STAGES.indexOf(this.nativeWorkerExecutionStage);
+    const nextIndex = LINUX_PERFORMANCE_WORKER_EXECUTION_STAGES.indexOf(next);
+    if (nextIndex !== current + 1) fail();
+    this.nativeWorkerExecutionStage = next;
+    this.publishDiagnostic(INSTALLATION_STAGE_BY_WORKER_EXECUTION[next]);
+  }
+
+  private recordNativeWorkerDiagnostic(record: NativeRuntimeLogRecord): void {
+    if (record.component !== 'whisperWorker') return;
+    const next = WORKER_DIAGNOSTIC_STAGE_BY_EVENT[record.event];
+    if (!next) return;
+    const currentIndex = LINUX_PERFORMANCE_WORKER_DIAGNOSTIC_STAGES.indexOf(this.nativeWorkerDiagnosticStage);
+    const nextIndex = LINUX_PERFORMANCE_WORKER_DIAGNOSTIC_STAGES.indexOf(next);
+    if (nextIndex > currentIndex) {
+      this.nativeWorkerDiagnosticStage = next;
+      this.publishDiagnostic(INSTALLATION_STAGE_BY_WORKER_DIAGNOSTIC[next]);
+    }
+  }
+
+  private publishDiagnostic(stage: ArtifactInstallationDiagnosticStage): void {
+    try {
+      this.publishDiagnosticStage?.(stage);
+    } catch {
+      // Private diagnostics are observational and cannot control the attempt.
+    }
   }
 
   private async publishWorkerIfReady(): Promise<void> {

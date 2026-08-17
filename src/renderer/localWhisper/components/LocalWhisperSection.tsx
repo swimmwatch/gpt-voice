@@ -4,6 +4,7 @@ import { PiCaretDown, PiCaretRight } from 'react-icons/pi';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { cn } from '@renderer/lib/cn';
+import { translateLocalWhisperRendererLabel } from '../LocalWhisperPresentation';
 
 interface LocalWhisperPanelProps {
   readonly actions?: ReactNode;
@@ -165,7 +166,7 @@ export function LocalWhisperOptionSelect({
         ) : null}
         {options.map((option) => (
           <SelectItem disabled={option.available === false} key={option.id} value={option.id}>
-            {option.label}
+            {translateLocalWhisperRendererLabel(option.label, t)}
             {option.available === false ? ` · ${t('localWhisper.settings.optionUnavailable')}` : ''}
           </SelectItem>
         ))}

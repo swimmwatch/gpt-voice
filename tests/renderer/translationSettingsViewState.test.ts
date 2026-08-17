@@ -6,6 +6,7 @@ import {
   createTranslationSettingsViewState,
   doesTranslationConnectionMatchSettings,
   getSelectedTranslationTarget,
+  isTranslationProviderConnected,
   reduceTranslationSettingsViewState,
   resolveTranslationSettingsSave,
 } from '@renderer/translationSettingsViewState';
@@ -74,6 +75,34 @@ describe('translation settings renderer state', () => {
           providerId: 'google',
           status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
           targetLanguage: 'ru',
+        },
+        settings,
+      ),
+      false,
+    );
+  });
+
+  it('accepts connected Translation state only for the current settings', () => {
+    const settings = createSettings();
+    assert.equal(
+      isTranslationProviderConnected(
+        {
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+          providerId: 'bing',
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+          targetLanguage: 'uk',
+        },
+        settings,
+      ),
+      true,
+    );
+    assert.equal(
+      isTranslationProviderConnected(
+        {
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+          providerId: 'bing',
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+          targetLanguage: 'uk',
         },
         settings,
       ),

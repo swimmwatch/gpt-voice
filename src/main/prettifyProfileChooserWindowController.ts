@@ -7,6 +7,7 @@ import type {
   Screen,
   WebContents,
 } from 'electron';
+import type { I18nService, TranslationKey } from './i18n';
 import type { AppLocaleId } from '@shared/appLocale';
 import {
   PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS,
@@ -20,7 +21,7 @@ import { isPrettifyBuiltInProfileId, isPrettifyProfileId, type PrettifyProfileId
 import type { PrettifyProfileChooserPort } from './services/selectedTextPrettify';
 
 export const PRETTIFY_PROFILE_CHOOSER_PATH = 'prettify-profile-chooser.html';
-export const PRETTIFY_PROFILE_CHOOSER_TITLE = 'Choose a Prettify profile';
+export const PRETTIFY_PROFILE_CHOOSER_TITLE_KEY = 'prettify.chooser.title' satisfies TranslationKey;
 export const PRETTIFY_PROFILE_CHOOSER_BACKGROUND_COLOR = '#181a1b';
 export const PRETTIFY_PROFILE_CHOOSER_PREFERRED_WIDTH = 620;
 export const PRETTIFY_PROFILE_CHOOSER_PREFERRED_HEIGHT = 640;
@@ -41,6 +42,7 @@ export interface PrettifyProfileChooserWindowControllerDependencies {
   readonly createBrowserWindow: (options: BrowserWindowConstructorOptions) => BrowserWindow;
   readonly getAppIconPath: () => string;
   readonly getAppUrl: (pathname?: string) => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: {
     warn(...args: unknown[]): void;
   };
@@ -234,7 +236,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
         maximizable: false,
         resizable: false,
         show: false,
-        title: PRETTIFY_PROFILE_CHOOSER_TITLE,
+        title: this.dependencies.localization.translate(PRETTIFY_PROFILE_CHOOSER_TITLE_KEY),
         useContentSize: true,
         webPreferences: {
           contextIsolation: true,

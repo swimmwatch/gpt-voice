@@ -172,7 +172,13 @@ function command(
   });
 }
 
-function harness(error: Error | null = null, cancelResult = false, canAcquire: () => boolean = () => true) {
+function harness(
+  error: Error | null = null,
+  cancelResult = false,
+  canAcquire: () => boolean = () => true,
+  onOperationCompleted?: Parameters<NonNullable<ConstructorParameters<typeof LocalWhisperProductionArtifactPort>[0]['onOperationCompleted']>>[0],
+  serviceOverride?: LocalWhisperProductionArtifactLifecyclePort,
+) {
   const catalogValue = catalog();
   const inventoryRepository = new LocalWhisperInventoryRepository();
   const initialInventory = inventoryRepository.reconstruct({
@@ -192,7 +198,7 @@ function harness(error: Error | null = null, cancelResult = false, canAcquire: (
     throw new Error('Transfer is not exercised by this removal harness');
   };
   const cancelCalls: string[] = [];
-  const service: LocalWhisperProductionArtifactLifecyclePort = {
+  const defaultService: LocalWhisperProductionArtifactLifecyclePort = {
     startDownload: unsupportedTransfer,
     resume: unsupportedTransfer,
     retry: unsupportedTransfer,
@@ -237,7 +243,8 @@ function harness(error: Error | null = null, cancelResult = false, canAcquire: (
     canAcquire: () => canAcquire(),
     clearance: new ManagedArtifactRemovalClearanceIssuer(),
     inventory,
-    service,
+    ...(onOperationCompleted ? { onOperationCompleted } : {}),
+    service: serviceOverride ?? defaultService,
   });
   return { cancelCalls, catalogValue, initialInventory, port, store, updates };
 }
@@ -284,6 +291,66 @@ describe('LocalWhisperProductionArtifactPort', () => {
       }),
       { success: false, code: 'INVALID_SETTINGS' },
     );
+  });
+
+  it('reports one safe terminal completion after a started transfer without delaying its command result', async () => {
+    const catalogValue = catalog();
+    const runtime = catalogValue.payload.runtimes[0];
+    assert.ok(runtime);
+    const descriptor = createManagedRuntimeDescriptor(catalogValue, runtime);
+    const completions: {
+      readonly failureCode: string | null;
+      readonly operationId: string;
+      readonly success: boolean;
+    }[] = [];
+    const service: LocalWhisperProductionArtifactLifecyclePort = {
+      startDownload: (request) => {
+        assert.equal(request.artifactId, descriptor.artifactId);
+        return Object.freeze({
+          completion: Promise.resolve(
+            Object.freeze({
+              artifactId: descriptor.artifactId,
+              inventoryRevision: 2,
+              operationId: 'artifact-operation-0001',
+              state: 'Installed' as const,
+              success: true as const,
+            }),
+          ),
+          operationId: 'artifact-operation-0001',
+        });
+      },
+      resume: () => {
+        throw new Error('Not exercised');
+      },
+      retry: () => {
+        throw new Error('Not exercised');
+      },
+      update: () => {
+        throw new Error('Not exercised');
+      },
+      cancel: () => false,
+      remove: async () => {
+        throw new Error('Not exercised');
+      },
+    };
+    const values = harness(null, false, () => true, (event) => completions.push(event), service);
+
+    assert.deepEqual(
+      await values.port.execute({
+        kind: 'download',
+        artifactKind: 'runtime',
+        artifactId: descriptor.artifactId,
+        artifactRevision: runtime.identity.packRevision,
+        expectedSnapshotRevision: 1,
+        expectedConfigurationEpoch: 1,
+        expectedInventoryEpoch: values.initialInventory.revision,
+      }),
+      { success: true, operationId: 'artifact-operation-0001' },
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.deepEqual(completions, [
+      { failureCode: null, operationId: 'artifact-operation-0001', success: true },
+    ]);
   });
 
   it('deletes one exact catalog model and atomically publishes reconstructed inventory', async () => {

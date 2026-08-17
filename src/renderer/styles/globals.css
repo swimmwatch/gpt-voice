@@ -167,6 +167,45 @@
     transform var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.settings-presentation-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.settings-presentation-overlay-card {
+  display: grid;
+  width: min(100%, 300px);
+  justify-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: rgb(32 34 35 / 96%);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 36%);
+  color: var(--foreground);
+  text-align: center;
+}
+
+.settings-presentation-overlay-card h2 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .settings-presentation-overlay {
+    background: rgb(24 26 27 / 94%);
+  }
+}
+
 .main-startup-reveal[data-startup-reveal-state='prepared'] > [data-slot='main-window'] {
   opacity: 0;
   pointer-events: none;

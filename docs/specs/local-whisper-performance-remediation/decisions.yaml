@@ -282,7 +282,7 @@ decisions:
   - id: security.hash-proof-policy
     revision: 1
     category: security
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
@@ -354,7 +354,7 @@ decisions:
   - id: acceptance.performance-target-policy
     revision: 1
     category: acceptance
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/reviews/2026-08-08-local-whisper-performance-review.md
@@ -1164,7 +1164,7 @@ decisions:
   - id: approval.spec
     revision: 2
     category: approval
-    state: answered
+    state: superseded
     provenance: user
     evidence:
       - docs/specs/local-whisper-performance-remediation/spec.md
@@ -1182,7 +1182,7 @@ decisions:
       kind: single
       options:
         - id: approve
-          label: Approve
+          label: Approve (Recommended)
           description: Mark the revised specification Approved and stop before planning or implementation.
         - id: request-changes
           label: Request changes
@@ -2041,3 +2041,958 @@ decisions:
     rationale: The user explicitly approved revision 6 after the executability audit repaired production input ownership, added baseline-compatible attempt enablement, and preserved final-phase Windows implementation, checks, remediation, and selection. Implementation, commits, pushes, CI, and representative-host gates remain separately scoped.
     supersedes_revision: 5
     requirement_ids: []
+  - id: planning.legacy-loader-retention
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested that the former loader invocation remain only as commented source,
+        while the retained implementation is marked deprecated instead of being deleted.
+      - docs/specs/local-whisper-performance-remediation/spec.md#6-model-file-safety-and-standard-loader
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [comment-call-and-deprecate]
+      text: Replace the active legacy loader invocation with the standard whisper.cpp path loader,
+        keep the former invocation only as a commented reference, and mark the retained legacy
+        implementation deprecated without deleting it.
+    rationale: This minimizes migration work while preserving revision 6's prohibition on active
+      ExactModelReader, custom-preflight, snapshot, digest, or fallback use in ordinary model loading.
+    supersedes_revision: null
+    requirement_ids: [SEC-002, PERF-011, OPS-004, AC-AUT-005, AC-AUT-006, AC-AUT-018]
+  - id: approval.plan
+    revision: 7
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+      - planning.legacy-loader-retention revision 1
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-07
+      question_id: approval.plan
+      idempotency_key: approval.plan:v7
+      last_status: answered
+    question:
+      text: Do you approve revision 7 of the Local Whisper performance-remediation plan with inactive deprecated
+        legacy loader code, Linux implementation and qualification first, and all Windows implementation/checks/
+        fixes in the final packet?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve revision 7 while keeping packet execution separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan unapproved and revise the affected packet contracts.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 7 unapproved and stop without authorizing the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 7 with the legacy loader retained only as inactive
+      deprecated source, Linux implementation and qualification isolated first, and all Windows implementation,
+      CI, package/E2E, representative qualification, and subsequent fixes in the final packet.
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: outcome.model-residency-target
+    revision: 1
+    category: outcome
+    state: superseded
+    provenance: user
+    evidence:
+      - User clarified that the target is actual model-weight loading into RAM or VRAM, not background preload or warm-up.
+      - User requested approximately five seconds and separate Linux and Windows delivery tasks.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [five-second-model-residency]
+      text: Reduce actual model-weight loading into RAM or VRAM to approximately five seconds on supported Linux x64 and Windows x64 systems; planning will separate Linux and Windows execution.
+    rationale: This is the explicit outcome requested after the existing remediation still exhibited roughly thirty seconds of model-loading latency.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, PERF-008, CMP-007]
+
+  - id: scope.model-residency-boundary
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: scope.model-residency-boundary
+      idempotency_key: scope.model-residency-boundary:v1
+      last_status: answered
+    question:
+      text: Which exact interval must satisfy the approximately five-second model-residency target?
+      kind: single
+      options:
+        - id: worker-load-to-resident
+          label: Worker load to resident (Recommended)
+          description: Measure from the worker accepting load through parsing, backend activation, RAM or VRAM allocation/upload, and validated loaded evidence; exclude earlier launch checks and explicit warm-up.
+        - id: user-request-to-resident
+          label: User request to resident
+          description: Include main-process lease checks, worker creation and handshake, all load checks, backend activation, allocation/upload, and final evidence; exclude installation and explicit warm-up.
+        - id: loader-only-to-resident
+          label: Loader only
+          description: Measure only the whisper.cpp loader call through completed RAM or VRAM ownership, excluding worker-side preflight and backend setup.
+    answer:
+      selected_ids: [worker-load-to-resident]
+      text: ''
+    rationale: The accepted metric covers the complete native worker load operation through validated RAM or VRAM ownership without hiding parser, backend activation, allocation, or upload cost, while keeping earlier launch checks and explicit inference warm-up separately attributable.
+    supersedes_revision: null
+    requirement_ids: [PERF-008, OBS-004]
+
+  - id: security.hash-proof-policy
+    revision: 2
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper/spec.md
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: security.hash-proof-policy
+      idempotency_key: security.hash-proof-policy:v2
+      last_status: answered
+    question:
+      text: How may the worker consolidate full-model content proofs to approach five-second residency?
+      kind: single
+      options:
+        - id: authenticated-immutable-snapshot
+          label: Authenticated snapshot (Recommended)
+          description: Retain earlier authority and identity revalidations, read and hash the worker's held model once into a process-bounded immutable snapshot, then run preflight and whisper.cpp only against those verified bytes; allow no metadata-only or persistent digest cache.
+        - id: streaming-verify-before-commit
+          label: Streaming verification
+          description: Let preflight and the loader consume held bytes while one digest is calculated, but publish no residency and destroy all state unless the final digest succeeds; this exposes unauthenticated bytes to parsers before completion.
+        - id: persistent-identity-cache
+          label: Persistent digest cache
+          description: Reuse a digest across application launches when strict platform file identity and invalidation checks match, reducing reads but expanding the persistent trust boundary.
+    answer:
+      selected_ids: [authenticated-immutable-snapshot]
+      text: ''
+    rationale: One authenticated immutable worker snapshot removes the duplicate worker file pass without allowing unauthenticated model bytes into preflight or whisper.cpp and without creating metadata-only or persistent digest authority.
+    supersedes_revision: 1
+    requirement_ids: [SEC-001, SEC-002, SEC-003, SEC-004, PERF-009]
+
+  - id: acceptance.performance-target-policy
+    revision: 2
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - src/main/localWhisper/catalog/LocalWhisperReleaseModelMatrix.ts
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - User requested an approximately five-second model-memory load target.
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: acceptance.performance-target-policy
+      idempotency_key: acceptance.performance-target-policy:v2
+      last_status: answered
+    question:
+      text: Which catalog scope should receive the absolute five-second acceptance budget?
+      kind: single
+      options:
+        - id: turbo-q5-reference
+          label: Turbo Q5 reference (Recommended)
+          description: Require the budget for large-v3-turbo/q5_0 (574,041,195 bytes) on named representative Linux and Windows CPU/CUDA profiles; retain relative non-regression gates for other models.
+        - id: all-release-models
+          label: All release models
+          description: Require the same budget for every release-1 model, including medium/full (1,533,763,059 bytes) and large-v3/q5_0 (1,081,140,203 bytes).
+        - id: selected-model-only
+          label: Current selected model
+          description: Apply the budget only to whichever model is selected during qualification, making acceptance depend on mutable local configuration.
+    answer:
+      selected_ids: [turbo-q5-reference]
+      text: ''
+    rationale: The absolute target is bound to the exact 574,041,195-byte large-v3-turbo/q5_0 artifact and named representative Linux/Windows CPU/CUDA profiles; larger artifacts retain meaningful relative and regression gates.
+    supersedes_revision: 1
+    requirement_ids: [PERF-010, QUAL-002]
+
+  - id: acceptance.cache-statistic-policy
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - scripts/local-whisper/qualification/QualificationMetrics.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: acceptance.cache-statistic-policy
+      idempotency_key: acceptance.cache-statistic-policy:v1
+      last_status: answered
+    question:
+      text: How should the five-second budget handle filesystem cache state and run variance?
+      kind: single
+      options:
+        - id: cold-warm-median-five
+          label: Cold and warm median (Recommended)
+          description: Require median residency at or below five seconds in both cold-cache and warm-cache cells on each named profile, with p95 and uncertainty reported as guardrails.
+        - id: cold-warm-p95-five
+          label: Cold and warm p95
+          description: Require at least 95 percent of cold-cache and warm-cache runs to finish within five seconds on every named profile.
+        - id: warm-median-five
+          label: Warm median only
+          description: Require five seconds only for warm-cache median; cold-cache cells need a measured relative improvement and full reporting but no absolute budget.
+    answer:
+      selected_ids: [cold-warm-median-five]
+      text: ''
+    rationale: Requiring the median in both cold-cache and warm-cache cells prevents a page-cache-only result from satisfying the target while retaining p95 and uncertainty as visible variance guardrails.
+    supersedes_revision: null
+    requirement_ids: [PERF-010, OBS-004, AC-MAN-007, AC-MAN-008]
+
+  - id: resource.authenticated-snapshot-budget
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - docs/specs/local-whisper-performance-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: resource.authenticated-snapshot-budget
+      idempotency_key: resource.authenticated-snapshot-budget:v1
+      last_status: answered
+    question:
+      text: What temporary memory budget may authenticated loading use?
+      kind: single
+      options:
+        - id: one-model-transient-buffer
+          label: One model-size buffer (Recommended)
+          description: Permit one checked temporary buffer up to the exact model byte size during load, require read-only ownership after authentication, and release it before loaded is accepted; steady-state memory must not regress.
+        - id: preserve-three-percent-peak
+          label: Preserve 3% peak guardrail
+          description: Keep the existing peak-memory regression limit during load, requiring a mapped or streaming design without a complete extra model buffer.
+        - id: retain-snapshot-for-residency
+          label: Retain snapshot
+          description: Permit the authenticated snapshot to remain allocated with the resident model for faster reuse, increasing steady-state RAM by as much as one model size.
+    answer:
+      selected_ids: [one-model-transient-buffer]
+      text: ''
+    rationale: A single exact-size temporary buffer permits authentication before parsing and memory-speed reuse by preflight and whisper.cpp; mandatory release before loaded preserves the steady-state residency budget.
+    supersedes_revision: null
+    requirement_ids: [RES-004, PERF-009, AC-AUT-016]
+
+  - id: failure.snapshot-unavailable-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-02
+      question_id: failure.snapshot-unavailable-policy
+      idempotency_key: failure.snapshot-unavailable-policy:v1
+      last_status: answered
+    question:
+      text: What should happen when the worker cannot allocate or protect the authenticated snapshot before parsing begins?
+      kind: single
+      options:
+        - id: secure-two-pass-fallback
+          label: Secure two-pass fallback (Recommended)
+          description: Reset before parser entry and use the current exact preflight plus loader path with both full hashes; preserve functionality, expose only content-free fallback evidence, and disqualify that run from the five-second target.
+        - id: fail-model-load
+          label: Fail model load
+          description: Return the existing content-free model-load failure, release all state, and require the user to free memory or select another model before retrying.
+        - id: fallback-turbo-only
+          label: Fallback for other models
+          description: Fail the reference Turbo Q5 load when snapshot memory is unavailable, but permit the secure two-pass fallback for all other catalog models.
+    answer:
+      selected_ids: [fail-model-load]
+      text: ''
+    rationale: Snapshot allocation or protection failure is a closed model-load failure with complete cleanup; no slower alternate load path is retained, so security and timing behavior remain deterministic.
+    supersedes_revision: null
+    requirement_ids: [FAIL-004, CMP-008, PERF-011, AC-AUT-018]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      last_status: answered
+    question:
+      text: Do you approve revision 3 of the Local Whisper performance-remediation specification for authenticated snapshot loading and the five-second Linux/Windows model-residency target?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 3 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 3 Draft and revise the affected contract decisions.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 3 Draft and stop without approval.
+    answer:
+      selected_ids: []
+      text: Подчеркну, что не нужно жестко ограничиваться в 5 секунд. Мы не должны падать, если загрузка модели превышает 5 секунд. Просто наша целевая загрузка, скорость должна быть примерно 5 секунд либо выше, но никак не 30 секунд, как было ранее. Наша задача, чтобы сделать для пользователя удобный и адекватный вариант.
+    rationale: Revision 3 remains Draft because the user rejected a hard five-second limit and required five seconds to be an optimization target that never becomes a runtime failure threshold.
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: acceptance.cache-statistic-policy
+    revision: 2
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - approval.spec revision 3 custom response
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - scripts/local-whisper/qualification/QualificationMetrics.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-03
+      question_id: acceptance.cache-statistic-policy
+      idempotency_key: acceptance.cache-statistic-policy:v2
+      last_status: answered
+    question:
+      text: How should qualification distinguish the approximately five-second optimization target from an unacceptable return toward thirty seconds without making timing a runtime failure?
+      kind: single
+      options:
+        - id: target-five-accept-ten
+          label: Target 5, accept 10 seconds (Recommended)
+          description: Treat five seconds as the optimization target; pass representative cold/warm medians up to ten seconds, flag five-to-ten as target missed, fail qualification above ten, and never fail a runtime load solely for exceeding either duration.
+        - id: relative-threefold
+          label: Require threefold improvement
+          description: Use no absolute qualification maximum; require at least a threefold median improvement from the exact paired baseline and report distance from the five-second target.
+        - id: target-five-accept-fifteen
+          label: Target 5, accept 15 seconds
+          description: Treat five seconds as the target, pass representative cold/warm medians up to fifteen seconds, fail qualification above fifteen, and never turn timing into a runtime failure.
+    answer:
+      selected_ids: [relative-threefold]
+      text: ''
+    rationale: Qualification requires at least a threefold cold-cache and warm-cache median improvement against the exact paired baseline and reports distance from the approximately five-second objective; elapsed time alone never changes a valid runtime load into failure.
+    supersedes_revision: 1
+    requirement_ids: [OUT-002, PERF-008, PERF-010, OBS-004, AC-AUT-017, AC-MAN-007, AC-MAN-008]
+
+  - id: approval.spec
+    revision: 4
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - approval.spec revision 3 custom response
+      - acceptance.cache-statistic-policy revision 2
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-04
+      question_id: approval.spec
+      idempotency_key: approval.spec:v4
+      last_status: answered
+    question:
+      text: Do you approve revision 4 of the Local Whisper performance-remediation specification with a non-failing approximately five-second objective and a threefold paired cold/warm qualification gate?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 4 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 4 Draft and revise the affected contract decisions.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 4 Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 4 after five seconds was changed from a hard limit to a non-failing objective and qualification was defined as a conservative threefold paired cold/warm improvement.
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: outcome.remove-redundant-content-proofs
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested removal of redundant full-model checks after reviewing the retained Linux/Windows proof counts.
+      - docs/specs/local-whisper-performance-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [remove-redundant-full-content-proofs]
+      text: Remove redundant full-model content checks while retaining required cross-platform security guarantees.
+    rationale: Full-file SHA-256 passes are the dominant avoidable work; lease, identity, permission, process, and handoff checks can remain without rereading model contents.
+    supersedes_revision: null
+    requirement_ids: [OUT-003, SCP-008, PERF-012, SEC-011, OBS-005]
+
+  - id: security.hash-proof-policy
+    revision: 3
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper/spec.md
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: content-proof-round-01
+      question_id: security.hash-proof-policy
+      idempotency_key: security.hash-proof-policy:v3
+      last_status: answered
+    question:
+      text: Сколько полных проверок содержимого модели должно остаться в одной успешной загрузке?
+      kind: single
+      options:
+        - id: worker-snapshot-only
+          label: Только worker snapshot (Рекомендуется)
+          description: Оставить один полный SHA-256 при создании snapshot в worker до parser; все предыдущие этапы проверяют lease, OS identity, размер, права, nonce, PID/start identity и происхождение handle без чтения содержимого. Повреждение обнаруживается при загрузке.
+        - id: acquisition-and-worker
+          label: Acquisition и worker
+          description: Оставить ранний полный SHA-256 при получении lease и второй при создании worker snapshot; повреждение обнаруживается раньше, но успешная загрузка читает модель дважды.
+        - id: native-handoff-snapshot
+          label: Snapshot до worker
+          description: Создать и проверить один неизменяемый anonymous snapshot в native guard, затем передать только read-only handle worker; один проход, но новый межпроцессный memory-handoff усложняет Linux/Windows security contract.
+    answer:
+      selected_ids: [worker-snapshot-only]
+      text: ''
+    rationale: One final worker SHA-256 over the exact immutable snapshot is sufficient to authenticate every byte before parser entry; earlier stages retain authority and identity checks without rereading contents, reducing successful Linux and Windows loads to one full content pass.
+    supersedes_revision: 2
+    requirement_ids: [SEC-004, SEC-011, PERF-012, CMP-009, IPC-005, ARC-006, FAIL-005, AC-AUT-019, AC-AUT-020]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - security.hash-proof-policy revision 3
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-05
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+    question:
+      text: Do you approve revision 5 of the Local Whisper performance-remediation specification with exactly one worker snapshot content proof and identity-only pre-worker validation on Linux and Windows?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 5 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 5 Draft and revise the affected contract decisions.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 5 Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 5 with one final worker snapshot SHA-256 content proof and identity/authority-only pre-worker validation on both Linux and Windows.
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: scope.spec-bundle-boundary
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly limited this revision to docs/specs/local-whisper-performance-remediation/.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [performance-remediation-bundle-only]
+      text: Revise only the local-whisper-performance-remediation specification bundle; do not edit the parent Local Whisper specification bundle.
+    rationale: The performance-remediation specification must state its narrow amendment explicitly while leaving the parent files unchanged.
+    supersedes_revision: null
+    requirement_ids: [SCP-009]
+
+  - id: security.hash-proof-policy
+    revision: 4
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly decided to disable model-content proofs and load through the standard whisper.cpp API.
+      - User explicitly retained only basic process and filesystem safety, following the OpenWhispr model-loading posture.
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - https://github.com/OpenWhispr/openwhispr/blob/main/src/helpers/whisper.js
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-model-content-proofs]
+      text: Perform no model SHA-256, digest, signature, immutable-snapshot authentication, custom-loader consumption proof, or other full-model content proof during installation, startup, readiness, load, or inference.
+    rationale: The user accepts that a locally replaced but structurally valid model may load in exchange for standard whisper.cpp loading latency.
+    supersedes_revision: 3
+    requirement_ids: [OUT-003, SCP-008, SEC-001, SEC-002, SEC-003, SEC-004, PERF-009, PERF-012]
+
+  - id: architecture.standard-whisper-loader
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested the standard whisper.cpp API used by OpenWhispr.
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [standard-path-api]
+      text: Remove ExactModelReader, the project-owned model-format preflight, and authenticated snapshot loading from the production model-load path; call the pinned path-based whisper.cpp initialization API directly.
+    rationale: The worker remains a supervised GPT-Voice process, but whisper.cpp owns model opening, parsing, allocation, and structural failure detection.
+    supersedes_revision: null
+    requirement_ids: [ARC-005, ARC-006, FLOW-002, CMP-007]
+
+  - id: security.retained-basic-safeguards
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly retained basic process and filesystem safety.
+      - AGENTS.md
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - authenticated-runtime-pack
+        - managed-root-confinement
+        - canonical-regular-file
+        - reject-link-or-reparse
+        - bounded-size
+        - private-path-handling
+        - worker-isolation-cleanup
+      text: Keep runtime-worker provenance and digest verification, managed-root confinement, canonical regular-file and link/reparse rejection, bounded size, private path handling, parent/process identity, timeouts, cancellation, RAII cleanup, and content-free errors.
+    rationale: These checks bound privileged filesystem and process behavior without rereading or authenticating model payload bytes.
+    supersedes_revision: null
+    requirement_ids: [SEC-010, SEC-011, ARC-001, RES-003, FAIL-001, FAIL-003]
+
+  - id: security.model-download-validation
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User requested the OpenWhispr model-loading posture while retaining basic file safety.
+      - https://github.com/OpenWhispr/openwhispr/blob/main/src/helpers/downloadUtils.js
+      - https://github.com/OpenWhispr/openwhispr/blob/main/src/helpers/whisper.js
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [transport-and-file-safety-only]
+      text: Keep approved-source HTTPS transport, bounded temporary download, completion and expected-size validation, atomic promotion, cancellation, retry, disk-space checks, and stale-temporary cleanup; do not hash or sign model content before promotion.
+    rationale: This detects incomplete or obviously invalid downloads but intentionally does not prove cryptographic model identity.
+    supersedes_revision: null
+    requirement_ids: [SCP-008, SEC-001, FAIL-005]
+
+  - id: compatibility.model-path-transport
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - architecture.standard-whisper-loader revision 1
+      - security.retained-basic-safeguards revision 1
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: standard-loader-round-01
+      question_id: compatibility.model-path-transport
+      idempotency_key: compatibility.model-path-transport:v1
+      last_status: answered
+    question:
+      text: How should the supervised worker receive the model path required by the standard whisper.cpp file API?
+      kind: single
+      options:
+        - id: private-versioned-message
+          label: Private protocol message (Recommended)
+          description: Add the canonical path to a bounded versioned private worker message; keep it out of argv, environment, renderer IPC, retained logs, and diagnostics, and roll main/worker together.
+        - id: process-argument
+          label: Worker process argument
+          description: Pass the canonical path in worker argv like whisper-server; this is simpler but exposes it to local process inspection and couples path handling to launch.
+        - id: platform-authority-adapter
+          label: Platform authority adapter
+          description: Retain the descriptor/handle handoff and derive a path-like input for the standard API; Linux and Windows behavior differ and the Windows path still requires a reopen.
+    answer:
+      selected_ids: [private-versioned-message]
+      text: ''
+    rationale: The canonical model path stays on a bounded private main-to-worker channel and is excluded from argv, environment, renderer IPC, retained logs, and diagnostics; main and worker roll out as one compatibility set.
+    supersedes_revision: null
+    requirement_ids: [IPC-005, CMP-007, OPS-001]
+
+  - id: outcome.remove-redundant-content-proofs
+    revision: 2
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - security.hash-proof-policy revision 4
+      - architecture.standard-whisper-loader revision 1
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [remove-all-model-content-proofs]
+      text: Remove every project-owned full-model content proof rather than retaining the revision-5 one-snapshot proof.
+    rationale: The standard whisper.cpp path API becomes the only production model reader; basic metadata and process/file checks remain.
+    supersedes_revision: 1
+    requirement_ids: [OUT-003, PERF-009, PERF-012, OBS-005]
+
+  - id: scope.digest-cache-policy
+    revision: 2
+    category: scope
+    state: not_applicable
+    provenance: user
+    evidence:
+      - security.hash-proof-policy revision 4
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: No digest cache is needed because ordinary model installation and loading no longer calculate or compare model-content digests.
+    rationale: Cache invalidation and metadata-as-content-authority risks disappear with the content-proof feature itself.
+    supersedes_revision: 1
+    requirement_ids: [SCP-004, SEC-003]
+
+  - id: resource.authenticated-snapshot-budget
+    revision: 2
+    category: architecture
+    state: not_applicable
+    provenance: user
+    evidence:
+      - architecture.standard-whisper-loader revision 1
+      - security.hash-proof-policy revision 4
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: The worker shall not allocate a project-owned model-size authenticated snapshot.
+    rationale: Standard path-based whisper.cpp loading owns its internal allocations; the former extra model-size snapshot and its temporary-memory exception are removed.
+    supersedes_revision: 1
+    requirement_ids: [RES-004, ARC-005, THR-007]
+
+  - id: failure.snapshot-unavailable-policy
+    revision: 2
+    category: failure
+    state: not_applicable
+    provenance: user
+    evidence:
+      - resource.authenticated-snapshot-budget revision 2
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: No snapshot allocation, protection, or fallback failure exists after switching to the standard whisper.cpp path API.
+    rationale: Model-load failure now comes from bounded file validation, the standard parser/loader, backend activation, allocation, device proof, timeout, or cancellation.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-004, CMP-008, PERF-011]
+
+  - id: security.accepted-model-replacement-risk
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly accepted OpenWhispr-like model validation.
+      - security.hash-proof-policy revision 4
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [accept-valid-local-replacement]
+      text: A same-user local replacement that remains a bounded regular parseable model may be loaded without cryptographic detection; structural corruption is reported only when standard whisper.cpp loading fails.
+    rationale: This is the explicit security/performance tradeoff required to remove model-content proofs.
+    supersedes_revision: null
+    requirement_ids: [SEC-012, FAIL-005]
+
+  - id: approval.spec
+    revision: 6
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - security.hash-proof-policy revision 4
+      - architecture.standard-whisper-loader revision 1
+      - security.retained-basic-safeguards revision 1
+      - compatibility.model-path-transport revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-06
+      question_id: approval.spec
+      idempotency_key: approval.spec:v6
+      last_status: answered
+    question:
+      text: Do you approve revision 6 of the Local Whisper performance-remediation specification with standard path-based whisper.cpp loading, no model-content proofs, and retained basic process/filesystem safety?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 6 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 6 Draft and revise affected decisions or requirements.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 6 Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 6 with standard path-based whisper.cpp loading, no model-content proofs, and retained basic process/filesystem safety.
+    supersedes_revision: 5
+    requirement_ids: []
+
+  - id: outcome.model-residency-target
+    revision: 2
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User concluded that OpenWhispr uses the same standard whisper.cpp file-loading path.
+      - User approved replacing speculative optimization with a reduced representative qualification.
+      - User selected the release-1 Base model as the only qualification model.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [measure-base-without-performance-gate]
+      text: Qualify actual Base model residency on supported Linux x64 and Windows x64 CPU/CUDA hosts; keep approximately five seconds as an informational objective only, with no new loader optimization or timing-based qualification failure.
+    rationale: The standard loader matches the reviewed OpenWhispr loading mechanism, so the remaining work should establish functional and observational evidence rather than require an unproven speedup.
+    supersedes_revision: 1
+    requirement_ids: [OUT-001, OUT-002, SCP-001, PERF-008, PERF-010]
+
+  - id: acceptance.performance-target-policy
+    revision: 3
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/catalog/LocalWhisperReleaseModelMatrix.ts
+      - User explicitly selected only the Base model after reviewing the reduced qualification table.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [base-full-observational]
+      text: Use only the exact release-1 base/full artifact (147,951,465 bytes) for representative Linux and Windows CPU/CUDA cold/warm qualification; report distance from five seconds without a baseline, speedup threshold, or timing pass/fail gate.
+    rationale: One small release model provides a bounded cross-platform standard-loader check while removing the expensive four-model paired matrix.
+    supersedes_revision: 2
+    requirement_ids: [OUT-002, QUAL-001, QUAL-002, PERF-008, PERF-010, AC-MAN-001, AC-MAN-007, AC-MAN-008]
+
+  - id: acceptance.cache-statistic-policy
+    revision: 3
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User approved the reduced qualification table before requesting the specification revision.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [three-candidate-runs-per-cell]
+      text: Run three successful candidate loads in each Base CPU/CUDA cold/warm cell and report sample count, ordering, median, minimum, maximum, and bounded aggregate RAM/VRAM evidence; do not build or run a paired baseline.
+    rationale: Three samples are the smallest useful set that supplies a median and visible spread while reducing the planned timed model loads from up to 192 baseline/candidate loads to 12 candidate loads per operating system.
+    supersedes_revision: 2
+    requirement_ids: [GAT-002, GAT-003, OBS-001, OBS-002, PERF-008, RES-002, AC-AUT-001, AC-AUT-002]
+
+  - id: acceptance.reduced-representative-scope
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User approved the proposed reduced Task 17 check table with Base as the only model substitution.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [focused-package-and-lifecycle]
+      text: On each operating system, install only the candidate package; run the focused Base CPU/CUDA cold/warm measurements; execute one load, warm-up, transcription, cancellation, unload, retry, cleanup, no-fallback, and privacy-safe evidence flow per backend; leave suspend/resume, unavailable-device, thread-count, topology/model-switch, delete/redownload, and installation-window matrices to existing automated coverage or outside this work.
+    rationale: This retains the real packaged standard-loader, CUDA ownership, lifecycle, cleanup, and privacy evidence while removing unrelated manual permutations.
+    supersedes_revision: null
+    requirement_ids:
+      [AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006, AC-MAN-007, AC-MAN-008, OPS-004]
+
+  - id: approval.spec
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - outcome.model-residency-target revision 2
+      - acceptance.performance-target-policy revision 3
+      - acceptance.cache-statistic-policy revision 3
+      - acceptance.reduced-representative-scope revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-07
+      question_id: approval.spec
+      idempotency_key: approval.spec:v7
+      last_status: answered
+    question:
+      text: Do you approve revision 7 of the Local Whisper performance-remediation specification with Base-only representative qualification, three candidate runs per CPU/CUDA cold/warm cell, no paired baseline or speedup gate, and focused package/lifecycle/privacy checks?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Mark revision 7 Approved and stop before rewriting the plan.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 7 Draft and revise the affected qualification requirements.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 7 Draft and stop without changing the plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 7 with Base-only representative qualification, three candidate runs per CPU/CUDA cold/warm cell, no paired baseline or speedup gate, and focused package/lifecycle/privacy checks.
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+      - approval.spec revision 7
+      - acceptance.performance-target-policy revision 3
+      - acceptance.cache-statistic-policy revision 3
+      - acceptance.reduced-representative-scope revision 1
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-08
+      question_id: approval.plan
+      idempotency_key: approval.plan:v8
+      last_status: answered
+    question:
+      text: Do you approve revision 8 of the Local Whisper performance-remediation plan with candidate-only Base qualification in Packet 17 and all real Windows implementation, CI, package, and focused Base qualification in Packet 18?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Approve revision 8 while keeping packet execution, commits, pushes, CI, and manual host gates separately authorized.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 8 draft and revise the affected task packets.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 8 draft and stop without authorizing the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 8 with candidate-only Base qualification in Packet 17 and all real Windows implementation, CI, package, and focused Base qualification in Packet 18; packet execution remains separately gated.
+    supersedes_revision: 7
+    requirement_ids: []
+
+  - id: authorization.packet-17
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - approval.plan revision 8
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-17
+      question_id: authorization.packet-17
+      idempotency_key: authorization.packet-17:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize Packet 17 for a future incremental-implementation invocation?
+      kind: single
+      options:
+        - id: defer-execution
+          label: Defer execution (Recommended)
+          description: Finish this planning workflow without starting or pre-authorizing implementation.
+        - id: authorize-packet-17
+          label: Authorize Packet 17
+          description: Authorize only Packet 17 for the next incremental-implementation invocation; commits, pushes, CI, and manual host gates remain separately scoped.
+    answer:
+      selected_ids: [authorize-packet-17]
+      text: ''
+    rationale: The user separately authorized only Packet 17 for the next incremental-implementation invocation; this planning invocation still stops before implementation, commits, pushes, CI, or manual host execution.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: authorization.commit-packet-16
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - Current worktree contains the completed Packet 16 standard-loader implementation and local verification changes.
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: commit-round-16
+      question_id: authorization.commit-packet-16
+      idempotency_key: authorization.commit-packet-16:v1
+      last_status: answered
+    question:
+      text: Do you authorize one local commit containing only the completed Packet 16 standard-loader implementation and its directly related tests, schemas, and Packet 16 documentation? It will not push or include revision-8 planning files.
+      kind: single
+      options:
+        - id: commit-packet-16
+          label: Commit Packet 16 (Recommended)
+          description: Create one local conventional commit for only the verified completed Packet 16 changes, enabling Packet 17 to start.
+        - id: defer-commit
+          label: Defer commit
+          description: Keep Packet 16 uncommitted and stop before starting Packet 17.
+    answer:
+      selected_ids: [commit-packet-16]
+      text: ''
+    rationale: The user explicitly authorized one local commit containing only the completed Packet 16 standard-loader implementation and directly related tests, schemas, and Packet 16 documentation; push remains unauthorized.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]

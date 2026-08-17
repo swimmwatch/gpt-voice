@@ -162,6 +162,12 @@ export class MainProcessApplication {
       return;
     }
 
+    dependencies.config.load();
+    const config = dependencies.config.getSnapshot();
+    dependencies.localization.setLocale(
+      resolveStartupLocale(config.locale, config.localeExplicit, dependencies.localization.getSupportedLocales()),
+    );
+
     if (!desktopRuntime.isStartupBenchmark) {
       dependencies.configureCloakBrowserRuntime();
       desktopRuntime.configureNativeMetadata();
@@ -170,11 +176,6 @@ export class MainProcessApplication {
     }
     dependencies.appProtocolController.registerHandler();
     desktopRuntime.configureApplicationReady();
-    dependencies.config.load();
-    const config = dependencies.config.getSnapshot();
-    dependencies.localization.setLocale(
-      resolveStartupLocale(config.locale, config.localeExplicit, dependencies.localization.getSupportedLocales()),
-    );
     presentPendingTranslationSettingsRepairNotice({
       notice: dependencies.config.consumePendingTranslationSettingsRepairNotice(),
       notify: dependencies.notify,

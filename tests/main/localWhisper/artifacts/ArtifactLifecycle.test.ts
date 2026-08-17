@@ -139,6 +139,27 @@ describe('LocalWhisperArtifactService lifecycle', () => {
     assert.equal(Object.isFrozen(snapshot), true);
   });
 
+  test('emits closed installation milestones through the optional qualification observer', async () => {
+    const stages: string[] = [];
+    const harness = createArtifactServiceHarness({ onInstallationStage: (stage) => stages.push(stage) });
+
+    const result = await harness.service.startDownload({
+      artifactId: harness.catalogFixture.model.artifactId,
+      expectedInventoryRevision: harness.inventory.revision,
+    }).completion;
+
+    assert.equal(result.success, true);
+    assert.deepEqual(stages.slice(-7), [
+      'journalRemovalStarted',
+      'journalRemoved',
+      'spoolDiscardStarted',
+      'spoolDiscarded',
+      'inventoryRefreshStarted',
+      'inventoryRefreshed',
+      'installedPublished',
+    ]);
+  });
+
   test('keeps installed siblings across size and authenticated runtime failures while ignoring model digests', async () => {
     const lengthClient = new RecordingArtifactHttpClient(async () => ({
       status: 200,

@@ -31,9 +31,96 @@ export interface ArtifactInstallationPipelineSnapshot {
   readonly peakOwnedBytes: number;
 }
 
+/** Closed qualification-only milestones; they never contain artifact names, paths, or bytes. */
+export const ARTIFACT_INSTALLATION_DIAGNOSTIC_STAGES = [
+  'stagingCreationStarted',
+  'stagingCreated',
+  'stagedFileCreationStarted',
+  'stagedFileCreated',
+  'writesSettled',
+  'fileSealStarted',
+  'fileSealed',
+  'fileReleased',
+  'promotionStarted',
+  'promoted',
+  'journalRemovalStarted',
+  'journalRemoved',
+  'spoolDiscardStarted',
+  'spoolDiscarded',
+  'inventoryRefreshStarted',
+  'inventoryRefreshed',
+  'installedPublished',
+  'operationCompletionObserved',
+  'operationCompletionRecorded',
+  'operationCompletionAwaited',
+  'settingsApplyStarted',
+  'settingsApplied',
+  'loadRequested',
+  'coordinatorPreflightStarted',
+  'coordinatorPreflightSetupResolved',
+  'coordinatorPreflightCatalogResolved',
+  'coordinatorPreflightBackendPrepared',
+  'coordinatorPreflightGpuAuthorityAcquired',
+  'coordinatorPreflightGpuRegistryDiscovered',
+  'coordinatorPreflightGpuResourcesSampled',
+  'coordinatorPreflightAvailabilitySampled',
+  'coordinatorPreflightFingerprintCreated',
+  'coordinatorPreflightCompleted',
+  'modelAuthorityStarted',
+  'runtimeAuthorityStarted',
+  'workerStartRequested',
+  'fullLoadSessionCreated',
+  'fullLoadHandshakeStarted',
+  'fullLoadHandshakeCompleted',
+  'fullLoadRequestStarted',
+  'fullLoadRequestCompleted',
+  'supervisorLaunchReturned',
+  'supervisorTransportBound',
+  'supervisorHelloSendStarted',
+  'supervisorHelloSent',
+  'supervisorHandshakeReceived',
+  'supervisorHandshakeTimedOut',
+  'supervisorCleanupStarted',
+  'supervisorTerminationRequested',
+  'supervisorForceTerminationRequested',
+  'supervisorCleanupCompleted',
+  'supervisorCleanupFailed',
+  'nativeDiagnosticsFlushStarted',
+  'nativeDiagnosticsFlushCompleted',
+  'nativeDiagnosticsFlushTimedOut',
+  'sessionProcessLaunched',
+  'nativeModelGuardEntered',
+  'nativeLauncherExecRequested',
+  'nativeLauncherEntered',
+  'nativeLauncherWorkerVerified',
+  'nativeLauncherWorkerCreated',
+  'nativeLauncherAcknowledged',
+  'nativeWorkerChildStarted',
+  'nativeWorkerExecRequested',
+  'nativeWorkerEntered',
+  'nativeWorkerProcessStarted',
+  'nativeWorkerProcessReady',
+  'nativeWorkerModelLoadStarted',
+  'nativeWorkerModelLoadFailed',
+  'nativeWorkerFailure',
+  'nativeLaunchReady',
+  'nativeLaunchRejected',
+  'nativeLaunchClosed',
+  'nativeLaunchMalformed',
+  'nativeLaunchError',
+  'nativeLaunchExited',
+  'nativeLaunchTimeout',
+  'warmupStarted',
+  'authorityRevalidationStarted',
+] as const;
+
+export type ArtifactInstallationDiagnosticStage = (typeof ARTIFACT_INSTALLATION_DIAGNOSTIC_STAGES)[number];
+
 export interface StreamingArtifactExtractorDependencies {
   readonly clock: ArtifactClock;
   readonly maximumInFlightWrites: ArtifactInstallationPipelineWindow;
+  /** Present only in the isolated qualification composition; observer failures are ignored. */
+  readonly onInstallationStage?: (stage: ArtifactInstallationDiagnosticStage) => void;
   readonly observePipeline: ((snapshot: ArtifactInstallationPipelineSnapshot) => void) | null;
   readonly store: ArtifactManagedStorePort;
 }
@@ -245,12 +332,16 @@ export class StreamingArtifactExtractor {
     let promoted = false;
     try {
       if (signal.aborted) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED');
+      this.observeInstallationStage('stagingCreationStarted');
       staging = await this.dependencies.store.createStaging(spec.descriptor);
+      this.observeInstallationStage('stagingCreated');
       for (const expected of spec.expectedFiles) {
         if (signal.aborted) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED');
         const entry = validated.get(expected.fileId);
         if (!entry) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
+        this.observeInstallationStage('stagedFileCreationStarted');
         const fileLease = await this.dependencies.store.createStagedFile(staging, expected.fileId);
+        this.observeInstallationStage('stagedFileCreated');
         let written = 0;
         const hash = metadataOnlyModel ? null : createHash('sha256');
         try {
@@ -268,20 +359,26 @@ export class StreamingArtifactExtractor {
             await pipeline.enqueue(fileLease, chunk);
           }
           await pipeline.finish();
+          this.observeInstallationStage('writesSettled');
           if (written !== expected.sizeBytes || (!metadataOnlyModel && hash?.digest('hex') !== expected.sha256)) {
             throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
           }
+          this.observeInstallationStage('fileSealStarted');
           await this.dependencies.store.sealStagedFile(fileLease);
+          this.observeInstallationStage('fileSealed');
           await fileLease.release();
+          this.observeInstallationStage('fileReleased');
         } catch (error) {
           await pipeline.settle();
           await fileLease.release().catch(() => undefined);
           throw error;
         }
       }
+      this.observeInstallationStage('promotionStarted');
       if (metadataOnlyModel) await this.dependencies.store.promoteMetadataOnlyModel(spec.descriptor, staging);
       else await this.dependencies.store.promote(spec.descriptor, staging);
       promoted = true;
+      this.observeInstallationStage('promoted');
     } catch (error) {
       await pipeline.settle();
       if (staging && !promoted) {
@@ -296,6 +393,14 @@ export class StreamingArtifactExtractor {
       throw new LocalWhisperArtifactLifecycleError('INSTALL_FAILED');
     } finally {
       pipeline.dispose();
+    }
+  }
+
+  private observeInstallationStage(stage: ArtifactInstallationDiagnosticStage): void {
+    try {
+      this.dependencies.onInstallationStage?.(stage);
+    } catch {
+      // Qualification diagnostics must not alter the installation outcome.
     }
   }
 }

@@ -114,4 +114,29 @@ describe('window startup state', () => {
       /inert=\{providerHotkeyIntegration\.isMainInteractionLocked \|\| !isMainScreenInteractive\}/u,
     );
   });
+
+  it('presents settings as an accessible blocking overlay without reloading the main window', () => {
+    const app = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/App.tsx'), 'utf8');
+    const overlay = readFileSync(
+      path.join(PROJECT_ROOT, 'src/renderer/components/SettingsPresentationOverlay.tsx'),
+      'utf8',
+    );
+    const styles = readFileSync(path.join(PROJECT_ROOT, 'src/renderer/styles/globals.css'), 'utf8');
+    const subscription = app.indexOf('onSettingsPresentationChanged');
+    const query = app.indexOf('getSettingsPresentation');
+
+    assert.ok(subscription >= 0);
+    assert.ok(query > subscription);
+    assert.match(app, /<SettingsPresentationOverlay[\s\S]*?presentation=\{settingsPresentation\}/u);
+    assert.match(app, /desktopApi\.focusSettingsWindow\(\)/u);
+    assert.match(overlay, /aria-modal="true"/u);
+    assert.match(overlay, /role="dialog"/u);
+    assert.match(overlay, /<Spinner active/u);
+    assert.match(overlay, /t\('settings\.show'\)/u);
+    assert.match(styles, /\.settings-presentation-overlay \{[\s\S]*?backdrop-filter: blur\(4px\);/u);
+    assert.match(
+      styles,
+      /@supports not \(\(-webkit-backdrop-filter: blur\(1px\)\) or \(backdrop-filter: blur\(1px\)\)\)/u,
+    );
+  });
 });

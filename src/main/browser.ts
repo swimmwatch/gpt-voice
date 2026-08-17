@@ -332,7 +332,9 @@ export class BackgroundBrowserService {
             'failure',
             audit.createMetadata({ causeCode: 'not-configured' }),
           );
-          await this.cleanupInitialization(state, true);
+          // Model residency changes independently of the provider selection. Keep the
+          // local facade active so its live readiness becomes visible after weights load.
+          if (this.isInitializationActive(state)) this.ready = true;
           return this.getStatus();
         }
         readinessAudit.lifecycle.phaseCompleted('readiness');

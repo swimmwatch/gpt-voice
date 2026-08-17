@@ -27,9 +27,10 @@ interface ProviderHotkeyHomeIntegrationOptions {
   readonly isPrettifyProviderSwitching: boolean;
   readonly isTextActionActivityActive: boolean | null;
   readonly isTranslationProviderSwitching: boolean;
+  readonly isVoiceProviderReady: boolean;
   readonly isVoiceProviderSwitching: boolean;
   readonly onIdleRecordHotkey: (hotkey: string) => void;
-  readonly onProviderActionRejected: () => void;
+  readonly onProviderActionRejected: (provider: ProviderHomeTextAction) => void;
   readonly onVoiceCancel: () => void;
   readonly onVoicePause: () => void;
   readonly onVoiceResume: () => void;
@@ -72,6 +73,7 @@ export function useProviderHotkeyHomeIntegration({
   isPrettifyProviderSwitching,
   isTextActionActivityActive,
   isTranslationProviderSwitching,
+  isVoiceProviderReady,
   isVoiceProviderSwitching,
   onIdleRecordHotkey,
   onProviderActionRejected,
@@ -194,7 +196,7 @@ export function useProviderHotkeyHomeIntegration({
         },
         textActionActivityActive: isTextActionActivityActive === true,
         translationEnabled: providerHomeActionState?.settings.translateEnabled ?? false,
-        voiceProviderAvailable: activeProviderId !== null,
+        voiceProviderAvailable: activeProviderId !== null && isVoiceProviderReady,
       }),
     [
       activeProviderId,
@@ -207,6 +209,7 @@ export function useProviderHotkeyHomeIntegration({
       isPrettifyProviderSwitching,
       isTextActionActivityActive,
       isTranslationProviderSwitching,
+      isVoiceProviderReady,
       isVoiceProviderSwitching,
       pendingProviderHomeAction,
       providerHomeActionState,
@@ -244,9 +247,9 @@ export function useProviderHotkeyHomeIntegration({
       void desktopApi
         .runProviderHomeAction({ action, provider })
         .then((result) => {
-          if (!result.accepted) onProviderActionRejected();
+          if (!result.accepted) onProviderActionRejected(provider);
         })
-        .catch(onProviderActionRejected)
+        .catch(() => onProviderActionRejected(provider))
         .finally(() => {
           pendingProviderHomeActionRef.current = null;
           setPendingProviderHomeAction(null);

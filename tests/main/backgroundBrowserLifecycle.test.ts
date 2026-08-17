@@ -214,7 +214,7 @@ describe('background browser lifecycle hooks', () => {
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
   });
 
-  it('keeps Local Whisper disconnected while its model is not loaded', async () => {
+  it('keeps the Local Whisper provider active while its model is unloaded and observes a later load', async () => {
     const harness = createLocalLifecycleHarness();
     harness.coordinator.readiness = Object.freeze({
       snapshot: Object.freeze({
@@ -228,9 +228,14 @@ describe('background browser lifecycle hooks', () => {
     const status = await harness.service.initialize();
 
     assert.deepEqual(status, { providerId: 'local-whisper', ready: false, error: undefined, authExpired: undefined });
-    assert.equal(harness.service.getActiveProvider(), null);
-    assert.deepEqual(harness.coordinator.calls, ['readiness']);
+    assert.equal(harness.service.getActiveProvider(), harness.localProvider);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'readiness']);
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+
+    harness.coordinator.readiness = Object.freeze({ snapshot: READY_LOCAL_WHISPER_SNAPSHOT, failure: null });
+
+    assert.equal(harness.service.isReady(), true);
+    assert.equal(harness.service.getActiveProvider(), harness.localProvider);
   });
 
   it('clears Local Whisper readiness as soon as its resident model is released', async () => {

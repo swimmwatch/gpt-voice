@@ -16,8 +16,9 @@ import {
 } from '@renderer/mainPrettifyProvider';
 import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
 import {
-  clearRecoveredBrowserFailureStatus,
+  clearRecoveredProviderStatus,
   createBrowserProviderFailurePresentation,
+  providerStatus,
   renderRendererStatus,
   translatedStatus,
 } from '@renderer/statusPresentation';
@@ -181,11 +182,21 @@ describe('provider status presentation', () => {
 
     assert.match(
       app,
-      /const isSharedProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*activeTextAction !== null \|\|\s*isTextActionActivityActive === true;/u,
+      /const isSharedProviderChangesLocked =\s*isVoiceProviderSwitching \|\|\s*isTranslationProviderSwitching \|\|\s*isRecordingLifecycleBusy\(recordingState\) \|\|\s*isLocalWhisperModelLoadRunning \|\|\s*activeTextAction !== null \|\|\s*isTextActionActivityActive === true;/u,
+    );
+    assert.match(app, /const isLocalWhisperModelLoadRunning = localWhisperMain\.pendingAction === 'load';/u);
+    assert.match(
+      app,
+      /isPrettifyModelActionRunning:\s*isPrettifyModelActionRunning \|\| isLocalWhisperModelLoadRunning,/u,
     );
     assert.match(
       prettifyHome,
       /const isProviderChangesLocked =\s*isSharedProviderChangesLocked \|\| isProviderChangeSaving \|\| isModelActionRunning;/u,
+    );
+    assert.match(prettifyHome, /const isModelActionRunning = isOllamaModelActionRunning \|\| isVllmModelLoadRunning;/u);
+    assert.match(
+      prettifyHome,
+      /setIsVllmModelLoadRunning\(settings\.providerId === 'vllm'\);[\s\S]*?await desktopApi\.listPrettifyModels[\s\S]*?finally \{[\s\S]*?setIsVllmModelLoadRunning\(false\);/u,
     );
     assert.match(
       app,
@@ -309,9 +320,15 @@ describe('provider status presentation', () => {
     assert.equal(failure.reason, PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
     assert.equal(Boolean(localizedStatus.trim()), true);
     assert.doesNotMatch(localizedStatus, /private-session-canary|private\.example|https?:\/\//u);
-    assert.equal(clearRecoveredBrowserFailureStatus(failure.status), null);
+    assert.equal(clearRecoveredProviderStatus(failure.status, 'voice'), null);
+    assert.equal(clearRecoveredProviderStatus(failure.status, 'prettify'), failure.status);
     const activeRecordingStatus = translatedStatus('status.recording');
-    assert.equal(clearRecoveredBrowserFailureStatus(activeRecordingStatus), activeRecordingStatus);
+    assert.equal(clearRecoveredProviderStatus(activeRecordingStatus, 'voice'), activeRecordingStatus);
+    const prettifyFailure = providerStatus('prettify', 'error.notificationUnknown');
+    const translationFailure = providerStatus('translation', 'error.notificationUnknown');
+    assert.equal(clearRecoveredProviderStatus(prettifyFailure, 'prettify'), null);
+    assert.equal(clearRecoveredProviderStatus(prettifyFailure, 'translation'), prettifyFailure);
+    assert.equal(clearRecoveredProviderStatus(translationFailure, 'translation'), null);
 
     const app = readProjectFile('src/renderer/App.tsx');
     const failureHandler = app.slice(
@@ -343,11 +360,35 @@ describe('provider status presentation', () => {
     assert.match(selectionHandler, /case 'switch-failed'[\s\S]*?applyBrowserProviderFailure\(event\.error\)/u);
     assert.match(selectionHandler, /activeProviderAuthTypeRef\.current === 'localRuntime'/u);
     assert.doesNotMatch(settledCase, /setProviderConnectionReason|setProviderConnectionFailureStatus/u);
+    assert.match(loginStateHandler, /backgroundStatus\?\.ready\)[\s\S]*?clearRecoveredProviderFailure\('voice'\);/u);
+    assert.match(app, /onBgBrowserReady\([\s\S]*?clearRecoveredProviderFailure\('voice'\)/u);
     assert.match(
-      loginStateHandler,
-      /backgroundStatus\?\.ready\) \{\s*preserveStatusRef\.current = false;\s*setStatus\(clearRecoveredBrowserFailureStatus\);/u,
+      app,
+      /onRecordingStartRejected\(\(\) => \{[\s\S]*?providerStatus\('voice', 'error\.selectedProviderNotReady'\)/u,
     );
-    assert.match(app, /onBgBrowserReady\([\s\S]*?setStatus\(clearRecoveredBrowserFailureStatus\)/u);
+    const prettifyHome = readProjectFile('src/renderer/useMainPrettifyHomeProvider.ts');
+    assert.match(app, /onConnectionRecovered: recoverPrettifyProvider/u);
+    assert.match(prettifyHome, /connection\?\.status === 'connected'\) onConnectionRecovered\(\)/u);
+    assert.match(
+      prettifyHome,
+      /status === MAIN_PRETTIFY_HTTP_CONNECTION_STATUSES\.Connected\) onConnectionRecovered\(\)/u,
+    );
+    assert.match(
+      prettifyHome,
+      /prettifyModelRefreshIdRef\.current \+= 1;\s*cliConnectionCoordinator\.refresh\(null\);\s*dispatchPrettifyProviderSelection/u,
+    );
+    assert.match(
+      app,
+      /activeProviderIdRef\.current === LOCAL_WHISPER_PROVIDER_ID[\s\S]*?isLocalWhisperMainStatusConnected\(snapshot\)/u,
+    );
+    assert.match(
+      app,
+      /isTranslationProviderConnected\(connectionState, translationSettingsRef\.current\)[\s\S]*?clearRecoveredProviderFailure\('translation'\)/u,
+    );
+    assert.match(
+      app,
+      /onProviderActionRejected: \(providerOwner\) =>[\s\S]*?providerStatus\(providerOwner, 'error\.selectedProviderNotReady'\)/u,
+    );
   });
 
   it('localizes every closed Voice and Translation connection explanation', () => {

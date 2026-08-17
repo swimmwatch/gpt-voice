@@ -4,6 +4,12 @@ export default {
   ...localWhisperSettingsTranslations,
   'translate.provider': 'Translation provider',
   'translate.saving': 'Saving...',
+  'providerHotkeyDemo.fixtureControls': 'Demo fixture controls',
+  'providerHotkeyDemo.fixture': 'Fixture',
+  'providerHotkeyDemo.advanceClock': 'Advance demo clock',
+  'providerHotkeyDemo.clearLock': 'Clear demo lock',
+  'providerHotkeyDemo.ownerlessLock': 'Ownerless lock',
+  'providerHotkeyDemo.statusDetailPriority': 'Status detail priority',
   'translate.settingsSaveFailed': 'Failed to save translation settings',
 
   // Status messages
@@ -132,7 +138,9 @@ export default {
 
   // App settings
   'appSettings.open': 'App settings',
-  'settings.blockedWhileOpen': 'Close Settings to resume using GPT-Voice.',
+  'settings.blockedWhileOpen': 'Close Settings to continue.',
+  'settings.opening': 'Opening Settings…',
+  'settings.show': 'Show Settings',
   'settings.blockedWhileRecording': 'Stop recording before opening Settings.',
   'settings.blockedWhileOperationActive': 'Wait for the current operation to finish before opening Settings.',
   'appSettings.title': 'Settings',
@@ -224,6 +232,7 @@ export default {
   // Model memory
   'modelMemory.title': 'Model memory',
   'modelMemory.ollamaGpu': 'Prettify model',
+  'modelMemory.ram': 'RAM',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Loaded',
   'modelMemory.notLoaded': 'Not loaded',
@@ -590,6 +599,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
+  'error.selectedProviderNotReady': 'Selected provider is not ready.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
   'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
   'error.chatGptConnectionInterrupted': 'ChatGPT transcription was interrupted. Try again.',
@@ -779,4 +789,16 @@ export default {
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',
   'tray.quit': 'Quit',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Independent desktop voice transcription app powered by GPT web sessions.',
+  'nativeMenu.file': 'File',
+  'nativeMenu.edit': 'Edit',
+  'nativeMenu.view': 'View',
+  'nativeMenu.help': 'Help',
+  'nativeMenu.projectOnGitHub': 'Project on GitHub',
+  'nativeMenu.aboutApp': 'About {app}',
+  'prettify.providerUnavailable': 'Prettify provider is unavailable.',
+  'prettify.modelLoadUnavailable': 'Model loading is not available for this provider.',
+  'prettify.modelUnloadUnavailable': 'Model unloading is not available for this provider.',
+  'prettify.instructionInvalid': 'Prettify request is invalid.',
 } as const;

@@ -18,7 +18,9 @@ import { LocalWhisperQualificationValidator } from '@scripts/local-whisper/quali
 
 const execFileAsync = promisify(execFile);
 const BASELINE = '1f6ce9c988a275f1ef9faa295b1bb04879943e89';
+const CANDIDATE_PARENT = '06b93d695d2b956939df78b519bb669fa70d6e66';
 const COMPOSITION = 'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts';
+const SUPERVISOR = 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts';
 const NATIVE_FILES = Object.freeze([
   'runtime/local-whisper/fs-guard/src/common/guard_application.cpp',
   'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
@@ -26,6 +28,7 @@ const NATIVE_FILES = Object.freeze([
   'runtime/local-whisper/launcher/src/platform/linux/linux_launcher.cpp',
   'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',
   'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
+  'runtime/local-whisper/whisper-cpp/core/main.cpp',
 ]);
 
 async function repository(root: string, name: string, files: Readonly<Record<string, Buffer>>) {
@@ -60,7 +63,7 @@ describe('performance qualification reviewed overlay', () => {
     try {
       const baselineFiles = Object.fromEntries(
         await Promise.all(
-          [COMPOSITION, ...NATIVE_FILES].map(async (relativePath) => {
+        [COMPOSITION, SUPERVISOR, ...NATIVE_FILES].map(async (relativePath) => {
             const source = await execFileAsync('git', ['show', `${BASELINE}:${relativePath}`], {
               cwd: workspaceRoot,
               encoding: 'buffer',
@@ -72,10 +75,14 @@ describe('performance qualification reviewed overlay', () => {
       );
       const candidateFiles = Object.fromEntries(
         await Promise.all(
-          [COMPOSITION, ...NATIVE_FILES].map(async (relativePath) => [
-            relativePath,
-            await readFile(path.join(workspaceRoot, relativePath)),
-          ]),
+        [COMPOSITION, SUPERVISOR, ...NATIVE_FILES].map(async (relativePath) => {
+            const source = await execFileAsync('git', ['show', `${CANDIDATE_PARENT}:${relativePath}`], {
+              cwd: workspaceRoot,
+              encoding: 'buffer',
+              maxBuffer: 4 * 1024 * 1024,
+            });
+            return [relativePath, source.stdout] as const;
+          }),
         ),
       );
       const before = await repository(root, 'before', baselineFiles);
@@ -106,11 +113,34 @@ describe('performance qualification reviewed overlay', () => {
         sourceProofDigest: '1'.repeat(64),
         side: 'after',
       });
-      const beforeSource = await readFile(path.join(beforeAuthority.rootPath, COMPOSITION), 'utf8');
       const afterSource = await readFile(path.join(afterAuthority.rootPath, COMPOSITION), 'utf8');
-      assert.match(beforeSource, /performanceInstallationWindow\?: 1 \| 2 \| 4 \| 8/u);
-      assert.doesNotMatch(beforeSource, /qualificationHooks\.performanceInstallationWindow/u);
-      assert.match(afterSource, /qualificationHooks\.performanceInstallationWindow/u);
+      assert.match(afterSource, /qualificationHooks\.onArtifactOperationCompleted/u);
+      assert.match(afterSource, /qualificationHooks\.onArtifactInstallationStage/u);
+      assert.match(afterSource, /publishQualificationStage\('coordinatorPreflightStarted'\)/u);
+      assert.match(afterSource, /publishQualificationStage\('coordinatorPreflightCompleted'\)/u);
+      const afterSupervisor = await readFile(path.join(afterAuthority.rootPath, SUPERVISOR), 'utf8');
+      assert.match(afterSupervisor, /publishQualificationStage\('supervisorHandshakeTimedOut'\)/u);
+      assert.match(afterSupervisor, /publishQualificationStage\('supervisorCleanupCompleted'\)/u);
+      const afterModelLaunch = await readFile(
+        path.join(
+          afterAuthority.rootPath,
+          'runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp',
+        ),
+        'utf8',
+      );
+      assert.match(afterModelLaunch, /kPerformanceQualificationProbeSourceDescriptor/u);
+      assert.match(afterModelLaunch, /"stage", "modelLauncherExecRequested"/u);
+      const afterLauncher = await readFile(
+        path.join(afterAuthority.rootPath, 'runtime/local-whisper/launcher/src/platform/linux/linux_launcher.cpp'),
+        'utf8',
+      );
+      assert.match(afterLauncher, /"stage", "launcherEntered"/u);
+      assert.match(afterLauncher, /"stage", "workerExecRequested"/u);
+      const afterWorkerMain = await readFile(
+        path.join(afterAuthority.rootPath, 'runtime/local-whisper/whisper-cpp/core/main.cpp'),
+        'utf8',
+      );
+      assert.match(afterWorkerMain, /"stage", "workerEntered"/u);
       const executable = 'scripts/local-whisper/qualification/PerformanceQualificationAttemptRunner.ts';
       const beforeReceipt = await producer.bindExecutable(beforeAuthority, executable);
       const afterReceipt = await producer.bindExecutable(afterAuthority, executable);

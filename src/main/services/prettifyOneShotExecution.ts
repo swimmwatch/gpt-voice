@@ -1,5 +1,5 @@
 import {
-  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY,
   type PreparedPrettifyExecution,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
@@ -11,11 +11,13 @@ import {
 import type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
 import type { KnownPrettifyProviderId } from '@shared/prettifySettings';
+import type { I18nService } from '@main/i18n';
 
 export interface OneShotPrettifyExecutionDependencies {
   readonly audit: PrettifyProviderAudit;
   readonly diagnosticCapture: Pick<DiagnosticCaptureService, 'capturePrettifyProviderSuccess'>;
   readonly execute: (text: string, auditContext: PrettifyAuditOperationContext) => Promise<TextProcessingResult>;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly providerCapabilityVersion?: string;
 }
 
@@ -40,7 +42,9 @@ export class OneShotPrettifyExecution implements PreparedPrettifyExecution {
   }
 
   public async execute(text: string): Promise<TextProcessingResult> {
-    if (this.consumed) return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+    if (this.consumed) {
+      return { success: false, error: this.dependencies.localization.translate(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY) };
+    }
     this.consumed = true;
     const auditContext = this.dependencies.audit.startCapturedPrettify(this.providerId, text.length);
 

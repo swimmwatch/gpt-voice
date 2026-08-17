@@ -1,4 +1,6 @@
 export default {
+  'localWhisper.settings.hostCpu': 'CPU · {count} लॉजिकल प्रोसेसर',
+  'localWhisper.settings.hostAppleSilicon': 'Apple Silicon · Local Whisper नियोजित',
   'localWhisper.settings.title': 'स्थानीय कानाफूसी',
   'localWhisper.settings.pageDescription':
     'स्पष्ट मॉडल, बैकएंड और मेमोरी जीवनचक्र नियंत्रण के साथ स्थानीय रूप से Whisper.cpp चलाएँ।',

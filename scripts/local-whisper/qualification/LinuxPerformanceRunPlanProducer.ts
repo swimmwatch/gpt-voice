@@ -18,11 +18,14 @@ import {
   type PerformanceQualificationRunPlan,
   type PerformanceSide,
 } from './PerformanceQualification';
+import { FocusedPerformanceDocumentProducer, type FocusedPerformanceRunPlan } from './FocusedPerformanceQualification';
 import type {
   PerformanceDerivedSourceAuthority,
   PerformanceDerivedSourceProducer,
 } from './PerformanceDerivedSourceProducer';
 import type {
+  FocusedLinuxPerformancePrivateInputPreflight,
+  FocusedLinuxPerformancePrivateInputProof,
   LinuxPerformancePrivateInputPreflight,
   LinuxPerformancePrivateInputProof,
 } from './LinuxPerformancePrivateInputs';
@@ -60,6 +63,12 @@ export interface PerformanceAttemptBuildPort {
 
 export interface LinuxPerformanceRunPlanOutput {
   readonly plans: Readonly<Record<PerformanceBackend, PerformanceQualificationRunPlan>>;
+  readonly overlaySha256: string;
+  readonly overlayManifestSha256: string;
+}
+
+export interface FocusedLinuxPerformanceRunPlanOutput {
+  readonly plans: Readonly<Record<PerformanceBackend, FocusedPerformanceRunPlan>>;
   readonly overlaySha256: string;
   readonly overlayManifestSha256: string;
 }
@@ -192,6 +201,7 @@ export class LinuxPerformanceRunPlanProducer {
     private readonly validator: LocalWhisperQualificationValidator,
     private readonly ports: Readonly<{
       readonly preflight: Pick<LinuxPerformancePrivateInputPreflight, 'verify'>;
+      readonly focusedPreflight?: Pick<FocusedLinuxPerformancePrivateInputPreflight, 'verify'>;
       readonly overlay: Pick<PerformanceQualificationOverlayProducer, 'produce'>;
       readonly sourceBaseline: Readonly<{ verify(): QualificationSourceBaselineEvidence }>;
       readonly createDerivation: (overlay: ReviewedPerformanceQualificationOverlay) => PerformanceDerivedSourceProducer;
@@ -324,6 +334,101 @@ export class LinuxPerformanceRunPlanProducer {
     }
   }
 
+  /** Builds and records exactly one candidate source/application graph for revision-7 qualification. */
+  public async produceFocused(
+    input: Readonly<{
+      readonly workspaceRoot: string;
+      readonly cacheRoot: string;
+      readonly privateParent: string;
+      readonly privateRunRoot: string;
+      readonly candidateWorktree: string;
+      readonly candidateCommit: string;
+      readonly attemptTimeoutMilliseconds: number;
+      readonly signal?: AbortSignal;
+    }>,
+  ): Promise<FocusedLinuxPerformanceRunPlanOutput> {
+    if (this.producing) fail('PERFORMANCE_PLAN_ALREADY_ACTIVE');
+    this.producing = true;
+    let createdRoot: string | null = null;
+    let createdRootParent: string | null = null;
+    let failureStage = 'INPUT';
+    try {
+      this.validateInput(input);
+      failureStage = 'PREFLIGHT';
+      const proof = await (this.ports.focusedPreflight ?? this.ports.preflight).verify(input);
+      failureStage = 'SOURCE_BASELINE';
+      const baseline = this.ports.sourceBaseline.verify();
+      if (baseline.sourceProofDigest !== LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST) {
+        fail('PERFORMANCE_PLAN_SOURCE_PROOF_INVALID');
+      }
+      failureStage = 'PARENT_AUTHENTICATION';
+      await this.authenticateCandidateWorktree(proof, input.candidateWorktree);
+      failureStage = 'ROOT_CREATION';
+      await mkdir(proof.privateRunRoot, { mode: 0o700 }).catch(() => fail('PERFORMANCE_PLAN_ROOT_CREATE_FAILED'));
+      createdRoot = proof.privateRunRoot;
+      createdRootParent = proof.privateParent;
+      await chmod(proof.privateRunRoot, 0o700).catch(() => fail('PERFORMANCE_PLAN_ROOT_CREATE_FAILED'));
+      failureStage = 'OVERLAY';
+      const overlay = await this.ports.overlay.produce(input.workspaceRoot);
+      const derivation = this.ports.createDerivation(overlay);
+      failureStage = 'DERIVATION';
+      const authority = await derivation.derive({
+        privateRoot: proof.privateRunRoot,
+        parentRoot: input.candidateWorktree,
+        parentCommit: input.candidateCommit,
+        destinationName: 'derived-candidate',
+        sourceProofDigest: baseline.sourceProofDigest,
+        side: 'after',
+        ...(input.signal ? { signal: input.signal } : {}),
+      });
+      failureStage = 'BUILD';
+      const build = await this.ports.builder.build({
+        authority,
+        side: 'after',
+        ...(input.signal ? { signal: input.signal } : {}),
+      });
+      failureStage = 'RECEIPT';
+      const receipt = await derivation.bindExecutable(authority, build.executableRelativePath);
+      failureStage = 'SOURCE_PROOF';
+      const sourceProof = await this.writeSourceProof(proof, baseline.sourceProofBytes, input.signal);
+      failureStage = 'INPUT_COPY';
+      const inputs = await this.copyFocusedInputs(proof, input.signal);
+      failureStage = 'PLAN';
+      const application = this.executableArtifact(proof, authority, build.executableRelativePath, receipt);
+      const runtimes = Object.freeze({
+        cpu: this.builtArtifact(proof, authority, build.runtimeArtifacts.cpu),
+        cuda: this.builtArtifact(proof, authority, build.runtimeArtifacts.cuda),
+      });
+      const plans = Object.freeze({
+        cpu: this.focusedPlan(input, proof, baseline, authority, receipt, application, runtimes.cpu, inputs, 'cpu'),
+        cuda: this.focusedPlan(input, proof, baseline, authority, receipt, application, runtimes.cuda, inputs, 'cuda'),
+      });
+      this.throwIfCancelled(input.signal);
+      failureStage = 'OUTPUT_WRITE';
+      await Promise.all([
+        writePrivateJson(path.join(proof.privateRunRoot, 'source-proof-v4.json'), sourceProof),
+        writePrivateJson(path.join(proof.privateRunRoot, 'performance-run-plan-linux-cpu-v4.json'), plans.cpu),
+        writePrivateJson(path.join(proof.privateRunRoot, 'performance-run-plan-linux-cuda-v4.json'), plans.cuda),
+      ]);
+      createdRoot = null;
+      createdRootParent = null;
+      return Object.freeze({ plans, overlaySha256: overlay.sha256, overlayManifestSha256: overlay.manifestSha256 });
+    } catch (error) {
+      if (createdRoot && createdRootParent) {
+        try {
+          await removeCreatedPrivateRoot(createdRootParent, createdRoot);
+        } catch {
+          fail('PERFORMANCE_PLAN_CLEANUP_FAILED');
+        }
+      }
+      const code = error instanceof Error ? error.message : '';
+      if (/^(?:PERFORMANCE|PRIVATE|QUALIFICATION|SOURCE)_[A-Z0-9_:.-]+$/u.test(code)) throw error;
+      fail(`PERFORMANCE_PLAN_${failureStage}_FAILED`);
+    } finally {
+      this.producing = false;
+    }
+  }
+
   private validateInput(
     input: Readonly<{
       readonly candidateCommit: string;
@@ -358,6 +463,17 @@ export class LinuxPerformanceRunPlanProducer {
       if (canonical === proof.privateRunRoot || canonical.startsWith(`${proof.privateRunRoot}${path.sep}`)) {
         fail('PERFORMANCE_PLAN_PARENT_INVALID');
       }
+    }
+  }
+
+  private async authenticateCandidateWorktree(
+    proof: Pick<FocusedLinuxPerformancePrivateInputProof, 'privateParent' | 'privateRunRoot'>,
+    candidate: string,
+  ): Promise<void> {
+    const canonical = await realpath(candidate).catch(() => fail('PERFORMANCE_PLAN_PARENT_INVALID'));
+    relativeToPrivateParent(proof.privateParent, canonical);
+    if (canonical === proof.privateRunRoot || canonical.startsWith(`${proof.privateRunRoot}${path.sep}`)) {
+      fail('PERFORMANCE_PLAN_PARENT_INVALID');
     }
   }
 
@@ -396,7 +512,7 @@ export class LinuxPerformanceRunPlanProducer {
   }
 
   private async writeSourceProof(
-    proof: LinuxPerformancePrivateInputProof,
+    proof: Pick<FocusedLinuxPerformancePrivateInputProof, 'privateParent' | 'privateRunRoot'>,
     bytes: Buffer,
     signal?: AbortSignal,
   ): Promise<PerformancePrivateArtifact> {
@@ -465,8 +581,53 @@ export class LinuxPerformanceRunPlanProducer {
     });
   }
 
+  private async copyFocusedInputs(
+    proof: Pick<FocusedLinuxPerformancePrivateInputProof, 'privateParent' | 'privateRunRoot' | 'loaded'>,
+    signal?: AbortSignal,
+  ) {
+    const inputRoot = path.join(proof.privateRunRoot, 'inputs');
+    await mkdir(inputRoot, { mode: 0o700 });
+    const selected = performanceSelectedModels().find(({ family, variant }) => family === 'base' && variant === 'full');
+    const model = proof.loaded.application.models.find(
+      (candidate) =>
+        candidate.family === 'base' &&
+        candidate.variant === 'full' &&
+        candidate.sizeBytes === 147_951_465 &&
+        candidate.sha256 === selected?.sha256,
+    );
+    if (!selected || !model) fail('PERFORMANCE_PLAN_MODEL_INVALID');
+    const modelDestination = path.join(inputRoot, 'model-base-full.bin');
+    const copiedModel = await this.copyArtifact({
+      sourcePath: model.filePath,
+      expectedSizeBytes: model.sizeBytes,
+      expectedSha256: model.sha256,
+      destinationPath: modelDestination,
+      ...(signal ? { signal } : {}),
+    });
+    const fixture = proof.loaded.application.performanceFixtures[0];
+    if (!fixture) fail('PERFORMANCE_PLAN_FIXTURE_INVALID');
+    const fixtureDestination = path.join(inputRoot, 'performance-input.wav');
+    const copiedFixture = await this.copyArtifact({
+      sourcePath: fixture.filePath,
+      expectedSizeBytes: fixture.sizeBytes,
+      expectedSha256: fixture.sha256,
+      destinationPath: fixtureDestination,
+      ...(signal ? { signal } : {}),
+    });
+    return Object.freeze({
+      modelArtifact: Object.freeze({
+        ...copiedModel,
+        relativePath: relativeToPrivateParent(proof.privateParent, modelDestination),
+      }),
+      inputFixture: Object.freeze({
+        ...copiedFixture,
+        relativePath: relativeToPrivateParent(proof.privateParent, fixtureDestination),
+      }),
+    });
+  }
+
   private builtArtifact(
-    proof: LinuxPerformancePrivateInputProof,
+    proof: Pick<FocusedLinuxPerformancePrivateInputProof, 'privateParent'>,
     authority: PerformanceDerivedSourceAuthority,
     artifact: Readonly<{ readonly relativePath: string; readonly sizeBytes: number; readonly sha256: string }>,
   ): PerformancePrivateArtifact {
@@ -490,7 +651,7 @@ export class LinuxPerformanceRunPlanProducer {
   }
 
   private executableArtifact(
-    proof: LinuxPerformancePrivateInputProof,
+    proof: Pick<FocusedLinuxPerformancePrivateInputProof, 'privateParent'>,
     authority: PerformanceDerivedSourceAuthority,
     executableRelativePath: string,
     receipt: Readonly<{
@@ -511,6 +672,52 @@ export class LinuxPerformanceRunPlanProducer {
     input: Readonly<PerformanceRunPlanArtifactCopyInput>,
   ): Promise<PerformancePrivateArtifact> {
     return await (this.ports.copyArtifact ?? copyAuthenticatedFile)(input);
+  }
+
+  private focusedPlan(
+    input: Readonly<{ readonly candidateCommit: string; readonly attemptTimeoutMilliseconds: number }>,
+    proof: Pick<FocusedLinuxPerformancePrivateInputProof, 'privateParent' | 'cacheSnapshot' | 'evidenceIdentityDigest'>,
+    baseline: QualificationSourceBaselineEvidence,
+    authority: PerformanceDerivedSourceAuthority,
+    receipt: PerformanceDerivedSourceReceipt,
+    applicationArtifact: PerformancePrivateArtifact,
+    runtimeArtifact: PerformancePrivateArtifact,
+    inputs: Readonly<{
+      readonly modelArtifact: PerformancePrivateArtifact;
+      readonly inputFixture: PerformancePrivateArtifact;
+    }>,
+    backend: PerformanceBackend,
+  ): FocusedPerformanceRunPlan {
+    return new FocusedPerformanceDocumentProducer(this.validator).produceRunPlan({
+      sourceRevision: input.candidateCommit,
+      sourceProofDigest: baseline.sourceProofDigest,
+      candidateCommit: input.candidateCommit,
+      platform: 'linux',
+      backend,
+      executionMode: 'representativeHost',
+      evidenceClaim: 'representativePerformance',
+      candidateSource: Object.freeze({
+        relativePath: relativeToPrivateParent(proof.privateParent, authority.rootPath),
+        commit: input.candidateCommit,
+        sourceProofDigest: baseline.sourceProofDigest,
+        instrumentationOverlaySha256: receipt.instrumentationOverlaySha256,
+        derivedTreeManifestSha256: receipt.derivedTreeManifestSha256,
+        executableArtifactSha256: receipt.executableArtifactIdentity.sha256,
+      }),
+      qualificationCache: Object.freeze({
+        snapshotDigest: proof.cacheSnapshot.digest,
+        evidenceIdentityDigest: proof.evidenceIdentityDigest,
+        entryCount: proof.cacheSnapshot.entryCount,
+        fileCount: proof.cacheSnapshot.fileCount,
+        sizeBytes: proof.cacheSnapshot.sizeBytes,
+      }),
+      applicationArtifact,
+      runtimeArtifact,
+      modelArtifact: inputs.modelArtifact,
+      inputFixture: inputs.inputFixture,
+      cachePreparationProcedure: 'linuxFileAdviceV1',
+      attemptTimeoutMilliseconds: input.attemptTimeoutMilliseconds,
+    });
   }
 
   private plan(

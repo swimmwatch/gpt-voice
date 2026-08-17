@@ -58,6 +58,7 @@ interface ShortcutControllerHarnessOptions {
   readonly platform?: NodeJS.Platform;
   readonly prettifyConnected?: boolean;
   readonly settings?: Partial<ShortcutSettingsSnapshot>;
+  readonly voiceProviderReady?: boolean;
 }
 
 class ShortcutControllerHarness {
@@ -214,6 +215,9 @@ class ShortcutControllerHarness {
       trayController: {
         updateIcon: (state: string) => this.trayStates.push(state),
       },
+      voiceRecordingProviderReadiness: {
+        isReady: () => options.voiceProviderReady ?? true,
+      },
       windowManager: {
         getMainWindow: () =>
           ({
@@ -272,6 +276,37 @@ describe('ShortcutController', () => {
 
     assert.equal(harness.controller.getRecordingState().lifecycleState, 'idle');
     assert.deepEqual(harness.sent, []);
+  });
+
+  it('rejects stale Voice and quick-Prettify starts while settings hold Provider Lock', () => {
+    const harness = new ShortcutControllerHarness();
+    harness.controller.register();
+    const quickPrettifyCallback = harness.globalShortcuts.callbacks.get('Ctrl+F12');
+    const acquisition = harness.mainInteractionLock.acquire();
+    assert.ok(acquisition.lease);
+
+    assert.deepEqual(harness.controller.requestRecordingStart(), { accepted: false });
+    quickPrettifyCallback?.();
+    assert.equal(harness.controller.getRecordingState().lifecycleState, 'idle');
+    assert.equal(harness.quickCalls, 0);
+    assert.deepEqual(harness.sent, []);
+    assert.deepEqual(harness.notifications, []);
+  });
+
+  it('rejects Record starts when the active Voice Provider is not ready', () => {
+    const harness = new ShortcutControllerHarness({ voiceProviderReady: false });
+    harness.controller.register();
+
+    harness.globalShortcuts.callbacks.get('F9')?.();
+
+    assert.deepEqual(harness.controller.getRecordingState(), {
+      isPaused: false,
+      isRecording: false,
+      lifecycleState: 'idle',
+    });
+    assert.deepEqual(harness.sent, [['recording-start-rejected', 'provider-not-connected']]);
+    assert.deepEqual(harness.notifications, [['GPT-Voice', 'error.selectedProviderNotReady']]);
+    assert.deepEqual(harness.trayStates, []);
   });
 
   it('forwards Prettify and Translation gate activity to the main window without changing presentation timing', () => {

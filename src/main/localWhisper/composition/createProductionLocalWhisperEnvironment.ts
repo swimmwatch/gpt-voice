@@ -54,6 +54,7 @@ import type { ArtifactHttpClient } from '../artifacts/ArtifactLifecycleTypes';
 import {
   PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
   StreamingArtifactExtractor,
+  type ArtifactInstallationDiagnosticStage,
 } from '../artifacts/StreamingArtifactExtractor';
 import { StreamingArtifactVerifier } from '../artifacts/StreamingArtifactVerifier';
 import type { LocalWhisperBackendProbeInput } from '../capability/LocalWhisperCapabilityAdapters';
@@ -168,6 +169,7 @@ export interface LocalWhisperProductionEnvironmentDependencies {
         readonly primaryCode: LocalWhisperFailureCode;
       }>,
     ) => void;
+    readonly onArtifactInstallationStage?: (stage: ArtifactInstallationDiagnosticStage) => void;
     readonly onStagingCleanupStep?: (step: ManagedArtifactStagingCleanupStep) => void;
     readonly onStagingCleanupFailure?: (failure: ManagedArtifactStagingCleanupFailure) => void;
     readonly onStagingPromotionFailure?: (failure: ManagedArtifactStagingPromotionFailure) => void;
@@ -1066,6 +1068,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
               }),
             ownership: sessionOwnership,
           }),
+        ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onArtifactInstallationStage
+          ? { onFullLoadStage: this.dependencies.qualificationHooks.onArtifactInstallationStage }
+          : {}),
       });
       const deviceIdentities = new LocalWhisperDeviceIdentityRepository(
         new FileLocalWhisperDeviceIdentityStore({
@@ -1312,6 +1317,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
         extractor: new StreamingArtifactExtractor({
           clock: artifactClock,
           maximumInFlightWrites: PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+          ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onArtifactInstallationStage
+            ? { onInstallationStage: this.dependencies.qualificationHooks.onArtifactInstallationStage }
+            : {}),
           observePipeline: null,
           store: managedStore,
         }),
@@ -1329,6 +1337,9 @@ export class ProductionLocalWhisperEnvironmentFactory {
         }),
         ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onArtifactTransferFailure
           ? { onTransferFailure: this.dependencies.qualificationHooks.onArtifactTransferFailure }
+          : {}),
+        ...(activationPurpose === 'qualification' && this.dependencies.qualificationHooks?.onArtifactInstallationStage
+          ? { onInstallationStage: this.dependencies.qualificationHooks.onArtifactInstallationStage }
           : {}),
         progress: artifactProgressStore,
         queue: new ArtifactTransferQueue(),
@@ -1381,12 +1392,22 @@ export class ProductionLocalWhisperEnvironmentFactory {
         inventory: artifactInventory,
         service: artifactService,
       });
+      const publishQualificationStage = (stage: ArtifactInstallationDiagnosticStage): void => {
+        if (activationPurpose !== 'qualification') return;
+        try {
+          this.dependencies.qualificationHooks?.onArtifactInstallationStage?.(stage);
+        } catch {
+          // Qualification diagnostics must never affect production behavior or attempt control flow.
+        }
+      };
       const coordinator: LocalWhisperCoordinatorDependencies = {
         settings: settingsPort,
         capability: {
           /** Revalidates installed artifacts and exact runtime registry before coordinator proof. */
           preflight: async (request) => {
+            publishQualificationStage('coordinatorPreflightStarted');
             const current = selectedArtifactSetup(request.settings, inventory);
+            publishQualificationStage('coordinatorPreflightSetupResolved');
             const runtime = loaded.catalog.payload.runtimes.find(
               (entry) => entry.identity.packRevision === request.settings.runtimeRevision,
             );
@@ -1403,6 +1424,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 record.model.artifactRevision === request.settings.model.revision &&
                 record.backend === request.settings.execution.backend,
             );
+            publishQualificationStage('coordinatorPreflightCatalogResolved');
             if (!runtime || !model || !estimate) {
               return {
                 success: false as const,
@@ -1417,6 +1439,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
             let device = null;
             let freeVramBytes: number | null = null;
             let backendProbe = staticBackendProbe(request.settings, context.logicalProcessorCount);
+            publishQualificationStage('coordinatorPreflightBackendPrepared');
             if (execution.target === 'gpu') {
               try {
                 const authority = await runtimeAuthorityFactory.acquire({
@@ -1425,8 +1448,10 @@ export class ProductionLocalWhisperEnvironmentFactory {
                   configurationEpoch: request.epochs.configuration,
                   launchMode: 'registry',
                 });
+                publishQualificationStage('coordinatorPreflightGpuAuthorityAcquired');
                 const registry = await registryDiscovery?.discover(authority, request.signal);
                 if (!registry) throw new Error('Local Whisper registry unavailable');
+                publishQualificationStage('coordinatorPreflightGpuRegistryDiscovered');
                 const topology = deviceTopologyAuthority.update(registry);
                 selectedVram.updateTopology(topology);
                 context = validationContext(
@@ -1443,6 +1468,7 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 device = Object.freeze({ id: selected.id, vendor: selected.vendor, available: selected.available });
                 backendProbe = discoveredBackendProbe(request.settings);
                 freeVramBytes = await selectedVram.refresh(request.settings.execution);
+                publishQualificationStage('coordinatorPreflightGpuResourcesSampled');
                 facts?.update(
                   factsSnapshot(
                     loaded.catalog,
@@ -1467,7 +1493,17 @@ export class ProductionLocalWhisperEnvironmentFactory {
                 };
               }
             }
-            return capabilityService.preflight({
+            const freeRamBytes = Math.max(0, Math.trunc(this.dependencies.availableMemoryBytes()));
+            publishQualificationStage('coordinatorPreflightAvailabilitySampled');
+            const fingerprint = capabilityFingerprint(
+              loaded.catalog,
+              request.settings,
+              inventory.revision,
+              context.logicalProcessorCount,
+              request.epochs,
+            );
+            publishQualificationStage('coordinatorPreflightFingerprintCreated');
+            const result = capabilityService.preflight({
               settings: request.settings,
               platform: context.platform,
               architecture: context.architecture,
@@ -1485,17 +1521,13 @@ export class ProductionLocalWhisperEnvironmentFactory {
               estimate,
               qualifiedPeak: null,
               availability: {
-                freeRamBytes: Math.max(0, Math.trunc(this.dependencies.availableMemoryBytes())),
+                freeRamBytes,
                 freeVramBytes,
               },
-              capabilityFingerprint: capabilityFingerprint(
-                loaded.catalog,
-                request.settings,
-                inventory.revision,
-                context.logicalProcessorCount,
-                request.epochs,
-              ),
+              capabilityFingerprint: fingerprint,
             });
+            publishQualificationStage('coordinatorPreflightCompleted');
+            return result;
           },
         },
         workers: workerPort,

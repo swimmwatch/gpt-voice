@@ -47,6 +47,16 @@ describe('provider hotkey home integration contract', () => {
     assert.match(integration, /recordingState === 'paused'[\s\S]*?'recording\.resume'/u);
   });
 
+  it('routes idle Voice activation through the authoritative recording-start request', () => {
+    const app = readProjectFile('src/renderer/App.tsx');
+    const integration = readProjectFile('src/renderer/useProviderHotkeyHomeIntegration.ts');
+
+    assert.match(integration, /voiceProviderAvailable: activeProviderId !== null && isVoiceProviderReady/u);
+    assert.match(app, /onVoiceStart: \(\) => \{[\s\S]*?desktopApi\.requestRecordingStart\(\)/u);
+    assert.match(app, /onRecordingStartRejected\(\(\) => \{[\s\S]*?error\.voiceProviderNotReady/u);
+    assert.doesNotMatch(app, /onVoiceStart: \(\) => void startRecording\(\)/u);
+  });
+
   it('dispatches only bounded normal provider starts and rejects repeated or locked activation', () => {
     const integration = readProjectFile('src/renderer/useProviderHotkeyHomeIntegration.ts');
     const dispatch = integration.slice(

@@ -37,6 +37,7 @@ import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/create
 import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
 import { NvidiaSmiVramAvailability } from './localWhisper/capability/NvidiaSmiVramAvailability';
 import { NvidiaSmiHostInventory } from './localWhisper/capability/NvidiaSmiHostInventory';
+import { HostMemoryAvailability } from './localWhisper/capability/HostMemoryAvailability';
 import {
   ProductionLocalWhisperEnvironmentFactory,
   createProductionLocalWhisperEnvironment,
@@ -223,10 +224,15 @@ async function bootstrapMainProcess(): Promise<void> {
     pathExists: fs.existsSync,
     command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
   });
+  const localWhisperMemoryAvailability = new HostMemoryAvailability({
+    platform: process.platform,
+    readFile: fs.readFileSync,
+    fallbackMemoryBytes: os.freemem,
+  });
   const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
     appRevision: app.getVersion(),
     architecture: process.arch,
-    availableMemoryBytes: os.freemem,
+    availableMemoryBytes: () => localWhisperMemoryAvailability.sample(),
     availableVramBytes: (nativeIdentity) => localWhisperVramAvailability.sample(nativeIdentity),
     configurationRoot: appConfigPaths.appDirectory,
     environment: process.env,

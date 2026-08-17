@@ -10,10 +10,14 @@ import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
 
 export type RendererStatusParams = Record<string, string | RendererStatus>;
 
+/** Identifies status feedback that may be dismissed by an authoritative provider recovery. */
+export type RendererStatusProviderOwner = 'voice' | 'prettify' | 'translation';
+
 export interface RendererStatus {
   kind: 'translation';
   key: TranslationKey;
   params?: RendererStatusParams;
+  providerOwner?: RendererStatusProviderOwner;
 }
 
 export type TranslateRendererStatus = (key: TranslationKey, params?: Record<string, string>) => string;
@@ -25,6 +29,15 @@ export interface BrowserProviderFailurePresentation {
 
 export function translatedStatus(key: TranslationKey, params?: RendererStatusParams): RendererStatus {
   return params ? { kind: 'translation', key, params } : { kind: 'translation', key };
+}
+
+/** Produces renderer feedback that is superseded only by the same provider becoming connected. */
+export function providerStatus(
+  providerOwner: RendererStatusProviderOwner,
+  key: TranslationKey,
+  params?: RendererStatusParams,
+): RendererStatus {
+  return { ...translatedStatus(key, params), providerOwner };
 }
 
 export function renderRendererStatus(status: RendererStatus | null, t: TranslateRendererStatus): string {
@@ -110,15 +123,18 @@ export function createBrowserProviderFailurePresentation(error: unknown): Browse
   const presented = presentNotificationError(error, { context: 'generic' });
   return {
     reason: PROVIDER_CONNECTION_REASONS.BrowserUnavailable,
-    status: translatedStatus('status.browserInitFailed', {
+    status: providerStatus('voice', 'status.browserInitFailed', {
       error: notificationErrorStatus(presented),
     }),
   };
 }
 
-/** Removes only the obsolete initialization error once main confirms the browser provider is ready. */
-export function clearRecoveredBrowserFailureStatus(status: RendererStatus | null): RendererStatus | null {
-  return status?.key === 'status.browserInitFailed' ? null : status;
+/** Removes only stale feedback owned by a provider that main has confirmed is connected. */
+export function clearRecoveredProviderStatus(
+  status: RendererStatus | null,
+  providerOwner: RendererStatusProviderOwner,
+): RendererStatus | null {
+  return status?.providerOwner === providerOwner ? null : status;
 }
 
 export function shouldPresentIdleHotkeyStatus(

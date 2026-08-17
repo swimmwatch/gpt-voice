@@ -18,9 +18,11 @@ import {
 } from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS } from '@shared/settingsPresentation';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
 import { PROVIDER_HOME_ACTION_IPC_CHANNELS } from '@shared/providerHomeAction';
 import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
+import { VOICE_RECORDING_IPC_CHANNELS } from '@shared/recordingLifecycle';
 import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -59,6 +61,29 @@ class RecordingIpcRenderer implements ElectronApiIpcRenderer {
 }
 
 describe('preload API factory', () => {
+  it('decodes recording-start results and drops malformed rejection events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(VOICE_RECORDING_IPC_CHANNELS.requestStart, {
+      accepted: false,
+      reason: 'provider-not-connected',
+    });
+    const api = createElectronApi(renderer);
+    const rejections: string[] = [];
+    const unsubscribe = api.onRecordingStartRejected((reason) => rejections.push(reason));
+
+    assert.deepEqual(await api.requestRecordingStart(), { accepted: false, reason: 'provider-not-connected' });
+    renderer.emit(VOICE_RECORDING_IPC_CHANNELS.startRejected, 'provider-not-connected');
+    renderer.emit(VOICE_RECORDING_IPC_CHANNELS.startRejected, 'forged-reason');
+    unsubscribe();
+    renderer.emit(VOICE_RECORDING_IPC_CHANNELS.startRejected, 'provider-not-connected');
+
+    assert.deepEqual(rejections, ['provider-not-connected']);
+    assert.deepEqual(renderer.invocations, [{ args: [], channel: VOICE_RECORDING_IPC_CHANNELS.requestStart }]);
+
+    renderer.respond(VOICE_RECORDING_IPC_CHANNELS.requestStart, { accepted: true, reason: 'forged-reason' });
+    await assert.rejects(api.requestRecordingStart(), /Invalid recording start result/u);
+  });
+
   it('exposes only decoded bounded provider-home action commands and state events', async () => {
     const renderer = new RecordingIpcRenderer();
     renderer.respond(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery, {
@@ -238,6 +263,33 @@ describe('preload API factory', () => {
 
     renderer.respond(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, 'forged');
     assert.equal(await api.getMainInteractionLocked(), false);
+  });
+
+  it('decodes settings presentation state and exposes only the focus request', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.query, 'opening');
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.focus, true);
+    const api = createElectronApi(renderer);
+    const states: string[] = [];
+    const unsubscribe = api.onSettingsPresentationChanged((state) => states.push(state));
+
+    assert.equal(await api.getSettingsPresentation(), 'opening');
+    assert.equal(await api.focusSettingsWindow(), true);
+    renderer.emit(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, 'open');
+    renderer.emit(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, 'forged');
+    unsubscribe();
+    renderer.emit(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, 'idle');
+
+    assert.deepEqual(states, ['open']);
+    assert.deepEqual(renderer.invocations.slice(-2), [
+      { args: [], channel: SETTINGS_PRESENTATION_IPC_CHANNELS.query },
+      { args: [], channel: SETTINGS_PRESENTATION_IPC_CHANNELS.focus },
+    ]);
+
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.query, 'forged');
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.focus, 'forged');
+    assert.equal(await api.getSettingsPresentation(), 'idle');
+    assert.equal(await api.focusSettingsWindow(), false);
   });
 
   it('decodes selected-text activity and ignores malformed activity events', async () => {

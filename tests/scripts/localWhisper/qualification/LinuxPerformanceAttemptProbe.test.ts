@@ -25,7 +25,12 @@ const NATIVE_PHASES = Object.freeze([
   'installationWrite',
 ]);
 
-function fixtureScript(nativePayload: string, modelGuardAcknowledgment = ''): string {
+function fixtureScript(
+  nativePayload: string,
+  modelGuardAcknowledgment = '',
+  nativeDescriptor = 5,
+  nativeLogPayload = '',
+): string {
   return `
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
@@ -33,8 +38,9 @@ const payload = ${JSON.stringify(nativePayload)};
 const worker = payload.includes('__WORKER_PID__')
   ? spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })
   : null;
-fs.writeSync(5, payload.replace('__WORKER_PID__', String(worker?.pid ?? process.pid)));
+fs.writeSync(${nativeDescriptor}, payload.replace('__WORKER_PID__', String(worker?.pid ?? process.pid)));
 if (${JSON.stringify(modelGuardAcknowledgment)}) fs.writeSync(4, ${JSON.stringify(modelGuardAcknowledgment)});
+if (${JSON.stringify(nativeLogPayload)}) fs.writeSync(2, ${JSON.stringify(nativeLogPayload)});
 let pending = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
@@ -139,18 +145,110 @@ describe('Linux performance attempt probe', () => {
     }
   });
 
-  it('records only a recognized content-free native launch failure acknowledgment', async () => {
+  it('records only the closed primary-owner launch acknowledgment outcome', () => {
     const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined);
+    probe.recordNativeLaunchAcknowledgment('rejected');
+    assert.equal(probe.nativeLaunchAcknowledgmentState, 'rejected');
+  });
+
+  it('captures a content-free launcher stage on the standard-launcher descriptor', async () => {
+    const diagnostics: string[] = [];
+    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined, (stage) => diagnostics.push(stage));
     const child = probe.instrumentedSpawn()(
       process.execPath,
-      ['-e', fixtureScript('', 'FAILED\tWORKER_OPEN_FAILED\n')],
-      { stdio: ['pipe', 'pipe', 'pipe', 'ignore', 'pipe'] },
+      [
+        '-e',
+        fixtureScript(
+          'LWQP1\tstage\tmodelGuardEntered\t1\nLWQP1\tstage\tmodelLauncherExecRequested\t1\nLWQP1\tstage\tlauncherEntered\t1\n',
+          '',
+          7,
+        ),
+      ],
+      { stdio: ['pipe', 'pipe', 'pipe'] },
     );
+    assert.ok(child.pid);
     try {
-      const acknowledgment = child.stdio[4];
-      assert.ok(acknowledgment);
-      await once(acknowledgment, 'data');
-      assert.equal(probe.nativeLaunchFailureCode, 'WORKER_OPEN_FAILED');
+      const standardLauncherEvents = child.stdio[7];
+      assert.ok(standardLauncherEvents);
+      await once(standardLauncherEvents, 'data');
+      assert.equal(probe.nativeLaunchDiagnostic, 'entered');
+      assert.deepEqual(diagnostics, [
+        'nativeModelGuardEntered',
+        'nativeLauncherExecRequested',
+        'nativeLauncherEntered',
+      ]);
+    } finally {
+      await stopChild(child);
+    }
+  });
+
+  it('captures the worker exec-boundary marker without accepting arbitrary stages', async () => {
+    const diagnostics: string[] = [];
+    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined, (stage) => diagnostics.push(stage));
+    const child = probe.instrumentedSpawn()(
+      process.execPath,
+      [
+        '-e',
+        fixtureScript(
+          'LWQP1\tstage\tworkerChildStarted\t1\nLWQP1\tstage\tworkerExecRequested\t1\nLWQP1\tstage\tworkerEntered\t1\n',
+          '',
+          7,
+        ),
+      ],
+      { stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    assert.ok(child.pid);
+    try {
+      const standardLauncherEvents = child.stdio[7];
+      assert.ok(standardLauncherEvents);
+      await once(standardLauncherEvents, 'data');
+      assert.equal(probe.nativeWorkerExecution, 'entered');
+      assert.deepEqual(diagnostics, [
+        'nativeWorkerChildStarted',
+        'nativeWorkerExecRequested',
+        'nativeWorkerEntered',
+      ]);
+    } finally {
+      await stopChild(child);
+    }
+  });
+
+  it('captures only a closed worker lifecycle stage from validated native diagnostics', async () => {
+    const diagnostics: string[] = [];
+    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined, (stage) => diagnostics.push(stage));
+    const nativeLog =
+      '{"component":"whisperWorker","elapsedMs":0,"event":"modelLoadStarted","level":"info","processInstanceId":"7bdf28c1-e1dc-4df9-abfe-78c8c0f8d7ff","schemaVersion":1,"sequence":1}\n';
+    const child = probe.instrumentedSpawn()(
+      process.execPath,
+      ['-e', fixtureScript('', '', 5, nativeLog)],
+      { stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+    assert.ok(child.pid);
+    try {
+      assert.ok(child.stderr);
+      await once(child.stderr, 'data');
+      assert.equal(probe.nativeWorkerDiagnostic, 'loadStarted');
+      assert.deepEqual(diagnostics, ['nativeWorkerModelLoadStarted']);
+    } finally {
+      await stopChild(child);
+    }
+  });
+
+  it('does not replace the primary owner outcome with a later launcher event', () => {
+    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined);
+    probe.recordNativeLaunchAcknowledgment('ready');
+    probe.recordNativeLaunchAcknowledgment('closed');
+    assert.equal(probe.nativeLaunchAcknowledgmentState, 'ready');
+  });
+
+  it('bounds diagnostic-pipe settlement when an owned native stream remains open', async () => {
+    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined);
+    const child = probe.instrumentedSpawn()(process.execPath, ['-e', fixtureScript('')], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    assert.ok(child.pid);
+    try {
+      assert.equal(await probe.flushNativeDiagnostics(), 'timedOut');
     } finally {
       await stopChild(child);
     }

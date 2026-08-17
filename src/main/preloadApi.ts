@@ -23,7 +23,14 @@ import type {
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
-import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import {
+  isVoiceRecordingStartRejectionReason,
+  isVoiceRecordingStartResult,
+  VOICE_RECORDING_IPC_CHANNELS,
+  type RecordingLifecycleState,
+  type VoiceRecordingStartRejectionReason,
+  type VoiceRecordingStartResult,
+} from '@shared/recordingLifecycle';
 import type {
   TranscriptionHistoryClearResult,
   TranscriptionHistoryCopyResult,
@@ -80,6 +87,7 @@ import {
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, isMainInteractionLockState } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS, isSettingsPresentationState } from '@shared/settingsPresentation';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS, isTextActionActivityState } from '@shared/textActionStatus';
 import {
   isProviderHomeActionCommand,
@@ -187,6 +195,16 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     recordingStartFailed: (): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('recording-start-failed');
     },
+    requestRecordingStart: async (): Promise<VoiceRecordingStartResult> => {
+      const result = await ipcRenderer.invoke<unknown>(VOICE_RECORDING_IPC_CHANNELS.requestStart);
+      if (!isVoiceRecordingStartResult(result)) throw new Error('Invalid recording start result');
+      return result;
+    },
+    onRecordingStartRejected: (callback: (reason: VoiceRecordingStartRejectionReason) => void): (() => void) => {
+      return onMainEvent<[unknown]>(VOICE_RECORDING_IPC_CHANNELS.startRejected, (reason) => {
+        if (isVoiceRecordingStartRejectionReason(reason)) callback(reason);
+      });
+    },
     setRecordingLifecycleState: (state: RecordingLifecycleState): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('set-recording-lifecycle-state', state);
     },
@@ -204,6 +222,19 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
       return onMainEvent<[unknown]>(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, (value) => {
         if (isMainInteractionLockState(value)) callback(value);
       });
+    },
+    getSettingsPresentation: async () => {
+      const value = await ipcRenderer.invoke<unknown>(SETTINGS_PRESENTATION_IPC_CHANNELS.query);
+      return isSettingsPresentationState(value) ? value : 'idle';
+    },
+    onSettingsPresentationChanged: (callback) => {
+      return onMainEvent<[unknown]>(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, (value) => {
+        if (isSettingsPresentationState(value)) callback(value);
+      });
+    },
+    focusSettingsWindow: async () => {
+      const value = await ipcRenderer.invoke<unknown>(SETTINGS_PRESENTATION_IPC_CHANNELS.focus);
+      return value === true;
     },
     getTextActionActivity: async (): Promise<boolean> => {
       const value = await ipcRenderer.invoke<unknown>(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query);

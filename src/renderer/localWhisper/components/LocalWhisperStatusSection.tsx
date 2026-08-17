@@ -28,6 +28,7 @@ import {
   getLocalWhisperUnloadAvailability,
   isLocalWhisperArtifactProgressActive,
   formatLocalWhisperRuntimeState,
+  translateLocalWhisperRendererLabel,
   translateLocalWhisperPresentationMessage,
   type LocalWhisperActionAvailability,
   type LocalWhisperResourceMeterPresentation,
@@ -225,9 +226,12 @@ export default function LocalWhisperStatusSection({
   const selectedRuntime = getLocalWhisperOption(snapshot, 'runtime', snapshot.settings.runtimeRevision)?.label;
   const selectedDevice =
     snapshot.settings.execution.target === 'cpu'
-      ? snapshot.host.label
-      : (getLocalWhisperOption(snapshot, 'device', snapshot.selectedDeviceId)?.label ??
-        t('localWhisper.settings.selectedGpu'));
+    ? translateLocalWhisperRendererLabel(snapshot.host.label, t)
+      : translateLocalWhisperRendererLabel(
+          getLocalWhisperOption(snapshot, 'device', snapshot.selectedDeviceId)?.label ??
+            t('localWhisper.settings.selectedGpu'),
+          t,
+        );
   const backend =
     snapshot.settings.execution.target === 'cpu'
       ? 'CPU'
@@ -377,8 +381,8 @@ export default function LocalWhisperStatusSection({
           <PiCube aria-hidden="true" />
           <span>{t('localWhisper.settings.modelRequirement')}</span>
           <strong>
-            {formatLocalWhisperBytes(resourceSafety.vram.peakBytes, t)} VRAM +{' '}
-            {formatLocalWhisperBytes(resourceSafety.ram.peakBytes, t)} RAM
+            {formatLocalWhisperBytes(resourceSafety.vram.peakBytes, t)} {t('localWhisper.settings.gpuVram')} +{' '}
+            {formatLocalWhisperBytes(resourceSafety.ram.peakBytes, t)} {t('localWhisper.settings.systemRam')}
           </strong>
         </div>
         <div className={`lw-safety-note ${resourceSafety.status}`}>

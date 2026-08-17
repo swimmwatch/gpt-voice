@@ -29,7 +29,7 @@ interface ActivePathPoint {
 const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   {
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    sha256: '9f036e4a488c7d8c03210de606c20741bc1a11eea8a31179c43a69ebe92c6c3a',
+    sha256: '3cd7f462f4f5d7eec7fb907bf8d479b66bac3bc8d77c6822d80df3a388c2e2b3',
   },
   {
     path: 'src/main/localWhisper/composition/LocalWhisperModelPathLoadAuthorityFactory.ts',
@@ -37,7 +37,7 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts',
-    sha256: 'f3875c1b9efdf02dfe9c930824c8084321603d42e5a8f83314e39ba9a0e6e362',
+    sha256: 'a5268ec7406fca614422423dd67591cbe83f3e028751ee1e735e9d5eaea92dc6',
   },
   {
     path: 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts',
@@ -49,7 +49,7 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/core/worker_application.cpp',
-    sha256: '83343e2e80c74bcff2f9a8ba4eb147299afc3548c5681f04c5c2afb5f445cb34',
+    sha256: 'de2fc5208cdd13b16808d6a181675045a35bcd398fa45e46f0dab39ff918de8f',
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/core/model_file_validator_linux.cpp',
@@ -57,7 +57,7 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/patches/core/0003-standard-file-eof.patch',
-    sha256: 'f6a86eceaf0e5bf828670ac6f4f564c20d56baa2b605259a5dbedb6404fceae2',
+    sha256: '02a9cc84d686ee8ac8e24130ffd730c1ec2275c46617fbd9248be6fe579b7dfe',
   },
 ]);
 

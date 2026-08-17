@@ -4,12 +4,14 @@ import LoadingScreen from './components/LoadingScreen';
 import MainToolbar from './components/MainToolbar';
 import MainPrettifyProviderBand from './components/MainPrettifyProviderBand';
 import RecordingControls from './components/RecordingControls';
+import SettingsPresentationOverlay from './components/SettingsPresentationOverlay';
 import TranslateSection from './components/TranslateSection';
 import HotkeyActionButton from './components/HotkeyActionButton';
 import { useWindowStartupReady } from './WindowStartupGate';
 import { useRecording } from './hooks/useRecording';
 import { useI18n } from './hooks/useI18n';
 import useLocalWhisperMainStatus from './localWhisper/useLocalWhisperMainStatus';
+import { isLocalWhisperMainStatusConnected } from './localWhisper/LocalWhisperPresentation';
 import {
   PROVIDER_CONNECTION_REASONS,
   getProviderLoginState,
@@ -24,14 +26,16 @@ import {
   type ProviderSelectionEvent,
 } from './providerSelectionCoordinator';
 import {
-  clearRecoveredBrowserFailureStatus,
+  clearRecoveredProviderStatus,
   createBrowserProviderFailurePresentation,
   notificationErrorStatus,
+  providerStatus,
   renderRendererStatus,
   shouldPresentIdleHotkeyStatus,
   textActionStatusToRendererStatus,
   translatedStatus,
   type RendererStatus,
+  type RendererStatusProviderOwner,
 } from './statusPresentation';
 import { useProviderHotkeyHomeIntegration } from './useProviderHotkeyHomeIntegration';
 import { useMainPrettifyHomeProvider } from './useMainPrettifyHomeProvider';
@@ -45,11 +49,14 @@ import {
 import { isRecordingLifecycleBusy, type RecordingLifecycleState } from '@shared/recordingLifecycle';
 import type { FirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import type { TextActionStatusAction } from '@shared/textActionStatus';
+import { LOCAL_WHISPER_PROVIDER_ID, type LocalWhisperMainStatusSnapshot } from '@shared/localWhisper';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 import {
   createTranslationProviderCandidate,
   createTranslationSettingsCandidate,
   createTranslationSettingsViewState,
   doesTranslationConnectionMatchSettings,
+  isTranslationProviderConnected,
   reduceTranslationSettingsViewState,
 } from './translationSettingsViewState';
 import { FAILED_INITIAL_TRANSLATION_CONNECTION_STATE } from './providerStartupState';
@@ -125,7 +132,24 @@ function useStartupReveal(isStartupPending: boolean): StartupRevealPhase {
 /** Coordinates the main recording lifecycle, provider state, notifications, and IPC subscriptions. */
 const App: React.FC = () => {
   const desktopApi = useDesktopApi();
-  const localWhisperMain = useLocalWhisperMainStatus(desktopApi);
+  const activeProviderIdRef = useRef<string | null>(null);
+  const [status, setStatus] = useState<RendererStatus | null>(null);
+  const clearRecoveredProviderFailure = useCallback((providerOwner: RendererStatusProviderOwner) => {
+    setStatus((current) => clearRecoveredProviderStatus(current, providerOwner));
+  }, []);
+  const recoverLocalWhisperProvider = useCallback(
+    (snapshot: LocalWhisperMainStatusSnapshot): void => {
+      if (activeProviderIdRef.current === LOCAL_WHISPER_PROVIDER_ID && isLocalWhisperMainStatusConnected(snapshot)) {
+        clearRecoveredProviderFailure('voice');
+      }
+    },
+    [activeProviderIdRef, clearRecoveredProviderFailure],
+  );
+  const recoverPrettifyProvider = useCallback(
+    () => clearRecoveredProviderFailure('prettify'),
+    [clearRecoveredProviderFailure],
+  );
+  const localWhisperMain = useLocalWhisperMainStatus(desktopApi, recoverLocalWhisperProvider);
   const [isInitialVoiceProviderLoading, setIsInitialVoiceProviderLoading] = useState(true);
   const [firstLaunchStartupState, dispatchFirstLaunchStartup] = useReducer(
     reduceFirstLaunchStartupState,
@@ -135,7 +159,7 @@ const App: React.FC = () => {
   const [didFirstLaunchRetryFail, setDidFirstLaunchRetryFail] = useState(false);
   const [recordingState, setRecordingState] = useState<RecordingLifecycleState>('idle');
   const [isTextActionActivityActive, setIsTextActionActivityActive] = useState<boolean | null>(null);
-  const [status, setStatus] = useState<RendererStatus | null>(null);
+  const [settingsPresentation, setSettingsPresentation] = useState<SettingsPresentationState>('idle');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isVoiceProviderSwitching, setIsVoiceProviderSwitching] = useState(false);
@@ -156,6 +180,7 @@ const App: React.FC = () => {
   const isTranslationProviderSwitching =
     translationSettingsSelection.pendingRequestId !== null &&
     translationSettingsSelection.settings.providerId !== translationSettingsSelection.confirmedSettings.providerId;
+  const isLocalWhisperModelLoadRunning = localWhisperMain.pendingAction === 'load';
   const [activeTextAction, setActiveTextAction] = useState<TextActionStatusAction | null>(null);
 
   const { t, isReady: isI18nReady } = useI18n();
@@ -163,11 +188,13 @@ const App: React.FC = () => {
     isVoiceProviderSwitching ||
     isTranslationProviderSwitching ||
     isRecordingLifecycleBusy(recordingState) ||
+    isLocalWhisperModelLoadRunning ||
     activeTextAction !== null ||
     isTextActionActivityActive === true;
   const mainPrettifyProvider = useMainPrettifyHomeProvider({
     desktopApi,
     isSharedProviderChangesLocked,
+    onConnectionRecovered: recoverPrettifyProvider,
     translate: t,
   });
   const {
@@ -201,6 +228,29 @@ const App: React.FC = () => {
     void desktopApi
       .getFirstLaunchStartupSnapshot()
       .then(acceptSnapshot)
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi]);
+
+  useEffect(() => {
+    let disposed = false;
+    let eventVersion = 0;
+    const acceptEvent = (state: SettingsPresentationState): void => {
+      if (disposed) return;
+      eventVersion += 1;
+      setSettingsPresentation(state);
+    };
+    const unsubscribe = desktopApi.onSettingsPresentationChanged(acceptEvent);
+    const queryEventVersion = eventVersion;
+    void desktopApi
+      .getSettingsPresentation()
+      .then((state) => {
+        if (!disposed && eventVersion === queryEventVersion) setSettingsPresentation(state);
+      })
       .catch(() => undefined);
 
     return () => {
@@ -250,7 +300,6 @@ const App: React.FC = () => {
 
   const preserveStatusRef = useRef(false);
   const recordingStateRef = useRef<RecordingLifecycleState>('idle');
-  const activeProviderIdRef = useRef<string | null>(activeProviderId);
   const activeProviderAuthTypeRef = useRef<ProviderAuthType | null>(null);
   const providerSelectionCoordinatorRef = useRef<ProviderSelectionCoordinator | null>(null);
   const translationSettingsRequestRef = useRef(0);
@@ -317,7 +366,12 @@ const App: React.FC = () => {
   useEffect(() => {
     recordingActionsRef.current = recordingActions;
   }, [recordingActions]);
-  const { startRecording, stopRecording, pauseRecording, resumeRecording, cancelRecording } = recordingActions;
+  const { stopRecording, pauseRecording, resumeRecording, cancelRecording } = recordingActions;
+  const isVoiceProviderReady =
+    activeProviderId === LOCAL_WHISPER_PROVIDER_ID
+      ? isLocalWhisperMainStatusConnected(localWhisperMain.snapshot)
+      : activeProviderId !== null && isLoggedIn;
+
   const presentIdleRecordHotkey = useCallback((hotkey: string): void => {
     if (shouldPresentIdleHotkeyStatus(recordingStateRef.current, preserveStatusRef.current)) {
       setStatus(translatedStatus('status.pressToRecord', { hotkey }));
@@ -328,17 +382,21 @@ const App: React.FC = () => {
     activeTextAction,
     desktopApi,
     isInitialVoiceProviderLoading,
-    isPrettifyModelActionRunning,
+    isPrettifyModelActionRunning: isPrettifyModelActionRunning || isLocalWhisperModelLoadRunning,
     isPrettifyProviderSwitching,
     isTextActionActivityActive,
     isTranslationProviderSwitching,
+    isVoiceProviderReady,
     isVoiceProviderSwitching,
     onIdleRecordHotkey: presentIdleRecordHotkey,
-    onProviderActionRejected: () => setStatus(translatedStatus('error.notificationUnknown')),
+    onProviderActionRejected: (providerOwner) =>
+      setStatus(providerStatus(providerOwner, 'error.selectedProviderNotReady')),
     onVoiceCancel: cancelRecording,
     onVoicePause: pauseRecording,
     onVoiceResume: resumeRecording,
-    onVoiceStart: () => void startRecording(),
+    onVoiceStart: () => {
+      void desktopApi.requestRecordingStart().catch(() => setStatus(translatedStatus('error.notificationUnknown')));
+    },
     onVoiceStop: stopRecording,
     recordingState,
     translate: t,
@@ -356,17 +414,25 @@ const App: React.FC = () => {
 
       if (authType === 'browserSession' && loginState.sessionExpired) {
         preserveStatusRef.current = true;
-        setStatusAndNotify(translatedStatus('status.sessionExpired'));
+        setStatusAndNotify(providerStatus('voice', 'status.sessionExpired'));
       } else if (authType === 'browserSession' && backgroundStatus?.error) {
         presentBrowserProviderRequestFailure(backgroundStatus.error);
-      } else if (authType === 'browserSession' && backgroundStatus?.ready) {
-        preserveStatusRef.current = false;
-        setStatus(clearRecoveredBrowserFailureStatus);
+      } else if (
+        (authType === 'apiKey' && loginState.isLoggedIn) ||
+        (authType === 'browserSession' && backgroundStatus?.ready) ||
+        (authType === 'localRuntime' && isLocalWhisperMainStatusConnected(localWhisperMain.snapshot))
+      ) {
+        clearRecoveredProviderFailure('voice');
       }
 
       return loginState;
     },
-    [presentBrowserProviderRequestFailure, setStatusAndNotify],
+    [
+      clearRecoveredProviderFailure,
+      localWhisperMain.snapshot,
+      presentBrowserProviderRequestFailure,
+      setStatusAndNotify,
+    ],
   );
 
   const applyProviderLoginStateRef = useRef(applyProviderLoginState);
@@ -497,6 +563,11 @@ const App: React.FC = () => {
         if (disposed) return;
         if (recording && activeProviderIdRef.current !== null) void recordingActionsRef.current.startRecording();
       }),
+      desktopApi.onRecordingStartRejected(() => {
+        if (disposed) return;
+        preserveStatusRef.current = true;
+        setStatus(providerStatus('voice', 'error.selectedProviderNotReady'));
+      }),
       desktopApi.onStopRecording(() => {
         if (disposed) return;
         recordingActionsRef.current.stopRecording();
@@ -528,6 +599,9 @@ const App: React.FC = () => {
         if (!doesTranslationConnectionMatchSettings(connectionState, translationSettingsRef.current)) return;
         translationConnectionRequestRef.current += 1;
         setTranslationConnectionState(connectionState);
+        if (isTranslationProviderConnected(connectionState, translationSettingsRef.current)) {
+          clearRecoveredProviderFailure('translation');
+        }
       }),
       desktopApi.onBgBrowserReady((providerId) => {
         if (
@@ -541,7 +615,7 @@ const App: React.FC = () => {
         setIsLoggedIn(true);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
         setProviderConnectionFailureStatus(null);
-        setStatus(clearRecoveredBrowserFailureStatus);
+        clearRecoveredProviderFailure('voice');
       }),
       desktopApi.onBgBrowserError((providerId, error, authExpired) => {
         if (
@@ -601,6 +675,9 @@ const App: React.FC = () => {
       .then((connectionState) => {
         if (disposed || translationConnectionRequestId !== translationConnectionRequestRef.current) return;
         setTranslationConnectionState(connectionState);
+        if (isTranslationProviderConnected(connectionState, translationSettingsRef.current)) {
+          clearRecoveredProviderFailure('translation');
+        }
       })
       .catch(() => {
         if (disposed || translationConnectionRequestId !== translationConnectionRequestRef.current) return;
@@ -620,7 +697,7 @@ const App: React.FC = () => {
         unsubscribe();
       }
     };
-  }, [desktopApi, isI18nReady]);
+  }, [clearRecoveredProviderFailure, desktopApi, isI18nReady]);
 
   const applyProviderSettingsSnapshot = useCallback(
     (settings: ProviderSettings): void => {
@@ -630,7 +707,7 @@ const App: React.FC = () => {
           setIsLoggedIn(false);
           setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.SessionMissing);
           preserveStatusRef.current = true;
-          setStatusAndNotify(translatedStatus('status.providerNotConfigured', { provider: activeProviderName }));
+          setStatusAndNotify(providerStatus('voice', 'status.providerNotConfigured', { provider: activeProviderName }));
         }
         return;
       }
@@ -642,14 +719,13 @@ const App: React.FC = () => {
       );
       setProviderConnectionFailureStatus(null);
       if (configured) {
-        preserveStatusRef.current = false;
-        setStatusAndNotify(translatedStatus('status.providerConfigured', { provider: activeProviderName }));
+        clearRecoveredProviderFailure('voice');
       } else {
         preserveStatusRef.current = true;
-        setStatusAndNotify(translatedStatus('status.providerNotConfigured', { provider: activeProviderName }));
+        setStatusAndNotify(providerStatus('voice', 'status.providerNotConfigured', { provider: activeProviderName }));
       }
     },
-    [activeProviderName, setStatusAndNotify],
+    [activeProviderName, clearRecoveredProviderFailure, setStatusAndNotify],
   );
 
   useEffect(() => {
@@ -697,21 +773,23 @@ const App: React.FC = () => {
     setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.Checking);
     setProviderConnectionFailureStatus(null);
     preserveStatusRef.current = false;
-    setStatus(translatedStatus('status.loggingIn', { provider: providerName }));
+    setStatus(providerStatus('voice', 'status.loggingIn', { provider: providerName }));
     try {
       const result = await desktopApi.providerLogin(providerId);
       if (activeProviderIdRef.current !== providerId) return;
       if (result.success) {
         setIsLoggedIn(true);
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserReady);
-        setStatusAndNotify(translatedStatus('status.loggedIn', { provider: providerName }));
+        clearRecoveredProviderFailure('voice');
       } else {
         setProviderConnectionReason(PROVIDER_CONNECTION_REASONS.BrowserUnavailable);
         preserveStatusRef.current = true;
         const presented = presentNotificationError(result.error, {
           context: 'generic',
         });
-        const failureStatus = translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) });
+        const failureStatus = providerStatus('voice', 'status.loginFailed', {
+          error: notificationErrorStatus(presented),
+        });
         setProviderConnectionFailureStatus(failureStatus);
         setStatusAndNotify(failureStatus);
       }
@@ -722,7 +800,9 @@ const App: React.FC = () => {
       const presented = presentNotificationError(error, {
         context: 'generic',
       });
-      const failureStatus = translatedStatus('status.loginFailed', { error: notificationErrorStatus(presented) });
+      const failureStatus = providerStatus('voice', 'status.loginFailed', {
+        error: notificationErrorStatus(presented),
+      });
       setProviderConnectionFailureStatus(failureStatus);
       setStatusAndNotify(failureStatus);
     } finally {
@@ -792,11 +872,13 @@ const App: React.FC = () => {
           const connectionState = await desktopApi.getTranslationProviderConnection();
           if (requestId !== translationSettingsRequestRef.current) return;
           if (connectionRequestId === translationConnectionRequestRef.current) {
+            const matchingConnection = doesTranslationConnectionMatchSettings(connectionState, candidate);
             setTranslationConnectionState(
-              doesTranslationConnectionMatchSettings(connectionState, candidate)
-                ? connectionState
-                : FAILED_INITIAL_TRANSLATION_CONNECTION_STATE,
+              matchingConnection ? connectionState : FAILED_INITIAL_TRANSLATION_CONNECTION_STATE,
             );
+            if (matchingConnection && isTranslationProviderConnected(connectionState, candidate)) {
+              clearRecoveredProviderFailure('translation');
+            }
           }
         } catch {
           if (requestId !== translationSettingsRequestRef.current) return;
@@ -960,6 +1042,12 @@ const App: React.FC = () => {
           />
         </main>
       )}
+      <SettingsPresentationOverlay
+        onShowSettings={() => {
+          void desktopApi.focusSettingsWindow();
+        }}
+        presentation={settingsPresentation}
+      />
       {isStartupLoaderVisible && (
         <div
           aria-hidden={startupRevealPhase === 'revealing' || undefined}

@@ -103,7 +103,7 @@ function MainPrettifyProviderBand({
             <SelectTrigger aria-label={t('prettify.provider')} className="command-dock-prettify-provider-trigger">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent avoidCollisions={false} side="bottom">
+            <SelectContent avoidCollisions={false} showScrollButtons={false} side="bottom">
               {PRETTIFY_PROVIDER_GROUPS.map((group, groupIndex) => (
                 <Fragment key={group[0]}>
                   {groupIndex > 0 && <SelectSeparator />}

@@ -6,6 +6,7 @@ import { TrayController } from '@main/tray';
 import type { WindowManager } from '@main/window';
 import type { TranslationKey } from '@main/i18n';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 
 class PrefixLocalization {
   public translate(key: TranslationKey): string {
@@ -54,7 +55,10 @@ class RecordingTray {
 
 class RecordingWindowManager {
   public createCount = 0;
+  public focusSettingsCount = 0;
   public quitting = false;
+  public settingsPresentation: SettingsPresentationState = 'idle';
+  private readonly settingsPresentationListeners = new Set<(state: SettingsPresentationState) => void>();
   public readonly mainWindow = {
     focusCount: 0,
     showCount: 0,
@@ -63,6 +67,12 @@ class RecordingWindowManager {
 
   public createMainWindow(): void {
     this.createCount += 1;
+  }
+
+  public focusSettingsWindow(): boolean {
+    if (this.settingsPresentation === 'idle') return false;
+    this.focusSettingsCount += 1;
+    return true;
   }
 
   public getMainWindow(): BrowserWindow {
@@ -80,6 +90,23 @@ class RecordingWindowManager {
 
   public setQuitting(value: boolean): void {
     this.quitting = value;
+  }
+
+  public showMainWindow(): void {
+    if (this.focusSettingsWindow()) return;
+    this.mainWindow.showCount += 1;
+    this.mainWindow.focusCount += 1;
+    this.mainWindow.visible = true;
+  }
+
+  public setSettingsPresentation(state: SettingsPresentationState): void {
+    this.settingsPresentation = state;
+    for (const listener of this.settingsPresentationListeners) listener(state);
+  }
+
+  public subscribeSettingsPresentation(listener: (state: SettingsPresentationState) => void): () => void {
+    this.settingsPresentationListeners.add(listener);
+    return () => this.settingsPresentationListeners.delete(listener);
   }
 
   public showAboutWindow(): void {}
@@ -144,28 +171,28 @@ describe('TrayController', () => {
     assert.equal(harness.quitCount, 1);
   });
 
-  it('disables non-quit tray actions while settings holds the interaction lock', () => {
+  it('uses the active settings window as the tray primary destination', () => {
     const harness = new TrayControllerHarness();
     harness.controller.create();
-    const acquisition = harness.mainInteractionLock.acquire();
-    assert.ok(acquisition.lease);
-
-    const lockedMenu = harness.menus[harness.menus.length - 1];
+    harness.windowManager.setSettingsPresentation('opening');
+    const openingMenu = harness.menus[harness.menus.length - 1];
     assert.deepEqual(
-      lockedMenu?.slice(0, 4).map((item) => item.enabled),
-      [false, false, false, false],
+      openingMenu?.slice(0, 4).map((item) => item.enabled),
+      [false, false, true, true],
     );
-    const quitItem = lockedMenu?.[lockedMenu.length - 1];
-    assert.equal(quitItem?.enabled, true);
-    (quitItem?.click as (() => void) | undefined)?.();
-    assert.equal(harness.quitCount, 1);
+    assert.equal(openingMenu?.[0]?.label, 'translated:settings.opening');
 
-    acquisition.lease.release();
-    const releasedMenu = harness.menus[harness.menus.length - 1];
-    assert.deepEqual(
-      releasedMenu?.slice(0, 4).map((item) => item.enabled),
-      [true, true, true, true],
-    );
+    harness.windowManager.setSettingsPresentation('open');
+    const openMenu = harness.menus[harness.menus.length - 1];
+    assert.equal(openMenu?.[0]?.label, 'translated:settings.show');
+    (openMenu?.[0]?.click as (() => void) | undefined)?.();
+    assert.equal(harness.windowManager.focusSettingsCount, 1);
+    (openMenu?.[1]?.click as (() => void) | undefined)?.();
+    assert.equal(harness.windowManager.focusSettingsCount, 2);
+
+    harness.windowManager.setSettingsPresentation('idle');
+    const idleMenu = harness.menus[harness.menus.length - 1];
+    assert.equal(idleMenu?.[0]?.label, 'translated:tray.show');
   });
 
   it('updates icons and disposes independently and idempotently', () => {

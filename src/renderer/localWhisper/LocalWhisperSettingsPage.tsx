@@ -15,6 +15,7 @@ import {
   isLocalWhisperPlatformUnavailable,
   getLatestLocalWhisperArtifactProgress,
   translateLocalWhisperActionError,
+  translateLocalWhisperRendererLabel,
 } from './LocalWhisperPresentation';
 import useLocalWhisperSettings, { type LocalWhisperSettingsController } from './useLocalWhisperSettings';
 import './LocalWhisperSettingsPage.css';
@@ -203,7 +204,7 @@ function LocalWhisperInterruptionDialog({
   const title = windowClose
     ? t('localWhisper.settings.closeInterruptionTitle')
     : t('localWhisper.settings.cancelInterruptionTitle', {
-        artifact: interruption.request?.artifactLabel ?? '',
+        artifact: translateLocalWhisperRendererLabel(interruption.request?.artifactLabel ?? '', t),
       });
   const description = windowClose
     ? t('localWhisper.settings.closeInterruptionDescription')

@@ -26,6 +26,7 @@ import type {
 } from '../coordinator/LocalWhisperCoordinatorTypes';
 import type { LocalWhisperCommandAuditPort } from '../audit/LocalWhisperCommandAudit';
 import type { LocalWhisperSnapshotService } from './LocalWhisperSnapshotService';
+import type { LocalWhisperModelLoadFailureNotifier } from './LocalWhisperModelLoadFailureNotifier';
 
 export interface LocalWhisperIpcTransport {
   handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void;
@@ -93,6 +94,7 @@ export interface LocalWhisperIpcControllerDependencies {
   readonly artifacts: LocalWhisperArtifactCommandPort;
   readonly managedFolder: LocalWhisperManagedFolderPort;
   readonly mainInteractionLock: MainInteractionLock;
+  readonly modelLoadFailureNotifier: Pick<LocalWhisperModelLoadFailureNotifier, 'notify'>;
   readonly references: LocalWhisperArtifactReferencePort;
   readonly snapshots: LocalWhisperSnapshotService;
   readonly getActiveProviderId: () => string | null;
@@ -255,6 +257,9 @@ export class LocalWhisperIpcController {
       } catch {
         coordinatorResult = { success: false, error: { code: 'OPERATION_CONFLICT' } };
       }
+      if (commandKind === 'load' && !coordinatorResult.success) {
+        this.notifyModelLoadFailure(coordinatorResult.error?.code ?? 'OPERATION_CONFLICT');
+      }
       const result = coordinatorResult.success
         ? Object.freeze({
             success: true,
@@ -349,8 +354,11 @@ export class LocalWhisperIpcController {
     if (command.kind === 'checkCompatibility') {
       return this.fromCoordinator(command.kind, await this.dependencies.coordinator.checkCompatibility());
     }
-    if (command.kind === 'load')
-      return this.fromCoordinator(command.kind, await this.dependencies.coordinator.loadNow());
+    if (command.kind === 'load') {
+      const result = await this.dependencies.coordinator.loadNow();
+      if (!result.success) this.notifyModelLoadFailure(result.error?.code ?? 'OPERATION_CONFLICT');
+      return this.fromCoordinator(command.kind, result);
+    }
     if (command.kind === 'unload')
       return this.fromCoordinator(command.kind, await this.dependencies.coordinator.unload());
     if (command.kind === 'remove') {
@@ -518,6 +526,14 @@ export class LocalWhisperIpcController {
       snapshot: this.dependencies.snapshots.mainStatus,
       failure: createLocalWhisperRendererSafeFailure(code),
     });
+  }
+
+  private notifyModelLoadFailure(code: LocalWhisperFailureCode): void {
+    try {
+      this.dependencies.modelLoadFailureNotifier.notify(code);
+    } catch {
+      // Notifications are observational and cannot change the trusted IPC result.
+    }
   }
 
   private addSubscriber(subscribers: Map<string, Subscriber>, capability: LocalWhisperIpcSenderCapability): void {

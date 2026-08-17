@@ -1,7 +1,7 @@
 import { PiDatabase, PiHardDrives } from 'react-icons/pi';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { useI18n } from '@renderer/hooks/useI18n';
-import { formatLocalWhisperBytes } from '../LocalWhisperPresentation';
+import { formatLocalWhisperBytes, translateLocalWhisperPresentationMessage } from '../LocalWhisperPresentation';
 import { LocalWhisperDisclosure } from './LocalWhisperSection';
 
 interface LocalWhisperStorageSectionProps {
@@ -30,7 +30,11 @@ export default function LocalWhisperStorageSection({
         <PiHardDrives aria-hidden="true" />
         <div>
           <strong>{t('localWhisper.settings.storageTitle')}</strong>
-          <span>{t('localWhisper.settings.storageDescription', { summary: storageSummary })}</span>
+          <span>
+            {t('localWhisper.settings.storageDescription', {
+              summary: translateLocalWhisperPresentationMessage(storageSummary, t),
+            })}
+          </span>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>

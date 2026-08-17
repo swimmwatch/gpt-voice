@@ -11,6 +11,12 @@ import type {
 } from './WorkerProcessOwnership';
 
 export type LocalWhisperWorkerLaunchMode = Exclude<ProcessWorkerLaunchMode, 'registry'>;
+export type LocalWhisperFullLoadLifecycleStage =
+  | 'fullLoadSessionCreated'
+  | 'fullLoadHandshakeStarted'
+  | 'fullLoadHandshakeCompleted'
+  | 'fullLoadRequestStarted'
+  | 'fullLoadRequestCompleted';
 
 export interface LocalWhisperWorkerLifecycleSession {
   cancel(): Promise<LocalWhisperSupervisorResult>;
@@ -29,6 +35,8 @@ export interface LocalWhisperWorkerLifecycleDependencies {
     mode: LocalWhisperWorkerLaunchMode,
     modelAuthority: ManagedArtifactLease | null,
   ) => LocalWhisperWorkerLifecycleSession;
+  /** Optional qualification observer; failures never alter lifecycle control flow. */
+  readonly onFullLoadStage?: (stage: LocalWhisperFullLoadLifecycleStage) => void;
 }
 
 /** Enforces a disposable probe process and a separately launched full-load process. */
@@ -65,14 +73,19 @@ export class LocalWhisperWorkerLifecycle {
     if (authority.launchMode !== 'fullLoad') throw new Error('Local Whisper full-load launch mode mismatch');
     request.modelLease.assertActive();
     const session = this.createFreshSession('fullLoad', request.modelLease);
+    this.publishFullLoadStage('fullLoadSessionCreated');
     this.fullLoadSession = session;
     try {
+      this.publishFullLoadStage('fullLoadHandshakeStarted');
       const started = await session.startAndHandshake(authority);
       if (!started.success) {
         if (this.fullLoadSession === session) this.fullLoadSession = null;
         return started;
       }
+      this.publishFullLoadStage('fullLoadHandshakeCompleted');
+      this.publishFullLoadStage('fullLoadRequestStarted');
       const loaded = await session.load(request);
+      this.publishFullLoadStage('fullLoadRequestCompleted');
       if (!loaded.success) {
         await session.shutdown().catch(() => undefined);
         if (this.fullLoadSession === session) this.fullLoadSession = null;
@@ -112,5 +125,13 @@ export class LocalWhisperWorkerLifecycle {
     if (this.usedSessions.has(session)) throw new Error('Local Whisper worker session was reused');
     this.usedSessions.add(session);
     return session;
+  }
+
+  private publishFullLoadStage(stage: LocalWhisperFullLoadLifecycleStage): void {
+    try {
+      this.dependencies.onFullLoadStage?.(stage);
+    } catch {
+      // Qualification diagnostics are observational and cannot control worker lifecycle.
+    }
   }
 }

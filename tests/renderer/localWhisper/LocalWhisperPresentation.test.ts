@@ -22,6 +22,7 @@ import {
   getLocalWhisperArtifactProgressPresentation,
   getLatestLocalWhisperArtifactProgress,
   isLocalWhisperArtifactProgressActive,
+  isLocalWhisperMainStatusConnected,
   isLocalWhisperPlatformUnavailable,
 } from '@renderer/localWhisper/LocalWhisperPresentation';
 import { FakeCoordinator, createSnapshotService } from '../../main/localWhisper/ipc/localWhisperIpcTestUtils';
@@ -164,6 +165,21 @@ describe('Local Whisper action and main status presentation', () => {
       assert.equal(presentation.label, label);
       assert.doesNotMatch(`${presentation.label} ${presentation.detail ?? ''}`, /login|api key|session/iu);
     }
+  });
+
+  it('treats an unloaded or unavailable Local Whisper runtime as disconnected', () => {
+    const baseline = settingsSnapshot().runtime;
+
+    assert.equal(isLocalWhisperMainStatusConnected(mainStatus({ ...baseline, operationalStatus: 'Ready' })), true);
+    assert.equal(isLocalWhisperMainStatusConnected(mainStatus({ ...baseline, operationalStatus: 'Busy' })), true);
+    for (const operationalStatus of ['ValidatedUnloaded', 'NotReady', 'Planned', 'Unsupported'] as const) {
+      assert.equal(
+        isLocalWhisperMainStatusConnected(mainStatus({ ...baseline, operationalStatus })),
+        false,
+        operationalStatus,
+      );
+    }
+    assert.equal(isLocalWhisperMainStatusConnected(null), false);
   });
 
   it('derives the complete main residency control matrix without optimistic status changes', () => {

@@ -437,6 +437,7 @@ export function createArtifactServiceHarness(
     readonly worker?: FixtureStreamingArtifactWorker;
     readonly client?: RecordingArtifactHttpClient;
     readonly modelTransfer?: Uint8Array;
+    readonly onInstallationStage?: (stage: string) => void;
     readonly transferChunkBytes?: number;
   } = {},
 ): ArtifactServiceHarness {
@@ -497,6 +498,7 @@ export function createArtifactServiceHarness(
     extractor: new StreamingArtifactExtractor({
       clock,
       maximumInFlightWrites: PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+      ...(options.onInstallationStage ? { onInstallationStage: options.onInstallationStage } : {}),
       observePipeline: null,
       store,
     }),
@@ -504,6 +506,7 @@ export function createArtifactServiceHarness(
     inventory,
     journals,
     logger,
+    ...(options.onInstallationStage ? { onInstallationStage: options.onInstallationStage } : {}),
     progress,
     queue: new ArtifactTransferQueue(),
     store,

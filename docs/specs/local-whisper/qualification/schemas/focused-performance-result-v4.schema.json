@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/focused-performance-result-v4.schema.json",
+  "title": "Local Whisper revision-7 focused candidate result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "focusedPerformanceResultDigest",
+    "focusedPerformanceRunPlanDigest",
+    "focusedPerformanceManifestDigest",
+    "focusedPerformanceBundleDigest",
+    "candidateCommit",
+    "platform",
+    "backend",
+    "model",
+    "cells",
+    "status",
+    "timingGate"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 4 },
+    "contractRevision": { "const": 7 },
+    "focusedPerformanceResultDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceBundleDigest": { "$ref": "#/$defs/sha256" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "platform": { "const": "linux" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "model": { "$ref": "#/$defs/model" },
+    "cells": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/cell" } },
+    "status": { "enum": ["Pass", "Fail"] },
+    "timingGate": { "const": "informationalOnly" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant", "sizeBytes", "sha256"],
+      "properties": {
+        "family": { "const": "base" },
+        "variant": { "const": "full" },
+        "sizeBytes": { "const": 147951465 },
+        "sha256": { "const": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe" }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cacheState",
+        "sampleCount",
+        "successfulSampleCount",
+        "failedSampleCount",
+        "orderedSampleIds",
+        "durationsNanoseconds",
+        "medianNanoseconds",
+        "minimumNanoseconds",
+        "maximumNanoseconds",
+        "distanceFromFiveSecondsNanoseconds",
+        "timingGate",
+        "status"
+      ],
+      "properties": {
+        "cacheState": { "enum": ["cold", "warm"] },
+        "sampleCount": { "type": "integer" },
+        "successfulSampleCount": { "type": "integer" },
+        "failedSampleCount": { "type": "integer" },
+        "orderedSampleIds": { "type": "array" },
+        "durationsNanoseconds": { "type": "array" },
+        "medianNanoseconds": { "type": "integer" },
+        "minimumNanoseconds": { "type": "integer" },
+        "maximumNanoseconds": { "type": "integer" },
+        "distanceFromFiveSecondsNanoseconds": { "type": "integer" },
+        "timingGate": { "const": "informationalOnly" },
+        "status": { "enum": ["Pass", "Fail"] }
+      }
+    }
+  }
+}

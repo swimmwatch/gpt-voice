@@ -82,6 +82,7 @@ const loadRequest = { modelLease } as LocalWhisperLoadRequest;
 
 test('probe process exits before a fresh full-load process is created', async () => {
   const sessions: RecordingSession[] = [];
+  const fullLoadStages: string[] = [];
   const lifecycle = new LocalWhisperWorkerLifecycle({
     createSession: (mode, modelAuthority) => {
       assert.equal(modelAuthority, mode === 'fullLoad' ? loadRequest.modelLease : null);
@@ -89,6 +90,7 @@ test('probe process exits before a fresh full-load process is created', async ()
       sessions.push(session);
       return session;
     },
+    onFullLoadStage: (stage) => fullLoadStages.push(stage),
   });
 
   assert.equal((await lifecycle.probeOnce(probeLaunchAuthority, probeRequest)).success, true);
@@ -98,6 +100,13 @@ test('probe process exits before a fresh full-load process is created', async ()
   assert.equal(sessions[0]?.mode, 'probe');
   assert.equal(sessions[1]?.mode, 'fullLoad');
   assert.deepEqual(sessions[1]?.calls, ['start', 'load']);
+  assert.deepEqual(fullLoadStages, [
+    'fullLoadSessionCreated',
+    'fullLoadHandshakeStarted',
+    'fullLoadHandshakeCompleted',
+    'fullLoadRequestStarted',
+    'fullLoadRequestCompleted',
+  ]);
   assert.equal(lifecycle.activeFullLoadSession, sessions[1]);
   assert.equal((await lifecycle.shutdownFullLoad())?.success, true);
   assert.deepEqual(sessions[1]?.calls, ['start', 'load', 'shutdown']);

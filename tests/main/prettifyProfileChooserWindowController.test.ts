@@ -13,7 +13,7 @@ import type {
 import {
   PRETTIFY_PROFILE_CHOOSER_BACKGROUND_COLOR,
   PRETTIFY_PROFILE_CHOOSER_PATH,
-  PRETTIFY_PROFILE_CHOOSER_TITLE,
+  PRETTIFY_PROFILE_CHOOSER_TITLE_KEY,
   PrettifyProfileChooserWindowController,
   calculatePrettifyProfileChooserBounds,
 } from '@main/prettifyProfileChooserWindowController';
@@ -225,6 +225,7 @@ class ChooserHarness {
       },
       getAppIconPath: () => '/app/icon.png',
       getAppUrl: (pathname = 'index.html') => `app://gpt-voice/${pathname}`,
+      localization: { translate: (key) => key },
       logger: { warn: () => undefined },
       openExternal: async (url) => {
         this.externalUrls.push(url);
@@ -429,7 +430,7 @@ describe('PrettifyProfileChooserWindowController', () => {
       webviewTag: false,
     });
     assert.equal(window.options.backgroundColor, PRETTIFY_PROFILE_CHOOSER_BACKGROUND_COLOR);
-    assert.equal(window.options.title, PRETTIFY_PROFILE_CHOOSER_TITLE);
+    assert.equal(window.options.title, PRETTIFY_PROFILE_CHOOSER_TITLE_KEY);
     assert.equal(window.options.frame, true);
     assert.equal(window.options.resizable, false);
     assert.equal(window.options.show, false);

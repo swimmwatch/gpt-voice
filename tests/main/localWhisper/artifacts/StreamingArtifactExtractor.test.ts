@@ -253,6 +253,35 @@ async function drainSuccessfulWrites(store: ControlledWriteStore, expectedCount:
 }
 
 describe('StreamingArtifactExtractor manifest-first boundary', () => {
+  test('publishes only fixed installation milestones to an optional diagnostic observer', async () => {
+    const harness = createArtifactServiceHarness();
+    const stages: string[] = [];
+    const model = harness.catalogFixture.model;
+    await new StreamingArtifactExtractor({
+      clock: realClock(),
+      maximumInFlightWrites: PRODUCTION_ARTIFACT_INSTALLATION_PIPELINE_WINDOW,
+      observePipeline: null,
+      onInstallationStage: (stage) => stages.push(stage),
+      store: harness.store,
+    }).install(
+      model,
+      [metadataOnlyModelEntry(model.expectedFiles[0]!.fileId, MODEL_FILE)],
+      new AbortController().signal,
+    );
+    assert.deepEqual(stages, [
+      'stagingCreationStarted',
+      'stagingCreated',
+      'stagedFileCreationStarted',
+      'stagedFileCreated',
+      'writesSettled',
+      'fileSealStarted',
+      'fileSealed',
+      'fileReleased',
+      'promotionStarted',
+      'promoted',
+    ]);
+  });
+
   test('rejects traversal, absolute paths, and undeclared names before staging', async () => {
     const base = createArtifactServiceHarness().catalogFixture.model;
     for (const name of ['../outside', '/absolute', String.raw`C:\absolute`, 'unexpected-file']) {

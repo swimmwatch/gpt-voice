@@ -318,7 +318,12 @@ export class PerformanceQualificationAttemptRunner {
         phases: proof.phases,
       });
     } catch (error) {
-      const code = error instanceof PerformanceQualificationAttemptError ? error.code : 'ATTEMPT_FAILED';
+      const code =
+        error instanceof PerformanceQualificationAttemptError
+          ? error.code
+          : error instanceof Error && FAILURE_CODE.test(error.message)
+            ? error.message
+            : 'ATTEMPT_FAILED';
       return failedResponse(code);
     } finally {
       await Promise.all(owned.map(async (artifact) => await artifact.close()));

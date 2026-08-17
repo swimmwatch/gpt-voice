@@ -76,7 +76,7 @@ export function getLocalWhisperArtifactProgressPresentation(
     : null;
   const descriptionKey = progress ? LOCAL_WHISPER_ARTIFACT_PROGRESS_DESCRIPTION_KEYS[progress.state] : null;
   const description = descriptionKey
-    ? translate(descriptionKey, { artifact: artifact.label })
+    ? translate(descriptionKey, { artifact: translateLocalWhisperRendererLabel(artifact.label, translate) })
     : artifact.state === 'Installed'
       ? translate('localWhisper.settings.installed', {
           size: formatLocalWhisperBytes(artifact.installedSizeBytes, translate),
@@ -111,6 +111,11 @@ const LOCAL_WHISPER_PRESENTATION_MESSAGE_KEYS: Readonly<Record<string, Translati
   'Local Whisper settings could not be loaded.': 'localWhisper.settings.settingsLoadFailed',
   'Fix the highlighted settings before saving.': 'localWhisper.settings.fixHighlighted',
   'Local Whisper artifact cancellation could not be completed.': 'localWhisper.settings.cancellationFailed',
+  'The Local Whisper action could not be completed.': 'localWhisper.main.operationFailed',
+  'Local Whisper managed storage': 'localWhisper.settings.storageTitle',
+  'Catalog unavailable': 'localWhisper.settings.catalogUnavailable',
+  'Development qualification artifacts': 'localWhisper.settings.developmentArtifacts',
+  'Unavailable device': 'localWhisper.settings.savedSelectionUnavailable',
 });
 
 /** Converts public enum names to their localized user-facing labels. */
@@ -126,6 +131,16 @@ export function translateLocalWhisperPresentationMessage(message: string, transl
   const failure = message.match(/^[A-Z_]+ \(([A-Z_]+)\)$/u);
   if (failure?.[1]) return translate('localWhisper.settings.failureCode', { code: failure[1] });
   return message;
+}
+
+/** Localizes known renderer-safe catalog labels while preserving hardware and model identifiers verbatim. */
+export function translateLocalWhisperRendererLabel(label: string, translate: LocalWhisperTranslate): string {
+  const cpuHost = label.match(/^CPU · (\d+) logical processors$/u);
+  if (cpuHost) return translate('localWhisper.settings.hostCpu', { count: cpuHost[1] ?? '0' });
+  if (label === 'Apple Silicon · Local Whisper planned') return translate('localWhisper.settings.hostAppleSilicon');
+  const planned = label.match(/^(Apple Silicon|Metal) \(planned\)$/u);
+  if (planned) return `${planned[1]} (${translate('localWhisper.settings.mainStatusPlanned')})`;
+  return translateLocalWhisperPresentationMessage(label, translate);
 }
 
 /** Localizes controller errors without exposing internal error structure to the page. */
@@ -242,6 +257,11 @@ export interface LocalWhisperMainStatusPresentation {
   readonly label: 'Ready' | 'Busy' | 'Validated · Unloaded' | 'Not ready' | 'Planned' | 'Unsupported';
   readonly tone: 'ready' | 'busy' | 'blocked';
   readonly detail: string | null;
+}
+
+/** Matches the Voice Provider status: only a resident operational runtime may record. */
+export function isLocalWhisperMainStatusConnected(snapshot: LocalWhisperMainStatusSnapshot | null): boolean {
+  return snapshot?.runtime.operationalStatus === 'Ready' || snapshot?.runtime.operationalStatus === 'Busy';
 }
 
 export interface LocalWhisperMainResidencyControlPresentation {
@@ -408,14 +428,14 @@ function enabled(visible = true): LocalWhisperActionAvailability {
 
 function checkPlatform(snapshot: LocalWhisperRendererSnapshot): LocalWhisperActionAvailability | null {
   if (snapshot.runtime.supportTier === 'Planned') {
-    return blocked('This platform is planned and unavailable in this release.');
+    return blocked('This platform is planned and not available in this release.');
   }
-  if (snapshot.runtime.supportTier === 'Unsupported') return blocked('This platform is unsupported.');
+  if (snapshot.runtime.supportTier === 'Unsupported') return blocked('This platform is unsupported in this release.');
   if (!snapshot.runtime.canAttempt) {
     return blocked(
       snapshot.runtime.blockingCode
         ? formatLocalWhisperFailureCode(snapshot.runtime.blockingCode)
-        : 'Setup is incomplete.',
+        : 'Install the selected runtime and model before checking compatibility.',
     );
   }
   return null;
@@ -443,7 +463,7 @@ export function getLocalWhisperLoadAvailability(
   if (platform) return platform;
   if (snapshot.runtime.capability !== 'EstimateOnly' && snapshot.runtime.capability !== 'Validated')
     return blocked('Run a successful compatibility check before loading.');
-  if (snapshot.runtime.residency !== 'Unloaded') return blocked('The selected model is not in the unloaded state.');
+  if (snapshot.runtime.residency !== 'Unloaded') return blocked('The selected model is not in unloaded state.');
   if (snapshot.resources?.success === false && snapshot.resources.failureCode) {
     return blocked(formatLocalWhisperFailureCode(snapshot.resources.failureCode));
   }
@@ -482,12 +502,20 @@ export function getLocalWhisperMainStatusPresentation(
       return Object.freeze({
         label: 'Validated · Unloaded',
         tone: 'blocked',
-        detail: detail ?? 'Load the validated runtime and model before transcription.',
+        detail: detail ?? 'Load the selected model before transcription.',
       });
     case 'Planned':
-      return Object.freeze({ label: 'Planned', tone: 'blocked', detail: detail ?? 'Unavailable in this release.' });
+      return Object.freeze({
+        label: 'Planned',
+        tone: 'blocked',
+        detail: detail ?? 'This platform is planned and not available in this release.',
+      });
     case 'Unsupported':
-      return Object.freeze({ label: 'Unsupported', tone: 'blocked', detail });
+      return Object.freeze({
+        label: 'Unsupported',
+        tone: 'blocked',
+        detail: detail ?? 'This platform is unsupported in this release.',
+      });
     case 'NotReady':
       return Object.freeze({ label: 'Not ready', tone: 'blocked', detail });
   }

@@ -13,7 +13,7 @@ import {
   type LocalWhisperRendererOption,
   type LocalWhisperRendererSnapshot,
 } from '@shared/localWhisper';
-import { getLatestLocalWhisperArtifactProgress } from '../LocalWhisperPresentation';
+import { getLatestLocalWhisperArtifactProgress, translateLocalWhisperRendererLabel } from '../LocalWhisperPresentation';
 import {
   getLocalWhisperOptions,
   updateLocalWhisperBackend,
@@ -201,7 +201,9 @@ export default function LocalWhisperRuntimeModelSection({
             </label>
             <span className="lw-field-note">
               {draft.executionTarget === 'cpu'
-                ? t('localWhisper.settings.productionFallback', { host: snapshot.host.label })
+                ? t('localWhisper.settings.productionFallback', {
+                    host: translateLocalWhisperRendererLabel(snapshot.host.label, t),
+                  })
                 : t('localWhisper.settings.support', { tier: snapshot.runtime.supportTier })}
             </span>
 
@@ -244,7 +246,9 @@ export default function LocalWhisperRuntimeModelSection({
                   value={selectedDeviceUnavailable ? null : draft.deviceId}
                 />
               ) : (
-                <span className="lw-readonly-value">{snapshot.host.label}</span>
+                <span className="lw-readonly-value">
+                  {translateLocalWhisperRendererLabel(snapshot.host.label, t)}
+                </span>
               )}
               {selectedDeviceUnavailable ? (
                 <span className="lw-field-error">{t('localWhisper.settings.savedDeviceUnavailable')}</span>
@@ -359,8 +363,8 @@ export default function LocalWhisperRuntimeModelSection({
         <div aria-label={t('localWhisper.settings.availableModels')} className="lw-model-table" role="table">
           <div className="lw-model-table-header" role="row">
             <span role="columnheader">{t('localWhisper.settings.model')}</span>
-            <span role="columnheader">RAM</span>
-            <span role="columnheader">VRAM</span>
+            <span role="columnheader">{t('modelMemory.ram')}</span>
+            <span role="columnheader">{t('modelMemory.vram')}</span>
             <span className="sr-only" role="columnheader">
               {t('localWhisper.settings.actions')}
             </span>

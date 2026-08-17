@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
+import { PerformanceCollectionError } from './PerformanceQualificationCollector';
+
 import { isRecord } from '../packaging/contracts';
 import type { PerformanceBackend } from './PerformanceQualification';
 import type { PerformanceResourceProof, PerformanceRoleRegistration } from './PerformanceQualificationCollector';
@@ -11,6 +13,7 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 const PROCESS_START_IDENTITY = /^\d{1,32}$/u;
 const RESOURCE_IDS = ['mainProcessPeakRss', 'guardProcessPeakRss', 'workerProcessPeakRss', 'gpuPeakVram'] as const;
 const ROLES = ['main', 'guard', 'worker'] as const;
+const MINIMUM_COMPLETION_TIMEOUT_MILLISECONDS = 1_000;
 
 function boundedCollector(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -163,15 +166,15 @@ export class LinuxPerformanceResourceSamplerSession {
     private readonly backend: PerformanceBackend,
     private readonly eventStream: NodeJS.ReadableStream,
     readiness: NodeJS.ReadableStream,
+    private readonly completionTimeoutMilliseconds: number,
   ) {
     this.ready = exactReadiness(readiness);
     this.stdout = boundedCollector(child.stdout);
     this.stderr = boundedCollector(child.stderr);
-    this.exit = new Promise((resolve, reject) => {
-      child.once('error', reject);
+    this.exit = new Promise((resolve) => {
+      child.once('error', () => resolve(null));
       child.once('exit', (code, signal) => {
-        if (signal !== null) reject(new Error('Performance resource sampler terminated by signal'));
-        else resolve(code);
+        resolve(signal === null ? code : null);
       });
     });
     this.onEvents = (chunk): void => {
@@ -192,13 +195,33 @@ export class LinuxPerformanceResourceSamplerSession {
   }
 
   public async finish(): Promise<PerformanceResourceProof> {
-    const [, code, stdout, stderr] = await Promise.all([this.ready, this.exit, this.stdout, this.stderr]);
-    this.detach();
-    if (code !== 0 || stderr.byteLength !== 0) {
-      const match = SAFE_FAILURE_PATTERN.exec(stderr.toString('ascii'));
-      throw new Error(`Linux performance resource sampling failed${match ? `: ${match[1]}` : ''}`);
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+      // The attempt's exit result proves that no further events can arrive. Close our owned
+      // forwarding channel even if Node keeps the auxiliary pipe open after process exit.
+      this.detach();
+      this.eventStream.destroy();
+      if (!this.child.stdin.destroyed && !this.child.stdin.writableEnded) this.child.stdin.end();
+      const completion = Promise.all([this.ready, this.exit, this.stdout, this.stderr]);
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new PerformanceCollectionError('RESOURCE_SAMPLER_TIMEOUT')),
+          this.completionTimeoutMilliseconds,
+        );
+      });
+      const [, code, stdout, stderr] = await Promise.race([completion, timedOut]);
+      if (code !== 0 || stderr.byteLength !== 0) {
+        const match = SAFE_FAILURE_PATTERN.exec(stderr.toString('ascii'));
+        throw new Error(`Linux performance resource sampling failed${match ? `: ${match[1]}` : ''}`);
+      }
+      return parseProof(stdout, this.backend);
+    } catch (error) {
+      if (error instanceof PerformanceCollectionError && error.code === 'RESOURCE_SAMPLER_TIMEOUT') this.terminate();
+      throw error;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      this.detach();
     }
-    return parseProof(stdout, this.backend);
   }
 
   public terminate(): void {
@@ -223,12 +246,15 @@ export class LinuxPerformanceResourceSampler {
       readonly backend: PerformanceBackend;
       readonly expectedMainExecutableSha256: string;
       readonly eventStream: NodeJS.ReadableStream;
+      readonly completionTimeoutMilliseconds: number;
     }>,
   ): LinuxPerformanceResourceSamplerSession {
     if (
       !Number.isSafeInteger(input.rootPid) ||
       input.rootPid <= 1 ||
-      !SHA256.test(input.expectedMainExecutableSha256)
+      !SHA256.test(input.expectedMainExecutableSha256) ||
+      !Number.isSafeInteger(input.completionTimeoutMilliseconds) ||
+      input.completionTimeoutMilliseconds < MINIMUM_COMPLETION_TIMEOUT_MILLISECONDS
     ) {
       throw new Error('Performance resource sampler input invalid');
     }
@@ -244,6 +270,13 @@ export class LinuxPerformanceResourceSampler {
       child.kill('SIGKILL');
       throw new Error('Performance resource sampler readiness unavailable');
     }
+    const session = new LinuxPerformanceResourceSamplerSession(
+      child,
+      input.backend,
+      input.eventStream,
+      readiness,
+      input.completionTimeoutMilliseconds,
+    );
     child.stdin.write(
       `${JSON.stringify({
         schemaVersion: 3,
@@ -253,6 +286,6 @@ export class LinuxPerformanceResourceSampler {
         expectedMainExecutableSha256: input.expectedMainExecutableSha256,
       })}\n`,
     );
-    return new LinuxPerformanceResourceSamplerSession(child, input.backend, input.eventStream, readiness);
+    return session;
   }
 }

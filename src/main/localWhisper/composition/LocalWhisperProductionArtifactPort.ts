@@ -109,6 +109,11 @@ export interface LocalWhisperProductionArtifactPortDependencies {
   readonly canAcquire: (artifactId: LocalWhisperArtifactId) => boolean;
   readonly clearance: LocalWhisperProductionRemovalClearancePort;
   readonly inventory: LocalWhisperProductionArtifactInventory;
+  readonly onOperationCompleted?: (event: Readonly<{
+    readonly failureCode: LocalWhisperFailureCode | null;
+    readonly operationId: LocalWhisperArtifactOperationId;
+    readonly success: boolean;
+  }>) => void;
   readonly service: LocalWhisperProductionArtifactLifecyclePort;
 }
 
@@ -184,7 +189,21 @@ export class LocalWhisperProductionArtifactPort
           : command.kind === 'retry'
             ? this.dependencies.service.retry(request)
             : this.dependencies.service.update(request);
-    void handle.completion.catch(() => undefined);
+    void handle.completion
+      .then((result) => {
+        try {
+          this.dependencies.onOperationCompleted?.(
+            Object.freeze({
+              failureCode: result.success ? null : result.error.code,
+              operationId: handle.operationId,
+              success: result.success,
+            }),
+          );
+        } catch {
+          // A qualification-only observer must never affect artifact completion.
+        }
+      })
+      .catch(() => undefined);
     return Object.freeze({ success: true, operationId: handle.operationId });
   }
 

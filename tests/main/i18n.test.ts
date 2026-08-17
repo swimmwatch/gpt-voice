@@ -40,6 +40,7 @@ const ALLOWED_IDENTICAL_TRANSLATION_KEYS = new Set<TranslationKey>([
   'mainDock.subtitle',
   'mainDock.prettifyEffort',
   'mainDock.prettifyExperimental',
+  'modelMemory.ram',
   'modelMemory.vram',
   'settingsSection.system',
   'settingsSection.browser',
@@ -189,6 +190,7 @@ const REQUIRED_CENTRAL_STATUS_KEYS = [
   'error.notificationOperationTimedOut',
   'error.notificationUnexpectedProviderResponse',
   'error.notificationUnknown',
+  'error.selectedProviderNotReady',
 ] as const;
 const REQUIRED_STARTUP_KEYS = [
   'startup.preparing',
