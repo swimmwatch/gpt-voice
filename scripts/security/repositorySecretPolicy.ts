@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 export type SecretFindingSeverity = 'advisory' | 'blocking';
 
 export interface RepositoryTextFile {
@@ -11,14 +13,54 @@ export interface RepositorySecretFinding {
   readonly severity: SecretFindingSeverity;
 }
 
+export const TRACKED_TEXT_GIT_ARGUMENTS = Object.freeze(['grep', '-Il', '-z', '-e', '', '--', '.']);
+
 const GENERATED_ROOT_MARKER = '.generated-root';
 const GENERATED_ROOT_PREFIXES = ['build/generated/', 'dist/', 'release/', 'release-artifacts/'] as const;
 const MAXIMUM_TEXT_FILE_BYTES = 1024 * 1024;
-const PRIVATE_KEY_BLOCK = /-{5}BEGIN (?:[A-Z]+ )?PRIVATE KEY-{5}[\s\S]*?-{5}END (?:[A-Z]+ )?PRIVATE KEY-{5}/u;
-const GITHUB_TOKEN = /\bgh[pousr]_[A-Za-z\d]{36,255}\b/u;
-const OPENAI_API_KEY = /\bsk-(?:proj-)?[\w-]{20,255}\b/u;
+const PRIVATE_KEY_BLOCK = /-{5}BEGIN (?:[A-Z]+ )?PRIVATE KEY-{5}[\s\S]*?-{5}END (?:[A-Z]+ )?PRIVATE KEY-{5}/gu;
+const GITHUB_TOKEN = /\bgh[pousr]_[A-Za-z\d]{36,255}\b/gu;
+const OPENAI_API_KEY = /\bsk-(?:proj-)?[\w-]{20,255}\b/gu;
 const ENTROPY_CANDIDATE = /\b[\w+/-]{40,255}\b/gu;
 const ENTROPY_THRESHOLD = 3.6;
+
+const APPROVED_SYNTHETIC_SECRET_DIGESTS = Object.freeze({
+  'tests/main/diagnosticCaptureIntegration.test.ts': Object.freeze({
+    'openai-api-key': Object.freeze(['b45a6fb1f008cc85df16d48345d4ca97cb57788ab272f3dec504add438f18de2']),
+  }),
+  'tests/main/diagnosticCaptureStorage.test.ts': Object.freeze({
+    'openai-api-key': Object.freeze(['b45a6fb1f008cc85df16d48345d4ca97cb57788ab272f3dec504add438f18de2']),
+  }),
+  'tests/main/diagnosticsArchive.test.ts': Object.freeze({
+    'openai-api-key': Object.freeze(['6c3c2a497028c099f67bf4786ff65aeb13dbbf1cb1e3741d76d3ce0877961bd0']),
+  }),
+  'tests/main/diagnosticTextRedactor.test.ts': Object.freeze({
+    'openai-api-key': Object.freeze(['b45a6fb1f008cc85df16d48345d4ca97cb57788ab272f3dec504add438f18de2']),
+    'private-key': Object.freeze(['15501cbfa9cbf1bd13dd9730fcd8b92023dbece064b628710e0df4d54d1fc10e']),
+  }),
+  'tests/main/providerAuditPrivacy.test.ts': Object.freeze({
+    'openai-api-key': Object.freeze(['c504ff3127ef3b000be542df4d4f37bd221ee9f446af8395b55548ab009ea4a4']),
+  }),
+} as const);
+
+type BlockingSecretRule = Exclude<RepositorySecretFinding['rule'], 'entropy'>;
+
+function approvedSyntheticSecret(filePath: string, rule: BlockingSecretRule, value: string): boolean {
+  const fileAllowlist = APPROVED_SYNTHETIC_SECRET_DIGESTS[filePath as keyof typeof APPROVED_SYNTHETIC_SECRET_DIGESTS];
+  if (!fileAllowlist) return false;
+  const digests = (fileAllowlist as Partial<Record<BlockingSecretRule, readonly string[]>>)[rule];
+  if (!digests) return false;
+  const digest = createHash('sha256').update(value, 'utf8').digest('hex');
+  return digests.includes(digest);
+}
+
+function hasUnapprovedMatch(file: RepositoryTextFile, rule: BlockingSecretRule, pattern: RegExp): boolean {
+  pattern.lastIndex = 0;
+  for (const match of file.text.matchAll(pattern)) {
+    if (!approvedSyntheticSecret(file.path, rule, match[0])) return true;
+  }
+  return false;
+}
 
 function isGeneratedPath(filePath: string, files: ReadonlyMap<string, string>): boolean {
   const prefix = GENERATED_ROOT_PREFIXES.find((candidate) => filePath.startsWith(candidate));
@@ -68,9 +110,12 @@ export class RepositorySecretPolicy {
     const findings: RepositorySecretFinding[] = [];
     for (const file of files) {
       if (isGeneratedPath(file.path, byPath)) continue;
-      if (GITHUB_TOKEN.test(file.text)) findings.push(createFinding(file.path, 'github-token', 'blocking'));
-      if (OPENAI_API_KEY.test(file.text)) findings.push(createFinding(file.path, 'openai-api-key', 'blocking'));
-      if (PRIVATE_KEY_BLOCK.test(file.text)) findings.push(createFinding(file.path, 'private-key', 'blocking'));
+      if (hasUnapprovedMatch(file, 'github-token', GITHUB_TOKEN))
+        findings.push(createFinding(file.path, 'github-token', 'blocking'));
+      if (hasUnapprovedMatch(file, 'openai-api-key', OPENAI_API_KEY))
+        findings.push(createFinding(file.path, 'openai-api-key', 'blocking'));
+      if (hasUnapprovedMatch(file, 'private-key', PRIVATE_KEY_BLOCK))
+        findings.push(createFinding(file.path, 'private-key', 'blocking'));
       if (containsHighEntropyCandidate(file.text)) findings.push(createFinding(file.path, 'entropy', 'advisory'));
     }
     return Object.freeze(

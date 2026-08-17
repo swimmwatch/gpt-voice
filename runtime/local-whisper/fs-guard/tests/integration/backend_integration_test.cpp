@@ -3,6 +3,7 @@
 #include "local_whisper/fs_guard/protocol.hpp"
 
 #if defined(_WIN32)
+#include "local_whisper/common/windows_executable_policy.hpp"
 #include "platform/windows/cng_sha256.hpp"
 #include "platform/windows/windows_backend.hpp"
 #include "sha256_test_vectors.hpp"
@@ -12,7 +13,9 @@
 #include <winioctl.h>
 #else
 #include "platform/linux/linux_backend.hpp"
+#include "platform/linux/unique_fd.hpp"
 
+#include <fcntl.h>
 #include <unistd.h>
 #endif
 
@@ -30,6 +33,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace local_whisper::fs_guard {
@@ -276,6 +280,8 @@ TEST(RealBackendIntegrationTest, CompletesTheManagedArtifactLifecycle) {
   const auto opened = backend->open_artifact({root[0], "models", kArtifactName});
   ASSERT_EQ(opened.size(), 2U);
   EXPECT_TRUE(backend->revalidate({opened[0], opened[1]}).empty());
+  EXPECT_FALSE(backend->list({opened[0], {"file-model|384"}}).empty());
+  EXPECT_THROW(static_cast<void>(backend->list({opened[0], {"file-model|0"}})), GuardError);
 
   const auto quarantined =
       backend->quarantine({root[0], opened[0], "models", kArtifactName, kNonce});
@@ -384,6 +390,18 @@ TEST(RealBackendIntegrationTest, ReclaimsResourcesAfterEveryInjectedAcquisitionF
   EXPECT_TRUE(completed);
 }
 
+#if !defined(_WIN32)
+TEST(RealBackendIntegrationTest, ReclaimsDescriptorWhenDirectoryStreamAcquisitionFails) {
+  const std::size_t baseline = process_resource_count();
+  UniqueFd descriptor(open("/dev/null", O_RDONLY | O_CLOEXEC));
+  ASSERT_TRUE(descriptor.valid());
+  UniqueDir directory = open_unique_directory(std::move(descriptor),
+                                              [](const int value) { return fdopendir(value); });
+  EXPECT_FALSE(directory.valid());
+  EXPECT_EQ(process_resource_count(), baseline);
+}
+#endif
+
 TEST(RealBackendIntegrationTest, EnforcesAndReusesTheSharedLiveLeaseBudget) {
   TemporaryManagedRoot root_path;
   auto backend = make_backend();
@@ -457,6 +475,38 @@ TEST(RealBackendIntegrationTest, GuardApplicationUsesTheRealBackendThroughStream
 }
 
 #if defined(_WIN32)
+TEST(RealBackendIntegrationTest, VerifiedExecutableSharePolicyRejectsConcurrentMutation) {
+  static_assert(local_whisper::common::kVerifiedExecutableShareMode == FILE_SHARE_READ);
+  TemporaryManagedRoot root_path;
+  std::filesystem::create_directories(root_path.path());
+  const auto executable_path = root_path.path() / "verified-executable.exe";
+  {
+    HANDLE created = CreateFileW(executable_path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                 FILE_ATTRIBUTE_NORMAL, nullptr);
+    ASSERT_NE(created, INVALID_HANDLE_VALUE);
+    CloseHandle(created);
+  }
+
+  HANDLE verified =
+      CreateFileW(executable_path.c_str(), GENERIC_READ,
+                  static_cast<DWORD>(local_whisper::common::kVerifiedExecutableShareMode), nullptr,
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  ASSERT_NE(verified, INVALID_HANDLE_VALUE);
+
+  HANDLE writer = CreateFileW(executable_path.c_str(), GENERIC_WRITE,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  EXPECT_EQ(writer, INVALID_HANDLE_VALUE);
+  EXPECT_EQ(GetLastError(), ERROR_SHARING_VIOLATION);
+
+  HANDLE renamer = CreateFileW(executable_path.c_str(), DELETE,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                               OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  EXPECT_EQ(renamer, INVALID_HANDLE_VALUE);
+  EXPECT_EQ(GetLastError(), ERROR_SHARING_VIOLATION);
+  CloseHandle(verified);
+}
+
 TEST(RealBackendIntegrationTest, RejectsHardLinksCaseAliasesAndJunctions) {
   TemporaryManagedRoot root_path;
   auto backend = make_backend();

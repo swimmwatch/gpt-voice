@@ -15,6 +15,7 @@ import {
 } from '@shared/localWhisper';
 import {
   NativeRuntimeLogForwarder,
+  NativeRuntimeLogRelay,
   NativeRuntimeLogStreamDecoder,
 } from '@main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder';
 
@@ -101,12 +102,42 @@ describe('NativeRuntimeLogStreamDecoder', () => {
     assert.deepEqual(received, [RECORD]);
     assert.equal(decoder.counters.overlongLineCount, 1);
     assert.equal(decoder.counters.invalidRecordCount, 1);
+    assert.doesNotMatch(JSON.stringify(decoder), /x{32}/u);
+  });
+
+  it('accepts the exact distinct identities authorized for one native process tree', () => {
+    const workerIdentity = '22222222-2222-2222-8222-222222222222';
+    const received: NativeRuntimeLogRecord[] = [];
+    const decoder = new NativeRuntimeLogStreamDecoder({
+      expectedProcessInstanceIds: [RECORD.processInstanceId, workerIdentity],
+      onRecord: (record) => received.push(record),
+    });
+    const workerRecord: NativeRuntimeLogRecord = {
+      ...RECORD,
+      component: 'launcher',
+      processInstanceId: workerIdentity,
+    };
+    for (const record of [RECORD, workerRecord]) {
+      const serialized = serializeCanonicalNativeRuntimeLogRecord(record);
+      assert.ok(serialized);
+      decoder.append(Buffer.from(`${serialized}\n`, 'utf8'));
+    }
+
+    assert.deepEqual(received, [RECORD, workerRecord]);
+    assert.throws(
+      () =>
+        new NativeRuntimeLogStreamDecoder({
+          expectedProcessInstanceIds: [RECORD.processInstanceId, RECORD.processInstanceId],
+          onRecord: () => undefined,
+        }),
+      /identity set/u,
+    );
   });
 
   it('counts malformed UTF-8, identity mismatch, and an EOF fragment while recovering later records', () => {
     const received: NativeRuntimeLogRecord[] = [];
     const decoder = new NativeRuntimeLogStreamDecoder({
-      expectedProcessInstanceId: RECORD.processInstanceId,
+      expectedProcessInstanceIds: [RECORD.processInstanceId],
       onRecord: (record) => received.push(record),
     });
     const serialized = serializeCanonicalNativeRuntimeLogRecord(RECORD);
@@ -146,5 +177,34 @@ describe('NativeRuntimeLogStreamDecoder', () => {
     forwarder.forward(RECORD);
     assert.equal(messages.length, 1);
     assert.match(messages[0] ?? '', /^\[native-runtime\] \{"native":/u);
+  });
+
+  it('contains clock and logger failures for buffered and live relay records', () => {
+    const throwingClock = new NativeRuntimeLogForwarder({
+      logger: { debug: () => undefined, error: () => undefined, info: () => undefined, warn: () => undefined },
+      now: () => {
+        throw new Error('private clock failure');
+      },
+    });
+    assert.doesNotThrow(() => throwingClock.forward(RECORD));
+
+    let attempts = 0;
+    const throwingLogger = new NativeRuntimeLogForwarder({
+      logger: {
+        debug: () => {
+          attempts += 1;
+          throw new Error('private logger failure');
+        },
+        error: () => undefined,
+        info: () => undefined,
+        warn: () => undefined,
+      },
+      now: () => new Date('2026-08-12T00:00:00.000Z'),
+    });
+    const relay = new NativeRuntimeLogRelay();
+    relay.accept(RECORD);
+    assert.doesNotThrow(() => relay.attach(throwingLogger));
+    assert.doesNotThrow(() => relay.accept(RECORD));
+    assert.equal(attempts, 2);
   });
 });

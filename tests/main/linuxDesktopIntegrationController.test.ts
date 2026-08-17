@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { LinuxDesktopIntegrationController, escapeDesktopExecArg } from '@main/linuxDesktopIntegration';
 
@@ -63,13 +64,13 @@ describe('LinuxDesktopIntegrationController', () => {
     assert.match(harness.written[0]?.data ?? '', /Exec="\/opt\/GPT Voice\.AppImage" --no-sandbox %U/u);
     assert.match(harness.written[0]?.data ?? '', /X-AppImage-Version=1\.4\.0/u);
     assert.deepEqual(harness.copied, [
-      ['/assets/icon.png', '/home/test/.data/icons/hicolor/512x512/apps/gpt-voice.png'],
+      ['/assets/icon.png', path.join('/home/test/.data', 'icons', 'hicolor', '512x512', 'apps', 'gpt-voice.png')],
     ]);
 
     harness.controller.removeAppImage();
     assert.deepEqual(harness.removed, [
-      '/home/test/.data/applications/gpt-voice.desktop',
-      '/home/test/.data/icons/hicolor/512x512/apps/gpt-voice.png',
+      path.join('/home/test/.data', 'applications', 'gpt-voice.desktop'),
+      path.join('/home/test/.data', 'icons', 'hicolor', '512x512', 'apps', 'gpt-voice.png'),
     ]);
   });
 
@@ -79,7 +80,7 @@ describe('LinuxDesktopIntegrationController', () => {
 
     assert.deepEqual(
       harness.directories,
-      LINUX_ICON_SIZES.map((size) => `/home/test/.data/icons/hicolor/${size}x${size}/apps`),
+      LINUX_ICON_SIZES.map((size) => path.join('/home/test/.data', 'icons', 'hicolor', `${size}x${size}`, 'apps')),
     );
     assert.deepEqual(
       harness.copied,
@@ -87,13 +88,13 @@ describe('LinuxDesktopIntegrationController', () => {
         (size) =>
           [
             `/assets/icons/${size}x${size}.png`,
-            `/home/test/.data/icons/hicolor/${size}x${size}/apps/gpt-voice.png`,
+            path.join('/home/test/.data', 'icons', 'hicolor', `${size}x${size}`, 'apps', 'gpt-voice.png'),
           ] as const,
       ),
     );
     assert.deepEqual(harness.spawned, [
       {
-        args: ['--force', '--ignore-theme-index', '/home/test/.data/icons/hicolor'],
+        args: ['--force', '--ignore-theme-index', path.join('/home/test/.data', 'icons', 'hicolor')],
         command: 'gtk-update-icon-cache',
       },
     ]);

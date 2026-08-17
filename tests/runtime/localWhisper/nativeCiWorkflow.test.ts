@@ -129,7 +129,14 @@ test('Linux core preserves TSan, fuzzing, sanitizer, coverage, and CodeQL orderi
   const tsan = names.indexOf('Run Linux worker ThreadSanitizer gate');
   const fuzz = names.indexOf('Run bounded Linux parser fuzzing');
   const codeql = names.indexOf('Initialize Linux C++ CodeQL database');
-  assert.ok(tsan >= 0 && fuzz >= 0 && codeql > tsan && codeql > fuzz);
+  const analyze = names.indexOf('Analyze Linux C++ CodeQL database');
+  const coverage = names.indexOf('Emit Linux native-quality coverage');
+  assert.ok(tsan >= 0 && fuzz >= 0 && codeql >= 0 && codeql < tsan && tsan < analyze && codeql < fuzz);
+  assert.ok(coverage > analyze);
+
+  const tsanStep = namedStep('native-linux-core', 'Run Linux worker ThreadSanitizer gate');
+  const tsanEnvironment = tsanStep.env === undefined ? {} : record(tsanStep.env, 'Linux TSan step environment');
+  assert.equal(tsanEnvironment.LD_PRELOAD, undefined);
 
   const core = jobText('native-linux-core');
   assert.match(core, /LD_PRELOAD/u);
@@ -138,6 +145,7 @@ test('Linux core preserves TSan, fuzzing, sanitizer, coverage, and CodeQL orderi
   assert.match(core, /test:local-whisper:native-fuzz-proof/u);
   assert.match(core, /test:local-whisper:whisper-cpp-cancellation/u);
   assert.match(core, /emit:local-whisper:native-quality-coverage/u);
+  assert.match(core, /--codeql-database=\.cache\/codeql\/cpp-linux\/cpp/u);
   assert.match(core, /--evidence=contract-inspection,compile,execute,analyze,sanitize,tsan,binary-inspection/u);
   assert.match(core, /category":"\/language:c-cpp,host:linux/u);
   assert.doesNotMatch(core, /SEMMLE_|CODEQL_RUNNER/u);
@@ -175,6 +183,7 @@ test('Linux core preserves TSan, fuzzing, sanitizer, coverage, and CodeQL orderi
 test('Windows core, analysis, and ASan lanes retain the complete required surface', () => {
   const core = jobText('native-windows-core');
   const shards = jobText('native-windows-shards');
+  assert.match(core, /--codeql-database=\.cache\/codeql\/cpp-windows\/cpp/u);
   assert.match(core, /test:local-whisper:fs-guard:native/u);
   assert.match(core, /test:local-whisper:whisper-cpp-core/u);
   assert.match(core, /verify:local-whisper:native-hardening -- --platform=windows/u);
@@ -182,6 +191,11 @@ test('Windows core, analysis, and ASan lanes retain the complete required surfac
   assert.match(core, /windows-x64-cuda-12\.8\.1-sm120a-msvc-19\.39-v1/u);
   assert.match(core, /vulkan-windows-x64/u);
   assert.match(core, /category":"\/language:c-cpp,host:windows/u);
+  const windowsCoreSteps = stepNames('native-windows-core');
+  assert.ok(
+    windowsCoreSteps.indexOf('Emit Windows native-quality coverage') >
+      windowsCoreSteps.indexOf('Analyze Windows C++ CodeQL database'),
+  );
   assert.match(shards, /LOCAL_WHISPER_MSVC_ANALYZE/u);
   assert.match(shards, /test:local-whisper:fs-guard:msvc-asan/u);
   assert.match(shards, /test:local-whisper:whisper-cpp:msvc-asan/u);
@@ -229,11 +243,30 @@ test('Quality Gates parallelizes static, test/build, and CodeQL work with scoped
 test('Package smoke starts independently while attestations remain downstream', () => {
   const packageSmoke = job('package-smoke');
   assert.equal(packageSmoke.needs, undefined);
-  assert.equal(job('package-attestation').needs, 'package-smoke');
+  assert.equal(job('package-attestation-input').needs, 'package-smoke');
+  assert.equal(job('package-attestation').needs, 'package-attestation-input');
   const rows = matrixRows('package-smoke');
   assert.deepEqual(rows.map((row) => row.artifactPlatform).sort(), ['linux', 'win32']);
   assert.match(jobText('package-smoke'), /Build and smoke exact Linux packages in Fedora/u);
   assert.match(jobText('package-smoke'), /Build and smoke Windows package/u);
+  assert.match(jobText('package-attestation-input'), /verify:security:package-attestation/u);
+  assert.doesNotMatch(jobText('package-attestation'), /actions\/checkout|setup-ci-project|npm run/u);
+});
+
+test('security aggregate consumes real native, CodeQL, package, and attestation job results', () => {
+  const aggregate = job('security-aggregate');
+  assert.equal(aggregate.if, '${{ always() }}');
+  assert.deepEqual(aggregate.needs, [
+    'native-quality-linux',
+    'native-quality-windows',
+    'quality',
+    'package-attestation',
+  ]);
+  const aggregateText = jobText('security-aggregate');
+  for (const dependency of aggregate.needs) {
+    assert.equal(aggregateText.includes(`needs.${dependency}.result`), true);
+  }
+  assert.match(aggregateText, /!= 'success'/u);
 });
 
 test('Native analysis and CodeQL retain real host builds and source inclusion contracts', () => {
@@ -257,12 +290,19 @@ test('Native analysis and CodeQL retain real host builds and source inclusion co
   assert.equal(count(workflowText, 'build-mode: manual'), 2);
   assert.match(workflowText, /schedule:\r?\n {4}- cron: '17 3 \* \* 1'/u);
   assert.match(workflowText, /- \.github\/codeql-config\.yml/u);
+  assert.match(workflowText, /- docs\/specs\/local-whisper-native-review-remediation\/\*\*/u);
+  assert.match(workflowText, /- eslint\.config\.mjs/u);
+  assert.match(workflowText, /- postcss\.config\.js/u);
+  assert.match(workflowText, /- tsconfig\*\.json/u);
   assert.match(workflowText, /- scripts\/\*\*/u);
   assert.match(workflowText, /- src\/renderer\/\*\*/u);
   assert.match(codeqlConfig, /src\/main/u);
   assert.match(codeqlConfig, /src\/renderer/u);
   assert.match(codeqlConfig, /src\/shared/u);
   assert.match(codeqlConfig, /scripts/u);
+  assert.match(codeqlConfig, /build/u);
+  assert.match(codeqlConfig, /webpack\.config\.js/u);
+  assert.match(codeqlConfig, /eslint\.config\.mjs/u);
   assert.match(nativeHardening, /LOCAL_WHISPER_MSVC_ANALYZE/u);
   assert.match(
     nativeHardening,

@@ -74,4 +74,13 @@ private:
   DIR* directory_ = nullptr;
 };
 
+template <typename DirectoryOpener>
+UniqueDir open_unique_directory(UniqueFd fd, DirectoryOpener&& opener) {
+  DIR* directory = std::forward<DirectoryOpener>(opener)(fd.get());
+  if (directory == nullptr)
+    return {};
+  static_cast<void>(fd.release());
+  return UniqueDir(directory);
+}
+
 } // namespace local_whisper::fs_guard

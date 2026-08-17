@@ -4,7 +4,10 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { describe, it } from 'node:test';
 
-import { getLocalWhisperLauncherAcknowledgmentTimeoutMs } from '@main/localWhisper/supervisor/NativeLauncherProcessOwner';
+import {
+  createNativeRuntimeProcessInstanceIds,
+  getLocalWhisperLauncherAcknowledgmentTimeoutMs,
+} from '@main/localWhisper/supervisor/NativeLauncherProcessOwner';
 import { NativeOwnedWorkerProcess } from '@main/localWhisper/supervisor/NativeOwnedWorkerProcess';
 import { LOCAL_WHISPER_LOAD_TIMEOUT_MS } from '@main/localWhisper/supervisor/LocalWhisperSupervisorConstants';
 
@@ -15,6 +18,28 @@ describe('NativeLauncherProcessOwner acknowledgment policy', () => {
 
   it('allows the bounded model-load budget for pre-launch model hashing', () => {
     assert.equal(getLocalWhisperLauncherAcknowledgmentTimeoutMs(true), LOCAL_WHISPER_LOAD_TIMEOUT_MS);
+  });
+});
+
+describe('NativeLauncherProcessOwner logging identities', () => {
+  it('allocates one distinct parent-authorized identity per native process', () => {
+    const available = [
+      '11111111-1111-1111-8111-111111111111',
+      '22222222-2222-2222-8222-222222222222',
+      '33333333-3333-3333-8333-333333333333',
+    ];
+    assert.deepEqual(
+      createNativeRuntimeProcessInstanceIds(() => available.shift() ?? '', 3),
+      [
+        '11111111-1111-1111-8111-111111111111',
+        '22222222-2222-2222-8222-222222222222',
+        '33333333-3333-3333-8333-333333333333',
+      ],
+    );
+    assert.throws(
+      () => createNativeRuntimeProcessInstanceIds(() => '11111111-1111-1111-8111-111111111111', 2),
+      /process instance ID/u,
+    );
   });
 });
 
@@ -29,7 +54,7 @@ describe('NativeOwnedWorkerProcess exit confirmation', () => {
       child,
       control,
       input,
-      nativeRuntimeProcessInstanceId: '11111111-1111-1111-8111-111111111111',
+      nativeRuntimeProcessInstanceIds: ['11111111-1111-1111-8111-111111111111'],
       output,
       platform: 'win32',
       processStartIdentity: 'fixture-process-start',

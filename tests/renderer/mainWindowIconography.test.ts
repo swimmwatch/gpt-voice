@@ -6,7 +6,7 @@ import * as path from 'node:path';
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 function readRendererSource(filename: string): string {
-  return readFileSync(path.join(PROJECT_ROOT, 'src/renderer', filename), 'utf8');
+  return readFileSync(path.join(PROJECT_ROOT, 'src/renderer', filename), 'utf8').replace(/\r\n/gu, '\n');
 }
 
 describe('main window iconography', () => {

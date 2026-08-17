@@ -3,10 +3,12 @@
 #include "local_whisper/common/authority_bootstrap.hpp"
 #include "local_whisper/common/linux_process_identity.hpp"
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/launcher/launcher_error.hpp"
 #include "local_whisper/launcher/model_authority_client.hpp"
+#include "poll_direction.hpp"
 
 #include <array>
 #include <cerrno>
@@ -34,13 +36,23 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-extern char** environ;
-
 namespace local_whisper::launcher {
 namespace {
 
 constexpr auto kPollInterval = std::chrono::milliseconds(50);
 constexpr auto kGracefulTerminationBudget = std::chrono::seconds(5);
+
+std::array<std::string, 4> worker_log_environment() {
+  const auto worker = common::native_child_log_configuration_from_environment(
+      common::NativeLogChildProcess::worker);
+  if (!worker.has_value())
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected,
+                        "launcher worker logging bootstrap rejected");
+  return {"LANG=C", "LC_ALL=C",
+          std::string("LOCAL_WHISPER_NATIVE_LOG_LEVEL=") +
+              (worker->minimum_level == common::NativeLogLevel::debug ? "debug" : "info"),
+          "LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID=" + worker->process_instance_id};
+}
 
 volatile std::sig_atomic_t termination_requested = 0;
 
@@ -278,6 +290,7 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
   int root_status = 0;
   bool termination_started = false;
   bool hard_kill_sent = false;
+  bool standard_input_open = true;
   auto hard_kill_deadline = std::chrono::steady_clock::time_point::max();
   std::array<std::uint8_t, 64U * 1024U> buffer{};
   while (true) {
@@ -288,7 +301,8 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
 
     std::array<struct pollfd, 3> descriptors = {
         pollfd{control.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
-        pollfd{STDIN_FILENO, static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
+        pollfd{linux_detail::active_poll_descriptor(standard_input_open, STDIN_FILENO),
+               static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
         pollfd{worker_output.get(), static_cast<short>(POLLIN | POLLHUP | POLLERR), 0},
     };
     const int polled =
@@ -310,11 +324,13 @@ int proxy_owned_group(const pid_t worker_pid, const int control_descriptor,
             termination_requested = 1;
           }
         } else if (count == 0 || errno != EINTR) {
+          standard_input_open = false;
           worker_input.reset();
           termination_requested = 1;
         }
       }
-      if ((descriptors[1].revents & (POLLHUP | POLLERR)) != 0) {
+      if (linux_detail::disable_on_terminal_poll_event(descriptors[1].revents,
+                                                       standard_input_open)) {
         worker_input.reset();
         termination_requested = 1;
       }
@@ -457,6 +473,10 @@ public:
       worker_output_write.reset(output_pipe[1]);
     }
 
+    auto worker_environment_storage = worker_log_environment();
+    std::array<char*, 5> worker_environment = {
+        worker_environment_storage[0].data(), worker_environment_storage[1].data(),
+        worker_environment_storage[2].data(), worker_environment_storage[3].data(), nullptr};
     const pid_t child = fork();
     if (child < 0)
       throw LauncherError(LauncherErrorCode::kWorkerCreationFailed, "launcher fork failed");
@@ -490,7 +510,7 @@ public:
                                                                              : "--probe";
       std::array<char*, 3> arguments = {const_cast<char*>("local-whisper-worker"),
                                         const_cast<char*>(mode), nullptr};
-      fexecve(worker.get(), arguments.data(), environ);
+      fexecve(worker.get(), arguments.data(), worker_environment.data());
       _exit(common::kChildExecBootstrapFailureExitCode);
     }
 

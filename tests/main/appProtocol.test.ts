@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import * as path from 'node:path';
 import { getAppProtocolContentType, getAppProtocolFilePath, getAppUrl } from '@main/appProtocol';
 import { APP_ICON_ASSET_PATH } from '@shared/appAssets';
 
@@ -17,22 +18,19 @@ describe('appProtocol', () => {
   });
 
   it('serves the app icon from the current app assets instead of a renderer-bundled copy', () => {
-    assert.equal(
-      getAppProtocolFilePath(APP_ICON_ASSET_PATH, '/app/dist', '/app/resources/assets/icon.png'),
-      '/app/resources/assets/icon.png',
-    );
-    assert.equal(
-      getAppProtocolFilePath('renderer.js', '/app/dist', '/app/resources/assets/icon.png'),
-      '/app/dist/renderer.js',
-    );
+    const appRoot = path.resolve('app', 'dist');
+    const appIconPath = path.resolve('app', 'resources', 'assets', 'icon.png');
+    assert.equal(getAppProtocolFilePath(APP_ICON_ASSET_PATH, appRoot, appIconPath), appIconPath);
+    assert.equal(getAppProtocolFilePath('renderer.js', appRoot, appIconPath), path.join(appRoot, 'renderer.js'));
   });
 
   it('recognizes nested renderer JavaScript and CSS chunks', () => {
-    assert.equal(
-      getAppProtocolFilePath('renderer/main.123456.js', '/app/dist', '/app/resources/assets/icon.png'),
-      '/app/dist/renderer/main.123456.js',
-    );
-    assert.equal(getAppProtocolContentType('/app/dist/renderer/main.123456.js'), 'text/javascript; charset=utf-8');
-    assert.equal(getAppProtocolContentType('/app/dist/renderer/main.123456.css'), 'text/css; charset=utf-8');
+    const appRoot = path.resolve('app', 'dist');
+    const appIconPath = path.resolve('app', 'resources', 'assets', 'icon.png');
+    const javaScriptPath = path.join(appRoot, 'renderer', 'main.123456.js');
+    const stylePath = path.join(appRoot, 'renderer', 'main.123456.css');
+    assert.equal(getAppProtocolFilePath('renderer/main.123456.js', appRoot, appIconPath), javaScriptPath);
+    assert.equal(getAppProtocolContentType(javaScriptPath), 'text/javascript; charset=utf-8');
+    assert.equal(getAppProtocolContentType(stylePath), 'text/css; charset=utf-8');
   });
 });

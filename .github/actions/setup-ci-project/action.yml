@@ -21,6 +21,11 @@ runs:
         node-version: ${{ inputs.node-version }}
         package-manager-cache: ${{ inputs.package-manager-cache }}
 
+    - name: Verify exact lockfile registry signatures before lifecycle scripts
+      if: inputs.install-dependencies == 'true'
+      shell: bash
+      run: node scripts/security/verify-npm-signatures-preinstall.mjs
+
     - name: Install locked dependencies
       if: inputs.install-dependencies == 'true'
       shell: bash

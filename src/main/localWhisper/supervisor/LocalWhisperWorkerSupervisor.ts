@@ -25,7 +25,6 @@ import {
 } from '@shared/localWhisper';
 
 import type { ManagedArtifactLease } from '../filesystem/ManagedArtifactLease';
-import { BoundedStderrRing } from './BoundedStderrRing';
 import type { NativeRuntimeLogStreamDecoder } from './NativeRuntimeLogStreamDecoder';
 import {
   LOCAL_WHISPER_HANDSHAKE_TIMEOUT_MS,
@@ -92,7 +91,7 @@ export interface LocalWhisperWorkerSupervisorDependencies {
     callbacks: LocalWhisperWorkerTransportCallbacks,
   ) => LocalWhisperWorkerTransport;
   readonly createNativeRuntimeLogDecoder?: (
-    processInstanceId: string | undefined,
+    processInstanceIds: readonly string[] | undefined,
   ) => Pick<NativeRuntimeLogStreamDecoder, 'append' | 'clear' | 'finish'>;
   readonly nextRequestId: () => string;
   readonly nativeRuntimeLogDecoder?: Pick<NativeRuntimeLogStreamDecoder, 'append' | 'clear' | 'finish'>;
@@ -275,7 +274,6 @@ export class LocalWhisperWorkerSupervisor {
   private readonly pending = new Map<string, PendingRequest>();
   private readonly pendingRevalidations = new Set<string>();
   private readonly usedRequestIds = new Set<string>();
-  private readonly stderrRing = new BoundedStderrRing();
   private activeEpoch: number | null = null;
   private activeModelLease: ManagedArtifactLease | null = null;
   private probedDeviceBinding: LocalWhisperWorkerDeviceBinding | null = null;
@@ -550,7 +548,7 @@ export class LocalWhisperWorkerSupervisor {
 
   private bindProcess(process: LocalWhisperOwnedWorkerProcess): void {
     this.nativeRuntimeLogDecoder = this.dependencies.createNativeRuntimeLogDecoder
-      ? this.dependencies.createNativeRuntimeLogDecoder(process.nativeRuntimeProcessInstanceId)
+      ? this.dependencies.createNativeRuntimeLogDecoder(process.nativeRuntimeProcessInstanceIds)
       : this.dependencies.nativeRuntimeLogDecoder;
     process.stderr.on('data', this.onStderr);
     process.stderr.once('end', this.onStderrEnd);
@@ -735,7 +733,6 @@ export class LocalWhisperWorkerSupervisor {
   };
 
   private readonly onStderr = (chunk: Buffer): void => {
-    this.stderrRing.append(chunk);
     this.nativeRuntimeLogDecoder?.append(chunk);
   };
 
@@ -820,7 +817,6 @@ export class LocalWhisperWorkerSupervisor {
     this.expectedHandshake = null;
     this.activeEpoch = null;
     this.probedDeviceBinding = null;
-    this.stderrRing.clear();
     this.nativeRuntimeLogDecoder?.finish();
     this.nativeRuntimeLogDecoder?.clear();
     this.nativeRuntimeLogDecoder = undefined;
@@ -875,7 +871,6 @@ export class LocalWhisperWorkerSupervisor {
     this.probeInputClosed = false;
     this.probedDeviceBinding = null;
     this.usedRequestIds.clear();
-    this.stderrRing.clear();
     this.stickyTerminalFailure = null;
     this.terminal = false;
   }

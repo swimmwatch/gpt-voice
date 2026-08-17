@@ -43,7 +43,7 @@ async function createBundle(root: string): Promise<{ readonly directory: string;
   return Object.freeze({ directory, manifestSha256: await sha256File(manifestPath) });
 }
 
-describe('LinuxQualificationPackageBuilder', () => {
+describe('LinuxQualificationPackageBuilder', { skip: process.platform !== 'linux' }, () => {
   it('projects the explicit candidate version into metadata and all three Linux packages', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-package-builder-test-'));
     try {

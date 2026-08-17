@@ -13,6 +13,7 @@ import { sha256Bytes, writeCanonicalJson } from '@scripts/local-whisper/packagin
 
 let root = '';
 let stageRoot = '';
+const expectedWorkerMode = process.platform === 'win32' ? 0 : 0o500;
 
 describe('DeterministicRuntimePackProducer', () => {
   before(async () => {
@@ -32,7 +33,7 @@ describe('DeterministicRuntimePackProducer', () => {
         {
           id: 'worker',
           relativePath: 'bin/worker',
-          mode: 0o500,
+          mode: expectedWorkerMode,
           sizeBytes: worker.byteLength,
           sha256: sha256Bytes(worker),
         },

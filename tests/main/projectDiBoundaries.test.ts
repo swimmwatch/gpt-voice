@@ -246,8 +246,9 @@ function collectSourceUnits(): SourceUnit[] {
   };
   for (const root of SOURCE_ROOTS) visitDirectory(root);
 
-  return relativePaths.sort().map((relativePath) => {
-    const source = readFileSync(path.join(PROJECT_ROOT, relativePath), 'utf8');
+  return relativePaths.sort().map((hostRelativePath) => {
+    const relativePath = hostRelativePath.split(path.sep).join('/');
+    const source = readFileSync(path.join(PROJECT_ROOT, hostRelativePath), 'utf8');
     const scriptKind = relativePath.endsWith('.tsx')
       ? ts.ScriptKind.TSX
       : relativePath.endsWith('.js')

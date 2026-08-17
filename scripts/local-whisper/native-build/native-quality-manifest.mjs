@@ -22,7 +22,15 @@ const PROJECTS = Object.freeze([
   Object.freeze({ id: 'worker', root: ['runtime', 'local-whisper', 'whisper-cpp'] }),
 ]);
 const FOCUSED_GCC_PROJECTS = Object.freeze(['fs-guard', 'launcher']);
-const FOCUSED_GCC_DEPENDENCY_PROJECTS = new Set(['common', ...FOCUSED_GCC_PROJECTS]);
+const FOCUSED_GCC_SHARED_TRANSLATION_UNITS = new Set([
+  'runtime/local-whisper/common/src/authority_bootstrap.cpp',
+  'runtime/local-whisper/common/src/linux_process_identity.cpp',
+  'runtime/local-whisper/common/src/model_authority.cpp',
+  'runtime/local-whisper/common/src/native_logger.cpp',
+  'runtime/local-whisper/common/src/sha256.cpp',
+  'runtime/local-whisper/common/src/sha256_dispatch.cpp',
+  'runtime/local-whisper/common/src/sha256_x86.cpp',
+]);
 
 const LINUX_ONLY_BASENAMES = new Set([
   'authority_bootstrap.cpp',
@@ -35,9 +43,11 @@ const LINUX_ONLY_BASENAMES = new Set([
   'model_authority_linux.cpp',
   'model_authority_server.cpp',
   'model_launch_application.cpp',
+  'poll_direction_test.cpp',
   'qualification_protocol_test.cpp',
-  'worker_tsan_race_proof.cpp',
   'worker_protocol_posix.cpp',
+  'worker_protocol_posix_test.cpp',
+  'worker_tsan_race_proof.cpp',
 ]);
 
 const WINDOWS_ONLY_BASENAMES = new Set([
@@ -151,6 +161,20 @@ export function manifestEntriesForPlatform(manifest, platform, { translationUnit
   );
 }
 
+/** Lists the exact translation-unit closure built by the focused Linux GCC guard and launcher presets. */
+export function manifestEntriesForFocusedGcc(manifest) {
+  assertManifestShape(manifest);
+  return Object.freeze(
+    manifest.filter(
+      (entry) =>
+        entry.kind === 'translation-unit' &&
+        entry.platforms.includes('linux') &&
+        ((FOCUSED_GCC_PROJECTS.includes(entry.project) && !entry.path.includes('/fuzz/')) ||
+          FOCUSED_GCC_SHARED_TRANSLATION_UNITS.has(entry.path)),
+    ),
+  );
+}
+
 /** Rejects a real build that misses an owned translation unit or compiles a host-inapplicable one. */
 export function assertPlatformCompilationCoverage(manifest, platform, compiledPaths) {
   const required = manifestEntriesForPlatform(manifest, platform, { translationUnitsOnly: true });
@@ -206,21 +230,19 @@ export function createFocusedGccQualityCoverageReport({ compilerProfile, evidenc
   if (!Array.isArray(compiledPaths) || compiledPaths.length === 0) {
     throw new Error('Focused GCC quality compiled sources are required');
   }
-  const entriesByPath = new Map(manifest.map((entry) => [entry.path, entry]));
   const sourceSet = [...new Set(compiledPaths)].sort(bytewiseStringSort);
-  const projects = new Set();
-  for (const path of sourceSet) {
-    const entry = entriesByPath.get(path);
-    if (!entry || entry.kind !== 'translation-unit' || !entry.platforms.includes('linux')) {
-      throw new Error(`Focused GCC quality source is not a Linux project translation unit: ${path}`);
-    }
-    if (!FOCUSED_GCC_DEPENDENCY_PROJECTS.has(entry.project)) {
-      throw new Error(`Focused GCC quality includes an out-of-scope project source: ${path}`);
-    }
-    projects.add(entry.project);
+  const requiredSourceSet = manifestEntriesForFocusedGcc(manifest)
+    .map((entry) => entry.path)
+    .sort(bytewiseStringSort);
+  const requiredSources = new Set(requiredSourceSet);
+  const compiledSources = new Set(sourceSet);
+  const missing = requiredSourceSet.filter((path) => !compiledSources.has(path));
+  if (missing.length > 0) {
+    throw new Error(`Focused GCC quality is missing required translation units: ${missing.join(', ')}`);
   }
-  for (const project of FOCUSED_GCC_PROJECTS) {
-    if (!projects.has(project)) throw new Error(`Focused GCC quality is missing ${project} sources`);
+  const unexpected = sourceSet.filter((path) => !requiredSources.has(path));
+  if (unexpected.length > 0) {
+    throw new Error(`Focused GCC quality includes unexpected translation units: ${unexpected.join(', ')}`);
   }
   return Object.freeze({
     compilerProfile,

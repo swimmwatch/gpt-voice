@@ -8,6 +8,7 @@ import {
   createFocusedGccQualityCoverageReport,
   createNativeQualityCoverageReport,
   createNativeQualityManifest,
+  manifestEntriesForFocusedGcc,
   manifestEntriesForPlatform,
 } from '../../../../scripts/local-whisper/native-build/native-quality-manifest.mjs';
 
@@ -65,6 +66,14 @@ test('native quality manifest covers every owned project and separates host-spec
   assert.ok(!manifestEntriesForPlatform(manifest, 'windows').some((entry) => entry.path.includes('/fuzz/')));
   assert.deepEqual(
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/qualification_protocol_test.cpp'))?.platforms,
+    ['linux'],
+  );
+  assert.deepEqual(
+    manifest.find((entry) => entry.path.endsWith('/launcher/tests/unit/poll_direction_test.cpp'))?.platforms,
+    ['linux'],
+  );
+  assert.deepEqual(
+    manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_protocol_posix_test.cpp'))?.platforms,
     ['linux'],
   );
   assert.deepEqual(
@@ -131,14 +140,19 @@ test('native quality reports reject over-claims and expose only relative source 
 
 test('focused GCC quality reports only the compiled Linux guard, launcher, and shared dependency sources', () => {
   const manifest = createNativeQualityManifest(WORKSPACE_ROOT);
-  const compiledPaths = manifest
-    .filter(
-      (entry) =>
-        entry.kind === 'translation-unit' &&
-        entry.platforms.includes('linux') &&
-        ['common', 'fs-guard', 'launcher'].includes(entry.project),
-    )
-    .map((entry) => entry.path);
+  const compiledPaths = manifestEntriesForFocusedGcc(manifest).map((entry) => entry.path);
+  assert.deepEqual(
+    compiledPaths.filter((sourcePath) => sourcePath.startsWith('runtime/local-whisper/common/src/')),
+    [
+      'runtime/local-whisper/common/src/authority_bootstrap.cpp',
+      'runtime/local-whisper/common/src/linux_process_identity.cpp',
+      'runtime/local-whisper/common/src/model_authority.cpp',
+      'runtime/local-whisper/common/src/native_logger.cpp',
+      'runtime/local-whisper/common/src/sha256.cpp',
+      'runtime/local-whisper/common/src/sha256_dispatch.cpp',
+      'runtime/local-whisper/common/src/sha256_x86.cpp',
+    ],
+  );
   const report = createFocusedGccQualityCoverageReport({
     compilerProfile: 'linux-x64-cpu-baseline-v1',
     compiledPaths,
@@ -153,29 +167,39 @@ test('focused GCC quality reports only the compiled Linux guard, launcher, and s
     () =>
       createFocusedGccQualityCoverageReport({
         compilerProfile: 'linux-x64-cpu-baseline-v1',
-        compiledPaths: compiledPaths.filter((path) => !path.includes('/fs-guard/')),
+        compiledPaths: compiledPaths.slice(1),
         evidence: ['compile', 'execute'],
         manifest,
       }),
-    /missing fs-guard/u,
+    /missing required translation units/u,
   );
   assert.throws(
     () =>
       createFocusedGccQualityCoverageReport({
         compilerProfile: 'linux-x64-cpu-baseline-v1',
-        compiledPaths: [...compiledPaths, 'runtime/local-whisper/whisper-cpp/core/main.cpp'],
+        compiledPaths: [...compiledPaths, 'runtime/local-whisper/common/src/frame_codec.cpp'],
         evidence: ['compile', 'execute'],
         manifest,
       }),
-    /out-of-scope/u,
+    /unexpected translation units/u,
   );
 });
 
-test('Linux quality compiles the Linux-only qualification test and MSVC analysis suppresses reviewed dependency false positives', () => {
+test('Linux quality compiles every configured engine target and MSVC analysis suppresses reviewed dependency false positives', () => {
   assert.match(WHISPER_CPP_CORE_VERIFIER, /tests: true/u);
   assert.match(
     WHISPER_CPP_CORE_VERIFIER,
-    /buildTargets\(engine, \['local_whisper_whisper_cpp_qualification_tests'\]\)/u,
+    /const LINUX_QUALITY_ENGINE_TARGETS = Object\.freeze\(\[\s*'local_whisper_whisper_cpp_qualification_tests',\s*'local-whisper-whisper-cpp-direct-engine',\s*'local-whisper-whisper-cpp-worker',\s*\]\)/u,
+  );
+  assert.match(WHISPER_CPP_CORE_VERIFIER, /preparedLinuxQuality && suite === 'core'/u);
+  assert.match(
+    NATIVE_TEST_CMAKE_FILES[3],
+    /add_library\(local_whisper_whisper_cpp_adapter STATIC adapter\/whisper_engine\.cpp\)/u,
+  );
+  assert.match(NATIVE_TEST_CMAKE_FILES[3], /add_executable\(local-whisper-whisper-cpp-worker core\/main\.cpp\)/u);
+  assert.match(
+    NATIVE_TEST_CMAKE_FILES[3],
+    /add_executable\(local-whisper-whisper-cpp-direct-engine\s+qualification\/direct_engine_main\.cpp\)/u,
   );
   assert.match(WHISPER_CPP_CORE_VERIFIER, /runTests\(engine, 'direct-engine'\)/u);
   assert.match(NLOHMANN_JSON_WRAPPER, /#pragma warning\(disable : 6294\)/u);

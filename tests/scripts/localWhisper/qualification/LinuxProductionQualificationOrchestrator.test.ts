@@ -109,7 +109,9 @@ function qualificationResult(foundation: QualificationLinuxFoundation): Qualific
   });
 }
 
-it('coordinates one injected Linux qualification graph and releases ephemeral resources', async () => {
+const linuxTest = process.platform === 'linux' ? it : it.skip;
+
+linuxTest('coordinates one injected Linux qualification graph and releases ephemeral resources', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-orchestrator-test-'));
   let serverStops = 0;
   let tlsDestroys = 0;
@@ -285,7 +287,7 @@ it('coordinates one injected Linux qualification graph and releases ephemeral re
   }
 });
 
-it('blocks advisory failure before creating the private qualification root', async () => {
+linuxTest('blocks advisory failure before creating the private qualification root', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-advisory-preflight-test-'));
   const privateRunRoot = path.join(root, 'private-run');
   try {

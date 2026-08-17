@@ -53,7 +53,30 @@ test('TypeScript owner keeps launch argv and environment fixed and non-private',
   assert.match(owner, /shell: false/u);
   assert.match(launchEnvironment, /LOCAL_WHISPER_NATIVE_LOG_LEVEL/u);
   assert.match(launchEnvironment, /LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID/u);
+  assert.match(launchEnvironment, /LOCAL_WHISPER_NATIVE_LAUNCHER_PROCESS_INSTANCE_ID/u);
+  assert.match(launchEnvironment, /LOCAL_WHISPER_NATIVE_WORKER_PROCESS_INSTANCE_ID/u);
   assert.match(launchEnvironment, /LANG: 'C'/u);
   assert.match(launchEnvironment, /LC_ALL: 'C'/u);
   assert.doesNotMatch(`${owner}\n${launchEnvironment}`, /taskkill|modelPath|initialPrompt|targetRequestId/u);
+});
+
+test('native launchers replace the inherited tree identity with each authorized child identity', () => {
+  const linuxGuard = source('runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp');
+  const windowsGuard = source(
+    'runtime/local-whisper/fs-guard/src/platform/windows/windows_model_launch_application.cpp',
+  );
+  const linuxLauncher = source('runtime/local-whisper/launcher/src/platform/linux/linux_launcher.cpp');
+  const windowsLauncher = source('runtime/local-whisper/launcher/src/platform/windows/windows_launcher.cpp');
+
+  for (const guard of [linuxGuard, windowsGuard]) {
+    assert.match(guard, /NativeLogChildProcess::launcher/u);
+    assert.match(guard, /NativeLogChildProcess::worker/u);
+    assert.match(guard, /LOCAL_WHISPER_NATIVE_WORKER_PROCESS_INSTANCE_ID/u);
+  }
+  for (const launcher of [linuxLauncher, windowsLauncher]) {
+    assert.match(launcher, /NativeLogChildProcess::worker/u);
+    assert.match(launcher, /LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID/u);
+  }
+  assert.doesNotMatch(linuxGuard, /std::array<char\*, 3> environment/u);
+  assert.doesNotMatch(windowsGuard, /flags, nullptr, nullptr, &startup/u);
 });

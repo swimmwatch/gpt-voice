@@ -90,6 +90,20 @@ describe('Native source advisory scanner', () => {
     assert.deepEqual(report.locks[0].sources[0].advisoryIds, ['GHSA-test-0001']);
   });
 
+  it('preserves a confirmed affected result when another source is unavailable', async () => {
+    const report = await scanner({
+      osv: { results: [{ vulns: [{ id: 'GHSA-test-0001' }] }, {}, {}] },
+      tagError: new AdvisorySourceError('unavailable'),
+    }).scan(WORKSPACE_ROOT);
+
+    assert.equal(report.result, 'affected');
+    assert.equal(report.locks[0].result, 'affected');
+    assert.deepEqual(
+      report.locks[0].sources.map((source) => source.result),
+      ['affected', 'unavailable'],
+    );
+  });
+
   it('rejects version-range-only advisory evidence as unresolved', async () => {
     const report = await scanner({
       osv: {

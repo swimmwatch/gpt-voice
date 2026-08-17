@@ -13,6 +13,8 @@
     "missing-nx",
     "missing-high-entropy-va",
     "missing-stack-cookie",
+    "missing-cfg-dll-characteristic",
+    "missing-cfg-function-table-flag",
     "missing-cfg"
   ]
 }

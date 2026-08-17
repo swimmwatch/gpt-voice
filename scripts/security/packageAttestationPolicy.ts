@@ -13,6 +13,10 @@ import {
 export const PACKAGE_ATTESTATION_SCHEMA_VERSION = 1;
 export const PACKAGE_ATTESTATION_MAXIMUM_BYTES = 16 * 1024;
 export const PACKAGE_ATTESTATION_WORKFLOW_PATH = '.github/workflows/pr-checks.yml';
+export const PACKAGE_ATTESTATION_WORKFLOW_PATHS = Object.freeze([
+  PACKAGE_ATTESTATION_WORKFLOW_PATH,
+  '.github/workflows/release-builds.yml',
+] as const);
 export const PACKAGE_ATTESTATION_SUBJECT_NAMES = Object.freeze([
   'package',
   'checksum',
@@ -24,7 +28,7 @@ export const PACKAGE_ATTESTATION_SUBJECT_NAMES = Object.freeze([
 const SHA256 = /^[a-f0-9]{64}$/u;
 const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
 const REPOSITORY = /^\w[\w.-]{0,99}\/\w[\w.-]{0,99}$/u;
-const INVOCATION = /^\d{1,20}-\d{1,4}-package-smoke-(?:linux|win32)$/u;
+const INVOCATION = /^\d{1,20}-\d{1,4}-(?:package-smoke|release-build)-(?:linux|win32)$/u;
 const MAXIMUM_SUBJECT_BYTES = 4 * 1024 * 1024 * 1024;
 
 export type PackageAttestationPlatform = ApplicationSecurityPlatform;
@@ -58,10 +62,14 @@ export interface PackageAttestationExpectation {
   readonly platform: PackageAttestationPlatform;
   readonly repository: string;
   readonly sourceCommit: string;
+  readonly workflowPath: (typeof PACKAGE_ATTESTATION_WORKFLOW_PATHS)[number];
 }
 
 export interface GitHubAttestationCommand {
-  verify(subjectPath: string, repository: string): Promise<'verified' | 'invalid' | 'unavailable' | 'unsupported'>;
+  verify(
+    subjectPath: string,
+    expectation: { readonly repository: string; readonly sourceCommit: string; readonly workflowPath: string },
+  ): Promise<'verified' | 'invalid' | 'unavailable' | 'unsupported'>;
 }
 
 function fail(code: string): never {
@@ -111,8 +119,13 @@ function digest(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-function sourceWorkflowRef(repository: string, sourceCommit: string): string {
-  return `${repository}/${PACKAGE_ATTESTATION_WORKFLOW_PATH}@${sourceCommit}`;
+function safeWorkflowPath(value: unknown, code: string): (typeof PACKAGE_ATTESTATION_WORKFLOW_PATHS)[number] {
+  if (!PACKAGE_ATTESTATION_WORKFLOW_PATHS.includes(value as never)) fail(code);
+  return value as (typeof PACKAGE_ATTESTATION_WORKFLOW_PATHS)[number];
+}
+
+function sourceWorkflowRef(repository: string, sourceCommit: string, workflowPath: string): string {
+  return `${repository}/${workflowPath}@${sourceCommit}`;
 }
 
 function verifySubject(value: unknown, code: string): PackageAttestationSubject {
@@ -129,6 +142,7 @@ export class PackageAttestationInputPolicy {
     readonly repository: string;
     readonly sourceCommit: string;
     readonly subjects: Readonly<Record<PackageAttestationSubjectName, Uint8Array>>;
+    readonly workflowPath?: (typeof PACKAGE_ATTESTATION_WORKFLOW_PATHS)[number];
   }): PackageAttestationInput {
     const platform = safePlatform(input.platform, 'INPUT_INVALID');
     safeRepository(input.repository, 'INPUT_INVALID');
@@ -152,11 +166,13 @@ export class PackageAttestationInputPolicy {
     readonly repository: string;
     readonly sourceCommit: string;
     readonly subjects: Readonly<Record<PackageAttestationSubjectName, PackageAttestationSubject>>;
+    readonly workflowPath?: (typeof PACKAGE_ATTESTATION_WORKFLOW_PATHS)[number];
   }): PackageAttestationInput {
     const platform = safePlatform(input.platform, 'INPUT_INVALID');
     const repository = safeRepository(input.repository, 'INPUT_INVALID');
     const sourceCommit = safeSourceCommit(input.sourceCommit, 'INPUT_INVALID');
     const invocation = safeInvocation(input.invocation, platform, 'INPUT_INVALID');
+    const workflowPath = safeWorkflowPath(input.workflowPath ?? PACKAGE_ATTESTATION_WORKFLOW_PATH, 'INPUT_INVALID');
     const subjects = Object.freeze(
       Object.fromEntries(
         PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => [name, verifySubject(input.subjects[name], 'INPUT_INVALID')]),
@@ -170,7 +186,7 @@ export class PackageAttestationInputPolicy {
       source: Object.freeze({
         commit: sourceCommit,
         repository,
-        workflowRef: sourceWorkflowRef(repository, sourceCommit),
+        workflowRef: sourceWorkflowRef(repository, sourceCommit, workflowPath),
       }),
       subjects: Object.freeze(subjects),
     });
@@ -220,11 +236,18 @@ export class PackageAttestationInputPolicy {
     ) {
       fail('INPUT_MALFORMED');
     }
-    if (!isRecord(input.source)) fail('INPUT_MALFORMED');
-    exactKeys(input.source, ['commit', 'repository', 'workflowRef'], 'INPUT_MALFORMED');
-    const repository = safeRepository(input.source.repository, 'INPUT_MALFORMED');
-    const sourceCommit = safeSourceCommit(input.source.commit, 'INPUT_MALFORMED');
-    if (input.source.workflowRef !== sourceWorkflowRef(repository, sourceCommit)) fail('INPUT_MALFORMED');
+    const source = input.source;
+    if (!isRecord(source)) fail('INPUT_MALFORMED');
+    exactKeys(source, ['commit', 'repository', 'workflowRef'], 'INPUT_MALFORMED');
+    const repository = safeRepository(source.repository, 'INPUT_MALFORMED');
+    const sourceCommit = safeSourceCommit(source.commit, 'INPUT_MALFORMED');
+    if (
+      !PACKAGE_ATTESTATION_WORKFLOW_PATHS.some(
+        (workflowPath) => source.workflowRef === sourceWorkflowRef(repository, sourceCommit, workflowPath),
+      )
+    ) {
+      fail('INPUT_MALFORMED');
+    }
     const subjects = isRecord(input.subjects) ? input.subjects : fail('INPUT_MALFORMED');
     exactKeys(subjects, PACKAGE_ATTESTATION_SUBJECT_NAMES, 'INPUT_MALFORMED');
     for (const name of PACKAGE_ATTESTATION_SUBJECT_NAMES) verifySubject(subjects[name], 'INPUT_MALFORMED');
@@ -293,11 +316,12 @@ export class PackageAttestationVerifier {
     const expectedRepository = safeRepository(input.expected.repository, 'EXPECTATION_INVALID');
     const expectedCommit = safeSourceCommit(input.expected.sourceCommit, 'EXPECTATION_INVALID');
     const expectedInvocation = safeInvocation(input.expected.invocation, expectedPlatform, 'EXPECTATION_INVALID');
+    const expectedWorkflowPath = safeWorkflowPath(input.expected.workflowPath, 'EXPECTATION_INVALID');
     if (
       attestation.platform !== expectedPlatform ||
       attestation.source.repository !== expectedRepository ||
       attestation.source.commit !== expectedCommit ||
-      attestation.source.workflowRef !== sourceWorkflowRef(expectedRepository, expectedCommit) ||
+      attestation.source.workflowRef !== sourceWorkflowRef(expectedRepository, expectedCommit, expectedWorkflowPath) ||
       attestation.build.invocation !== expectedInvocation ||
       attestation.build.status !== 'success'
     ) {
@@ -320,12 +344,31 @@ export class PackageAttestationVerifier {
 export class GitHubAttestationVerifier {
   public constructor(private readonly command: GitHubAttestationCommand) {}
 
-  public async verify(input: { readonly repository: string; readonly subjectPaths: readonly string[] }): Promise<void> {
+  public async verify(input: {
+    readonly repository: string;
+    readonly sourceCommit: string;
+    readonly subjectPaths: readonly string[];
+    readonly workflowPath: string;
+  }): Promise<void> {
     const repository = safeRepository(input.repository, 'EXPECTATION_INVALID');
-    if (input.subjectPaths.length !== PACKAGE_ATTESTATION_SUBJECT_NAMES.length) fail('SUBJECT_UNAVAILABLE');
+    const sourceCommit = safeSourceCommit(input.sourceCommit, 'EXPECTATION_INVALID');
+    safeWorkflowPath(input.workflowPath, 'EXPECTATION_INVALID');
+    const expectedPaths = [
+      'attestation-input.json',
+      ...PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+    ].sort((left, right) => left.localeCompare(right, 'en'));
+    const actualPaths = [...input.subjectPaths].sort((left, right) => left.localeCompare(right, 'en'));
+    if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) fail('SUBJECT_UNAVAILABLE');
     for (const subjectPath of input.subjectPaths) {
-      if (typeof subjectPath !== 'string' || !/^subject\/[a-z-]+$/u.test(subjectPath)) fail('SUBJECT_UNAVAILABLE');
-      const result = await this.command.verify(subjectPath, repository).catch(() => 'unavailable' as const);
+      if (
+        typeof subjectPath !== 'string' ||
+        (subjectPath !== 'attestation-input.json' && !/^subject\/[a-z-]+$/u.test(subjectPath))
+      ) {
+        fail('SUBJECT_UNAVAILABLE');
+      }
+      const result = await this.command
+        .verify(subjectPath, { repository, sourceCommit, workflowPath: input.workflowPath })
+        .catch(() => 'unavailable' as const);
       if (result === 'unavailable') fail('GITHUB_UNAVAILABLE');
       if (result === 'unsupported') fail('GITHUB_UNSUPPORTED');
       if (result !== 'verified') fail('GITHUB_INVALID');

@@ -7,7 +7,8 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const image = optionValue('image') || 'gpt-voice-fedora-release:local';
 const mode = optionValue('mode') || 'release';
 const releaseDate = optionValue('release-date') || process.env.PACKAGE_RELEASE_DATE || '';
-const releaseTag = optionValue('release-tag') || process.env.RELEASE_TAG || process.env.WORKFLOW_DISPATCH_RELEASE_TAG || '';
+const releaseTag =
+  optionValue('release-tag') || process.env.RELEASE_TAG || process.env.WORKFLOW_DISPATCH_RELEASE_TAG || '';
 const skipImageBuild = hasFlag('skip-image-build');
 const pullBaseImage = hasFlag('pull');
 
@@ -23,13 +24,7 @@ await Promise.all([
 ]);
 
 if (!skipImageBuild) {
-  const buildArgs = [
-    'build',
-    '--file',
-    path.join(rootDir, 'build', 'fedora-release', 'Dockerfile'),
-    '--tag',
-    image,
-  ];
+  const buildArgs = ['build', '--file', path.join(rootDir, 'build', 'fedora-release', 'Dockerfile'), '--tag', image];
 
   if (pullBaseImage) {
     buildArgs.push('--pull');
@@ -82,6 +77,7 @@ if (releaseTag) {
   containerArgs.push(`--release-tag=${releaseTag}`);
 }
 
+await run('node', ['scripts/security/verify-npm-signatures-preinstall.mjs']);
 await run('docker', containerArgs);
 
 function optionValue(name) {

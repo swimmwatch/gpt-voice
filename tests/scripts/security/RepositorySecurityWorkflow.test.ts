@@ -13,6 +13,29 @@ async function readWorkspaceFile(...segments: string[]): Promise<string> {
 }
 
 describe('Repository security workflow', () => {
+  it('verifies registry signatures before any dependency lifecycle scripts', async () => {
+    const setupAction = await readWorkspaceFile('.github', 'actions', 'setup-ci-project', 'action.yml');
+    const signatureGate = setupAction.indexOf('verify-npm-signatures-preinstall.mjs');
+    const installation = setupAction.indexOf('npm run ci:install');
+    assert.ok(signatureGate >= 0 && installation > signatureGate);
+
+    const releaseWorkflow = await readWorkspaceFile('.github', 'workflows', 'release-builds.yml');
+    const baselineGate = releaseWorkflow.indexOf(
+      'node scripts/security/verify-npm-signatures-preinstall.mjs --workspace=.size-baseline',
+    );
+    const baselineInstall = releaseWorkflow.indexOf('npm run ci:install', baselineGate);
+    assert.ok(baselineGate >= 0 && baselineInstall > baselineGate);
+
+    const fedoraRunner = await readWorkspaceFile('scripts', 'build-fedora-release.mjs');
+    assert.match(
+      fedoraRunner,
+      /await run\('node', \['scripts\/security\/verify-npm-signatures-preinstall\.mjs'\]\);\r?\nawait run\('docker', containerArgs\);/u,
+    );
+    const fedoraEntrypoint = await readWorkspaceFile('build', 'fedora-release', 'fedora-release-entrypoint.mjs');
+    assert.doesNotMatch(fedoraEntrypoint, /verify-npm-signatures-preinstall\.mjs/u);
+    assert.match(fedoraEntrypoint, /await run\('npm', \['run', 'ci:install'\]\)/u);
+  });
+
   it('runs every repository-control gate with immutable inputs', async () => {
     const workflow = await readWorkspaceFile('.github', 'workflows', 'repository-security.yml');
     for (const command of [

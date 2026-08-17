@@ -82,12 +82,12 @@ function assertIsolatedInstrumentation(buildRoot) {
   }
 }
 
-function listWorkerTests(configured, profile, environment) {
+function listWorkerTests(configured, profile, runtimeEnvironment) {
   const ctest = resolve(configured.tools.cmake, '..', 'ctest');
   const result = spawnSync(ctest, ['--test-dir', configured.buildRoot, '--show-only=json-v1'], {
     cwd: workspaceRoot,
     encoding: 'utf8',
-    env: environment,
+    env: runtimeEnvironment,
     maxBuffer: MAXIMUM_REPORT_BYTES,
     shell: false,
     timeout: profile.suite.timeoutMilliseconds,
@@ -131,21 +131,27 @@ function configureWorkerTsan(profile) {
   return configured;
 }
 
-function runProof(profile, environment) {
+function runProof(profile, runtimeEnvironment) {
   const configured = configureWorkerTsan(profile);
   buildTargets(configured, [profile.proof.executable]);
   const binary = resolve(configured.buildRoot, profile.proof.executable);
-  const result = executeBounded(binary, [], environment, profile.proof.timeoutMilliseconds, 'synthetic-race proof');
+  const result = executeBounded(
+    binary,
+    [],
+    runtimeEnvironment,
+    profile.proof.timeoutMilliseconds,
+    'synthetic-race proof',
+  );
   if (result.status === 0) throw new Error('Worker TSan synthetic race unexpectedly passed');
   if (result.classification !== profile.proof.expectedClassification) {
     throw new Error('Worker TSan synthetic race report is missing or malformed');
   }
 }
 
-function runSuite(profile, environment) {
+function runSuite(profile, runtimeEnvironment) {
   const configured = configureWorkerTsan(profile);
   buildTargets(configured, WORKER_TEST_TARGETS);
-  listWorkerTests(configured, profile, environment);
+  listWorkerTests(configured, profile, runtimeEnvironment);
   const ctest = resolve(configured.tools.cmake, '..', 'ctest');
   const result = executeBounded(
     ctest,
@@ -158,7 +164,7 @@ function runSuite(profile, environment) {
       '-R',
       profile.suite.testPattern,
     ],
-    environment,
+    runtimeEnvironment,
     profile.suite.timeoutMilliseconds,
     'worker concurrency suite',
   );
@@ -175,9 +181,9 @@ try {
   if (mode !== '--mode=proof' && mode !== '--mode=suite') throw new Error('Expected --mode=proof or --mode=suite');
   requireLinux();
   const profile = readProfile();
-  const environment = threadSanitizerRuntimeEnvironment(process.env, profile.target.os);
-  if (mode === '--mode=proof') runProof(profile, environment);
-  else runSuite(profile, environment);
+  const runtimeEnvironment = threadSanitizerRuntimeEnvironment(process.env, profile.target.os);
+  if (mode === '--mode=proof') runProof(profile, runtimeEnvironment);
+  else runSuite(profile, runtimeEnvironment);
   process.stdout.write(`${profile.profileId}\t${mode.slice('--mode='.length)}\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Worker TSan gate failed'}\n`);

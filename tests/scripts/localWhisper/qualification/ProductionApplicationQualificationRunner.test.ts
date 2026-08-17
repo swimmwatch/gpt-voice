@@ -70,7 +70,7 @@ function input(
   };
 }
 
-describe('ProductionApplicationQualificationRunner', () => {
+describe('ProductionApplicationQualificationRunner', { skip: process.platform !== 'linux' }, () => {
   it('rejects a model identity outside the canonical six-row matrix before side effects', async () => {
     const fixture: QualificationAudioFixture = {
       id: 'fixture',

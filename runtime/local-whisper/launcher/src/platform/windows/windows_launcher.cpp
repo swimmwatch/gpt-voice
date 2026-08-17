@@ -1,8 +1,10 @@
 #include "local_whisper/launcher/platform_launcher.hpp"
 
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/common/sha256.hpp"
+#include "local_whisper/common/windows_executable_policy.hpp"
 #include "local_whisper/common/windows_process_identity.hpp"
 #include "local_whisper/launcher/launcher_error.hpp"
 #include "local_whisper/launcher/windows_model_authority_client.hpp"
@@ -387,10 +389,17 @@ void write_acknowledgment(int descriptor, DWORD worker_pid) {
 }
 
 std::vector<wchar_t> sanitized_environment() {
-  std::vector<std::wstring> entries;
-  for (const wchar_t* key :
-       {L"LOCAL_WHISPER_NATIVE_LOG_LEVEL", L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID",
-        L"SystemRoot", L"WINDIR"}) {
+  const auto worker = common::native_child_log_configuration_from_environment(
+      common::NativeLogChildProcess::worker);
+  if (!worker.has_value())
+    throw LauncherError(LauncherErrorCode::kBootstrapRejected,
+                        "launcher worker logging bootstrap rejected");
+  std::vector<std::wstring> entries = {
+      std::wstring(L"LOCAL_WHISPER_NATIVE_LOG_LEVEL=") +
+          (worker->minimum_level == common::NativeLogLevel::debug ? L"debug" : L"info"),
+      std::wstring(L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID=") +
+          std::wstring(worker->process_instance_id.begin(), worker->process_instance_id.end())};
+  for (const wchar_t* key : {L"SystemRoot", L"WINDIR"}) {
     const DWORD length = GetEnvironmentVariableW(key, nullptr, 0);
     if (length == 0)
       continue;
@@ -567,9 +576,10 @@ public:
 
     const std::wstring worker_application =
         extended_path(worker_path, worker_path.components.size());
-    UniqueHandle worker_file(CreateFileW(worker_application.c_str(), kWorkerAccess,
-                                         kGuardCompatibleShareMode, nullptr, OPEN_EXISTING,
-                                         FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    UniqueHandle worker_file(
+        CreateFileW(worker_application.c_str(), kWorkerAccess,
+                    static_cast<DWORD>(local_whisper::common::kVerifiedExecutableShareMode),
+                    nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
     if (!worker_file.valid())
       throw LauncherError(LauncherErrorCode::kWorkerOpenFailed, "launcher worker open failed");
     validate_identity(worker_file.get(), directory, request.worker_identity);

@@ -98,14 +98,26 @@ class GitHubCliAttestationCommand implements GitHubAttestationCommand {
 
   public async verify(
     subjectPath: string,
-    repository: string,
+    expectation: { readonly repository: string; readonly sourceCommit: string; readonly workflowPath: string },
   ): Promise<'verified' | 'invalid' | 'unavailable' | 'unsupported'> {
     const result = await new Promise<number | null>((resolve) => {
-      const child = spawn('gh', ['attestation', 'verify', subjectPath, `--repo=${repository}`], {
-        cwd: this.workingDirectory,
-        stdio: 'ignore',
-        windowsHide: true,
-      });
+      const child = spawn(
+        'gh',
+        [
+          'attestation',
+          'verify',
+          subjectPath,
+          `--repo=${expectation.repository}`,
+          `--signer-workflow=${expectation.repository}/${expectation.workflowPath}`,
+          `--source-digest=${expectation.sourceCommit}`,
+          '--predicate-type=https://slsa.dev/provenance/v1',
+        ],
+        {
+          cwd: this.workingDirectory,
+          stdio: 'ignore',
+          windowsHide: true,
+        },
+      );
       child.once('error', () => resolve(null));
       child.once('close', (code) => resolve(code));
     });
@@ -119,6 +131,7 @@ async function main(): Promise<void> {
   const sourceCommit = requiredOption('source-commit');
   const platform_ = platform(requiredOption('platform'));
   const invocation = requiredOption('invocation');
+  const workflowPath = option('workflow-path') ?? '.github/workflows/pr-checks.yml';
   if (!REPOSITORY.test(repository) || !SOURCE_COMMIT.test(sourceCommit)) fail('ARGUMENT_INVALID');
   const inputText = new TextDecoder('utf-8', { fatal: true }).decode(
     await readVerified(inputPath, MAXIMUM_INPUT_BYTES),
@@ -133,14 +146,22 @@ async function main(): Promise<void> {
   ) as Record<PackageAttestationSubjectName, string>;
   const input = new PackageAttestationInputPolicy().parse(inputText);
   new PackageAttestationVerifier().verify({
-    expected: { invocation, platform: platform_, repository, sourceCommit },
+    expected: {
+      invocation,
+      platform: platform_,
+      repository,
+      sourceCommit,
+      workflowPath: workflowPath as '.github/workflows/pr-checks.yml' | '.github/workflows/release-builds.yml',
+    },
     input,
     subjects,
   });
   if (process.argv.includes('--verify-github')) {
     await new GitHubAttestationVerifier(new GitHubCliAttestationCommand(path.dirname(inputPath))).verify({
       repository,
-      subjectPaths: PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`),
+      sourceCommit,
+      subjectPaths: ['attestation-input.json', ...PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => `subject/${name}`)],
+      workflowPath,
     });
   }
   process.stdout.write(`Package attestation verified for ${platform_}\n`);

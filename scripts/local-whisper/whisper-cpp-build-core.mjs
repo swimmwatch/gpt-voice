@@ -558,6 +558,9 @@ export function configureBuild(
     arguments_.push(`-DCMAKE_BUILD_TYPE=${sanitizerEnabled || threadSanitizer ? 'Debug' : 'Release'}`);
     arguments_.push('-DCMAKE_SKIP_BUILD_RPATH=ON', '-DCMAKE_CXX_SCAN_FOR_MODULES=OFF');
   }
+  if (threadSanitizer) {
+    arguments_.push('-DCMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE=PRE_TEST');
+  }
   const configured = {
     buildRoot,
     environment:

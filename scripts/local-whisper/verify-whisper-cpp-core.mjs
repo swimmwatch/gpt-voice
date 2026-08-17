@@ -9,6 +9,12 @@ import {
   runTests,
 } from './whisper-cpp-build-core.mjs';
 
+const LINUX_QUALITY_ENGINE_TARGETS = Object.freeze([
+  'local_whisper_whisper_cpp_qualification_tests',
+  'local-whisper-whisper-cpp-direct-engine',
+  'local-whisper-whisper-cpp-worker',
+]);
+
 try {
   const arguments_ = parseArguments(process.argv.slice(2));
   const suite = arguments_.get('suite');
@@ -76,7 +82,12 @@ try {
     preparedLinuxQuality: preparedLinux,
     tests: true,
   });
-  buildTargets(engine, ['local_whisper_whisper_cpp_qualification_tests']);
+  buildTargets(
+    engine,
+    preparedLinuxQuality && suite === 'core'
+      ? LINUX_QUALITY_ENGINE_TARGETS
+      : ['local_whisper_whisper_cpp_qualification_tests'],
+  );
   runTests(engine, 'direct-engine');
   await runFormattingAndTidy(clang, engine);
   process.stdout.write(`Local Whisper Whisper.cpp ${suite} suite verified\n`);

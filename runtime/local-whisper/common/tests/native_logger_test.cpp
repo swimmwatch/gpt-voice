@@ -5,6 +5,7 @@
 
 #include <atomic>
 #include <charconv>
+#include <cstdlib>
 #include <fstream>
 #include <memory>
 #include <set>
@@ -69,6 +70,43 @@ public:
 
   NativeLogger* other_logger = nullptr;
   std::vector<std::string> lines;
+};
+
+class ScopedEnvironment final {
+public:
+  ScopedEnvironment(const char* name, const char* value) : name_(name) {
+#if defined(_WIN32)
+    char* previous = nullptr;
+    std::size_t length = 0U;
+    if (_dupenv_s(&previous, &length, name) == 0 && previous != nullptr) {
+      previous_.emplace(previous);
+      std::free(previous);
+    }
+    EXPECT_EQ(_putenv_s(name, value), 0);
+#else
+    if (const char* previous = std::getenv(name); previous != nullptr)
+      previous_.emplace(previous);
+    EXPECT_EQ(setenv(name, value, 1), 0);
+#endif
+  }
+
+  ~ScopedEnvironment() {
+#if defined(_WIN32)
+    static_cast<void>(_putenv_s(name_.c_str(), previous_.has_value() ? previous_->c_str() : ""));
+#else
+    if (previous_.has_value())
+      static_cast<void>(setenv(name_.c_str(), previous_->c_str(), 1));
+    else
+      static_cast<void>(unsetenv(name_.c_str()));
+#endif
+  }
+
+  ScopedEnvironment(const ScopedEnvironment&) = delete;
+  ScopedEnvironment& operator=(const ScopedEnvironment&) = delete;
+
+private:
+  std::string name_;
+  std::optional<std::string> previous_;
 };
 
 [[nodiscard]] std::uint64_t sequence_from(const std::string_view line) {
@@ -232,6 +270,25 @@ TEST(NativeJsonLoggerTest, RejectsInvalidErrorCodesBeforeRateStateIndexing) {
 
   ASSERT_EQ(captured->lines.size(), 1U);
   EXPECT_EQ(sequence_from(captured->lines.front()), 1U);
+}
+
+TEST(NativeJsonLoggerTest, ReadsDistinctParentAuthorizedChildIdentities) {
+  const ScopedEnvironment level("LOCAL_WHISPER_NATIVE_LOG_LEVEL", "debug");
+  const ScopedEnvironment launcher("LOCAL_WHISPER_NATIVE_LAUNCHER_PROCESS_INSTANCE_ID",
+                                   "22222222-2222-2222-8222-222222222222");
+  const ScopedEnvironment worker("LOCAL_WHISPER_NATIVE_WORKER_PROCESS_INSTANCE_ID",
+                                 "33333333-3333-3333-8333-333333333333");
+
+  const auto launcher_configuration =
+      native_child_log_configuration_from_environment(NativeLogChildProcess::launcher);
+  const auto worker_configuration =
+      native_child_log_configuration_from_environment(NativeLogChildProcess::worker);
+
+  ASSERT_TRUE(launcher_configuration.has_value());
+  ASSERT_TRUE(worker_configuration.has_value());
+  EXPECT_EQ(launcher_configuration->minimum_level, NativeLogLevel::debug);
+  EXPECT_EQ(launcher_configuration->process_instance_id, "22222222-2222-2222-8222-222222222222");
+  EXPECT_EQ(worker_configuration->process_instance_id, "33333333-3333-3333-8333-333333333333");
 }
 
 } // namespace

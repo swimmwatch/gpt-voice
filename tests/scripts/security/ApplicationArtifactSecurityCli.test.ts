@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { access, chmod, copyFile, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
+
+import { createPackage } from '@electron/asar';
 
 import { canonicalArtifactSecurityJson } from '@scripts/security/applicationArtifactSecurity';
 
@@ -45,6 +48,11 @@ async function createFixture(
     platform === 'linux'
       ? { guard: 'fs-guard', launcher: 'local-whisper-launcher' }
       : { guard: 'fs-guard.exe', launcher: 'local-whisper-launcher.exe' };
+  const helperDigests = {
+    guard: createHash('sha256').update('guard').digest('hex'),
+    launcher: createHash('sha256').update('launcher').digest('hex'),
+  };
+  const asarSource = path.join(root, 'asar-source');
   await Promise.all([
     mkdir(binDirectory, { recursive: true }),
     mkdir(path.join(cacheDirectory, 'db'), { recursive: true }),
@@ -53,6 +61,8 @@ async function createFixture(
     mkdir(path.join(root, 'node_modules', 'playwright-core'), { recursive: true }),
     mkdir(path.join(root, 'runtime', 'local-whisper', 'sources', 'locks'), { recursive: true }),
     mkdir(path.join(unpackedRoot, 'resources', 'local-whisper', 'native'), { recursive: true }),
+    mkdir(path.join(asarSource, 'node_modules', 'cloakbrowser'), { recursive: true }),
+    mkdir(path.join(asarSource, 'node_modules', 'playwright-core'), { recursive: true }),
   ]);
   const databaseTime = new Date(Date.now() - (input.databaseAgeDays ?? 0) * 24 * 60 * 60 * 1000);
   await Promise.all([
@@ -81,6 +91,7 @@ async function createFixture(
         Version: 2,
       }),
     ),
+    writeFile(path.join(cacheDirectory, 'db', 'trivy.db'), 'TRIVY_DATABASE_PAYLOAD'),
     writeFile(
       path.join(root, 'node_modules', 'electron', 'package.json'),
       JSON.stringify({ name: 'electron', version: '43.1.1' }),
@@ -91,6 +102,14 @@ async function createFixture(
     ),
     writeFile(
       path.join(root, 'node_modules', 'playwright-core', 'package.json'),
+      JSON.stringify({ name: 'playwright-core', version: '1.62.1' }),
+    ),
+    writeFile(
+      path.join(asarSource, 'node_modules', 'cloakbrowser', 'package.json'),
+      JSON.stringify({ name: 'cloakbrowser', version: '0.5.3' }),
+    ),
+    writeFile(
+      path.join(asarSource, 'node_modules', 'playwright-core', 'package.json'),
       JSON.stringify({ name: 'playwright-core', version: '1.62.1' }),
     ),
     ...(platform === 'linux'
@@ -108,13 +127,14 @@ async function createFixture(
       path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json'),
       JSON.stringify({
         helpers: [
-          { name: helperNames.guard, sha256: '2'.repeat(64) },
-          { name: helperNames.launcher, sha256: '3'.repeat(64) },
+          { name: helperNames.guard, sha256: helperDigests.guard },
+          { name: helperNames.launcher, sha256: helperDigests.launcher },
         ],
         platform,
       }),
     ),
   ]);
+  await createPackage(asarSource, path.join(unpackedRoot, 'resources', 'app.asar'));
   for (const [lockId, repository, commit] of EXPECTED_LOCKS) {
     await writeFile(
       path.join(root, 'runtime', 'local-whisper', 'sources', 'locks', `${lockId}.json`),
@@ -151,12 +171,15 @@ if (isWindowsExecutable || isDirectScript) {
     fs.writeFileSync(output, '{}');
     process.exit(0);
   }
-  fs.writeFileSync(output, JSON.stringify({
+  const report = {
     ArtifactName: process.env.FAKE_TRIVY_MODE === 'windows-separators' ? args.at(-1).split('/').join('\\\\') : args.at(-1),
     ArtifactType: args[0] === 'sbom' ? 'cyclonedx' : 'filesystem',
-    Results: null,
     SchemaVersion: 2,
-  }));
+  };
+  if (args[0] === 'sbom' && process.env.FAKE_TRIVY_MODE !== 'empty-sbom') {
+    report.Results = [{ Class: 'lang-pkgs', Target: args.at(-1), Type: 'npm', Vulnerabilities: [] }];
+  }
+  fs.writeFileSync(output, JSON.stringify(report));
   process.exit(0);
 }
 `;
@@ -177,7 +200,7 @@ if (isWindowsExecutable || isDirectScript) {
 async function runScanner(
   fixture: ArtifactSecurityFixture,
   input: {
-    readonly mode?: 'malformed' | 'scanner-failure' | 'windows-separators';
+    readonly mode?: 'empty-sbom' | 'malformed' | 'scanner-failure' | 'windows-separators';
     readonly platform?: 'linux' | 'win32';
   } = {},
 ): Promise<{ readonly code: number | null; readonly stderr: string; readonly stdout: string }> {
@@ -257,9 +280,32 @@ describe('Application artifact security scanner CLI', () => {
     }
   });
 
+  it('binds scanner database identity to the actual vulnerability database payload', async () => {
+    const fixture = await createFixture();
+    try {
+      const first = await runScanner(fixture);
+      assert.equal(first.code, 0, first.stderr);
+      const recordPath = path.join(fixture.root, 'evidence', 'application-artifact-security-linux-appimage.json');
+      const firstRecord = JSON.parse(await readFile(recordPath, 'utf8')) as {
+        scanner: { database: { sha256: string } };
+      };
+      await rm(path.join(fixture.root, 'evidence'), { force: true, recursive: true });
+      await writeFile(path.join(fixture.cacheDirectory, 'db', 'trivy.db'), 'MUTATED_TRIVY_DATABASE_PAYLOAD');
+      const second = await runScanner(fixture);
+      assert.equal(second.code, 0, second.stderr);
+      const secondRecord = JSON.parse(await readFile(recordPath, 'utf8')) as {
+        scanner: { database: { sha256: string } };
+      };
+      assert.notEqual(secondRecord.scanner.database.sha256, firstRecord.scanner.database.sha256);
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
   for (const [name, mode, databaseAgeDays, expected] of [
     ['a scanner process failure', 'scanner-failure', 0, /SCANNER_UNAVAILABLE/u],
     ['a malformed scanner report', 'malformed', 0, /SCAN_MALFORMED/u],
+    ['an SBOM report without semantic coverage', 'empty-sbom', 0, /SCAN_MALFORMED/u],
     ['a stale scanner database', undefined, 8, /DATABASE_STALE/u],
   ] as const) {
     it(`fails closed and removes partial evidence for ${name}`, async () => {

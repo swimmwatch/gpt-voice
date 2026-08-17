@@ -143,6 +143,7 @@ async function main(): Promise<void> {
   const sourceCommit = requiredOption('source-commit');
   const repository = requiredOption('repository');
   const invocation = requiredOption('invocation');
+  const workflowPath = option('workflow-path') ?? '.github/workflows/pr-checks.yml';
   if (!SOURCE_COMMIT.test(sourceCommit) || !REPOSITORY.test(repository)) fail('ARGUMENT_INVALID');
   const outputDirectory = safeOutputDirectory(requiredOption('output-directory'));
   await createEmptyDirectory(outputDirectory);
@@ -211,6 +212,7 @@ async function main(): Promise<void> {
     repository,
     sourceCommit,
     subjects: subjectDigests,
+    workflowPath: workflowPath as '.github/workflows/pr-checks.yml' | '.github/workflows/release-builds.yml',
   });
   await writeFile(
     path.join(outputDirectory, 'attestation-input.json'),

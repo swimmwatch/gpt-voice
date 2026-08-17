@@ -17,7 +17,7 @@ const GIT_OID_PATTERN = /^[a-f0-9]{40}$/u;
 const ADVISORY_ID_PATTERN = /^[\w.:-]{1,128}$/u;
 const TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const REPORT_RESULT_PRIORITY = Object.freeze({
-  affected: 3,
+  affected: 6,
   malformed: 5,
   unavailable: 4,
   unaffected: 0,

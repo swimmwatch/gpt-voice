@@ -3,8 +3,10 @@
 #ifdef _WIN32
 
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/common/sha256.hpp"
+#include "local_whisper/common/windows_executable_policy.hpp"
 #include "local_whisper/common/windows_process_identity.hpp"
 #include "local_whisper/fs_guard/model_launch_error.hpp"
 #include "local_whisper/fs_guard/model_launch_request.hpp"
@@ -42,6 +44,46 @@ constexpr DWORD kGuardCompatibleShareMode = FILE_SHARE_READ | FILE_SHARE_WRITE |
 constexpr auto kPollInterval = std::chrono::milliseconds(50);
 constexpr std::size_t kMaximumBootstrapBytes = 64U * 1024U;
 constexpr std::size_t kIoBufferBytes = 64U * 1024U;
+
+std::vector<wchar_t> launcher_log_environment() {
+  const auto launcher = common::native_child_log_configuration_from_environment(
+      common::NativeLogChildProcess::launcher);
+  const auto worker = common::native_child_log_configuration_from_environment(
+      common::NativeLogChildProcess::worker);
+  if (!launcher.has_value() || !worker.has_value())
+    throw ModelLaunchError(ModelLaunchErrorCode::kBootstrapRejected,
+                           "model launch logging bootstrap rejected");
+  std::vector<std::wstring> entries = {
+      std::wstring(L"LOCAL_WHISPER_NATIVE_LOG_LEVEL=") +
+          (launcher->minimum_level == common::NativeLogLevel::debug ? L"debug" : L"info"),
+      std::wstring(L"LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID=") +
+          std::wstring(launcher->process_instance_id.begin(), launcher->process_instance_id.end()),
+      std::wstring(L"LOCAL_WHISPER_NATIVE_WORKER_PROCESS_INSTANCE_ID=") +
+          std::wstring(worker->process_instance_id.begin(), worker->process_instance_id.end())};
+  for (const wchar_t* key : {L"SystemRoot", L"WINDIR"}) {
+    const DWORD length = GetEnvironmentVariableW(key, nullptr, 0);
+    if (length == 0)
+      continue;
+    std::wstring value(static_cast<std::size_t>(length), L'\0');
+    const DWORD written = GetEnvironmentVariableW(key, value.data(), length);
+    if (written == 0 || written >= length)
+      throw ModelLaunchError(ModelLaunchErrorCode::kBootstrapRejected,
+                             "model launch environment read failed");
+    value.resize(written);
+    entries.emplace_back(std::wstring(key) + L"=" + value);
+  }
+  std::sort(entries.begin(), entries.end(),
+            [](const std::wstring& left, const std::wstring& right) {
+              return _wcsicmp(left.c_str(), right.c_str()) < 0;
+            });
+  std::vector<wchar_t> block;
+  for (const auto& entry : entries) {
+    block.insert(block.end(), entry.begin(), entry.end());
+    block.push_back(L'\0');
+  }
+  block.push_back(L'\0');
+  return block;
+}
 
 std::vector<std::uint8_t> allocate_io_buffer(ModelLaunchErrorCode code) {
   try {
@@ -282,7 +324,7 @@ StableIdentity stable_identity(HANDLE handle) {
                         standard.Directory != FALSE};
 }
 
-HeldFile open_held_regular_file(const std::string& path) {
+HeldFile open_held_regular_file(const std::string& path, const DWORD share_mode) {
   const ParsedPath parsed = parse_absolute_path(utf8_to_wide(path));
   std::vector<UniqueHandle> parents;
   parents.reserve(parsed.components.size());
@@ -296,8 +338,8 @@ HeldFile open_held_regular_file(const std::string& path) {
                              "model launch directory open failed");
   }
   const auto absolute = extended_path(parsed, parsed.components.size());
-  UniqueHandle file(CreateFileW(absolute.c_str(), kFileAccess, kGuardCompatibleShareMode, nullptr,
-                                OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+  UniqueHandle file(CreateFileW(absolute.c_str(), kFileAccess, share_mode, nullptr, OPEN_EXISTING,
+                                FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
   if (!file.valid())
     throw ModelLaunchError(ModelLaunchErrorCode::kFileOpenFailed, "model launch file open failed");
   const StableIdentity parent_identity = stable_identity(parents.back().get());
@@ -461,11 +503,13 @@ std::wstring handle_argument(const wchar_t* name, HANDLE handle) {
 int run_windows_model_launch(int control_descriptor, int acknowledgment_descriptor) {
   const ModelLaunchRequest request =
       ModelLaunchRequestParser{}.parse(read_bootstrap_line(control_descriptor));
-  HeldFile launcher = open_held_regular_file(request.launcher_path);
+  HeldFile launcher = open_held_regular_file(
+      request.launcher_path,
+      static_cast<DWORD>(local_whisper::common::kVerifiedExecutableShareMode));
   if (hash_handle(launcher.file.get(), launcher.file_identity.size) != request.launcher_sha256)
     throw ModelLaunchError(ModelLaunchErrorCode::kIdentityRejected,
                            "model launch launcher identity changed");
-  HeldFile model = open_held_regular_file(request.model_path);
+  HeldFile model = open_held_regular_file(request.model_path, kGuardCompatibleShareMode);
   validate_model_identity(model, request);
   if (hash_handle(model.file.get(), request.model_size_bytes) != request.model_sha256)
     throw ModelLaunchError(ModelLaunchErrorCode::kDigestRejected,
@@ -495,9 +539,11 @@ int run_windows_model_launch(int control_descriptor, int acknowledgment_descript
   command_line += handle_argument(L"--ack-handle=", inherited_descriptors[3].get()) + L" ";
   command_line += handle_argument(L"--authority-handle=", launcher_authority.read.get());
   PROCESS_INFORMATION information{};
-  const DWORD flags = CREATE_NO_WINDOW | CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT;
+  std::vector<wchar_t> environment = launcher_log_environment();
+  const DWORD flags = CREATE_NO_WINDOW | CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT |
+                      EXTENDED_STARTUPINFO_PRESENT;
   if (!CreateProcessW(launcher.absolute_path.c_str(), command_line.data(), nullptr, nullptr, TRUE,
-                      flags, nullptr, nullptr, &startup.StartupInfo, &information)) {
+                      flags, environment.data(), nullptr, &startup.StartupInfo, &information)) {
     throw ModelLaunchError(ModelLaunchErrorCode::kLauncherCreationFailed,
                            "model launch launcher creation failed");
   }
