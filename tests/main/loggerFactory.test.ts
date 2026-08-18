@@ -71,7 +71,7 @@ describe('LoggerFactory', () => {
     assert.equal(factory.getRootLogger(), factory.getRootLogger());
     assert.equal(loads, 1);
     assert.equal(runtime.transports.file.level, 'info');
-    assert.equal(runtime.transports.console.level, 'debug');
+    assert.equal(runtime.transports.console.level, false);
     assert.deepEqual(entries, [{ level: 'info', scope: 'scope', values: ['event'] }]);
   });
 
