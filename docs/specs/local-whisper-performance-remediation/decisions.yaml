@@ -2932,6 +2932,28 @@ decisions:
     supersedes_revision: 7
     requirement_ids: []
 
+  - id: approval.plan
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+      - approval.spec revision 8
+      - scope.remaining-task-structure revision 1
+      - User instructed immediate plan revision and stated that the scenarios are approved.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: Approve plan revision 9 with Packet 18 as the sole remaining packet and no benchmark, CI, package, repeated-sample, or additional qualification requirements.
+    rationale: The plan exactly reflects the approved revision-8 Windows functional parity contract.
+    supersedes_revision: 8
+    requirement_ids: []
+
   - id: authorization.packet-17
     revision: 1
     category: execution
@@ -2996,3 +3018,107 @@ decisions:
     rationale: The user explicitly authorized one local commit containing only the completed Packet 16 standard-loader implementation and directly related tests, schemas, and Packet 16 documentation; push remains unauthorized.
     supersedes_revision: null
     requirement_ids: [SCP-003]
+
+  - id: outcome.model-residency-target
+    revision: 3
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly removed the unfinished Linux qualification and retained only Windows functional parity.
+      - docs/specs/local-whisper-performance-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-functional-parity-only]
+      text: Complete the Windows implementation, run the ordinary application with CPU and CUDA Local Whisper backends, and verify that it works as on Linux.
+    rationale: The user no longer requires representative performance qualification as a completion condition.
+    supersedes_revision: 2
+    requirement_ids: [OUT-001, OUT-002, WIN-001, WIN-002, WIN-003]
+
+  - id: acceptance.performance-target-policy
+    revision: 4
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested no additional checks, benchmarks, or similar qualification work.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-remaining-performance-qualification]
+      text: Remove cold/warm runs, repeated samples, timing targets, statistics, resource measurements, and benchmark evidence from remaining acceptance.
+    rationale: Remaining acceptance is direct functional execution only.
+    supersedes_revision: 3
+    requirement_ids: [OUT-002, WIN-004, AC-WIN-003]
+
+  - id: acceptance.cache-statistic-policy
+    revision: 4
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested one code run and functional verification instead of additional checks or benchmarks.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [single-functional-run]
+      text: Perform one ordinary functional flow per required Windows backend without cache preparation, repeated attempts, sample aggregation, or statistical reporting.
+    rationale: One direct run establishes the user-requested behavior without preserving the superseded qualification matrix.
+    supersedes_revision: 3
+    requirement_ids: [WIN-002, WIN-003, WIN-004, AC-WIN-001, AC-WIN-002]
+
+  - id: acceptance.reduced-representative-scope
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly eliminated Task 17 and reduced Task 18 to Windows functional parity.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-run-only]
+      text: Do not require CI, package qualification, lifecycle matrices, privacy evidence collection, or additional Linux execution; run Windows CPU and CUDA Local Whisper and verify successful model loading and transcription.
+    rationale: The prior focused representative-host matrix is superseded by the directly approved Windows flow.
+    supersedes_revision: 1
+    requirement_ids: [WIN-001, WIN-002, WIN-003, WIN-004, WIN-005, AC-WIN-001, AC-WIN-002, AC-WIN-003]
+
+  - id: scope.remaining-task-structure
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - User explicitly requested elimination of Task 17 and retention of Task 18 only.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [task-18-only]
+      text: Remove Task 17 from the active plan and make Task 18 the sole remaining packet.
+    rationale: Linux is the completed functional reference; only Windows implementation and direct execution remain.
+    supersedes_revision: null
+    requirement_ids: [SCP-007, WIN-005]
+
+  - id: approval.spec
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - outcome.model-residency-target revision 3
+      - acceptance.performance-target-policy revision 4
+      - acceptance.cache-statistic-policy revision 4
+      - acceptance.reduced-representative-scope revision 2
+      - scope.remaining-task-structure revision 1
+      - User stated that the scenarios are approved and no further approval question is needed.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: Approve specification revision 8 and proceed directly to the corresponding plan revision.
+    rationale: The user explicitly approved the exact specification and planning scenario in the current request.
+    supersedes_revision: 7
+    requirement_ids: []

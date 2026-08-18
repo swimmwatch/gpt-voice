@@ -145,7 +145,7 @@ Run the smallest focused check after each change, then the applicable local Linu
 - `npm run verify:local-whisper:whisper-cpp-cpu -- --profile=linux-x64-cpu-baseline-v1`
 - `npm run test:local-whisper:whisper-cpp-cpu-integration`
 - Run CUDA build/integration checks only when the authorized Linux host has the real supported CUDA toolchain;
-  record unavailable hardware as a Packet 17 gate, never simulate it.
+  revision 9 creates no later Linux qualification gate when that hardware is unavailable.
 - `npm run lint`
 - `npx prettier --check docs/specs/local-whisper-performance-remediation`
 - `git diff --check`
@@ -163,8 +163,8 @@ No CI check is run or inspected in this packet.
 
 ## Manual Gates
 
-- None for ordinary local verification. CUDA-only local checks may be explicitly unavailable and remain a
-  Packet 17 representative-host obligation.
+- None for ordinary local verification. Revision 9 removes the former deferred Linux representative-host
+  obligation.
 - Commits, pushes, CI, package installation, representative workloads, and deletion of private evidence are not
   authorized by this packet.
 
@@ -177,6 +177,6 @@ No CI check is run or inspected in this packet.
 ## Completion And Handoff
 
 After every applicable local Linux check passes, update `todo.md` and `handoff.md` with changed components,
-content-free results, exact blockers, and [Packet 17](17_windows_end_to_end_qualification.md) as the sole next
-packet. Stop without commit, push, CI inspection, representative qualification, Windows work, or evidence
-deletion.
+content-free results, and exact blockers. Under revision 9, [Packet 18](18_windows_final_remediation.md) is the
+sole next packet. Stop without commit, push, CI inspection, representative qualification, Windows work, or
+evidence deletion.

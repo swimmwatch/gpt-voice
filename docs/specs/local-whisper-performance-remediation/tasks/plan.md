@@ -1,15 +1,14 @@
 # Local Whisper Performance Remediation Plan
 
-- Status: Approved (revision 8)
-- Approval: explicit `approve` recorded in `plan:local-whisper-performance-remediation` on 2026-08-16
-- Specification: [Approved revision 7](../spec.md)
+- Status: Approved (revision 9)
+- Approval: explicit user approval on 2026-08-18
+- Specification: [Approved revision 8](../spec.md)
 - Decision ledger: [decisions.yaml](../decisions.yaml)
-- Revision basis: repository `8942b8b311f22bf6daa607b840fc68713c656ab5` plus the inspected working-tree standard-loader and qualification sources
 - Execution model: one explicitly authorized packet per incremental-implementation invocation
 
-Revision 8 changes only the two unchecked delivery packets. Packets 01–16 and their completion history remain
-intact. Historical paired-baseline, multi-model, speedup, uncertainty, resource-regression, and installation-window
-selection requirements do not apply to Packets 17–18.
+Revision 9 removes former Packet 17 and all remaining representative qualification, benchmark, CI, package,
+and evidence-collection gates. Packets 01–16 and their completion history remain intact. Packet 18 is the sole
+remaining executable packet.
 
 ## Completed Packet History
 
@@ -30,66 +29,44 @@ selection requirements do not apply to Packets 17–18.
 | [13](13_representative_performance_collection.md)       | Aggregate-only qualification collection contract.                                            | 12           |
 | [14](14_performance_attempt_contract_and_derivation.md) | Derived-source identity and fail-closed attempt/resource merging.                            | 13           |
 | [15](15_linux_performance_attempt_runner.md)            | Linux attempt runner, role-aware sampler, and private-input preflight.                       | 14           |
-| [16](16_representative_linux_host_qualification.md)     | Shared/Linux standard path loader and local Linux verification.                              | 15           |
+| [16](16_representative_linux_host_qualification.md)     | Shared/Linux standard path loader and successful local Linux CPU/CUDA verification.          | 15           |
 
-## Remaining Executable Packets
+Former Packet 17 is removed. Its unfinished Linux qualification and diagnostic work is not a prerequisite or
+completion gate for revision 9.
 
-| Packet                                       | Outcome                                                                                                                                                                                                           | Dependencies | Owned requirements and acceptance                                                                                                                                                                                                                                                                                                                                                        |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [17](17_windows_end_to_end_qualification.md) | Adapt qualification tooling to revision 7 and qualify only `base/full` on representative Linux CPU/CUDA cold/warm cells, with one focused packaged lifecycle/privacy flow per backend and Linux-only remediation. | 16           | OUT-002, GAT-001–GAT-004, QUAL-001, QUAL-002, OBS-001–OBS-005, PERF-001, PERF-004, PERF-008–PERF-012, RES-002, PRIV-001, PRIV-002, OPS-003, AC-AUT-001, AC-AUT-002, AC-AUT-016, AC-AUT-017, AC-MAN-001–AC-MAN-008 (Linux)                                                                                                                                                                |
-| [18](18_windows_final_remediation.md)        | On a real Windows host, implement the Windows metadata-only validator, obtain required Windows CI/package evidence, and run the same focused `base/full` CPU/CUDA qualification and lifecycle/privacy checks.     | 17           | OUT-001–OUT-003, GAT-002–GAT-004, QUAL-001, QUAL-002, OBS-001–OBS-005, PERF-001, PERF-004, PERF-008–PERF-012, CMP-001–CMP-009, IPC-005, SEC-001, SEC-002, SEC-004, SEC-006, SEC-010–SEC-012, ARC-001, ARC-002, ARC-005, ARC-006, BLD-001, DEP-001, RES-002–RES-004, PRIV-001, PRIV-002, FAIL-001–FAIL-005, OPS-001–OPS-004, AC-AUT-003–AC-AUT-020, AC-MAN-001–AC-MAN-008 (Windows/final) |
+## Remaining Executable Packet
+
+| Packet                                | Outcome                                                                                                                           | Dependencies | Owned requirements and acceptance                                  |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------ |
+| [18](18_windows_final_remediation.md) | Implement Windows parity with Linux, run the Windows development application on CPU and CUDA, and verify Local Whisper functions. | 16           | OUT-001, OUT-002, WIN-001–WIN-005, AC-WIN-001–AC-WIN-003, OPS-004 |
 
 ## Safe Sequencing And Platform Boundary
 
-1. Packet 17 first updates only qualification contracts, schemas, commands, and tests that still require paired
-   baseline/candidate runs, four models, five-to-six pairs, p95/variance/uncertainty, speedup/resource thresholds,
-   or installation-window selection. It then installs only the candidate package and runs the representative
-   Linux matrix for the exact 147,951,465-byte `base/full` artifact.
-2. Linux qualification contains four cells: CPU cold, CPU warm, CUDA cold, and CUDA warm. Each cell records
-   exactly three successful candidate loads, declared ordering, median, minimum, maximum, distance from 5,000 ms,
-   and bounded RAM/VRAM evidence. Five seconds is informational and cannot fail runtime or qualification.
-3. Packet 17 additionally runs one sequential packaged load, warm-up, transcription, cancellation, unload,
-   retry, and cleanup flow per backend; proves real CUDA ownership with no silent CPU fallback; and performs one
-   bounded privacy inspection. It does not run CI, Windows checks, or excluded manual matrices.
-4. Packet 18 is the only remaining Windows implementation and execution packet. On a real Windows x64 host it
-   adds the RAII metadata-only path validator, runs focused Windows checks, creates/pushes reviewable commits only
-   with explicit authorization, and waits for every required CI result to finish successfully.
-5. Every actionable Windows CI failure receives a separate minimal fix commit; no implementation or fix commit
-   is amended or squashed. Each push requires separate authorization and reruns the complete required CI set.
-6. After green CI, Packet 18 installs only the candidate Windows package and runs the same four Base cells and
-   focused per-backend lifecycle/CUDA/privacy checks. It does not produce or install a baseline package, select an
-   installation window, or restore any superseded performance threshold.
-7. A Packet 18 production change to shared or Linux behavior invalidates the affected Linux evidence and stops
-   for planning. A qualification-tool-only compatibility repair reruns its focused tests and revalidates retained
-   Linux evidence; representative Linux loads are rerun only if their manifest, collection, or result semantics
-   changed.
-8. Rollback replaces the whole compatible app/worker set. The deprecated loader remains inactive and is never a
-   runtime or per-load fallback.
+1. Implement only the missing Windows platform adapter behavior required by the existing shared standard-loader
+   contract. Preserve the completed Linux implementation as the functional reference.
+2. Compile the Windows code through the ordinary development path and start the application on a real supported
+   Windows x64 host.
+3. Run one ordinary Local Whisper flow with the CPU backend and one with the CUDA backend: load the configured
+   application-managed weights, record audio, and obtain a transcription. Confirm CUDA does not silently fall
+   back to CPU.
+4. If either flow fails, make the smallest Windows-specific correction and rerun only the failed build or
+   functional flow. Do not add benchmarks, repeated samples, qualification tooling, CI gates, package checks,
+   or expanded matrices.
+5. Stop after both flows work. Do not publish, release, delete private evidence, or change unrelated shared/Linux
+   behavior.
 
 ## Coverage And Executability Audit
 
-- Every active revision-7 requirement is either inherited through completed Packets 01–16 or owned by Packet 17
-  (Linux qualification/tooling) or Packet 18 (Windows implementation, CI, qualification, and final evidence).
-- The linked Packet 16 contract owns the active shared/Linux foundation: OUT-001, OUT-003, SCP-001–SCP-009,
-  BASE-001, CMP-001–CMP-009, IPC-001–IPC-005, SEC-001–SEC-012, ARC-001, ARC-002, ARC-005,
-  ARC-006, CRY-001, CODEC-001, CODEC-002, INST-001, INST-002, FLOW-001, FLOW-002, WRM-001,
-  WRM-002, LOG-001, MEM-001, MEM-002, CFG-001–CFG-004, MIG-001–MIG-003, UI-001, A11Y-001,
-  BLD-001, DEP-001, THR-001–THR-006, RES-001, RES-003, RES-004, PRIV-001, PRIV-002,
-  FAIL-001–FAIL-005, OPS-001, OPS-002, OPS-004, AC-AUT-003–AC-AUT-020, and the shared/Linux
-  portions of PERF-002, PERF-003, PERF-005–PERF-007, PERF-009, PERF-011, and PERF-012.
-- Packet 17 explicitly owns the current paired-baseline tooling gap in `scripts/local-whisper/qualification/`
-  and its schemas/tests before representative execution. Packet 18 owns the absent Windows implementation of
-  `ModelFileValidator` and the real MSVC/CUDA/package boundary.
-- Linux and Windows evidence remains independently attributable. Hosted fixtures and source inspection cannot be
-  represented as representative-host evidence.
-- Removed from active execution: baseline package production, four-model execution, paired samples, p95,
-  variance, uncertainty, 3x speedup, 25-percent component improvement, 3-percent end-to-end/resource guardrail,
-  installation-window experiments/selection, and the excluded lifecycle/device/settings matrices.
-- Destructive cleanup, private evidence deletion, release publication, and artifact/evidence upload remain
-  unauthorized. Private evidence is retained outside source control.
+- Every active remaining revision-8 requirement is owned by Packet 18.
+- Packets 01–16 retain responsibility for the completed shared/Linux contracts and historical automated evidence;
+  Packet 18 does not rerun them merely for reconfirmation.
+- Former revision-7 qualification, timing/statistical/resource, representative-host, CI, package, and evidence
+  gates are superseded and have no active packet owner.
+- A real Windows host is required because Linux source inspection cannot establish Windows runtime behavior.
+- The packet is executable without inventing a model matrix, sample count, benchmark threshold, CI workflow, or
+  evidence format.
 
 ## Execution Boundary
 
-Plan approval does not authorize Packet 17 execution, production changes, commits, pushes, CI, representative-host
-runs, package installation, publication, or release work. Execution authorization is a separate Prompt MCP
-decision and implementation remains one packet per incremental-implementation invocation.
+Plan approval does not itself start Packet 18 or authorize commits, pushes, CI, publication, or release work.
+Packet execution remains a separate incremental-implementation action.

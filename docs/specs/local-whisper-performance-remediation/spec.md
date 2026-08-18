@@ -2,12 +2,15 @@
 
 - Status: Approved
 - Date: 2026-08-08
-- Updated: 2026-08-16
-- Revision: 7
-- Revision basis: repository `8942b8b311f22bf6daa607b840fc68713c656ab5`; current native worker load source through the working-tree revision
-- Draft basis: explicit user decision to replace the full paired performance matrix with focused Base-only cross-platform standard-loader qualification
-- Approval: revision 7 explicitly approved in the persistent `spec:local-whisper-performance-remediation` interview on 2026-08-16
-- Previous approvals: revisions 1, 2, 4, 5, and 6 are retained as historical evidence; revision 3 records the target-policy correction
+- Updated: 2026-08-18
+- Revision: 8
+- Revision basis: current working-tree standard-loader implementation and the explicit user decision to end
+  representative qualification work and retain only Windows functional parity
+- Draft basis: explicit user decision to remove the remaining Linux qualification packet and reduce Windows
+  acceptance to one direct CPU/CUDA application run without benchmarks, CI gates, or additional qualification
+- Approval: revision 8 explicitly approved by the user on 2026-08-18
+- Previous approvals: revisions 1, 2, 4, 5, 6, and 7 are retained as historical evidence; revision 3 records the
+  target-policy correction
 - Decision ledger: [`decisions.yaml`](decisions.yaml)
 
 ## 1. Purpose and authority
@@ -27,16 +30,14 @@ authentication, process hardening, managed-root ownership, privacy, packaging, a
 requirements remain authoritative. Per `scope.spec-bundle-boundary`, no file outside
 `docs/specs/local-whisper-performance-remediation/` is revised by this specification workflow.
 
-**OUT-001** The remaining work SHALL qualify the implemented standard model-loader path on representative Linux
-x64 and Windows x64 CPU/CUDA hosts while preserving the retained correctness, thread-safety,
-resource-ownership, privacy, process-safety, and filesystem-safety requirements defined below. Revision 7 does
-not require another speculative model-loading optimization.
+**OUT-001** The only remaining work SHALL implement and run the Windows x64 Local Whisper path so its observable
+CPU and CUDA provider behavior matches the completed Linux implementation while preserving the retained
+correctness, thread-safety, resource-ownership, privacy, process-safety, and filesystem-safety requirements.
 
-**OUT-002** For the exact release-1 `base/full` artifact (147,951,465 bytes), the worker model-load interval in
-OBS-004 SHALL be measured in cold-cache and warm-cache cells on representative supported Linux x64 and Windows
-x64 CPU/CUDA profiles. Each cell SHALL report three successful candidate samples, median, minimum, maximum, and
-distance from approximately 5,000 milliseconds. Five seconds is an informational objective only, never a
-runtime timeout, qualification failure, or reason to reject an otherwise valid load.
+**OUT-002** Remaining acceptance SHALL be functional, not performance-based: start the application on Windows,
+run the Local Whisper CPU and CUDA paths, load model weights, and confirm transcription works. No cold/warm
+matrix, repeated samples, timing target, benchmark, resource measurement, CI gate, package qualification, or
+additional evidence suite is required.
 
 **OUT-003** An ordinary successful model installation, readiness check, startup, load-now flow, lazy-load flow,
 or transcription SHALL perform zero project-owned model-content SHA-256 operations, zero model-content
@@ -46,9 +47,9 @@ path-based `whisper.cpp` API SHALL be the only production model reader after bou
 **SCP-003** Approval of this specification authorizes neither planning nor implementation. `/plan` remains a
 separate workflow.
 
-**SCP-007** Revision 6 replaced revision 5's one-authenticated-snapshot design. Completed Packets 01–15 remain
-inherited behavior. Revision 7 preserves the standard-loader transition and removal of ordinary model-content
-proofs while narrowing the remaining representative qualification to the Base-only contract in Section 5.
+**SCP-007** Revision 6 replaced revision 5's one-authenticated-snapshot design. Completed Packets 01–16 remain
+inherited behavior. Revision 8 preserves the standard-loader transition and removal of ordinary model-content
+proofs, removes the unfinished Linux qualification packet, and leaves only Windows functional parity.
 
 **SCP-009** This revision SHALL change only the `local-whisper-performance-remediation` specification bundle.
 It SHALL express its narrow amendment explicitly rather than editing the parent Local Whisper specification.
@@ -68,7 +69,8 @@ It SHALL express its narrow amendment explicitly rather than editing the parent 
 - worker protocol v1 reports `loaded` before the separate real-inference `warmup` request;
 - protocol-v2 installation decoding, bounded candidate-window plumbing, runtime SHA-256 dispatch, early WAV
   release, settings schema 2, GPU CPU-thread identity, and Linux/Windows backend-option parity are implemented;
-- representative Linux model-residency execution and all Windows-host execution remain incomplete gates.
+- Linux implementation and local execution are complete; the Windows implementation and direct Windows
+  CPU/CUDA application run remain incomplete.
 
 Source inspection is not performance or supported-host acceptance evidence.
 
@@ -76,7 +78,7 @@ Source inspection is not performance or supported-host acceptance evidence.
 
 **SCP-001** This work SHALL preserve or complete:
 
-1. privacy-safe phase and resource measurement;
+1. the completed privacy-safe phase and resource measurement foundations without additional collection;
 2. the implemented acquisition-result reuse;
 3. removal of every ordinary project-owned model-content proof;
 4. direct path-based loading through the pinned standard `whisper.cpp` API;
@@ -87,10 +89,10 @@ Source inspection is not performance or supported-host acceptance evidence.
 9. the implemented early source-WAV release;
 10. the implemented backend-option and GPU CPU-thread behavior;
 11. explicit real-inference warm-up through the existing `warmup` lifecycle; and
-12. focused Base-only cross-platform qualification against OUT-002.
+12. Windows functional parity and one direct CPU/CUDA application verification against OUT-002.
 
 **SCP-002** No new renderer setting, privileged public IPC channel, preload authority, provider capability, or
-external API is authorized by revision 7. Existing GPU CPU-thread UI and schema-2 behavior remain unchanged.
+external API is authorized by revision 8. Existing GPU CPU-thread UI and schema-2 behavior remain unchanged.
 
 **SCP-004, SEC-003** Model-digest caching is not applicable because ordinary installation and loading no longer
 calculate or compare a model-content digest. Metadata SHALL be used only for bounded file/path validation and
@@ -110,7 +112,7 @@ packs remain separately authenticated immutable artifacts and are not covered by
 
 ### 3.1 Non-goals
 
-Revision 7 does not authorize:
+Revision 8 does not authorize:
 
 - weakening runtime-worker provenance, archive digest, executable identity, dependency-manifest, or process
   lifecycle checks;
@@ -124,26 +126,25 @@ Revision 7 does not authorize:
 - flash attention, changed ggml/CUDA option values, CUDA-upload-first work, or CUDA JIT-cache tuning;
 - additional GPU architectures or runtime-pack families, ARM acceleration, Apple Silicon, or production macOS;
 - new runtime dependencies, package-target changes, catalog rollout, release publication, or model-byte changes;
-- redesigning diagnostics or native structured-log retention merely to collect performance evidence.
-- paired baseline package production or execution, four-model representative qualification, p95/variance/
-  uncertainty gates, relative-speedup gates, or a timing-based qualification failure;
-- representative-host suspend/resume, unavailable-device, CPU-thread-count, topology/model-switch,
-  delete/redownload, or installation-window matrices beyond existing automated coverage.
+- redesigning diagnostics or native structured-log retention merely to collect performance evidence;
+- any remaining Linux qualification work, model-load benchmark, cold/warm matrix, repeated sample collection,
+  timing/statistical/resource report, baseline comparison, representative-host matrix, CI gate, package
+  qualification, or additional evidence suite;
+- suspend/resume, unavailable-device, CPU-thread-count, topology/model-switch, delete/redownload, cancellation,
+  retry, installation-window, or privacy-inspection matrices as part of the remaining Windows task.
 
 ## 4. Compatibility and entry gates
 
 **GAT-001** Completed native-remediation and performance Packets 01–15 are inherited and SHALL not be recreated.
 
-**GAT-002** No paired baseline package is required by revision 7. Qualification SHALL use only the exact
-candidate source/runtime/package identities bound to the representative attempt manifest.
+**GAT-002** No baseline package, qualification manifest, benchmark input, or representative evidence collection
+is required by revision 8.
 
-**GAT-003** The three candidate samples in each cell SHALL use the same exact Base model bytes, app lineage,
-runtime identity, backend, configuration, hardware profile, cache preparation, and measurement manifest. The
-candidate's deliberate lack of model-content authentication does not permit an unrecorded model change between
-runs.
+**GAT-003** The Windows functional run SHALL use the application-managed model selected through the ordinary
+provider workflow. It SHALL not introduce a qualification-only model or data path.
 
-**GAT-004** Before implementation and qualification, source and artifact ownership SHALL be rechecked against
-the working-tree revision. No stale source digest or hosted fixture may be represented as direct-host evidence.
+**GAT-004** Before Windows implementation, source ownership SHALL be checked only far enough to preserve the
+existing Linux/Windows adapter boundary. No additional qualification identity or artifact evidence is required.
 
 **CMP-001** Production applicability is Linux x64 and Windows x64. Shared behavior and failure semantics SHALL be
 equivalent; platform-only path APIs remain behind narrow adapters.
@@ -179,73 +180,32 @@ model. The field SHALL be absent from argv, environment, renderer/preload IPC, r
 errors, and evidence. It SHALL be accepted only for a catalog-selected canonical child beneath the configured
 managed model root.
 
-## 5. Qualification measurement contract
+## 5. Remaining Windows functional contract
 
-### 5.1 Evidence matrix
+Revision 8 supersedes the remaining revision-7 qualification matrix. Historical qualification tooling and prior
+evidence may remain in the repository, but no unfinished Linux qualification, new benchmark, or new aggregate
+evidence is required for completion.
 
-**QUAL-001** Representative qualification SHALL cover only the exact release-1 `base/full` artifact
-(147,951,465 bytes) on supported Linux x64 and Windows x64 CPU and CUDA profiles. Missing required hardware is
-reported as an unfulfilled gate, never replaced by a fixture. Other release-1 models are outside the remaining
-representative matrix and retain existing automated catalog/contract coverage only.
+**WIN-001** Windows SHALL implement the same standard path-based `whisper.cpp` loading contract as Linux behind
+the existing platform adapter. The Windows adapter SHALL preserve managed-root confinement, regular-file and
+reparse-point rejection, expected-size validation, RAII cleanup, private path transport, one upstream loader
+call, sanitized failures, and no legacy fallback.
 
-**OBS-001** Cold-cache and warm-cache cells SHALL separately report sample count, ordering, median, minimum,
-maximum, and bounded aggregate phase/resource evidence for:
+**WIN-002** The Windows code SHALL compile and the ordinary development application SHALL start with Local
+Whisper resources for the CPU and CUDA backends on a supported Windows x64 host.
 
-- private path validation and worker creation;
-- standard `whisper.cpp` model initialization, parsing, backend activation, allocation, and GPU upload/proof;
-- explicit real-inference warm-up;
-- installation encode/wait/decode/write phases; and
-- peak main, guard, and worker RSS plus GPU VRAM where applicable.
+**WIN-003** Functional verification SHALL consist of one ordinary application flow per available required
+backend: select Local Whisper, load the configured application-managed model weights, start recording, and
+obtain a successful transcription. CUDA verification SHALL use the CUDA backend rather than silently falling
+back to CPU.
 
-**OBS-002** Every cell SHALL use a locked manifest with exactly three successful candidate samples, fixed cache
-preparation and run ordering, and reported failures. No baseline package or paired sample is required. A failed
-attempt remains retained as private evidence; a replacement attempt starts from a fresh validated attempt root
-and is disclosed rather than silently substituted to manufacture a desired result.
+**WIN-004** The remaining task SHALL NOT require cold-cache or warm-cache preparation, repeated runs, a fixed
+model family, durations, medians, percentiles, five-second comparison, RAM/VRAM sampling, baseline comparison,
+qualification schemas, CI execution or inspection, package installation, evidence digests, or an expanded
+lifecycle/privacy matrix.
 
-**OBS-003** Qualification instrumentation remains private and separate from the production structured log and
-diagnostics archive. It SHALL not expose absolute paths, device-native identities, model contents, raw native
-output, audio, transcripts, or unbounded timing events.
-
-**OBS-004** The model-residency interval starts at the first monotonic timestamp after the worker validates and
-accepts the `load` control message. It includes private path validation, the standard `whisper.cpp` file call,
-parser/model construction, backend activation, RAM/VRAM allocation or upload, and applicable GPU ownership proof.
-It ends only after main validates `loaded` evidence. Installation, earlier worker launch/handshake, and the later
-explicit real-inference warm-up are measured separately and excluded.
-
-**OBS-005** Qualification SHALL separately count project-owned model source bytes and model-content proof
-invocations. A successful candidate SHALL report zero project-owned model payload bytes before the standard API,
-zero model SHA-256 invocations, zero snapshot bytes, and one standard `whisper.cpp` model-load invocation.
-Internal upstream reads MAY be measured for attribution but are not project-owned content proofs.
-
-### 5.2 Performance and resource gates
-
-**PERF-001, PERF-004** Historical performance-changing components retain their completed evidence. The remaining
-revision-7 representative qualification is observational and correctness-gated; it SHALL not claim a new
-component speedup or require a 25-percent improvement.
-
-**PERF-002** The implemented launch-lease acquisition reuse removes exactly the immediately duplicated `LIST`
-inspection. Its historical corrected baseline remains eight Linux/seven Windows full-model hashes before reuse
-and seven/six afterward.
-
-**PERF-005** Backend-option parity preserves current effective values; acceptance is zero unexplained option drift.
-
-**PERF-008, PERF-010, QUAL-002** On every named supported representative profile, the OUT-002 Base artifact
-SHALL complete three successful cold-cache and three successful warm-cache candidate loads. Reports SHALL
-include median, minimum, maximum, and distance from 5,000 ms. No relative-speedup, p95, variance, uncertainty,
-or absolute-duration pass/fail gate remains. A load that exceeds five seconds SHALL still succeed at runtime and
-SHALL not fail qualification solely because of elapsed time.
-
-**PERF-009, PERF-012** The candidate SHALL reduce successful-load model-content proofs from seven to zero on
-Linux and from six to zero on Windows. It SHALL remove pre-spawn, pre-load, native-authority, preflight,
-custom-loader, and snapshot content passes from the ordinary model path.
-
-**PERF-011** No legacy authenticated-snapshot, two-pass, streaming-verification, or digest-cache fallback is
-permitted when the standard loader fails. Failure follows Section 13.
-
-**RES-002** Qualification SHALL record one bounded aggregate peak main/guard/worker RSS result per CPU/CUDA cell
-and GPU VRAM where applicable. No comparative 3-percent resource gate remains. Missing, malformed, unbounded, or
-privacy-unsafe resource evidence fails qualification; elapsed or resource magnitude alone does not fail the
-focused gate unless the runtime cannot complete safely.
+**WIN-005** Linux behavior is the functional reference. Windows-only implementation corrections are permitted;
+shared behavior SHALL change only when necessary to preserve the already implemented cross-platform contract.
 
 ## 6. Model-file safety and standard loader
 
@@ -267,7 +227,7 @@ a custom model-loader callback, allocate an authenticated snapshot, or calculate
 
 **SEC-004** No same-open-object content guarantee remains between the final metadata/path check and the upstream
 file open. A same-user process may replace a file during or after validation; this is the explicit accepted risk
-established by revision 6 and retained by revision 7. Path confinement and link/type checks remain mandatory,
+established by revision 6 and retained by revision 8. Path confinement and link/type checks remain mandatory,
 but a bounded regular parseable replacement is not rejected merely because its bytes differ from the catalog's
 historical digest.
 
@@ -301,7 +261,7 @@ state this reduced integrity guarantee plainly.
 ### 6.2 Retained SHA-256 implementation
 
 **CRY-001** The implemented project-owned scalar/accelerated SHA-256 state machine remains available for
-runtime-pack, installation-artifact, fixture, and qualification uses. Dispatch remains race-free and CPU-feature
+runtime-pack, installation-artifact, fixture, and retained tooling uses. Dispatch remains race-free and CPU-feature
 selected. It SHALL not be called on ordinary model contents after revision 6.
 
 ## 7. Installation protocol and pipeline
@@ -311,8 +271,8 @@ canonical base64url codec, exact 262,144-byte payload budget, newline framing, m
 derived raw chunk limit remain authoritative.
 
 **THR-001, RES-001, INST-002** The implemented bounded ordered candidate-window pipeline retains serial production
-selection until qualification, deterministic backpressure, exactly-once settlement, cancellation/failure cleanup,
-and no partial publication. Model download promotion additionally follows SCP-008 without content hashing.
+selection, deterministic backpressure, exactly-once settlement, cancellation/failure cleanup, and no partial
+publication. Model download promotion additionally follows SCP-008 without content hashing.
 
 ## 8. Worker lifecycle, warm-up, and audio
 
@@ -347,8 +307,8 @@ behavior, focus, and localized accessibility remain unchanged.
 
 ## 10. Backend build-option contract
 
-**BLD-001** Current effective CPU/CUDA option values and Linux/Windows intent remain pinned. Revision 7 changes
-qualification scope only; it SHALL not enable flash attention, change ggml/CUDA tuning, or introduce
+**BLD-001** Current effective CPU/CUDA option values and Linux/Windows intent remain pinned. Revision 8 changes
+only the remaining acceptance scope; it SHALL not enable flash attention, change ggml/CUDA tuning, or introduce
 host-default drift.
 
 **DEP-001** No new codec, crypto, threading, runtime, or packaged dependency is authorized.
@@ -358,11 +318,11 @@ host-default drift.
 **ARC-001** Main retains privileged filesystem, process, settings, runtime, and provider ownership. Renderer code
 uses only the existing typed desktop boundary.
 
-**ARC-002** Stateful transport, worker, and qualification behavior remains process-lifecycle owned with injected
+**ARC-002** Stateful transport, worker, and retained qualification behavior remains process-lifecycle owned with injected
 dependencies; no mutable module-level or native global runtime container is authorized.
 
 **THR-005** Retained SHA dispatch remains immutable and race-free. Standard model loading remains owned by one
-worker inference owner; revision 7 does not authorize concurrent model loads or inference.
+worker inference owner; revision 8 does not authorize concurrent model loads or inference.
 
 **RES-003** Native resources use RAII and deterministic non-throwing cleanup. Success, failure, cancellation,
 timeout, protocol mismatch, parser failure, backend failure, and process exit SHALL release all worker-owned
@@ -370,9 +330,8 @@ resources and confirm termination before uncertain allocations are considered go
 
 ## 12. Security and privacy
 
-**PRIV-001** Qualification may retain aggregate durations, byte counts, sample counts, anonymized profile IDs,
-and bounded resource statistics only. Private raw evidence remains outside the repository and is not deleted by
-this work.
+**PRIV-001** Existing qualification artifacts remain subject to their aggregate-only privacy contract. Revision
+8 requires no new qualification evidence and does not delete retained private evidence.
 
 **PRIV-002** Runtime logs, errors, diagnostics, crash attachments, CI artifacts, and documentation SHALL not
 contain absolute model paths, audio, transcripts, model bytes, hashes tied to private local files, raw native
@@ -423,64 +382,29 @@ fail closed before model open. Runtime-pack compatibility remains authenticated 
 
 **OPS-002** Automatic settings downgrade remains forbidden.
 
-**OPS-004** The standard-loader candidate SHALL not replace the current implementation until required Linux and
-Windows automated and representative-host gates pass. Rollback is a whole compatible app/worker set, not a
-per-load fallback. This specification authorizes neither rollout nor release publication.
+**OPS-004** Completion requires the Windows functional run in Section 5, not additional Linux qualification,
+CI, benchmark, package, or evidence gates. Rollback remains a whole compatible app/worker set, not a per-load
+fallback. This specification authorizes neither rollout nor release publication.
 
 ## 14. Acceptance criteria
 
-### 14.1 Automated acceptance
+### 14.1 Inherited acceptance
 
-| ID         | Check                                  | Required result                                                                                                                                   |
-| ---------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AC-AUT-001 | Qualification schema and privacy tests | Three-sample phase/resource evidence is bounded, aggregate-only, and rejects missing or inconsistent data.                                        |
-| AC-AUT-002 | Focused statistics tests               | Cold/warm sample count, ordering, median, minimum, maximum, and five-second distance are deterministic without a paired baseline or timing gate.  |
-| AC-AUT-003 | Linux/Windows source-count fixtures    | Historical 8/7 and 7/6 counts remain attributable; candidate ordinary load count is 0/0.                                                          |
-| AC-AUT-004 | Path/process mutation tests            | Escape, links/reparse, non-regular type, size, stale generation, nonce, and protocol mismatch fail before upstream load.                          |
-| AC-AUT-005 | Standard-loader selection test         | Production worker calls the pinned path-based `whisper.cpp` initialization API exactly once.                                                      |
-| AC-AUT-006 | Removed-proof source/behavior test     | Production load and install paths construct no `ExactModelReader`, custom model preflight/loader, snapshot, or model-content SHA/signature proof. |
-| AC-AUT-007 | Installation pipeline tests            | Bounds, ordering, backpressure, cancellation, retry, cleanup, and atomic promotion hold without model hashing.                                    |
-| AC-AUT-008 | Retained SHA tests                     | Runtime/non-model scalar and accelerated digests agree; unsupported CPUs never run accelerated instructions.                                      |
-| AC-AUT-009 | Worker lifecycle tests                 | `loaded` precedes explicit warm-up; failure/cancel/unload/retry leaves no reusable uncertain state.                                               |
-| AC-AUT-010 | WAV lifetime tests                     | Source WAV and PCM ownership/release remain bounded on success and every failure.                                                                 |
-| AC-AUT-011 | Settings migration tests               | Schema-2 CPU/GPU thread validation and migration remain deterministic.                                                                            |
-| AC-AUT-012 | Renderer tests                         | Target-specific thread controls remain accessible and type-safe.                                                                                  |
-| AC-AUT-013 | Runtime identity tests                 | GPU CPU-thread/topology/configuration changes invalidate stale residency.                                                                         |
-| AC-AUT-014 | Backend profile tests                  | Linux/Windows current-value intent and dependency closure have no unexplained drift.                                                              |
-| AC-AUT-015 | Cross-platform build/package tests     | Linux GCC/Clang and Windows MSVC workers/packages preserve the shared standard-loader contract.                                                   |
-| AC-AUT-016 | Memory tests                           | No project-owned model-size snapshot exists; bounded aggregate RAM/VRAM evidence follows RES-002.                                                 |
-| AC-AUT-017 | Timing semantics tests                 | Exceeding five seconds causes neither runtime nor qualification failure; reporting still evaluates OUT-002.                                       |
-| AC-AUT-018 | Standard-loader failure tests          | Parser/allocation/backend failure is sanitized, fully cleaned, and has no legacy fallback.                                                        |
-| AC-AUT-019 | Accepted-risk test                     | Same-size parseable replacement is not rejected by a model-content proof; docs and result semantics do not claim authenticity.                    |
-| AC-AUT-020 | Private path tests                     | Path appears only on the bounded private channel and never in argv, environment, renderer IPC, logs, diagnostics, or evidence.                    |
+**AC-INH-001** Packets 01–16 and their recorded checks remain accepted historical implementation evidence. The
+remaining Windows task SHALL not rerun those suites merely to reconfirm unchanged Linux/shared behavior.
 
-### 14.2 Manual representative-host acceptance
+### 14.2 Remaining Windows acceptance
 
-**AC-MAN-001** On each representative Linux x64 and Windows x64 host, install only the candidate package and run
-the exact `base/full` artifact in four cells: CPU cold-cache, CPU warm-cache, CUDA cold-cache, and CUDA
-warm-cache. Each cell SHALL contain exactly three successful candidate loads using the same locked identities.
+**AC-WIN-001** The Windows implementation compiles and the ordinary development application starts with the
+Local Whisper CPU and CUDA runtime resources on a supported Windows x64 host.
 
-**AC-MAN-002** After timed loading, run one sequential packaged load, explicit warm-up, transcription,
-cancellation, unload, retry, and process-tree cleanup flow per backend on each supported regular-computer host.
+**AC-WIN-002** One CPU flow and one CUDA flow load application-managed model weights and produce a successful
+transcription through the same user-visible provider workflow used on Linux. The CUDA flow uses CUDA without
+silent CPU fallback.
 
-**AC-MAN-003** Confirm each CUDA flow owns the selected GPU and does not silently fall back to CPU. Existing
-automated coverage remains responsible for unsupported/unavailable-device permutations and runtime
-authentication continues to fail closed.
-
-**AC-MAN-004** Confirm the candidate package uses the standard path API and private path channel on each OS;
-Linux results do not substitute for Windows execution, and no baseline package is installed.
-
-**AC-MAN-005** Perform one bounded privacy inspection per OS over logs, diagnostics, crash/error surfaces, and
-retained evidence for path, model, audio, transcript, native-output, and device-identity leakage.
-
-**AC-MAN-006** Confirm cleanup and rollback restore one whole compatible app/worker set and never mix loader
-protocols. Representative suspend/resume, thread-count, topology/model-switch, delete/redownload, and
-installation-window matrices are not required by revision 7.
-
-**AC-MAN-007, AC-MAN-008** For `base/full`, report the three cold-cache and three warm-cache candidate samples,
-median, minimum, maximum, and distance from the approximately five-second objective on every named supported
-profile. Confirm elapsed time changes neither a valid runtime result nor the focused qualification result into
-failure.
+**AC-WIN-003** Both functional flows complete without a provider crash or user-visible provider error. No
+benchmark result, repeated sample, CI conclusion, package result, or additional qualification evidence is part
+of acceptance.
 
 ## 15. Documentation and operational evidence
 
@@ -490,29 +414,25 @@ failure.
 - a same-user local replacement may load if it remains a bounded regular parseable model;
 - runtime workers remain authenticated and process/file path safeguards remain active;
 - corruption may appear only as a sanitized standard-loader failure with explicit delete/redownload guidance;
-- five seconds is an informational Base-load objective, not a runtime or qualification timeout/gate;
-- Linux and Windows qualification evidence is separate;
+- the remaining delivery was accepted by direct Windows functional execution rather than performance
+  qualification;
 - the private path field is excluded from public/retained surfaces; and
 - rollback replaces the whole compatible app/worker set.
 
-Repository evidence SHALL contain only requirement mappings, sanitized aggregate results, exact non-sensitive
-source/artifact identities, check names, and gate outcomes. Private hardware/model/run evidence remains outside
-the repository and SHALL not be deleted by routine work.
+Existing private hardware/model/run evidence remains outside the repository and SHALL not be deleted by routine
+work. Revision 8 requires no new benchmark or qualification evidence.
 
 ## 16. Completion criteria
 
-Revision 7 is complete only when:
+Revision 8 is complete only when:
 
 1. every active requirement maps to an automated or manual acceptance criterion;
 2. every superseded snapshot/content-proof requirement is removed from active plan packets;
-3. the focused Base-only Linux candidate package, CPU/CUDA cold/warm cells, lifecycle, cleanup, resource, and
-   privacy checks pass on a representative supported host;
-4. the separately executed focused Base-only Windows candidate package, CPU/CUDA cold/warm cells, lifecycle,
-   cleanup, resource, privacy, and required Windows CI/package checks pass on a representative supported host;
-5. every cell reports exactly three successful candidate samples with median, minimum, maximum, and distance
-   from five seconds, without a paired baseline or timing pass/fail gate;
-6. no model-content authentication remains in ordinary installation or loading;
-7. retained runtime/process/path security tests pass; and
-8. required documentation and rollback evidence are complete.
+3. the Windows metadata-only validator and standard path loader behavior match Linux;
+4. the Windows development application completes one successful Local Whisper CPU flow and one successful CUDA
+   flow as defined by AC-WIN-001–AC-WIN-003;
+5. no model-content authentication remains in ordinary installation or loading; and
+6. Task 17, benchmark matrices, CI/package qualification, repeated samples, timing/resource evidence, and
+   additional acceptance suites are absent from the remaining plan.
 
 Specification approval still authorizes no implementation, commit, push, CI execution, publication, or release.

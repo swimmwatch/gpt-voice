@@ -1,216 +1,127 @@
-# 18 Windows Implementation And Focused Base Qualification
+# 18 Windows Functional Parity
 
 ## Outcome
 
-On a real Windows x64 host, implement the Windows metadata-only model-file validator, prove the shared standard
-path loader through required Windows CI and package checks, then run the same focused `base/full` CPU/CUDA
-cold/warm and packaged lifecycle/privacy qualification used on Linux. Fix each Windows CI failure in a separate
-reviewable commit and close the workstream only after every required result is positive.
+Implement the missing Windows Local Whisper model-file loading behavior so it matches Linux, then run the
+Windows development application once with the CPU backend and once with the CUDA backend and confirm recording
+and transcription work.
 
 ## Prerequisites
 
-- Packets 16 and 17 are complete. Packet 17 supplies valid Linux Base evidence bound to the reviewed candidate and
-  a candidate-only qualification contract that Windows can consume.
-- The Windows operator has an authenticated checkout, approved MSVC/Windows SDK/CUDA toolchains, representative
-  supported CPU/CUDA hardware, the private 147,951,465-byte `base/full` artifact, one private transcription
-  fixture, candidate package inputs, and validated disposable roots.
-- Commit and push authority is obtained separately before each action. CI starts only from the exact pushed SHA.
-- Existing Linux/Windows private evidence and generated artifacts remain private and must not be deleted.
+- Packets 01–16 are complete; Linux is the functional reference.
+- A real supported Windows x64 host is available with the project toolchain and a working CUDA environment for
+  the CUDA flow.
+- An application-managed Local Whisper model and non-sensitive test audio are available through the ordinary
+  provider workflow.
 
 ## Owned Requirements
 
-OUT-001–OUT-003, GAT-002–GAT-004, QUAL-001, QUAL-002, OBS-001–OBS-005, PERF-001,
-PERF-004, PERF-008–PERF-012, CMP-001–CMP-009, IPC-005, SEC-001, SEC-002, SEC-004,
-SEC-006, SEC-010–SEC-012, ARC-001, ARC-002, ARC-005, ARC-006, BLD-001, DEP-001,
-RES-002–RES-004, PRIV-001, PRIV-002, FAIL-001–FAIL-005, OPS-001–OPS-004,
-AC-AUT-003–AC-AUT-020 (Windows and final cross-platform portions), AC-MAN-001–AC-MAN-008
-(Windows and final portions).
+- OUT-001, OUT-002
+- WIN-001–WIN-005
+- AC-WIN-001–AC-WIN-003
+- OPS-004
 
 ## In Scope
 
-- Windows C++20 `ModelFileValidator` implementation, CMake source selection, RAII ownership, and focused tests.
-- Real MSVC CPU/CUDA build and compatibility validation for the Packet 16 protocol-v2/private-path/standard-loader
-  candidate without descriptor/handle model authority or model-content proof.
-- Required GitHub CI checks on exact pushed SHAs, a separate fix commit for each actionable Windows CI failure,
-  and complete reruns until every required result is `success`.
-- Candidate Windows package only; four Base timing cells with three candidate loads per cell; one focused packaged
-  lifecycle flow per backend; real CUDA ownership; bounded RAM/VRAM; privacy; cleanup; rollback evidence.
-- Windows-only remediation and final sanitized cross-platform evidence/documentation.
+- The Windows C++20 model-file validator and its existing platform build selection.
+- Windows-only corrections needed to preserve the shared standard path-based `whisper.cpp` loading contract.
+- Compiling and starting the ordinary Windows development application with Local Whisper CPU and CUDA resources.
+- One successful model-load, recording, and transcription flow for CPU and one for CUDA.
+- A minimal Windows-specific correction and rerun if either functional flow fails.
 
 ## Out Of Scope
 
-- Windows simulation on Linux or Linux/fixture evidence represented as a Windows host result.
-- A baseline package, paired measurements, other models, p95, variance, uncertainty, relative speedup, 25-percent
-  component, 3-percent resource/end-to-end, or absolute-duration qualification gates.
-- Installation-window experiments or production selection; suspend/resume, unavailable-device, CPU-thread-count,
-  topology/model-switch, or delete/redownload representative matrices.
-- Deleting or enabling the deprecated loader as fallback, changing the standard path API, weakening runtime-pack/
-  process/path safety, adding dependencies, changing package targets, public IPC/UI work, release publication,
-  artifact upload, history rewriting, squashing, or private evidence deletion.
-- Shared/Linux production behavior changes. Such a change invalidates affected Linux evidence and requires a
-  return to planning before Windows qualification continues.
+- Former Task 17 and any additional Linux qualification or execution.
+- Benchmarks, cold/warm cache preparation, repeated samples, timing targets, medians, percentiles, resource
+  sampling, baseline comparison, or performance evidence.
+- CI execution or inspection, package qualification, installer testing, evidence digests, and release work.
+- Expanded lifecycle, cancellation, retry, cleanup, privacy, device-failure, topology, settings, migration, or
+  model matrices.
+- New dependencies, public IPC/UI changes, loader fallback, model-content authentication, or unrelated shared/
+  Linux behavior changes.
 
 ## Task Contract
 
-1. Execute implementation and representative checks on a real Windows x64 computer. Record the exact checkout or
-   bounded source identity, runtime/package identities, MSVC/SDK/CUDA profiles, candidate Base identity, and
-   validated private attempt root before building. Never substitute a Linux fixture for Windows execution.
-2. Implement the Windows backend corresponding to `model_file_validator_linux.cpp` behind the existing
-   `ModelFileValidator` contract. Use strict UTF-8-to-UTF-16 conversion and an RAII-owned `HANDLE`. Require an
-   absolute canonical catalog-selected child beneath the managed model root; open the final component without
-   following reparse points; reject symlink, junction, any reparse tag, directory, device, non-disk file, stale or
-   missing path, and exact-size mismatch. Read no model payload bytes and close the metadata handle before the
-   upstream API call.
-3. Preserve the explicitly accepted race between metadata validation and the standard API reopen. Call
-   `whisper_init_from_file_with_params` exactly once with the canonical path, keep current CPU/CUDA/backend/thread
-   options, sanitize parser/allocation/backend failures, clean all partial state, and never invoke the legacy
-   reader/preflight/descriptor/handle/snapshot path as fallback.
-4. Add focused native tests for a regular exact-size child and for traversal/escape, relative path, wrong size,
-   missing/stale path, directory, device/non-disk type, symlink/junction/reparse point, spaces, and non-ASCII path
-   behavior. Tests use only validated temporary roots and RAII; no broad recursive user-data operation is allowed.
-5. Compile and run the complete Windows compatibility boundary. Mixed protocol peers fail before model open; the
-   private path remains bounded and absent from argv, environment, renderer/preload IPC, logs, diagnostics,
-   errors/crash output, package evidence, and qualification artifacts. Runtime-pack/executable authentication
-   remains independent and fail closed.
-6. Confirm ordinary Windows install/load performs zero model-content hashes, signatures, preflight passes,
-   snapshots, custom-loader reads, descriptor/handle model handoffs, or loader-consumption proofs. Qualification-
-   input authentication remains private harness behavior and cannot leak into production loading.
-7. Run the focused Windows commands below. When the implementation is reviewable, create and push its commit only
-   with explicit authorization. Run the complete required CI set on that exact SHA and wait for final conclusions.
-   Only `success` passes; skipped, cancelled, neutral, stale, action-required, timed-out, or missing results fail.
-8. For each actionable CI failure, preserve its non-sensitive evidence, diagnose it, create one separate minimal
-   fix commit, obtain push authorization, push, and rerun the complete required CI set. Never amend or squash the
-   implementation/fix commits. A check may not be weakened to obtain green status.
-9. After CI is green, build and install only the actual candidate Windows package. Verify managed roots containing
-   spaces and non-ASCII characters through the packaged path. If the pinned standard API cannot consume a valid
-   managed Unicode path, stop for `/spec`; do not copy the model to an ambient path or add a custom loader.
-10. Using the locked candidate-only manifest, run CPU cold, CPU warm, CUDA cold, and CUDA warm cells for the exact
-    Base artifact. Each cell completes only with exactly three successful candidate loads. Retain ordering,
-    durations, median, minimum, maximum, distance from 5,000 ms, bounded phase attribution, peak main/guard/worker
-    RSS, and CUDA VRAM. Five seconds and resource magnitude are informational, not pass/fail thresholds.
-11. After timed loads, run one sequential packaged flow per backend: load, explicit real-inference warm-up,
-    successful transcription, cancel one active request and observe one terminal outcome, unload, retry from a
-    clean state, and confirm owned process/resource cleanup. Prove the CUDA flow owns the selected GPU and does
-    not silently fall back to CPU.
-12. Perform one bounded Windows privacy inspection over logs, diagnostics, errors/crash surfaces, package output,
-    and retained evidence. Preserve failed attempts with content-free reasons and use a fresh validated root for
-    any disclosed replacement attempt.
-13. Audit the final production diff against Packet 17. Any shared/Linux production behavior change invalidates
-    affected Linux evidence and stops the packet. A Windows-only or qualification-tool compatibility fix reruns
-    its focused tests; rerun Linux representative cells only when their manifest/collection/result semantics were
-    changed.
-14. Retain only sanitized aggregate Linux/Windows results and exact non-sensitive source/artifact/evidence
-    identities. Update operations and rollback documentation to state the accepted same-size replacement risk,
-    zero ordinary model-content authentication, five-second informational semantics, private-path constraints,
-    inactive deprecated loader, and whole-compatible-build rollback.
+1. Compare the existing Windows validator boundary with the completed Linux validator and implement the missing
+   Windows behavior behind the same `ModelFileValidator` contract.
+2. Preserve application-managed-root confinement, absolute canonical paths, regular disk-file checks,
+   reparse-point rejection, expected-size validation, strict path conversion, RAII handle ownership, private
+   path transport, sanitized failures, one standard `whisper_init_from_file_with_params` call, and no legacy
+   fallback or model-payload pre-read.
+3. Keep platform APIs inside the Windows translation unit and retain the existing shared process, protocol,
+   threading, and resource-ownership boundaries.
+4. On the Windows host, compile through the ordinary development path and start the Local Whisper development
+   application.
+5. Select the CPU backend, load the configured model weights, record audio, and confirm a transcript is returned.
+6. Select the CUDA backend, load the configured model weights, record audio, confirm a transcript is returned,
+   and confirm the CUDA backend is active rather than silently falling back to CPU.
+7. If compilation or either flow fails, make the smallest Windows-specific correction and rerun only the failed
+   compilation or functional flow. Stop when both flows work.
 
 ## Contracts And Boundaries
 
-- Windows platform APIs stay behind the native validator boundary; shared engine/protocol semantics match Linux.
-- No shell execution, ambient `PATH` model resolution, mutable global runtime state, unchecked path, raw resource
-  ownership, concurrent load/inference, or private-data disclosure is permitted.
-- Generated workers, runtime packs, models, packages, caches, manifests, raw samples, environment/capability dumps,
-  and device identities remain uncommitted and unshared.
-- CI proves deterministic build/contract behavior; real Windows CPU/CUDA execution separately proves supported-
-  host behavior. Neither substitutes for the other.
+- Renderer and preload gain no new authority; privileged filesystem and worker work remains in main/native code.
+- Model paths remain absent from argv, environment variables, renderer IPC, retained logs, diagnostics, and
+  user-facing errors.
+- Native resources use RAII and deterministic non-throwing cleanup; no mutable global runtime state is added.
+- The standard path loader remains the sole production model reader on Linux and Windows.
+- CUDA success requires the selected CUDA backend; CPU fallback is not a successful CUDA result.
 
 ## Expected Files Or Components
 
-- `runtime/local-whisper/whisper-cpp/core/model_file_validator_windows.cpp` (or the equivalent platform-selected
-  Windows translation unit), `runtime/local-whisper/whisper-cpp/CMakeLists.txt`, and native validator tests.
-- Windows-focused worker protocol, supervisor/composition, qualification, package, or workflow tests only where
-  implementation or real failure evidence requires them.
-- Candidate-only Windows qualification adapters/commands/tests under `scripts/local-whisper/qualification/` and
-  `tests/scripts/localWhisper/qualification/` where Packet 17 did not already provide platform-neutral support.
-- Privacy-safe final cross-platform evidence/documentation plus `tasks/todo.md` and `tasks/handoff.md`.
+- `runtime/local-whisper/whisper-cpp/core/model_file_validator_windows.cpp` or the existing equivalent Windows
+  platform unit.
+- `runtime/local-whisper/whisper-cpp/CMakeLists.txt` only if Windows source selection requires correction.
+- The smallest directly related shared declaration or Windows build file only when compilation proves it is
+  necessary.
+- `tasks/todo.md` and `tasks/handoff.md` after completion.
 
 ## Acceptance Criteria
 
-- MSVC CPU/CUDA builds validate the bounded canonical Windows path and metadata, read zero model payload bytes,
-  close the metadata handle, and call the standard path API exactly once; every invalid path/type/size/reparse/
-  protocol case fails before upstream load without path disclosure.
-- All required CI checks conclude `success` on the final exact SHA. Each actionable CI correction exists as a
-  separate authorized fix commit followed by a complete CI rerun.
-- The candidate package passes spaces/non-ASCII roots and focused CPU/CUDA lifecycle, cancellation, retry,
-  cleanup, no-fallback, runtime-authentication, and privacy checks.
-- Base CPU/CUDA cold/warm cells each contain exactly three successful candidate loads and report sample ordering,
-  median, minimum, maximum, distance from five seconds, bounded RAM/VRAM, and no timing/resource threshold.
-- Real CUDA ownership is confirmed with no silent CPU fallback. Linux and Windows evidence remains independently
-  attributable and private raw evidence remains retained outside source control.
-- Final documentation and evidence describe whole-build rollback, accepted model-replacement risk, inactive
-  legacy code, and no release/publication authorization.
+- The Windows implementation compiles and the Local Whisper development application starts on the real Windows
+  host with CPU and CUDA runtime resources.
+- The CPU flow loads application-managed model weights and returns a transcription.
+- The CUDA flow loads application-managed model weights, returns a transcription, and does not silently use CPU.
+- Both functional flows complete without a provider crash or user-visible provider error.
+- No benchmark, repeated sample, CI result, package result, or additional qualification evidence is required.
 
 ## Verification
 
-Run on a real Windows host with pinned project toolchains:
+On the real Windows host:
 
-- `npm run test:local-whisper:whisper-cpp:msvc-asan`
-- `npm run test:local-whisper:worker-codec:msvc-asan`
-- `npm run test:local-whisper:fs-guard:msvc-asan`
-- `npm run test:local-whisper:launcher:msvc-asan`
-- `npm run test:local-whisper:performance-contracts`
-- `npm run test:local-whisper:qualification`
-- `npm run test:local-whisper:supervisor`
-- `npm run test:local-whisper:composition`
-- `npm run test:local-whisper:artifacts`
-- `npm run test:local-whisper:filesystem`
-- `npm run test:local-whisper:windows-readiness`
-- `npm run verify:local-whisper:windows-readiness`
-- `npm run produce:local-whisper:windows-runtime-pack:cpu`
-- `npm run produce:local-whisper:windows-runtime-pack:cuda`
-- `npm run test:local-whisper:windows-application-smoke`
-- `npm run test:local-whisper:packaging`
-- `npm run verify:local-whisper:packaging:windows-unpacked`
-- `npm run run:local-whisper:qualification:windows`
-- `npm run verify:local-whisper:qualification:windows`
-- Candidate-package CPU/CUDA procedures in Task Contract 9–12.
-- `npx prettier --check docs/specs/local-whisper-performance-remediation scripts/local-whisper/qualification tests/scripts/localWhisper/qualification`
-- `git diff --check`
+1. Compile and start the ordinary Local Whisper development application using the repository's existing Windows
+   development command.
+2. Run the CPU model-load, recording, and transcription flow once.
+3. Run the CUDA model-load, recording, and transcription flow once and confirm CUDA is active.
 
-Required CI checks after every authorized push:
-
-- `Quality Gates`
-- `Local Whisper Performance (Linux)`
-- `Local Whisper Performance (Windows)`
-- `Local Whisper Native Quality (Linux)`
-- `Local Whisper Native Quality (Windows)`
-- `Package Smoke (Windows)`
-- `Package Attestation (Windows)`
-
-Wait for every required result. Record only the exact SHA, check name, URL or non-sensitive run ID, final
-conclusion, and sanitized evidence digest in `handoff.md`.
+No additional verification suite is required by this packet.
 
 ## Failure And Rollback
 
-- A missing/partial Windows result, non-success CI conclusion, shared/Linux production diff, Unicode-root failure,
-  path disclosure, model-content proof, legacy fallback, runtime-authentication weakening, CUDA fallback,
-  incomplete cell/lifecycle/resource/privacy evidence, or uncertain cleanup leaves Packet 18 unchecked.
-- Preserve all failed private evidence. Retry from a new validated private root only after resources reach a known
-  clean state. Give each actionable CI failure its own minimal authorized fix commit and complete rerun.
-- Rollback deploys the previous whole compatible app/runtime set. Never reactivate the deprecated loader, mix
-  protocol versions, or use a per-load fallback.
+- A compile or functional failure leaves Packet 18 incomplete; apply the smallest Windows-specific fix and rerun
+  only the affected step.
+- Do not weaken path, process, runtime-pack, protocol, or privacy safeguards to obtain a successful run.
+- If a proposed correction changes unrelated shared/Linux behavior, stop and revise the packet before proceeding.
+- Rollback restores the prior whole compatible app/worker set; no per-load fallback is introduced.
 
 ## Manual Gates
 
-- `MANUAL GATE`: real Windows host and MSVC/SDK/CUDA toolchains, private model/fixture/runtime/package access,
-  package installation, representative CPU/CUDA/cache/lifecycle execution, induced cancellation, and private
-  evidence retention.
-- `MANUAL GATE`: every commit and push requires separate authorization. CI then runs and must be awaited to a
-  final positive result.
-- Pull requests, releases, publication, artifact/evidence upload, history rewriting, and private evidence deletion
-  remain unauthorized.
+- `MANUAL GATE`: the CPU and CUDA flows require a real Windows x64 host, local model weights, microphone input,
+  and working CUDA hardware/toolchain.
+- Commits, pushes, CI, publication, release, artifact upload, and private-evidence deletion are not authorized by
+  this packet.
 
 ## References
 
-- Specification Sections 4–16.
-- Packets 16 and 17 for the shared standard-loader contract and valid Linux candidate/evidence identity.
-- `docs/agent-guides/project-conventions.md` sections “Dependency Injection And Runtime Ownership”, “Desktop,
-  Browser, And Packaging”, “Tests And Documentation”, and “Git And Releases”.
+- Specification Sections 4–6 and 13–16.
+- [Packet 16](16_representative_linux_host_qualification.md) for the completed shared/Linux standard-loader
+  reference.
+- `docs/agent-guides/project-conventions.md` sections “Desktop, Browser, And Packaging”, “Tests And
+  Documentation”, and “Git And Releases”.
 
 ## Completion And Handoff
 
-Mark Packet 18 complete only after the final exact SHA has all required CI conclusions `success`, the installed
-candidate package passes focused Windows CPU/CUDA and privacy/cleanup gates, every Base cell has three valid
-candidate samples, and final evidence contains no prohibited data. Update `todo.md` and `handoff.md` with commits,
-checks, host outcomes, changed files, and rollback status, preserve all private evidence, state that no next packet
-remains, and stop without pull request, release, publication, or evidence deletion.
+After both Windows flows pass, mark Packet 18 complete in `todo.md` and update `handoff.md` with changed files,
+the Windows build result, CPU functional result, CUDA functional result, and any blocker. No benchmark numbers,
+private model/audio data, CI status, package evidence, or additional qualification results belong in the handoff.
+No next packet remains.
