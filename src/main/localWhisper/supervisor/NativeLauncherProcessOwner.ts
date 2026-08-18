@@ -214,7 +214,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         child,
         control,
         input,
-        nativeRuntimeProcessInstanceId: processInstanceId,
+        nativeRuntimeProcessInstanceIds: [processInstanceId],
         output,
         platform: this.dependencies.platform,
         processStartIdentity,

@@ -178,7 +178,7 @@ export class NativeManagedFilesystemGuardTransport implements ManagedFilesystemG
     }
     const nativeLogDecoder = this.dependencies.nativeRuntimeLogRelay
       ? new NativeRuntimeLogStreamDecoder({
-          expectedProcessInstanceId: processInstanceId,
+          expectedProcessInstanceIds: [processInstanceId],
           onRecord: (record) => this.dependencies.nativeRuntimeLogRelay?.accept(record),
         })
       : null;
