@@ -1,8 +1,8 @@
 # Local Whisper Performance Remediation Todo
 
 - Plan status: Approved revision 9 on 2026-08-18
-- Execution status: Packets 01–16 are complete. Former Packet 17 was removed by approved revision 9. Packet 18 is
-  the sole remaining packet and has not started.
+- Execution status: Packets 01–16 and 18 are complete. Former Packet 17 was removed by approved revision 9. No
+  executable packet remains.
 
 - [x] [01 Qualification contract and baseline](01_qualification_contract_and_baseline.md)
 - [x] [02 Launch-lease directory-result reuse](02_launch_lease_directory_result_reuse.md)
@@ -20,6 +20,6 @@
 - [x] [14 Performance attempt contract and derivation](14_performance_attempt_contract_and_derivation.md)
 - [x] [15 Linux performance attempt runner](15_linux_performance_attempt_runner.md)
 - [x] [16 Shared/Linux standard-loader implementation](16_representative_linux_host_qualification.md)
-- [ ] [18 Windows functional parity](18_windows_final_remediation.md) — implement Windows behavior matching Linux,
-  then run one CPU and one CUDA Local Whisper development flow and verify model loading, recording, and
-  transcription; no benchmarks, CI, package qualification, repeated samples, or additional checks
+- [x] [18 Windows functional parity](18_windows_final_remediation.md) — implement Windows behavior matching Linux,
+      then run one CPU and one CUDA Local Whisper development flow and verify model loading, recording, and
+      transcription; no benchmarks, CI, package qualification, repeated samples, or additional checks
