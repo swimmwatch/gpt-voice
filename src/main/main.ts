@@ -35,9 +35,7 @@ import { resolveStreamingVoiceProviderCapability } from './providers/streamingVo
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
-import { NvidiaSmiVramAvailability } from './localWhisper/capability/NvidiaSmiVramAvailability';
-import { NvidiaSmiHostInventory } from './localWhisper/capability/NvidiaSmiHostInventory';
-import { HostMemoryAvailability } from './localWhisper/capability/HostMemoryAvailability';
+import { HostResourceProbeFactory } from './localWhisper/capability/HostResourceProbeFactory';
 import {
   ProductionLocalWhisperEnvironmentFactory,
   createProductionLocalWhisperEnvironment,
@@ -60,8 +58,6 @@ const CLOAK_BROWSER_PACKAGE_NAME = 'cloakbrowser';
 const PLAYWRIGHT_PACKAGE_NAME = 'playwright-core';
 const UNKNOWN_RUNTIME_VERSION = 'unknown';
 const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
-const LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS = 2_000;
-const LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES = 4_096;
 const TRANSLATION_PROVIDER_VISIBLE_FOR_TESTING_ENVIRONMENT_KEY = 'GPT_VOICE_TRANSLATION_PROVIDER_VISIBLE';
 // CloakBrowser is ESM while the Electron main bundle is CommonJS.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
@@ -162,28 +158,6 @@ function runTextAutomationCommand(command: string, args: string[]): Promise<void
   });
 }
 
-function runLocalWhisperNvidiaSmiCommand(executablePath: string, arguments_: readonly string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      executablePath,
-      [...arguments_],
-      {
-        encoding: 'utf8',
-        maxBuffer: LOCAL_WHISPER_NVIDIA_SMI_MAX_BUFFER_BYTES,
-        timeout: LOCAL_WHISPER_NVIDIA_SMI_TIMEOUT_MS,
-        windowsHide: true,
-      },
-      (error, stdout) => {
-        if (error) {
-          reject(error instanceof Error ? error : new Error('NVIDIA VRAM query failed'));
-          return;
-        }
-        resolve(stdout);
-      },
-    );
-  });
-}
-
 /**
  * Constructs and starts the process-owned application graph.
  */
@@ -212,28 +186,19 @@ async function bootstrapMainProcess(): Promise<void> {
     homeDirectory: os.homedir,
     platform: process.platform,
   });
-  const localWhisperVramAvailability = new NvidiaSmiVramAvailability({
+  const localWhisperResourceProbes = new HostResourceProbeFactory({
     platform: process.platform,
     environment: process.env,
     pathExists: fs.existsSync,
-    command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
-  });
-  const localWhisperNvidiaInventory = new NvidiaSmiHostInventory({
-    platform: process.platform,
-    environment: process.env,
-    pathExists: fs.existsSync,
-    command: Object.freeze({ run: runLocalWhisperNvidiaSmiCommand }),
-  });
-  const localWhisperMemoryAvailability = new HostMemoryAvailability({
-    platform: process.platform,
     readFile: fs.readFileSync,
     fallbackMemoryBytes: os.freemem,
-  });
+    execFile,
+  }).create();
   const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
     appRevision: app.getVersion(),
     architecture: process.arch,
-    availableMemoryBytes: () => localWhisperMemoryAvailability.sample(),
-    availableVramBytes: (nativeIdentity) => localWhisperVramAvailability.sample(nativeIdentity),
+    availableMemoryBytes: () => localWhisperResourceProbes.memory.availableBytes(),
+    availableVramBytes: (nativeIdentity) => localWhisperResourceProbes.vram.availableBytes(nativeIdentity),
     configurationRoot: appConfigPaths.appDirectory,
     environment: process.env,
     fileSystem: fs,
@@ -246,7 +211,7 @@ async function bootstrapMainProcess(): Promise<void> {
     platform: process.platform,
     randomBytes,
     randomNonce: randomUUID,
-    readNvidiaInventory: () => localWhisperNvidiaInventory.read(),
+    readNvidiaInventory: () => localWhisperResourceProbes.nvidiaInventory.read(),
     readFile,
     resourcesPath: activation.status === 'active' ? activation.resourcesPath : process.resourcesPath,
     spawnProcess: spawn,

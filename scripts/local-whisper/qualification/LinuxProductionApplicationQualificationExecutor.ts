@@ -8,7 +8,10 @@ import { setTimeout as wait } from 'node:timers/promises';
 import { promisify } from 'node:util';
 
 import { NodeArtifactHttpClient } from '@main/localWhisper/artifacts/NodeArtifactHttpClient';
-import { NvidiaSmiHostInventory } from '@main/localWhisper/capability/NvidiaSmiHostInventory';
+import {
+  NvidiaSmiExecutableResolver,
+  NvidiaSmiHostInventory,
+} from '@main/localWhisper/capability/NvidiaSmiHostInventory';
 import { NvidiaSmiVramAvailability } from '@main/localWhisper/capability/NvidiaSmiVramAvailability';
 import type { LocalWhisperCatalogTrustPolicy } from '@main/localWhisper/catalog/LocalWhisperCatalogTypes';
 import { ProductionLocalWhisperEnvironmentFactory } from '@main/localWhisper/composition/createProductionLocalWhisperEnvironment';
@@ -126,12 +129,14 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
       pathExists: fs.existsSync,
       command: nvidiaCommand,
     });
-    const vramAvailability = new NvidiaSmiVramAvailability({
-      platform: 'linux',
-      environment: process.env,
-      pathExists: fs.existsSync,
-      command: nvidiaCommand,
-    });
+    const vramAvailability = new NvidiaSmiVramAvailability(
+      nvidiaCommand,
+      new NvidiaSmiExecutableResolver({
+        platform: 'linux',
+        environment: process.env,
+        pathExists: fs.existsSync,
+      }),
+    );
     const protocolObservations: ProcessProtocolObservation[] = [];
     let modelLaunchOrdinal = 0;
     const observedSpawn = ((command: string, arguments_: readonly string[], options: SpawnOptions) => {
@@ -153,7 +158,7 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
             appRevision: policy.appRevision,
             architecture: 'x64',
             availableMemoryBytes: freemem,
-            availableVramBytes: (nativeIdentity) => vramAvailability.sample(nativeIdentity),
+            availableVramBytes: (nativeIdentity) => vramAvailability.availableBytes(nativeIdentity),
             readNvidiaInventory: () => nvidiaInventory.read(),
             configurationRoot,
             environment: Object.freeze({

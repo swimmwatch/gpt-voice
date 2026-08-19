@@ -11,7 +11,10 @@ import type {
   ArtifactHttpClient,
   ArtifactHttpClientRequest,
 } from '@main/localWhisper/artifacts/ArtifactLifecycleTypes';
-import { NvidiaSmiHostInventory } from '@main/localWhisper/capability/NvidiaSmiHostInventory';
+import {
+  NvidiaSmiExecutableResolver,
+  NvidiaSmiHostInventory,
+} from '@main/localWhisper/capability/NvidiaSmiHostInventory';
 import { NvidiaSmiVramAvailability } from '@main/localWhisper/capability/NvidiaSmiVramAvailability';
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
 import {
@@ -459,18 +462,20 @@ class WindowsApplicationSmoke {
       pathExists: fs.existsSync,
       command: nvidiaCommand,
     });
-    const nvidiaVramAvailability = new NvidiaSmiVramAvailability({
-      platform: process.platform,
-      environment,
-      pathExists: fs.existsSync,
-      command: nvidiaCommand,
-    });
+    const nvidiaVramAvailability = new NvidiaSmiVramAvailability(
+      nvidiaCommand,
+      new NvidiaSmiExecutableResolver({
+        platform: process.platform,
+        environment,
+        pathExists: fs.existsSync,
+      }),
+    );
     const nativeRuntimeLogRelay = new CapturingNativeRuntimeLogRelay();
     const dependencies: LocalWhisperProductionEnvironmentDependencies = {
       appRevision: this.packageVersion,
       architecture: process.arch,
       availableMemoryBytes: freemem,
-      availableVramBytes: (nativeIdentity) => nvidiaVramAvailability.sample(nativeIdentity),
+      availableVramBytes: (nativeIdentity) => nvidiaVramAvailability.availableBytes(nativeIdentity),
       configurationRoot,
       environment,
       fileSystem: fs,

@@ -19,7 +19,10 @@ import {
   LOCAL_WHISPER_RELEASE_MODEL_MATRIX,
   localWhisperUpstreamModelUrl,
 } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
-import { NvidiaSmiHostInventory } from '@main/localWhisper/capability/NvidiaSmiHostInventory';
+import {
+  NvidiaSmiExecutableResolver,
+  NvidiaSmiHostInventory,
+} from '@main/localWhisper/capability/NvidiaSmiHostInventory';
 import { NvidiaSmiVramAvailability } from '@main/localWhisper/capability/NvidiaSmiVramAvailability';
 import { LocalWhisperCoordinator } from '@main/localWhisper/coordinator/LocalWhisperCoordinator';
 import {
@@ -256,8 +259,9 @@ class PerformanceArtifactOperationTracker {
 
   public record(completion: PerformanceArtifactOperationCompletion): void {
     if (
-      !/^[A-Za-z0-9_-]{1,128}$/u.test(completion.operationId) ||
-      (!completion.success && (completion.failureCode === null || !SAFE_LOCAL_WHISPER_FAILURE_CODE.test(completion.failureCode)))
+      !/^[\w-]{1,128}$/u.test(completion.operationId) ||
+      (!completion.success &&
+        (completion.failureCode === null || !SAFE_LOCAL_WHISPER_FAILURE_CODE.test(completion.failureCode)))
     ) {
       throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_COMPLETION_INVALID');
     }
@@ -276,7 +280,7 @@ class PerformanceArtifactOperationTracker {
   }
 
   public async waitFor(operationId: string): Promise<void> {
-    if (!/^[A-Za-z0-9_-]{1,128}$/u.test(operationId)) {
+    if (!/^[\w-]{1,128}$/u.test(operationId)) {
       throw new AttemptApplicationFailure('ATTEMPT_ARTIFACT_COMPLETION_INVALID');
     }
     const completion = this.completed.get(operationId) ?? (await this.awaitCompletion(operationId));
@@ -578,12 +582,14 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
         pathExists: fs.existsSync,
         command,
       });
-      const vram = new NvidiaSmiVramAvailability({
-        platform: 'linux',
-        environment: process.env,
-        pathExists: fs.existsSync,
+      const vram = new NvidiaSmiVramAvailability(
         command,
-      });
+        new NvidiaSmiExecutableResolver({
+          platform: 'linux',
+          environment: process.env,
+          pathExists: fs.existsSync,
+        }),
+      );
       let sequence = 0;
       let artifactPrimaryFailure: string | null = null;
       let artifactInstallationKind: PerformanceAttemptDiagnosticArtifactKind | null = null;
@@ -592,14 +598,14 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       let stagingPromotionFailure: ManagedArtifactStagingPromotionFailure | null = null;
       const artifactOperationTracker = new PerformanceArtifactOperationTracker();
       const started = process.hrtime.bigint();
-        const qualificationHooks = {
+      const qualificationHooks = {
         artifactHttpClient: catalog.artifactHttpClient,
         onArtifactTransferFailure: ({ primaryCode }: { readonly primaryCode: string }) => {
           artifactPrimaryFailure = primaryCode;
         },
-          onArtifactInstallationStage: (stage: ArtifactInstallationDiagnosticStage) => {
-            publishArtifactInstallationDiagnostic(artifactInstallationKind ?? 'model', stage);
-          },
+        onArtifactInstallationStage: (stage: ArtifactInstallationDiagnosticStage) => {
+          publishArtifactInstallationDiagnostic(artifactInstallationKind ?? 'model', stage);
+        },
         onArtifactOperationCompleted: (event: PerformanceArtifactOperationCompletion) => {
           if (artifactInstallationKind) {
             publishArtifactInstallationDiagnostic(artifactInstallationKind, 'operationCompletionObserved');
@@ -670,7 +676,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
               appRevision: String(catalog.policy.appRevision),
               architecture: 'x64',
               availableMemoryBytes: freemem,
-              availableVramBytes: (identity) => vram.sample(identity),
+              availableVramBytes: (identity) => vram.availableBytes(identity),
               configurationRoot,
               environment: Object.freeze({
                 HOME: homeRoot,
@@ -805,16 +811,16 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       publishArtifactInstallationDiagnostic('model', 'settingsApplied');
       await atAttemptApplicationStage('LOAD', async () => {
         publishArtifactInstallationDiagnostic('model', 'loadRequested');
-          probe.beginLoadProofs();
-          const result = await coordinator.loadNow();
-          if (!result.success) {
-            publishArtifactInstallationDiagnostic('model', 'nativeDiagnosticsFlushStarted');
-            const nativeDiagnostics = await probe.flushNativeDiagnostics();
-            publishArtifactInstallationDiagnostic(
-              'model',
-              nativeDiagnostics === 'settled' ? 'nativeDiagnosticsFlushCompleted' : 'nativeDiagnosticsFlushTimedOut',
-            );
-          }
+        probe.beginLoadProofs();
+        const result = await coordinator.loadNow();
+        if (!result.success) {
+          publishArtifactInstallationDiagnostic('model', 'nativeDiagnosticsFlushStarted');
+          const nativeDiagnostics = await probe.flushNativeDiagnostics();
+          publishArtifactInstallationDiagnostic(
+            'model',
+            nativeDiagnostics === 'settled' ? 'nativeDiagnosticsFlushCompleted' : 'nativeDiagnosticsFlushTimedOut',
+          );
+        }
         if (!result.success && result.error.code === 'WORKER_START_FAILED') {
           throw new AttemptApplicationFailure(
             `ATTEMPT_LOAD_ACK_${probe.nativeLaunchAcknowledgmentState.toUpperCase()}_${probe.nativeLaunchDiagnostic.toUpperCase()}`,
