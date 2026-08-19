@@ -199,7 +199,10 @@ function fileIdentity(path: string): ManagedArtifactIdentitySnapshot {
   };
 }
 
-function prepareRuntime(ignoreTermination = false): PreparedRuntime {
+function prepareRuntime(
+  ignoreTermination = false,
+  launchMode: LocalWhisperWorkerLaunchAuthority['launchMode'] = 'probe',
+): PreparedRuntime {
   const directory = mkdtempSync(resolve(tmpdir(), runtimeDirectoryPrefix));
   chmodSync(directory, 0o700);
   windowsAsanRuntimeSidecar.copyTo(directory);
@@ -237,7 +240,7 @@ function prepareRuntime(ignoreTermination = false): PreparedRuntime {
         backend: 'cpu',
         capabilities: ['cpu-fixture'],
       },
-      launchMode: 'probe',
+      launchMode,
       runtimeIdentityKey: 'launcher-fixture-runtime',
       runtimeLease: lease,
       workerExecutablePath: worker,
@@ -492,6 +495,26 @@ async function verifyControlClosure(): Promise<void> {
   }
 }
 
+/** Verifies that a standard path full-load never requests the retired model-handle handshake. */
+async function verifyStandardPathFullLoad(): Promise<void> {
+  const runtime = prepareRuntime(false, 'fullLoad');
+  let owned: LocalWhisperOwnedWorkerProcess | null = null;
+  try {
+    owned = await processOwner().launch(runtime.authority, 'launcher_standard_path_full_load_1234');
+    assert.equal(await waitUntil(() => existsSync(runtime.statePath), 5_000), true);
+    owned.closeOwnershipControl();
+    assert.equal(await owned.waitForExit(12_000), true);
+  } finally {
+    if (owned && !(await owned.waitForExit(0))) {
+      owned.closeOwnershipControl();
+      await owned.forceTreeTermination();
+      await owned.waitForExit(5_000);
+    }
+    await runtime.authority.runtimeLease.release();
+    await removeFixtureDirectory(runtime.directory);
+  }
+}
+
 async function verifyHungTreeHardKill(): Promise<void> {
   const runtime = prepareRuntime(true);
   let owned: LocalWhisperOwnedWorkerProcess | null = null;
@@ -562,6 +585,7 @@ async function main(): Promise<void> {
   if (!process.argv.includes('--fixture')) throw new Error('Launcher verification requires --fixture');
   mkdirSync(dirname(fixturePaths.launcher), { mode: 0o700, recursive: true });
   await verifyControlClosure();
+  await verifyStandardPathFullLoad();
   await verifyHungTreeHardKill();
   await verifyParentDeath();
   await verifyModelLaunchChain();

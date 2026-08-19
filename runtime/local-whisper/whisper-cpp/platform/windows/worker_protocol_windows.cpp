@@ -133,7 +133,7 @@ public:
     const auto frame = read_frame();
     const auto view = local_whisper::common::decode_frame(frame);
     if (view.kind != local_whisper::common::FrameKind::audio || view.body.size() < 8U ||
-        view.body[0] != 1U || view.body[1] > 1U) {
+        view.body[0] != kWorkerProtocolVersion || view.body[1] > 1U) {
       throw CoreError(FailureCode::audio_format_unsupported, "invalid Windows audio frame");
     }
     const auto sequence = big_u32(view.body.data() + 2U);

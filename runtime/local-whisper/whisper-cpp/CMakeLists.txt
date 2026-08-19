@@ -128,6 +128,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   )
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   target_sources(local_whisper_whisper_cpp_core PRIVATE
+    platform/windows/model_file_validator_windows.cpp
     platform/windows/model_authority_windows.cpp
     platform/windows/device_authority_windows.cpp
     platform/windows/worker_protocol_windows.cpp
@@ -225,15 +226,16 @@ if(LOCAL_WHISPER_BUILD_TESTS)
 
   add_executable(local_whisper_whisper_cpp_core_tests
     tests/exact_model_reader_test.cpp
-    tests/model_file_validator_test.cpp
     tests/pcm_cpu_test.cpp
     tests/worker_application_test.cpp
   )
   if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_sources(local_whisper_whisper_cpp_core_tests PRIVATE
+      tests/model_file_validator_windows_test.cpp
       tests/worker_protocol_windows_test.cpp)
   elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(local_whisper_whisper_cpp_core_tests PRIVATE
+      tests/model_file_validator_test.cpp
       tests/worker_protocol_posix_test.cpp)
   endif()
   target_include_directories(local_whisper_whisper_cpp_core_tests PRIVATE tests)

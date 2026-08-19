@@ -599,6 +599,10 @@ public:
     }
 
     const bool full_load = request.launch_mode == WorkerLaunchMode::full_load;
+    // A v2 full-load envelope carries the worker's canonical model path through
+    // the normal protocol. Only the deprecated guard frame carries a model
+    // authority record and therefore requires the handle-transfer handshake.
+    const bool legacy_model_authority = !request.model_authority_request.empty();
     PipePair worker_input = create_pipe(true, false);
     PipePair worker_output = create_pipe(false, true);
     std::array<UniqueHandle, 3> standard_handles = {
@@ -645,7 +649,7 @@ public:
                             "launcher job assignment failed");
 
       std::optional<local_whisper::common::AuthorityBinding> authority_binding;
-      if (full_load) {
+      if (legacy_model_authority) {
         authority_binding = model_binding(request);
         const auto launcher_bytes = read_exact(descriptor_handle(authority_descriptor),
                                                local_whisper::common::kAuthorityTransferBytes);
@@ -680,7 +684,7 @@ public:
         throw LauncherError(LauncherErrorCode::kWorkerResumeFailed,
                             "launcher worker resume failed");
       worker_thread.reset();
-      if (full_load) {
+      if (legacy_model_authority) {
         const auto acknowledgment_bytes = read_exact(
             worker_output.read.get(), local_whisper::common::kAuthorityAcknowledgmentBytes);
         const auto acknowledgment_record =

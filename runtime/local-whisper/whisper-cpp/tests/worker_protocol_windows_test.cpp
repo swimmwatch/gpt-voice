@@ -62,7 +62,7 @@ private:
 
 std::vector<std::uint8_t> regression_audio_frame(const std::string& request_id) {
   std::vector<std::uint8_t> body(8U + request_id.size() + kRegressionAudioBytes, 0U);
-  body[0] = 1U;
+  body[0] = kWorkerProtocolVersion;
   body[1] = 1U;
   body[6] = static_cast<std::uint8_t>((request_id.size() >> 8U) & 0xffU);
   body[7] = static_cast<std::uint8_t>(request_id.size() & 0xffU);
