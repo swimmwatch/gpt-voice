@@ -272,6 +272,9 @@ TEST(RealBackendIntegrationTest, CompletesTheManagedArtifactLifecycle) {
   const auto sealed = backend->seal_file({file[0]});
   ASSERT_EQ(sealed.size(), 1U);
   EXPECT_TRUE(backend->release({file[0]}).empty());
+  const auto metadata = backend->list_metadata({staging[0], {"file-model|384"}});
+  ASSERT_EQ(metadata.size(), 1U);
+  EXPECT_TRUE(metadata[0].ends_with("~"));
   EXPECT_FALSE(backend->list({staging[0], {"file-model|384"}}).empty());
   EXPECT_TRUE(backend->revalidate({staging[0], staging[1]}).empty());
 

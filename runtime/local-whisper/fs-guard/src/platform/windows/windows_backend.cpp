@@ -664,7 +664,8 @@ public:
   }
 
   std::vector<std::string>
-  list_directory(Lease& directory, const std::map<std::string, unsigned int>& expected_modes) {
+  list_directory(Lease& directory, const std::map<std::string, unsigned int>& expected_modes,
+                 const bool include_content_hash = true) {
     if (directory.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
     const bool require_exact_expectations = !expected_modes.empty();
@@ -691,11 +692,11 @@ public:
           throw GuardError("UNSAFE_ENTRY");
         remaining.erase(expected);
         result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
-                         sha256_file(file.get()));
+                         (include_content_hash ? sha256_file(file.get()) : std::string{}));
         continue;
       }
       result.push_back(name + "~" + identity_string(file.get(), directory.handle, mode) + "~" +
-                       sha256_file(file.get()));
+                       (include_content_hash ? sha256_file(file.get()) : std::string{}));
     }
     if (require_exact_expectations && !remaining.empty())
       throw GuardError("UNSAFE_ENTRY");
@@ -896,6 +897,14 @@ public:
       expected_modes.emplace(expected.name, expected.mode.value());
     }
     return list_directory(require_lease(command.directory_token), expected_modes);
+  }
+
+  ResponseFields list_metadata(const ListMetadataCommand& command) {
+    std::map<std::string, unsigned int> expected_modes;
+    for (const ExpectedEntry& expected : command.expected_entries) {
+      expected_modes.emplace(expected.name, expected.mode.value());
+    }
+    return list_directory(require_lease(command.directory_token), expected_modes, false);
   }
 
   ResponseFields list_namespace_command(const ListNamespaceCommand& command) {
@@ -1147,8 +1156,8 @@ ResponseFields WindowsBackend::seal_file(const SealFileCommand& command) {
 }
 
 ResponseFields WindowsBackend::list(const ListCommand& command) { return impl_->list(command); }
-ResponseFields WindowsBackend::list_metadata(const ListMetadataCommand&) {
-  throw GuardError("UNSUPPORTED");
+ResponseFields WindowsBackend::list_metadata(const ListMetadataCommand& command) {
+  return impl_->list_metadata(command);
 }
 
 ResponseFields WindowsBackend::list_namespace(const ListNamespaceCommand& command) {

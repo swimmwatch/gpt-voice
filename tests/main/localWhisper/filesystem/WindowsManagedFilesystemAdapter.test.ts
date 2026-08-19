@@ -112,6 +112,14 @@ async function install(harness: WindowsHarness): Promise<void> {
   await harness.store.promote(harness.descriptor, staging);
 }
 
+async function installMetadataOnlyModel(harness: WindowsHarness): Promise<void> {
+  const staging = await harness.store.createStaging(harness.descriptor);
+  const file = await harness.store.createStagedFile(staging, harness.descriptor.expectedFiles[0].fileId);
+  await harness.store.appendStagedFile(file, CONTENT);
+  await harness.store.sealStagedFile(file);
+  await harness.store.promoteMetadataOnlyModel(harness.descriptor, staging);
+}
+
 function installedFilePath(harness: WindowsHarness): string {
   return path.join(
     harness.managedRoot,
@@ -174,6 +182,14 @@ describe('WindowsManagedFilesystemAdapter real handle contract', { skip: process
       harness.store.leaseInstalledArtifact(harness.descriptor, 'verify'),
       (error) => error instanceof ManagedArtifactStoreError && error.code === 'ARTIFACT_MISSING',
     );
+  });
+
+  test('promotes and leases a metadata-only model without a content-hash scan', async () => {
+    const harness = await createHarness('metadata-only-model');
+    await harness.store.initialize();
+    await installMetadataOnlyModel(harness);
+    const model = await harness.store.leaseInstalledModelPathForLoad(harness.descriptor);
+    await model.modelLease.release();
   });
 
   test('reuses one model inspection and keeps later content mutation rejection', async () => {
