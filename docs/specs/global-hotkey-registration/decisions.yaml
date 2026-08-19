@@ -1,0 +1,256 @@
+schema_version: 1
+spec_slug: global-hotkey-registration
+interview_id: spec:global-hotkey-registration
+created_at: '2026-08-19'
+updated_at: '2026-08-20'
+
+decisions:
+  - id: outcome.truthful-registration
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires users to understand whether a configured global shortcut was actually registered by the operating system.'
+      - 'User authorized the complete global-hotkey registration plan.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Configured accelerators and operating-system registration are distinct authoritative states; the UI reports both and never presents a rejected candidate as active.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001, FLOW-001, UI-001]
+
+  - id: configuration.fresh-install
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - 'User explicitly requires first-run hotkeys to be unset and selected all seven targets.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [all-seven-unassigned]
+      text: 'A clean installation starts with Record, Stop, Cancel, Translation, Prettify, Quick Prettify, and Retry all unassigned.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-001, DATA-002]
+
+  - id: compatibility.existing-settings
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected preservation of existing configured shortcuts.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-existing]
+      text: 'Existing valid non-empty persisted shortcut strings remain configured after upgrade; missing, null, or invalid targets remain unassigned and receive no default.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-001, COMP-002]
+
+  - id: configuration.clear-assignment
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected support for clearing an assigned shortcut.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [allow-clear]
+      text: 'Settings provides Remove for every target; clearing persists null and leaves the in-app action available.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-003, FLOW-006, UI-009]
+
+  - id: interface.unassigned-actions
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected clickable in-app buttons while a shortcut is unassigned.'
+      - 'User selected status-only discovery without a first-run banner.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [clickable-no-banner]
+      text: 'Unassigned provider and contextual action controls remain clickable and keyboard-accessible inside the app, display a localized unassigned state, and do not add onboarding or a first-run banner.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-002, UI-003, UI-007]
+
+  - id: architecture.base-abstractions
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires SOLID, YAGNI, DRY, high cognitive clarity, low coupling, and necessary abstract base classes.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'A state-owning registration service composes an abstract global-shortcut adapter and an abstract platform policy selected by a factory; stateless parsing and normalization remain pure functions and no pass-through repository layer is added.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-003, ARCH-004]
+
+  - id: workflow.transactional-mutation
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'User approved registration validation, rollback, clear, suppression, and persistent registration behavior.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Replacement is candidate-first and commits only after OS registration and persistence succeed; any failure retains the previous configured and registered shortcut. Clearing is persistence-first. Settings suppresses dispatch without releasing OS bindings.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, FLOW-003, FLOW-004, FLOW-005, FLOW-006]
+
+  - id: platform.support-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires every supported platform.'
+      - 'The repository contract supports Windows and Linux while macOS release remains paused.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-linux]
+      text: 'Production qualification covers Windows, Linux X11, and Linux Wayland. The paused macOS release policy is unchanged and code remains fail-closed on unsupported platforms.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PLAT-001, PLAT-002, PLAT-003, COMP-004]
+
+  - id: platform.wayland-integration
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Electron GlobalShortcutsPortal rather than direct D-Bus integration.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [electron-portal]
+      text: 'Wayland uses Electron globalShortcut with GlobalShortcutsPortal enabled before app ready and a package/runtime desktop identity of com.swimmwatch.gptvoice; no direct D-Bus adapter or new dependency is added.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PLAT-004, PLAT-005, DEP-001]
+
+  - id: failure.classification
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - 'User approved bounded registration statuses and platform-aware failures.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Failure reporting distinguishes invalid input, internal conflict, OS-reserved F12 on Windows, generic OS or portal rejection, persistence failure, and unsupported platform; it never claims to identify the external owner of a conflict.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, FAIL-002, FAIL-003]
+
+  - id: workflow.physical-test
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'User approved the earlier proposed five-second physical shortcut test.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Settings can start one bounded five-second test for an already registered target; activation is detected without executing the product action and settles as detected, timed out, or unavailable.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-008, UI-010, QUAL-006]
+
+  - id: security.privacy
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - 'Hotkey state contains only action identifiers, normalized accelerator strings, bounded status codes, and platform classifications.'
+      - 'Main already owns Electron globalShortcut and trusted IPC sender validation.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Main remains the sole privileged owner; renderer receives validated bounded snapshots. Logs and diagnostics exclude environment contents, user paths, selected text, audio, transcripts, and external-process identity.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002, SEC-003]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The normalized draft was created from the user-authorized implementation plan and recorded decisions.'
+    prompt_mcp: null
+    question:
+      text: 'Approve the global-hotkey-registration draft as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve the draft for subsequent planning.
+        - id: request-changes
+          label: Request changes
+          description: Revise the contract before planning.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the draft without approving implementation planning.
+    answer:
+      selected_ids: [approve]
+      text: 'The user explicitly approved the global-hotkey-registration specification for implementation planning.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: needs_user
+    provenance: null
+    evidence:
+      - 'The approved specification has been decomposed into ten independently executable task packets with Linux X11 and Linux Wayland execution before a separate later Windows packet, plus complete requirement coverage.'
+    prompt_mcp: null
+    question:
+      text: 'Approve revision v1 of the global-hotkey-registration implementation plan?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve the packet sequence while keeping execution separately unauthorized.
+        - id: request-changes
+          label: Request changes
+          description: Revise packet boundaries or execution detail before approval.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the plan draft without authorizing packet execution.
+    answer: null
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
