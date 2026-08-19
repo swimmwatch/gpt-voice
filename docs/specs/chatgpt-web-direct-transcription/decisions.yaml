@@ -1,0 +1,322 @@
+schema_version: 1
+spec_slug: chatgpt-web-direct-transcription
+interview_id: spec:chatgpt-web-direct-transcription
+updated_at: '2026-08-20'
+decisions:
+  - id: outcome.direct-batch-transport
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user requested adapting the installed ChatGPT Desktop batch transcription behavior to GPT-Voice without Playwright page-side HTTP requests.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [direct-main-process-http]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001, OUT-002, OUT-003, ARCH-001]
+
+  - id: scope.streaming
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly deferred streaming transcription.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deferred]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-001]
+
+  - id: scope.preserved-boundaries
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'AGENTS.md requires reuse of existing providers and transports and prohibits unrelated release, Local Whisper, and provider changes without explicit scope.'
+      - 'The request is limited to ChatGPT batch transcription and explicitly defers streaming.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-parallel-provider, no-impersonation, no-unrelated-work]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [NONGOAL-002, NONGOAL-003, NONGOAL-004]
+
+  - id: dependency.axios
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requested Axios for HTTP requests.'
+      - 'The official npm registry reported Axios 1.19.0 as current on 2026-08-20.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [axios-production-dependency]
+      text: 'Install and pin axios@1.19.0 as a production dependency.'
+    rationale: 'An exact version keeps the packaged transport reproducible.'
+    supersedes_revision: null
+    requirement_ids: [DEP-001]
+
+  - id: architecture.process-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'AGENTS.md and project conventions assign provider HTTP, session, filesystem, and lifecycle operations to the Electron main process.'
+      - 'Renderer access must remain behind typed window.electronAPI contracts.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [main-process]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-004]
+
+  - id: architecture.browser-lifecycle
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected Axios refresh and requested that authenticated Playwright pages not perform runtime requests.'
+    prompt_mcp: null
+    question:
+      text: 'How should GPT-Voice operate after the interactive authorization window closes?'
+      kind: single
+      options:
+        - id: axios-refresh
+          label: 'Axios refresh'
+          description: 'Use the browser only for login, then refresh and transcribe through main-process Axios requests.'
+        - id: no-refresh
+          label: 'No refresh'
+          description: 'Require login again after the cached token expires.'
+        - id: hidden-playwright
+          label: 'Hidden Playwright'
+          description: 'Keep a hidden authenticated page for token refresh.'
+    answer:
+      selected_ids: [axios-refresh]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-003, AUTH-001, AUTH-002, AUTH-004, AUTH-006, AC-AUTO-006]
+
+  - id: protocol.desktop-batch-contract
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: repository
+    evidence:
+      - 'The locally installed OpenAI.Codex 26.814.5167.0 package posts multipart batch audio to the ChatGPT transcribe route with file and optional language fields.'
+      - 'The inspected client does not send a model field for this batch operation.'
+      - 'Internal attach-auth and attach-integrity headers are desktop renderer-to-main markers, not server request headers.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [observed-batch-contract]
+      text: ''
+    rationale: 'The implementation may reproduce observable interoperability behavior but must not copy proprietary source code or impersonate the installed client.'
+    supersedes_revision: null
+    requirement_ids: [HTTP-001, HTTP-002, HTTP-004, HTTP-005, HTTP-006, SEC-006, AC-AUTO-002]
+
+  - id: settings.language
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user requested additional transcription parameters and explicitly named language.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [language-with-auto]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-003, SET-001, SET-002, SET-003, SET-004, AC-AUTO-007]
+
+  - id: security.credential-storage
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected DPAPI encryption for the token and sensitive browser session, including migration or deletion of legacy plaintext files.'
+      - 'The current ChatGPT store writes cookies and access tokens as plaintext JSON.'
+    prompt_mcp: null
+    question:
+      text: 'How should ChatGPT session cookies and access tokens be stored after migration?'
+      kind: single
+      options:
+        - id: dpapi-encryption
+          label: 'DPAPI encryption'
+          description: 'Encrypt all sensitive ChatGPT authentication state with Electron safeStorage and remove legacy plaintext.'
+        - id: token-only-encrypted
+          label: 'Token only encrypted'
+          description: 'Leave browser cookies in plaintext storageState JSON.'
+        - id: plaintext
+          label: 'Keep plaintext'
+          description: 'Retain the current JSON storage.'
+    answer:
+      selected_ids: [dpapi-encryption]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002, MIG-001, AC-AUTO-005]
+
+  - id: security.account-and-integrity
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected use of account and integrity values only when they are available from the legitimate GPT-Voice authentication flow.'
+      - 'The inspected desktop package derives ChatGPT-Account-Id from a bounded access-token claim and maintains a validated rolling X-OAI-IS state from response updates.'
+    prompt_mcp: null
+    question:
+      text: 'How should conditional Desktop account and integrity headers be handled?'
+      kind: single
+      options:
+        - id: use-when-available
+          label: 'Use when available'
+          description: 'Attach only values obtained through the current authenticated GPT-Voice flow and never invent or extract them from another application.'
+        - id: require-both
+          label: 'Require both'
+          description: 'Block requests unless both values are present.'
+        - id: omit-both
+          label: 'Omit both'
+          description: 'Never send account or integrity state.'
+    answer:
+      selected_ids: [use-when-available]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AUTH-003, AUTH-005, HTTP-003, HTTP-007, SEC-005, AC-AUTO-003, AC-AUTO-004]
+
+  - id: compatibility.existing-provider-contracts
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - 'ChatGPT Web is already registered as provider id chatgpt with browserSession authentication and batch transcription.'
+      - 'Provider dispatch, completion, cache, history, clipboard, audit, and renderer selection already depend on the existing BaseVoiceProvider contract.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-provider-id-and-dispatch]
+      text: ''
+    rationale: 'This change replaces one transport and authentication lifecycle without creating a parallel provider.'
+    supersedes_revision: null
+    requirement_ids: [OUT-002, COMP-001, COMP-002, COMP-003, COMP-004, AC-AUTO-001, AC-AUTO-008]
+
+  - id: compatibility.proxy-routing
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - 'The current browser-session provider inherits explicit CloakBrowser HTTP, HTTPS, SOCKS5, credentials, and bypass settings.'
+      - 'Axios does not automatically reproduce the current browser proxy contract.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-explicit-proxy-settings]
+      text: ''
+    rationale: 'Changing routing when replacing page-side fetch would be a compatibility regression.'
+    supersedes_revision: null
+    requirement_ids: [NET-001, AC-MAN-002]
+
+  - id: failure.retry-policy
+    revision: 1
+    category: failure
+    state: observed
+    provenance: repository
+    evidence:
+      - 'The existing ChatGPT provider retries once only after 401 or 403 and does not replay ambiguous network failures.'
+      - 'The existing provider enforces a bounded request timeout and rate-limit cooldown.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-bounded-policy]
+      text: ''
+    rationale: 'A transport replacement must not introduce duplicate audio uploads or unbounded retry behavior.'
+    supersedes_revision: null
+    requirement_ids: [AUTH-004, AUTH-006, FAIL-001, FAIL-002, FAIL-003, FAIL-004, AC-AUTO-003]
+
+  - id: security.private-diagnostics
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'Project conventions prohibit tokens, cookies, account data, audio, transcripts, private paths, and full provider responses in logs.'
+      - 'Provider audit contracts require allowlisted metadata and renderer-safe localized failures.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [metadata-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-003, SEC-004, AC-AUTO-002, AC-AUTO-003, AC-AUTO-004, AC-AUTO-005]
+
+  - id: acceptance.live-credentials
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - 'Project conventions prohibit credentials, personal profiles, private audio, and live-provider assertions in automated tests.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [manual-private-auth-gate]
+      text: ''
+    rationale: 'Live interoperability must be a local manual gate using the user-owned account and public or synthetic audio.'
+    supersedes_revision: null
+    requirement_ids: [AC-MAN-001, AC-MAN-002, AC-MAN-003]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: blocked
+    provenance: null
+    evidence:
+      - 'The Prompt MCP interview tools required by the repository specification workflow are not callable in the current client session.'
+    prompt_mcp:
+      interview_id: spec:chatgpt-web-direct-transcription
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: unavailable
+    question:
+      text: 'Approve this draft as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve'
+          description: 'Approve the draft for planning.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Revise the contract before planning.'
+        - id: leave-draft
+          label: 'Leave draft'
+          description: 'Stop without approval.'
+    answer: null
+    rationale: 'Approval cannot be inferred from implementation authorization or a generic continuation message.'
+    supersedes_revision: null
+    requirement_ids: []
