@@ -35,6 +35,24 @@ export const NATIVE_LAUNCHER_ACKNOWLEDGMENT_OUTCOMES = [
 /** Closed protocol outcome suitable for qualification-only diagnostics. */
 export type NativeLauncherAcknowledgmentOutcome = (typeof NATIVE_LAUNCHER_ACKNOWLEDGMENT_OUTCOMES)[number];
 
+/** Allocates the exact distinct native-log identities for one owned process tree. */
+export function createNativeRuntimeProcessInstanceIds(
+  generateProcessInstanceId: () => string,
+  count: number,
+): readonly string[] {
+  if (!Number.isSafeInteger(count) || count < 2 || count > 3) {
+    throw new Error('Invalid Local Whisper native process identity count');
+  }
+  const identities = Array.from({ length: count }, () => generateProcessInstanceId());
+  if (
+    identities.some((identity) => !isNativeRuntimeProcessInstanceId(identity)) ||
+    new Set(identities).size !== identities.length
+  ) {
+    throw new Error('Invalid Local Whisper native process instance ID');
+  }
+  return Object.freeze(identities);
+}
+
 /** Gives Linux model hashing the bounded model-load budget without relaxing ordinary launches. */
 export function getLocalWhisperLauncherAcknowledgmentTimeoutMs(modelGuardLaunch: boolean): number {
   return modelGuardLaunch ? LOCAL_WHISPER_LOAD_TIMEOUT_MS : STANDARD_LAUNCHER_ACK_TIMEOUT_MS;
@@ -157,11 +175,17 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
       throw new Error('Local Whisper launcher paths must be absolute');
     }
     const spawnProcess = this.dependencies.spawnProcess ?? spawn;
-    const processInstanceId = (this.dependencies.generateProcessInstanceId ?? randomUUID)();
-    if (!isNativeRuntimeProcessInstanceId(processInstanceId)) {
+    const modelGuardLaunch = authority.modelGuardAuthority !== undefined;
+    const nativeRuntimeProcessInstanceIds = createNativeRuntimeProcessInstanceIds(
+      this.dependencies.generateProcessInstanceId ?? randomUUID,
+      modelGuardLaunch ? 3 : 2,
+    );
+    const processInstanceId = nativeRuntimeProcessInstanceIds[0];
+    const launcherProcessInstanceId = modelGuardLaunch ? nativeRuntimeProcessInstanceIds[1] : undefined;
+    const workerProcessInstanceId = nativeRuntimeProcessInstanceIds[nativeRuntimeProcessInstanceIds.length - 1];
+    if (!processInstanceId || !workerProcessInstanceId) {
       throw new Error('Invalid Local Whisper native process instance ID');
     }
-    const modelGuardLaunch = authority.modelGuardAuthority !== undefined;
     const executablePath = modelGuardLaunch
       ? this.dependencies.modelGuardExecutablePath
       : this.dependencies.launcherExecutablePath;
@@ -178,6 +202,10 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         this.dependencies.platform,
         this.dependencies.environment,
         processInstanceId,
+        {
+          ...(launcherProcessInstanceId ? { launcherProcessInstanceId } : {}),
+          workerProcessInstanceId,
+        },
       ),
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'],
@@ -214,7 +242,7 @@ export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerPr
         child,
         control,
         input,
-        nativeRuntimeProcessInstanceIds: [processInstanceId],
+        nativeRuntimeProcessInstanceIds,
         output,
         platform: this.dependencies.platform,
         processStartIdentity,
