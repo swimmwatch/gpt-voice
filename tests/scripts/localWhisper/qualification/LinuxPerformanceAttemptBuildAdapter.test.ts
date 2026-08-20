@@ -80,7 +80,7 @@ function authority(rootPath: string): PerformanceDerivedSourceAuthority {
   });
 }
 
-describe('Linux performance attempt build adapter', () => {
+describe('Linux performance attempt build adapter', { skip: process.platform !== 'linux' }, () => {
   it('builds helpers, both instrumented runtimes, and one mode-0500 SEA artifact through injected commands', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-attempt-build-'));
     try {

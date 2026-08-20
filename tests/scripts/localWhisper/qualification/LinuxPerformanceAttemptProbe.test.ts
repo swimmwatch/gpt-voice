@@ -86,7 +86,7 @@ async function stopChild(child: ChildProcess): Promise<void> {
   await once(child, 'exit');
 }
 
-describe('Linux performance attempt probe', () => {
+describe('Linux performance attempt probe', { skip: process.platform !== 'linux' }, () => {
   it('captures a real guard/worker process tree and emits the complete canonical CPU proof', async () => {
     const collector = new PerformanceQualificationEventCollector(
       'linux',

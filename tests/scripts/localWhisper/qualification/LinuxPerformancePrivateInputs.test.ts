@@ -56,7 +56,7 @@ async function fixtureRoot(): Promise<{
   return { root, cache, parent, child };
 }
 
-describe('Linux performance private input preflight', () => {
+describe('Linux performance private input preflight', { skip: process.platform !== 'linux' }, () => {
   it('rejects a focused cache whose Base file is not the pinned artifact without loading the retired cache', async () => {
     if (process.platform !== 'linux') return;
     const fixture = await fixtureRoot();

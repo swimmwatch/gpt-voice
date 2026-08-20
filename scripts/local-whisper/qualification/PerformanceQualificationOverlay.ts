@@ -682,13 +682,38 @@ function tarEntry(relativePath: string, bytes: Buffer, mode: number): Buffer {
   return Buffer.concat([header, bytes, padding]);
 }
 
+function normalizeLineEndings(value: string): string {
+  return value.replace(/\r\n?/gu, '\n');
+}
+
+function canonicalOverlayFile(bytes: Buffer): Buffer {
+  try {
+    return Buffer.from(normalizeLineEndings(new TextDecoder('utf-8', { fatal: true }).decode(bytes)), 'utf8');
+  } catch {
+    throw new Error('PERFORMANCE_OVERLAY_ARCHIVE_INVALID');
+  }
+}
+
 function transformManifest(): Readonly<Record<string, unknown>> {
   const operation = (
     side: 'before' | 'after',
     targetPath: string,
     expectedSha256: string,
     replacements: readonly Readonly<{ readonly anchor: string; readonly replacement: string }>[],
-  ) => Object.freeze({ side, targetPath, expectedSha256, replacements: Object.freeze(replacements) });
+  ) =>
+    Object.freeze({
+      side,
+      targetPath,
+      expectedSha256,
+      replacements: Object.freeze(
+        replacements.map(({ anchor, replacement }) =>
+          Object.freeze({
+            anchor: normalizeLineEndings(anchor),
+            replacement: normalizeLineEndings(replacement),
+          }),
+        ),
+      ),
+    });
   const include = (anchor: string) => Object.freeze({ anchor, replacement: `${anchor}\n\n${PROBE_INCLUDE}` });
   const native = (
     side: 'before' | 'after',
@@ -833,7 +858,7 @@ export class PerformanceQualificationOverlayProducer {
       tarEntry('.local-whisper-performance-overlay-v3.json', manifestBytes, 0o600),
       ...(await Promise.all(
         COMMON_OVERLAY_FILES.map(async (relativePath) =>
-          tarEntry(relativePath, await readFile(path.join(workspaceRoot, relativePath)), 0o644),
+          tarEntry(relativePath, canonicalOverlayFile(await readFile(path.join(workspaceRoot, relativePath))), 0o644),
         ),
       )),
     ];

@@ -220,7 +220,7 @@ async function missing(filePath: string): Promise<boolean> {
   }
 }
 
-describe('Linux performance run-plan producer', () => {
+describe('Linux performance run-plan producer', { skip: process.platform !== 'linux' }, () => {
   it('accepts only the exact path-explicit private producer command', () => {
     const root = path.resolve('/tmp/private-performance-plan');
     const arguments_ = [

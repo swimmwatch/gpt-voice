@@ -58,6 +58,9 @@ describe('performance qualification reviewed overlay', () => {
       entries.some(({ relativePath }) => relativePath === '.local-whisper-performance-overlay-v3.json'),
       true,
     );
+    const manifest = entries.find(({ relativePath }) => relativePath === '.local-whisper-performance-overlay-v3.json');
+    assert.ok(manifest);
+    assert.doesNotMatch(manifest.bytes.toString('utf8'), /\\r\\n/u);
 
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-overlay-pair-'));
     try {
