@@ -1168,6 +1168,113 @@ decisions:
         AC-AUTO-005,
       ]
 
+  - id: workflow.platform-readiness-packet-07
+    revision: 1
+    category: workflow
+    state: needs_user
+    provenance: null
+    evidence:
+      - 'Packet 07 requires native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64 host access before host-bound qualification can start.'
+      - 'Preflight source identity: Git revision 8b988dc38368f114d340c3c435523935fc348d9e; SHA-256 of the current working diff 1f3dbd0e7e232190b323a7cc9aa7a9d647f11c5f46debc95f2dff6d87195eabf; no untracked files.'
+      - 'The current working diff contains unrelated Local Whisper changes; any affected host evidence must be rerun if platform-owned source changes.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: workflow-round-01
+      question_id: workflow.platform-readiness-packet-07
+      idempotency_key: workflow.platform-readiness-packet-07:v1
+      revision: 1
+      last_status: timed_out
+    question:
+      text: 'Confirm Packet 07 platform readiness: access to native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64; the recorded revision/diff identity; and whether source transport is needed and separately authorized.'
+      kind: single
+      options:
+        - id: ready-no-transport
+          label: Ready; no transport needed
+          description: All required native hosts are accessible, the stated source identity is accepted, and Packet 07 will run without copying or synchronizing source.
+        - id: ready-transport-authorized
+          label: Ready; authorize transport
+          description: All required native hosts are accessible, the stated source identity is accepted, and necessary source copying or synchronization is explicitly authorized.
+        - id: not-ready
+          label: Not ready
+          description: Leave Packet 07 blocked until host access, source identity, or separate transport authority is available.
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: 'The readiness prompt timed out without a committed answer; Packet 07 remains blocked before execution authorization is requested.'
+    supersedes_revision: null
+    requirement_ids: [QUAL-007, QUAL-008, QUAL-009, QUAL-010, QUAL-011]
+
+  - id: workflow.platform-readiness-packet-07
+    revision: 2
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 requires native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64 host access before host-bound qualification can start.'
+      - 'Preflight source identity: Git revision 8b988dc38368f114d340c3c435523935fc348d9e; SHA-256 of the current working diff 5c2e943cc521c2b4e517c70c8cc117b01c2f1e83c5348176d96043d7aa037330; no untracked files.'
+      - 'The current working diff contains unrelated Local Whisper changes; any affected host evidence must be rerun if platform-owned source changes.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: workflow-round-02
+      question_id: workflow.platform-readiness-packet-07
+      idempotency_key: workflow.platform-readiness-packet-07:v2
+      revision: 2
+      last_status: answered
+    question:
+      text: 'Confirm Packet 07 platform readiness: access to native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64; the recorded revision/diff identity; and whether source transport is needed and separately authorized.'
+      kind: single
+      options:
+        - id: ready-no-transport
+          label: Ready; no transport needed
+          description: All required native hosts are accessible, the stated source identity is accepted, and Packet 07 will run without copying or synchronizing source.
+        - id: ready-transport-authorized
+          label: Ready; authorize transport
+          description: All required native hosts are accessible, the stated source identity is accepted, and necessary source copying or synchronization is explicitly authorized.
+        - id: not-ready
+          label: Not ready
+          description: Leave Packet 07 blocked until host access, source identity, or separate transport authority is available.
+    answer:
+      selected_ids: [ready-no-transport]
+      text: ''
+    rationale: 'The user confirmed the required host access and recorded source identity. No source copying or synchronization is authorized or needed.'
+    supersedes_revision: 1
+    requirement_ids: [QUAL-007, QUAL-008, QUAL-009, QUAL-010, QUAL-011]
+
+  - id: authorization.packet-07-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 is self-contained and owns only Linux X11 policy/factory/session classification, focused qualification support, verification, and the AC-MAN-002 X11 gate.'
+      - 'Platform readiness is answered by workflow.platform-readiness-packet-07 revision 2 with ready-no-transport.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-10
+      question_id: authorization.packet-07-execution
+      idempotency_key: authorization.packet-07-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize only Packet 07 Linux X11 Registration And Qualification after its platform-readiness gate?'
+      kind: single
+      options:
+        - id: authorize-packet-07
+          label: Authorize Packet 07 (Recommended)
+          description: Authorize only the X11 policy/factory/session branch, focused tests and bounded X11 qualification; no Wayland, Windows, release, publication, transport, or commit.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 07 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 07 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-07]
+      text: ''
+    rationale: 'The user authorized only Packet 07. This increment must stop after packet-local implementation, verification, and recorded X11 manual-gate evidence; it does not authorize a commit, Packet 08, release, publication, or source transport.'
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003, PLAT-003, COMP-004, QUAL-002, QUAL-009, AC-AUTO-002, AC-MAN-002]
+
   - id: authorization.commit-packet-06
     revision: 1
     category: authorization

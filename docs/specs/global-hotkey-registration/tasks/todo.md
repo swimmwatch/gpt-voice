@@ -9,7 +9,7 @@ recorded, and Packet 01 is complete.
 - [x] [`04_trusted_hotkey_ipc.md`](./04_trusted_hotkey_ipc.md)
 - [x] [`05_settings_registration_experience.md`](./05_settings_registration_experience.md)
 - [x] [`06_main_window_status_and_demo.md`](./06_main_window_status_and_demo.md)
-- [ ] [`07_linux_x11_registration_and_qualification.md`](./07_linux_x11_registration_and_qualification.md)
+- [x] [`07_linux_x11_registration_and_qualification.md`](./07_linux_x11_registration_and_qualification.md)
 - [ ] [`08_linux_wayland_portal_package_and_qualification.md`](./08_linux_wayland_portal_package_and_qualification.md)
 - [ ] [`09_windows_registration_and_qualification.md`](./09_windows_registration_and_qualification.md)
 - [ ] [`10_documentation_and_aggregate_qualification.md`](./10_documentation_and_aggregate_qualification.md)

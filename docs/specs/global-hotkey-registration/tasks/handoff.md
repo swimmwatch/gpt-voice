@@ -31,6 +31,12 @@
   authoritative registration snapshots without changing action eligibility;
   contextual legends stay truthful, and the deterministic demo covers
   application, desktop-managed, unassigned, failed, and suppressed states.
+- Packet 07 — Linux X11 Registration And Qualification. The X11-specific
+  policy, bounded session classifier, factory/composition branch, focused
+  tests, and exact-conflict helper are complete. The user completed the
+  interactive X11 physical verification on 2026-08-20, confirming that
+  assigned global keys register and operate in the isolated application
+  profile.
 
 ## Changed Files
 
@@ -132,6 +138,19 @@
 - `tests/main/localWhisper/`, `tests/main/mainProcessApplication.test.ts`, and
   `tests/scripts/localWhisper/qualification/` — synchronized strict fixtures
   with current artifact, IPC, runtime dependency, model, and stream contracts.
+- Packet 07 — `LinuxHotkeyPlatformPolicy` accepts X11 Electron bindings with
+  application authority, `LinuxSessionTypeClassifier` bounds process-root
+  session evidence to the internal enum, and composition creates the policy
+  only for the X11 factory branch. Wayland remains unsupported until Packet 08.
+- `HotkeyPlatformPolicyFactory.ts`, `main.ts`, and
+  `tests/main/hotkeys/HotkeyRegistrationService.test.ts` — removed the
+  pre-qualified Wayland creator, wired the X11 policy, and covered bounded
+  session classification, factory selection, F12 non-reservation, and
+  application-authority registration.
+- `scripts/hotkeys/qualification/x11GlobalShortcutConflictHolder.mjs` — bounded
+  Electron helper that owns only `Ctrl+Shift+F10`, requires a caller-supplied
+  private profile root, emits only bounded status, and unregisters only its
+  own grab on exact-process termination.
 
 ## Checks
 
@@ -189,14 +208,50 @@
   pointer/Enter/Space feedback, no overflow, no console errors, and only
   localhost static requests. The failed-tooltip punctuation was corrected and
   rechecked after the full automated suite and production build passed.
+- Packet 07 focused policy/service and composition suite — passed: 30 tests;
+  covers X11 factory selection, Wayland fail-closed behavior, bounded session
+  classification, F12 registration, the adapter contract, and production
+  composition.
+- Packet 07 cross-boundary suite — passed: 29 tests across shortcut control,
+  trusted hotkey IPC, and Settings presentation.
+- Packet 07 `npm run typecheck`, `npm run test:types`, and `npm run build:prod`
+  — passed. Production build retains only the existing webpack bundle-size
+  recommendations.
+- Packet 07 scoped ESLint, scoped Prettier, and `git diff --check` — passed.
+  Repository-wide lint with `--max-warnings 0` and format check remain blocked
+  by unrelated Local Whisper warnings and formatting changes; no Packet 07
+  file is among them.
+- Packet 07 real Electron X11 attempt — confirmed application authority and
+  exact effective accelerator for a free binding, generic helper-conflict
+  rejection with the prior and unrelated bindings retained, independent
+  startup with the conflicting target failed and F12 target registered, F12
+  non-reservation, and Remove/restart persistence in an isolated temporary
+  profile. The profile and every owned helper/application/focus process were
+  terminated and removed after the attempt.
+- Packet 07 AC-MAN-002 interactive X11 gate — passed on 2026-08-20 through
+  user confirmation that assigned keys registered and operated in the running
+  isolated profile. The relevant X11 source-set digest was
+  `d3536c75f80a07fb3717cc925448ad6731ecc8e765e5b7639aa8ad09fa09e3e8`
+  at Git revision `8b988dc38368f114d340c3c435523935fc348d9e`; no raw
+  environment, input, external-owner, or profile data was recorded.
+- Packet 07 completion recheck — `tests/main/hotkeys/HotkeyRegistrationService.test.ts`,
+  `tests/main/shortcutController.test.ts`, `tests/main/hotkeyIpcContract.test.ts`,
+  and `tests/renderer/appSettingsHotkeys.test.ts`, plus `npm run typecheck`,
+  `npm run test:types`, scoped Prettier, and `git diff --check` — passed.
 
 ## Exact Next Packet
 
-- [`07_linux_x11_registration_and_qualification.md`](./07_linux_x11_registration_and_qualification.md)
+- [`08_linux_wayland_portal_package_and_qualification.md`](./08_linux_wayland_portal_package_and_qualification.md)
+  — do not begin without a separate explicit incremental-implementation
+  invocation and its required platform/manual gates.
 
 ## Blockers
 
 - No blocker remains for completed Packet 06.
-- The pre-Packet-07 platform-readiness gate is a future execution prerequisite;
-  do not begin Packet 07 until it is satisfied and Packet 06 has its required
-  commit authorization.
+- Packet 07 platform readiness is confirmed through Prompt MCP decision
+  `workflow.platform-readiness-packet-07:v2`; no source transport is authorized
+  or needed. Packet 07 execution is authorized through
+  `authorization.packet-07-execution:v1`.
+- No blocker remains for completed Packet 07. Do not use automated, headless,
+  Wayland, Windows, or CI evidence as a substitute for the recorded interactive
+  X11 gate.
