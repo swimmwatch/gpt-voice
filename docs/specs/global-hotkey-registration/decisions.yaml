@@ -696,3 +696,135 @@ decisions:
         QUAL-001,
         AC-AUTO-001,
       ]
+
+  - id: authorization.packet-02-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 01 was committed after its authorized verification, and Packet 02 is the exact next unchecked packet in approved plan revision 3.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      question_id: authorization.packet-02-execution
+      idempotency_key: authorization.packet-02-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'After the approved Packet 01 commit, authorize this incremental-implementation turn to execute Packet 02: Platform Policy And Registration Service?'
+      kind: single
+      options:
+        - id: authorize-packet-02
+          label: Authorize Packet 02 (Recommended)
+          description: Authorize only Packet 02; no Packet 03, source transport, release, or publication work is authorized.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after the Packet 01 commit without implementing Packet 02.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 02 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: ''
+    rationale: 'The user authorized only Packet 02. This increment must stop after task-local verification and handoff; it does not authorize a commit, production composition, Packet 03, transport, or release.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        SCOPE-005,
+        SCOPE-006,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-001,
+        ARCH-002,
+        ARCH-003,
+        ARCH-005,
+        FLOW-001,
+        FLOW-002,
+        FLOW-003,
+        FLOW-004,
+        FLOW-005,
+        FLOW-006,
+        FLOW-008,
+        FLOW-009,
+        FLOW-010,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        SEC-002,
+        SEC-004,
+        QUAL-003,
+        QUAL-006,
+        AC-AUTO-003,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.commit-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 02 is checked complete with all packet verification and repository-wide test:types checks passing.'
+      - 'The worktree also contains unrelated Local Whisper type-repair changes that must remain outside the Packet 02 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-01
+      question_id: authorization.commit-packet-02
+      idempotency_key: authorization.commit-packet-02:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 02 platform-policy and registration-service increment before beginning Packet 03?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-02
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 02 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 02 uncommitted and do not begin Packet 03.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 02 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-02]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 02 only. Unrelated Local Whisper changes remain uncommitted; Packet 03 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        SCOPE-005,
+        SCOPE-006,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-001,
+        ARCH-002,
+        ARCH-003,
+        ARCH-005,
+        FLOW-001,
+        FLOW-002,
+        FLOW-003,
+        FLOW-004,
+        FLOW-005,
+        FLOW-006,
+        FLOW-008,
+        FLOW-009,
+        FLOW-010,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        SEC-002,
+        SEC-004,
+        QUAL-003,
+        QUAL-006,
+        AC-AUTO-003,
+        AC-AUTO-006,
+      ]

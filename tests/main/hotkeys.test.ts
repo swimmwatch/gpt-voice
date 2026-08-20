@@ -69,6 +69,20 @@ describe('hotkeys', () => {
       }),
       true,
     );
+    const failedEntry = {
+      ...entry,
+      bindingAuthority: HotkeyBindingAuthority.None,
+      configuredAccelerator: null,
+      effectiveAccelerator: null,
+      failureCode: HotkeyRegistrationFailureCode.ReconciliationFailed,
+      registrationStatus: HotkeyRegistrationStatus.Failed,
+    } as const;
+    assert.equal(isHotkeyRuntimeSnapshotEntry(failedEntry), true);
+    assert.equal(isHotkeyRuntimeSnapshotEntry({ ...failedEntry, effectiveAccelerator: 'Ctrl+F9' }), false);
+    assert.equal(
+      isHotkeyRuntimeSnapshotEntry({ ...failedEntry, bindingAuthority: HotkeyBindingAuthority.Application }),
+      false,
+    );
     assert.equal(isHotkeyRuntimeSnapshot({ entries: [{ ...entry, target: 'stop' }] }), false);
   });
 

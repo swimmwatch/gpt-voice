@@ -309,7 +309,11 @@ export function isHotkeyRuntimeSnapshotEntry(value: unknown): value is HotkeyRun
       entry.failureCode === undefined
     );
   }
-  return entry.configuredAccelerator !== null && entry.failureCode !== undefined;
+  return (
+    entry.effectiveAccelerator === null &&
+    entry.bindingAuthority === HotkeyBindingAuthority.None &&
+    entry.failureCode !== undefined
+  );
 }
 
 export function isHotkeyRuntimeSnapshot(value: unknown): value is HotkeyRuntimeSnapshot {

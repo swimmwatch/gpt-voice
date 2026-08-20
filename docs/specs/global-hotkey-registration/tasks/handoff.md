@@ -5,6 +5,10 @@
 - Packet 01 — Nullable Persistence And Shared Contracts. Specification revision
   2, audited plan revision 3, and Packet 01 authorization revision 2 are
   recorded in the decision ledger.
+- Packet 02 — Platform Policy And Registration Service. The adapter, fail-closed
+  policy factory, transactional registration owner, snapshot validation, and
+  focused deterministic tests are complete. Packet 02 execution authorization
+  is recorded in the decision ledger.
 
 ## Changed Files
 
@@ -31,6 +35,22 @@
 - `tests/main/appConfigStore.test.ts`, `tests/main/hotkeys.test.ts`, and
   `tests/main/shortcutController.test.ts` — nullable persistence/contracts and
   no-registration regression coverage.
+- `src/main/hotkeys/GlobalShortcutAdapter.ts` and
+  `src/main/hotkeys/ElectronGlobalShortcutAdapter.ts` — bounded abstract and
+  Electron global-shortcut adapter contracts.
+- `src/main/hotkeys/HotkeyPlatformPolicy.ts`,
+  `src/main/hotkeys/UnsupportedHotkeyPlatformPolicy.ts`,
+  `src/main/hotkeys/PausedMacosHotkeyPlatformPolicy.ts`, and
+  `src/main/hotkeys/HotkeyPlatformPolicyFactory.ts` — platform-policy seam
+  that selects only injected qualified host implementations.
+- `src/main/hotkeys/HotkeyRegistrationService.ts` — transactional binding
+  ownership, generation invalidation, compensation/reconciliation, bounded
+  physical tests, snapshots, suppression, and idempotent disposal.
+- `src/shared/hotkeys.ts` and `tests/main/hotkeys.test.ts` — failed snapshot
+  invariants preserve the configured preference even when reconciliation leaves
+  it unassigned.
+- `tests/main/hotkeys/HotkeyRegistrationService.test.ts` — deterministic
+  platform, ownership, cleanup, test-session, publication, and disposal tests.
 - `scripts/local-whisper/qualification/` — restored the current focused
   performance manifest, explicit artifact validation mode, nullable lifecycle,
   native stream/diagnostic, and process-session contracts that blocked the
@@ -56,13 +76,18 @@
 - Scoped ESLint and Prettier over verification-unblock source/test files —
   passed.
 - `git diff --check` — passed.
+- `node --import tsx --test tests/main/hotkeys/HotkeyRegistrationService.test.ts tests/main/hotkeys.test.ts` — passed: 27 tests.
+- `npm run typecheck` — passed.
+- `npm run test:types` — passed.
+- Scoped ESLint and Prettier over all Packet 02 source/test files — passed.
+- `git diff --check` — passed after Packet 02.
 
 ## Exact Next Packet
 
-- [`02_platform_policy_and_registration_service.md`](./02_platform_policy_and_registration_service.md)
+- [`03_shortcut_controller_and_composition.md`](./03_shortcut_controller_and_composition.md)
 
 ## Blockers
 
-- None for Packet 02.
+- None for Packet 03.
 - The pre-Packet-07 platform-readiness gate remains a future execution
   prerequisite, not a blocker for Packets 01–06.

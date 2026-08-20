@@ -1,0 +1,38 @@
+import { DesktopPlatform, LinuxSessionType } from '@shared/hotkeys';
+
+import { HotkeyPlatformPolicy } from './HotkeyPlatformPolicy';
+import { PausedMacosHotkeyPlatformPolicy } from './PausedMacosHotkeyPlatformPolicy';
+import { UnsupportedHotkeyPlatformPolicy } from './UnsupportedHotkeyPlatformPolicy';
+
+export interface HotkeyPlatformPolicyFactoryDependencies {
+  readonly createLinuxWaylandPolicy?: () => HotkeyPlatformPolicy;
+  readonly createLinuxX11Policy?: () => HotkeyPlatformPolicy;
+  readonly createWindowsPolicy?: () => HotkeyPlatformPolicy;
+}
+
+/** Selects only explicitly supplied qualified host policies; it has no Electron state or defaults. */
+export class HotkeyPlatformPolicyFactory {
+  public constructor(private readonly dependencies: HotkeyPlatformPolicyFactoryDependencies) {}
+
+  public create(platform: DesktopPlatform, session: LinuxSessionType): HotkeyPlatformPolicy {
+    if (platform === DesktopPlatform.Windows) {
+      return this.createSupportedPolicy(this.dependencies.createWindowsPolicy);
+    }
+    if (platform === DesktopPlatform.Linux && session === LinuxSessionType.X11) {
+      return this.createSupportedPolicy(this.dependencies.createLinuxX11Policy);
+    }
+    if (platform === DesktopPlatform.Linux && session === LinuxSessionType.Wayland) {
+      return this.createSupportedPolicy(this.dependencies.createLinuxWaylandPolicy);
+    }
+    if (platform === DesktopPlatform.Macos) return new PausedMacosHotkeyPlatformPolicy();
+    return new UnsupportedHotkeyPlatformPolicy();
+  }
+
+  private createSupportedPolicy(createPolicy: (() => HotkeyPlatformPolicy) | undefined): HotkeyPlatformPolicy {
+    try {
+      return createPolicy?.() ?? new UnsupportedHotkeyPlatformPolicy();
+    } catch {
+      return new UnsupportedHotkeyPlatformPolicy();
+    }
+  }
+}
