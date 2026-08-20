@@ -350,6 +350,7 @@ export default {
   'hotkey.authority.application': 'アプリケーション管理のバインディング',
   'hotkey.authority.desktopEnvironment': 'デスクトップ環境管理のバインディング',
   'hotkey.authority.none': '有効なバインディングはありません',
+  'hotkey.recoveryAction': '設定でショートカットを変更してください。',
   'hotkey.preference': '設定された優先値: {accelerator}',
   'hotkey.effective': '正確なトリガー: {accelerator}',
   'hotkey.failure.invalidAccelerator': '有効なキーの組み合わせを入力してください。',

@@ -25,6 +25,45 @@ export interface HotkeyLegendToken {
   readonly text: string;
 }
 
+export type HotkeyActionButtonRegistrationState =
+  'application-enabled' | 'application-suppressed' | 'desktop-managed' | 'failed' | 'unassigned';
+
+export interface HotkeyActionButtonRegistrationPresentation {
+  readonly configuredAccelerator: string | null;
+  readonly effectiveAccelerator: string | null;
+  readonly state: HotkeyActionButtonRegistrationState;
+}
+
+/** Keeps nullable configured values distinct from main-owned registration and effective-trigger truth. */
+export function getHotkeyActionButtonRegistrationPresentation(
+  accelerator: string | null,
+  registration: HotkeyRuntimeSnapshotEntry | null,
+): HotkeyActionButtonRegistrationPresentation {
+  const configuredAccelerator = registration?.configuredAccelerator ?? accelerator;
+
+  if (registration === null || registration.registrationStatus === HotkeyRegistrationStatus.Unassigned) {
+    return Object.freeze({ configuredAccelerator, effectiveAccelerator: null, state: 'unassigned' });
+  }
+  if (registration.registrationStatus === HotkeyRegistrationStatus.Failed) {
+    return Object.freeze({ configuredAccelerator, effectiveAccelerator: null, state: 'failed' });
+  }
+  if (registration.bindingAuthority === HotkeyBindingAuthority.DesktopEnvironment) {
+    return Object.freeze({ configuredAccelerator, effectiveAccelerator: null, state: 'desktop-managed' });
+  }
+  if (registration.dispatchStatus === HotkeyDispatchStatus.Suppressed) {
+    return Object.freeze({
+      configuredAccelerator,
+      effectiveAccelerator: registration.effectiveAccelerator,
+      state: 'application-suppressed',
+    });
+  }
+  return Object.freeze({
+    configuredAccelerator,
+    effectiveAccelerator: registration.effectiveAccelerator,
+    state: 'application-enabled',
+  });
+}
+
 /** Keeps Electron's raw accelerator untouched while formatting only its visible legend. */
 export function formatHotkeyLegend(hotkey: string): readonly HotkeyLegendToken[] {
   const keys = hotkey
@@ -75,3 +114,9 @@ export function getHotkeyActionButtonVisualTransition(
   }
   return Object.freeze({ delayMs: null, state: 'disabled' });
 }
+import {
+  HotkeyBindingAuthority,
+  HotkeyDispatchStatus,
+  HotkeyRegistrationStatus,
+  type HotkeyRuntimeSnapshotEntry,
+} from '@shared/hotkeys';

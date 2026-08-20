@@ -52,6 +52,15 @@ describe('provider hotkey browser demo', () => {
     assert.match(demo, /id: 'translation'/u);
     assert.match(demo, /id: 'unknown-owner'/u);
     assert.match(demo, /id: 'priority-status'/u);
+    assert.match(demo, /id: 'registration-application'/u);
+    assert.match(demo, /id: 'registration-desktop-managed'/u);
+    assert.match(demo, /id: 'registration-unassigned'/u);
+    assert.match(demo, /id: 'registration-failed'/u);
+    assert.match(demo, /id: 'registration-suppressed'/u);
+    assert.match(demo, /createDemoHotkeyEntries\(getDemoRegistrationFixture\(fixtureId\)\)/u);
+    assert.match(demo, /HotkeyBindingAuthority\.DesktopEnvironment/u);
+    assert.match(demo, /HotkeyRegistrationStatus\.Failed/u);
+    assert.match(demo, /HotkeyDispatchStatus\.Suppressed/u);
     assert.match(demo, /const \[transientLockedOwner, setTransientLockedOwner\]/u);
     assert.match(demo, /transientLockedOwner !== null/u);
     assert.match(demo, /fixture\.activeOwner !== null && fixture\.activeOwner !== owner/u);
@@ -67,15 +76,15 @@ describe('provider hotkey browser demo', () => {
   it('renders the exact available-only contextual action matrix without byte placeholders', () => {
     const demo = readProjectFile('src/renderer/ProviderHotkeyDemo.tsx');
 
-    assert.match(demo, /case 'starting':[\s\S]*?createContextualAction\('cancel', 'voice'/u);
+    assert.match(demo, /case 'starting':[\s\S]*?createContextualAction\([\s\S]*?'cancel',[\s\S]*?'voice'/u);
     assert.match(demo, /case 'recording':[\s\S]*?'pause'[\s\S]*?'stop'[\s\S]*?'cancel'/u);
     assert.match(demo, /case 'paused':[\s\S]*?'resume'[\s\S]*?'stop'[\s\S]*?'cancel'/u);
     assert.match(
       demo,
-      /case 'transcribing':[\s\S]*?case 'retrying':[\s\S]*?createContextualAction\('cancel', 'voice'/u,
+      /case 'transcribing':[\s\S]*?case 'retrying':[\s\S]*?createContextualAction\([\s\S]*?'cancel',[\s\S]*?'voice'/u,
     );
-    assert.match(demo, /case 'prettify':[\s\S]*?createContextualAction\('cancel', 'prettify'/u);
-    assert.match(demo, /case 'translation':[\s\S]*?createContextualAction\('cancel', 'translation'/u);
+    assert.match(demo, /case 'prettify':[\s\S]*?createContextualAction\([\s\S]*?'cancel',[\s\S]*?'prettify'/u);
+    assert.match(demo, /case 'translation':[\s\S]*?createContextualAction\([\s\S]*?'cancel',[\s\S]*?'translation'/u);
     assert.match(demo, /case 'stopping':[\s\S]*?return \[\];/u);
     assert.match(demo, /case 'priority-status':[\s\S]*?status: translatedStatus\('status\.copiedToClipboard'\)/u);
     assert.doesNotMatch(demo, /(?:megabytes|\bMB\b|\bbytes\b|data-slot="[^"]*byte)/iu);

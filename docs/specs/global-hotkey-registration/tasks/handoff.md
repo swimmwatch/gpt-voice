@@ -27,6 +27,10 @@
   transactional Change, Remove, and Test controls with one polite status
   announcement region. Failed Apply remains open with its bounded localized
   reason; all eleven locale maps and focused renderer coverage are complete.
+- Packet 06 — Main Window Status And Demo. Provider keys now present nullable
+  authoritative registration snapshots without changing action eligibility;
+  contextual legends stay truthful, and the deterministic demo covers
+  application, desktop-managed, unassigned, failed, and suppressed states.
 
 ## Changed Files
 
@@ -116,6 +120,11 @@
   controller construction harnesses.
 - `tests/renderer/providerHotkeyHomeIntegration.test.ts` — authoritative-state
   renderer source contract and current bounded recording rejection assertion.
+- Packet 06 — `src/renderer/App.tsx`,
+  `useProviderHotkeyHomeIntegration.ts`, `HotkeyActionButton`, its state and
+  styles, `ContextualActionTile`, and `ProviderHotkeyDemo` now consume
+  authoritative nullable registration snapshots; the eleven locale maps and
+  focused renderer tests cover truthful markers, legends, and fixtures.
 - `scripts/local-whisper/qualification/` — restored the current focused
   performance manifest, explicit artifact validation mode, nullable lifecycle,
   native stream/diagnostic, and process-session contracts that blocked the
@@ -166,13 +175,28 @@
 - `npm run test:types` — passed.
 - Scoped ESLint and Prettier over all Packet 05 source, locale, and test files — passed.
 - `git diff --check` — passed after Packet 05.
+- Packet 06 focused renderer suite — passed: 48 tests across key presentation,
+  integration, layout, demo, eligibility, recording controls, and locales.
+- Packet 06 `npm run typecheck` and `npm run test:types` — passed.
+- Packet 06 `npm run build:prod` — passed; the existing webpack bundle-size
+  recommendations remain warnings only.
+- Packet 06 scoped ESLint — passed with no errors; the two existing `App`
+  function-size warnings remain.
+- Packet 06 scoped Prettier and `git diff --check` — passed.
+- Packet 06 CloakBrowser manual gate — passed at device scale factor 1:
+  620 × 292 surface, 114 × 32 provider keys, application/desktop-managed/
+  unassigned/failed/suppressed fixtures, provider-readiness separation,
+  pointer/Enter/Space feedback, no overflow, no console errors, and only
+  localhost static requests. The failed-tooltip punctuation was corrected and
+  rechecked after the full automated suite and production build passed.
 
 ## Exact Next Packet
 
-- [`06_main_window_status_and_demo.md`](./06_main_window_status_and_demo.md)
+- [`07_linux_x11_registration_and_qualification.md`](./07_linux_x11_registration_and_qualification.md)
 
 ## Blockers
 
-- None currently recorded for Packet 06.
-- The pre-Packet-07 platform-readiness gate remains a future execution
-  prerequisite, not a blocker for Packets 01–06.
+- No blocker remains for completed Packet 06.
+- The pre-Packet-07 platform-readiness gate is a future execution prerequisite;
+  do not begin Packet 07 until it is satisfied and Packet 06 has its required
+  commit authorization.

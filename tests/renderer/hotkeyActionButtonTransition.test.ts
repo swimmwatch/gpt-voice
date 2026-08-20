@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   formatHotkeyLegend,
+  getHotkeyActionButtonRegistrationPresentation,
   getHotkeyActionButtonVisualTransition,
   getInitialHotkeyActionButtonVisualState,
   HOTKEY_ACTION_BUTTON_LOCK_GRACE_MS,
@@ -9,6 +10,13 @@ import {
   isHotkeyActionButtonUnavailable,
   type HotkeyActionButtonSemanticState,
 } from '@renderer/hotkeyActionButtonState';
+import {
+  HotkeyBindingAuthority,
+  HotkeyDispatchStatus,
+  HotkeyRegistrationFailureCode,
+  HotkeyRegistrationStatus,
+  type HotkeyRuntimeSnapshotEntry,
+} from '@shared/hotkeys';
 
 const ENABLED: HotkeyActionButtonSemanticState = Object.freeze({
   active: false,
@@ -21,6 +29,17 @@ const LOCKED: HotkeyActionButtonSemanticState = Object.freeze({ ...ENABLED, lock
 const DISABLED: HotkeyActionButtonSemanticState = Object.freeze({ ...ENABLED, disabled: true });
 const BUSY: HotkeyActionButtonSemanticState = Object.freeze({ ...ENABLED, busy: true });
 const ACTIVE_LOCKED: HotkeyActionButtonSemanticState = Object.freeze({ ...LOCKED, active: true });
+
+function createRegisteredEntry(): HotkeyRuntimeSnapshotEntry {
+  return {
+    bindingAuthority: HotkeyBindingAuthority.Application,
+    configuredAccelerator: 'Ctrl+Shift+R',
+    dispatchStatus: HotkeyDispatchStatus.Enabled,
+    effectiveAccelerator: 'Ctrl+Shift+R',
+    registrationStatus: HotkeyRegistrationStatus.Registered,
+    target: 'record',
+  };
+}
 
 class FakeClock {
   public elapsedMs = 0;
@@ -67,5 +86,36 @@ describe('HotkeyActionButton visual-state transitions', () => {
       { id: 'key-2', kind: 'key', text: 'F12' },
     ]);
     assert.deepEqual(formatHotkeyLegend('F9'), [{ id: 'key-0', kind: 'key', text: 'F9' }]);
+  });
+
+  it('keeps configured, effective, authority, and registration presentation distinct', () => {
+    const application = createRegisteredEntry();
+    const desktopManaged: HotkeyRuntimeSnapshotEntry = {
+      ...application,
+      bindingAuthority: HotkeyBindingAuthority.DesktopEnvironment,
+      effectiveAccelerator: null,
+    };
+    const failed: HotkeyRuntimeSnapshotEntry = {
+      ...application,
+      bindingAuthority: HotkeyBindingAuthority.None,
+      effectiveAccelerator: null,
+      failureCode: HotkeyRegistrationFailureCode.RegistrationRejected,
+      registrationStatus: HotkeyRegistrationStatus.Failed,
+    };
+    const suppressed: HotkeyRuntimeSnapshotEntry = {
+      ...application,
+      dispatchStatus: HotkeyDispatchStatus.Suppressed,
+    };
+
+    assert.deepEqual(getHotkeyActionButtonRegistrationPresentation(null, null), {
+      configuredAccelerator: null,
+      effectiveAccelerator: null,
+      state: 'unassigned',
+    });
+    assert.equal(getHotkeyActionButtonRegistrationPresentation('F9', application).state, 'application-enabled');
+    assert.equal(getHotkeyActionButtonRegistrationPresentation('F9', desktopManaged).state, 'desktop-managed');
+    assert.equal(getHotkeyActionButtonRegistrationPresentation('F9', failed).state, 'failed');
+    assert.equal(getHotkeyActionButtonRegistrationPresentation('F9', suppressed).state, 'application-suppressed');
+    assert.equal(getHotkeyActionButtonRegistrationPresentation('F9', desktopManaged).effectiveAccelerator, null);
   });
 });

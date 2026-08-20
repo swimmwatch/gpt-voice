@@ -387,6 +387,7 @@ export default {
   'hotkey.authority.application': 'Камбінацыя кіруецца праграмай',
   'hotkey.authority.desktopEnvironment': 'Камбінацыя кіруецца асяроддзем працоўнага стала',
   'hotkey.authority.none': 'Няма актыўнай камбінацыі',
+  'hotkey.recoveryAction': 'Змяніце камбінацыю ў наладах.',
   'hotkey.preference': 'Наладжаная камбінацыя: {accelerator}',
   'hotkey.effective': 'Дакладны трыгер: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Увядзіце сапраўдную камбінацыю клавіш.',

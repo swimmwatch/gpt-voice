@@ -389,6 +389,7 @@ export default {
   'hotkey.authority.application': 'Поєднання керується застосунком',
   'hotkey.authority.desktopEnvironment': 'Поєднання керується середовищем робочого столу',
   'hotkey.authority.none': 'Немає активного поєднання',
+  'hotkey.recoveryAction': 'Змініть поєднання в налаштуваннях.',
   'hotkey.preference': 'Налаштоване поєднання: {accelerator}',
   'hotkey.effective': 'Точний тригер: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Введіть дійсне поєднання клавіш.',

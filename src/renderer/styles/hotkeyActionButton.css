@@ -92,11 +92,43 @@
 }
 
 .command-dock-hotkey-action__legend {
+  flex: 1 1 auto;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: transform 60ms ease-in;
+}
+
+.command-dock-hotkey-action__content {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+}
+
+.command-dock-hotkey-action__registration-marker {
+  flex: 0 0 auto;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.command-dock-hotkey-action[data-registration-state='application-enabled']
+  .command-dock-hotkey-action__registration-marker {
+  color: #8ecfa3;
+}
+
+.command-dock-hotkey-action[data-registration-state='application-suppressed']
+  .command-dock-hotkey-action__registration-marker,
+.command-dock-hotkey-action[data-registration-state='desktop-managed'] .command-dock-hotkey-action__registration-marker,
+.command-dock-hotkey-action[data-registration-state='unassigned'] .command-dock-hotkey-action__registration-marker {
+  color: #c2c7c9;
+}
+
+.command-dock-hotkey-action[data-registration-state='failed'] .command-dock-hotkey-action__registration-marker {
+  color: #e1b06c;
 }
 
 .command-dock-hotkey-action__key {

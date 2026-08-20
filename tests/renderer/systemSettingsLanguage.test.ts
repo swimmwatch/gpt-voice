@@ -22,6 +22,7 @@ const HOTKEY_REGISTRATION_TRANSLATION_KEYS = [
   'hotkey.authority.application',
   'hotkey.authority.desktopEnvironment',
   'hotkey.authority.none',
+  'hotkey.recoveryAction',
   'hotkey.preference',
   'hotkey.effective',
   'hotkey.failure.invalidAccelerator',

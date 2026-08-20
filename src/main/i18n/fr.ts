@@ -365,6 +365,7 @@ export default {
   'hotkey.authority.application': 'Liaison gérée par l’application',
   'hotkey.authority.desktopEnvironment': 'Liaison gérée par l’environnement de bureau',
   'hotkey.authority.none': 'Aucune liaison active',
+  'hotkey.recoveryAction': 'Modifiez le raccourci dans les paramètres.',
   'hotkey.preference': 'Préférence configurée : {accelerator}',
   'hotkey.effective': 'Déclencheur exact : {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Saisissez une combinaison de touches valide.',

@@ -365,6 +365,7 @@ export default {
   'hotkey.authority.application': 'Anwendungsverwaltete Bindung',
   'hotkey.authority.desktopEnvironment': 'Desktopumgebungsverwaltete Bindung',
   'hotkey.authority.none': 'Keine aktive Bindung',
+  'hotkey.recoveryAction': 'Ändern Sie das Tastenkürzel in den Einstellungen.',
   'hotkey.preference': 'Konfigurierte Präferenz: {accelerator}',
   'hotkey.effective': 'Exakter Auslöser: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Geben Sie eine gültige Tastenkombination ein.',

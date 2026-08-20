@@ -12,8 +12,19 @@ import { useI18n } from '@renderer/hooks/useI18n';
 import type { CapturedAudioClock } from '@renderer/recordingElapsedTime';
 import { PROVIDER_CONNECTION_REASONS } from '@renderer/providerState';
 import { translatedStatus, type RendererStatus } from '@renderer/statusPresentation';
-import type { ProviderHotkeyContextualAction } from '@renderer/useProviderHotkeyHomeIntegration';
+import type {
+  ProviderHotkeyContextualAction,
+  ProviderHotkeyRegistrationEntries,
+} from '@renderer/useProviderHotkeyHomeIntegration';
 import type { ProviderInfo } from '@renderer/types';
+import {
+  HotkeyBindingAuthority,
+  HotkeyDispatchStatus,
+  HotkeyRegistrationFailureCode,
+  HotkeyRegistrationStatus,
+  type HotkeyRuntimeSnapshotEntry,
+  type HotkeyTarget,
+} from '@shared/hotkeys';
 import { LOCAL_WHISPER_PROVIDER_ID, type LocalWhisperMainStatusSnapshot } from '@shared/localWhisper';
 import { DEFAULT_PRETTIFY_SETTINGS, type PrettifySettings } from '@shared/prettifySettings';
 import type { ProviderContextualAction, ProviderHomeAction } from '@shared/providerHomeAction';
@@ -36,6 +47,101 @@ const DEMO_HOTKEYS = Object.freeze({
   voice: 'F9',
 });
 
+type DemoRegistrationFixture = 'application' | 'desktop-managed' | 'failed' | 'suppressed' | 'unassigned';
+
+interface DemoHotkeyEntryOptions {
+  readonly bindingAuthority: HotkeyBindingAuthority;
+  readonly configuredAccelerator: string;
+  readonly dispatchStatus: HotkeyDispatchStatus;
+  readonly effectiveAccelerator: string | null;
+  readonly failureCode?: HotkeyRegistrationFailureCode;
+  readonly registrationStatus: HotkeyRegistrationStatus;
+  readonly target: HotkeyTarget;
+}
+
+function createDemoHotkeyEntry({
+  bindingAuthority,
+  configuredAccelerator,
+  dispatchStatus,
+  effectiveAccelerator,
+  failureCode,
+  registrationStatus,
+  target,
+}: DemoHotkeyEntryOptions): HotkeyRuntimeSnapshotEntry {
+  return failureCode
+    ? {
+        bindingAuthority,
+        configuredAccelerator,
+        dispatchStatus,
+        effectiveAccelerator,
+        failureCode,
+        registrationStatus,
+        target,
+      }
+    : {
+        bindingAuthority,
+        configuredAccelerator,
+        dispatchStatus,
+        effectiveAccelerator,
+        registrationStatus,
+        target,
+      };
+}
+
+function createDemoHotkeyEntries(fixture: DemoRegistrationFixture): ProviderHotkeyRegistrationEntries {
+  if (fixture === 'unassigned') {
+    return Object.freeze({ prettify: null, translation: null, voice: null });
+  }
+
+  const createEntry = (target: HotkeyTarget, accelerator: string): HotkeyRuntimeSnapshotEntry => {
+    switch (fixture) {
+      case 'application':
+        return createDemoHotkeyEntry({
+          target,
+          configuredAccelerator: accelerator,
+          bindingAuthority: HotkeyBindingAuthority.Application,
+          dispatchStatus: HotkeyDispatchStatus.Enabled,
+          registrationStatus: HotkeyRegistrationStatus.Registered,
+          effectiveAccelerator: accelerator,
+        });
+      case 'desktop-managed':
+        return createDemoHotkeyEntry({
+          target,
+          configuredAccelerator: accelerator,
+          bindingAuthority: HotkeyBindingAuthority.DesktopEnvironment,
+          dispatchStatus: HotkeyDispatchStatus.Enabled,
+          registrationStatus: HotkeyRegistrationStatus.Registered,
+          effectiveAccelerator: null,
+        });
+      case 'failed':
+        return createDemoHotkeyEntry({
+          target,
+          configuredAccelerator: accelerator,
+          bindingAuthority: HotkeyBindingAuthority.None,
+          dispatchStatus: HotkeyDispatchStatus.Enabled,
+          registrationStatus: HotkeyRegistrationStatus.Failed,
+          effectiveAccelerator: null,
+          failureCode: HotkeyRegistrationFailureCode.RegistrationRejected,
+        });
+      case 'suppressed':
+        return createDemoHotkeyEntry({
+          target,
+          configuredAccelerator: accelerator,
+          bindingAuthority: HotkeyBindingAuthority.Application,
+          dispatchStatus: HotkeyDispatchStatus.Suppressed,
+          registrationStatus: HotkeyRegistrationStatus.Registered,
+          effectiveAccelerator: accelerator,
+        });
+    }
+  };
+
+  return Object.freeze({
+    prettify: createEntry('prettify', DEMO_HOTKEYS.prettify),
+    translation: createEntry('translate', DEMO_HOTKEYS.translation),
+    voice: createEntry('record', DEMO_HOTKEYS.voice),
+  });
+}
+
 const DEMO_FIXTURE_OPTIONS = [
   { id: 'idle', labelKey: 'indicator.idle' },
   { id: 'starting', labelKey: 'recording.starting' },
@@ -48,6 +154,11 @@ const DEMO_FIXTURE_OPTIONS = [
   { id: 'translation', labelKey: 'translate.provider' },
   { id: 'unknown-owner', labelKey: 'providerHotkeyDemo.ownerlessLock' },
   { id: 'priority-status', labelKey: 'providerHotkeyDemo.statusDetailPriority' },
+  { id: 'registration-application', labelKey: 'hotkey.authority.application' },
+  { id: 'registration-desktop-managed', labelKey: 'hotkey.status.desktopManaged' },
+  { id: 'registration-unassigned', labelKey: 'hotkey.status.unassigned' },
+  { id: 'registration-failed', labelKey: 'hotkey.status.failed' },
+  { id: 'registration-suppressed', labelKey: 'hotkey.status.suppressed' },
 ] as const satisfies readonly { readonly id: string; readonly labelKey: TranslationKey }[];
 
 type DemoFixtureId = (typeof DEMO_FIXTURE_OPTIONS)[number]['id'];
@@ -134,8 +245,39 @@ function getDemoFixture(id: DemoFixtureId): DemoFixture {
         locked: false,
         status: translatedStatus('status.copiedToClipboard'),
       };
+    case 'registration-application':
+    case 'registration-desktop-managed':
+    case 'registration-unassigned':
+    case 'registration-failed':
+    case 'registration-suppressed':
     case 'idle':
       return { activeOwner: null, lifecycle: 'idle', locked: false, status: null };
+  }
+}
+
+function getDemoRegistrationFixture(fixtureId: DemoFixtureId): DemoRegistrationFixture {
+  switch (fixtureId) {
+    case 'registration-desktop-managed':
+      return 'desktop-managed';
+    case 'registration-unassigned':
+      return 'unassigned';
+    case 'registration-failed':
+      return 'failed';
+    case 'registration-suppressed':
+      return 'suppressed';
+    case 'registration-application':
+    case 'starting':
+    case 'recording':
+    case 'paused':
+    case 'stopping':
+    case 'transcribing':
+    case 'retrying':
+    case 'prettify':
+    case 'translation':
+    case 'unknown-owner':
+    case 'priority-status':
+    case 'idle':
+      return 'application';
   }
 }
 
@@ -155,7 +297,7 @@ function getFixtureAfterContextualAction(action: ProviderContextualAction): Demo
 function createContextualAction(
   action: ProviderContextualAction,
   provider: ProviderHomeAction,
-  hotkey: string,
+  hotkey: string | null,
   label: string,
   onActivate: () => void,
 ): ProviderHotkeyContextualAction {
@@ -171,6 +313,12 @@ function createContextualAction(
   };
 }
 
+/** Leaves contextual legends unassigned only for the dedicated deterministic fixture. */
+function getDemoContextualHotkey(fixtureId: DemoFixtureId, target: keyof typeof DEMO_HOTKEYS): string | null {
+  return getDemoRegistrationFixture(fixtureId) === 'unassigned' ? null : DEMO_HOTKEYS[target];
+}
+
+/** Provides lifecycle-accurate action tiles using the active registration fixture's nullable legends. */
 function getDemoContextualActions(
   fixtureId: DemoFixtureId,
   onFixtureChange: (nextFixtureId: DemoFixtureId) => void,
@@ -183,46 +331,94 @@ function getDemoContextualActions(
 
   switch (fixtureId) {
     case 'starting':
-      return [createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice)];
+    case 'transcribing':
+    case 'retrying':
+      return [
+        createContextualAction(
+          'cancel',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'cancel'),
+          translate('recording.cancel'),
+          cancelVoice,
+        ),
+      ];
     case 'recording':
       return [
-        createContextualAction('pause', 'voice', DEMO_HOTKEYS.voice, translate('recording.pause'), () =>
-          setFixtureForAction('pause'),
+        createContextualAction(
+          'pause',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'voice'),
+          translate('recording.pause'),
+          () => setFixtureForAction('pause'),
         ),
-        createContextualAction('stop', 'voice', DEMO_HOTKEYS.stop, translate('recording.stop'), () =>
-          setFixtureForAction('stop'),
+        createContextualAction(
+          'stop',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'stop'),
+          translate('recording.stop'),
+          () => setFixtureForAction('stop'),
         ),
-        createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice),
+        createContextualAction(
+          'cancel',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'cancel'),
+          translate('recording.cancel'),
+          cancelVoice,
+        ),
       ];
     case 'paused':
       return [
-        createContextualAction('resume', 'voice', DEMO_HOTKEYS.voice, translate('recording.resume'), () =>
-          setFixtureForAction('resume'),
+        createContextualAction(
+          'resume',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'voice'),
+          translate('recording.resume'),
+          () => setFixtureForAction('resume'),
         ),
-        createContextualAction('stop', 'voice', DEMO_HOTKEYS.stop, translate('recording.stop'), () =>
-          setFixtureForAction('stop'),
+        createContextualAction(
+          'stop',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'stop'),
+          translate('recording.stop'),
+          () => setFixtureForAction('stop'),
         ),
-        createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice),
+        createContextualAction(
+          'cancel',
+          'voice',
+          getDemoContextualHotkey(fixtureId, 'cancel'),
+          translate('recording.cancel'),
+          cancelVoice,
+        ),
       ];
-    case 'transcribing':
-    case 'retrying':
-      return [createContextualAction('cancel', 'voice', DEMO_HOTKEYS.cancel, translate('recording.cancel'), cancelVoice)];
     case 'prettify':
       return [
-        createContextualAction('cancel', 'prettify', DEMO_HOTKEYS.cancel, translate('recording.cancel'), () =>
-          onFixtureChange('idle'),
+        createContextualAction(
+          'cancel',
+          'prettify',
+          getDemoContextualHotkey(fixtureId, 'cancel'),
+          translate('recording.cancel'),
+          () => onFixtureChange('idle'),
         ),
       ];
     case 'translation':
       return [
-        createContextualAction('cancel', 'translation', DEMO_HOTKEYS.cancel, translate('recording.cancel'), () =>
-          onFixtureChange('idle'),
+        createContextualAction(
+          'cancel',
+          'translation',
+          getDemoContextualHotkey(fixtureId, 'cancel'),
+          translate('recording.cancel'),
+          () => onFixtureChange('idle'),
         ),
       ];
     case 'idle':
     case 'stopping':
     case 'unknown-owner':
     case 'priority-status':
+    case 'registration-application':
+    case 'registration-desktop-managed':
+    case 'registration-unassigned':
+    case 'registration-failed':
+    case 'registration-suppressed':
       return [];
   }
 }
@@ -259,6 +455,7 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
   const [transientLockedOwner, setTransientLockedOwner] = useState<ProviderHomeAction | null>(null);
   const { advance, clock } = useDemoClock();
   const fixture = getDemoFixture(fixtureId);
+  const hotkeyEntries = useMemo(() => createDemoHotkeyEntries(getDemoRegistrationFixture(fixtureId)), [fixtureId]);
   const contextualActions = getDemoContextualActions(
     fixtureId,
     (nextFixtureId) => {
@@ -281,11 +478,12 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         <MainToolbar
           actionControl={
             <HotkeyActionButton
-                actionLabel={t('recording.startCommand')}
+              accelerator={hotkeyEntries.voice?.configuredAccelerator ?? null}
+              actionLabel={t('recording.startCommand')}
               active={fixture.activeOwner === 'voice'}
-              hotkey={DEMO_HOTKEYS.voice}
               locked={isLocked('voice')}
               onActivate={() => lockOwner('voice')}
+              registration={hotkeyEntries.voice}
             />
           }
           activeProviderAuthType="localRuntime"
@@ -315,11 +513,12 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         <MainPrettifyProviderBand
           actionControl={
             <HotkeyActionButton
-                actionLabel={t('prettify.provider')}
+              accelerator={hotkeyEntries.prettify?.configuredAccelerator ?? null}
+              actionLabel={t('prettify.provider')}
               active={fixture.activeOwner === 'prettify'}
-              hotkey={DEMO_HOTKEYS.prettify}
               locked={isLocked('prettify')}
               onActivate={() => lockOwner('prettify')}
+              registration={hotkeyEntries.prettify}
             />
           }
           cliConnection={{ providerId: 'codex-cli', status: 'connected' }}
@@ -339,11 +538,12 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
         <TranslateSection
           actionControl={
             <HotkeyActionButton
-                actionLabel={t('translate.provider')}
+              accelerator={hotkeyEntries.translation?.configuredAccelerator ?? null}
+              actionLabel={t('translate.provider')}
               active={fixture.activeOwner === 'translation'}
-              hotkey={DEMO_HOTKEYS.translation}
               locked={isLocked('translation')}
               onActivate={() => lockOwner('translation')}
+              registration={hotkeyEntries.translation}
             />
           }
           connectionState={DEMO_TRANSLATION_CONNECTION}
@@ -369,7 +569,9 @@ export default function ProviderHotkeyDemo(): React.JSX.Element {
                   <Settings aria-hidden="true" strokeWidth={1.75} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{t('navigation.openProviderSettings', { provider: t('translate.provider') })}</TooltipContent>
+              <TooltipContent>
+                {t('navigation.openProviderSettings', { provider: t('translate.provider') })}
+              </TooltipContent>
             </Tooltip>
           }
         />

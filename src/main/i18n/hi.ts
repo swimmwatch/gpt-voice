@@ -353,6 +353,7 @@ export default {
   'hotkey.authority.application': 'एप्लिकेशन द्वारा प्रबंधित बाइंडिंग',
   'hotkey.authority.desktopEnvironment': 'डेस्कटॉप वातावरण द्वारा प्रबंधित बाइंडिंग',
   'hotkey.authority.none': 'कोई सक्रिय बाइंडिंग नहीं',
+  'hotkey.recoveryAction': 'सेटिंग्स में शॉर्टकट बदलें।',
   'hotkey.preference': 'कॉन्फ़िगर की गई पसंद: {accelerator}',
   'hotkey.effective': 'सटीक ट्रिगर: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'मान्य कुंजी संयोजन दर्ज करें।',

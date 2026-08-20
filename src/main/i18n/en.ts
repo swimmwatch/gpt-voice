@@ -483,6 +483,7 @@ export default {
   'hotkey.authority.application': 'Application-managed binding',
   'hotkey.authority.desktopEnvironment': 'Desktop-environment-managed binding',
   'hotkey.authority.none': 'No active binding',
+  'hotkey.recoveryAction': 'Change the shortcut in Settings.',
   'hotkey.preference': 'Configured preference: {accelerator}',
   'hotkey.effective': 'Exact trigger: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Enter a valid key combination.',

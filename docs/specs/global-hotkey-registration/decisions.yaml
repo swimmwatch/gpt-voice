@@ -935,7 +935,24 @@ decisions:
     rationale: 'The user authorized only Packet 04. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 05, platform transport, release, or publication.'
     supersedes_revision: null
     requirement_ids:
-      [OUT-001, DATA-008, FLOW-008, FLOW-009, IPC-001, IPC-002, IPC-003, FAIL-002, SEC-001, SEC-002, SEC-003, SEC-004, QUAL-004, QUAL-006, AC-AUTO-004, AC-AUTO-006]
+      [
+        OUT-001,
+        DATA-008,
+        FLOW-008,
+        FLOW-009,
+        IPC-001,
+        IPC-002,
+        IPC-003,
+        FAIL-002,
+        SEC-001,
+        SEC-002,
+        SEC-003,
+        SEC-004,
+        QUAL-004,
+        QUAL-006,
+        AC-AUTO-004,
+        AC-AUTO-006,
+      ]
 
   - id: authorization.commit-packet-04
     revision: 1
@@ -971,7 +988,24 @@ decisions:
     rationale: 'The user authorized one scoped commit for completed Packet 04 only. Unrelated Local Whisper changes remain uncommitted; Packet 05 needs separate execution authorization after this commit.'
     supersedes_revision: null
     requirement_ids:
-      [OUT-001, DATA-008, FLOW-008, FLOW-009, IPC-001, IPC-002, IPC-003, FAIL-002, SEC-001, SEC-002, SEC-003, SEC-004, QUAL-004, QUAL-006, AC-AUTO-004, AC-AUTO-006]
+      [
+        OUT-001,
+        DATA-008,
+        FLOW-008,
+        FLOW-009,
+        IPC-001,
+        IPC-002,
+        IPC-003,
+        FAIL-002,
+        SEC-001,
+        SEC-002,
+        SEC-003,
+        SEC-004,
+        QUAL-004,
+        QUAL-006,
+        AC-AUTO-004,
+        AC-AUTO-006,
+      ]
 
   - id: authorization.packet-05-execution
     revision: 1
@@ -1007,7 +1041,26 @@ decisions:
     rationale: 'The user authorized only Packet 05. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 06, platform transport, release, or publication.'
     supersedes_revision: null
     requirement_ids:
-      [OUT-001, OUT-004, SCOPE-002, UI-001, UI-006, UI-007, UI-008, UI-009, UI-010, UI-011, FAIL-001, FAIL-002, FAIL-003, FAIL-004, QUAL-005, QUAL-006, AC-AUTO-005, AC-AUTO-006]
+      [
+        OUT-001,
+        OUT-004,
+        SCOPE-002,
+        UI-001,
+        UI-006,
+        UI-007,
+        UI-008,
+        UI-009,
+        UI-010,
+        UI-011,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        QUAL-005,
+        QUAL-006,
+        AC-AUTO-005,
+        AC-AUTO-006,
+      ]
 
   - id: authorization.commit-packet-05
     revision: 1
@@ -1043,4 +1096,125 @@ decisions:
     rationale: 'The user authorized one scoped commit for completed Packet 05 only. Unrelated Local Whisper changes remain uncommitted; Packet 06 needs separate execution authorization after this commit.'
     supersedes_revision: null
     requirement_ids:
-      [OUT-001, OUT-004, SCOPE-002, UI-001, UI-006, UI-007, UI-008, UI-009, UI-010, UI-011, FAIL-001, FAIL-002, FAIL-003, FAIL-004, QUAL-005, QUAL-006, AC-AUTO-005, AC-AUTO-006]
+      [
+        OUT-001,
+        OUT-004,
+        SCOPE-002,
+        UI-001,
+        UI-006,
+        UI-007,
+        UI-008,
+        UI-009,
+        UI-010,
+        UI-011,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        QUAL-005,
+        QUAL-006,
+        AC-AUTO-005,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.packet-06-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 is committed, and Packet 06 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 06 is limited to main-window registration presentation, deterministic demo fixtures, focused checks, and its browser gate; it excludes platform-native work, release, and publication.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-08
+      question_id: authorization.packet-06-execution
+      idempotency_key: authorization.packet-06-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 06: Main Window Status And Demo?'
+      kind: single
+      options:
+        - id: authorize-packet-06
+          label: Authorize Packet 06 (Recommended)
+          description: Authorize only main-window registration presentation, deterministic demo fixtures, focused tests, and the required browser gate; no Packet 07, platform work, release, or publication.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 06 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 06 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-06]
+      text: ''
+    rationale: 'The user authorized only Packet 06. This increment must stop after task-local verification, browser gate recording, and handoff; it does not authorize a commit, Packet 07, platform transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-005,
+        SCOPE-004,
+        UI-002,
+        UI-003,
+        UI-004,
+        UI-005,
+        UI-006,
+        UI-007,
+        UI-011,
+        UI-012,
+        COMP-003,
+        QUAL-005,
+        AC-AUTO-005,
+      ]
+
+  - id: authorization.commit-packet-06
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 is checked complete with its focused renderer suite, type checks, production build, scoped lint/format checks, diff hygiene, and CloakBrowser manual gate recorded as passed.'
+      - 'The worktree also contains unrelated Local Whisper qualification changes that must remain outside the Packet 06 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-09
+      question_id: authorization.commit-packet-06
+      idempotency_key: authorization.commit-packet-06:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 06 Main Window Status And Demo increment before beginning Packet 07?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-06
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 06 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 06 uncommitted and do not begin Packet 07.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 06 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-06]
+      text: ''
+    rationale: 'The user authorized one scoped Packet 06 commit. Unrelated Local Whisper changes remain uncommitted; Packet 07 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-005,
+        SCOPE-004,
+        UI-002,
+        UI-003,
+        UI-004,
+        UI-005,
+        UI-006,
+        UI-007,
+        UI-011,
+        UI-012,
+        COMP-003,
+        QUAL-005,
+        AC-AUTO-005,
+      ]

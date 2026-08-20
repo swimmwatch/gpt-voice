@@ -367,6 +367,7 @@ export default {
   'hotkey.authority.application': 'Vinculación administrada por la aplicación',
   'hotkey.authority.desktopEnvironment': 'Vinculación administrada por el entorno de escritorio',
   'hotkey.authority.none': 'Sin vinculación activa',
+  'hotkey.recoveryAction': 'Cambia el atajo en Configuración.',
   'hotkey.preference': 'Preferencia configurada: {accelerator}',
   'hotkey.effective': 'Activador exacto: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Introduce una combinación de teclas válida.',

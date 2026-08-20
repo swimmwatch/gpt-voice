@@ -362,6 +362,7 @@ export default {
   'hotkey.authority.application': 'Vinculação gerenciada pelo aplicativo',
   'hotkey.authority.desktopEnvironment': 'Vinculação gerenciada pelo ambiente de trabalho',
   'hotkey.authority.none': 'Nenhuma vinculação ativa',
+  'hotkey.recoveryAction': 'Altere o atalho nas Configurações.',
   'hotkey.preference': 'Preferência configurada: {accelerator}',
   'hotkey.effective': 'Acionador exato: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Insira uma combinação de teclas válida.',

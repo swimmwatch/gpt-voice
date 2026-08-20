@@ -1,4 +1,5 @@
 import { Pause, Play, Square, X, type LucideIcon } from 'lucide-react';
+import { useI18n } from '@renderer/hooks/useI18n';
 import { cn } from '@renderer/lib/cn';
 import type {
   ProviderHotkeyContextualAction,
@@ -18,8 +19,10 @@ interface ContextualActionTileProps {
 
 /** Renders one compact, provider-neutral contextual action with its effective accelerator. */
 export default function ContextualActionTile({ action }: ContextualActionTileProps): React.JSX.Element {
+  const { t } = useI18n();
   const Icon = ICONS[action.icon];
-  const accessibleName = `${action.label}: ${action.hotkey}`;
+  const hotkeyLegend = action.hotkey ?? t('hotkey.notAssigned');
+  const accessibleName = `${action.label}: ${hotkeyLegend}`;
 
   return (
     <button
@@ -33,7 +36,7 @@ export default function ContextualActionTile({ action }: ContextualActionTilePro
       type="button"
     >
       <Icon aria-hidden="true" />
-      <kbd aria-hidden="true">{action.hotkey}</kbd>
+      <kbd aria-hidden="true">{hotkeyLegend}</kbd>
     </button>
   );
 }

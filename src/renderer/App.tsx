@@ -943,9 +943,10 @@ const App: React.FC = () => {
               <HotkeyActionButton
                 actionLabel={providerHotkeyIntegration.voiceActionLabel}
                 active={providerHotkeyIntegration.presentation.activeOwner === 'voice'}
-                hotkey={providerHotkeyIntegration.recordHotkey}
+                accelerator={providerHotkeyIntegration.hotkeyEntries.voice?.configuredAccelerator ?? null}
                 locked={providerHotkeyIntegration.presentation.eligibility.voice.locked}
                 onActivate={providerHotkeyIntegration.activateVoice}
+                registration={providerHotkeyIntegration.hotkeyEntries.voice}
               />
             }
             activeProviderAuthType={activeProviderAuthType}
@@ -983,9 +984,10 @@ const App: React.FC = () => {
                 actionLabel={t('prettify.provider')}
                 active={providerHotkeyIntegration.presentation.activeOwner === 'prettify'}
                 busy={providerHotkeyIntegration.pendingProviderHomeAction === 'prettify'}
-                hotkey={providerHotkeyIntegration.prettifyHotkey}
+                accelerator={providerHotkeyIntegration.hotkeyEntries.prettify?.configuredAccelerator ?? null}
                 locked={providerHotkeyIntegration.presentation.eligibility.prettify.locked}
                 onActivate={providerHotkeyIntegration.activatePrettify}
+                registration={providerHotkeyIntegration.hotkeyEntries.prettify}
               />
             }
             cliConnection={mainPrettifyProvider.cliConnection}
@@ -1007,9 +1009,10 @@ const App: React.FC = () => {
                 actionLabel={t('translate.provider')}
                 active={providerHotkeyIntegration.presentation.activeOwner === 'translation'}
                 busy={providerHotkeyIntegration.pendingProviderHomeAction === 'translation'}
-                hotkey={providerHotkeyIntegration.translateHotkey}
+                accelerator={providerHotkeyIntegration.hotkeyEntries.translation?.configuredAccelerator ?? null}
                 locked={providerHotkeyIntegration.presentation.eligibility.translation.locked}
                 onActivate={providerHotkeyIntegration.activateTranslation}
+                registration={providerHotkeyIntegration.hotkeyEntries.translation}
               />
             }
             connectionState={translationConnectionState}

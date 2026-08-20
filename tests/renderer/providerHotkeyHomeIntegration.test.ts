@@ -26,6 +26,9 @@ describe('provider hotkey home integration contract', () => {
       /getHotkeyRuntimeState\(\)[\s\S]*?\.then\(acceptRuntimeState\)[\s\S]*?\.catch\(\(\) => undefined\)/u,
     );
     assert.match(integration, /state\.revision < latestRevision/u);
+    assert.match(integration, /function getHotkeyRuntimeSnapshotEntry/u);
+    assert.match(integration, /const hotkeyEntries = useMemo<ProviderHotkeyRegistrationEntries>/u);
+    assert.doesNotMatch(integration, /const hotkeySettings/u);
     assert.match(integration, /prettifyEnabled: providerHomeActionState\?\.settings\.prettifyEnabled \?\? false/u);
     assert.match(integration, /translationEnabled: providerHomeActionState\?\.settings\.translateEnabled \?\? false/u);
     assert.match(integration, /textActionCancellability: providerHomeActionState !== null/u);
@@ -100,21 +103,42 @@ describe('provider hotkey home integration contract', () => {
     assert.match(app, /contextualActions=\{providerHotkeyIntegration\.contextualActions\}/u);
   });
 
-  it('uses one unchanged HotkeyActionButton in each existing provider-row seam', () => {
+  it('uses one snapshot-backed HotkeyActionButton in each existing provider-row seam', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const toolbar = readProjectFile('src/renderer/components/MainToolbar.tsx');
     const prettify = readProjectFile('src/renderer/components/MainPrettifyProviderBand.tsx');
     const translation = readProjectFile('src/renderer/components/TranslateSection.tsx');
 
     assert.equal((app.match(/<HotkeyActionButton/gu) ?? []).length, 3);
-    assert.match(app, /<MainToolbar[\s\S]*?actionControl=\{[\s\S]*?voiceActionLabel/u);
-    assert.match(app, /<MainPrettifyProviderBand[\s\S]*?actionControl=\{[\s\S]*?prettifyHotkey/u);
-    assert.match(app, /<TranslateSection[\s\S]*?actionControl=\{[\s\S]*?translateHotkey/u);
+    assert.match(app, /<MainToolbar[\s\S]*?actionControl=\{[\s\S]*?hotkeyEntries\.voice\?\.configuredAccelerator/u);
+    assert.match(
+      app,
+      /<MainPrettifyProviderBand[\s\S]*?actionControl=\{[\s\S]*?hotkeyEntries\.prettify\?\.configuredAccelerator/u,
+    );
+    assert.match(
+      app,
+      /<TranslateSection[\s\S]*?actionControl=\{[\s\S]*?hotkeyEntries\.translation\?\.configuredAccelerator/u,
+    );
+    assert.match(app, /registration=\{providerHotkeyIntegration\.hotkeyEntries\.voice\}/u);
+    assert.match(app, /registration=\{providerHotkeyIntegration\.hotkeyEntries\.prettify\}/u);
+    assert.match(app, /registration=\{providerHotkeyIntegration\.hotkeyEntries\.translation\}/u);
     assert.match(toolbar, /actionControl\?: ReactNode/u);
     assert.match(toolbar, /\{actionControl\}[\s\S]*?<div[\s\S]*?command-dock-provider-controls/u);
     assert.match(prettify, /actionControl\?: ReactNode/u);
     assert.match(prettify, /\{actionControl\}[\s\S]*?<div[\s\S]*?command-dock-prettify-controls/u);
     assert.match(translation, /actionControl\?: ReactNode/u);
     assert.match(translation, /\{actionControl\}[\s\S]*?<ProviderStatusIndicator/u);
+  });
+
+  it('keeps contextual actions nullable without changing their lifecycle eligibility', () => {
+    const integration = readProjectFile('src/renderer/useProviderHotkeyHomeIntegration.ts');
+    const tile = readProjectFile('src/renderer/components/ContextualActionTile.tsx');
+
+    assert.match(integration, /readonly hotkey: string \| null;/u);
+    assert.match(integration, /hotkey: stopHotkey,/u);
+    assert.match(integration, /hotkey: cancelHotkey,/u);
+    assert.match(tile, /const hotkeyLegend = action\.hotkey \?\? t\('hotkey\.notAssigned'\);/u);
+    assert.match(tile, /disabled=\{!action\.available \|\| action\.busy\}/u);
+    assert.doesNotMatch(tile, /disabled=\{[^}]*hotkey/u);
   });
 });

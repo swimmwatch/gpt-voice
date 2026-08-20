@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deriveProviderHotkeyPresentation, type ProviderHotkeyPresentation } from '@renderer/providerHotkeyEligibility';
 import type { ElectronAPI } from '@renderer/types';
 import type { HotkeyRuntimeState } from '@shared/hotkeyIpc';
+import type { HotkeyRuntimeSnapshotEntry, HotkeyTarget } from '@shared/hotkeys';
 import type {
   ProviderContextualActionDescriptor,
   ProviderHomeAction,
@@ -36,10 +37,16 @@ interface ProviderHotkeyHomeIntegrationOptions {
 export type ProviderContextualActionIcon = 'cancel' | 'pause' | 'resume' | 'stop';
 
 export interface ProviderHotkeyContextualAction extends ProviderContextualActionDescriptor {
-  readonly hotkey: string;
+  readonly hotkey: string | null;
   readonly icon: ProviderContextualActionIcon;
   readonly label: string;
   readonly onActivate: () => void;
+}
+
+export interface ProviderHotkeyRegistrationEntries {
+  readonly prettify: HotkeyRuntimeSnapshotEntry | null;
+  readonly translation: HotkeyRuntimeSnapshotEntry | null;
+  readonly voice: HotkeyRuntimeSnapshotEntry | null;
 }
 
 export interface ProviderHotkeyHomeIntegration {
@@ -48,12 +55,17 @@ export interface ProviderHotkeyHomeIntegration {
   readonly activateVoice: () => void;
   readonly contextualActions: readonly ProviderHotkeyContextualAction[];
   readonly isMainInteractionLocked: boolean;
+  readonly hotkeyEntries: ProviderHotkeyRegistrationEntries;
   readonly pendingProviderHomeAction: ProviderHomeTextAction | null;
   readonly presentation: ProviderHotkeyPresentation;
-  readonly prettifyHotkey: string;
-  readonly recordHotkey: string;
-  readonly translateHotkey: string;
   readonly voiceActionLabel: string;
+}
+
+function getHotkeyRuntimeSnapshotEntry(
+  runtimeState: HotkeyRuntimeState | null,
+  target: HotkeyTarget,
+): HotkeyRuntimeSnapshotEntry | null {
+  return runtimeState?.snapshot.entries.find((entry) => entry.target === target) ?? null;
 }
 
 /** Reconciles authoritative renderer-safe snapshots into provider-key controls. */
@@ -137,7 +149,9 @@ export function useProviderHotkeyHomeIntegration({
       if (disposed || state.revision < latestRevision) return;
       latestRevision = state.revision;
       setHotkeyRuntimeState(state);
-      if (state.settings.hotkey !== null) onIdleRecordHotkey(state.settings.hotkey);
+      const recordEntry = getHotkeyRuntimeSnapshotEntry(state, 'record');
+      const recordHotkey = recordEntry?.configuredAccelerator;
+      if (recordHotkey) onIdleRecordHotkey(recordHotkey);
     };
     const unsubscribe = desktopApi.onHotkeyRuntimeStateChanged(acceptRuntimeState);
 
@@ -152,12 +166,17 @@ export function useProviderHotkeyHomeIntegration({
     };
   }, [desktopApi, onIdleRecordHotkey]);
 
-  const hotkeySettings = hotkeyRuntimeState?.settings ?? null;
-  const recordHotkey = hotkeySettings?.hotkey ?? '';
-  const prettifyHotkey = hotkeySettings?.prettifyHotkey ?? '';
-  const translateHotkey = hotkeySettings?.translateHotkey ?? '';
-  const stopHotkey = hotkeySettings?.stopHotkey ?? '';
-  const cancelHotkey = hotkeySettings?.cancelHotkey ?? '';
+  const hotkeyEntries = useMemo<ProviderHotkeyRegistrationEntries>(
+    () =>
+      Object.freeze({
+        prettify: getHotkeyRuntimeSnapshotEntry(hotkeyRuntimeState, 'prettify'),
+        translation: getHotkeyRuntimeSnapshotEntry(hotkeyRuntimeState, 'translate'),
+        voice: getHotkeyRuntimeSnapshotEntry(hotkeyRuntimeState, 'record'),
+      }),
+    [hotkeyRuntimeState],
+  );
+  const stopHotkey = getHotkeyRuntimeSnapshotEntry(hotkeyRuntimeState, 'stop')?.configuredAccelerator ?? null;
+  const cancelHotkey = getHotkeyRuntimeSnapshotEntry(hotkeyRuntimeState, 'cancel')?.configuredAccelerator ?? null;
 
   const presentation = useMemo(
     () =>
@@ -175,9 +194,9 @@ export function useProviderHotkeyHomeIntegration({
         recordingState,
         snapshots: {
           hotkeys: {
-            prettify: hotkeySettings !== null,
-            translation: hotkeySettings !== null,
-            voice: hotkeySettings !== null,
+            prettify: hotkeyRuntimeState !== null,
+            translation: hotkeyRuntimeState !== null,
+            voice: hotkeyRuntimeState !== null,
           },
           mainInteractionLock: hasMainInteractionLockSnapshot,
           prettifyModelAction: true,
@@ -197,7 +216,7 @@ export function useProviderHotkeyHomeIntegration({
       activeProviderId,
       activeTextAction,
       hasMainInteractionLockSnapshot,
-      hotkeySettings,
+      hotkeyRuntimeState,
       isInitialVoiceProviderLoading,
       isMainInteractionLocked,
       isPrettifyModelActionRunning,
@@ -291,7 +310,7 @@ export function useProviderHotkeyHomeIntegration({
           case 'pause':
             return {
               ...action,
-              hotkey: recordHotkey,
+              hotkey: hotkeyEntries.voice?.configuredAccelerator ?? null,
               icon: 'pause',
               label: translate('recording.pause'),
               onActivate: onVoicePause,
@@ -299,7 +318,7 @@ export function useProviderHotkeyHomeIntegration({
           case 'resume':
             return {
               ...action,
-              hotkey: recordHotkey,
+              hotkey: hotkeyEntries.voice?.configuredAccelerator ?? null,
               icon: 'resume',
               label: translate('recording.resume'),
               onActivate: onVoiceResume,
@@ -334,12 +353,12 @@ export function useProviderHotkeyHomeIntegration({
     [
       activateTextActionCancel,
       cancelHotkey,
+      hotkeyEntries.voice?.configuredAccelerator,
       onVoiceCancel,
       onVoicePause,
       onVoiceResume,
       onVoiceStop,
       presentation.contextualActions,
-      recordHotkey,
       stopHotkey,
       translate,
     ],
@@ -350,12 +369,10 @@ export function useProviderHotkeyHomeIntegration({
     activateTranslation,
     activateVoice,
     contextualActions,
+    hotkeyEntries,
     isMainInteractionLocked,
     pendingProviderHomeAction,
     presentation,
-    prettifyHotkey,
-    recordHotkey,
-    translateHotkey,
     voiceActionLabel,
   };
 }

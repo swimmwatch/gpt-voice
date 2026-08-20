@@ -389,6 +389,7 @@ export default {
   'hotkey.authority.application': 'Сочетание управляется приложением',
   'hotkey.authority.desktopEnvironment': 'Сочетание управляется средой рабочего стола',
   'hotkey.authority.none': 'Нет активного сочетания',
+  'hotkey.recoveryAction': 'Измените сочетание в настройках.',
   'hotkey.preference': 'Настроенное сочетание: {accelerator}',
   'hotkey.effective': 'Точный триггер: {accelerator}',
   'hotkey.failure.invalidAccelerator': 'Введите допустимое сочетание клавиш.',

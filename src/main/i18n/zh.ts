@@ -339,6 +339,7 @@ export default {
   'hotkey.authority.application': '由应用管理的绑定',
   'hotkey.authority.desktopEnvironment': '由桌面环境管理的绑定',
   'hotkey.authority.none': '没有活动绑定',
+  'hotkey.recoveryAction': '请在设置中更改快捷键。',
   'hotkey.preference': '已配置的首选项: {accelerator}',
   'hotkey.effective': '精确触发键: {accelerator}',
   'hotkey.failure.invalidAccelerator': '请输入有效的组合键。',
