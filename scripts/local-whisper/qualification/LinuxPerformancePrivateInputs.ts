@@ -203,42 +203,44 @@ function focusedBaseModel() {
 async function focusedFixture(
   filePath: string,
 ): Promise<LoadedLinuxQualificationEvidence['application']['performanceFixtures'][number]> {
-  const metadata = await lstat(filePath).catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
-  if (
-    !metadata.isFile() ||
-    metadata.isSymbolicLink() ||
-    metadata.size < MINIMUM_FOCUSED_FIXTURE_BYTES ||
-    metadata.size > MAXIMUM_FOCUSED_FIXTURE_BYTES
-  ) {
-    fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
+  const handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW).catch(() =>
+    fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'),
+  );
+  try {
+    const metadata = await handle.stat().catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
+    if (
+      !metadata.isFile() ||
+      metadata.size < MINIMUM_FOCUSED_FIXTURE_BYTES ||
+      metadata.size > MAXIMUM_FOCUSED_FIXTURE_BYTES
+    ) {
+      fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
+    }
+    const bytes = await handle.readFile().catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
+    const finalMetadata = await handle.stat().catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
+    if (
+      !hasSameVerifiedFileIdentity(metadata, finalMetadata) ||
+      finalMetadata.size !== metadata.size ||
+      finalMetadata.mtimeMs !== metadata.mtimeMs ||
+      bytes.byteLength !== metadata.size
+    ) {
+      fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
+    }
+    const header = bytes.subarray(0, 12);
+    if (header.subarray(0, 4).toString('ascii') !== 'RIFF' || header.subarray(8, 12).toString('ascii') !== 'WAVE') {
+      fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
+    }
+    return Object.freeze({
+      id: 'focused-linux-performance-input-v1',
+      filePath,
+      sizeBytes: metadata.size,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+      durationNanoseconds: 0,
+      language: 'en',
+      locale: 'en_us',
+    });
+  } finally {
+    await handle.close().catch(() => undefined);
   }
-  const header = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW)
-    .then(async (handle) => {
-      try {
-        const bytes = Buffer.allocUnsafe(12);
-        const { bytesRead } = await handle.read(bytes, 0, bytes.byteLength, 0);
-        return bytesRead === bytes.byteLength ? bytes : null;
-      } finally {
-        await handle.close().catch(() => undefined);
-      }
-    })
-    .catch(() => fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID'));
-  if (
-    !header ||
-    header.subarray(0, 4).toString('ascii') !== 'RIFF' ||
-    header.subarray(8, 12).toString('ascii') !== 'WAVE'
-  ) {
-    fail('FOCUSED_PRIVATE_INPUT_FIXTURE_INVALID');
-  }
-  return Object.freeze({
-    id: 'focused-linux-performance-input-v1',
-    filePath,
-    sizeBytes: metadata.size,
-    sha256: await hashDescriptor(filePath, metadata),
-    durationNanoseconds: 0,
-    language: 'en',
-    locale: 'en_us',
-  });
 }
 
 function focusedEvidenceDigest(

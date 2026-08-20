@@ -267,15 +267,11 @@ export async function openLocalWhisperActivationFile(
   filePath: string,
   flags: number,
 ): ReturnType<typeof fileSystemPromises.open> {
-  const pathIdentity = await fileSystemPromises.lstat(filePath);
-  if (!pathIdentity.isFile() || pathIdentity.isSymbolicLink()) {
-    throw new Error('Local Whisper activation path identity is unavailable');
-  }
-  const handle = await fileSystemPromises.open(filePath, flags);
+  const handle = await fileSystemPromises.open(filePath, flags | fileConstants.O_NOFOLLOW);
   try {
     const openedIdentity = await handle.stat();
-    if (openedIdentity.dev !== pathIdentity.dev || openedIdentity.ino !== pathIdentity.ino) {
-      throw new Error('Local Whisper activation path identity changed');
+    if (!openedIdentity.isFile()) {
+      throw new Error('Local Whisper activation path identity is unavailable');
     }
     return handle;
   } catch (error) {

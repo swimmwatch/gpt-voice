@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
@@ -149,6 +149,28 @@ function fixtureProducer(input: {
     { bytes: overlay, sha256: digest.sha256(overlay) },
   );
 }
+
+describe('NodePerformanceDerivedSourceFilesystemAdapter', () => {
+  it('reads an owned regular file through a descriptor without following a final symlink', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-derived-source-descriptor-'));
+    try {
+      const adapter = new NodePerformanceDerivedSourceFilesystemAdapter();
+      const regularFile = path.join(root, 'regular.bin');
+      const linkFile = path.join(root, 'link.bin');
+      await writeFile(regularFile, 'verified');
+      assert.deepEqual(await adapter.readRegularFile(root, 'regular.bin', 1024), Buffer.from('verified'));
+      try {
+        await symlink(regularFile, linkFile);
+      } catch (error) {
+        assert.equal((error as NodeJS.ErrnoException).code, 'EPERM');
+        return;
+      }
+      await assert.rejects(adapter.readRegularFile(root, 'link.bin', 1024), /SOURCE_DERIVED_FILE_INVALID/u);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+});
 
 describe('PerformanceDerivedSourceProducer', () => {
   it('exports two clean exact parents through one identical overlay and binds path-free executable receipts', async () => {

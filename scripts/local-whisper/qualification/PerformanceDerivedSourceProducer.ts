@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmod, lstat, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { chmod, lstat, mkdir, open, realpath, rm, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
@@ -342,22 +343,26 @@ export class NodePerformanceDerivedSourceFilesystemAdapter implements Performanc
     const destination = path.join(treeRoot, ...containedRelativePath(relativePath).split('/'));
     assertContained(treeRoot, destination);
     try {
-      const before = await lstat(destination);
-      if (!before.isFile() || before.isSymbolicLink() || before.size < 1 || before.size > maximumBytes) {
-        derivationFailure('SOURCE_DERIVED_FILE_INVALID');
+      const handle = await open(destination, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        const before = await handle.stat();
+        if (!before.isFile() || before.size < 1 || before.size > maximumBytes) {
+          derivationFailure('SOURCE_DERIVED_FILE_INVALID');
+        }
+        const bytes = await handle.readFile();
+        const after = await handle.stat();
+        if (
+          !after.isFile() ||
+          bytes.byteLength !== before.size ||
+          after.size !== before.size ||
+          after.mtimeMs !== before.mtimeMs
+        ) {
+          derivationFailure('SOURCE_DERIVED_FILE_CHANGED');
+        }
+        return bytes;
+      } finally {
+        await handle.close().catch(() => undefined);
       }
-      const bytes = await readFile(destination);
-      const after = await lstat(destination);
-      if (
-        !after.isFile() ||
-        after.isSymbolicLink() ||
-        bytes.byteLength !== before.size ||
-        after.size !== before.size ||
-        after.mtimeMs !== before.mtimeMs
-      ) {
-        derivationFailure('SOURCE_DERIVED_FILE_CHANGED');
-      }
-      return bytes;
     } catch (error) {
       if (error instanceof PerformanceSourceDerivationError) throw error;
       derivationFailure('SOURCE_DERIVED_FILE_INVALID', error);
