@@ -8,6 +8,7 @@ import {
 } from '../linuxDesktopIntegration';
 import { ShortcutController } from '../shortcuts';
 import { ElectronGlobalShortcutAdapter } from '../hotkeys/ElectronGlobalShortcutAdapter';
+import { LinuxHotkeyPlatformPolicy } from '../hotkeys/LinuxHotkeyPlatformPolicy';
 import { HotkeyPlatformPolicyFactory } from '../hotkeys/HotkeyPlatformPolicyFactory';
 import { HotkeyRegistrationService } from '../hotkeys/HotkeyRegistrationService';
 import { TrayController, type TrayControllerDependencies } from '../tray';
@@ -692,10 +693,9 @@ export class MainProcessCompositionRoot {
       config: configStore,
       logger: loggerFactory.getLogger('hotkeys'),
       platform: desktopEnvironment.hotkeys.platform,
-      policy: new HotkeyPlatformPolicyFactory({}).create(
-        desktopEnvironment.hotkeys.desktopPlatform,
-        desktopEnvironment.hotkeys.linuxSessionType,
-      ),
+      policy: new HotkeyPlatformPolicyFactory({
+        createLinuxX11Policy: () => new LinuxHotkeyPlatformPolicy(),
+      }).create(desktopEnvironment.hotkeys.desktopPlatform, desktopEnvironment.hotkeys.linuxSessionType),
     });
     hotkeyRegistrationService.connectMainInteractionLock(mainInteractionLock);
     const windowManager = new WindowManager({

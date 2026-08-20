@@ -33,7 +33,8 @@ import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
-import { DesktopPlatform, LinuxSessionType } from '@shared/hotkeys';
+import { DesktopPlatform } from '@shared/hotkeys';
+import { classifyLinuxSessionType } from './hotkeys/LinuxSessionTypeClassifier';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
 import { HostResourceProbeFactory } from './localWhisper/capability/HostResourceProbeFactory';
@@ -89,13 +90,6 @@ function classifyDesktopPlatform(platform: NodeJS.Platform): DesktopPlatform {
     default:
       return DesktopPlatform.Unsupported;
   }
-}
-
-function classifyLinuxSession(platform: NodeJS.Platform, environment: NodeJS.ProcessEnv): LinuxSessionType {
-  if (platform !== 'linux') return LinuxSessionType.NotApplicable;
-  if (environment.XDG_SESSION_TYPE === LinuxSessionType.X11) return LinuxSessionType.X11;
-  if (environment.XDG_SESSION_TYPE === LinuxSessionType.Wayland) return LinuxSessionType.Wayland;
-  return LinuxSessionType.Unknown;
 }
 
 function ignoreStreamingDiagnostic(): void {
@@ -545,7 +539,7 @@ async function bootstrapMainProcess(): Promise<void> {
       hotkeys: {
         desktopPlatform: classifyDesktopPlatform(process.platform),
         globalShortcut,
-        linuxSessionType: classifyLinuxSession(process.platform, process.env),
+        linuxSessionType: classifyLinuxSessionType(process.platform, process.env.XDG_SESSION_TYPE),
         platform: process.platform,
       },
       tray: {

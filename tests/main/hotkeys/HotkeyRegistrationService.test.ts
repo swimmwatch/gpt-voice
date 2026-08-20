@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 
 import { ElectronGlobalShortcutAdapter } from '@main/hotkeys/ElectronGlobalShortcutAdapter';
 import { GlobalShortcutAdapter } from '@main/hotkeys/GlobalShortcutAdapter';
+import { LinuxHotkeyPlatformPolicy } from '@main/hotkeys/LinuxHotkeyPlatformPolicy';
+import { classifyLinuxSessionType } from '@main/hotkeys/LinuxSessionTypeClassifier';
 import { HotkeyPlatformPolicy } from '@main/hotkeys/HotkeyPlatformPolicy';
 import { HotkeyPlatformPolicyFactory } from '@main/hotkeys/HotkeyPlatformPolicyFactory';
 import { UnsupportedHotkeyPlatformPolicy } from '@main/hotkeys/UnsupportedHotkeyPlatformPolicy';
@@ -27,6 +29,8 @@ import {
   type HotkeyTarget,
 } from '@shared/hotkeys';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
+
+const LINUX_F12_ACCELERATOR = 'F12';
 
 class FakeAdapter extends GlobalShortcutAdapter {
   public readonly callbacks = new Map<string, () => void>();
@@ -194,16 +198,16 @@ describe('Hotkey platform policy factory', () => {
     );
 
     const windows = createAcceptedPolicy();
-    const x11 = createAcceptedPolicy();
-    const wayland = createDesktopManagedPolicy();
+    const x11 = new LinuxHotkeyPlatformPolicy();
     const selected = new HotkeyPlatformPolicyFactory({
-      createLinuxWaylandPolicy: () => wayland,
       createLinuxX11Policy: () => x11,
       createWindowsPolicy: () => windows,
     });
     assert.equal(selected.create(DesktopPlatform.Windows, LinuxSessionType.NotApplicable), windows);
     assert.equal(selected.create(DesktopPlatform.Linux, LinuxSessionType.X11), x11);
-    assert.equal(selected.create(DesktopPlatform.Linux, LinuxSessionType.Wayland), wayland);
+    assert.ok(
+      selected.create(DesktopPlatform.Linux, LinuxSessionType.Wayland) instanceof UnsupportedHotkeyPlatformPolicy,
+    );
     assert.ok(
       selected.create(DesktopPlatform.Linux, LinuxSessionType.Unknown) instanceof UnsupportedHotkeyPlatformPolicy,
     );
@@ -214,6 +218,33 @@ describe('Hotkey platform policy factory', () => {
         },
       }).create(DesktopPlatform.Windows, LinuxSessionType.NotApplicable) instanceof UnsupportedHotkeyPlatformPolicy,
     );
+  });
+});
+
+describe('Linux X11 hotkey policy', () => {
+  it('classifies only the bounded Linux session value', () => {
+    assert.equal(classifyLinuxSessionType('linux', 'x11'), LinuxSessionType.X11);
+    assert.equal(classifyLinuxSessionType('linux', 'wayland'), LinuxSessionType.Wayland);
+    assert.equal(classifyLinuxSessionType('linux', 'unsupported'), LinuxSessionType.Unknown);
+    assert.equal(classifyLinuxSessionType('win32', 'x11'), LinuxSessionType.NotApplicable);
+  });
+
+  it('accepts F12 without a Windows reservation and registers it through the shared adapter contract', () => {
+    const { adapter, service } = createService(createUnassignedHotkeySettings(), new LinuxHotkeyPlatformPolicy());
+
+    const result = service.set('record', LINUX_F12_ACCELERATOR);
+
+    assert.equal(result.success, true);
+    assert.equal(adapter.isRegistered(LINUX_F12_ACCELERATOR), true);
+    const record = result.snapshot.entries.find((entry) => entry.target === 'record');
+    assert.deepEqual(record, {
+      bindingAuthority: HotkeyBindingAuthority.Application,
+      configuredAccelerator: LINUX_F12_ACCELERATOR,
+      dispatchStatus: HotkeyDispatchStatus.Enabled,
+      effectiveAccelerator: LINUX_F12_ACCELERATOR,
+      registrationStatus: HotkeyRegistrationStatus.Registered,
+      target: 'record',
+    });
   });
 });
 
