@@ -24,7 +24,6 @@ const cleanReport = {
   ArtifactName: SECURITY_BUILDER_TAG,
   ArtifactType: 'container_image',
   Metadata: { OS: { Family: 'fedora', Name: '44' } },
-  Results: [{ Class: 'os-pkgs', Target: 'rootfs', Type: 'fedora', Vulnerabilities: [] }],
   SchemaVersion: 2,
 };
 const dockerFixtureDirectory = path.join(process.cwd(), 'tests', 'fixtures', 'security', 'docker');
@@ -53,22 +52,24 @@ describe('Docker builder policy', () => {
     );
     assert.equal(
       TRIVY_IMAGE,
-      'aquasec/trivy:0.68.2@sha256:05d0126976bdedcd0782a0336f77832dbea1c81b9cc5e4b3a5ea5d2ec863aca7',
+      'aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969',
     );
     assert.equal(TRIVY_DATABASE_REPOSITORY, 'ghcr.io/aquasecurity/trivy-db:2');
     assert.deepEqual(TRIVY_DATABASE_ARGUMENTS, ['--db-repository', TRIVY_DATABASE_REPOSITORY]);
   });
 
-  it('accepts the reviewed immutable Fedora Dockerfile and clean current scan evidence', async () => {
+  it('accepts the reviewed immutable Fedora Dockerfile and Trivy no-findings evidence', async () => {
     const policy = new DockerBuilderPolicy();
     const dockerfile = await dockerFixture('safe.Dockerfile');
     assert.doesNotThrow(() => policy.verifyDockerfile(dockerfile));
     assert.doesNotThrow(() => verifyEvidence());
   });
 
-  it('rejects a report that omits semantic package coverage', () => {
-    const { Results: _results, ...emptyCleanReport } = cleanReport;
-    assert.throws(() => verifyEvidence({ report: emptyCleanReport }), /report malformed/u);
+  it('rejects a report for an unrecognized operating system', () => {
+    assert.throws(
+      () => verifyEvidence({ report: { ...cleanReport, Metadata: { OS: { Family: 'fedora', Name: '43' } } } }),
+      /report malformed/u,
+    );
   });
 
   it('rejects a report that omits operating-system identity', () => {
@@ -97,6 +98,7 @@ describe('Docker builder policy', () => {
       /unavailable or stale/u,
     ],
     ['malformed report', { report: {} }, /report malformed/u],
+    ['empty result collection', { report: { ...cleanReport, Results: [] } }, /report malformed/u],
     [
       'unclassified package result',
       { report: { ...cleanReport, Results: [{ Target: 'rootfs', Vulnerabilities: [] }] } },

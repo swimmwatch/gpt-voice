@@ -1,7 +1,7 @@
 export const HADOLINT_IMAGE =
   'hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e';
 export const TRIVY_IMAGE =
-  'aquasec/trivy:0.68.2@sha256:05d0126976bdedcd0782a0336f77832dbea1c81b9cc5e4b3a5ea5d2ec863aca7';
+  'aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969';
 export const TRIVY_DATABASE_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2';
 export const TRIVY_DATABASE_ARGUMENTS = Object.freeze(['--db-repository', TRIVY_DATABASE_REPOSITORY] as const);
 export const FEDORA_BUILDER_IMAGE = 'fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898';
@@ -17,6 +17,8 @@ interface ScannerDatabase {
 const MAXIMUM_DATABASE_AGE_MILLISECONDS = 7 * 24 * 60 * 60 * 1000;
 const HADOLINT_SUPPRESSION = /^\s*#\s*hadolint\s+ignore=/imu;
 const UNSAFE_DOCKERFILE_INSTRUCTION = /^\s*(?:ADD|USER\s+root\b)|--nogpgcheck\b|\b(?:curl|wget)\b/imu;
+const FEDORA_BUILDER_OS_FAMILY = 'fedora';
+const FEDORA_BUILDER_OS_NAME = '44';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -102,13 +104,13 @@ export class DockerBuilderPolicy {
     const operatingSystem = isRecord(value.Metadata.OS) ? value.Metadata.OS : null;
     if (
       operatingSystem === null ||
-      typeof operatingSystem.Family !== 'string' ||
-      operatingSystem.Family.length === 0 ||
-      typeof operatingSystem.Name !== 'string' ||
-      operatingSystem.Name.length === 0 ||
-      !Array.isArray(value.Results) ||
-      value.Results.length === 0
+      operatingSystem.Family !== FEDORA_BUILDER_OS_FAMILY ||
+      operatingSystem.Name !== FEDORA_BUILDER_OS_NAME
     ) {
+      throw new Error('Docker builder policy violation: scanner report malformed');
+    }
+    if (value.Results === undefined) return;
+    if (!Array.isArray(value.Results) || value.Results.length === 0) {
       throw new Error('Docker builder policy violation: scanner report malformed');
     }
     for (const result of value.Results) {

@@ -17,7 +17,7 @@ const REVIEWED_IMAGES = new Map([
   ['rhysd/actionlint:1.7.9', ACTIONLINT_IMAGE],
   ['fedora:44', FEDORA_44_IMAGE],
   ['hadolint/hadolint:v2.12.0', HADOLINT_IMAGE],
-  ['aquasec/trivy:0.68.2', TRIVY_IMAGE],
+  ['aquasec/trivy:0.74.0', TRIVY_IMAGE],
 ]);
 
 interface WorkflowDocument {
