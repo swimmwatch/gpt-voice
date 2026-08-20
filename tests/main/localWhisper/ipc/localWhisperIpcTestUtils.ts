@@ -207,7 +207,7 @@ export class FakeCoordinator implements LocalWhisperIpcCoordinatorPort {
     return Promise.resolve({ success: true as const });
   }
 
-  public loadNow() {
+  public loadNow(): ReturnType<LocalWhisperIpcCoordinatorPort['loadNow']> {
     this.loadCalls += 1;
     return Promise.resolve({ success: true as const });
   }

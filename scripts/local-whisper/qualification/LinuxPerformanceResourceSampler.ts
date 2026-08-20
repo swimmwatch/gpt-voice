@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { Readable } from 'node:stream';
 
 import { PerformanceCollectionError } from './PerformanceQualificationCollector';
 
@@ -200,7 +201,9 @@ export class LinuxPerformanceResourceSamplerSession {
       // The attempt's exit result proves that no further events can arrive. Close our owned
       // forwarding channel even if Node keeps the auxiliary pipe open after process exit.
       this.detach();
-      this.eventStream.destroy();
+      if (this.eventStream instanceof Readable) {
+        this.eventStream.destroy();
+      }
       if (!this.child.stdin.destroyed && !this.child.stdin.writableEnded) this.child.stdin.end();
       const completion = Promise.all([this.ready, this.exit, this.stdout, this.stderr]);
       const timedOut = new Promise<never>((_resolve, reject) => {

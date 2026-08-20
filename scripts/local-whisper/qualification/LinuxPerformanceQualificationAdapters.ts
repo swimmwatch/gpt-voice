@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstat, type FileHandle } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
@@ -255,9 +256,9 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
       killOwnedProcessGroup(child);
       throw new PerformanceCollectionError('ATTEMPT_EVENT_CHANNEL_UNAVAILABLE');
     }
-    const diagnosticStream = (child.stdio as readonly (NodeJS.ReadableStream | NodeJS.WritableStream | null)[])[4] as
-      | NodeJS.ReadableStream
-      | null;
+    const diagnosticStream = (
+      child.stdio as readonly (NodeJS.ReadableStream | NodeJS.WritableStream | null)[]
+    )[4] as NodeJS.ReadableStream | null;
     if (!diagnosticStream) {
       killOwnedProcessGroup(child);
       throw new PerformanceCollectionError('ATTEMPT_DIAGNOSTIC_CHANNEL_UNAVAILABLE');
@@ -270,12 +271,11 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
       let stderrBytes = 0;
       let unexpectedStderr = false;
       let settled = false;
-      let exitPoll: NodeJS.Timeout | undefined;
       const finish = (error: PerformanceCollectionError | null, output?: Buffer): void => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        if (exitPoll) clearInterval(exitPoll);
+        clearInterval(exitPoll);
         signal?.removeEventListener('abort', abort);
         if (error) {
           killOwnedProcessGroup(child);
@@ -300,6 +300,8 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
         timeoutMilliseconds,
       );
       timer.unref();
+      const exitPoll = setInterval(() => finishOnExit(child.exitCode, child.signalCode), 100);
+      exitPoll.unref();
       signal?.addEventListener('abort', abort, { once: true });
       child.stdout.on('data', (chunk: Buffer | string) => {
         const bytes = Buffer.from(chunk);
@@ -326,8 +328,6 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
       child.stdin.once('error', () => finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED')));
       child.once('error', () => finish(new PerformanceCollectionError('ATTEMPT_PROCESS_FAILED')));
       child.once('exit', finishOnExit);
-      exitPoll = setInterval(() => finishOnExit(child.exitCode, child.signalCode), 100);
-      exitPoll.unref();
     });
     if (signal?.aborted) killOwnedProcessGroup(child);
     child.stdin.end(`${qualificationCanonicalJson(request)}\n`);
@@ -339,7 +339,9 @@ class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcess
 
   public async terminate(): Promise<void> {
     killOwnedProcessGroup(this.child);
-    this.eventStream.destroy();
+    if (this.eventStream instanceof Readable) {
+      this.eventStream.destroy();
+    }
     await this.result.catch(() => undefined);
   }
 

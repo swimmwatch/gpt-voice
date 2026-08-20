@@ -3,22 +3,15 @@ import { describe, it } from 'node:test';
 
 import { LocalWhisperCatalogRepository } from '@main/localWhisper/catalog/LocalWhisperCatalogRepository';
 import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
-import {
-  LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
-  toLocalWhisperArtifactId,
-} from '@shared/localWhisper';
-import {
-  createPerformanceAttemptCatalogAuthority,
-} from '@scripts/local-whisper/qualification/LinuxPerformanceAttemptApplication';
+import { LOCAL_WHISPER_WORKER_PROTOCOL_VERSION, toLocalWhisperArtifactId } from '@shared/localWhisper';
+import { createPerformanceAttemptCatalogAuthority } from '@scripts/local-whisper/qualification/LinuxPerformanceAttemptApplication';
 import type { PerformanceAttemptApplicationInput } from '@scripts/local-whisper/qualification/PerformanceQualificationAttemptRunner';
 import type { PerformanceRuntimeArchiveEvidence } from '@scripts/local-whisper/qualification/PerformanceRuntimeArchiveInspector';
 
 const SHA_256 = 'a'.repeat(64);
 
 function input(): PerformanceAttemptApplicationInput {
-  const model = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find(
-    (entry) => entry.family === 'base' && entry.variant === 'full',
-  );
+  const model = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.find((entry) => entry.family === 'base' && entry.variant === 'full');
   if (!model) throw new Error('Base/full release model is unavailable');
   return {
     request: {
@@ -27,7 +20,7 @@ function input(): PerformanceAttemptApplicationInput {
       sampleId: 'base-full-1-cold-01-after',
       platform: 'linux',
       backend: 'cpu',
-      model: { family: model.family, variant: model.variant, sha256: model.sha256 },
+      model: { family: 'base', variant: 'full', sha256: model.sha256 },
       candidateWindow: 1,
       cacheState: 'cold',
       pairIndex: 1,

@@ -145,6 +145,7 @@ export class PinnedModelSetMaterializer {
         signal: controller.signal,
         stream: transport.body,
         transferProfile: spec.transferProfile,
+        validationMode: 'authenticated',
         onProgress: () => Promise.resolve(),
       });
       const entry = result.entries[0];

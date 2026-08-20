@@ -81,6 +81,7 @@ describe('FileBackedArtifactStreamingWorker', () => {
         signal: new AbortController().signal,
         stream: chunks(bytes),
         transferProfile: 'pinned-raw-model-v1',
+        validationMode: 'authenticated',
         onProgress: () => Promise.resolve(),
       });
       assert.equal(result.entries.length, 1);
@@ -113,6 +114,7 @@ describe('FileBackedArtifactStreamingWorker', () => {
         signal: new AbortController().signal,
         stream: chunks(archive),
         transferProfile: 'restricted-tar-gzip-v1',
+        validationMode: 'authenticated',
         onProgress: () => Promise.resolve(),
       });
       assert.equal(result.entries[0]?.mode, 0o755);
@@ -134,6 +136,7 @@ describe('FileBackedArtifactStreamingWorker', () => {
           signal: new AbortController().signal,
           stream: chunks(concatenated),
           transferProfile: 'restricted-tar-gzip-v1',
+          validationMode: 'authenticated',
           onProgress: () => Promise.resolve(),
         }),
         (error) => error instanceof LocalWhisperArtifactLifecycleError && error.code === 'ARCHIVE_INVALID',

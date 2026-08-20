@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { open, readFile } from 'node:fs/promises';
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { spawn } from 'node:child_process';
-import { Writable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
 
 import type { ArtifactInstallationDiagnosticStage } from '@main/localWhisper/artifacts/StreamingArtifactExtractor';
 import type { NativeLauncherAcknowledgmentOutcome } from '@main/localWhisper/supervisor/NativeLauncherProcessOwner';
@@ -45,14 +45,16 @@ export const LINUX_PERFORMANCE_LAUNCH_DIAGNOSTIC_STAGES = [
 
 export type LinuxPerformanceLaunchDiagnosticStage = (typeof LINUX_PERFORMANCE_LAUNCH_DIAGNOSTIC_STAGES)[number];
 
-const LAUNCHER_DIAGNOSTIC_STAGE_BY_FRAME = Object.freeze({
+const LAUNCHER_DIAGNOSTIC_STAGE_BY_FRAME: Readonly<
+  Record<string, Exclude<LinuxPerformanceLaunchDiagnosticStage, 'unobserved'>>
+> = Object.freeze({
   launcherAcknowledged: 'acknowledged',
   launcherEntered: 'entered',
   launcherWorkerCreated: 'workerCreated',
   launcherWorkerVerified: 'workerVerified',
   modelGuardEntered: 'modelGuardEntered',
   modelLauncherExecRequested: 'launcherExecRequested',
-} as const satisfies Readonly<Record<string, Exclude<LinuxPerformanceLaunchDiagnosticStage, 'unobserved'>>>);
+});
 const INSTALLATION_STAGE_BY_LAUNCH_DIAGNOSTIC = Object.freeze({
   modelGuardEntered: 'nativeModelGuardEntered',
   launcherExecRequested: 'nativeLauncherExecRequested',
@@ -84,14 +86,16 @@ export const LINUX_PERFORMANCE_WORKER_EXECUTION_STAGES = [
 
 export type LinuxPerformanceWorkerExecutionStage = (typeof LINUX_PERFORMANCE_WORKER_EXECUTION_STAGES)[number];
 
-const WORKER_DIAGNOSTIC_STAGE_BY_EVENT = Object.freeze({
+const WORKER_DIAGNOSTIC_STAGE_BY_EVENT: Readonly<
+  Partial<Record<NativeRuntimeLogRecord['event'], Exclude<LinuxPerformanceWorkerDiagnosticStage, 'unobserved'>>>
+> = Object.freeze({
   modelLoadFailed: 'loadFailed',
   modelLoadStarted: 'loadStarted',
   nativeFailure: 'nativeFailure',
   processReady: 'ready',
   processStarted: 'started',
   stateCold: 'started',
-} as const satisfies Readonly<Record<string, Exclude<LinuxPerformanceWorkerDiagnosticStage, 'unobserved'>>>);
+});
 const INSTALLATION_STAGE_BY_WORKER_DIAGNOSTIC = Object.freeze({
   started: 'nativeWorkerProcessStarted',
   ready: 'nativeWorkerProcessReady',
@@ -102,11 +106,13 @@ const INSTALLATION_STAGE_BY_WORKER_DIAGNOSTIC = Object.freeze({
   Record<Exclude<LinuxPerformanceWorkerDiagnosticStage, 'unobserved'>, ArtifactInstallationDiagnosticStage>
 >);
 
-const WORKER_EXECUTION_STAGE_BY_FRAME = Object.freeze({
+const WORKER_EXECUTION_STAGE_BY_FRAME: Readonly<
+  Record<string, Exclude<LinuxPerformanceWorkerExecutionStage, 'unobserved'>>
+> = Object.freeze({
   workerChildStarted: 'childStarted',
   workerEntered: 'entered',
   workerExecRequested: 'execRequested',
-} as const satisfies Readonly<Record<string, Exclude<LinuxPerformanceWorkerExecutionStage, 'unobserved'>>>);
+});
 const INSTALLATION_STAGE_BY_WORKER_EXECUTION = Object.freeze({
   childStarted: 'nativeWorkerChildStarted',
   execRequested: 'nativeWorkerExecRequested',
@@ -347,15 +353,11 @@ export class LinuxPerformanceAttemptProbe {
         stdio: stdio as SpawnOptions['stdio'],
       });
       const nativeStreams = [5, 7].map((descriptor) => (child.stdio as readonly unknown[])[descriptor]);
-      if (
-        nativeStreams.some(
-          (native) => !native || typeof native !== 'object' || !('on' in native) || typeof native.on !== 'function',
-        )
-      ) {
-        child.kill('SIGKILL');
-        fail();
-      }
       for (const native of nativeStreams) {
+        if (!(native instanceof Readable)) {
+          child.kill('SIGKILL');
+          fail();
+        }
         this.nativeStreamSettlements.push(
           new Promise<void>((resolve) => {
             let settled = false;

@@ -223,7 +223,7 @@ sys.stdout.write('{}\\n')
         executablePath: executable,
         workingDirectory: root,
         timeoutMilliseconds: 1_000,
-        request: { sample: 'value', schemaVersion: 3 } as PerformanceAttemptRequest,
+        request: { sample: 'value', schemaVersion: 3 } as unknown as PerformanceAttemptRequest,
       });
       await session.complete();
     } finally {

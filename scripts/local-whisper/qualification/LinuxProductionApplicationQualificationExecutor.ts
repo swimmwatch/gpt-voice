@@ -236,7 +236,9 @@ export class LinuxProductionApplicationQualificationExecutor implements LinuxApp
               `${observation.processOrdinal}.${observation.stage}.${observation.messageType}.${observation.requestIdState}.${observation.failureCode}.${observation.fieldNames.join(',')}`,
           )
           .join(';');
-        throw new Error(`Qualification worker protocol diagnostics:${diagnostics}`, { cause: error });
+        const diagnosticError = new Error(`Qualification worker protocol diagnostics:${diagnostics}`);
+        Object.defineProperty(diagnosticError, 'cause', { configurable: true, value: error });
+        throw diagnosticError;
       }
       throw error;
     }

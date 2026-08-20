@@ -183,6 +183,7 @@ export class PublicModelTransportQualification {
           signal: firstController.signal,
           stream: first.body,
           transferProfile: spec.transferProfile,
+          validationMode: 'authenticated',
           onProgress: (receivedBytes) => {
             cancelledAtBytes = receivedBytes;
             if (receivedBytes >= CANCEL_AFTER_BYTES) firstController.abort();
@@ -220,6 +221,7 @@ export class PublicModelTransportQualification {
         signal: secondController.signal,
         stream: resumed.body,
         transferProfile: spec.transferProfile,
+        validationMode: 'authenticated',
         onProgress: () => Promise.resolve(),
       });
       const entry = result.entries[0];

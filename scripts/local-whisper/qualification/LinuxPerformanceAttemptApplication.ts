@@ -644,7 +644,15 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
             });
           }
         },
-        onNativeLauncherAcknowledgment: (outcome) => {
+        onNativeLauncherAcknowledgment: (
+          outcome: Parameters<
+            NonNullable<
+              NonNullable<
+                LocalWhisperProductionEnvironmentDependencies['qualificationHooks']
+              >['onNativeLauncherAcknowledgment']
+            >
+          >[0],
+        ) => {
           probe.recordNativeLaunchAcknowledgment(outcome);
           publishArtifactInstallationDiagnostic('model', diagnosticStageForLaunchAcknowledgment(outcome));
         },
@@ -668,7 +676,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           publishArtifactInstallationDiagnostic('model', diagnosticStageForLoadStage(stage));
         },
       };
-      environment = await atAttemptApplicationStage(
+      const activeEnvironment = await atAttemptApplicationStage(
         'ENVIRONMENT',
         async () =>
           await new ProductionLocalWhisperEnvironmentFactory(
@@ -713,8 +721,12 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
             { activationPurpose: 'qualification', document: catalog.document, trustPolicy: catalog.policy },
           ).create(),
       );
-      if (environment.facts.snapshot.catalogRevision === null) throw new Error('ATTEMPT_ENVIRONMENT_UNAVAILABLE');
-      coordinator = new LocalWhisperCoordinator(environment.coordinator);
+      environment = activeEnvironment;
+      if (activeEnvironment.facts.snapshot.catalogRevision === null) {
+        throw new Error('ATTEMPT_ENVIRONMENT_UNAVAILABLE');
+      }
+      const activeCoordinator = new LocalWhisperCoordinator(activeEnvironment.coordinator);
+      coordinator = activeCoordinator;
       artifactPrimaryFailure = null;
       stagingCleanupStep = null;
       stagingCleanupFailure = null;
@@ -725,8 +737,8 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           'RUNTIME_INSTALL',
           async () =>
             await installArtifact(
-              environment,
-              coordinator,
+              activeEnvironment,
+              activeCoordinator,
               'runtime',
               catalog.runtimeRevision,
               artifactOperationTracker,
@@ -750,8 +762,8 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           'MODEL_INSTALL',
           async () =>
             await installArtifact(
-              environment,
-              coordinator,
+              activeEnvironment,
+              activeCoordinator,
               'model',
               catalog.modelRevision,
               artifactOperationTracker,
@@ -768,8 +780,8 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       let deviceId = null;
       if (input.request.backend === 'cuda') {
         deviceId = await atAttemptApplicationStage('CUDA_DEVICE', async () => {
-          await environment.refreshDevices(coordinator.snapshot.epochs.configuration);
-          const device = environment.facts.snapshot.options.find(
+          await activeEnvironment.refreshDevices(activeCoordinator.snapshot.epochs.configuration);
+          const device = activeEnvironment.facts.snapshot.options.find(
             (option) => option.group === 'device' && option.available,
           );
           const deviceId = device ? toLocalWhisperOpaqueDeviceId(device.id) : null;
@@ -777,7 +789,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
           return deviceId;
         });
       }
-      const current = coordinator.snapshot;
+      const current = activeCoordinator.snapshot;
       const gpuExecution =
         input.request.side === 'before'
           ? { target: 'gpu', backend: 'cuda', deviceId, cpuThreads: LOCAL_WHISPER_AUTO_CPU_THREADS }
@@ -798,7 +810,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       publishArtifactInstallationDiagnostic('model', 'settingsApplyStarted');
       await atAttemptApplicationStage('SETTINGS', async () => {
         requireSuccess(
-          await coordinator.applySettingsTransaction({
+          await activeCoordinator.applySettingsTransaction({
             kind: 'save',
             candidate,
             promptMutation: { kind: 'clear' },
@@ -812,7 +824,7 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
       await atAttemptApplicationStage('LOAD', async () => {
         publishArtifactInstallationDiagnostic('model', 'loadRequested');
         probe.beginLoadProofs();
-        const result = await coordinator.loadNow();
+        const result = await activeCoordinator.loadNow();
         if (!result.success) {
           publishArtifactInstallationDiagnostic('model', 'nativeDiagnosticsFlushStarted');
           const nativeDiagnostics = await probe.flushNativeDiagnostics();
@@ -838,8 +850,8 @@ export class LinuxPerformanceAttemptApplication implements PerformanceAttemptApp
         throw new Error('ATTEMPT_DURATION_INVALID');
       }
       await atAttemptApplicationStage('SHUTDOWN', async () => {
-        await coordinator.shutdown();
-        await environment.dispose();
+        await activeCoordinator.shutdown();
+        await activeEnvironment.dispose();
       });
       coordinator = null;
       environment = null;

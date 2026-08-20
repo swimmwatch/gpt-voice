@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import type { ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { createInterface } from 'node:readline';
+import { Readable } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import { LinuxPerformanceAttemptProbe } from '@scripts/local-whisper/qualification/LinuxPerformanceAttemptProbe';
@@ -153,7 +154,11 @@ describe('Linux performance attempt probe', () => {
 
   it('captures a content-free launcher stage on the standard-launcher descriptor', async () => {
     const diagnostics: string[] = [];
-    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined, (stage) => diagnostics.push(stage));
+    const probe = new LinuxPerformanceAttemptProbe(
+      'cpu',
+      () => undefined,
+      (stage) => diagnostics.push(stage),
+    );
     const child = probe.instrumentedSpawn()(
       process.execPath,
       [
@@ -168,8 +173,8 @@ describe('Linux performance attempt probe', () => {
     );
     assert.ok(child.pid);
     try {
-      const standardLauncherEvents = child.stdio[7];
-      assert.ok(standardLauncherEvents);
+      const standardLauncherEvents = (child.stdio as readonly unknown[])[7];
+      assert.ok(standardLauncherEvents instanceof Readable);
       await once(standardLauncherEvents, 'data');
       assert.equal(probe.nativeLaunchDiagnostic, 'entered');
       assert.deepEqual(diagnostics, [
@@ -184,7 +189,11 @@ describe('Linux performance attempt probe', () => {
 
   it('captures the worker exec-boundary marker without accepting arbitrary stages', async () => {
     const diagnostics: string[] = [];
-    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined, (stage) => diagnostics.push(stage));
+    const probe = new LinuxPerformanceAttemptProbe(
+      'cpu',
+      () => undefined,
+      (stage) => diagnostics.push(stage),
+    );
     const child = probe.instrumentedSpawn()(
       process.execPath,
       [
@@ -199,15 +208,11 @@ describe('Linux performance attempt probe', () => {
     );
     assert.ok(child.pid);
     try {
-      const standardLauncherEvents = child.stdio[7];
-      assert.ok(standardLauncherEvents);
+      const standardLauncherEvents = (child.stdio as readonly unknown[])[7];
+      assert.ok(standardLauncherEvents instanceof Readable);
       await once(standardLauncherEvents, 'data');
       assert.equal(probe.nativeWorkerExecution, 'entered');
-      assert.deepEqual(diagnostics, [
-        'nativeWorkerChildStarted',
-        'nativeWorkerExecRequested',
-        'nativeWorkerEntered',
-      ]);
+      assert.deepEqual(diagnostics, ['nativeWorkerChildStarted', 'nativeWorkerExecRequested', 'nativeWorkerEntered']);
     } finally {
       await stopChild(child);
     }
@@ -215,14 +220,16 @@ describe('Linux performance attempt probe', () => {
 
   it('captures only a closed worker lifecycle stage from validated native diagnostics', async () => {
     const diagnostics: string[] = [];
-    const probe = new LinuxPerformanceAttemptProbe('cpu', () => undefined, (stage) => diagnostics.push(stage));
+    const probe = new LinuxPerformanceAttemptProbe(
+      'cpu',
+      () => undefined,
+      (stage) => diagnostics.push(stage),
+    );
     const nativeLog =
       '{"component":"whisperWorker","elapsedMs":0,"event":"modelLoadStarted","level":"info","processInstanceId":"7bdf28c1-e1dc-4df9-abfe-78c8c0f8d7ff","schemaVersion":1,"sequence":1}\n';
-    const child = probe.instrumentedSpawn()(
-      process.execPath,
-      ['-e', fixtureScript('', '', 5, nativeLog)],
-      { stdio: ['pipe', 'pipe', 'pipe'] },
-    );
+    const child = probe.instrumentedSpawn()(process.execPath, ['-e', fixtureScript('', '', 5, nativeLog)], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     assert.ok(child.pid);
     try {
       assert.ok(child.stderr);

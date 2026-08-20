@@ -86,7 +86,6 @@ export interface FocusedPerformanceManifest extends Omit<
   | 'qualificationCache'
   | 'candidateSource'
   | 'attemptTimeoutMilliseconds'
-  | 'model'
 > {
   readonly focusedPerformanceManifestDigest: string;
   readonly focusedPerformanceRunPlanDigest: string;

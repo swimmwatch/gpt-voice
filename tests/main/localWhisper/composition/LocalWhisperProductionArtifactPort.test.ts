@@ -176,7 +176,9 @@ function harness(
   error: Error | null = null,
   cancelResult = false,
   canAcquire: () => boolean = () => true,
-  onOperationCompleted?: Parameters<NonNullable<ConstructorParameters<typeof LocalWhisperProductionArtifactPort>[0]['onOperationCompleted']>>[0],
+  onOperationCompleted?: NonNullable<
+    ConstructorParameters<typeof LocalWhisperProductionArtifactPort>[0]['onOperationCompleted']
+  >,
   serviceOverride?: LocalWhisperProductionArtifactLifecyclePort,
 ) {
   const catalogValue = catalog();
@@ -333,7 +335,13 @@ describe('LocalWhisperProductionArtifactPort', () => {
         throw new Error('Not exercised');
       },
     };
-    const values = harness(null, false, () => true, (event) => completions.push(event), service);
+    const values = harness(
+      null,
+      false,
+      () => true,
+      (event) => completions.push(event),
+      service,
+    );
 
     assert.deepEqual(
       await values.port.execute({
@@ -348,9 +356,7 @@ describe('LocalWhisperProductionArtifactPort', () => {
       { success: true, operationId: 'artifact-operation-0001' },
     );
     await new Promise<void>((resolve) => setImmediate(resolve));
-    assert.deepEqual(completions, [
-      { failureCode: null, operationId: 'artifact-operation-0001', success: true },
-    ]);
+    assert.deepEqual(completions, [{ failureCode: null, operationId: 'artifact-operation-0001', success: true }]);
   });
 
   it('deletes one exact catalog model and atomically publishes reconstructed inventory', async () => {
