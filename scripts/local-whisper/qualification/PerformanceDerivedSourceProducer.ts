@@ -175,12 +175,16 @@ export class GitPerformanceDerivedSourceAdapter implements PerformanceDerivedSou
 
   public async exportTrackedArchive(parentRoot: string, commit: string): Promise<Buffer> {
     try {
-      const result = await execFileAsync(this.gitExecutable, ['-C', parentRoot, 'archive', '--format=tar', commit], {
-        encoding: 'buffer',
-        env: { LANG: 'C', LC_ALL: 'C', PATH: process.env.PATH ?? '' },
-        maxBuffer: MAXIMUM_ARCHIVE_BYTES,
-        windowsHide: true,
-      });
+      const result = await execFileAsync(
+        this.gitExecutable,
+        ['-c', 'core.autocrlf=false', '-C', parentRoot, 'archive', '--format=tar', commit],
+        {
+          encoding: 'buffer',
+          env: { LANG: 'C', LC_ALL: 'C', PATH: process.env.PATH ?? '' },
+          maxBuffer: MAXIMUM_ARCHIVE_BYTES,
+          windowsHide: true,
+        },
+      );
       if (result.stderr.byteLength !== 0) derivationFailure('SOURCE_ARCHIVE_EXPORT_INVALID');
       return Buffer.from(result.stdout);
     } catch (error) {

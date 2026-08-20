@@ -38,6 +38,8 @@ async function repository(root: string, name: string, files: Readonly<Record<str
     await writeFile(path.join(repo, relativePath), bytes);
   }
   await execFileAsync('git', ['init', '--quiet', repo]);
+  await execFileAsync('git', ['-C', repo, 'config', 'core.autocrlf', 'false']);
+  await execFileAsync('git', ['-C', repo, 'config', 'core.eol', 'lf']);
   await execFileAsync('git', ['-C', repo, 'config', 'user.email', 'overlay@example.invalid']);
   await execFileAsync('git', ['-C', repo, 'config', 'user.name', 'Overlay Fixture']);
   await execFileAsync('git', ['-C', repo, 'add', '--all']);
