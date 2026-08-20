@@ -457,8 +457,8 @@ public:
           throw LauncherError(LauncherErrorCode::kModelAuthorityRejected,
                               "launcher model authority acquire failed");
         }
+        static_cast<void>(close(authority_descriptor));
       }
-      static_cast<void>(close(authority_descriptor));
       std::array<int, 2> input_pipe{};
       if (pipe2(input_pipe.data(), O_CLOEXEC) != 0)
         throw LauncherError(LauncherErrorCode::kPipeIoFailed,
