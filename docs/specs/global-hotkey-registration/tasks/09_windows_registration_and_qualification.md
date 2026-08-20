@@ -4,12 +4,16 @@
 
 On a supported native Windows x64 desktop, implement the Windows platform
 policy/factory branch and qualify real Electron global-shortcut registration,
-reserved F12 behavior, transactional replacement/rollback, suppression, and
-physical Test without relying on Linux, CI, or contract-only substitutes.
+reserved F12 and Windows/Super-modifier behavior, transactional replacement/
+rollback, suppression, and physical Test without relying on Linux, CI, or
+contract-only substitutes.
 
 ## Prerequisites
 
 - Packets 01..08 are complete and approved for continuation.
+- The plan-level platform execution readiness gate remains satisfied and the
+  exact source revision/diff digest qualified by Packets 07/08 is available on
+  the Windows host through separately authorized transport.
 - Execute this packet on a supported native Windows x64 desktop in PowerShell,
   not WSL, Wine, cross-compilation, or Windows Server.
 - Read `AGENTS.md`, `tasks/todo.md`, `tasks/handoff.md`, this packet, and the
@@ -37,23 +41,26 @@ physical Test without relying on Linux, CI, or contract-only substitutes.
 
 - Linux X11/Wayland policy, portal/package identity, macOS support, new native
   dependencies/APIs, automatic fallback, external-owner detection, release,
-  publish, signing, PR/workflow changes, or unrelated Windows/Local Whisper work.
+  publish, signing, PR/workflow changes, or unrelated Windows work.
 
 ## Task Contract
 
 1. Add `WindowsHotkeyPlatformPolicy` behind the Packet 02 abstract base and
    register its creator in `HotkeyPlatformPolicyFactory` only for
    `DesktopPlatform.Windows`.
-2. Parse the normalized accelerator's primary non-modifier key. Reject F12,
-   `Ctrl+F12`, `Alt+F12`, `Shift+F12`, `Super+F12`, and other modifier variants
-   as `os-reserved` before `GlobalShortcutAdapter.register` is called. Do not
-   reject F1–F11/F13+ merely by range.
-3. Syntax/internal conflict still precede adapter registration. Non-F12
-   Electron false/throw/query failure maps only to `registration-rejected` and
-   never names an external owner or exposes a native message.
-4. Preserve configured legacy F12 values after startup. Their snapshot is
-   `failed`/`os-reserved`, registered accelerator null, and repair controls
-   remain available. Never delete or silently replace them.
+2. Parse the normalized accelerator's primary non-modifier key and modifier
+   set. Reject every F12 primary-key form and every accelerator containing the
+   `Super` modifier as `os-reserved` before
+   `GlobalShortcutAdapter.register` is called. This includes plain/modified F12
+   and `Super` with any otherwise valid primary key. Do not reject F1–F11/F13+
+   merely by range when `Super` is absent.
+3. Syntax/internal conflict still precede adapter registration. Other Electron
+   false/throw/query failure maps only to `registration-rejected` and never
+   names an external owner or exposes a native message.
+4. Preserve configured legacy F12 and Super-modifier values after startup.
+   Their snapshot is `failed`/`os-reserved`, effective accelerator null,
+   binding authority `none`, and repair controls remain available. Never delete
+   or silently replace them.
 5. Prove the production composition selects Windows policy on Windows and does
    not affect Linux/macOS factory branches. Do not add Win32 hooks or shell
    execution; continue using Electron's adapter.
@@ -63,7 +70,9 @@ physical Test without relying on Linux, CI, or contract-only substitutes.
    and stopped by exact process handle/PID. Never enumerate or terminate
    ambient processes.
 7. Execute AC-MAN-001 in the production/dev Electron UI using synthetic data:
-   - every F12 form is rejected with the reserved localized explanation;
+   - every representative F12 form and every representative Super-modifier
+     form is rejected with the reserved localized explanation before adapter
+     invocation;
    - a chosen free combination registers and invokes exactly once while another
      application is focused;
    - replacing a working binding with the exact helper-owned combination returns
@@ -73,21 +82,24 @@ physical Test without relying on Linux, CI, or contract-only substitutes.
    - Test detects the physical press and does not run the action;
    - Remove and restart preserve authoritative unassigned/registered/failed
      states.
-8. Use only a validated private temporary root for helper state/evidence. Do
-   not print environment contents, credentials, paths, selected text, audio,
-   transcripts, clipboard, external process identity, or raw Electron errors.
+8. Successful Windows bindings expose the exact normalized effective
+   accelerator with `application` authority. Use only a validated private
+   temporary root for helper state/evidence. Record the source revision/diff
+   digest but do not print environment contents, credentials, paths, selected
+   text, audio, transcripts, clipboard, external process identity, or raw
+   Electron errors.
 9. Fix every Windows defect within the approved contract and add a focused
    regression. A dependency, public API/protocol, support-policy, package-target,
    or specification change is a blocker rather than an in-packet workaround.
 
 ## Contracts And Boundaries
 
-- Windows policy is the only owner of the F12 reservation; renderer copy maps
-  the bounded code and must not duplicate the rule.
+- Windows policy is the only owner of the F12/Super reservation; renderer copy
+  maps the bounded code and must not duplicate the rule.
 - Electron adapter remains the only production registration mechanism.
 - Manual evidence is classification-only: target role, accelerator class,
   expected/observed enum result, and pass/fail. No machine/user paths.
-- A Windows pass cannot complete or substitute for Packets 08 or 09.
+- A Windows pass cannot complete or substitute for Packets 07 or 08.
 
 ## Expected Files Or Components
 
@@ -99,11 +111,12 @@ physical Test without relying on Linux, CI, or contract-only substitutes.
 
 ## Acceptance Criteria
 
-- Windows policy rejects all and only primary-key F12 variants before adapter
-  invocation.
+- Windows policy rejects all F12 primary-key variants and all Super-modifier
+  accelerators before adapter invocation while preserving allowed non-Super
+  F1–F11/F13+ behavior.
 - Free real Electron registration/activation, helper conflict rollback,
   suppression, Test, Remove, and restart all pass on supported Windows.
-- Existing F12 persists visibly as configured-but-failed.
+- Existing F12/Super values persist visibly as configured-but-failed.
 - No Linux/Wayland behavior or unrelated dirty work changes.
 - AC-AUTO-002 Windows cases and AC-MAN-001 have bounded recorded evidence.
 
@@ -121,9 +134,9 @@ physical Test without relying on Linux, CI, or contract-only substitutes.
 
 ## Failure And Rollback
 
-- Any F12 adapter call, old-binding loss, false success, product callback during
-  Test/suppression, ambient process action, or raw native detail blocks
-  completion.
+- Any F12 or Super-modifier adapter call, old-binding loss, false success,
+  product callback during Test/suppression, ambient process action, or raw
+  native detail blocks completion.
 - If Windows denies all candidate-first registrations due an Electron contract
   mismatch, stop with a focused deterministic reproduction; do not unregister
   the old binding first or add an automatic fallback.
@@ -133,9 +146,13 @@ physical Test without relying on Linux, CI, or contract-only substitutes.
 ## Manual Gates
 
 - **MANUAL GATE — AC-MAN-001:** Complete every real Windows step in Task
-  Contract 7 on the supported native desktop.
+  Contract 7 on the supported native desktop and bind evidence to the source
+  revision/diff digest.
 - Any unavailable Windows capability remains a blocker. CI or source assertions
   cannot replace this gate.
+- Commits, pushes, source copying/synchronization, or other host transport need
+  separate explicit authorization; plan or packet authorization does not grant
+  it.
 
 ## References
 

@@ -5,8 +5,8 @@
 Reconcile user documentation, audit the aggregate implementation and every
 rejection criterion, run the platform-neutral full project quality set, and
 bind the already completed Windows, Linux X11, and Linux Wayland/package
-evidence into the final handoff. Do not replace or rerun a missing host packet
-from the wrong platform.
+evidence to the same revision/diff digest in the final handoff. Do not replace
+or rerun a missing host packet from the wrong platform.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ from the wrong platform.
 - SCOPE-001..SCOPE-006
 - FAIL-001..FAIL-004
 - SEC-001..SEC-004
-- COMP-001..COMP-004
+- COMP-001..COMP-005
 - DEP-001, DEP-002
 - ROLL-001
 - QUAL-011 / AC-AUTO-008
@@ -54,21 +54,25 @@ from the wrong platform.
    bounded successful evidence from their required hosts. A unit/CI pass or one
    Linux session cannot substitute for another host packet.
 2. Review the aggregate diff against every packet and requirement. Preserve
-   unrelated dirty Local Whisper changes and remove accidental hotkey scope
-   expansion. Confirm no default accelerator remains in production startup,
-   config, Settings, main-window, or fallback code.
+   unrelated worktree content and remove accidental hotkey scope expansion.
+   Confirm no default accelerator remains in production startup, config,
+   Settings, main-window, or fallback code.
 3. Update README/user-facing documentation: clean installs begin with all seven
    shortcuts unassigned; in-app actions still work; explain assignment,
-   registration states, Remove, five-second Test, generic conflicts, Windows
-   F12 reservation, and Wayland system approval/desktop-environment management.
-   Do not claim external-owner detection or guaranteed portal wording.
+   registration states/authority, Remove, five-second Test, generic conflicts,
+   Windows F12 and Super-modifier reservations, Wayland system approval/
+   desktop-environment management, and AppImage legacy-launcher migration. Do
+   not claim an exact Wayland effective trigger, external-owner detection, or
+   guaranteed portal wording.
 4. Run all packet-focused automated suites together, then the full project
    unit/type/lint/format/production-build and existing static package-policy
    checks. Add only regressions for observed integration defects and rerun the
    owning packet checks after repair.
 5. Prove startup/reload/event reordering: valid legacy strings remain, nulls
    stay null, registration attempts are independent, failed candidate retains
-   old config/binding/UI, suppression precedes renderer feedback, and stale
+   old config/binding/UI, verified cleanup and compensation never leave an
+   executable stale generation, irreconcilable cleanup is suppressed/
+   `ReconciliationFailed`, suppression precedes renderer feedback, and stale
    query/event completion cannot regress state.
 6. Prove every in-app provider/contextual action remains independently usable
    by pointer, Enter, and Space when unassigned/failed and otherwise eligible.
@@ -76,18 +80,25 @@ from the wrong platform.
    620 × 292 / 114 × 32 layout assertions remain green.
 7. Audit logs, diagnostics, IPC, fixtures, and handoff evidence. Retain only
    target, enum status/failure, normalized accelerator, bounded platform/
-   session, revision, relative package role, canonical identity, and pass/fail.
+   session, binding authority, revision/diff digest, relative package role,
+   canonical identity, and pass/fail.
    Exclude environment, credentials, sessions, external owners/processes, user
    paths, selected text, clipboard, audio, transcripts, and raw native errors.
 8. Audit every rejection criterion explicitly. Any default registration, false
    registered state, failed rollback, Settings unregister, unrelated target
-   loss, Windows F12 adapter call, disabled null in-app action, provider/
-   shortcut ambiguity, missing portal/identity, sensitive evidence, new
-   dependency, or release-policy change blocks completion.
+   loss, Windows F12/Super adapter call, false Wayland effective trigger,
+   disabled null in-app action, provider/shortcut ambiguity, missing portal/
+   canonical runtime AppImage migration, sensitive evidence, new dependency,
+   or release-policy change blocks completion.
 9. Verify dependency/lockfile/package-target/release-workflow scope is unchanged.
    Do not regenerate or commit packages/evidence.
-10. Record exact automated results and references to the three bounded host
-    packet sections in `handoff.md`; do not duplicate raw logs or machine paths.
+10. Confirm Packet 08 tests and evidence cover canonical
+    `com.swimmwatch.gptvoice.desktop` creation before shortcut registration,
+    exact post-success `gpt-voice.desktop` removal, exact two-name removal
+    action, unrelated-entry preservation, and path-free logs.
+11. Record exact automated results and references to the three bounded host
+    packet sections plus their common revision/diff digest in `handoff.md`; do
+    not duplicate raw logs or machine paths.
 
 ## Contracts And Boundaries
 
@@ -115,7 +126,8 @@ from the wrong platform.
 - Packets 07–09 already contain successful required-host evidence; none is
   inferred or waived in this packet.
 - README accurately documents unassigned first run, status, Remove/Test,
-  Windows F12, generic conflicts, and Wayland behavior.
+  Windows F12/Super reservations, generic conflicts, Wayland managed behavior,
+  and AppImage launcher migration.
 - Full project quality set passes without weakening any gate.
 - All ten packets are checked and final handoff states
   `Exact next packet: none`.
@@ -149,6 +161,8 @@ from the wrong platform.
   - Packet 08 supported GNOME and KDE Wayland plus AppImage/DEB/RPM AC-MAN-003
     evidence;
   - Packet 09 supported Windows AC-MAN-001 evidence.
+- Confirm all host evidence cites the same source revision/diff digest and that
+  any transport between hosts had separate authorization.
 - If an aggregate repair invalidates any item, that exact platform packet must
   be rerun before Packet 10 can complete.
 

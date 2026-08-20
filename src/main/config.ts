@@ -1,14 +1,11 @@
 import * as path from 'node:path';
 import type * as fs from 'node:fs';
 import {
-  DEFAULT_CANCEL_HOTKEY,
-  DEFAULT_PRETTIFY_HOTKEY,
-  DEFAULT_PRETTIFY_QUICK_HOTKEY,
-  DEFAULT_RECORD_HOTKEY,
-  DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
-  DEFAULT_STOP_HOTKEY,
-  DEFAULT_TRANSLATE_HOTKEY,
+  createUnassignedHotkeySettings,
+  isNullableHotkey,
+  setHotkeyForTarget,
   type HotkeySettings,
+  type HotkeyTarget,
 } from '@shared/hotkeys';
 import {
   DEFAULT_PRETTIFY_SETTINGS,
@@ -56,11 +53,12 @@ const MIGRATED_LEGACY_ENTRIES = [
   CHATGPT_TOKEN_FILE_NAME,
   BROWSER_CACHE_DIRECTORY_NAME,
 ] as const;
-const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
 const DEFAULT_VOICE_PROVIDER_ID = 'chatgpt';
 const FINGERPRINT_SEED_PATTERN = /^\d+$/;
 const CONFIG_LOAD_FAILED_LOG_MESSAGE = 'Failed to load application config';
 const CONFIG_SAVE_FAILED_LOG_MESSAGE = 'Failed to save application config';
+const HOTKEY_PERSISTENCE_FAILED_ERROR = 'Failed to persist hotkey';
+const INVALID_HOTKEY_ERROR = 'Invalid hotkey';
 
 export interface AppConfigPaths {
   readonly appDirectory: string;
@@ -106,24 +104,24 @@ export interface AppConfigStoreDependencies {
 }
 
 export interface AppConfigSnapshot {
-  readonly cancelHotkey: string;
+  readonly cancelHotkey: string | null;
   readonly capturePrettifyDiagnostics: boolean;
   readonly captureTranslationDiagnostics: boolean;
   readonly fingerprintSeed: string;
-  readonly hotkey: string;
+  readonly hotkey: string | null;
   readonly locale: AppLocaleId;
   readonly localeExplicit: boolean;
   readonly prettifyEnabled: boolean;
-  readonly prettifyHotkey: string;
+  readonly prettifyHotkey: string | null;
   readonly prettifyQuickEnabled: boolean;
-  readonly prettifyQuickHotkey: string;
+  readonly prettifyQuickHotkey: string | null;
   readonly prettifyProfileCatalog: PrettifyProfileCatalog;
   readonly prettifySettings: PrettifySettings;
   readonly provider: string | null;
-  readonly retryTranscriptionHotkey: string;
-  readonly stopHotkey: string;
+  readonly retryTranscriptionHotkey: string | null;
+  readonly stopHotkey: string | null;
   readonly translateEnabled: boolean;
-  readonly translateHotkey: string;
+  readonly translateHotkey: string | null;
   readonly translationSettings: TranslationSettings;
 }
 
@@ -178,6 +176,15 @@ function getConfigString(config: Record<string, unknown>, key: string): string |
   return typeof value === 'string' && value ? value : undefined;
 }
 
+function getConfigHotkey(config: Record<string, unknown>, key: keyof HotkeySettings): string | null {
+  const value = config[key];
+  return isNullableHotkey(value) ? value : null;
+}
+
+function shouldRepairPersistedHotkey(config: Record<string, unknown>, key: keyof HotkeySettings): boolean {
+  return !isNullableHotkey(config[key]);
+}
+
 function getConfigBoolean(config: Record<string, unknown>, key: string): boolean | undefined {
   const value = config[key];
   return typeof value === 'boolean' ? value : undefined;
@@ -206,22 +213,22 @@ function createPrettifySettingsWithPrompt(settings: PrettifySettings, prompt: st
  * only when load or save is explicitly requested.
  */
 export class AppConfigStore {
-  private cancelHotkey = DEFAULT_CANCEL_HOTKEY;
+  private cancelHotkey: string | null = null;
   private diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
   private fingerprintSeed = '';
-  private hotkey = DEFAULT_RECORD_HOTKEY;
+  private hotkey: string | null = null;
   private locale: AppLocaleId = DEFAULT_APP_LOCALE;
   private localeWasExplicitlySelected = false;
   private prettifyEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyEnabled;
-  private prettifyHotkey = DEFAULT_PRETTIFY_HOTKEY;
+  private prettifyHotkey: string | null = null;
   private prettifyQuickEnabled = DEFAULT_TEXT_ACTION_SETTINGS.prettifyQuickEnabled;
-  private prettifyQuickHotkey = DEFAULT_PRETTIFY_QUICK_HOTKEY;
+  private prettifyQuickHotkey: string | null = null;
   private prettifySettings: PrettifySettings;
   private provider: string | null = null;
-  private retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
-  private stopHotkey = DEFAULT_STOP_HOTKEY;
+  private retryTranscriptionHotkey: string | null = null;
+  private stopHotkey: string | null = null;
   private translateEnabled = DEFAULT_TEXT_ACTION_SETTINGS.translateEnabled;
-  private translateHotkey = DEFAULT_TRANSLATE_HOTKEY;
+  private translateHotkey: string | null = null;
   private readonly prettifyProfileCatalogState: PrettifyProfileCatalogState;
   private readonly translationSettingsState = new TranslationSettingsState();
 
@@ -312,14 +319,58 @@ export class AppConfigStore {
   }
 
   public setHotkeys(settings: Partial<HotkeySettings>): void {
-    if (settings.hotkey !== undefined) this.hotkey = settings.hotkey;
-    if (settings.cancelHotkey !== undefined) this.cancelHotkey = settings.cancelHotkey;
-    if (settings.stopHotkey !== undefined) this.stopHotkey = settings.stopHotkey;
-    if (settings.translateHotkey !== undefined) this.translateHotkey = settings.translateHotkey;
-    if (settings.prettifyHotkey !== undefined) this.prettifyHotkey = settings.prettifyHotkey;
-    if (settings.prettifyQuickHotkey !== undefined) this.prettifyQuickHotkey = settings.prettifyQuickHotkey;
+    if (settings.hotkey !== undefined) {
+      this.assertValidHotkey(settings.hotkey);
+      this.hotkey = settings.hotkey;
+    }
+    if (settings.cancelHotkey !== undefined) {
+      this.assertValidHotkey(settings.cancelHotkey);
+      this.cancelHotkey = settings.cancelHotkey;
+    }
+    if (settings.stopHotkey !== undefined) {
+      this.assertValidHotkey(settings.stopHotkey);
+      this.stopHotkey = settings.stopHotkey;
+    }
+    if (settings.translateHotkey !== undefined) {
+      this.assertValidHotkey(settings.translateHotkey);
+      this.translateHotkey = settings.translateHotkey;
+    }
+    if (settings.prettifyHotkey !== undefined) {
+      this.assertValidHotkey(settings.prettifyHotkey);
+      this.prettifyHotkey = settings.prettifyHotkey;
+    }
+    if (settings.prettifyQuickHotkey !== undefined) {
+      this.assertValidHotkey(settings.prettifyQuickHotkey);
+      this.prettifyQuickHotkey = settings.prettifyQuickHotkey;
+    }
     if (settings.retryTranscriptionHotkey !== undefined) {
+      this.assertValidHotkey(settings.retryTranscriptionHotkey);
       this.retryTranscriptionHotkey = settings.retryTranscriptionHotkey;
+    }
+  }
+
+  /** Persists one hotkey or its unassigned state without leaving memory ahead of disk. */
+  public persistHotkey(target: HotkeyTarget, accelerator: string | null): void {
+    this.assertValidHotkey(accelerator);
+    const previous = this.getHotkeySettings();
+    this.applyHotkeySettings(setHotkeyForTarget(previous, target, accelerator));
+    try {
+      this.save();
+    } catch {
+      this.applyHotkeySettings(previous);
+      throw new Error(HOTKEY_PERSISTENCE_FAILED_ERROR);
+    }
+  }
+
+  /** Clears and persists only global shortcut preferences. */
+  public resetHotkeys(): void {
+    const previous = this.getHotkeySettings();
+    this.applyHotkeySettings(createUnassignedHotkeySettings());
+    try {
+      this.save();
+    } catch {
+      this.applyHotkeySettings(previous);
+      throw new Error(HOTKEY_PERSISTENCE_FAILED_ERROR);
     }
   }
 
@@ -397,6 +448,7 @@ export class AppConfigStore {
 
   public load(): void {
     this.diagnosticCaptureSettings = DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS;
+    this.resetHotkeysInMemory();
     this.prettifyProfileCatalogState.resetToFreshCatalog();
     this.prettifySettings = createPrettifySettingsWithPrompt(
       DEFAULT_PRETTIFY_SETTINGS,
@@ -442,16 +494,16 @@ export class AppConfigStore {
     let shouldSaveConfig = false;
 
     this.diagnosticCaptureSettings = normalizeDiagnosticCaptureSettings(config);
-    this.hotkey = getConfigString(config, 'hotkey') ?? this.hotkey;
-    this.cancelHotkey = getConfigString(config, 'cancelHotkey') ?? this.cancelHotkey;
-    this.stopHotkey = getConfigString(config, 'stopHotkey') ?? this.stopHotkey;
-    this.translateHotkey = getConfigString(config, 'translateHotkey') ?? this.translateHotkey;
-    this.prettifyHotkey = getConfigString(config, 'prettifyHotkey') ?? this.prettifyHotkey;
-    const persistedPrettifyQuickHotkey = getConfigString(config, 'prettifyQuickHotkey');
-    this.prettifyQuickHotkey = persistedPrettifyQuickHotkey ?? DEFAULT_PRETTIFY_QUICK_HOTKEY;
-    if (!persistedPrettifyQuickHotkey) shouldSaveConfig = true;
-    this.retryTranscriptionHotkey =
-      getConfigString(config, 'retryTranscriptionHotkey') ?? this.retryTranscriptionHotkey;
+    this.hotkey = getConfigHotkey(config, 'hotkey');
+    this.cancelHotkey = getConfigHotkey(config, 'cancelHotkey');
+    this.stopHotkey = getConfigHotkey(config, 'stopHotkey');
+    this.translateHotkey = getConfigHotkey(config, 'translateHotkey');
+    this.prettifyHotkey = getConfigHotkey(config, 'prettifyHotkey');
+    this.prettifyQuickHotkey = getConfigHotkey(config, 'prettifyQuickHotkey');
+    this.retryTranscriptionHotkey = getConfigHotkey(config, 'retryTranscriptionHotkey');
+    shouldSaveConfig ||= Object.keys(createUnassignedHotkeySettings()).some((key) =>
+      shouldRepairPersistedHotkey(config, key as keyof HotkeySettings),
+    );
     this.translateEnabled = getConfigBoolean(config, 'translateEnabled') ?? this.translateEnabled;
     this.prettifyEnabled = getConfigBoolean(config, 'prettifyEnabled') ?? this.prettifyEnabled;
     const persistedPrettifyQuickEnabled = getConfigBoolean(config, 'prettifyQuickEnabled');
@@ -475,14 +527,6 @@ export class AppConfigStore {
     const loadedPrettifySettings = createImmutablePrettifySettings(
       normalizePrettifySettings(isRecord(prettifySettings) ? prettifySettings : { prompt: prettifyPrompt }),
     );
-    if (this.hotkey === DEFAULT_RECORD_HOTKEY && this.retryTranscriptionHotkey === LEGACY_RETRY_TRANSCRIPTION_HOTKEY) {
-      this.retryTranscriptionHotkey = DEFAULT_RETRY_TRANSCRIPTION_HOTKEY;
-      this.dependencies.logger.info(
-        'Migrated conflicting retry transcription hotkey to:',
-        DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
-      );
-      shouldSaveConfig = true;
-    }
     if (!isValidFingerprintSeed(this.fingerprintSeed)) {
       this.fingerprintSeed = this.dependencies.generateFingerprintSeed();
       shouldSaveConfig = true;
@@ -565,6 +609,24 @@ export class AppConfigStore {
         2,
       ),
     );
+  }
+
+  private applyHotkeySettings(settings: HotkeySettings): void {
+    this.hotkey = settings.hotkey;
+    this.cancelHotkey = settings.cancelHotkey;
+    this.stopHotkey = settings.stopHotkey;
+    this.translateHotkey = settings.translateHotkey;
+    this.prettifyHotkey = settings.prettifyHotkey;
+    this.prettifyQuickHotkey = settings.prettifyQuickHotkey;
+    this.retryTranscriptionHotkey = settings.retryTranscriptionHotkey;
+  }
+
+  private resetHotkeysInMemory(): void {
+    this.applyHotkeySettings(createUnassignedHotkeySettings());
+  }
+
+  private assertValidHotkey(value: unknown): asserts value is string | null {
+    if (!isNullableHotkey(value)) throw new Error(INVALID_HOTKEY_ERROR);
   }
 
   private initializeFileSystem(): void {

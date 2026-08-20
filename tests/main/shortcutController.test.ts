@@ -601,6 +601,26 @@ describe('ShortcutController', () => {
     assert.equal(harness.globalShortcuts.callbacks.has('Ctrl+F12'), true);
   });
 
+  it('skips every unassigned registration, including Retry synchronization', () => {
+    const harness = new ShortcutControllerHarness({
+      settings: {
+        cancelHotkey: null,
+        hotkey: null,
+        prettifyHotkey: null,
+        prettifyQuickHotkey: null,
+        retryTranscriptionHotkey: null,
+        stopHotkey: null,
+        translateHotkey: null,
+      },
+    });
+
+    harness.controller.register();
+    harness.controller.setRetryTranscriptionAvailable(true);
+
+    assert.equal(harness.globalShortcuts.callbacks.size, 0);
+    assert.deepEqual(harness.globalShortcuts.unregistered, []);
+  });
+
   it('suspends, resumes, and disposes global shortcuts idempotently', () => {
     const harness = new ShortcutControllerHarness();
     harness.controller.register();

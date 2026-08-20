@@ -4,30 +4,72 @@ import {
   canRunTextActionHotkey,
   canRunRetryTranscriptionHotkey,
   canRunTranslateHotkey,
-  DEFAULT_CANCEL_HOTKEY,
-  DEFAULT_PRETTIFY_HOTKEY,
-  DEFAULT_PRETTIFY_QUICK_HOTKEY,
-  DEFAULT_RECORD_HOTKEY,
-  DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
-  DEFAULT_STOP_HOTKEY,
-  DEFAULT_TRANSLATE_HOTKEY,
+  createUnassignedHotkeySettings,
+  DesktopPlatform,
   getHotkeyConflict,
   getHotkeyFromKeyboardEvent,
+  HotkeyBindingAuthority,
+  HotkeyDispatchStatus,
+  HotkeyRegistrationFailureCode,
+  HotkeyRegistrationStatus,
+  HotkeyTestResult,
   HOTKEY_TARGETS,
+  isDesktopPlatform,
+  isHotkeyBindingAuthority,
+  isHotkeyDispatchStatus,
+  isHotkeyRegistrationFailureCode,
+  isHotkeyRegistrationStatus,
+  isHotkeyRuntimeSnapshot,
+  isHotkeyRuntimeSnapshotEntry,
+  isHotkeySettings,
+  isHotkeyTestResult,
+  isLinuxSessionType,
   isHotkeyTarget,
+  LinuxSessionType,
   normalizeHotkey,
   normalizeHotkeyForPlatform,
 } from '@shared/hotkeys';
 
 describe('hotkeys', () => {
-  it('defines the default translation hotkey with existing recording defaults', () => {
-    assert.equal(DEFAULT_RECORD_HOTKEY, 'F9');
-    assert.equal(DEFAULT_STOP_HOTKEY, 'F10');
-    assert.equal(DEFAULT_CANCEL_HOTKEY, 'Escape');
-    assert.equal(DEFAULT_TRANSLATE_HOTKEY, 'F11');
-    assert.equal(DEFAULT_PRETTIFY_HOTKEY, 'F12');
-    assert.equal(DEFAULT_PRETTIFY_QUICK_HOTKEY, 'Ctrl+F12');
-    assert.equal(DEFAULT_RETRY_TRANSCRIPTION_HOTKEY, 'Ctrl+F8');
+  it('creates an explicit unassigned setting for every target', () => {
+    assert.deepEqual(createUnassignedHotkeySettings(), {
+      cancelHotkey: null,
+      hotkey: null,
+      prettifyHotkey: null,
+      prettifyQuickHotkey: null,
+      retryTranscriptionHotkey: null,
+      stopHotkey: null,
+      translateHotkey: null,
+    });
+  });
+
+  it('validates bounded registration contracts and canonical target snapshots', () => {
+    assert.equal(isDesktopPlatform(DesktopPlatform.Linux), true);
+    assert.equal(isLinuxSessionType(LinuxSessionType.Wayland), true);
+    assert.equal(isHotkeyBindingAuthority(HotkeyBindingAuthority.Application), true);
+    assert.equal(isHotkeyRegistrationStatus(HotkeyRegistrationStatus.Registered), true);
+    assert.equal(isHotkeyDispatchStatus(HotkeyDispatchStatus.Suppressed), true);
+    assert.equal(isHotkeyRegistrationFailureCode(HotkeyRegistrationFailureCode.ReconciliationFailed), true);
+    assert.equal(isHotkeyTestResult(HotkeyTestResult.TimedOut), true);
+    assert.equal(isDesktopPlatform('android'), false);
+    assert.equal(isLinuxSessionType('portal'), false);
+
+    const entry = {
+      bindingAuthority: HotkeyBindingAuthority.Application,
+      configuredAccelerator: 'Ctrl+F9',
+      dispatchStatus: HotkeyDispatchStatus.Enabled,
+      effectiveAccelerator: 'Ctrl+F9',
+      registrationStatus: HotkeyRegistrationStatus.Registered,
+      target: 'record',
+    } as const;
+    assert.equal(isHotkeyRuntimeSnapshotEntry(entry), true);
+    assert.equal(
+      isHotkeyRuntimeSnapshot({
+        entries: HOTKEY_TARGETS.map((target) => ({ ...entry, target })),
+      }),
+      true,
+    );
+    assert.equal(isHotkeyRuntimeSnapshot({ entries: [{ ...entry, target: 'stop' }] }), false);
   });
 
   it('recognizes every supported hotkey target', () => {
@@ -83,6 +125,22 @@ describe('hotkeys', () => {
     assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F9', settings, 'linux'), 'record');
     assert.equal(getHotkeyConflict('retryTranscription', 'Shift+F9', settings, 'linux'), 'record');
     assert.equal(getHotkeyConflict('retryTranscription', 'Ctrl+F8', settings, 'linux'), null);
+  });
+
+  it('ignores unassigned settings during conflict detection', () => {
+    const settings = {
+      cancelHotkey: null,
+      hotkey: 'F9',
+      prettifyHotkey: null,
+      prettifyQuickHotkey: null,
+      retryTranscriptionHotkey: null,
+      stopHotkey: null,
+      translateHotkey: null,
+    };
+
+    assert.equal(isHotkeySettings(settings), true);
+    assert.equal(getHotkeyConflict('translate', 'Ctrl+F9', settings, 'linux'), 'record');
+    assert.equal(getHotkeyConflict('translate', 'F12', settings, 'linux'), null);
   });
 
   it('allows only distinct Prettify sibling accelerators to share F12', () => {

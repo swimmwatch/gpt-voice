@@ -4,9 +4,10 @@
 
 Make provider and contextual actions truthful when accelerators are null,
 failed, registered, or suppressed, while preserving pointer/Enter/Space action
-availability, distinct provider readiness, and exact 620 × 292 main-window
-geometry. Demonstrate all registration states through deterministic,
-privilege-free fixtures.
+availability, distinguishing application-known effective shortcuts from
+desktop-environment-managed bindings, preserving distinct provider readiness
+and exact 620 × 292 main-window geometry, and demonstrating all registration
+states through deterministic, privilege-free fixtures.
 
 ## Prerequisites
 
@@ -44,18 +45,21 @@ privilege-free fixtures.
 
 ## Task Contract
 
-1. Replace settings-only/fallback-default consumption in provider-home
-   integration with Packet 04's authoritative runtime state. Reconcile initial
-   query/events by revision and remove every production renderer fallback to
-   `DEFAULT_*_HOTKEY`.
+1. Build on Packet 04's behavior-neutral provider-home migration and reconcile
+   authoritative runtime state by revision. Remove any transitional projection
+   that hides binding authority/effective accelerator; no production renderer
+   fallback to `DEFAULT_*_HOTKEY` may remain.
 2. `HotkeyActionButton` accepts a nullable accelerator and one registration
    snapshot entry. Presentation precedence is:
    - `Unassigned`: localized `Not assigned`, neutral marker;
    - `Failed`: configured value plus amber warning;
-   - `Registered` + `Suppressed`: configured/registered value plus neutral
-     pause marker;
-   - `Registered` + `Enabled`: configured/registered value plus embedded
-     keyboard/check marker.
+   - `Registered` + `Application` + `Suppressed`: exact effective value plus
+     neutral pause marker;
+   - `Registered` + `Application` + `Enabled`: exact effective value plus
+     embedded keyboard/check marker;
+   - `Registered` + `DesktopEnvironment`: a distinct neutral managed marker
+     and localized desktop-managed label; the configured preference may appear
+     only as a preference, never as the exact active trigger.
      The marker remains inside the existing 114 × 32 control.
 3. Registration presentation does not change product eligibility. An
    unassigned or registration-failed provider action remains a native button
@@ -64,9 +68,12 @@ privilege-free fixtures.
 4. Keep provider connection/readiness check as a separate indicator, tooltip,
    state, and accessible description. Its green check must never imply shortcut
    registration and registration markers must never imply provider readiness.
-5. Tooltip and accessible name include product action, configured accelerator
-   or localized unassigned value, registration state, and recovery action.
-   Preserve existing pressed/busy/disabled semantics and focus-visible style.
+5. Tooltip and accessible name include product action, configured preference
+   or localized unassigned value, registration state, binding authority,
+   application-known effective accelerator or desktop-managed explanation, and
+   recovery action. Wayland copy never repeats the preference as an exact
+   active trigger. Preserve existing pressed/busy/disabled semantics and
+   focus-visible style.
 6. Contextual Stop/Cancel/Pause/Resume tiles accept nullable accelerators. When
    null, render the action label plus a neutral unassigned legend, never a false
    key. The tile remains clickable and keyboard accessible under its existing
@@ -74,8 +81,9 @@ privilege-free fixtures.
 7. Preserve the exact 620 × 292 content/window contract, three-column provider
    grid, 114 × 32 keys, footer density, and no overflow at supported locales.
    Registration markers may not resize/reflow the grid.
-8. Extend the deterministic browser demo with separate Registered, Unassigned,
-   Failed, and Suppressed fixtures. Fixtures use explicit sample accelerators,
+8. Extend the deterministic browser demo with separate application-registered,
+   desktop-environment-managed registered, Unassigned, Failed, and Suppressed
+   fixtures. Fixtures use explicit sample preferences/effective accelerators,
    import no Electron/preload/runtime state, make no network/external request,
    and exercise pointer/Enter/Space feedback.
 9. Update only focused locale strings missed by Packet 05; maintain structural
@@ -87,6 +95,9 @@ privilege-free fixtures.
 
 - Renderer receives validated bounded snapshots only. It cannot query Electron
   globalShortcut or infer OS registration from provider state.
+- Renderer cannot derive an effective accelerator from a configured preference;
+  a null effective accelerator under desktop-environment authority is an
+  intentional successful state.
 - `HotkeyActionButton` owns shared provider-key semantics/styles. Demo CSS must
   not fork or override production key selectors.
 - Contextual tiles remain a separate component/style from provider keys.
@@ -107,16 +118,18 @@ privilege-free fixtures.
 
 ## Acceptance Criteria
 
-- Every presentation state renders the correct internal marker/legend without
-  changing 114 × 32 key or 620 × 292 document bounds.
+- Every presentation state and both successful binding authorities render the
+  correct internal marker/legend without changing 114 × 32 key or 620 × 292
+  document bounds.
 - Unassigned and failed in-app actions still invoke once by pointer, Enter, and
   Space when otherwise eligible.
 - Provider readiness and shortcut registration cannot be confused visually or
   accessibly.
 - Contextual actions show no fabricated accelerator and preserve exact action
   behavior.
+- Desktop-managed copy never presents the configured preference as effective.
 - Demo is deterministic, privilege-free, packaging-isolated, and covers all
-  four states.
+  four statuses plus both successful authority variants.
 
 ## Verification
 
@@ -131,9 +144,9 @@ privilege-free fixtures.
 
 ## Failure And Rollback
 
-- A disabled unassigned button, fabricated legend, provider-status ambiguity,
-  duplicate activation, demo/runtime coupling, or any window overflow blocks
-  completion.
+- A disabled unassigned button, fabricated or false-effective legend,
+  provider-status ambiguity, duplicate activation, demo/runtime coupling, or
+  any window overflow blocks completion.
 - If markers cannot fit the existing key, simplify the internal icon/legend;
   do not enlarge the key, grid, footer, or window.
 - Rollback restores prior presentation only if null remains safe and no legacy

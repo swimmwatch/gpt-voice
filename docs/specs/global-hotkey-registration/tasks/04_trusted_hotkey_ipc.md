@@ -4,8 +4,10 @@
 
 Replace the current settings-only hotkey channel with one validated, trusted
 main/preload/renderer contract for authoritative state, transactional set and
-clear, snapshot events, and bounded physical tests. Remove capture-suspension
-IPC so renderer state can never control OS ownership or bypass the main lock.
+clear, snapshot events, and bounded physical tests. Migrate every in-tree
+consumer in the same increment, then remove capture-suspension and legacy
+settings-only IPC so renderer state can never control OS ownership or bypass
+the main lock.
 
 ## Prerequisites
 
@@ -33,13 +35,18 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
 - Trusted main handlers and snapshot publication.
 - Preload methods/events with runtime validation.
 - Renderer `DesktopApi` typings and test doubles.
+- Behavior-neutral migration of `AppSettingsWindow` and
+  `useProviderHotkeyHomeIntegration` to the new runtime state, including
+  nullable values and removal of renderer fallback defaults.
 - Owner destruction/cancellation for physical tests.
 - Removal of `set-hotkey-capture-active` and legacy settings-only hotkey event.
 
 ## Out Of Scope
 
-- Settings/main-window visual changes, localization, portal/package metadata,
-  documentation, and manual desktop tests.
+- Final Settings/main-window visual semantics, localization, markers,
+  portal/package metadata, documentation, and manual desktop tests. Temporary
+  projection of the new state through existing controls is explicitly allowed
+  so the old API can be removed atomically.
 - Raw IPC exposure, renderer-side registration, native error forwarding, or
   any new dependency.
 
@@ -55,13 +62,14 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
      Reuse Packet 01 enums and canonical target order; do not duplicate string
      literals in main/preload/renderer.
 2. Provide exhaustive runtime validators for every request, response, snapshot
-   entry, enum, nullable accelerator, optional failure code, and exact target
-   order. Reject extra/malformed enum values and platform-native payloads.
+   entry, enum, nullable configured/effective accelerator, binding authority,
+   optional failure code including `reconciliation-failed`, and exact target
+   order. Enforce the authority/effective-trigger invariants and reject extra/
+   malformed enum values and platform-native payloads.
 3. Register exactly one trusted query, one snapshot event, one transactional
    set handler, one clear handler, and one test handler. Use stable channel
-   constants rather than scattered literals. Remove `get-hotkey`, the old
-   settings-only `hotkey-settings-changed` event, and
-   `set-hotkey-capture-active` after all consumers migrate.
+   constants rather than scattered literals. Do not retain aliases or dual
+   authorities for the legacy contract.
 4. Main handlers validate argument count/shape before calling the service.
    Preserve existing trusted-sender authority for queries and mutations. No
    handler mutates `AppConfigStore` or calls `ShortcutController.register()`
@@ -69,7 +77,8 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
 5. Set and clear return the registration service's discriminated result,
    including latest authoritative settings and runtime snapshot on success and
    failure. A failed candidate never appears as configured/registered in the
-   returned state.
+   returned state; a reconciliation failure exposes only the service's bounded
+   suppressed `failed` state.
 6. Service snapshot publication broadcasts validated snapshots/state only to
    the intended main and Settings windows through existing window ownership.
    Initial query/event reordering must be reconciled by a monotonic revision or
@@ -82,10 +91,21 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
 8. Preload accepts typed inputs, invokes only canonical channels, validates
    every resolved response and main event before delivering it, and exposes no
    Electron event object or raw IPC method.
-9. Remove `setHotkeyCaptureActive` from preload and renderer types. Dispatch
-   suppression remains driven solely by the already-main-owned interaction
-   lock from Packet 03.
-10. Malformed inputs/outputs, duplicate events, disposed handlers, and adapter
+9. Replace Packet 01's temporary nullable Settings projection with
+   authoritative runtime state in `AppSettingsWindow`, without changing the
+   final row/modal design owned by Packet 05. Runtime state must preserve null
+   and must not treat configured preference as a confirmed effective
+   registration.
+10. Update `useProviderHotkeyHomeIntegration` to consume the same authoritative
+    runtime state and nullable accelerator values. Remove every
+    `DEFAULT_*_HOTKEY` fallback from that hook; Packet 06 owns the final
+    authority-aware marker, tooltip, accessibility, and demo treatment.
+11. After both consumers and all test doubles migrate, remove `get-hotkey`,
+    `hotkey-settings-changed`, `set-hotkey-capture-active`,
+    `setHotkeyCaptureActive`, and their old constants/types in this same
+    packet. Dispatch suppression remains driven solely by Packet 03's
+    main-owned interaction lock.
+12. Malformed inputs/outputs, duplicate events, disposed handlers, and adapter
     exceptions settle to bounded failure/unavailable without leaking raw error
     strings, paths, environment, or external owners.
 
@@ -107,6 +127,8 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
 - `src/main/preloadApi.ts`
 - `src/main/preload.ts`
 - `src/renderer/types.d.ts`
+- `src/renderer/AppSettingsWindow.tsx`
+- `src/renderer/useProviderHotkeyHomeIntegration.ts`
 - Renderer DesktopApi test doubles/types directly affected
 - `tests/main/hotkeyIpcContract.test.ts`
 - `tests/main/preloadApi.test.ts`
@@ -120,7 +142,8 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
 - Query/event reordering cannot regress renderer-visible revision.
 - Window destruction, timeout, duplicate test, and disposal settle once with no
   callback execution or timer leak.
-- No capture-suspension IPC/type/channel remains.
+- Both renderer consumers use the new state without fallback defaults, and no
+  legacy settings-only or capture-suspension IPC/type/channel remains.
 
 ## Verification
 
@@ -156,4 +179,4 @@ IPC so renderer state can never control OS ownership or bypass the main lock.
 
 After checks pass, mark only Packet 04 complete, update `handoff.md` with exact
 files/checks and `Exact next packet: 05`, present the increment, and stop. Do
-not implement visual consumers, commit, push, or start Packet 05.
+not implement the final visual redesign, commit, push, or start Packet 05.

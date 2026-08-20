@@ -11,7 +11,7 @@ interface HotkeyRowProps {
   label: string;
   onChangeClick: () => void;
   onEnabledChange?: (enabled: boolean) => void;
-  value: string;
+  value: string | null;
 }
 
 function HotkeyRow({

@@ -372,8 +372,8 @@ const AppSettingsWindow: React.FC = () => {
     });
   }
 
-  const getHotkeyValue = (target: HotkeyTarget): string => {
-    if (!hotkeySettings) return '';
+  const getHotkeyValue = (target: HotkeyTarget): string | null => {
+    if (!hotkeySettings) return null;
     switch (target) {
       case 'record':
         return hotkeySettings.hotkey;

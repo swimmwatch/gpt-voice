@@ -5,7 +5,8 @@
 Integrate the registration service into the production main-process graph.
 `ShortcutController` continues to own the seven product callbacks and all
 recording/selected-text eligibility, while the service alone owns Electron
-bindings, suppression state, tests, snapshots, and cleanup. Until Packets
+bindings, callback generations, suppression state, tests, snapshots,
+compensation, and cleanup. Until Packets
 07–09 supply an exact supported-host policy, production fails closed as
 unsupported rather than silently registering through a generic policy.
 
@@ -36,6 +37,8 @@ unsupported rather than silently registering through a generic policy.
 - Startup/dispose integration and focused controller/composition regression
   tests.
 - Bounded platform/session classification injected from the process root.
+- Replacement of Packet 01's legacy null-registration compatibility guard with
+  service-owned registration delegation.
 
 ## Out Of Scope
 
@@ -64,16 +67,23 @@ unsupported rather than silently registering through a generic policy.
    module-level mutable singleton or optional production dependency.
 5. Existing application startup calls through the controller to `service.start()`
    once after Electron is ready. Repeated startup is idempotent. Existing
-   application shutdown calls service disposal exactly once through its owner.
+   application shutdown calls service disposal exactly once through its
+   process-lifecycle owner. `ShortcutController`, adapters, and composition
+   helpers never run independent unregister, compensation, or cleanup logic.
 6. Subscribe once to `MainInteractionLock`. Locked means
    `service.setSuppressed(true)` before any renderer feedback; unlocked means
    false. Opening Settings must not call unregister or rebuild registrations.
    Dispose removes the subscription.
-7. Delete `hotkey-capture` suspension as an authority. The only runtime
-   suppression source is main interaction ownership. Do not preserve a second
-   boolean that can re-enable dispatch while the lock remains held.
-8. Nullable configured values produce no callback/action registration, but
+7. Stop treating `hotkey-capture` as a main-process suppression or registration
+   authority. The only runtime suppression source is main interaction
+   ownership. Packet 04 removes the legacy renderer/preload/IPC API after every
+   in-tree consumer has migrated in that same increment; do not remove half of
+   the channel here.
+8. Packet 01's legacy controller guard already skips nullable values. Replace
+   that compatibility behavior with the service's authoritative mapping:
+   nullable configured values produce no callback/action registration, but
    in-app action methods remain intact for later pointer/keyboard invocation.
+   Do not retain a parallel controller-owned registration path.
 9. Convert raw `NodeJS.Platform` and Linux session evidence at the composition
    boundary into Packet 01 enums. Use only bounded environment classification;
    do not log or expose environment contents. Linux session detection accepts
@@ -92,9 +102,9 @@ unsupported rather than silently registering through a generic policy.
 - `ShortcutController` owns action intent and eligibility; the registration
   service owns when/which OS binding invokes it. Neither owns the other's
   state.
-- `src/main/main.ts` already contains unrelated Local Whisper edits. If adding
-  bounded platform/session inputs is necessary, patch only the exact shortcuts
-  composition hunk and preserve every unrelated line and untracked file.
+- The process lifecycle owns one service instance and calls its public
+  lifecycle. No second constructed owner, cleanup callback, or `unregisterAll`
+  path is introduced.
 - Logs remain metadata-only and do not contain selected text, transcripts,
   audio, clipboard contents, settings paths, or environment values.
 
@@ -121,7 +131,8 @@ unsupported rather than silently registering through a generic policy.
   performs no action.
 - Composition constructs one adapter/policy/service/controller graph and
   shutdown disposes it idempotently.
-- No unrelated Local Whisper hunk changes.
+- Only hotkey/composition behavior changes; unrelated worktree content is
+  preserved.
 
 ## Verification
 

@@ -2,42 +2,67 @@
 
 ## Completed Packets
 
-- None. Specification approval is recorded; plan revision v1 awaits approval.
+- Packet 01 — Nullable Persistence And Shared Contracts. Specification revision
+  2, audited plan revision 3, and Packet 01 authorization revision 2 are
+  recorded in the decision ledger.
 
 ## Changed Files
 
-- `docs/specs/global-hotkey-registration/spec.md` — approved durable contract.
+- `docs/specs/global-hotkey-registration/spec.md` — approved revision 2
+  metadata and durable contract.
 - `docs/specs/global-hotkey-registration/decisions.yaml` — specification
-  approval and pending plan-approval decision.
-- `docs/specs/global-hotkey-registration/tasks/` — draft plan, checklist,
-  handoff, and ten self-contained task packets, including Linux X11 and Linux
-  Wayland execution before the separate later Windows unit.
+  revision 2 approval, plan revision 3 approval, and revised Packet 01
+  authorization.
+- `docs/specs/global-hotkey-registration/tasks/` — approved plan revision 3,
+  checklist, handoff, and ten task packets.
+- `src/shared/hotkeys.ts` — nullable settings, unassigned-setting factory,
+  enum-backed registration contracts, snapshot validators, and null-safe
+  target/conflict helpers.
+- `src/main/config.ts` — null initialization/loading, explicit-null persistence,
+  atomic single-target persistence, and shortcut-only reset.
+- `src/main/shortcuts.ts` — skip unassigned legacy registration, including
+  Retry synchronization.
+- `src/renderer/AppSettingsWindow.tsx`,
+  `src/renderer/components/settings/ShortcutsSection.tsx`, and
+  `src/renderer/components/HotkeyRow.tsx` — nullable temporary value projection
+  with no accelerator fallback.
+- `src/renderer/useProviderHotkeyHomeIntegration.ts` — do not publish the
+  obsolete idle-record shortcut status when Record is unassigned.
+- `tests/main/appConfigStore.test.ts`, `tests/main/hotkeys.test.ts`, and
+  `tests/main/shortcutController.test.ts` — nullable persistence/contracts and
+  no-registration regression coverage.
+- `scripts/local-whisper/qualification/` — restored the current focused
+  performance manifest, explicit artifact validation mode, nullable lifecycle,
+  native stream/diagnostic, and process-session contracts that blocked the
+  repository-wide test typecheck.
+- `tests/main/localWhisper/`, `tests/main/mainProcessApplication.test.ts`, and
+  `tests/scripts/localWhisper/qualification/` — synchronized strict fixtures
+  with current artifact, IPC, runtime dependency, model, and stream contracts.
 
 ## Checks
 
-- Packet structure audit — passed: 10 packets, all 14 mandatory sections
-  present, and no broken plan/checklist links.
-- Requirement coverage audit — passed: all 95 active requirement and
-  acceptance IDs map to at least one task packet. The superseded `COMP-005`
-  citation in the specification summary is intentionally not an active ID.
-- `decisions.yaml` parse — passed.
-- Prettier check for the complete specification/task bundle — passed.
-- `git diff --check -- docs/specs/global-hotkey-registration` — passed.
-- No production source, test, dependency, package, or workflow file was changed
-  by planning.
+- Requirement coverage — passed: all 97 active requirement/acceptance IDs map
+  to at least one packet, with no inactive IDs in `Owned Requirements`.
+- Packet structure — passed: 10 packets and all 14 mandatory sections in each.
+- Local task links — passed across all 13 task Markdown files.
+- Plan revision-3 coverage/structure/local-link audit, decision-ledger YAML,
+  documentation formatting, and diff hygiene — passed before execution.
+- `node --import tsx --test tests/main/hotkeys.test.ts tests/main/appConfigStore.test.ts tests/main/shortcutController.test.ts` — passed: 58 tests.
+- Focused Local Whisper qualification, artifact, IPC, sampler, and main-process
+  lifecycle regression suite — passed: 56 tests.
+- `npm run typecheck` — passed.
+- `npm run test:types` — passed.
+- Scoped ESLint and Prettier over all Packet 01 source/test files — passed.
+- Scoped ESLint and Prettier over verification-unblock source/test files —
+  passed.
+- `git diff --check` — passed.
 
-## Exact Next Step
+## Exact Next Packet
 
-- Obtain explicit approval for [`plan.md`](./plan.md). Plan approval does not
-  authorize packet execution. After approval, exact next packet is
-  [`01_nullable_persistence_and_shared_contracts.md`](./01_nullable_persistence_and_shared_contracts.md),
-  which still requires a separate explicit `incremental-implementation`
-  invocation.
+- [`02_platform_policy_and_registration_service.md`](./02_platform_policy_and_registration_service.md)
 
 ## Blockers
 
-- Plan approval is pending. Prompt MCP is unavailable in this session, so the
-  approval must be recorded from an explicit user response.
-- The worktree contains unrelated Local Whisper changes, including a semantic
-  edit in `src/main/main.ts`. Preserve them; Packets 03 and 08 must isolate
-  their exact hunks.
+- None for Packet 02.
+- The pre-Packet-07 platform-readiness gate remains a future execution
+  prerequisite, not a blocker for Packets 01–06.

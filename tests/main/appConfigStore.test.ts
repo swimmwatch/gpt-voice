@@ -6,18 +6,12 @@ import { afterEach, describe, it } from 'node:test';
 import { AppConfigStore, resolveAppConfigPaths, type AppConfigStoreDependencies } from '@main/config';
 import { writeTextFileAtomically } from '@main/translationSettings';
 import { DEFAULT_DIAGNOSTIC_CAPTURE_SETTINGS } from '@shared/diagnosticCaptureSettings';
-import {
-  DEFAULT_CANCEL_HOTKEY,
-  DEFAULT_PRETTIFY_QUICK_HOTKEY,
-  DEFAULT_RECORD_HOTKEY,
-  DEFAULT_RETRY_TRANSCRIPTION_HOTKEY,
-} from '@shared/hotkeys';
+import { createUnassignedHotkeySettings } from '@shared/hotkeys';
 import { DEFAULT_PRETTIFY_SETTINGS } from '@shared/prettifySettings';
 import { getPrettifyBuiltInProfileDefinition } from '@main/services/prettifyProfileInstruction';
 import { PRETTIFY_BUILT_IN_PROFILE_IDS, PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION } from '@shared/prettifyProfiles';
 
 const GENERATED_FINGERPRINT_SEED = '54321';
-const LEGACY_RETRY_TRANSCRIPTION_HOTKEY = 'Ctrl+F9';
 
 interface AppConfigStoreFixtureOptions {
   readonly writeFileAtomically?: AppConfigStoreDependencies['writeFileAtomically'];
@@ -112,6 +106,27 @@ describe('AppConfigStore', () => {
     assert.equal(second.store.getSnapshot().locale, 'en');
   });
 
+  it('starts with seven unassigned shortcuts and persists explicit nulls on first save', () => {
+    const fixture = createFixture();
+
+    assert.deepEqual(fixture.store.getHotkeySettings(), createUnassignedHotkeySettings());
+    fixture.store.save();
+
+    const persisted = fixture.readPersistedConfig();
+    assert.deepEqual(
+      {
+        cancelHotkey: persisted.cancelHotkey,
+        hotkey: persisted.hotkey,
+        prettifyHotkey: persisted.prettifyHotkey,
+        prettifyQuickHotkey: persisted.prettifyQuickHotkey,
+        retryTranscriptionHotkey: persisted.retryTranscriptionHotkey,
+        stopHotkey: persisted.stopHotkey,
+        translateHotkey: persisted.translateHotkey,
+      },
+      createUnassignedHotkeySettings(),
+    );
+  });
+
   it('returns deeply immutable snapshots that remain stable after later mutations', () => {
     const fixture = createFixture();
     const snapshot = fixture.store.getSnapshot();
@@ -199,7 +214,70 @@ describe('AppConfigStore', () => {
     assert.deepEqual(loaded.getSnapshot(), fixture.store.getSnapshot());
   });
 
-  it('migrates a missing quick Prettify hotkey without changing configured accelerators', () => {
+  it('preserves valid legacy values and normalizes every invalid or absent hotkey field to null', () => {
+    const fixture = createFixture();
+    fixture.writePersistedConfig({
+      cancelHotkey: null,
+      fingerprintSeed: GENERATED_FINGERPRINT_SEED,
+      hotkey: 'shift + ctrl + f9',
+      prettifyHotkey: '',
+      retryTranscriptionHotkey: 'Ctrl+F8',
+      stopHotkey: 42,
+      translateHotkey: '+',
+    });
+
+    fixture.store.load();
+
+    assert.deepEqual(fixture.store.getHotkeySettings(), {
+      cancelHotkey: null,
+      hotkey: 'shift + ctrl + f9',
+      prettifyHotkey: null,
+      prettifyQuickHotkey: null,
+      retryTranscriptionHotkey: 'Ctrl+F8',
+      stopHotkey: null,
+      translateHotkey: null,
+    });
+    const persisted = fixture.readPersistedConfig();
+    assert.equal(persisted.hotkey, 'shift + ctrl + f9');
+    assert.equal(persisted.cancelHotkey, null);
+    assert.equal(persisted.prettifyHotkey, null);
+    assert.equal(persisted.prettifyQuickHotkey, null);
+    assert.equal(persisted.stopHotkey, null);
+    assert.equal(persisted.translateHotkey, null);
+  });
+
+  it('restores the previous hotkey snapshot after a single-target persistence failure', () => {
+    let failWrites = false;
+    const fixture = createFixture({
+      writeFileAtomically: (filePath, contents) => {
+        if (failWrites) throw new Error('private write failure');
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        fs.writeFileSync(filePath, contents, 'utf8');
+      },
+    });
+    fixture.store.setHotkeys({ hotkey: 'F9' });
+    fixture.store.save();
+    failWrites = true;
+
+    assert.throws(() => fixture.store.persistHotkey('record', 'F10'), /Failed to persist hotkey/u);
+    assert.equal(fixture.store.getHotkeySettings().hotkey, 'F9');
+    assert.equal(fixture.readPersistedConfig().hotkey, 'F9');
+  });
+
+  it('clears and reloads only shortcut preferences', () => {
+    const fixture = createFixture();
+    fixture.store.setHotkeys({ hotkey: 'F9', prettifyHotkey: 'F12' });
+    fixture.store.setLocalePreference('ru');
+    fixture.store.resetHotkeys();
+
+    assert.deepEqual(fixture.store.getHotkeySettings(), createUnassignedHotkeySettings());
+    assert.equal(fixture.store.getSnapshot().locale, 'ru');
+    const loaded = fixture.createStore();
+    loaded.load();
+    assert.deepEqual(loaded.getHotkeySettings(), createUnassignedHotkeySettings());
+  });
+
+  it('normalizes a missing quick Prettify hotkey to null without changing configured accelerators', () => {
     const fixture = createFixture();
     fixture.store.getFingerprintSeed();
     fixture.store.setHotkeys({
@@ -223,10 +301,10 @@ describe('AppConfigStore', () => {
 
     assert.deepEqual(loaded.getHotkeySettings(), {
       ...expectedHotkeys,
-      prettifyQuickHotkey: DEFAULT_PRETTIFY_QUICK_HOTKEY,
+      prettifyQuickHotkey: null,
     });
     assert.equal(fixture.writes.length, 1);
-    assert.equal(fixture.readPersistedConfig().prettifyQuickHotkey, DEFAULT_PRETTIFY_QUICK_HOTKEY);
+    assert.equal(fixture.readPersistedConfig().prettifyQuickHotkey, null);
   });
 
   it('migrates a missing Quick Prettify enabled flag to the enabled default', () => {
@@ -281,13 +359,13 @@ describe('AppConfigStore', () => {
     fixture.writePersistedConfig({
       cancelHotkey: 42,
       fingerprintSeed: 'invalid-seed',
-      hotkey: DEFAULT_RECORD_HOTKEY,
+      hotkey: 'F9',
       locale: 'ru',
       localeExplicit: 'yes',
       prettifyEnabled: false,
       prettifyQuickEnabled: 'yes',
       provider: [],
-      retryTranscriptionHotkey: LEGACY_RETRY_TRANSCRIPTION_HOTKEY,
+      retryTranscriptionHotkey: 'Ctrl+F9',
       translateEnabled: 'yes',
       translationSettings: {
         providerId: 'unknown',
@@ -303,14 +381,14 @@ describe('AppConfigStore', () => {
     const snapshot = fixture.store.getSnapshot();
     const notice = fixture.store.consumePendingTranslationSettingsRepairNotice();
 
-    assert.equal(snapshot.cancelHotkey, DEFAULT_CANCEL_HOTKEY);
+    assert.equal(snapshot.cancelHotkey, null);
     assert.equal(snapshot.fingerprintSeed, GENERATED_FINGERPRINT_SEED);
     assert.equal(snapshot.locale, 'en');
     assert.equal(snapshot.localeExplicit, false);
     assert.equal(snapshot.prettifyEnabled, false);
     assert.equal(snapshot.prettifyQuickEnabled, true);
     assert.equal(snapshot.provider, 'chatgpt');
-    assert.equal(snapshot.retryTranscriptionHotkey, DEFAULT_RETRY_TRANSCRIPTION_HOTKEY);
+    assert.equal(snapshot.retryTranscriptionHotkey, 'Ctrl+F9');
     assert.equal(snapshot.translateEnabled, true);
     assert.equal(snapshot.translationSettings.providerId, 'google');
     assert.ok(notice);

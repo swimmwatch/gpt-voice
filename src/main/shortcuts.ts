@@ -325,11 +325,13 @@ export class ShortcutController {
     this.conflictingHotkeyTargets.clear();
   }
 
-  private normalizeHotkeyForPlatform(hotkey: string): string {
+  private normalizeHotkeyForPlatform(hotkey: string | null): string | null {
+    if (hotkey === null) return null;
     return normalizeHotkeyForPlatform(hotkey, this.dependencies.platform) ?? hotkey;
   }
 
-  private registerConfiguredShortcut(target: HotkeyTarget, hotkey: string, callback: () => void): boolean {
+  private registerConfiguredShortcut(target: HotkeyTarget, hotkey: string | null, callback: () => void): boolean {
+    if (hotkey === null) return false;
     if (this.conflictingHotkeyTargets.has(target)) {
       this.dependencies.logger.warn(
         `Skipped ${target} shortcut because its key conflicts with another configured shortcut:`,
@@ -340,7 +342,7 @@ export class ShortcutController {
     return this.dependencies.globalShortcut.register(hotkey, callback);
   }
 
-  private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string): void {
+  private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string | null): void {
     if (this.dependencies.mainInteractionLock.locked) {
       this.dependencies.logger.info(`${hotkey} pressed while settings lock is active`, { target });
       return;
@@ -428,6 +430,10 @@ export class ShortcutController {
     const retryHotkey = this.normalizeHotkeyForPlatform(
       this.dependencies.config.getSnapshot().retryTranscriptionHotkey,
     );
+    if (retryHotkey === null) {
+      this.unregisterRetryTranscriptionShortcut();
+      return;
+    }
     if (!canRunRetryTranscriptionShortcut(this.recordingLifecycleState, this.retryTranscriptionAvailable)) {
       this.unregisterRetryTranscriptionShortcut();
       return;

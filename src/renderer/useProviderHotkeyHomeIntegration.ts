@@ -143,7 +143,7 @@ export function useProviderHotkeyHomeIntegration({
     const acceptSettings = (settings: HotkeySettings): void => {
       if (disposed) return;
       setHotkeySettings(settings);
-      onIdleRecordHotkey(settings.hotkey);
+      if (settings.hotkey !== null) onIdleRecordHotkey(settings.hotkey);
     };
     const unsubscribe = desktopApi.onHotkeySettingsChanged((settings) => {
       eventVersion += 1;

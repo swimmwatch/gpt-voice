@@ -4,9 +4,11 @@
 
 Create one platform-neutral main-process owner that truthfully maps configured
 shortcuts to adapter bindings, replaces/removes them transactionally, publishes
-deterministic snapshots, suppresses product dispatch without unregistering, and
-runs bounded physical tests. Define the platform-policy factory seam while
-leaving Windows, Linux X11, and Linux Wayland branches to their host packets.
+deterministic authority-aware snapshots, verifies cleanup through adapter
+queries, compensates toward one authoritative configured/bound pair, suppresses
+irreconcilable callbacks, and runs bounded physical tests. Define the
+platform-policy factory seam while leaving Windows, Linux X11, and Linux
+Wayland branches to their host packets.
 
 ## Prerequisites
 
@@ -23,7 +25,7 @@ leaving Windows, Linux X11, and Linux Wayland branches to their host packets.
 - SCOPE-005, SCOPE-006
 - DATA-006..DATA-008
 - ARCH-001..ARCH-003, ARCH-005
-- FLOW-001..FLOW-006, FLOW-008, FLOW-009
+- FLOW-001..FLOW-006, FLOW-008..FLOW-010
 - FAIL-001..FAIL-004
 - SEC-002, SEC-004
 - QUAL-003, QUAL-006 / AC-AUTO-003, AC-AUTO-006
@@ -34,7 +36,8 @@ leaving Windows, Linux X11, and Linux Wayland branches to their host packets.
 - Abstract platform policy, fail-closed unsupported policy,
   paused-macOS-compatible policy, and a factory seam selected from enum inputs.
 - `HotkeyRegistrationService` state, startup, set, clear, snapshots,
-  subscription, suppression, test sessions, and cleanup.
+  callback generations, subscription, suppression, test sessions, verified
+  cleanup, compensation, and reconciliation failure.
 - Pure platform/session detection at the composition boundary.
 - Deterministic unit tests using fakes, injected clock/timers, and injected
   atomic persistence.
@@ -51,10 +54,12 @@ leaving Windows, Linux X11, and Linux Wayland branches to their host packets.
 ## Task Contract
 
 1. Add `abstract class GlobalShortcutAdapter` with `register(accelerator,
-callback): boolean`, `unregister(accelerator): void`,
+callback): boolean`, bounded `unregister(accelerator): boolean`,
    `isRegistered(accelerator): boolean`, and `unregisterAll(): void`.
    `ElectronGlobalShortcutAdapter` is the only production implementation and
-   catches Electron exceptions into the service's bounded failure path.
+   maps a completed void Electron unregister call to `true`, maps an exception
+   to `false`, and never exposes a native payload. The registration query, not
+   the unregister return alone, is authoritative proof of cleanup.
 2. Add `abstract class HotkeyPlatformPolicy` that validates a normalized
    accelerator and returns either acceptance or one bounded failure code. Add
    fail-closed unsupported and paused-macOS-compatible policies.
@@ -69,51 +74,75 @@ callback): boolean`, `unregister(accelerator): void`,
 4. Add concrete `HotkeyRegistrationService` with complete constructor-injected
    adapter, policy, atomic settings reader/writer, target callbacks, logger,
    clock, timer scheduler/canceller, and fixed `5_000` ms test timeout. It is
-   the sole owner of registrations, registered callbacks, statuses, test
-   session, subscriber publication, and final `unregisterAll`.
+   the sole owner of registrations, callback generations, statuses,
+   reconciliation/compensation, test session, subscriber publication, and
+   final `unregisterAll`.
 5. `start()` attempts each non-null target independently in canonical order.
    Invalid, internally conflicting, reserved, unsupported, or rejected targets
    become `failed` with their bounded code; successful siblings remain
    registered. Configuration is never cleared by startup failure.
 6. Snapshot entries always appear in canonical order and distinguish the
-   configured string from the platform-normalized registered accelerator.
-   `unassigned` has both registered accelerator and failure null. All entries
-   carry `enabled` or `suppressed` independently.
-7. Replacement is serialized and candidate-first:
+   configured preference from nullable effective accelerator and binding
+   authority. Successful Windows/X11 policies expose the normalized effective
+   accelerator with `application` authority. Successful Wayland policy exposes
+   null effective accelerator with `desktop-environment` authority. Unassigned
+   state uses null/null/`none`; failed state has null effective accelerator,
+   `none` authority, and one bounded failure. All entries carry `enabled` or
+   `suppressed` independently.
+7. Every registered callback closes over a service-owned generation token.
+   Invalidate a generation before attempting to remove its binding. A callback
+   whose generation is not current can never dispatch a product action or
+   settle a later test, even if native cleanup fails.
+8. Replacement is serialized and candidate-first:
    - validate input type/non-empty syntax, conflicts, and policy;
    - a semantic no-op returns current authoritative success without duplicate
      registration;
    - register candidate beside old binding and require both `register === true`
      and `isRegistered === true`;
    - atomically persist the configured candidate;
-   - only after persistence succeeds, unregister the previous accelerator and
-     publish one authoritative snapshot.
-     On registration failure remove any partial candidate and retain old config/
-     binding. On persistence failure remove candidate and retain old config/
-     binding with `persistence-failed` in the mutation result.
-8. Clear is persistence-first: atomically persist null, then unregister the old
-   binding and publish unassigned. If persistence fails, leave old config and
-   binding untouched. Clearing an already unassigned target is idempotent.
-9. Internal conflicts are checked against configured non-null targets after
-   platform normalization. One failed target never unregisters another target.
-   No operation silently chooses a fallback accelerator.
-10. Suppression toggles dispatch state and publishes it without releasing OS
+   - invalidate the old generation, issue bounded unregister, and require the
+     old registration query to report absent before publishing success.
+     On candidate registration failure, invalidate/remove/query any partial
+     candidate and retain old config/binding. On persistence failure,
+     invalidate/remove/query the candidate and retain the old authoritative
+     pair with `persistence-failed`. Any unverified candidate cleanup enters
+     the reconciliation flow in Task Contract 10.
+9. Clear is persistence-first: atomically persist null, invalidate the old
+   callback, issue bounded unregister, and require the query to report absent
+   before publishing unassigned. Persistence failure leaves the old pair
+   untouched. Verified removal failure restores the prior persisted value and
+   callback generation only after querying or re-registering the old binding.
+   Clearing an already unassigned target is idempotent.
+10. Reconciliation is query-driven and never interprets exception text. If
+    old-binding removal fails after candidate persistence, invalidate and
+    remove/query the candidate, restore the prior persisted value, then
+    reactivate or re-register a previous generation only after its query proves
+    the binding. If candidate cleanup or prior-state restoration cannot prove
+    exactly one configured/bound pair, invalidate all generations for that
+    target, keep it dispatch-suppressed, and publish only
+    `failed`/`reconciliation-failed` with null effective accelerator and `none`
+    authority. Restart or a later explicit set/clear may attempt repair.
+11. Internal conflicts are checked against configured non-null targets after
+    platform normalization. One failed target never unregisters another target.
+    No operation silently chooses a fallback accelerator.
+12. Suppression toggles dispatch state and publishes it without releasing OS
     bindings. While suppressed, ordinary callbacks do nothing. Registered Retry
     remains bound even when its runtime action is unavailable; action callbacks
     decide eligibility later.
-11. One test session may exist at a time for one registered target. While
+13. One test session may exist at a time for one registered target. While
     suppression is active, its next matching OS callback resolves `detected`
     without product dispatch. Fixed timeout resolves `timed-out`; unassigned or
     failed targets resolve `unavailable`. Duplicate starts, dispose, and owner
     cancellation settle exactly once, clear timers, never persist, and never
     extend the deadline.
-12. `dispose()` is idempotent: cancel test/timers, prevent later mutations and
+14. `dispose()` is idempotent: invalidate all generations, cancel test/timers,
+    prevent later mutations and
     callbacks, call adapter `unregisterAll()` once, clear subscribers/state,
     and publish no stale success.
-13. Logs contain only target, normalized accelerator, enum status/failure, and
-    bounded platform/session. Do not log native error payloads, environment,
-    paths, external-process identity, selected text, audio, transcripts,
-    credentials, sessions, or clipboard data.
+15. Logs contain only target, normalized accelerator, binding authority, enum
+    status/failure, and bounded platform/session. Do not log native error
+    payloads, environment, paths, external-process identity, selected text,
+    audio, transcripts, credentials, sessions, or clipboard data.
 
 ## Contracts And Boundaries
 
@@ -125,6 +154,9 @@ callback): boolean`, `unregister(accelerator): void`,
   persistence or product availability.
 - Subscriber delivery and mutation settlement must be contained: one throwing
   subscriber/logger cannot corrupt registration ownership.
+- No controller, IPC handler, or composition helper may become a second
+  cleanup/compensation authority. They call the service and consume its bounded
+  result only.
 
 ## Expected Files Or Components
 
@@ -141,11 +173,12 @@ callback): boolean`, `unregister(accelerator): void`,
 - Unit tests prove unsupported/paused policy results and that the factory never
   invents a supported host creator.
 - Independent startup, candidate success/rejection, partial registration,
-  persistence rollback, clear rollback, duplicates, conflicts, publication,
-  suppression, permanent Retry binding, test outcomes, cancellation, and
-  dispose all preserve exact ownership.
-- All snapshots use enum values and canonical target order with no raw native
-  error data.
+  persistence rollback, verified candidate cleanup, verified old-binding
+  cleanup, clear compensation, irreconcilable cleanup, generation invalidation,
+  duplicates, conflicts, publication, suppression, permanent Retry binding,
+  test outcomes, cancellation, and dispose all preserve exact ownership.
+- All snapshots use exact enum values, authority/effective-trigger invariants,
+  and canonical target order with no raw native error data.
 - No test or product callback fires during suppression except test detection.
 
 ## Verification
@@ -162,8 +195,9 @@ callback): boolean`, `unregister(accelerator): void`,
 - If Electron cannot support candidate-first registration for two distinct
   accelerators, stop with a focused adapter regression and exact evidence; do
   not unregister the working shortcut first.
-- Any uncertain candidate cleanup, duplicate callback, timer leak, or loss of
-  previous state blocks completion.
+- Any uncertain candidate cleanup, executable stale generation, false effective
+  trigger, duplicate callback, timer leak, or unbounded ownership state blocks
+  completion.
 - Rollback removes the unused service modules without touching persisted data;
   Packet 01 null compatibility remains.
 

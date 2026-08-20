@@ -3,9 +3,10 @@
 ## Outcome
 
 Make Settings display the configured value and authoritative OS-registration
-state separately, keep failed Apply open with a bounded explanation, and add
-Remove and five-second Test controls with complete localization and accessible
-status announcements.
+state separately, distinguish application-owned effective accelerators from
+desktop-environment-managed Wayland bindings, keep failed Apply open with a
+bounded explanation, and add Remove and five-second Test controls with complete
+localization and accessible status announcements.
 
 ## Prerequisites
 
@@ -47,12 +48,19 @@ status announcements.
    snapshot event. Reconcile initial query against newer events using the
    authoritative revision rule; never replace a newer registered/failed state
    with stale query data.
-2. Each row displays its configured accelerator or localized `Not assigned`
+2. Each row displays its configured preference or localized `Not assigned`
    plus a separate localized state: Unassigned, Registered, Failed, or
-   Suppressed. When Failed, map only its bounded failure code.
+   Suppressed. Application-authority success may show the normalized effective
+   accelerator as exact. Desktop-environment-authority success labels the
+   configured value as a preference, shows no exact effective accelerator, and
+   uses localized desktop-managed copy/marker.
 3. Add localized failure copy for `InvalidAccelerator`, `InternalConflict`,
-   Windows `OsReserved` F12, generic `RegistrationRejected`,
-   `PersistenceFailed`, and `UnsupportedPlatform`. Generic rejection may say
+   Windows `OsReserved` covering F12 and every Windows/Super-modifier shortcut,
+   generic `RegistrationRejected`, `PersistenceFailed`,
+   `ReconciliationFailed`, and `UnsupportedPlatform`. Reconciliation copy
+   explains that state could not be safely reconciled and offers restart or an
+   explicit repair without claiming that any candidate is active. Generic
+   rejection may say
    the combination is unavailable or used by the system/another application;
    it must never claim an exact owner.
 4. Opening/capturing a modal does not call capture-suspension IPC. The Settings
@@ -70,17 +78,21 @@ status announcements.
 7. Every registered row exposes Test. Starting Test shows a five-second waiting
    state; Detected, Timed out, and Unavailable are localized terminal states.
    While waiting, the matching physical callback is consumed and no action
-   runs. Only one row may test at a time. Closing Settings/modal cancels the
-   test through Packet 04 ownership.
+   runs. Only one row may test at a time. On Wayland, Test is the supported
+   in-app verification of the desktop-managed binding and the UI never claims
+   the configured preference was the detected physical trigger. Closing
+   Settings/modal cancels the test through Packet 04 ownership.
 8. Unassigned and failed rows do not offer Test. Remove is hidden/disabled for
    unassigned state. Change remains available for repair unless the platform is
    unsupported, in which case capture may remain available but Apply returns
    the bounded unsupported failure.
-9. Publish mutation/test status changes through one polite `aria-live` region.
+9. Publish mutation/test/status/authority changes through one polite
+   `aria-live` region.
    Row controls have accessible names that include action, configured value or
-   unassigned, registration state, and the operation. Focus returns to the
-   originating control after successful Apply, Remove, Test completion, or
-   close; it stays in the dialog after failure.
+   unassigned, registration state, binding authority, whether the effective
+   accelerator is exact or desktop-managed, and the operation. Focus returns
+   to the originating control after successful Apply, Remove, Test completion,
+   or close; it stays in the dialog after failure.
 10. Add the complete key set to English, Russian, Ukrainian, Belarusian,
     German, Spanish, French, Portuguese, Hindi, Japanese, and Chinese locale
     maps. Structural locale tests must fail if any new key is missing.
@@ -95,6 +107,8 @@ status announcements.
   clipboard contents, settings paths, or environment values from Settings.
 - Provider readiness is not present in this row state and must not be reused as
   registration truth.
+- Renderer never derives binding authority or effective accelerator from the
+  configured preference; it renders the validated main-owned fields.
 - Use React functions/hooks and functional state updates; do not create a
   stateful class for presentation-only state.
 
@@ -111,13 +125,15 @@ status announcements.
 
 ## Acceptance Criteria
 
-- Settings renders configured vs registered truth for all four presentation
-  states and all seven targets.
+- Settings renders configured preference, effective accelerator, and authority
+  truth for all presentation states and all seven targets, including
+  application and desktop-environment success.
 - Failed Apply stays open, keeps the old authoritative row, and shows the exact
   bounded localized reason; success alone closes.
 - Remove and Test obey availability, pending, completion, cancellation, focus,
   and aria-live requirements.
-- F12 on Windows shows reserved copy; generic conflict never names an owner.
+- F12 and every Super-modifier shortcut on Windows show reserved copy; generic
+  conflict never names an owner. Reconciliation failure never shows success.
 - All eleven locale maps are structurally complete.
 - No `setHotkeyCaptureActive` or renderer-side unregister behavior returns.
 
@@ -133,8 +149,9 @@ status announcements.
 ## Failure And Rollback
 
 - Closing on failure, displaying a candidate as active before main success,
-  losing focus, executing an action during Test, missing locale keys, or
-  exposing raw errors blocks completion.
+  presenting a Wayland preference as effective, losing focus, executing an
+  action during Test, missing locale keys, or exposing raw errors blocks
+  completion.
 - If the existing Settings lock is not guaranteed for the full window
   lifetime, stop and repair its owner in Packet 03 rather than adding renderer
   suspension state.

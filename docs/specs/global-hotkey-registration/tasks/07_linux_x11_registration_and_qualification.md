@@ -10,6 +10,11 @@ Wayland, Windows, headless-only assertions, or CI as a substitute.
 ## Prerequisites
 
 - Packets 01..06 are complete and approved for continuation.
+- The plan-level **MANUAL GATE — platform execution readiness** is recorded in
+  `handoff.md`: native X11, GNOME Wayland, KDE Wayland, Linux packaging, and
+  Windows access are available; any source transport between hosts is
+  separately authorized; and the evidence digest method is fixed before host
+  execution begins.
 - Execute this packet in a supported interactive Linux X11 desktop session,
   not Wayland, WSL, Wine, a headless server, or cross-compilation.
 - Read `AGENTS.md`, `tasks/todo.md`, `tasks/handoff.md`, this packet, and the
@@ -42,7 +47,7 @@ Wayland, Windows, headless-only assertions, or CI as a substitute.
 
 1. Add the Linux policy behind Packet 02's base and register it in the factory
    for `DesktopPlatform.Linux` + `LinuxSessionType.X11`. Unknown/not-applicable
-   Linux session fails closed as unsupported until Packet 09 adds Wayland.
+   Linux session fails closed as unsupported until Packet 08 adds Wayland.
 2. Linux policy applies syntax/internal conflict rules but no Windows F12
    reservation. Accepted candidates use the same Electron adapter; false,
    throw, or failed `isRegistered` maps only to `registration-rejected`.
@@ -50,7 +55,7 @@ Wayland, Windows, headless-only assertions, or CI as a substitute.
    composition without logging raw environment. Do not probe the desktop by
    shell command or expose display/session values over IPC.
 4. Prove factory selection is exact: X11 gets Linux policy; Wayland remains
-   fail-closed pending Packet 09; Windows and paused macOS branches are
+   fail-closed pending Packet 08; Windows and paused macOS branches are
    unchanged.
 5. Build a bounded helper only if needed to own one explicit synthetic global
    grab. Prefer an existing Electron helper. It must be spawned/terminated by
@@ -67,9 +72,11 @@ Wayland, Windows, headless-only assertions, or CI as a substitute.
    - Remove/restart preserve authoritative state.
 7. Exercise a valid F12 combination to prove Linux does not apply the Windows
    reservation; its result is determined only by the real X11 grab.
-8. Record only bounded target/accelerator class, enum results, session enum,
-   and pass/fail. Do not record display values, paths, external identities,
-   selected text, clipboard, audio, transcripts, credentials, or raw errors.
+8. Successful X11 bindings expose the exact normalized effective accelerator
+   with `application` authority. Record only bounded target/accelerator class,
+   enum results, session enum, evidence revision/diff digest, and pass/fail. Do
+   not record display values, paths, external identities, selected text,
+   clipboard, audio, transcripts, credentials, or raw errors.
 9. Fix every X11 defect within contract with a focused regression. Stop for a
    dependency, public API/protocol, support-policy, package-target, or
    specification change.
@@ -123,8 +130,12 @@ Wayland, Windows, headless-only assertions, or CI as a substitute.
 ## Manual Gates
 
 - **MANUAL GATE — AC-MAN-002:** Complete every real X11 step in Task Contract 6
-  plus the F12 non-reservation check.
+  plus the F12 non-reservation check and bind the result to the predeclared
+  source revision/diff digest.
 - A headless/Wayland/CI result cannot replace the interactive X11 gate.
+- Commits, pushes, source copying/synchronization, or other transport between
+  hosts require separate explicit authorization; plan or packet authorization
+  alone does not grant it.
 
 ## References
 

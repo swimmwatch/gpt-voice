@@ -5,7 +5,7 @@ import { HOTKEY_TARGETS, type HotkeyTarget } from '@shared/hotkeys';
 import type { TextActionSettings } from '@shared/textActionSettings';
 
 interface ShortcutsSectionProps {
-  getHotkeyValue: (target: HotkeyTarget) => string;
+  getHotkeyValue: (target: HotkeyTarget) => string | null;
   onHotkeyChange: (target: HotkeyTarget) => void;
   onTextActionEnabledChange: (key: keyof TextActionSettings, enabled: boolean) => void;
   t: TranslationFunction;
