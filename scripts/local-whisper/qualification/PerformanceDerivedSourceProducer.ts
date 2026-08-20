@@ -5,6 +5,7 @@ import { chmod, lstat, mkdir, open, realpath, rm, writeFile } from 'node:fs/prom
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 
+import { hasSameVerifiedFileIdentity } from '../../security/verifiedRegularFile';
 import {
   LocalWhisperPerformanceDocumentProducer,
   type PerformanceDerivedSourceReceipt,
@@ -346,13 +347,26 @@ export class NodePerformanceDerivedSourceFilesystemAdapter implements Performanc
       const handle = await open(destination, constants.O_RDONLY | constants.O_NOFOLLOW);
       try {
         const before = await handle.stat();
-        if (!before.isFile() || before.size < 1 || before.size > maximumBytes) {
+        const pathIdentity = await lstat(destination);
+        if (
+          !before.isFile() ||
+          !pathIdentity.isFile() ||
+          pathIdentity.isSymbolicLink() ||
+          !hasSameVerifiedFileIdentity(before, pathIdentity) ||
+          before.size < 1 ||
+          before.size > maximumBytes
+        ) {
           derivationFailure('SOURCE_DERIVED_FILE_INVALID');
         }
         const bytes = await handle.readFile();
         const after = await handle.stat();
+        const finalPathIdentity = await lstat(destination);
         if (
           !after.isFile() ||
+          !finalPathIdentity.isFile() ||
+          finalPathIdentity.isSymbolicLink() ||
+          !hasSameVerifiedFileIdentity(before, after) ||
+          !hasSameVerifiedFileIdentity(after, finalPathIdentity) ||
           bytes.byteLength !== before.size ||
           after.size !== before.size ||
           after.mtimeMs !== before.mtimeMs

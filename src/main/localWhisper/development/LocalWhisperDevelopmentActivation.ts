@@ -270,7 +270,14 @@ export async function openLocalWhisperActivationFile(
   const handle = await fileSystemPromises.open(filePath, flags | fileConstants.O_NOFOLLOW);
   try {
     const openedIdentity = await handle.stat();
-    if (!openedIdentity.isFile()) {
+    const pathIdentity = await fileSystemPromises.lstat(filePath);
+    if (
+      !openedIdentity.isFile() ||
+      !pathIdentity.isFile() ||
+      pathIdentity.isSymbolicLink() ||
+      openedIdentity.dev !== pathIdentity.dev ||
+      openedIdentity.ino !== pathIdentity.ino
+    ) {
       throw new Error('Local Whisper activation path identity is unavailable');
     }
     return handle;
