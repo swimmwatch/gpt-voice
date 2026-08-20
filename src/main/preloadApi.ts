@@ -10,7 +10,21 @@ import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@share
 import type { AppInfo } from '@shared/appInfo';
 import type { AppSettingsSectionId } from '@shared/appSettings';
 import type { AppLocaleId } from '@shared/appLocale';
-import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import {
+  HOTKEY_IPC_CHANNELS,
+  isHotkeyClearRequest,
+  isHotkeyMutationResponse,
+  isHotkeyRuntimeState,
+  isHotkeySetRequest,
+  isHotkeyTestRequest,
+  isHotkeyTestResponse,
+  type HotkeyClearRequest,
+  type HotkeyMutationResponse,
+  type HotkeyRuntimeState,
+  type HotkeySetRequest,
+  type HotkeyTestRequest,
+  type HotkeyTestResponse,
+} from '@shared/hotkeyIpc';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
@@ -475,8 +489,8 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
         callback(String(providerId), String(error), Boolean(authExpired)),
       );
     },
-    onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
-      return onMainEvent<[HotkeySettings]>('hotkey-settings-changed', callback);
+    onHotkeyRuntimeStateChanged: (callback: (state: HotkeyRuntimeState) => void) => {
+      return onDecodedEvent(HOTKEY_IPC_CHANNELS.snapshotChanged, isHotkeyRuntimeState, callback);
     },
     onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => {
       return onMainEvent<[PrettifySettings]>('prettify-settings-changed', callback);
@@ -484,22 +498,28 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     onLocaleChanged: (callback: (locale: AppLocaleId) => void): (() => void) => {
       return onMainEvent<[AppLocaleId]>('locale-changed', callback);
     },
-    getHotkey: (): Promise<HotkeySettings> => {
-      return ipcRenderer.invoke('get-hotkey');
+    getHotkeyRuntimeState: async (): Promise<HotkeyRuntimeState> => {
+      const state = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.snapshotQuery);
+      if (!isHotkeyRuntimeState(state)) throw new Error('Invalid hotkey runtime state');
+      return state;
     },
-    setHotkeyCaptureActive: (active: boolean): Promise<{ success: boolean }> => {
-      return ipcRenderer.invoke('set-hotkey-capture-active', active);
+    setHotkey: async (request: HotkeySetRequest): Promise<HotkeyMutationResponse> => {
+      if (!isHotkeySetRequest(request)) throw new Error('Invalid hotkey set request');
+      const response = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.set, request);
+      if (!isHotkeyMutationResponse(response)) throw new Error('Invalid hotkey mutation response');
+      return response;
     },
-    setHotkey: (
-      key: HotkeyTarget,
-      hotkey: string,
-    ): Promise<
-      {
-        success: boolean;
-        error?: string;
-      } & HotkeySettings
-    > => {
-      return ipcRenderer.invoke('set-hotkey', key, hotkey);
+    clearHotkey: async (request: HotkeyClearRequest): Promise<HotkeyMutationResponse> => {
+      if (!isHotkeyClearRequest(request)) throw new Error('Invalid hotkey clear request');
+      const response = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.clear, request);
+      if (!isHotkeyMutationResponse(response)) throw new Error('Invalid hotkey mutation response');
+      return response;
+    },
+    testHotkey: async (request: HotkeyTestRequest): Promise<HotkeyTestResponse> => {
+      if (!isHotkeyTestRequest(request)) throw new Error('Invalid hotkey test request');
+      const response = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.test, request);
+      if (!isHotkeyTestResponse(response)) throw new Error('Invalid hotkey test response');
+      return response;
     },
     getTranslateSettings: (): Promise<TranslationSettings> => {
       return ipcRenderer.invoke('get-translate-settings');

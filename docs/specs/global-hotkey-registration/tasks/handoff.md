@@ -15,6 +15,12 @@
   The composition root now owns the adapter, fail-closed policy, service, and
   bounded platform/session classification. Main interaction locking suppresses
   dispatch without unregistering bindings.
+- Packet 04 — Trusted Hotkey IPC. A shared validated runtime-state contract
+  now carries revisioned settings and binding snapshots through trusted IPC.
+  The main process owns mutations, test-session cancellation, and publication;
+  preload validates every boundary payload; both renderer consumers project the
+  authoritative nullable state without legacy capture suppression or fallback
+  defaults.
 
 ## Changed Files
 
@@ -67,6 +73,27 @@
   `tests/main/mainProcessCompositionRoot.test.ts`, and
   `tests/main/mainProcessApplication.test.ts` — service-backed controller,
   lock suppression, lifecycle, and composition regression coverage.
+- `src/shared/hotkeyIpc.ts` — canonical IPC channels, immutable runtime-state
+  contracts, and fail-closed request/response/snapshot validators.
+- `src/main/ipc.ts`, `src/main/di/mainProcessRuntimeFactory.ts`, and
+  `src/main/di/mainProcessCompositionRoot.ts` — process-owned registration
+  service injection; trusted query/set/clear/test handlers; revisioned main and
+  Settings publication; and Settings-owner/disposal physical-test cancellation.
+- `src/main/preloadApi.ts` and `src/renderer/types.d.ts` — typed, decoded
+  renderer-safe hotkey capability with no raw IPC exposure.
+- `src/renderer/AppSettingsWindow.tsx` and
+  `src/renderer/useProviderHotkeyHomeIntegration.ts` — state-revision-aware
+  authoritative projection with no renderer registration/suppression control or
+  hotkey fallback defaults.
+- `tests/main/hotkeyIpc.test.ts`, `tests/main/hotkeyIpcController.test.ts`,
+  `tests/main/hotkeyIpcContract.test.ts`, and `tests/main/preloadApi.test.ts`
+  — strict boundary, trusted owner, revision, cancellation, and preload decoder
+  coverage.
+- `tests/main/firstLaunchStartupIpc.test.ts` and
+  `tests/main/translationSettingsInitializationIpc.test.ts` — synchronized IPC
+  controller construction harnesses.
+- `tests/renderer/providerHotkeyHomeIntegration.test.ts` — authoritative-state
+  renderer source contract and current bounded recording rejection assertion.
 - `scripts/local-whisper/qualification/` — restored the current focused
   performance manifest, explicit artifact validation mode, nullable lifecycle,
   native stream/diagnostic, and process-session contracts that blocked the
@@ -103,13 +130,22 @@
 - `npm run test:types` — passed.
 - Scoped ESLint and Prettier over Packet 03 source/test files — passed.
 - `git diff --check` — passed after Packet 03.
+- `node --import tsx --test tests/main/hotkeyIpcContract.test.ts tests/main/hotkeyIpc.test.ts tests/main/hotkeyIpcController.test.ts tests/main/preloadApi.test.ts tests/main/firstLaunchStartupIpc.test.ts tests/main/translationSettingsInitializationIpc.test.ts tests/renderer/providerHotkeyHomeIntegration.test.ts` — passed: 39 tests.
+- `node --import tsx --test tests/main/hotkeys/HotkeyRegistrationService.test.ts tests/main/hotkeys.test.ts` — passed: 27 tests.
+- `npm run typecheck` — passed.
+- `npm run test:types` — passed.
+- Scoped ESLint — passed with no errors (the existing complexity, unused catch
+  binding, and test-double class-count warnings remain outside Packet 04's
+  functional checks).
+- Scoped Prettier — passed.
+- `git diff --check` — passed after Packet 04.
 
 ## Exact Next Packet
 
-- [`04_trusted_hotkey_ipc.md`](./04_trusted_hotkey_ipc.md)
+- [`05_settings_registration_experience.md`](./05_settings_registration_experience.md)
 
 ## Blockers
 
-- None for Packet 04.
+- None for Packet 05.
 - The pre-Packet-07 platform-readiness gate remains a future execution
   prerequisite, not a blocker for Packets 01–06.

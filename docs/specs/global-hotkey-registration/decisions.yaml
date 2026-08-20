@@ -900,3 +900,75 @@ decisions:
     supersedes_revision: null
     requirement_ids:
       [SCOPE-004, ARCH-004, ARCH-006, ARCH-007, FLOW-001, FLOW-007, FLOW-009, SEC-001, SEC-003, COMP-003, COMP-004]
+
+  - id: authorization.packet-04-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 is committed, and Packet 04 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 04 is limited to trusted hotkey IPC, preload and renderer capability migration, and focused tests; it excludes final visual design, platform-native registration, release, and publication work.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-04
+      question_id: authorization.packet-04-execution
+      idempotency_key: authorization.packet-04-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 04: Trusted Hotkey IPC?'
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize Packet 04 (Recommended)
+          description: Authorize only trusted hotkey IPC, preload and consumer migration; no commit, Packet 05, platform transport, release, or publication.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 04 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 04 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: 'The user authorized only Packet 04. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 05, platform transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [OUT-001, DATA-008, FLOW-008, FLOW-009, IPC-001, IPC-002, IPC-003, FAIL-002, SEC-001, SEC-002, SEC-003, SEC-004, QUAL-004, QUAL-006, AC-AUTO-004, AC-AUTO-006]
+
+  - id: authorization.commit-packet-04
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 is checked complete with focused IPC, service, renderer, type, formatting, and diff-hygiene checks passing.'
+      - 'The worktree also contains unrelated Local Whisper changes that must remain outside the Packet 04 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-05
+      question_id: authorization.commit-packet-04
+      idempotency_key: authorization.commit-packet-04:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 04 trusted hotkey IPC increment before beginning Packet 05?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-04
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 04 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 04 uncommitted and do not begin Packet 05.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 04 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-04]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 04 only. Unrelated Local Whisper changes remain uncommitted; Packet 05 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [OUT-001, DATA-008, FLOW-008, FLOW-009, IPC-001, IPC-002, IPC-003, FAIL-002, SEC-001, SEC-002, SEC-003, SEC-004, QUAL-004, QUAL-006, AC-AUTO-004, AC-AUTO-006]

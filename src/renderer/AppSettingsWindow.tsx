@@ -38,7 +38,8 @@ import { presentAppSettingsFieldErrors } from '@renderer/appSettingsValidationPr
 import { useI18n } from '@renderer/hooks/useI18n';
 import { usePrettifySettingsController } from '@renderer/hooks/usePrettifySettingsController';
 import { getSettingsCloseDisposition } from '@renderer/settingsCloseViewState';
-import { type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import type { HotkeyRuntimeState } from '@shared/hotkeyIpc';
+import type { HotkeyTarget } from '@shared/hotkeys';
 import type { TextActionSettings } from '@shared/textActionSettings';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import {
@@ -204,7 +205,7 @@ const AppSettingsWindow: React.FC = () => {
   const [diagnosticCaptureSettings, setDiagnosticCaptureSettings] = useState<DiagnosticCaptureSettings | null>(null);
   const [initialDiagnosticCaptureSettings, setInitialDiagnosticCaptureSettings] =
     useState<DiagnosticCaptureSettings | null>(null);
-  const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
+  const [hotkeyRuntimeState, setHotkeyRuntimeState] = useState<HotkeyRuntimeState | null>(null);
   const [prettifyProfilesState, dispatchPrettifyProfiles] = useReducer(prettifyProfilesDraftControllerReducer, null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(getInitialSettingsSection);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
@@ -262,7 +263,6 @@ const AppSettingsWindow: React.FC = () => {
           nextPrettifyProfiles,
           nextTextActionSettings,
           nextDiagnosticCaptureSettings,
-          nextHotkeySettings,
           nextPlatform,
         ] = await Promise.all([
           desktopApi.getCloakBrowserSettings(),
@@ -270,7 +270,6 @@ const AppSettingsWindow: React.FC = () => {
           desktopApi.getPrettifyProfileCatalog(),
           desktopApi.getTextActionSettings(),
           desktopApi.getDiagnosticCaptureSettings(),
-          desktopApi.getHotkey(),
           desktopApi.getPlatform(),
         ]);
         if (disposed) return;
@@ -284,7 +283,6 @@ const AppSettingsWindow: React.FC = () => {
         setInitialTextActionSettings(nextTextActionSettings);
         setDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
         setInitialDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
-        setHotkeySettings(nextHotkeySettings);
         setPlatform(nextPlatform);
       } catch {
         if (!disposed) {
@@ -301,10 +299,27 @@ const AppSettingsWindow: React.FC = () => {
   }, [desktopApi, t]);
 
   useEffect(() => {
-    return () => {
-      void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
+    let disposed = false;
+    let latestRevision = -1;
+    const acceptRuntimeState = (state: HotkeyRuntimeState): void => {
+      if (disposed || state.revision < latestRevision) return;
+      latestRevision = state.revision;
+      setHotkeyRuntimeState(state);
     };
-  }, [desktopApi]);
+    const unsubscribe = desktopApi.onHotkeyRuntimeStateChanged(acceptRuntimeState);
+
+    void desktopApi
+      .getHotkeyRuntimeState()
+      .then(acceptRuntimeState)
+      .catch(() => {
+        if (!disposed) setError(t('appSettings.saveFailed'));
+      });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi, t]);
 
   useEffect(() => {
     settingsWindowMountedRef.current = true;
@@ -373,6 +388,7 @@ const AppSettingsWindow: React.FC = () => {
   }
 
   const getHotkeyValue = (target: HotkeyTarget): string | null => {
+    const hotkeySettings = hotkeyRuntimeState?.settings;
     if (!hotkeySettings) return null;
     switch (target) {
       case 'record':
@@ -392,34 +408,25 @@ const AppSettingsWindow: React.FC = () => {
     }
   };
 
-  const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {
+  const openHotkeyModal = (target: HotkeyTarget): void => {
     setError('');
-    try {
-      const result = await desktopApi.setHotkeyCaptureActive(true);
-      if (!result.success) {
-        setError(t('appSettings.saveFailed'));
-        return;
-      }
-      setHotkeyTarget(target);
-      setShowHotkeyModal(true);
-    } catch {
-      setError(t('appSettings.saveFailed'));
-    }
+    setHotkeyTarget(target);
+    setShowHotkeyModal(true);
   };
 
   const closeHotkeyModal = (): void => {
     setShowHotkeyModal(false);
-    void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
   };
 
   const applyHotkey = async (newHotkey: string): Promise<void> => {
     setError('');
     try {
-      const result = await desktopApi.setHotkey(hotkeyTarget, newHotkey);
-      if (result.success) {
-        setHotkeySettings(result);
+      const result = await desktopApi.setHotkey({ accelerator: newHotkey, target: hotkeyTarget });
+      setHotkeyRuntimeState(result.state);
+      if (result.status === 'success') {
+        setError('');
       } else {
-        setError(result.error || t('appSettings.saveFailed'));
+        setError(t('appSettings.saveFailed'));
       }
     } catch {
       setError(t('appSettings.saveFailed'));
@@ -712,6 +719,7 @@ const AppSettingsWindow: React.FC = () => {
   const formState = loadedFormInput ? getAppSettingsFormState(loadedFormInput) : null;
   const visibleFieldErrors = formState?.isDirty ? { ...formState.validationErrors, ...fieldErrors } : fieldErrors;
   const visibleFieldErrorMessages = presentAppSettingsFieldErrors(visibleFieldErrors, t);
+  const hotkeySettings = hotkeyRuntimeState?.settings ?? null;
   const isSettingsReady = Boolean(formState && hotkeySettings);
   useWindowStartupReady(isI18nReady && (isSettingsReady || Boolean(error)));
   const renderFieldError = (fieldKey: AppSettingsFieldKey): React.ReactNode => {

@@ -17,13 +17,17 @@ import {
   type OpenAIApiSettingsInput,
 } from './providers/openaiApiSettingsUtils';
 import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
+import { HotkeyRegistrationFailureCode, HotkeyTestResult } from '@shared/hotkeys';
 import {
-  getHotkeyConflict,
-  isHotkeyTarget,
-  normalizeHotkey,
-  type HotkeySettings,
-  type HotkeyTarget,
-} from '@shared/hotkeys';
+  HOTKEY_IPC_CHANNELS,
+  isHotkeyClearRequest,
+  isHotkeySetRequest,
+  isHotkeyTestRequest,
+  type HotkeyMutationResponse,
+  type HotkeyRuntimeState,
+  type HotkeyTestResponse,
+} from '@shared/hotkeyIpc';
+import type { HotkeyRegistrationMutationResult, HotkeyRegistrationService } from './hotkeys/HotkeyRegistrationService';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   assertValidKnownPrettifySettingsInput,
@@ -156,6 +160,10 @@ export interface MainIpcControllerDependencies {
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticsExport: DiagnosticsExportService;
   readonly firstLaunchStartupCoordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot' | 'retry'>;
+  readonly hotkeyRegistrationService: Pick<
+    HotkeyRegistrationService,
+    'cancelTest' | 'clear' | 'set' | 'snapshot' | 'subscribe' | 'test'
+  >;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
@@ -368,12 +376,19 @@ export class MainIpcController {
   private prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents> | null = null;
   private prettifySettingsMutation: Promise<void> = Promise.resolve();
   private registered = false;
+  private hotkeyIpcRegistered = false;
+  private hotkeyRuntimeRevision = 0;
+  private hotkeyRuntimeState: HotkeyRuntimeState;
+  private hotkeyRuntimeUnsubscribe: (() => void) | null = null;
+  private hotkeyTestOwner: WebContents | null = null;
+  private hotkeyTestOwnerCleanup: (() => void) | null = null;
   private streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents> | null = null;
   private translationSettingsMutation: Promise<void> = Promise.resolve();
   private readonly trustedIpc: TrustedIpcRegistrar;
 
   public constructor(private readonly dependencies: MainIpcControllerDependencies) {
     this.trustedIpc = dependencies.trustedIpc;
+    this.hotkeyRuntimeState = this.createHotkeyRuntimeState(dependencies.hotkeyRegistrationService.snapshot, 0);
   }
 
   /** Registers every main-process handler once for this controller. */
@@ -472,7 +487,10 @@ export class MainIpcController {
       let provider;
       try {
         if (typeof providerId !== 'string') {
-          return { success: false, error: dependencies.localization.translate('appSettings.validation.providerInvalid') };
+          return {
+            success: false,
+            error: dependencies.localization.translate('appSettings.validation.providerInvalid'),
+          };
         }
         provider = dependencies.voiceProviderRegistry.createProvider(providerId);
       } catch (error: unknown) {
@@ -882,116 +900,7 @@ export class MainIpcController {
       return result;
     });
 
-    this.trustedIpc.handle('get-hotkey', (): HotkeySettings => {
-      return dependencies.config.getHotkeySettings();
-    });
-
-    this.trustedIpc.handle('set-hotkey-capture-active', (_event, active: unknown) => {
-      if (typeof active !== 'boolean') {
-        return { success: false };
-      }
-
-      dependencies.shortcutController.setSuspended(active);
-      return { success: true };
-    });
-
-    this.trustedIpc.handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
-      if (typeof key !== 'string' || !isHotkeyTarget(key)) {
-        return {
-          success: false,
-          error: dependencies.localization.translate('hotkey.pressKeyCombination'),
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-      const target: HotkeyTarget = key;
-      if (typeof hotkey !== 'string') {
-        return {
-          success: false,
-          error: dependencies.localization.translate('hotkey.pressKeyCombination'),
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-      const normalizedHotkey = normalizeHotkey(hotkey);
-      if (!normalizedHotkey) {
-        return {
-          success: false,
-          error: dependencies.localization.translate('hotkey.pressKeyCombination'),
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-
-      const conflict = getHotkeyConflict(
-        target,
-        normalizedHotkey,
-        dependencies.config.getHotkeySettings(),
-        dependencies.platform,
-      );
-      if (conflict) {
-        return {
-          success: false,
-          error: dependencies.localization.translate('hotkey.pressKeyCombination'),
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-
-      if (key === 'cancel') {
-        log.info(
-          'Changing cancel hotkey from',
-          dependencies.config.getHotkeySettings().cancelHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ cancelHotkey: normalizedHotkey });
-      } else if (key === 'stop') {
-        log.info(
-          'Changing stop hotkey from',
-          dependencies.config.getHotkeySettings().stopHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ stopHotkey: normalizedHotkey });
-      } else if (target === 'translate') {
-        log.info(
-          'Changing translate hotkey from',
-          dependencies.config.getHotkeySettings().translateHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ translateHotkey: normalizedHotkey });
-      } else if (target === 'prettify') {
-        log.info(
-          'Changing prettify hotkey from',
-          dependencies.config.getHotkeySettings().prettifyHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ prettifyHotkey: normalizedHotkey });
-      } else if (target === 'prettifyQuick') {
-        log.info(
-          'Changing quick prettify hotkey from',
-          dependencies.config.getHotkeySettings().prettifyQuickHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ prettifyQuickHotkey: normalizedHotkey });
-      } else if (target === 'retryTranscription') {
-        log.info(
-          'Changing retry transcription hotkey from',
-          dependencies.config.getHotkeySettings().retryTranscriptionHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ retryTranscriptionHotkey: normalizedHotkey });
-      } else {
-        log.info('Changing hotkey from', dependencies.config.getHotkeySettings().hotkey, 'to', normalizedHotkey);
-        dependencies.config.setHotkeys({ hotkey: normalizedHotkey });
-      }
-      dependencies.config.save();
-      dependencies.shortcutController.register();
-      const hotkeySettings = dependencies.config.getHotkeySettings();
-      dependencies.windowManager.getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
-      return { success: true, ...hotkeySettings };
-    });
+    this.registerHotkeyIpc();
 
     this.trustedIpc.handle('get-translate-settings', () => {
       return dependencies.config.getTranslationSettings();
@@ -1236,7 +1145,10 @@ export class MainIpcController {
     this.trustedIpc.handle('set-locale', (_event, locale: unknown) => {
       try {
         if (!isAppLocaleId(locale)) {
-          return { success: false, error: dependencies.localization.translate('appSettings.validation.localeUnsupported') };
+          return {
+            success: false,
+            error: dependencies.localization.translate('appSettings.validation.localeUnsupported'),
+          };
         }
         log.info('Saving locale:', { from: dependencies.localization.getLocale(), to: locale });
         dependencies.localization.setLocale(locale);
@@ -1260,6 +1172,9 @@ export class MainIpcController {
   public dispose(): Promise<void> {
     if (this.disposalPromise) return this.disposalPromise;
     this.disposed = true;
+    this.hotkeyRuntimeUnsubscribe?.();
+    this.hotkeyRuntimeUnsubscribe = null;
+    this.cancelHotkeyTest();
     this.dependencies.prettifyProfileChooserIpc.dispose();
     this.trustedIpc.dispose();
     this.prettifyConnectionCoordinator?.dispose();
@@ -1270,6 +1185,105 @@ export class MainIpcController {
       this.translationSettingsMutation,
     ]).then(() => undefined);
     return this.disposalPromise;
+  }
+
+  private registerHotkeyIpc(): void {
+    if (this.hotkeyIpcRegistered) return;
+    this.hotkeyIpcRegistered = true;
+    const { hotkeyRegistrationService } = this.dependencies;
+    this.hotkeyRuntimeUnsubscribe = hotkeyRegistrationService.subscribe(this.publishHotkeyRuntimeState);
+
+    this.trustedIpc.handle(HOTKEY_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.hotkeyRuntimeState;
+    });
+
+    this.trustedIpc.handleSettingsWindow(HOTKEY_IPC_CHANNELS.set, (_event, _settingsWindow, ...args: unknown[]) => {
+      const request = args.length === 1 ? args[0] : null;
+      if (!isHotkeySetRequest(request))
+        return this.createHotkeyMutationFailure(HotkeyRegistrationFailureCode.InvalidAccelerator);
+      return this.toHotkeyMutationResponse(hotkeyRegistrationService.set(request.target, request.accelerator));
+    });
+
+    this.trustedIpc.handleSettingsWindow(HOTKEY_IPC_CHANNELS.clear, (_event, _settingsWindow, ...args: unknown[]) => {
+      const request = args.length === 1 ? args[0] : null;
+      if (!isHotkeyClearRequest(request))
+        return this.createHotkeyMutationFailure(HotkeyRegistrationFailureCode.InvalidAccelerator);
+      return this.toHotkeyMutationResponse(hotkeyRegistrationService.clear(request.target));
+    });
+
+    this.trustedIpc.handleSettingsWindow(
+      HOTKEY_IPC_CHANNELS.test,
+      async (event, settingsWindow, ...args: unknown[]): Promise<HotkeyTestResponse> => {
+        const request = args.length === 1 ? args[0] : null;
+        if (!isHotkeyTestRequest(request) || !this.beginHotkeyTest(event.sender, settingsWindow)) {
+          return Object.freeze({ result: HotkeyTestResult.Unavailable, state: this.hotkeyRuntimeState });
+        }
+        try {
+          return Object.freeze({
+            result: await hotkeyRegistrationService.test(request.target),
+            state: this.hotkeyRuntimeState,
+          });
+        } finally {
+          this.clearHotkeyTestOwner();
+        }
+      },
+    );
+  }
+
+  private createHotkeyRuntimeState(snapshot: HotkeyRuntimeState['snapshot'], revision: number): HotkeyRuntimeState {
+    return Object.freeze({
+      revision,
+      settings: this.dependencies.config.getHotkeySettings(),
+      snapshot,
+    });
+  }
+
+  private readonly publishHotkeyRuntimeState = (snapshot: HotkeyRuntimeState['snapshot']): void => {
+    if (this.disposed) return;
+    this.hotkeyRuntimeRevision += 1;
+    this.hotkeyRuntimeState = this.createHotkeyRuntimeState(snapshot, this.hotkeyRuntimeRevision);
+    for (const window of [
+      this.dependencies.windowManager.getMainWindow(),
+      this.dependencies.windowManager.getSettingsWindow(),
+    ]) {
+      if (!window || window.isDestroyed() || window.webContents.isDestroyed()) continue;
+      window.webContents.send(HOTKEY_IPC_CHANNELS.snapshotChanged, this.hotkeyRuntimeState);
+    }
+  };
+
+  private toHotkeyMutationResponse(result: HotkeyRegistrationMutationResult): HotkeyMutationResponse {
+    if (result.success) return Object.freeze({ state: this.hotkeyRuntimeState, status: 'success' });
+    return this.createHotkeyMutationFailure(result.failureCode ?? HotkeyRegistrationFailureCode.RegistrationRejected);
+  }
+
+  private createHotkeyMutationFailure(failureCode: HotkeyRegistrationFailureCode): HotkeyMutationResponse {
+    return Object.freeze({ failureCode, state: this.hotkeyRuntimeState, status: 'failure' });
+  }
+
+  private beginHotkeyTest(sender: WebContents, settingsWindow: BrowserWindow): boolean {
+    if (this.hotkeyTestOwner !== null || sender.isDestroyed() || settingsWindow.isDestroyed()) return false;
+    const cancel = (): void => this.cancelHotkeyTest(sender);
+    this.hotkeyTestOwner = sender;
+    this.hotkeyTestOwnerCleanup = (): void => {
+      sender.removeListener('destroyed', cancel);
+      settingsWindow.removeListener('closed', cancel);
+    };
+    sender.once('destroyed', cancel);
+    settingsWindow.once('closed', cancel);
+    return true;
+  }
+
+  private cancelHotkeyTest(sender?: WebContents): void {
+    if (this.hotkeyTestOwner === null || (sender !== undefined && this.hotkeyTestOwner !== sender)) return;
+    this.dependencies.hotkeyRegistrationService.cancelTest();
+    this.clearHotkeyTestOwner();
+  }
+
+  private clearHotkeyTestOwner(): void {
+    this.hotkeyTestOwnerCleanup?.();
+    this.hotkeyTestOwnerCleanup = null;
+    this.hotkeyTestOwner = null;
   }
 
   private isMainInteractionActionBlocked(event: Pick<IpcMainInvokeEvent, 'sender'>): boolean {

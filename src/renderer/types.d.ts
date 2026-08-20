@@ -3,7 +3,14 @@ import type { AppSettingsSectionId } from '@shared/appSettings';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { ClaudeWebSettings, ClaudeWebSettingsUpdateInput } from '@shared/claudeWebSettings';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
-import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import type {
+  HotkeyClearRequest,
+  HotkeyMutationResponse,
+  HotkeyRuntimeState,
+  HotkeySetRequest,
+  HotkeyTestRequest,
+  HotkeyTestResponse,
+} from '@shared/hotkeyIpc';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type { OpenAIApiTranscriptionLanguage, OpenAIApiTranscriptionModel } from '@shared/openaiApiTranscription';
 import type { SettingsPresentationState } from '@shared/settingsPresentation';
@@ -233,12 +240,13 @@ export interface ElectronAPI {
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: (providerId: string) => void) => () => void;
   onBgBrowserError: (callback: (providerId: string, error: string, authExpired: boolean) => void) => () => void;
-  onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
+  onHotkeyRuntimeStateChanged: (callback: (state: HotkeyRuntimeState) => void) => () => void;
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
   onLocaleChanged: (callback: (locale: AppLocaleId) => void) => () => void;
-  getHotkey: () => Promise<HotkeySettings>;
-  setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
-  setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
+  getHotkeyRuntimeState: () => Promise<HotkeyRuntimeState>;
+  setHotkey: (request: HotkeySetRequest) => Promise<HotkeyMutationResponse>;
+  clearHotkey: (request: HotkeyClearRequest) => Promise<HotkeyMutationResponse>;
+  testHotkey: (request: HotkeyTestRequest) => Promise<HotkeyTestResponse>;
   getTranslateSettings: () => Promise<TranslationSettings>;
   getTranslationProviderConnection: () => Promise<TranslationProviderConnectionState>;
   getTextActionSettings: () => Promise<TextActionSettings>;

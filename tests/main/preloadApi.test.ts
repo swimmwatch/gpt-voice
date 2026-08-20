@@ -17,6 +17,7 @@ import {
   createFirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
 import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
+import { HOTKEY_IPC_CHANNELS } from '@shared/hotkeyIpc';
 import { MAIN_INTERACTION_LOCK_IPC_CHANNELS } from '@shared/mainInteractionLock';
 import { SETTINGS_PRESENTATION_IPC_CHANNELS } from '@shared/settingsPresentation';
 import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
@@ -28,6 +29,41 @@ import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/local
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 type IpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
+
+function createHotkeyRuntimeState(revision = 1): Record<string, unknown> {
+  return {
+    revision,
+    settings: {
+      cancelHotkey: null,
+      hotkey: 'F9',
+      prettifyHotkey: null,
+      prettifyQuickHotkey: null,
+      retryTranscriptionHotkey: null,
+      stopHotkey: null,
+      translateHotkey: null,
+    },
+    snapshot: {
+      entries: [
+        {
+          bindingAuthority: 'application',
+          configuredAccelerator: 'F9',
+          dispatchStatus: 'enabled',
+          effectiveAccelerator: 'F9',
+          registrationStatus: 'registered',
+          target: 'record',
+        },
+        ...['stop', 'cancel', 'translate', 'prettify', 'prettifyQuick', 'retryTranscription'].map((target) => ({
+          bindingAuthority: 'none',
+          configuredAccelerator: null,
+          dispatchStatus: 'enabled',
+          effectiveAccelerator: null,
+          registrationStatus: 'unassigned',
+          target,
+        })),
+      ],
+    },
+  };
+}
 
 class RecordingIpcRenderer implements ElectronApiIpcRenderer {
   public readonly invocations: { args: unknown[]; channel: string }[] = [];
@@ -122,19 +158,60 @@ describe('preload API factory', () => {
       committedProviderId: 'claude-web',
       readinessRevision: 1,
     });
+    renderer.respond(HOTKEY_IPC_CHANNELS.set, { state: createHotkeyRuntimeState(), status: 'success' });
     const api = createElectronApi(renderer);
 
     assert.equal(await api.getActiveProvider(), null);
     await api.setActiveProvider('claude-web');
-    await api.setHotkey('prettifyQuick', 'Ctrl+F12');
+    await api.setHotkey({ accelerator: 'Ctrl+F12', target: 'prettifyQuick' });
     await api.translateText('private-source-canary', 'ru');
 
     assert.deepEqual(renderer.invocations, [
       { args: [], channel: 'get-active-provider' },
       { args: ['claude-web'], channel: 'set-active-provider' },
-      { args: ['prettifyQuick', 'Ctrl+F12'], channel: 'set-hotkey' },
+      { args: [{ accelerator: 'Ctrl+F12', target: 'prettifyQuick' }], channel: HOTKEY_IPC_CHANNELS.set },
       { args: ['private-source-canary', 'ru'], channel: 'translate-text' },
     ]);
+  });
+
+  it('validates hotkey requests, responses, and runtime-state events at the preload boundary', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const state = createHotkeyRuntimeState();
+    renderer.respond(HOTKEY_IPC_CHANNELS.snapshotQuery, state);
+    renderer.respond(HOTKEY_IPC_CHANNELS.set, { state, status: 'success' });
+    renderer.respond(HOTKEY_IPC_CHANNELS.clear, {
+      failureCode: 'registration-rejected',
+      state,
+      status: 'failure',
+    });
+    renderer.respond(HOTKEY_IPC_CHANNELS.test, { result: 'unavailable', state });
+    const api = createElectronApi(renderer);
+    const revisions: number[] = [];
+    const unsubscribe = api.onHotkeyRuntimeStateChanged((nextState) => revisions.push(nextState.revision));
+
+    assert.equal((await api.getHotkeyRuntimeState()).revision, 1);
+    assert.equal((await api.setHotkey({ accelerator: 'F10', target: 'stop' })).status, 'success');
+    assert.equal((await api.clearHotkey({ target: 'stop' })).status, 'failure');
+    assert.equal((await api.testHotkey({ target: 'record' })).result, 'unavailable');
+    renderer.emit(HOTKEY_IPC_CHANNELS.snapshotChanged, createHotkeyRuntimeState(2));
+    renderer.emit(HOTKEY_IPC_CHANNELS.snapshotChanged, { ...createHotkeyRuntimeState(3), extra: true });
+    unsubscribe();
+
+    assert.deepEqual(revisions, [2]);
+    assert.deepEqual(renderer.invocations, [
+      { args: [], channel: HOTKEY_IPC_CHANNELS.snapshotQuery },
+      { args: [{ accelerator: 'F10', target: 'stop' }], channel: HOTKEY_IPC_CHANNELS.set },
+      { args: [{ target: 'stop' }], channel: HOTKEY_IPC_CHANNELS.clear },
+      { args: [{ target: 'record' }], channel: HOTKEY_IPC_CHANNELS.test },
+    ]);
+    await assert.rejects(api.setHotkey({ accelerator: '', target: 'record' } as never), /Invalid hotkey set request/u);
+    await assert.rejects(api.clearHotkey({ target: 'forged' } as never), /Invalid hotkey clear request/u);
+    await assert.rejects(api.testHotkey({ target: 'forged' } as never), /Invalid hotkey test request/u);
+
+    renderer.respond(HOTKEY_IPC_CHANNELS.snapshotQuery, { ...createHotkeyRuntimeState(), revision: -1 });
+    await assert.rejects(api.getHotkeyRuntimeState(), /Invalid hotkey runtime state/u);
+    renderer.respond(HOTKEY_IPC_CHANNELS.set, { state, status: 'success', untrusted: true });
+    await assert.rejects(api.setHotkey({ accelerator: 'F10', target: 'stop' }), /Invalid hotkey mutation response/u);
   });
 
   it('decodes Local Whisper queries/results and drops malformed renderer events', async () => {

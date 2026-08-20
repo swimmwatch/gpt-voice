@@ -895,6 +895,7 @@ export class MainProcessCompositionRoot {
       diagnosticsExport,
       firstLaunchStartupCoordinator,
       historyRepository,
+      hotkeyRegistrationService,
       localWhisperCoordinator,
       localWhisperEnvironmentDispose: this.environment.localWhisper.dispose,
       localWhisperIpcController,

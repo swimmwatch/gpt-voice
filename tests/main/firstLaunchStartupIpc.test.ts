@@ -186,7 +186,21 @@ function createHarness(
     } as unknown as MainIpcControllerDependencies['windowManager'],
   );
   const controller = new MainIpcController({
+    config: {
+      getHotkeySettings: () => ({
+        cancelHotkey: null,
+        hotkey: null,
+        prettifyHotkey: null,
+        prettifyQuickHotkey: null,
+        retryTranscriptionHotkey: null,
+        stopHotkey: null,
+        translateHotkey: null,
+      }),
+    },
     firstLaunchStartupCoordinator: coordinator,
+    hotkeyRegistrationService: {
+      snapshot: { entries: [] },
+    },
     mainInteractionLock,
     trustedIpc: registrar,
     windowManager,

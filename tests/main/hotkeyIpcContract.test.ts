@@ -25,30 +25,42 @@ describe('hotkey IPC contract', () => {
     assert.match(shared, /Object\.keys\(candidate\)\.length === 2/u);
   });
 
-  it('persists the quick Prettify target through the validated existing handler', () => {
+  it('routes validated state queries through trusted windows and keeps mutations Settings-only', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const handler = ipc.slice(ipc.indexOf("handle('set-hotkey'"), ipc.indexOf("handle('get-translate-settings'"));
-
-    assert.match(handler, /isHotkeyTarget\(key\)/u);
-    assert.match(
-      handler,
-      /getHotkeyConflict\(\s*target,\s*normalizedHotkey,\s*dependencies\.config\.getHotkeySettings\(\),\s*dependencies\.platform/u,
-    );
-    assert.match(handler, /target === 'prettifyQuick'/u);
-    assert.match(handler, /setHotkeys\(\{ prettifyQuickHotkey: normalizedHotkey \}\)/u);
-    assert.match(handler, /dependencies\.config\.save\(\)/u);
-    assert.match(handler, /dependencies\.shortcutController\.register\(\)/u);
-    assert.match(handler, /hotkey-settings-changed/u);
-  });
-
-  it('reuses the typed preload and renderer declarations without adding a channel', () => {
+    const shared = readProjectFile('src/shared/hotkeyIpc.ts');
     const preload = readProjectFile('src/main/preloadApi.ts');
     const rendererTypes = readProjectFile('src/renderer/types.d.ts');
 
-    assert.match(preload, /key: HotkeyTarget,[\s\S]*?hotkey: string/u);
-    assert.match(preload, /ipcRenderer\.invoke\('set-hotkey', key, hotkey\)/u);
-    assert.match(rendererTypes, /setHotkey: \([\s\S]*?key: HotkeyTarget,[\s\S]*?hotkey: string/u);
-    assert.doesNotMatch(preload, /prettify-quick/u);
-    assert.doesNotMatch(rendererTypes, /prettify-quick/u);
+    assert.match(shared, /HOTKEY_IPC_CHANNELS/u);
+    assert.match(shared, /isHotkeyRuntimeState/u);
+    assert.match(shared, /isHotkeyMutationResponse/u);
+    assert.match(shared, /isHotkeyTestResponse/u);
+    assert.match(ipc, /trustedIpc\.handle\(HOTKEY_IPC_CHANNELS\.snapshotQuery/u);
+    assert.match(ipc, /handleSettingsWindow\(HOTKEY_IPC_CHANNELS\.set/u);
+    assert.match(ipc, /handleSettingsWindow\(HOTKEY_IPC_CHANNELS\.clear/u);
+    assert.match(ipc, /handleSettingsWindow\(\s*HOTKEY_IPC_CHANNELS\.test/u);
+    assert.match(ipc, /isHotkeySetRequest\(request\)/u);
+    assert.match(ipc, /isHotkeyClearRequest\(request\)/u);
+    assert.match(ipc, /isHotkeyTestRequest\(request\)/u);
+    assert.match(ipc, /hotkeyRegistrationService\.set\(request\.target, request\.accelerator\)/u);
+    assert.match(ipc, /hotkeyRegistrationService\.clear\(request\.target\)/u);
+    assert.match(ipc, /hotkeyRegistrationService\.test\(request\.target\)/u);
+    assert.match(ipc, /cancelHotkeyTest\(sender\)/u);
+    assert.match(ipc, /settingsWindow\.once\('closed', cancel\)/u);
+    assert.match(ipc, /sender\.once\('destroyed', cancel\)/u);
+    assert.match(ipc, /hotkeyRegistrationService\.cancelTest\(\)/u);
+    assert.doesNotMatch(ipc, /shortcutController\.register\(/u);
+    assert.doesNotMatch(ipc, /dependencies\.config\.persistHotkey\(/u);
+    assert.match(preload, /isHotkeyRuntimeState\(state\)/u);
+    assert.match(preload, /isHotkeyMutationResponse\(response\)/u);
+    assert.match(preload, /isHotkeyTestResponse\(response\)/u);
+    assert.match(rendererTypes, /getHotkeyRuntimeState: \(\) => Promise<HotkeyRuntimeState>/u);
+    assert.match(rendererTypes, /setHotkey: \(request: HotkeySetRequest\)/u);
+    assert.match(rendererTypes, /clearHotkey: \(request: HotkeyClearRequest\)/u);
+    assert.match(rendererTypes, /testHotkey: \(request: HotkeyTestRequest\)/u);
+
+    assert.doesNotMatch(ipc, /hotkey-settings-chang(?:ed|ED)/u);
+    assert.doesNotMatch(preload, /hotkey-settings-chang(?:ed|ED)/u);
+    assert.doesNotMatch(rendererTypes, /setHotkeyCapture(?:Active|ACTIVE)/u);
   });
 });

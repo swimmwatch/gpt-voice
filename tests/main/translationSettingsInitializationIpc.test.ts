@@ -61,6 +61,18 @@ class TranslationSettingsConfigDouble {
     return this.settings;
   }
 
+  public getHotkeySettings() {
+    return {
+      cancelHotkey: null,
+      hotkey: null,
+      prettifyHotkey: null,
+      prettifyQuickHotkey: null,
+      retryTranscriptionHotkey: null,
+      stopHotkey: null,
+      translateHotkey: null,
+    };
+  }
+
   public saveTranslationSettings(candidate: unknown): TranslationSettings {
     if (this.saveError) throw this.saveError;
     const settings = candidate as TranslationSettings;
@@ -138,6 +150,9 @@ function createHarness() {
   } as unknown as MainIpcControllerDependencies['windowManager']);
   const controller = new MainIpcController({
     config,
+    hotkeyRegistrationService: {
+      snapshot: { entries: [] },
+    },
     localization: { translate: (key: string) => key },
     logger,
     mainInteractionLock: new MainInteractionLock(() => false),

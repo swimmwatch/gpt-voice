@@ -18,6 +18,7 @@ import { TranscriptionHistoryIpcController } from '../services/transcriptionHist
 import { createTranscriptionResultCache } from '../services/transcriptionResultCache';
 import type { DesktopRuntimeController } from '../desktopRuntimeController';
 import type { ShortcutController } from '../shortcuts';
+import type { HotkeyRegistrationService } from '../hotkeys/HotkeyRegistrationService';
 import type { ProviderHomeActionDispatcher } from '../providerHomeActionDispatcher';
 import type { WindowManager } from '../window';
 import type { BackgroundBrowserService } from '../browser';
@@ -58,6 +59,7 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'diagnosticCaptureSettings'
   | 'diagnosticsExport'
   | 'firstLaunchStartupCoordinator'
+  | 'hotkeyRegistrationService'
   | 'historyController'
   | 'mainInteractionLock'
   | 'prettifyProfileChooserIpc'
@@ -108,6 +110,7 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticsExport: DiagnosticsExportService;
   readonly firstLaunchStartupCoordinator: FirstLaunchStartupCoordinator;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
+  readonly hotkeyRegistrationService: HotkeyRegistrationService;
   readonly localWhisperCoordinator: LocalWhisperCoordinator;
   readonly localWhisperEnvironmentDispose: () => Promise<void>;
   readonly localWhisperIpcController: LocalWhisperIpcController;
@@ -196,6 +199,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       diagnosticCaptureSettings,
       diagnosticsExport: this.controllers.diagnosticsExport,
       firstLaunchStartupCoordinator: this.controllers.firstLaunchStartupCoordinator,
+      hotkeyRegistrationService: this.controllers.hotkeyRegistrationService,
       historyController,
       mainInteractionLock: this.controllers.mainInteractionLock,
       prettifyProfileChooserIpc,

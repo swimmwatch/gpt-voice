@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { deriveProviderHotkeyPresentation, type ProviderHotkeyPresentation } from '@renderer/providerHotkeyEligibility';
 import type { ElectronAPI } from '@renderer/types';
-import {
-  DEFAULT_PRETTIFY_HOTKEY,
-  DEFAULT_RECORD_HOTKEY,
-  DEFAULT_CANCEL_HOTKEY,
-  DEFAULT_STOP_HOTKEY,
-  DEFAULT_TRANSLATE_HOTKEY,
-  type HotkeySettings,
-} from '@shared/hotkeys';
+import type { HotkeyRuntimeState } from '@shared/hotkeyIpc';
 import type {
   ProviderContextualActionDescriptor,
   ProviderHomeAction,
@@ -86,7 +79,7 @@ export function useProviderHotkeyHomeIntegration({
   translate,
 }: ProviderHotkeyHomeIntegrationOptions): ProviderHotkeyHomeIntegration {
   const [hasMainInteractionLockSnapshot, setHasMainInteractionLockSnapshot] = useState(false);
-  const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
+  const [hotkeyRuntimeState, setHotkeyRuntimeState] = useState<HotkeyRuntimeState | null>(null);
   const [isMainInteractionLocked, setIsMainInteractionLocked] = useState(false);
   const [pendingProviderHomeAction, setPendingProviderHomeAction] = useState<ProviderHomeTextAction | null>(null);
   const pendingProviderHomeActionRef = useRef<ProviderHomeTextAction | null>(null);
@@ -139,23 +132,18 @@ export function useProviderHotkeyHomeIntegration({
 
   useEffect(() => {
     let disposed = false;
-    let eventVersion = 0;
-    const acceptSettings = (settings: HotkeySettings): void => {
-      if (disposed) return;
-      setHotkeySettings(settings);
-      if (settings.hotkey !== null) onIdleRecordHotkey(settings.hotkey);
+    let latestRevision = -1;
+    const acceptRuntimeState = (state: HotkeyRuntimeState): void => {
+      if (disposed || state.revision < latestRevision) return;
+      latestRevision = state.revision;
+      setHotkeyRuntimeState(state);
+      if (state.settings.hotkey !== null) onIdleRecordHotkey(state.settings.hotkey);
     };
-    const unsubscribe = desktopApi.onHotkeySettingsChanged((settings) => {
-      eventVersion += 1;
-      acceptSettings(settings);
-    });
-    const queryEventVersion = eventVersion;
+    const unsubscribe = desktopApi.onHotkeyRuntimeStateChanged(acceptRuntimeState);
 
     void desktopApi
-      .getHotkey()
-      .then((settings) => {
-        if (!disposed && eventVersion === queryEventVersion) acceptSettings(settings);
-      })
+      .getHotkeyRuntimeState()
+      .then(acceptRuntimeState)
       .catch(() => undefined);
 
     return () => {
@@ -163,6 +151,13 @@ export function useProviderHotkeyHomeIntegration({
       unsubscribe();
     };
   }, [desktopApi, onIdleRecordHotkey]);
+
+  const hotkeySettings = hotkeyRuntimeState?.settings ?? null;
+  const recordHotkey = hotkeySettings?.hotkey ?? '';
+  const prettifyHotkey = hotkeySettings?.prettifyHotkey ?? '';
+  const translateHotkey = hotkeySettings?.translateHotkey ?? '';
+  const stopHotkey = hotkeySettings?.stopHotkey ?? '';
+  const cancelHotkey = hotkeySettings?.cancelHotkey ?? '';
 
   const presentation = useMemo(
     () =>
@@ -289,11 +284,6 @@ export function useProviderHotkeyHomeIntegration({
         ? 'recording.resume'
         : 'recording.startCommand',
   );
-  const recordHotkey = hotkeySettings?.hotkey ?? DEFAULT_RECORD_HOTKEY;
-  const prettifyHotkey = hotkeySettings?.prettifyHotkey ?? DEFAULT_PRETTIFY_HOTKEY;
-  const translateHotkey = hotkeySettings?.translateHotkey ?? DEFAULT_TRANSLATE_HOTKEY;
-  const stopHotkey = hotkeySettings?.stopHotkey ?? DEFAULT_STOP_HOTKEY;
-  const cancelHotkey = hotkeySettings?.cancelHotkey ?? DEFAULT_CANCEL_HOTKEY;
   const contextualActions = useMemo<readonly ProviderHotkeyContextualAction[]>(
     () =>
       presentation.contextualActions.map((action) => {

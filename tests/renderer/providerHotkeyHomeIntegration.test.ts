@@ -20,11 +20,12 @@ describe('provider hotkey home integration contract', () => {
     );
     assert.match(integration, /onProviderHomeActionStateChanged\(\(nextState\)/u);
     assert.match(integration, /getProviderHomeActionState\(\)[\s\S]*?eventVersion === queryEventVersion/u);
-    assert.match(integration, /onHotkeySettingsChanged\(\(settings\) => \{[\s\S]*?eventVersion \+= 1;/u);
+    assert.match(integration, /onHotkeyRuntimeStateChanged\(acceptRuntimeState\)/u);
     assert.match(
       integration,
-      /getHotkey\(\)[\s\S]*?eventVersion === queryEventVersion[\s\S]*?\.catch\(\(\) => undefined\)/u,
+      /getHotkeyRuntimeState\(\)[\s\S]*?\.then\(acceptRuntimeState\)[\s\S]*?\.catch\(\(\) => undefined\)/u,
     );
+    assert.match(integration, /state\.revision < latestRevision/u);
     assert.match(integration, /prettifyEnabled: providerHomeActionState\?\.settings\.prettifyEnabled \?\? false/u);
     assert.match(integration, /translationEnabled: providerHomeActionState\?\.settings\.translateEnabled \?\? false/u);
     assert.match(integration, /textActionCancellability: providerHomeActionState !== null/u);
@@ -53,7 +54,10 @@ describe('provider hotkey home integration contract', () => {
 
     assert.match(integration, /voiceProviderAvailable: activeProviderId !== null && isVoiceProviderReady/u);
     assert.match(app, /onVoiceStart: \(\) => \{[\s\S]*?desktopApi\.requestRecordingStart\(\)/u);
-    assert.match(app, /onRecordingStartRejected\(\(\) => \{[\s\S]*?error\.voiceProviderNotReady/u);
+    assert.match(
+      app,
+      /onRecordingStartRejected\(\(\) => \{[\s\S]*?providerStatus\('voice', 'error\.selectedProviderNotReady'\)/u,
+    );
     assert.doesNotMatch(app, /onVoiceStart: \(\) => void startRecording\(\)/u);
   });
 
@@ -82,8 +86,7 @@ describe('provider hotkey home integration contract', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const integration = readProjectFile('src/renderer/useProviderHotkeyHomeIntegration.ts');
 
-    assert.match(integration, /DEFAULT_STOP_HOTKEY/u);
-    assert.match(integration, /DEFAULT_CANCEL_HOTKEY/u);
+    assert.doesNotMatch(integration, /DEFAULT_[A-Z_]+_HOTKEY/u);
     assert.match(
       integration,
       /hotkey: stopHotkey,[\s\S]*?label: translate\('recording\.stop'\),[\s\S]*?onActivate: onVoiceStop/u,
