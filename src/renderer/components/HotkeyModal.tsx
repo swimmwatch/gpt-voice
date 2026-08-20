@@ -14,14 +14,16 @@ import { useI18n } from '@renderer/hooks/useI18n';
 import { getHotkeyFromKeyboardEvent, type HotkeyTarget } from '@shared/hotkeys';
 
 interface HotkeyModalProps {
-  onApply: (hotkey: string) => void;
+  errorMessage: string | null;
+  isApplying: boolean;
+  onApply: (hotkey: string) => Promise<boolean>;
   onClose: () => void;
   platform: NodeJS.Platform;
   target: HotkeyTarget;
 }
 
 /** Captures, validates, and applies a global shortcut without losing keyboard focus. */
-function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): JSX.Element {
+function HotkeyModal({ errorMessage, isApplying, onApply, onClose, platform, target }: HotkeyModalProps): JSX.Element {
   const { t } = useI18n();
   const [pendingHotkey, setPendingHotkey] = useState('');
   const initialFocusRef = useRef<HTMLElement | null>(
@@ -35,17 +37,18 @@ function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): 
   };
 
   const closeModal = (): void => {
+    if (isApplying) return;
     onClose();
     restoreFocus();
   };
 
-  const applyHotkey = (): void => {
-    onApply(pendingHotkey);
-    restoreFocus();
+  const applyHotkey = async (): Promise<void> => {
+    if (!pendingHotkey || isApplying) return;
+    if (await onApply(pendingHotkey)) restoreFocus();
   };
 
   const handleOpenChange = (open: boolean): void => {
-    if (!open) {
+    if (!open && !isApplying) {
       closeModal();
     }
   };
@@ -74,7 +77,13 @@ function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): 
               <DialogTitle>{t('hotkey.setHotkey', { target: targetLabel })}</DialogTitle>
               <DialogDescription>{t('hotkey.pressKeyCombination')}</DialogDescription>
             </div>
-            <Button aria-label={t('common.close')} onClick={closeModal} size="icon" variant="ghost">
+            <Button
+              aria-label={t('common.close')}
+              disabled={isApplying}
+              onClick={closeModal}
+              size="icon"
+              variant="ghost"
+            >
               <X aria-hidden="true" />
             </Button>
           </div>
@@ -83,7 +92,7 @@ function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): 
         <div
           aria-label={t('hotkey.pressKeyCombination')}
           className="grid min-h-28 place-items-center gap-3 rounded-md border border-dashed border-border bg-surface-muted p-4 text-center outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
-          onKeyDown={handleHotkeyCapture}
+          onKeyDown={isApplying ? undefined : handleHotkeyCapture}
           ref={captureRef}
           tabIndex={0}
         >
@@ -94,13 +103,14 @@ function HotkeyModal({ onApply, onClose, platform, target }: HotkeyModalProps): 
         </div>
 
         <DialogFooter>
-          <Button onClick={closeModal} variant="outline">
+          <Button disabled={isApplying} onClick={closeModal} variant="outline">
             {t('hotkey.cancel')}
           </Button>
-          <Button disabled={!pendingHotkey} onClick={applyHotkey}>
+          <Button disabled={!pendingHotkey || isApplying} onClick={() => void applyHotkey()}>
             {t('hotkey.apply')}
           </Button>
         </DialogFooter>
+        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
       </DialogContent>
     </Dialog>
   );

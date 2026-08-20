@@ -21,14 +21,21 @@
   preload validates every boundary payload; both renderer consumers project the
   authoritative nullable state without legacy capture suppression or fallback
   defaults.
+- Packet 05 — Settings Registration Experience. Settings now subscribes to and
+  revision-reconciles the authoritative runtime state, presents configured,
+  registration, authority, and effective-trigger truth separately, and provides
+  transactional Change, Remove, and Test controls with one polite status
+  announcement region. Failed Apply remains open with its bounded localized
+  reason; all eleven locale maps and focused renderer coverage are complete.
 
 ## Changed Files
 
 - `docs/specs/global-hotkey-registration/spec.md` — approved revision 2
   metadata and durable contract.
 - `docs/specs/global-hotkey-registration/decisions.yaml` — specification
-  revision 2 approval, plan revision 3 approval, and revised Packet 01
-  authorization.
+  revision 2 approval, plan revision 3 approval, revised Packet 01
+  authorization, and Packet 05 execution and commit authorization through
+  Prompt MCP.
 - `docs/specs/global-hotkey-registration/tasks/` — approved plan revision 3,
   checklist, handoff, and ten task packets.
 - `src/shared/hotkeys.ts` — nullable settings, unassigned-setting factory,
@@ -85,6 +92,21 @@
   `src/renderer/useProviderHotkeyHomeIntegration.ts` — state-revision-aware
   authoritative projection with no renderer registration/suppression control or
   hotkey fallback defaults.
+- `src/renderer/AppSettingsWindow.tsx`,
+  `src/renderer/hotkeySettingsPresentation.ts`,
+  `src/renderer/components/HotkeyModal.tsx`,
+  `src/renderer/components/HotkeyRow.tsx`, and
+  `src/renderer/components/settings/ShortcutsSection.tsx` — Settings-owned
+  runtime-state subscription, transactional mutation/test presentation,
+  accessible authority/effective-status rows, failure-preserving capture, and
+  focus-safe controls.
+- `src/main/i18n/{en,ru,uk,be,de,es,fr,pt-BR,hi,ja,zh}.ts` — complete bounded
+  Settings registration, authority, error, Test, and announcement copy.
+- `tests/renderer/appSettingsHotkeys.test.ts`,
+  `tests/renderer/hotkeySettingsPresentation.test.ts`, and
+  `tests/renderer/systemSettingsLanguage.test.ts` — authoritative Settings
+  source contracts, state-presentation helpers, and eleven-locale completeness
+  checks.
 - `tests/main/hotkeyIpc.test.ts`, `tests/main/hotkeyIpcController.test.ts`,
   `tests/main/hotkeyIpcContract.test.ts`, and `tests/main/preloadApi.test.ts`
   — strict boundary, trusted owner, revision, cancellation, and preload decoder
@@ -139,13 +161,18 @@
   functional checks).
 - Scoped Prettier — passed.
 - `git diff --check` — passed after Packet 04.
+- `node --import tsx --test tests/renderer/appSettingsHotkeys.test.ts tests/renderer/hotkeySettingsPresentation.test.ts tests/renderer/systemSettingsLanguage.test.ts tests/main/hotkeyIpcContract.test.ts` — passed: 10 tests.
+- `npm run typecheck` — passed.
+- `npm run test:types` — passed.
+- Scoped ESLint and Prettier over all Packet 05 source, locale, and test files — passed.
+- `git diff --check` — passed after Packet 05.
 
 ## Exact Next Packet
 
-- [`05_settings_registration_experience.md`](./05_settings_registration_experience.md)
+- [`06_main_window_status_and_demo.md`](./06_main_window_status_and_demo.md)
 
 ## Blockers
 
-- None for Packet 05.
+- None currently recorded for Packet 06.
 - The pre-Packet-07 platform-readiness gate remains a future execution
   prerequisite, not a blocker for Packets 01–06.

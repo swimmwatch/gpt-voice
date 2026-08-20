@@ -972,3 +972,75 @@ decisions:
     supersedes_revision: null
     requirement_ids:
       [OUT-001, DATA-008, FLOW-008, FLOW-009, IPC-001, IPC-002, IPC-003, FAIL-002, SEC-001, SEC-002, SEC-003, SEC-004, QUAL-004, QUAL-006, AC-AUTO-004, AC-AUTO-006]
+
+  - id: authorization.packet-05-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 is committed, and Packet 05 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 05 is limited to Settings registration presentation, localization, accessibility, and focused tests; it excludes main-window visuals, platform-native registration, release, and publication work.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-06
+      question_id: authorization.packet-05-execution
+      idempotency_key: authorization.packet-05-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 05: Settings Registration Experience?'
+      kind: single
+      options:
+        - id: authorize-packet-05
+          label: Authorize Packet 05 (Recommended)
+          description: Authorize only the Settings registration UI, localization, accessibility, and focused tests; no Packet 06, platform, release, or publication work.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 05 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 05 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-05]
+      text: ''
+    rationale: 'The user authorized only Packet 05. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 06, platform transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [OUT-001, OUT-004, SCOPE-002, UI-001, UI-006, UI-007, UI-008, UI-009, UI-010, UI-011, FAIL-001, FAIL-002, FAIL-003, FAIL-004, QUAL-005, QUAL-006, AC-AUTO-005, AC-AUTO-006]
+
+  - id: authorization.commit-packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 is complete in the task checklist and handoff, with its focused renderer and IPC tests, type checks, scoped lint/format checks, and diff hygiene recorded as passed.'
+      - 'The user selected the scoped Packet 05 commit option through the persistent Prompt MCP interview.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-07
+      question_id: authorization.commit-packet-05
+      idempotency_key: authorization.commit-packet-05:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 05 Settings registration experience increment before beginning Packet 06?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-05
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 05 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 05 uncommitted and do not begin Packet 06.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 05 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-05]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 05 only. Unrelated Local Whisper changes remain uncommitted; Packet 06 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [OUT-001, OUT-004, SCOPE-002, UI-001, UI-006, UI-007, UI-008, UI-009, UI-010, UI-011, FAIL-001, FAIL-002, FAIL-003, FAIL-004, QUAL-005, QUAL-006, AC-AUTO-005, AC-AUTO-006]

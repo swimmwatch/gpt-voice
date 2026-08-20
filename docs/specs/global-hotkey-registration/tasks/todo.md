@@ -7,7 +7,7 @@ recorded, and Packet 01 is complete.
 - [x] [`02_platform_policy_and_registration_service.md`](./02_platform_policy_and_registration_service.md)
 - [x] [`03_shortcut_controller_and_composition.md`](./03_shortcut_controller_and_composition.md)
 - [x] [`04_trusted_hotkey_ipc.md`](./04_trusted_hotkey_ipc.md)
-- [ ] [`05_settings_registration_experience.md`](./05_settings_registration_experience.md)
+- [x] [`05_settings_registration_experience.md`](./05_settings_registration_experience.md)
 - [ ] [`06_main_window_status_and_demo.md`](./06_main_window_status_and_demo.md)
 - [ ] [`07_linux_x11_registration_and_qualification.md`](./07_linux_x11_registration_and_qualification.md)
 - [ ] [`08_linux_wayland_portal_package_and_qualification.md`](./08_linux_wayland_portal_package_and_qualification.md)

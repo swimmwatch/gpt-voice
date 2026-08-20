@@ -35,11 +35,17 @@ import {
 } from '@renderer/appSettingsUtils';
 import { prettifyProfilesDraftControllerReducer } from '@renderer/prettifyProfilesDraft';
 import { presentAppSettingsFieldErrors } from '@renderer/appSettingsValidationPresentation';
+import {
+  getHotkeyFailureTranslationKey,
+  getHotkeyRuntimeSnapshotEntry,
+  getHotkeyStatusTranslationKey,
+  getHotkeyTestTranslationKey,
+} from '@renderer/hotkeySettingsPresentation';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { usePrettifySettingsController } from '@renderer/hooks/usePrettifySettingsController';
 import { getSettingsCloseDisposition } from '@renderer/settingsCloseViewState';
 import type { HotkeyRuntimeState } from '@shared/hotkeyIpc';
-import type { HotkeyTarget } from '@shared/hotkeys';
+import { HotkeyTestResult, type HotkeyTarget } from '@shared/hotkeys';
 import type { TextActionSettings } from '@shared/textActionSettings';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import {
@@ -193,6 +199,46 @@ function DiagnosticCaptureConfirmationDialog({
   );
 }
 
+interface AuthoritativeHotkeyRuntimeState {
+  readonly reconcile: (nextState: HotkeyRuntimeState) => void;
+  readonly runtimeState: HotkeyRuntimeState | null;
+}
+
+function useAuthoritativeHotkeyRuntimeState(
+  desktopApi: ReturnType<typeof useDesktopApi>,
+  setError: React.Dispatch<React.SetStateAction<string>>,
+  t: TranslationFunction,
+): AuthoritativeHotkeyRuntimeState {
+  const [runtimeState, setRuntimeState] = useState<HotkeyRuntimeState | null>(null);
+  const reconcile = useCallback((nextState: HotkeyRuntimeState): void => {
+    setRuntimeState((currentState) =>
+      currentState === null || nextState.revision >= currentState.revision ? nextState : currentState,
+    );
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    const acceptRuntimeState = (state: HotkeyRuntimeState): void => {
+      if (!disposed) reconcile(state);
+    };
+    const unsubscribe = desktopApi.onHotkeyRuntimeStateChanged(acceptRuntimeState);
+
+    void desktopApi
+      .getHotkeyRuntimeState()
+      .then(acceptRuntimeState)
+      .catch(() => {
+        if (!disposed) setError(t('appSettings.saveFailed'));
+      });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi, reconcile, setError, t]);
+
+  return { reconcile, runtimeState };
+}
+
 /** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
 const AppSettingsWindow: React.FC = () => {
   const desktopApi = useDesktopApi();
@@ -205,11 +251,17 @@ const AppSettingsWindow: React.FC = () => {
   const [diagnosticCaptureSettings, setDiagnosticCaptureSettings] = useState<DiagnosticCaptureSettings | null>(null);
   const [initialDiagnosticCaptureSettings, setInitialDiagnosticCaptureSettings] =
     useState<DiagnosticCaptureSettings | null>(null);
-  const [hotkeyRuntimeState, setHotkeyRuntimeState] = useState<HotkeyRuntimeState | null>(null);
+  const [hotkeyMutationTarget, setHotkeyMutationTarget] = useState<HotkeyTarget | null>(null);
+  const [hotkeyTestState, setHotkeyTestState] = useState<{
+    readonly result: HotkeyTestResult | 'waiting';
+    readonly target: HotkeyTarget;
+  } | null>(null);
   const [prettifyProfilesState, dispatchPrettifyProfiles] = useReducer(prettifyProfilesDraftControllerReducer, null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(getInitialSettingsSection);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
+  const [hotkeyModalError, setHotkeyModalError] = useState<string | null>(null);
+  const [hotkeyAnnouncement, setHotkeyAnnouncement] = useState('');
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
   const [isSaving, setIsSaving] = useState(false);
   const [isDiagnosticActionPending, setIsDiagnosticActionPending] = useState(false);
@@ -223,6 +275,9 @@ const AppSettingsWindow: React.FC = () => {
   const diagnosticConfirmationSucceededRef = useRef(false);
   const diagnosticsExportPendingRef = useRef(false);
   const settingsWindowMountedRef = useRef(true);
+  const announcedHotkeyRevisionRef = useRef<number | null>(null);
+  const { reconcile: reconcileHotkeyRuntimeState, runtimeState: hotkeyRuntimeState } =
+    useAuthoritativeHotkeyRuntimeState(desktopApi, setError, t);
   const {
     applySavedSnapshot: applySavedPrettifySnapshot,
     changeProvider: changePrettifyProvider,
@@ -251,7 +306,6 @@ const AppSettingsWindow: React.FC = () => {
     updateVllmApiKey,
   } = usePrettifySettingsController({ setFieldErrors, t });
   const initializePrettifySettingsEvent = useEffectEvent(initializePrettifySettings);
-
   useEffect(() => {
     let disposed = false;
     /** Loads transactional settings and performs the existing HTTP-only model inspection. */
@@ -299,27 +353,13 @@ const AppSettingsWindow: React.FC = () => {
   }, [desktopApi, t]);
 
   useEffect(() => {
-    let disposed = false;
-    let latestRevision = -1;
-    const acceptRuntimeState = (state: HotkeyRuntimeState): void => {
-      if (disposed || state.revision < latestRevision) return;
-      latestRevision = state.revision;
-      setHotkeyRuntimeState(state);
-    };
-    const unsubscribe = desktopApi.onHotkeyRuntimeStateChanged(acceptRuntimeState);
-
-    void desktopApi
-      .getHotkeyRuntimeState()
-      .then(acceptRuntimeState)
-      .catch(() => {
-        if (!disposed) setError(t('appSettings.saveFailed'));
-      });
-
-    return () => {
-      disposed = true;
-      unsubscribe();
-    };
-  }, [desktopApi, t]);
+    if (!hotkeyRuntimeState) return;
+    const previousRevision = announcedHotkeyRevisionRef.current;
+    announcedHotkeyRevisionRef.current = hotkeyRuntimeState.revision;
+    if (previousRevision !== null && previousRevision !== hotkeyRuntimeState.revision) {
+      setHotkeyAnnouncement(t('hotkey.stateUpdated'));
+    }
+  }, [hotkeyRuntimeState, t]);
 
   useEffect(() => {
     settingsWindowMountedRef.current = true;
@@ -387,51 +427,75 @@ const AppSettingsWindow: React.FC = () => {
     });
   }
 
-  const getHotkeyValue = (target: HotkeyTarget): string | null => {
-    const hotkeySettings = hotkeyRuntimeState?.settings;
-    if (!hotkeySettings) return null;
-    switch (target) {
-      case 'record':
-        return hotkeySettings.hotkey;
-      case 'stop':
-        return hotkeySettings.stopHotkey;
-      case 'cancel':
-        return hotkeySettings.cancelHotkey;
-      case 'translate':
-        return hotkeySettings.translateHotkey;
-      case 'prettify':
-        return hotkeySettings.prettifyHotkey;
-      case 'prettifyQuick':
-        return hotkeySettings.prettifyQuickHotkey;
-      case 'retryTranscription':
-        return hotkeySettings.retryTranscriptionHotkey;
-    }
-  };
-
   const openHotkeyModal = (target: HotkeyTarget): void => {
-    setError('');
+    setHotkeyModalError(null);
     setHotkeyTarget(target);
     setShowHotkeyModal(true);
   };
 
   const closeHotkeyModal = (): void => {
     setShowHotkeyModal(false);
+    setHotkeyModalError(null);
   };
 
-  const applyHotkey = async (newHotkey: string): Promise<void> => {
-    setError('');
+  const applyHotkey = async (newHotkey: string): Promise<boolean> => {
+    if (hotkeyMutationTarget !== null) return false;
+    setHotkeyMutationTarget(hotkeyTarget);
+    setHotkeyModalError(null);
     try {
       const result = await desktopApi.setHotkey({ accelerator: newHotkey, target: hotkeyTarget });
-      setHotkeyRuntimeState(result.state);
+      reconcileHotkeyRuntimeState(result.state);
       if (result.status === 'success') {
-        setError('');
-      } else {
-        setError(t('appSettings.saveFailed'));
+        setHotkeyAnnouncement(
+          t(getHotkeyStatusTranslationKey(getHotkeyRuntimeSnapshotEntry(result.state, hotkeyTarget))),
+        );
+        setShowHotkeyModal(false);
+        return true;
       }
+      const message = t(getHotkeyFailureTranslationKey(result.failureCode));
+      setHotkeyModalError(message);
+      setHotkeyAnnouncement(message);
     } catch {
-      setError(t('appSettings.saveFailed'));
+      const message = t('hotkey.failure.registrationRejected');
+      setHotkeyModalError(message);
+      setHotkeyAnnouncement(message);
     } finally {
-      closeHotkeyModal();
+      setHotkeyMutationTarget(null);
+    }
+    return false;
+  };
+
+  const removeHotkey = async (target: HotkeyTarget): Promise<boolean> => {
+    if (hotkeyMutationTarget !== null || hotkeyTestState?.result === 'waiting') return false;
+    setHotkeyMutationTarget(target);
+    try {
+      const result = await desktopApi.clearHotkey({ target });
+      reconcileHotkeyRuntimeState(result.state);
+      if (result.status === 'success') {
+        setHotkeyAnnouncement(t('hotkey.status.unassigned'));
+        return true;
+      }
+      setHotkeyAnnouncement(t(getHotkeyFailureTranslationKey(result.failureCode)));
+    } catch {
+      setHotkeyAnnouncement(t('hotkey.failure.registrationRejected'));
+    } finally {
+      setHotkeyMutationTarget(null);
+    }
+    return false;
+  };
+
+  const testHotkey = async (target: HotkeyTarget): Promise<void> => {
+    if (hotkeyMutationTarget !== null || hotkeyTestState?.result === 'waiting') return;
+    setHotkeyTestState({ result: 'waiting', target });
+    setHotkeyAnnouncement(t(getHotkeyTestTranslationKey('waiting')));
+    try {
+      const result = await desktopApi.testHotkey({ target });
+      reconcileHotkeyRuntimeState(result.state);
+      setHotkeyTestState({ result: result.result, target });
+      setHotkeyAnnouncement(t(getHotkeyTestTranslationKey(result.result)));
+    } catch {
+      setHotkeyTestState({ result: HotkeyTestResult.Unavailable, target });
+      setHotkeyAnnouncement(t(getHotkeyTestTranslationKey(HotkeyTestResult.Unavailable)));
     }
   };
 
@@ -719,8 +783,7 @@ const AppSettingsWindow: React.FC = () => {
   const formState = loadedFormInput ? getAppSettingsFormState(loadedFormInput) : null;
   const visibleFieldErrors = formState?.isDirty ? { ...formState.validationErrors, ...fieldErrors } : fieldErrors;
   const visibleFieldErrorMessages = presentAppSettingsFieldErrors(visibleFieldErrors, t);
-  const hotkeySettings = hotkeyRuntimeState?.settings ?? null;
-  const isSettingsReady = Boolean(formState && hotkeySettings);
+  const isSettingsReady = Boolean(formState && hotkeyRuntimeState);
   useWindowStartupReady(isI18nReady && (isSettingsReady || Boolean(error)));
   const renderFieldError = (fieldKey: AppSettingsFieldKey): React.ReactNode => {
     const message = visibleFieldErrorMessages[fieldKey];
@@ -805,7 +868,7 @@ const AppSettingsWindow: React.FC = () => {
           initialTextActionSettings &&
           diagnosticCaptureSettings &&
           initialDiagnosticCaptureSettings &&
-          hotkeySettings && (
+          hotkeyRuntimeState && (
             <>
               <Tabs
                 className="flex min-h-0 flex-1 flex-col"
@@ -829,8 +892,12 @@ const AppSettingsWindow: React.FC = () => {
                     </TabsContent>
                     <TabsContent className="mt-0" value="shortcuts">
                       <ShortcutsSection
-                        getHotkeyValue={getHotkeyValue}
-                        onHotkeyChange={(target) => void openHotkeyModal(target)}
+                        hotkeyMutationTarget={hotkeyMutationTarget}
+                        hotkeyRuntimeState={hotkeyRuntimeState}
+                        hotkeyTestState={hotkeyTestState}
+                        onHotkeyChange={openHotkeyModal}
+                        onHotkeyRemove={removeHotkey}
+                        onHotkeyTest={testHotkey}
                         onTextActionEnabledChange={updateTextActionSetting}
                         t={t}
                         textActionSettings={textActionSettings}
@@ -972,12 +1039,17 @@ const AppSettingsWindow: React.FC = () => {
           )}
 
         {!isSettingsReady && error && <p className="text-sm text-destructive">{error}</p>}
+        <p aria-live="polite" className="sr-only">
+          {hotkeyAnnouncement}
+        </p>
         {showHotkeyModal && (
           <HotkeyModal
-            target={hotkeyTarget}
-            platform={platform}
-            onApply={(newHotkey) => void applyHotkey(newHotkey)}
+            errorMessage={hotkeyModalError}
+            isApplying={hotkeyMutationTarget === hotkeyTarget}
+            onApply={applyHotkey}
             onClose={closeHotkeyModal}
+            platform={platform}
+            target={hotkeyTarget}
           />
         )}
       </main>

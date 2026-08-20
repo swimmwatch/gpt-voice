@@ -353,6 +353,37 @@ export default {
   'hotkey.pressKeyCombination': 'Tastenkombination drücken',
   'hotkey.waitingForInput': 'Warte auf Eingabe...',
   'hotkey.apply': 'Anwenden',
+  'hotkey.notAssigned': 'Nicht zugewiesen',
+  'hotkey.remove': 'Entfernen',
+  'hotkey.test': 'Testen',
+  'hotkey.testing': 'Test läuft…',
+  'hotkey.status.unassigned': 'Nicht zugewiesen',
+  'hotkey.status.registered': 'Registriert',
+  'hotkey.status.failed': 'Fehlgeschlagen',
+  'hotkey.status.suppressed': 'Unterdrückt',
+  'hotkey.status.desktopManaged': 'Registriert — desktopverwaltet',
+  'hotkey.authority.application': 'Anwendungsverwaltete Bindung',
+  'hotkey.authority.desktopEnvironment': 'Desktopumgebungsverwaltete Bindung',
+  'hotkey.authority.none': 'Keine aktive Bindung',
+  'hotkey.preference': 'Konfigurierte Präferenz: {accelerator}',
+  'hotkey.effective': 'Exakter Auslöser: {accelerator}',
+  'hotkey.failure.invalidAccelerator': 'Geben Sie eine gültige Tastenkombination ein.',
+  'hotkey.failure.internalConflict':
+    'Dieses Tastenkürzel steht im Konflikt mit einem anderen konfigurierten Tastenkürzel.',
+  'hotkey.failure.osReserved':
+    'Dieses Tastenkürzel ist von Windows reserviert, einschließlich F12 und Windows-Tasten-Kombinationen.',
+  'hotkey.failure.registrationRejected':
+    'Diese Kombination ist nicht verfügbar oder wird vom System oder einer anderen Anwendung verwendet.',
+  'hotkey.failure.persistenceFailed':
+    'Das Tastenkürzel konnte nicht gespeichert werden. Ihr vorheriges Tastenkürzel bleibt aktiv.',
+  'hotkey.failure.reconciliationFailed':
+    'Der Tastenkürzelstatus konnte nicht sicher abgeglichen werden. Starten Sie die App neu oder reparieren Sie das Tastenkürzel ausdrücklich, bevor Sie sich darauf verlassen.',
+  'hotkey.failure.unsupportedPlatform':
+    'Die Registrierung von Tastenkürzeln wird auf dieser Plattform nicht unterstützt.',
+  'hotkey.test.detected': 'Tastenkürzel erkannt.',
+  'hotkey.test.timedOut': 'Innerhalb von fünf Sekunden wurde kein Tastenkürzel erkannt.',
+  'hotkey.test.unavailable': 'Der Tastenkürzeltest ist nicht verfügbar.',
+  'hotkey.stateUpdated': 'Der Registrierungsstatus des Tastenkürzels wurde aktualisiert.',
   'translate.label': 'Übersetzen',
   'translate.english': 'Englisch',
   'translate.russian': 'Russisch',
