@@ -379,8 +379,8 @@ export default {
   'hotkey.apply': 'Застосувати',
   'hotkey.notAssigned': 'Не призначено',
   'hotkey.remove': 'Видалити',
-  'hotkey.test': 'Перевірити',
-  'hotkey.testing': 'Перевірка…',
+  'hotkey.test': 'Перевірити поєднання',
+  'hotkey.testing': 'Очікуємо {accelerator}. Натисніть його протягом п’яти секунд; дію «{target}» не буде виконано.',
   'hotkey.status.unassigned': 'Не призначено',
   'hotkey.status.registered': 'Зареєстровано',
   'hotkey.status.failed': 'Помилка',
@@ -400,9 +400,10 @@ export default {
   'hotkey.failure.reconciliationFailed':
     'Стан поєднання не вдалося безпечно узгодити. Перезапустіть програму або явно відновіть поєднання перед використанням.',
   'hotkey.failure.unsupportedPlatform': 'Реєстрація поєднань не підтримується на цій платформі.',
-  'hotkey.test.detected': 'Поєднання виявлено.',
-  'hotkey.test.timedOut': 'За п’ять секунд поєднання не виявлено.',
-  'hotkey.test.unavailable': 'Перевірка поєднання недоступна.',
+  'hotkey.test.detected': 'Поєднання {accelerator} виявлено. Воно працює.',
+  'hotkey.test.timedOut':
+    'Поєднання {accelerator} не виявлено за п’ять секунд. Його може використовувати інша програма або система.',
+  'hotkey.test.unavailable': 'Поєднання більше не можна перевірити. Призначте його знову й спробуйте ще раз.',
   'hotkey.stateUpdated': 'Стан реєстрації поєднання оновлено.',
 
   // Translate

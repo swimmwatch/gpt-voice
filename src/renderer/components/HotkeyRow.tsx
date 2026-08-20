@@ -1,18 +1,23 @@
-import { FlaskConical, Pencil, Trash2 } from 'lucide-react';
+import { FlaskConical, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useRef, type JSX } from 'react';
 import { Button } from '@renderer/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@renderer/components/ui/dropdown-menu';
 import { Kbd } from '@renderer/components/ui/kbd';
 import { Switch } from '@renderer/components/ui/switch';
 import {
   canRemoveHotkey,
   canTestHotkey,
-  getHotkeyAuthorityTranslationKey,
-  getHotkeyFailureTranslationKey,
-  getHotkeyStatusTranslationKey,
+  getHotkeyAssignedAccelerator,
   getHotkeyTestTranslationKey,
 } from '@renderer/hotkeySettingsPresentation';
 import { useI18n } from '@renderer/hooks/useI18n';
-import { HotkeyRegistrationStatus, type HotkeyRuntimeSnapshotEntry, type HotkeyTestResult } from '@shared/hotkeys';
+import type { HotkeyRuntimeSnapshotEntry, HotkeyTestResult } from '@shared/hotkeys';
 
 interface HotkeyRowProps {
   disabled?: boolean;
@@ -43,33 +48,25 @@ function HotkeyRow({
   testResult,
 }: HotkeyRowProps): JSX.Element {
   const { t } = useI18n();
-  const changeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const testButtonRef = useRef<HTMLButtonElement | null>(null);
+  const actionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const canToggle = typeof enabled === 'boolean' && Boolean(onEnabledChange);
-  const configuredValue = entry.configuredAccelerator ?? t('hotkey.notAssigned');
-  const status = t(getHotkeyStatusTranslationKey(entry));
-  const authority = t(getHotkeyAuthorityTranslationKey(entry));
-  const detail =
-    entry.registrationStatus === HotkeyRegistrationStatus.Failed
-      ? t(getHotkeyFailureTranslationKey(entry.failureCode))
-      : entry.effectiveAccelerator !== null
-        ? t('hotkey.effective', { accelerator: entry.effectiveAccelerator })
-        : entry.configuredAccelerator !== null
-          ? t('hotkey.preference', { accelerator: entry.configuredAccelerator })
-          : null;
-  const description = [configuredValue, status, authority, detail].filter(Boolean).join('. ');
+  const assignedAccelerator = getHotkeyAssignedAccelerator(entry);
+  const assignment = assignedAccelerator ?? t('hotkey.notAssigned');
+  const description = `${label}. ${assignment}`;
   const controlsDisabled = disabled || isMutationPending;
-  const testStatus = testResult ? t(getHotkeyTestTranslationKey(testResult)) : null;
+  const testStatus = testResult
+    ? t(getHotkeyTestTranslationKey(testResult), { accelerator: assignedAccelerator ?? '', target: label })
+    : null;
 
   const handleRemove = async (): Promise<void> => {
     if (await onRemoveClick()) {
-      window.requestAnimationFrame(() => changeButtonRef.current?.focus());
+      window.requestAnimationFrame(() => actionsButtonRef.current?.focus());
     }
   };
 
   const handleTest = async (): Promise<void> => {
     await onTestClick();
-    window.requestAnimationFrame(() => testButtonRef.current?.focus());
+    window.requestAnimationFrame(() => actionsButtonRef.current?.focus());
   };
 
   return (
@@ -77,58 +74,64 @@ function HotkeyRow({
       <div className="grid min-w-0 flex-1 gap-1">
         <span className="text-sm text-foreground">{label}</span>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Kbd className="max-w-32 truncate">{configuredValue}</Kbd>
-          <span className="text-xs text-muted-foreground">{status}</span>
+          <Kbd className="max-w-32 truncate">{assignment}</Kbd>
         </div>
-        <p className="text-xs text-muted-foreground">{authority}</p>
-        {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
-        {testStatus && <p className="text-xs text-muted-foreground">{testStatus}</p>}
+        {testStatus && (
+          <p aria-live="polite" className="text-sm text-muted-foreground" role="status">
+            {testStatus}
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Button
-          aria-label={`${t('hotkey.change')}: ${label}. ${description}`}
-          disabled={controlsDisabled}
-          onClick={onChangeClick}
-          ref={changeButtonRef}
-          size="sm"
-          variant="outline"
-        >
-          <Pencil aria-hidden="true" />
-          {t('hotkey.change')}
-        </Button>
-        {canRemoveHotkey(entry) && (
-          <Button
-            aria-label={`${t('hotkey.remove')}: ${label}. ${description}`}
-            disabled={controlsDisabled}
-            onClick={() => void handleRemove()}
-            size="sm"
-            variant="outline"
-          >
-            <Trash2 aria-hidden="true" />
-            {t('hotkey.remove')}
-          </Button>
-        )}
-        {canTestHotkey(entry) && (
-          <Button
-            aria-label={`${t('hotkey.test')}: ${label}. ${description}`}
-            disabled={controlsDisabled || isTestActionDisabled}
-            onClick={() => void handleTest()}
-            ref={testButtonRef}
-            size="sm"
-            variant="outline"
-          >
-            <FlaskConical aria-hidden="true" />
-            {testResult === 'waiting' ? t('hotkey.testing') : t('hotkey.test')}
-          </Button>
-        )}
-        {canToggle && onEnabledChange ? (
-          <Switch
-            aria-label={t('hotkey.enabled', { target: label })}
-            checked={enabled}
-            disabled={controlsDisabled}
-            onCheckedChange={onEnabledChange}
-          />
-        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={description}
+              className="size-9 p-0"
+              disabled={controlsDisabled}
+              ref={actionsButtonRef}
+              size="sm"
+              variant="outline"
+            >
+              <MoreHorizontal aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem disabled={controlsDisabled} onSelect={onChangeClick}>
+              <Pencil aria-hidden="true" />
+              <span>{t('hotkey.change')}</span>
+            </DropdownMenuItem>
+            {canTestHotkey(entry) && (
+              <DropdownMenuItem disabled={controlsDisabled || isTestActionDisabled} onSelect={() => void handleTest()}>
+                <FlaskConical aria-hidden="true" />
+                <span>{t('hotkey.test')}</span>
+              </DropdownMenuItem>
+            )}
+            {canRemoveHotkey(entry) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={controlsDisabled}
+                  onSelect={() => void handleRemove()}
+                >
+                  <Trash2 aria-hidden="true" />
+                  <span>{t('hotkey.remove')}</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div className="flex w-9 shrink-0 justify-center">
+          {canToggle && onEnabledChange ? (
+            <Switch
+              aria-label={t('hotkey.enabled', { target: label })}
+              checked={enabled}
+              disabled={controlsDisabled}
+              onCheckedChange={onEnabledChange}
+            />
+          ) : null}
+        </div>
       </div>
     </div>
   );

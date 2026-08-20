@@ -473,8 +473,8 @@ export default {
   'hotkey.apply': 'Apply',
   'hotkey.notAssigned': 'Not assigned',
   'hotkey.remove': 'Remove',
-  'hotkey.test': 'Test',
-  'hotkey.testing': 'Testing…',
+  'hotkey.test': 'Test shortcut',
+  'hotkey.testing': 'Listening for {accelerator}. Press it within five seconds; this will not run {target}.',
   'hotkey.status.unassigned': 'Unassigned',
   'hotkey.status.registered': 'Registered',
   'hotkey.status.failed': 'Failed',
@@ -495,9 +495,10 @@ export default {
   'hotkey.failure.reconciliationFailed':
     'The shortcut state could not be safely reconciled. Restart the app or explicitly repair the shortcut before relying on it.',
   'hotkey.failure.unsupportedPlatform': 'Shortcut registration is not supported on this platform.',
-  'hotkey.test.detected': 'Shortcut detected.',
-  'hotkey.test.timedOut': 'No shortcut was detected within five seconds.',
-  'hotkey.test.unavailable': 'Shortcut testing is unavailable.',
+  'hotkey.test.detected': '{accelerator} was detected. The shortcut is working.',
+  'hotkey.test.timedOut':
+    '{accelerator} was not detected within five seconds. It may be in use by another app or the system.',
+  'hotkey.test.unavailable': 'Shortcut testing is no longer available. Reassign it and try again.',
   'hotkey.stateUpdated': 'Shortcut registration state updated.',
 
   // Translate

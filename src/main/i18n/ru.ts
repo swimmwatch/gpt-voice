@@ -379,8 +379,9 @@ export default {
   'hotkey.apply': 'Применить',
   'hotkey.notAssigned': 'Не назначено',
   'hotkey.remove': 'Удалить',
-  'hotkey.test': 'Проверить',
-  'hotkey.testing': 'Проверка…',
+  'hotkey.test': 'Проверить сочетание',
+  'hotkey.testing':
+    'Ожидается {accelerator}. Нажмите его в течение пяти секунд; действие «{target}» не будет выполнено.',
   'hotkey.status.unassigned': 'Не назначено',
   'hotkey.status.registered': 'Зарегистрировано',
   'hotkey.status.failed': 'Ошибка',
@@ -400,9 +401,10 @@ export default {
   'hotkey.failure.reconciliationFailed':
     'Состояние сочетания не удалось безопасно согласовать. Перезапустите приложение или явно восстановите сочетание перед использованием.',
   'hotkey.failure.unsupportedPlatform': 'Регистрация сочетаний не поддерживается на этой платформе.',
-  'hotkey.test.detected': 'Сочетание обнаружено.',
-  'hotkey.test.timedOut': 'За пять секунд сочетание не обнаружено.',
-  'hotkey.test.unavailable': 'Проверка сочетания недоступна.',
+  'hotkey.test.detected': 'Сочетание {accelerator} обнаружено. Сочетание работает.',
+  'hotkey.test.timedOut':
+    'Сочетание {accelerator} не обнаружено за пять секунд. Возможно, его использует другая программа или система.',
+  'hotkey.test.unavailable': 'Сочетание больше нельзя проверить. Назначьте его заново и попробуйте ещё раз.',
   'hotkey.stateUpdated': 'Состояние регистрации сочетания обновлено.',
 
   // Translate

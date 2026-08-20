@@ -65,7 +65,8 @@ export function getHotkeyActionButtonRegistrationPresentation(
 }
 
 /** Keeps Electron's raw accelerator untouched while formatting only its visible legend. */
-export function formatHotkeyLegend(hotkey: string): readonly HotkeyLegendToken[] {
+export function formatHotkeyLegend(hotkey: string | null): readonly HotkeyLegendToken[] {
+  if (hotkey === null) return Object.freeze([]);
   const keys = hotkey
     .split('+')
     .map((key) => key.trim())

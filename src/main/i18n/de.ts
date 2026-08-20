@@ -355,8 +355,9 @@ export default {
   'hotkey.apply': 'Anwenden',
   'hotkey.notAssigned': 'Nicht zugewiesen',
   'hotkey.remove': 'Entfernen',
-  'hotkey.test': 'Testen',
-  'hotkey.testing': 'Test läuft…',
+  'hotkey.test': 'Tastenkürzel testen',
+  'hotkey.testing':
+    'Warte auf {accelerator}. Drücken Sie es innerhalb von fünf Sekunden; dadurch wird {target} nicht ausgelöst.',
   'hotkey.status.unassigned': 'Nicht zugewiesen',
   'hotkey.status.registered': 'Registriert',
   'hotkey.status.failed': 'Fehlgeschlagen',
@@ -381,9 +382,11 @@ export default {
     'Der Tastenkürzelstatus konnte nicht sicher abgeglichen werden. Starten Sie die App neu oder reparieren Sie das Tastenkürzel ausdrücklich, bevor Sie sich darauf verlassen.',
   'hotkey.failure.unsupportedPlatform':
     'Die Registrierung von Tastenkürzeln wird auf dieser Plattform nicht unterstützt.',
-  'hotkey.test.detected': 'Tastenkürzel erkannt.',
-  'hotkey.test.timedOut': 'Innerhalb von fünf Sekunden wurde kein Tastenkürzel erkannt.',
-  'hotkey.test.unavailable': 'Der Tastenkürzeltest ist nicht verfügbar.',
+  'hotkey.test.detected': '{accelerator} wurde erkannt. Das Tastenkürzel funktioniert.',
+  'hotkey.test.timedOut':
+    '{accelerator} wurde innerhalb von fünf Sekunden nicht erkannt. Es wird möglicherweise von einer anderen App oder dem System verwendet.',
+  'hotkey.test.unavailable':
+    'Das Tastenkürzel kann nicht mehr getestet werden. Weisen Sie es erneut zu und versuchen Sie es noch einmal.',
   'hotkey.stateUpdated': 'Der Registrierungsstatus des Tastenkürzels wurde aktualisiert.',
   'translate.label': 'Übersetzen',
   'translate.english': 'Englisch',

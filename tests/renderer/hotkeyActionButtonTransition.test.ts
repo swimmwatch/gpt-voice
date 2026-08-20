@@ -86,6 +86,7 @@ describe('HotkeyActionButton visual-state transitions', () => {
       { id: 'key-2', kind: 'key', text: 'F12' },
     ]);
     assert.deepEqual(formatHotkeyLegend('F9'), [{ id: 'key-0', kind: 'key', text: 'F9' }]);
+    assert.deepEqual(formatHotkeyLegend(null), []);
   });
 
   it('keeps configured, effective, authority, and registration presentation distinct', () => {

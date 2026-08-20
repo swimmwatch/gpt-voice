@@ -355,8 +355,9 @@ export default {
   'hotkey.apply': 'Appliquer',
   'hotkey.notAssigned': 'Non attribué',
   'hotkey.remove': 'Supprimer',
-  'hotkey.test': 'Tester',
-  'hotkey.testing': 'Test en cours…',
+  'hotkey.test': 'Tester le raccourci',
+  'hotkey.testing':
+    'Écoute de {accelerator}. Appuyez dessus dans les cinq secondes ; cela ne déclenchera pas {target}.',
   'hotkey.status.unassigned': 'Non attribué',
   'hotkey.status.registered': 'Enregistré',
   'hotkey.status.failed': 'Échec',
@@ -379,9 +380,10 @@ export default {
     'L’état du raccourci n’a pas pu être réconcilié de façon sûre. Redémarrez l’application ou réparez explicitement le raccourci avant de vous y fier.',
   'hotkey.failure.unsupportedPlatform':
     'L’enregistrement des raccourcis n’est pas pris en charge sur cette plateforme.',
-  'hotkey.test.detected': 'Raccourci détecté.',
-  'hotkey.test.timedOut': 'Aucun raccourci n’a été détecté en cinq secondes.',
-  'hotkey.test.unavailable': 'Le test de raccourci n’est pas disponible.',
+  'hotkey.test.detected': '{accelerator} a été détecté. Le raccourci fonctionne.',
+  'hotkey.test.timedOut':
+    '{accelerator} n’a pas été détecté dans les cinq secondes. Une autre application ou le système l’utilise peut-être.',
+  'hotkey.test.unavailable': 'Le raccourci ne peut plus être testé. Attribuez-le de nouveau, puis réessayez.',
   'hotkey.stateUpdated': 'L’état d’enregistrement du raccourci a été mis à jour.',
   'translate.label': 'Traduire',
   'translate.english': 'Anglais',

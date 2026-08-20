@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   canRemoveHotkey,
   canTestHotkey,
+  getHotkeyAssignedAccelerator,
   getHotkeyAuthorityTranslationKey,
   getHotkeyFailureTranslationKey,
   getHotkeyRuntimeSnapshotEntry,
@@ -87,6 +88,11 @@ describe('hotkey settings presentation', () => {
     });
 
     assert.strictEqual(getHotkeyRuntimeSnapshotEntry(runtimeState, 'record'), applicationEntry);
+    assert.equal(getHotkeyAssignedAccelerator(applicationEntry), 'Ctrl+Shift+R');
+    assert.equal(getHotkeyAssignedAccelerator(desktopEntry), 'Ctrl+Shift+R');
+    assert.equal(getHotkeyAssignedAccelerator(suppressedEntry), 'Ctrl+Shift+R');
+    assert.equal(getHotkeyAssignedAccelerator(failedEntry), null);
+    assert.equal(getHotkeyAssignedAccelerator(getHotkeyRuntimeSnapshotEntry(runtimeState, 'prettify')), null);
     assert.equal(getHotkeyStatusTranslationKey(applicationEntry), 'hotkey.status.registered');
     assert.equal(getHotkeyAuthorityTranslationKey(applicationEntry), 'hotkey.authority.application');
     assert.equal(getHotkeyStatusTranslationKey(desktopEntry), 'hotkey.status.desktopManaged');

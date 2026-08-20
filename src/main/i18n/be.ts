@@ -377,8 +377,8 @@ export default {
   'hotkey.apply': 'Прымяніць',
   'hotkey.notAssigned': 'Не прызначана',
   'hotkey.remove': 'Выдаліць',
-  'hotkey.test': 'Праверыць',
-  'hotkey.testing': 'Праверка…',
+  'hotkey.test': 'Праверыць камбінацыю',
+  'hotkey.testing': 'Слухаем {accelerator}. Націсніце яго на працягу пяці секунд; гэта не запусціць {target}.',
   'hotkey.status.unassigned': 'Не прызначана',
   'hotkey.status.registered': 'Зарэгістравана',
   'hotkey.status.failed': 'Памылка',
@@ -400,9 +400,10 @@ export default {
   'hotkey.failure.reconciliationFailed':
     'Стан камбінацыі не ўдалося бяспечна ўзгадніць. Перазапусціце праграму або відавочна адрамантуйце камбінацыю перад выкарыстаннем.',
   'hotkey.failure.unsupportedPlatform': 'Рэгістрацыя камбінацый не падтрымліваецца на гэтай платформе.',
-  'hotkey.test.detected': 'Камбінацыя выяўлена.',
-  'hotkey.test.timedOut': 'За пяць секунд камбінацыя не выяўлена.',
-  'hotkey.test.unavailable': 'Праверка камбінацыі недаступная.',
+  'hotkey.test.detected': 'Камбінацыя {accelerator} выяўлена. Яна працуе.',
+  'hotkey.test.timedOut':
+    'Камбінацыя {accelerator} не выяўлена за пяць секунд. Яна можа выкарыстоўвацца іншай праграмай або сістэмай.',
+  'hotkey.test.unavailable': 'Праверка камбінацыі больш недаступная. Прызначце яе наноў і паспрабуйце яшчэ раз.',
   'hotkey.stateUpdated': 'Стан рэгістрацыі камбінацыі абноўлены.',
 
   // Translate

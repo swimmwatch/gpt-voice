@@ -24,11 +24,11 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.match(component, /className="command-dock-hotkey-action-tooltip-trigger"/u);
     assert.match(component, /<TooltipContent>\{tooltip\}<\/TooltipContent>/u);
     assert.match(component, /data-visual-state=\{visualState\}/u);
-    assert.match(component, /data-registration-state=\{registrationState\}/u);
+    assert.doesNotMatch(component, /data-registration-state/u);
     assert.match(component, /readonly accelerator: string \| null;/u);
     assert.match(component, /readonly registration: HotkeyRuntimeSnapshotEntry \| null;/u);
     assert.match(component, /getHotkeyActionButtonRegistrationPresentation/u);
-    assert.match(component, /hotkey\.recoveryAction/u);
+    assert.match(component, /tooltip: actionLabel/u);
     assert.match(component, /useLayoutEffect\(\(\) => \{[\s\S]*?getHotkeyActionButtonVisualTransition/u);
     assert.match(component, /disabled=\{unavailable\}/u);
     assert.match(component, /aria-busy=\{busy \|\| undefined\}/u);
@@ -41,8 +41,8 @@ describe('HotkeyActionButton source and style contract', () => {
       /command-dock-hotkey-action-tooltip-trigger \{[\s\S]*?width: var\(--dock-action-key-width, 114px\);/u,
     );
     assert.match(styles, /--hotkey-press-travel: 3px;/u);
-    assert.match(styles, /command-dock-hotkey-action__registration-marker/u);
-    assert.match(styles, /data-registration-state='desktop-managed'/u);
+    assert.doesNotMatch(component, /registration-marker|marker:/u);
+    assert.doesNotMatch(styles, /registration-marker/u);
     assert.doesNotMatch(
       styles,
       /\.command-dock-hotkey-action\s*\{[^}]*\btransform:/u,
@@ -133,14 +133,13 @@ describe('HotkeyActionButton source and style contract', () => {
     assert.match(styles, /:disabled\[data-visual-state='disabled'\] \.command-dock-hotkey-action__face/u);
   });
 
-  it('keeps registration truth separate from provider readiness and retains eligible failed or unassigned activation', () => {
+  it('keeps registration truth separate from provider readiness without rendering it in the tooltip', () => {
     const component = readProjectFile('src/renderer/components/HotkeyActionButton.tsx');
     const integration = readProjectFile('src/renderer/useProviderHotkeyHomeIntegration.ts');
 
-    assert.match(component, /configuredDescription/u);
-    assert.match(component, /getHotkeyStatusTranslationKey\(registration\)/u);
-    assert.match(component, /getHotkeyAuthorityTranslationKey\(registration\)/u);
-    assert.match(component, /getHotkeyFailureTranslationKey\(registration\?\.failureCode\)/u);
+    assert.match(component, /getHotkeyActionButtonRegistrationPresentation/u);
+    assert.match(component, /tooltip: actionLabel/u);
+    assert.doesNotMatch(component, /getHotkey(?:Status|Authority|Failure)TranslationKey/u);
     assert.match(component, /disabled=\{unavailable\}/u);
     assert.match(integration, /prettify: hotkeyRuntimeState !== null/u);
     assert.match(integration, /translation: hotkeyRuntimeState !== null/u);

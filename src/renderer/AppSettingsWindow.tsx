@@ -36,10 +36,9 @@ import {
 import { prettifyProfilesDraftControllerReducer } from '@renderer/prettifyProfilesDraft';
 import { presentAppSettingsFieldErrors } from '@renderer/appSettingsValidationPresentation';
 import {
+  getHotkeyAssignedAccelerator,
   getHotkeyFailureTranslationKey,
   getHotkeyRuntimeSnapshotEntry,
-  getHotkeyStatusTranslationKey,
-  getHotkeyTestTranslationKey,
 } from '@renderer/hotkeySettingsPresentation';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { usePrettifySettingsController } from '@renderer/hooks/usePrettifySettingsController';
@@ -446,9 +445,11 @@ const AppSettingsWindow: React.FC = () => {
       const result = await desktopApi.setHotkey({ accelerator: newHotkey, target: hotkeyTarget });
       reconcileHotkeyRuntimeState(result.state);
       if (result.status === 'success') {
-        setHotkeyAnnouncement(
-          t(getHotkeyStatusTranslationKey(getHotkeyRuntimeSnapshotEntry(result.state, hotkeyTarget))),
+        const assignedAccelerator = getHotkeyAssignedAccelerator(
+          getHotkeyRuntimeSnapshotEntry(result.state, hotkeyTarget),
         );
+        setHotkeyTestState((current) => (current?.target === hotkeyTarget ? null : current));
+        setHotkeyAnnouncement(assignedAccelerator ?? t('hotkey.notAssigned'));
         setShowHotkeyModal(false);
         return true;
       }
@@ -472,6 +473,7 @@ const AppSettingsWindow: React.FC = () => {
       const result = await desktopApi.clearHotkey({ target });
       reconcileHotkeyRuntimeState(result.state);
       if (result.status === 'success') {
+        setHotkeyTestState((current) => (current?.target === target ? null : current));
         setHotkeyAnnouncement(t('hotkey.status.unassigned'));
         return true;
       }
@@ -487,15 +489,13 @@ const AppSettingsWindow: React.FC = () => {
   const testHotkey = async (target: HotkeyTarget): Promise<void> => {
     if (hotkeyMutationTarget !== null || hotkeyTestState?.result === 'waiting') return;
     setHotkeyTestState({ result: 'waiting', target });
-    setHotkeyAnnouncement(t(getHotkeyTestTranslationKey('waiting')));
+    setHotkeyAnnouncement('');
     try {
       const result = await desktopApi.testHotkey({ target });
       reconcileHotkeyRuntimeState(result.state);
       setHotkeyTestState({ result: result.result, target });
-      setHotkeyAnnouncement(t(getHotkeyTestTranslationKey(result.result)));
     } catch {
       setHotkeyTestState({ result: HotkeyTestResult.Unavailable, target });
-      setHotkeyAnnouncement(t(getHotkeyTestTranslationKey(HotkeyTestResult.Unavailable)));
     }
   };
 

@@ -56,6 +56,11 @@ export function getHotkeyRuntimeSnapshotEntry(
   return entry;
 }
 
+/** Returns a shortcut only when main has confirmed that its assignment succeeded. */
+export function getHotkeyAssignedAccelerator(entry: HotkeyRuntimeSnapshotEntry): string | null {
+  return entry.registrationStatus === HotkeyRegistrationStatus.Registered ? entry.configuredAccelerator : null;
+}
+
 export function getHotkeyFailureTranslationKey(
   failureCode: HotkeyRegistrationFailureCode | undefined,
 ): HotkeySettingsTranslationKey {
