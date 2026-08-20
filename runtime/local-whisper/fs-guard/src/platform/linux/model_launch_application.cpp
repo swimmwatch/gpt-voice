@@ -6,6 +6,7 @@
 
 #include "local_whisper/common/linux_process_identity.hpp"
 #include "local_whisper/common/model_authority.hpp"
+#include "local_whisper/common/native_logger.hpp"
 #include "local_whisper/common/process_exit_codes.hpp"
 #include "local_whisper/common/sha256.hpp"
 #include "local_whisper/fs_guard/model_authority_server.hpp"
@@ -47,6 +48,25 @@ constexpr int kLauncherExecutableDescriptor = 6;
 constexpr int kLauncherAcknowledgmentDescriptor = 4;
 constexpr auto kPollInterval = std::chrono::milliseconds(50);
 constexpr auto kTerminationBudget = std::chrono::seconds(5);
+
+std::array<std::string, 5> launcher_log_environment() {
+  const auto launcher = common::native_child_log_configuration_from_environment(
+      common::NativeLogChildProcess::launcher);
+  const auto worker = common::native_child_log_configuration_from_environment(
+      common::NativeLogChildProcess::worker);
+  if (!launcher.has_value() || !worker.has_value()) {
+    throw ModelLaunchError(ModelLaunchErrorCode::kBootstrapRejected,
+                           "model launch logging bootstrap rejected");
+  }
+  return {
+      "LANG=C",
+      "LC_ALL=C",
+      std::string("LOCAL_WHISPER_NATIVE_LOG_LEVEL=") +
+          (launcher->minimum_level == common::NativeLogLevel::debug ? "debug" : "info"),
+      "LOCAL_WHISPER_NATIVE_PROCESS_INSTANCE_ID=" + launcher->process_instance_id,
+      "LOCAL_WHISPER_NATIVE_WORKER_PROCESS_INSTANCE_ID=" + worker->process_instance_id,
+  };
+}
 
 volatile std::sig_atomic_t termination_requested = 0;
 
@@ -331,6 +351,7 @@ int run_linux_model_launch(const int control_descriptor, const int acknowledgmen
   UniqueFd guard_authority(authority_pair[0]);
   UniqueFd launcher_authority(authority_pair[1]);
   set_socket_timeout(guard_authority.get());
+  auto launcher_environment = launcher_log_environment();
 
   const pid_t launcher_pid = fork();
   if (launcher_pid < 0)
@@ -350,8 +371,10 @@ int run_linux_model_launch(const int control_descriptor, const int acknowledgmen
       _exit(common::kChildExecBootstrapFailureExitCode);
     std::array<char*, 3> arguments = {const_cast<char*>("local-whisper-launcher"),
                                       const_cast<char*>("--local-whisper-launcher-v2"), nullptr};
-    std::array<char*, 3> environment = {const_cast<char*>("LANG=C"), const_cast<char*>("LC_ALL=C"),
-                                        nullptr};
+    std::array<char*, 6> environment = {
+        launcher_environment[0].data(), launcher_environment[1].data(),
+        launcher_environment[2].data(), launcher_environment[3].data(),
+        launcher_environment[4].data(), nullptr};
     fexecve(kLauncherExecutableDescriptor, arguments.data(), environment.data());
     constexpr std::string_view failure = "FAILED\tMODEL_LAUNCHER_RESUME_FAILED\n";
     static_cast<void>(write(kLauncherAcknowledgmentDescriptor, failure.data(), failure.size()));

@@ -121,7 +121,7 @@ const PERFORMANCE_PRIVATE_KEYS = new Set([
 
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION = '1f6ce9c988a275f1ef9faa295b1bb04879943e89';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST =
-  '9f24505609148dbeb379586b56781ca279cbc068f388c1a76e1a6329ff839ffc';
+  'f656684beb687abbad92684b47721ae810e7357dd22915d62446ac4fe4689399';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE = Object.freeze({
   beforeOptimization: Object.freeze({ linux: 8, win32: 7 }),
   afterDirectoryReuse: Object.freeze({ linux: 7, win32: 6 }),

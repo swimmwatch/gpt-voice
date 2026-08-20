@@ -41,7 +41,7 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts',
-    sha256: '21c84282671834377a79e685a93318c67edbe321c255a10728c45d4e396759ef',
+    sha256: '0ab9a3d1d5e099e6bab1fa8a7e1942435113e0d7547f086829e49f0c9b3bd58f',
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',

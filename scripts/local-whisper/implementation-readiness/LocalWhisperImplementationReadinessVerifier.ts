@@ -78,7 +78,7 @@ const SOURCE_CONTRACTS: readonly SourceContract[] = Object.freeze([
       'new LinuxProcessGroupOwner({',
       'new WindowsJobObjectOwner({',
       'new LocalWhisperRuntimeLaunchAuthorityFactory(managedStore)',
-      'new LocalWhisperModelLaunchAuthorityFactory({',
+      'new LocalWhisperModelPathLoadAuthorityFactory({',
       'new LocalWhisperProductionWorkerPort({',
       'new LocalWhisperArtifactService({',
     ]),

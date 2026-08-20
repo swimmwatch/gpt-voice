@@ -29,7 +29,7 @@ describe('Local Whisper UI contracts', () => {
     assert.match(toolbar, /<LocalWhisperMainStatusIndicator[\s\S]*snapshot=\{localWhisperStatus\}/u);
     assert.match(toolbar, /notConnectedLabel=\{t\('provider\.notConnected'\)\}/u);
     assert.match(toolbar, /<LocalWhisperMainResidencyControl/u);
-    assert.match(app, /useLocalWhisperMainStatus\(desktopApi\)/u);
+    assert.match(app, /useLocalWhisperMainStatus\(desktopApi, recoverLocalWhisperProvider\)/u);
     assert.doesNotMatch(toolbar.slice(statusBranch, loginBranch), /onProviderLogin|LogIn/u);
   });
 
@@ -196,7 +196,10 @@ describe('Local Whisper UI contracts', () => {
 
     assert.match(controls, /<ConfirmationDialog/u);
     assert.match(controls, /onConfirm=\{\(\) => onAction\('remove', artifact\)\}/u);
-    assert.match(controls, /artifact: artifact\.label,[\s\S]*kind: artifactKindLabel\(artifact\.kind, t\)/u);
+    assert.match(
+      controls,
+      /artifact: translateLocalWhisperRendererLabel\(artifact\.label, t\),[\s\S]*kind: artifactKindLabel\(artifact\.kind, t\)/u,
+    );
     assert.match(controls, /tone="destructive"/u);
     assert.doesNotMatch(controls, /AlertDialog(?:Action|Cancel|Content|Footer|Header|Title)/u);
     assert.match(page, /if \(controller\.actionError && interruption\.request === null\)/u);
