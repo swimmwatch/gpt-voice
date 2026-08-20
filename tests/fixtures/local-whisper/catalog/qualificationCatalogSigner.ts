@@ -160,7 +160,7 @@ export function createQualificationCatalogPayload(workerProtocolVersion = 1): Lo
           upstreamRevision: toLocalWhisperRevisionId('whisper-cpp-upstream-v1')!,
           buildRevision: toLocalWhisperRevisionId('qualification-build-v1')!,
           computeTargets: ['x86-64-v2'],
-      protocolVersion: workerProtocolVersion,
+          protocolVersion: workerProtocolVersion,
           packRevision: QUALIFICATION_RUNTIME_REVISION,
           catalogRevision: QUALIFICATION_CATALOG_REVISION,
           appRevision: QUALIFICATION_APP_REVISION,

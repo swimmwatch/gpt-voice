@@ -30,9 +30,9 @@ let certificatePem = '';
 
 async function descriptor(overrides: Readonly<Record<string, unknown>> = {}): Promise<string> {
   const catalogEnvelope = JSON.parse(
-    Buffer.from(signQualificationCatalog(createQualificationCatalogPayload(LOCAL_WHISPER_WORKER_PROTOCOL_VERSION), KEY_ID)).toString(
-      'utf8',
-    ),
+    Buffer.from(
+      signQualificationCatalog(createQualificationCatalogPayload(LOCAL_WHISPER_WORKER_PROTOCOL_VERSION), KEY_ID),
+    ).toString('utf8'),
   ) as unknown;
   const filePath = path.join(root, `activation-${Math.random().toString(16).slice(2)}.json`);
   await writeFile(

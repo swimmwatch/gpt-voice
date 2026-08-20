@@ -46,7 +46,13 @@ import {
   type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
 
-export { BasePrettifyProvider, ClaudeCliPrettifyProvider, CodexCliPrettifyProvider, OllamaPrettifyProvider, VllmPrettifyProvider };
+export {
+  BasePrettifyProvider,
+  ClaudeCliPrettifyProvider,
+  CodexCliPrettifyProvider,
+  OllamaPrettifyProvider,
+  VllmPrettifyProvider,
+};
 export type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 export type {
   PreparedPrettifyExecution,

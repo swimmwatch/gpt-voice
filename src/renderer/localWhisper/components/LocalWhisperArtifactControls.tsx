@@ -215,10 +215,10 @@ export function LocalWhisperArtifactOverflowMenu({
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>
-              {actionsDisabledReason ??
-                t('localWhisper.settings.manageArtifact', {
-                  artifact: translateLocalWhisperRendererLabel(artifact.label, t),
-                })}
+            {actionsDisabledReason ??
+              t('localWhisper.settings.manageArtifact', {
+                artifact: translateLocalWhisperRendererLabel(artifact.label, t),
+              })}
           </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end">

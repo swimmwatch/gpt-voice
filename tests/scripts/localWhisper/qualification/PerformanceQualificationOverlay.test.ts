@@ -63,7 +63,7 @@ describe('performance qualification reviewed overlay', () => {
     try {
       const baselineFiles = Object.fromEntries(
         await Promise.all(
-        [COMPOSITION, SUPERVISOR, ...NATIVE_FILES].map(async (relativePath) => {
+          [COMPOSITION, SUPERVISOR, ...NATIVE_FILES].map(async (relativePath) => {
             const source = await execFileAsync('git', ['show', `${BASELINE}:${relativePath}`], {
               cwd: workspaceRoot,
               encoding: 'buffer',
@@ -75,7 +75,7 @@ describe('performance qualification reviewed overlay', () => {
       );
       const candidateFiles = Object.fromEntries(
         await Promise.all(
-        [COMPOSITION, SUPERVISOR, ...NATIVE_FILES].map(async (relativePath) => {
+          [COMPOSITION, SUPERVISOR, ...NATIVE_FILES].map(async (relativePath) => {
             const source = await execFileAsync('git', ['show', `${CANDIDATE_PARENT}:${relativePath}`], {
               cwd: workspaceRoot,
               encoding: 'buffer',

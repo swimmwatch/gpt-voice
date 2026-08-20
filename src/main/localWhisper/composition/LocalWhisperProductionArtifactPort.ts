@@ -109,11 +109,13 @@ export interface LocalWhisperProductionArtifactPortDependencies {
   readonly canAcquire: (artifactId: LocalWhisperArtifactId) => boolean;
   readonly clearance: LocalWhisperProductionRemovalClearancePort;
   readonly inventory: LocalWhisperProductionArtifactInventory;
-  readonly onOperationCompleted?: (event: Readonly<{
-    readonly failureCode: LocalWhisperFailureCode | null;
-    readonly operationId: LocalWhisperArtifactOperationId;
-    readonly success: boolean;
-  }>) => void;
+  readonly onOperationCompleted?: (
+    event: Readonly<{
+      readonly failureCode: LocalWhisperFailureCode | null;
+      readonly operationId: LocalWhisperArtifactOperationId;
+      readonly success: boolean;
+    }>,
+  ) => void;
   readonly service: LocalWhisperProductionArtifactLifecyclePort;
 }
 

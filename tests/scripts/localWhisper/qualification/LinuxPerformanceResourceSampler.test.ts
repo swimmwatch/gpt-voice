@@ -35,7 +35,10 @@ describe('LinuxPerformanceResourceSamplerSession', () => {
     });
     const child = spawn(
       process.execPath,
-      ['-e', `process.stdin.resume(); process.stdin.once('end', () => process.stdout.end(${JSON.stringify(`${proof}\n`)}));`],
+      [
+        '-e',
+        `process.stdin.resume(); process.stdin.once('end', () => process.stdout.end(${JSON.stringify(`${proof}\n`)}));`,
+      ],
       { stdio: 'pipe' },
     );
     const eventStream = new Readable({ read: () => undefined });
@@ -49,7 +52,10 @@ describe('LinuxPerformanceResourceSamplerSession', () => {
 
     const result = await session.finish();
 
-    assert.deepEqual(result.resources.map(({ peakBytes }) => peakBytes), [1, 2, 3]);
+    assert.deepEqual(
+      result.resources.map(({ peakBytes }) => peakBytes),
+      [1, 2, 3],
+    );
   });
 
   it('bounds sampler completion and terminates its owned sampler process', async () => {

@@ -226,7 +226,7 @@ export default function LocalWhisperStatusSection({
   const selectedRuntime = getLocalWhisperOption(snapshot, 'runtime', snapshot.settings.runtimeRevision)?.label;
   const selectedDevice =
     snapshot.settings.execution.target === 'cpu'
-    ? translateLocalWhisperRendererLabel(snapshot.host.label, t)
+      ? translateLocalWhisperRendererLabel(snapshot.host.label, t)
       : translateLocalWhisperRendererLabel(
           getLocalWhisperOption(snapshot, 'device', snapshot.selectedDeviceId)?.label ??
             t('localWhisper.settings.selectedGpu'),

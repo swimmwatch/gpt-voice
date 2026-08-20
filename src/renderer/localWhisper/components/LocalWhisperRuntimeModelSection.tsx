@@ -246,9 +246,7 @@ export default function LocalWhisperRuntimeModelSection({
                   value={selectedDeviceUnavailable ? null : draft.deviceId}
                 />
               ) : (
-                <span className="lw-readonly-value">
-                  {translateLocalWhisperRendererLabel(snapshot.host.label, t)}
-                </span>
+                <span className="lw-readonly-value">{translateLocalWhisperRendererLabel(snapshot.host.label, t)}</span>
               )}
               {selectedDeviceUnavailable ? (
                 <span className="lw-field-error">{t('localWhisper.settings.savedDeviceUnavailable')}</span>

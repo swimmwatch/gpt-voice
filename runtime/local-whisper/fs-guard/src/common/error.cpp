@@ -53,8 +53,7 @@ GuardError::GuardError(const ErrorCode code)
     : std::runtime_error(std::string(to_string(code))), code_(code) {}
 
 GuardError::GuardError(const ErrorCode code, const std::string_view diagnostic)
-    : std::runtime_error(std::string(to_string(code))),
-      code_(code),
+    : std::runtime_error(std::string(to_string(code))), code_(code),
       diagnostic_(is_safe_diagnostic(diagnostic) ? diagnostic : "") {}
 
 GuardError::GuardError(const std::string_view code) : GuardError(normalize_error_code(code)) {}

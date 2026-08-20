@@ -36,11 +36,7 @@ import type { LocalWhisperWorkerLifecycle } from '../supervisor/LocalWhisperWork
 const RUNTIME_REGISTRY_DISCOVERY_ATTEMPTS = 3;
 
 export type LocalWhisperQualificationLoadStage =
-  | 'MODEL_AUTHORITY'
-  | 'RUNTIME_AUTHORITY'
-  | 'WORKER_START'
-  | 'WARMUP'
-  | 'AUTHORITY_REVALIDATION';
+  'MODEL_AUTHORITY' | 'RUNTIME_AUTHORITY' | 'WORKER_START' | 'WARMUP' | 'AUTHORITY_REVALIDATION';
 
 export interface LocalWhisperProductionWorkerPortDependencies {
   readonly architecture: 'x64' | 'arm64' | 'other';

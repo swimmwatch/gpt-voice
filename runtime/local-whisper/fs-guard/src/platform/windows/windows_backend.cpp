@@ -663,9 +663,9 @@ public:
     return result;
   }
 
-  std::vector<std::string>
-  list_directory(Lease& directory, const std::map<std::string, unsigned int>& expected_modes,
-                 const bool include_content_hash = true) {
+  std::vector<std::string> list_directory(Lease& directory,
+                                          const std::map<std::string, unsigned int>& expected_modes,
+                                          const bool include_content_hash = true) {
     if (directory.kind != LeaseKind::kDirectory)
       throw GuardError("INVALID_INPUT");
     const bool require_exact_expectations = !expected_modes.empty();

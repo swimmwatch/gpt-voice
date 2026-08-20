@@ -4,7 +4,8 @@
 
 namespace local_whisper::fs_guard {
 
-/** Deprecated descriptor model-authority server retained for whole-build rollback/reference only. */
+/** Deprecated descriptor model-authority server retained for whole-build rollback/reference only.
+ */
 class LinuxModelAuthorityServer final {
 public:
   LinuxModelAuthorityServer(local_whisper::common::AuthorityBinding expected_binding,

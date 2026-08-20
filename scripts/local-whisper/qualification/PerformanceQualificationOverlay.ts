@@ -702,30 +702,60 @@ function transformManifest(): Readonly<Record<string, unknown>> {
         Object.freeze({ anchor: AFTER_HOOK_ANCHOR, replacement: AFTER_HOOK_REPLACEMENT }),
         Object.freeze({ anchor: AFTER_ARTIFACT_PORT_ANCHOR, replacement: AFTER_ARTIFACT_PORT_REPLACEMENT }),
         Object.freeze({ anchor: AFTER_EXTRACTOR_ANCHOR, replacement: AFTER_EXTRACTOR_REPLACEMENT }),
-        Object.freeze({ anchor: AFTER_ARTIFACT_SERVICE_HOOK_ANCHOR, replacement: AFTER_ARTIFACT_SERVICE_HOOK_REPLACEMENT }),
+        Object.freeze({
+          anchor: AFTER_ARTIFACT_SERVICE_HOOK_ANCHOR,
+          replacement: AFTER_ARTIFACT_SERVICE_HOOK_REPLACEMENT,
+        }),
         Object.freeze({ anchor: AFTER_LIFECYCLE_ANCHOR, replacement: AFTER_LIFECYCLE_REPLACEMENT }),
         Object.freeze({ anchor: AFTER_PREFLIGHT_START_ANCHOR, replacement: AFTER_PREFLIGHT_START_REPLACEMENT }),
         Object.freeze({ anchor: AFTER_PREFLIGHT_CATALOG_ANCHOR, replacement: AFTER_PREFLIGHT_CATALOG_REPLACEMENT }),
         Object.freeze({ anchor: AFTER_PREFLIGHT_BACKEND_ANCHOR, replacement: AFTER_PREFLIGHT_BACKEND_REPLACEMENT }),
-        Object.freeze({ anchor: AFTER_PREFLIGHT_GPU_AUTHORITY_ANCHOR, replacement: AFTER_PREFLIGHT_GPU_AUTHORITY_REPLACEMENT }),
-        Object.freeze({ anchor: AFTER_PREFLIGHT_GPU_REGISTRY_ANCHOR, replacement: AFTER_PREFLIGHT_GPU_REGISTRY_REPLACEMENT }),
-        Object.freeze({ anchor: AFTER_PREFLIGHT_GPU_RESOURCES_ANCHOR, replacement: AFTER_PREFLIGHT_GPU_RESOURCES_REPLACEMENT }),
+        Object.freeze({
+          anchor: AFTER_PREFLIGHT_GPU_AUTHORITY_ANCHOR,
+          replacement: AFTER_PREFLIGHT_GPU_AUTHORITY_REPLACEMENT,
+        }),
+        Object.freeze({
+          anchor: AFTER_PREFLIGHT_GPU_REGISTRY_ANCHOR,
+          replacement: AFTER_PREFLIGHT_GPU_REGISTRY_REPLACEMENT,
+        }),
+        Object.freeze({
+          anchor: AFTER_PREFLIGHT_GPU_RESOURCES_ANCHOR,
+          replacement: AFTER_PREFLIGHT_GPU_RESOURCES_REPLACEMENT,
+        }),
         Object.freeze({ anchor: AFTER_PREFLIGHT_RESULT_ANCHOR, replacement: AFTER_PREFLIGHT_RESULT_REPLACEMENT }),
-        Object.freeze({ anchor: AFTER_PREFLIGHT_AVAILABILITY_ANCHOR, replacement: AFTER_PREFLIGHT_AVAILABILITY_REPLACEMENT }),
+        Object.freeze({
+          anchor: AFTER_PREFLIGHT_AVAILABILITY_ANCHOR,
+          replacement: AFTER_PREFLIGHT_AVAILABILITY_REPLACEMENT,
+        }),
       ]),
       operation('after', SUPERVISOR_PATH, CANDIDATE_SUPERVISOR_SHA256, [
         Object.freeze({ anchor: SUPERVISOR_HOOK_ANCHOR, replacement: SUPERVISOR_HOOK_REPLACEMENT }),
         Object.freeze({ anchor: SUPERVISOR_LAUNCH_ANCHOR, replacement: SUPERVISOR_LAUNCH_REPLACEMENT }),
         Object.freeze({ anchor: SUPERVISOR_BIND_ANCHOR, replacement: SUPERVISOR_BIND_REPLACEMENT }),
-        Object.freeze({ anchor: SUPERVISOR_HANDSHAKE_TIMER_ANCHOR, replacement: SUPERVISOR_HANDSHAKE_TIMER_REPLACEMENT }),
+        Object.freeze({
+          anchor: SUPERVISOR_HANDSHAKE_TIMER_ANCHOR,
+          replacement: SUPERVISOR_HANDSHAKE_TIMER_REPLACEMENT,
+        }),
         Object.freeze({ anchor: SUPERVISOR_HELLO_ANCHOR, replacement: SUPERVISOR_HELLO_REPLACEMENT }),
-        Object.freeze({ anchor: SUPERVISOR_HANDSHAKE_RECEIVED_ANCHOR, replacement: SUPERVISOR_HANDSHAKE_RECEIVED_REPLACEMENT }),
+        Object.freeze({
+          anchor: SUPERVISOR_HANDSHAKE_RECEIVED_ANCHOR,
+          replacement: SUPERVISOR_HANDSHAKE_RECEIVED_REPLACEMENT,
+        }),
         Object.freeze({ anchor: SUPERVISOR_CLEANUP_START_ANCHOR, replacement: SUPERVISOR_CLEANUP_START_REPLACEMENT }),
         Object.freeze({ anchor: SUPERVISOR_TERMINATION_ANCHOR, replacement: SUPERVISOR_TERMINATION_REPLACEMENT }),
-        Object.freeze({ anchor: SUPERVISOR_FORCE_TERMINATION_ANCHOR, replacement: SUPERVISOR_FORCE_TERMINATION_REPLACEMENT }),
+        Object.freeze({
+          anchor: SUPERVISOR_FORCE_TERMINATION_ANCHOR,
+          replacement: SUPERVISOR_FORCE_TERMINATION_REPLACEMENT,
+        }),
         Object.freeze({ anchor: SUPERVISOR_EXIT_FAILURE_ANCHOR, replacement: SUPERVISOR_EXIT_FAILURE_REPLACEMENT }),
-        Object.freeze({ anchor: SUPERVISOR_RELEASE_FAILURE_ANCHOR, replacement: SUPERVISOR_RELEASE_FAILURE_REPLACEMENT }),
-        Object.freeze({ anchor: SUPERVISOR_CLEANUP_COMPLETE_ANCHOR, replacement: SUPERVISOR_CLEANUP_COMPLETE_REPLACEMENT }),
+        Object.freeze({
+          anchor: SUPERVISOR_RELEASE_FAILURE_ANCHOR,
+          replacement: SUPERVISOR_RELEASE_FAILURE_REPLACEMENT,
+        }),
+        Object.freeze({
+          anchor: SUPERVISOR_CLEANUP_COMPLETE_ANCHOR,
+          replacement: SUPERVISOR_CLEANUP_COMPLETE_REPLACEMENT,
+        }),
       ]),
       ...(['before', 'after'] as const).flatMap((side) => [
         native(side, NATIVE_TARGETS.guardApplication, [
@@ -750,16 +780,16 @@ function transformManifest(): Readonly<Record<string, unknown>> {
           Object.freeze({ anchor: AUTHORITY_DIGEST_ANCHOR, replacement: AUTHORITY_DIGEST_REPLACEMENT }),
           Object.freeze({ anchor: AUTHORITY_TRANSFER_ANCHOR, replacement: AUTHORITY_TRANSFER_REPLACEMENT }),
         ]),
-  native(side, NATIVE_TARGETS.launcher, [
-    include(INCLUDE_ANCHORS.launcher),
-    Object.freeze({ anchor: LAUNCHER_ENTERED_ANCHOR, replacement: LAUNCHER_ENTERED_REPLACEMENT }),
-    Object.freeze({ anchor: LAUNCHER_WORKER_VERIFIED_ANCHOR, replacement: LAUNCHER_WORKER_VERIFIED_REPLACEMENT }),
-    Object.freeze({ anchor: LAUNCHER_FORK_ANCHOR, replacement: LAUNCHER_FORK_REPLACEMENT }),
-    Object.freeze({ anchor: LAUNCHER_CHILD_ENTERED_ANCHOR, replacement: LAUNCHER_CHILD_ENTERED_REPLACEMENT }),
-    Object.freeze({ anchor: LAUNCHER_EXEC_REQUESTED_ANCHOR, replacement: LAUNCHER_EXEC_REQUESTED_REPLACEMENT }),
-    Object.freeze({ anchor: LAUNCHER_PARENT_ANCHOR, replacement: LAUNCHER_PARENT_REPLACEMENT }),
-    Object.freeze({ anchor: LAUNCHER_READY_ANCHOR, replacement: LAUNCHER_READY_REPLACEMENT }),
-  ]),
+        native(side, NATIVE_TARGETS.launcher, [
+          include(INCLUDE_ANCHORS.launcher),
+          Object.freeze({ anchor: LAUNCHER_ENTERED_ANCHOR, replacement: LAUNCHER_ENTERED_REPLACEMENT }),
+          Object.freeze({ anchor: LAUNCHER_WORKER_VERIFIED_ANCHOR, replacement: LAUNCHER_WORKER_VERIFIED_REPLACEMENT }),
+          Object.freeze({ anchor: LAUNCHER_FORK_ANCHOR, replacement: LAUNCHER_FORK_REPLACEMENT }),
+          Object.freeze({ anchor: LAUNCHER_CHILD_ENTERED_ANCHOR, replacement: LAUNCHER_CHILD_ENTERED_REPLACEMENT }),
+          Object.freeze({ anchor: LAUNCHER_EXEC_REQUESTED_ANCHOR, replacement: LAUNCHER_EXEC_REQUESTED_REPLACEMENT }),
+          Object.freeze({ anchor: LAUNCHER_PARENT_ANCHOR, replacement: LAUNCHER_PARENT_REPLACEMENT }),
+          Object.freeze({ anchor: LAUNCHER_READY_ANCHOR, replacement: LAUNCHER_READY_REPLACEMENT }),
+        ]),
         native(side, NATIVE_TARGETS.engine, [
           include(INCLUDE_ANCHORS.engine),
           ...(side === 'before'

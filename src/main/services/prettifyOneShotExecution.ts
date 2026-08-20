@@ -43,7 +43,10 @@ export class OneShotPrettifyExecution implements PreparedPrettifyExecution {
 
   public async execute(text: string): Promise<TextProcessingResult> {
     if (this.consumed) {
-      return { success: false, error: this.dependencies.localization.translate(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY) };
+      return {
+        success: false,
+        error: this.dependencies.localization.translate(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY),
+      };
     }
     this.consumed = true;
     const auditContext = this.dependencies.audit.startCapturedPrettify(this.providerId, text.length);
