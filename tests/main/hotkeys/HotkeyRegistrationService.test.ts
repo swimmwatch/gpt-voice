@@ -26,6 +26,7 @@ import {
   type HotkeySettings,
   type HotkeyTarget,
 } from '@shared/hotkeys';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 
 class FakeAdapter extends GlobalShortcutAdapter {
   public readonly callbacks = new Map<string, () => void>();
@@ -462,8 +463,10 @@ describe('HotkeyRegistrationService', () => {
     assert.equal(supported.adapter.isRegistered('Ctrl+F8'), true);
   });
 
-  it('publishes suppression without releasing a binding and detects a physical test without dispatching', async () => {
+  it('suppresses under the main interaction lock without releasing a binding and detects a physical test', async () => {
     const { adapter, calls, service } = createService({ ...createUnassignedHotkeySettings(), hotkey: 'F9' });
+    const lock = new MainInteractionLock(() => false);
+    service.connectMainInteractionLock(lock);
     service.start();
     const detected = service.test('record');
     adapter.fire('F9');
@@ -472,10 +475,18 @@ describe('HotkeyRegistrationService', () => {
     assert.equal(adapter.isRegistered('F9'), true);
     assert.deepEqual(calls, []);
 
-    service.setDispatchSuppressed(true);
+    const acquisition = lock.acquire();
+    assert.ok(acquisition.lease);
     adapter.fire('F9');
     assert.deepEqual(calls, []);
     assert.equal(service.snapshot.entries[0]?.dispatchStatus, HotkeyDispatchStatus.Suppressed);
+
+    acquisition.lease.release();
+    adapter.fire('F9');
+    assert.deepEqual(calls, ['record']);
+
+    service.dispose();
+    assert.equal(adapter.unregisterAllCalls, 1);
   });
 
   it('settles one physical test exactly once across duplicate starts, mutation cancellation, and dispose', async () => {

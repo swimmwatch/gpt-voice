@@ -365,16 +365,14 @@ class RecordingShortcutController extends ShortcutController {
   ) {
     super({
       config: new TestAppConfigStore(),
-      globalShortcut: {
-        register: () => true,
-        unregister: () => undefined,
-        unregisterAll: () => undefined,
+      hotkeyRegistrationService: {
+        dispose: () => undefined,
+        start: () => Object.freeze({ entries: Object.freeze([]) }),
       },
       logger: { info: () => undefined, warn: () => undefined },
       localization: new I18nService(),
       mainInteractionLock: new MainInteractionLock(() => false),
       notification: { show: () => undefined },
-      platform: 'linux',
       prettifyRuntime: { isProviderConnected: () => true },
       providerHomeActionDispatcher: { dispatch: () => ({ accepted: false }) },
       selectedTextActionGate: {

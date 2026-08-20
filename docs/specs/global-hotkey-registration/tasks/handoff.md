@@ -9,6 +9,12 @@
   policy factory, transactional registration owner, snapshot validation, and
   focused deterministic tests are complete. Packet 02 execution authorization
   is recorded in the decision ledger.
+- Packet 03 — Shortcut Controller And Composition. The controller delegates
+  registration lifecycle to the process-owned service, retains all product
+  action gates, and leaves the legacy capture API inert pending Packet 04.
+  The composition root now owns the adapter, fail-closed policy, service, and
+  bounded platform/session classification. Main interaction locking suppresses
+  dispatch without unregistering bindings.
 
 ## Changed Files
 
@@ -24,8 +30,9 @@
   target/conflict helpers.
 - `src/main/config.ts` — null initialization/loading, explicit-null persistence,
   atomic single-target persistence, and shortcut-only reset.
-- `src/main/shortcuts.ts` — skip unassigned legacy registration, including
-  Retry synchronization.
+- `src/main/shortcuts.ts` — nullable legacy compatibility plus controller-owned
+  product callbacks and lifecycle delegation with no direct Electron
+  registration or suspension bookkeeping.
 - `src/renderer/AppSettingsWindow.tsx`,
   `src/renderer/components/settings/ShortcutsSection.tsx`, and
   `src/renderer/components/HotkeyRow.tsx` — nullable temporary value projection
@@ -45,12 +52,21 @@
   that selects only injected qualified host implementations.
 - `src/main/hotkeys/HotkeyRegistrationService.ts` — transactional binding
   ownership, generation invalidation, compensation/reconciliation, bounded
-  physical tests, snapshots, suppression, and idempotent disposal.
+  physical tests, lock-backed dispatch suppression, and idempotent disposal.
 - `src/shared/hotkeys.ts` and `tests/main/hotkeys.test.ts` — failed snapshot
   invariants preserve the configured preference even when reconciliation leaves
   it unassigned.
 - `tests/main/hotkeys/HotkeyRegistrationService.test.ts` — deterministic
-  platform, ownership, cleanup, test-session, publication, and disposal tests.
+  platform, ownership, cleanup, lock suppression, test-session, publication,
+  and disposal tests.
+- `src/main/di/mainProcessCompositionRoot.ts` and `src/main/main.ts` —
+  process-local adapter/policy/service construction, callback bridge, and
+  bounded platform/session classification.
+- `tests/main/shortcutController.test.ts`,
+  `tests/main/hotkeys/HotkeyRegistrationService.test.ts`,
+  `tests/main/mainProcessCompositionRoot.test.ts`, and
+  `tests/main/mainProcessApplication.test.ts` — service-backed controller,
+  lock suppression, lifecycle, and composition regression coverage.
 - `scripts/local-whisper/qualification/` — restored the current focused
   performance manifest, explicit artifact validation mode, nullable lifecycle,
   native stream/diagnostic, and process-session contracts that blocked the
@@ -81,13 +97,19 @@
 - `npm run test:types` — passed.
 - Scoped ESLint and Prettier over all Packet 02 source/test files — passed.
 - `git diff --check` — passed after Packet 02.
+- `node --import tsx --test tests/main/shortcutController.test.ts tests/main/mainProcessCompositionRoot.test.ts tests/main/mainProcessApplication.test.ts tests/main/mainInteractionLock.test.ts tests/main/mainInteractionLockActionGate.test.ts` — passed: 50 tests.
+- `node --import tsx --test tests/main/hotkeys/HotkeyRegistrationService.test.ts tests/main/hotkeys.test.ts` — passed: 27 tests.
+- `npm run typecheck` — passed.
+- `npm run test:types` — passed.
+- Scoped ESLint and Prettier over Packet 03 source/test files — passed.
+- `git diff --check` — passed after Packet 03.
 
 ## Exact Next Packet
 
-- [`03_shortcut_controller_and_composition.md`](./03_shortcut_controller_and_composition.md)
+- [`04_trusted_hotkey_ipc.md`](./04_trusted_hotkey_ipc.md)
 
 ## Blockers
 
-- None for Packet 03.
+- None for Packet 04.
 - The pre-Packet-07 platform-readiness gate remains a future execution
   prerequisite, not a blocker for Packets 01–06.

@@ -828,3 +828,75 @@ decisions:
         AC-AUTO-003,
         AC-AUTO-006,
       ]
+
+  - id: authorization.packet-03-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 02 is committed, and Packet 03 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 03 is limited to main-process registration-service composition, controller delegation, and focused tests; no IPC, renderer, platform-native, or release work is in scope.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-02
+      question_id: authorization.packet-03-execution
+      idempotency_key: authorization.packet-03-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 03: Shortcut Controller And Composition?'
+      kind: single
+      options:
+        - id: authorize-packet-03
+          label: Authorize Packet 03 (Recommended)
+          description: Authorize only Packet 03; no commit, Packet 04 work, source transport, release, or publication work is authorized.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 03 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 03 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: 'The user authorized only Packet 03. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 04, source transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [SCOPE-004, ARCH-004, ARCH-006, ARCH-007, FLOW-001, FLOW-007, FLOW-009, SEC-001, SEC-003, COMP-003, COMP-004]
+
+  - id: authorization.commit-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 is checked complete with all packet verification and repository-wide type checks passing.'
+      - 'The worktree also contains unrelated Local Whisper changes that must remain outside the Packet 03 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-03
+      question_id: authorization.commit-packet-03
+      idempotency_key: authorization.commit-packet-03:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 03 shortcut-controller and composition increment before beginning Packet 04?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-03
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 03 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 03 uncommitted and do not begin Packet 04.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 03 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-03]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 03 only. Unrelated Local Whisper changes remain uncommitted; Packet 04 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [SCOPE-004, ARCH-004, ARCH-006, ARCH-007, FLOW-001, FLOW-007, FLOW-009, SEC-001, SEC-003, COMP-003, COMP-004]

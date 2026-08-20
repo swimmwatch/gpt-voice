@@ -6,7 +6,10 @@ import {
   LinuxDesktopIntegrationController,
   type LinuxDesktopIntegrationControllerDependencies,
 } from '../linuxDesktopIntegration';
-import { ShortcutController, type ShortcutControllerDependencies } from '../shortcuts';
+import { ShortcutController } from '../shortcuts';
+import { ElectronGlobalShortcutAdapter } from '../hotkeys/ElectronGlobalShortcutAdapter';
+import { HotkeyPlatformPolicyFactory } from '../hotkeys/HotkeyPlatformPolicyFactory';
+import { HotkeyRegistrationService } from '../hotkeys/HotkeyRegistrationService';
 import { TrayController, type TrayControllerDependencies } from '../tray';
 import { WindowManager, type WindowManagerDependencies } from '../window';
 import { ProviderSettingsWindowController } from '../providerSettingsWindowController';
@@ -103,6 +106,7 @@ import { TextAutomationService, type TextAutomationServiceDependencies } from '.
 import { AppConfigStore, type AppConfigStoreDependencies } from '../config';
 import { I18nService } from '../i18n';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
+import { DesktopPlatform, LinuxSessionType, type HotkeyTarget } from '@shared/hotkeys';
 import {
   CloakBrowserSettingsRepository,
   type CloakBrowserSettingsRepositoryDependencies,
@@ -327,22 +331,17 @@ export interface MainProcessDesktopControllerEnvironment {
     'getAppIconPath' | 'getAssetPath' | 'logger'
   >;
   readonly prettifyProfileChooser: Pick<PrettifyProfileChooserWindowControllerDependencies, 'preloadPath' | 'screen'>;
-  readonly shortcuts: Omit<
-    ShortcutControllerDependencies,
-    | 'selectedTextActionGate'
-    | 'selectedTextPrettifyService'
-    | 'selectedTextTranslationService'
-    | 'trayController'
-    | 'voiceRecordingProviderReadiness'
-    | 'windowManager'
-    | 'config'
-    | 'localization'
-    | 'logger'
-    | 'mainInteractionLock'
-    | 'notification'
-    | 'providerHomeActionDispatcher'
-    | 'prettifyRuntime'
-  >;
+  readonly hotkeys: {
+    readonly desktopPlatform: DesktopPlatform;
+    readonly globalShortcut: {
+      isRegistered(accelerator: string): boolean;
+      register(accelerator: string, callback: () => void): boolean;
+      unregister(accelerator: string): void;
+      unregisterAll(): void;
+    };
+    readonly linuxSessionType: LinuxSessionType;
+    readonly platform: NodeJS.Platform;
+  };
   readonly tray: Omit<
     TrayControllerDependencies,
     'getAssetPath' | 'localization' | 'mainInteractionLock' | 'windowManager'
@@ -666,6 +665,39 @@ export class MainProcessCompositionRoot {
       settings: prettifySettingsStorage,
     });
     const mainInteractionLock = new MainInteractionLock(() => selectedTextActionGate.getActive() !== null);
+    const shortcutControllerReference: { current: ShortcutController | null } = { current: null };
+    const dispatchHotkey = (target: HotkeyTarget): void => {
+      const shortcutController = shortcutControllerReference.current;
+      if (shortcutController === null) {
+        throw new Error('Hotkey dispatch occurred before shortcut controller initialization');
+      }
+      shortcutController.dispatchHotkey(target);
+    };
+    const hotkeyRegistrationService = new HotkeyRegistrationService({
+      adapter: new ElectronGlobalShortcutAdapter(desktopEnvironment.hotkeys.globalShortcut),
+      callbacks: Object.freeze({
+        cancel: () => dispatchHotkey('cancel'),
+        prettify: () => dispatchHotkey('prettify'),
+        prettifyQuick: () => dispatchHotkey('prettifyQuick'),
+        record: () => dispatchHotkey('record'),
+        retryTranscription: () => dispatchHotkey('retryTranscription'),
+        stop: () => dispatchHotkey('stop'),
+        translate: () => dispatchHotkey('translate'),
+      }),
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      config: configStore,
+      logger: loggerFactory.getLogger('hotkeys'),
+      platform: desktopEnvironment.hotkeys.platform,
+      policy: new HotkeyPlatformPolicyFactory({}).create(
+        desktopEnvironment.hotkeys.desktopPlatform,
+        desktopEnvironment.hotkeys.linuxSessionType,
+      ),
+    });
+    hotkeyRegistrationService.connectMainInteractionLock(mainInteractionLock);
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
@@ -770,7 +802,6 @@ export class MainProcessCompositionRoot {
       mainInteractionLock,
       windowManager,
     });
-    const shortcutControllerReference: { current: ShortcutController | null } = { current: null };
     const providerHomeActionDispatcher = new ProviderHomeActionDispatcher({
       config: configStore,
       getRecordingLifecycleState: () =>
@@ -789,8 +820,8 @@ export class MainProcessCompositionRoot {
       windowManager,
     });
     const shortcutController = new ShortcutController({
-      ...desktopEnvironment.shortcuts,
       config: configStore,
+      hotkeyRegistrationService,
       localization,
       notification: {
         show: electronRuntime.showSystemNotification,

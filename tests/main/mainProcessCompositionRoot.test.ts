@@ -29,6 +29,7 @@ import {
   FIRST_LAUNCH_STARTUP_JOB_IDS,
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
+import { DesktopPlatform, LinuxSessionType } from '@shared/hotkeys';
 import { createDeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -539,12 +540,15 @@ class MainProcessCompositionHarness {
             getPrimaryDisplay: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
           },
         },
-        shortcuts: {
+        hotkeys: {
+          desktopPlatform: DesktopPlatform.Linux,
           globalShortcut: {
+            isRegistered: () => false,
             register: () => true,
             unregister: () => undefined,
             unregisterAll: () => undefined,
           },
+          linuxSessionType: LinuxSessionType.X11,
           platform: 'linux',
         },
         tray: {

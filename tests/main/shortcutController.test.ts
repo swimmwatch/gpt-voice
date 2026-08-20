@@ -2,12 +2,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserWindow } from 'electron';
+import { GlobalShortcutAdapter } from '@main/hotkeys/GlobalShortcutAdapter';
+import { HotkeyPlatformPolicy } from '@main/hotkeys/HotkeyPlatformPolicy';
+import { HotkeyRegistrationService } from '@main/hotkeys/HotkeyRegistrationService';
 import { ShortcutController, type ShortcutSettingsSnapshot } from '@main/shortcuts';
 import { ProviderHomeActionDispatcher } from '@main/providerHomeActionDispatcher';
 import type { SelectedTextPrettifyResult, SelectedTextPrettifyRunObserver } from '@main/services/selectedTextPrettify';
 import type { SelectedTextTranslationRunObserver } from '@main/services/selectedTextTranslation';
 import type { SelectedTextAction } from '@main/services/selectedTextActionState';
 import { MainInteractionLock } from '@shared/mainInteractionLock';
+import { HotkeyBindingAuthority, type HotkeyTarget } from '@shared/hotkeys';
 import { TestAppConfigStore } from './appConfigTestUtils';
 
 const DEFAULT_SETTINGS: ShortcutSettingsSnapshot = {
@@ -31,7 +35,7 @@ async function settleAsyncDispatch(): Promise<void> {
   });
 }
 
-class RecordingGlobalShortcuts {
+class RecordingGlobalShortcuts extends GlobalShortcutAdapter {
   public readonly callbacks = new Map<string, () => void>();
   public readonly failedRegistrations = new Set<string>();
   public unregisterAllCount = 0;
@@ -43,15 +47,32 @@ class RecordingGlobalShortcuts {
     return true;
   }
 
-  public unregister(accelerator: string): void {
+  public isRegistered(accelerator: string): boolean {
+    return this.callbacks.has(accelerator);
+  }
+
+  public unregister(accelerator: string): boolean {
     this.callbacks.delete(accelerator);
     this.unregistered.push(accelerator);
+    return true;
   }
 
   public unregisterAll(): void {
     this.unregisterAllCount += 1;
     this.callbacks.clear();
   }
+}
+
+function createAcceptedPolicy(): HotkeyPlatformPolicy {
+  return Object.freeze({
+    validate(normalizedAccelerator: string) {
+      return Object.freeze({
+        accepted: true as const,
+        bindingAuthority: HotkeyBindingAuthority.Application,
+        effectiveAccelerator: normalizedAccelerator,
+      });
+    },
+  });
 }
 
 interface ShortcutControllerHarnessOptions {
@@ -73,6 +94,7 @@ class ShortcutControllerHarness {
   public readonly controller: ShortcutController;
   public generationObserver: SelectedTextPrettifyRunObserver | null = null;
   public readonly globalShortcuts = new RecordingGlobalShortcuts();
+  public readonly hotkeyRegistrationService: HotkeyRegistrationService;
   public readonly mainInteractionLock = new MainInteractionLock(() => false);
   public quickCalls = 0;
   public quickResult: Promise<SelectedTextPrettifyResult> = Promise.resolve(SUCCESSFUL_PRETTIFY_RESULT);
@@ -90,6 +112,28 @@ class ShortcutControllerHarness {
     const settings = { ...DEFAULT_SETTINGS, ...options.settings };
     this.config.setHotkeys(settings);
     this.config.setTextActionSettings(settings);
+    this.hotkeyRegistrationService = new HotkeyRegistrationService({
+      adapter: this.globalShortcuts,
+      callbacks: Object.freeze({
+        cancel: () => this.controller.dispatchHotkey('cancel'),
+        prettify: () => this.controller.dispatchHotkey('prettify'),
+        prettifyQuick: () => this.controller.dispatchHotkey('prettifyQuick'),
+        record: () => this.controller.dispatchHotkey('record'),
+        retryTranscription: () => this.controller.dispatchHotkey('retryTranscription'),
+        stop: () => this.controller.dispatchHotkey('stop'),
+        translate: () => this.controller.dispatchHotkey('translate'),
+      }) satisfies Readonly<Record<HotkeyTarget, () => void>>,
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      config: this.config,
+      logger: { info: () => undefined, warn: () => undefined },
+      platform: options.platform ?? 'linux',
+      policy: createAcceptedPolicy(),
+    });
+    this.hotkeyRegistrationService.connectMainInteractionLock(this.mainInteractionLock);
     const providerHomeActionDispatcher = new ProviderHomeActionDispatcher({
       config: this.config,
       getRecordingLifecycleState: () => this.controller.getRecordingState().lifecycleState,
@@ -155,7 +199,7 @@ class ShortcutControllerHarness {
     });
     this.controller = new ShortcutController({
       config: this.config,
-      globalShortcut: this.globalShortcuts,
+      hotkeyRegistrationService: this.hotkeyRegistrationService,
       logger: { info: () => undefined, warn: () => undefined },
       localization: {
         translate: (key) => key,
@@ -164,7 +208,6 @@ class ShortcutControllerHarness {
       notification: {
         show: (title, body) => this.notifications.push([title, body]),
       },
-      platform: options.platform ?? 'linux',
       prettifyRuntime: {
         isProviderConnected: (providerId) => {
           this.connectionChecks.push(providerId);
@@ -264,7 +307,7 @@ describe('ShortcutController', () => {
     harness.globalShortcuts.callbacks.get('F8')?.();
     assert.equal(harness.controller.getRecordingState().lifecycleState, 'retrying');
     assert.deepEqual(harness.sent[harness.sent.length - 1], ['retry-transcription']);
-    assert.equal(harness.globalShortcuts.callbacks.has('F8'), false);
+    assert.equal(harness.globalShortcuts.callbacks.has('F8'), true);
   });
 
   it('does not start recording while a selected-text provider operation is active', () => {
@@ -621,11 +664,14 @@ describe('ShortcutController', () => {
     assert.deepEqual(harness.globalShortcuts.unregistered, []);
   });
 
-  it('suspends, resumes, and disposes global shortcuts idempotently', () => {
+  it('keeps bindings while hotkey capture is active and disposes the service idempotently', () => {
     const harness = new ShortcutControllerHarness();
     harness.controller.register();
     harness.controller.setSuspended(true);
-    assert.equal(harness.globalShortcuts.callbacks.size, 0);
+    assert.equal(harness.globalShortcuts.callbacks.has('F9'), true);
+    assert.equal(harness.globalShortcuts.unregisterAllCount, 0);
+    harness.globalShortcuts.callbacks.get('F9')?.();
+    assert.equal(harness.controller.getRecordingState().lifecycleState, 'starting');
 
     harness.controller.setSuspended(false);
     assert.equal(harness.globalShortcuts.callbacks.has('F9'), true);
@@ -637,22 +683,25 @@ describe('ShortcutController', () => {
     harness.setActionGateActive('translate');
     const unregisterCount = harness.globalShortcuts.unregisterAllCount;
     harness.controller.register();
+    assert.equal(unregisterCount, 1);
     assert.equal(harness.globalShortcuts.unregisterAllCount, unregisterCount);
-    assert.deepEqual(harness.sent, []);
+    assert.deepEqual(harness.sent, [['toggle-recording', true]]);
   });
 
-  it('keeps hotkey capture suspended after the settings lock is released', () => {
+  it('suppresses dispatch under the settings lock without unregistering any binding', () => {
     const harness = new ShortcutControllerHarness();
     harness.controller.register();
-    harness.controller.setSuspended(true);
     const acquisition = harness.mainInteractionLock.acquire();
     assert.ok(acquisition.lease);
 
-    acquisition.lease.release();
-    assert.equal(harness.globalShortcuts.callbacks.size, 0);
-
-    harness.controller.setSuspended(false);
+    harness.globalShortcuts.callbacks.get('F9')?.();
+    assert.equal(harness.controller.getRecordingState().lifecycleState, 'idle');
+    assert.equal(harness.globalShortcuts.unregisterAllCount, 0);
     assert.equal(harness.globalShortcuts.callbacks.has('F9'), true);
+
+    acquisition.lease.release();
+    harness.globalShortcuts.callbacks.get('F9')?.();
+    assert.equal(harness.controller.getRecordingState().lifecycleState, 'starting');
   });
 
   it('keeps mutable lifecycle state isolated between controller instances', () => {

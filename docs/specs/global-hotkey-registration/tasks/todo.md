@@ -5,7 +5,7 @@ recorded, and Packet 01 is complete.
 
 - [x] [`01_nullable_persistence_and_shared_contracts.md`](./01_nullable_persistence_and_shared_contracts.md)
 - [x] [`02_platform_policy_and_registration_service.md`](./02_platform_policy_and_registration_service.md)
-- [ ] [`03_shortcut_controller_and_composition.md`](./03_shortcut_controller_and_composition.md)
+- [x] [`03_shortcut_controller_and_composition.md`](./03_shortcut_controller_and_composition.md)
 - [ ] [`04_trusted_hotkey_ipc.md`](./04_trusted_hotkey_ipc.md)
 - [ ] [`05_settings_registration_experience.md`](./05_settings_registration_experience.md)
 - [ ] [`06_main_window_status_and_demo.md`](./06_main_window_status_and_demo.md)

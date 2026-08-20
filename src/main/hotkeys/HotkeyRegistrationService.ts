@@ -16,6 +16,7 @@ import {
   type HotkeySettings,
   type HotkeyTarget,
 } from '@shared/hotkeys';
+import type { MainInteractionLock } from '@shared/mainInteractionLock';
 
 import { GlobalShortcutAdapter } from './GlobalShortcutAdapter';
 import { HotkeyPlatformPolicy, type HotkeyPlatformPolicyResult } from './HotkeyPlatformPolicy';
@@ -103,6 +104,7 @@ export class HotkeyRegistrationService {
   private disposed = false;
   private dispatchStatus = HotkeyDispatchStatus.Enabled;
   private readonly listeners = new Set<(snapshot: HotkeyRuntimeSnapshot) => void>();
+  private mainInteractionLockUnsubscribe: (() => void) | null = null;
   private nextGeneration = 0;
   private started = false;
   private readonly states = new Map<HotkeyTarget, TargetState>();
@@ -222,6 +224,13 @@ export class HotkeyRegistrationService {
     this.publish();
   }
 
+  /** Connects the one process-owned interaction lock before any window feedback subscribes to it. */
+  public connectMainInteractionLock(lock: MainInteractionLock): void {
+    if (this.disposed || this.mainInteractionLockUnsubscribe) return;
+    this.setDispatchSuppressed(lock.locked);
+    this.mainInteractionLockUnsubscribe = lock.subscribe((locked) => this.setDispatchSuppressed(locked));
+  }
+
   public test(target: unknown): Promise<HotkeyTestResult> {
     if (this.disposed || typeof target !== 'string' || !isHotkeyTarget(target)) {
       return Promise.resolve(HotkeyTestResult.Unavailable);
@@ -254,6 +263,8 @@ export class HotkeyRegistrationService {
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.mainInteractionLockUnsubscribe?.();
+    this.mainInteractionLockUnsubscribe = null;
     for (const target of HOTKEY_TARGETS) this.invalidate(target);
     this.settleTest(this.activeTest, HotkeyTestResult.Unavailable);
     this.activeTest = null;

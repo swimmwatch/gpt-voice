@@ -33,6 +33,7 @@ import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
+import { DesktopPlatform, LinuxSessionType } from '@shared/hotkeys';
 import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
 import { HostResourceProbeFactory } from './localWhisper/capability/HostResourceProbeFactory';
@@ -75,6 +76,26 @@ function getRequestedAt(): string {
 
 function getMonotonicTimeMs(): number {
   return performance.now();
+}
+
+function classifyDesktopPlatform(platform: NodeJS.Platform): DesktopPlatform {
+  switch (platform) {
+    case 'win32':
+      return DesktopPlatform.Windows;
+    case 'linux':
+      return DesktopPlatform.Linux;
+    case 'darwin':
+      return DesktopPlatform.Macos;
+    default:
+      return DesktopPlatform.Unsupported;
+  }
+}
+
+function classifyLinuxSession(platform: NodeJS.Platform, environment: NodeJS.ProcessEnv): LinuxSessionType {
+  if (platform !== 'linux') return LinuxSessionType.NotApplicable;
+  if (environment.XDG_SESSION_TYPE === LinuxSessionType.X11) return LinuxSessionType.X11;
+  if (environment.XDG_SESSION_TYPE === LinuxSessionType.Wayland) return LinuxSessionType.Wayland;
+  return LinuxSessionType.Unknown;
 }
 
 function ignoreStreamingDiagnostic(): void {
@@ -521,8 +542,10 @@ async function bootstrapMainProcess(): Promise<void> {
         preloadPath: path.join(__dirname, 'prettify-profile-chooser-preload.js'),
         screen,
       },
-      shortcuts: {
+      hotkeys: {
+        desktopPlatform: classifyDesktopPlatform(process.platform),
         globalShortcut,
+        linuxSessionType: classifyLinuxSession(process.platform, process.env),
         platform: process.platform,
       },
       tray: {
