@@ -561,7 +561,7 @@ async function bootstrapMainProcess(): Promise<void> {
   application.bootstrap();
 }
 
-configureDesktopApplicationBeforeReady(app);
+configureDesktopApplicationBeforeReady(app, process.platform);
 registerAppProtocolScheme(protocol);
 void bootstrapMainProcess().catch((error: unknown) => {
   setImmediate(() => {

@@ -5,7 +5,7 @@ import { PausedMacosHotkeyPlatformPolicy } from './PausedMacosHotkeyPlatformPoli
 import { UnsupportedHotkeyPlatformPolicy } from './UnsupportedHotkeyPlatformPolicy';
 
 export interface HotkeyPlatformPolicyFactoryDependencies {
-  readonly createLinuxX11Policy?: () => HotkeyPlatformPolicy;
+  readonly createLinuxPolicy?: (session: LinuxSessionType.X11 | LinuxSessionType.Wayland) => HotkeyPlatformPolicy;
   readonly createWindowsPolicy?: () => HotkeyPlatformPolicy;
 }
 
@@ -17,8 +17,12 @@ export class HotkeyPlatformPolicyFactory {
     if (platform === DesktopPlatform.Windows) {
       return this.createSupportedPolicy(this.dependencies.createWindowsPolicy);
     }
-    if (platform === DesktopPlatform.Linux && session === LinuxSessionType.X11) {
-      return this.createSupportedPolicy(this.dependencies.createLinuxX11Policy);
+    if (
+      platform === DesktopPlatform.Linux &&
+      (session === LinuxSessionType.X11 || session === LinuxSessionType.Wayland)
+    ) {
+      const createLinuxPolicy = this.dependencies.createLinuxPolicy;
+      return this.createSupportedPolicy(createLinuxPolicy ? () => createLinuxPolicy(session) : undefined);
     }
     if (platform === DesktopPlatform.Macos) return new PausedMacosHotkeyPlatformPolicy();
     return new UnsupportedHotkeyPlatformPolicy();

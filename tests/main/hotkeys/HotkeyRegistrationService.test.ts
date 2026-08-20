@@ -198,16 +198,15 @@ describe('Hotkey platform policy factory', () => {
     );
 
     const windows = createAcceptedPolicy();
-    const x11 = new LinuxHotkeyPlatformPolicy();
+    const x11 = new LinuxHotkeyPlatformPolicy(LinuxSessionType.X11);
+    const wayland = new LinuxHotkeyPlatformPolicy(LinuxSessionType.Wayland);
     const selected = new HotkeyPlatformPolicyFactory({
-      createLinuxX11Policy: () => x11,
+      createLinuxPolicy: (session) => (session === LinuxSessionType.X11 ? x11 : wayland),
       createWindowsPolicy: () => windows,
     });
     assert.equal(selected.create(DesktopPlatform.Windows, LinuxSessionType.NotApplicable), windows);
     assert.equal(selected.create(DesktopPlatform.Linux, LinuxSessionType.X11), x11);
-    assert.ok(
-      selected.create(DesktopPlatform.Linux, LinuxSessionType.Wayland) instanceof UnsupportedHotkeyPlatformPolicy,
-    );
+    assert.equal(selected.create(DesktopPlatform.Linux, LinuxSessionType.Wayland), wayland);
     assert.ok(
       selected.create(DesktopPlatform.Linux, LinuxSessionType.Unknown) instanceof UnsupportedHotkeyPlatformPolicy,
     );
@@ -230,7 +229,10 @@ describe('Linux X11 hotkey policy', () => {
   });
 
   it('accepts F12 without a Windows reservation and registers it through the shared adapter contract', () => {
-    const { adapter, service } = createService(createUnassignedHotkeySettings(), new LinuxHotkeyPlatformPolicy());
+    const { adapter, service } = createService(
+      createUnassignedHotkeySettings(),
+      new LinuxHotkeyPlatformPolicy(LinuxSessionType.X11),
+    );
 
     const result = service.set('record', LINUX_F12_ACCELERATOR);
 
@@ -242,6 +244,27 @@ describe('Linux X11 hotkey policy', () => {
       configuredAccelerator: LINUX_F12_ACCELERATOR,
       dispatchStatus: HotkeyDispatchStatus.Enabled,
       effectiveAccelerator: LINUX_F12_ACCELERATOR,
+      registrationStatus: HotkeyRegistrationStatus.Registered,
+      target: 'record',
+    });
+  });
+
+  it('retains Wayland preferences without claiming an effective accelerator', () => {
+    const { adapter, service } = createService(
+      createUnassignedHotkeySettings(),
+      new LinuxHotkeyPlatformPolicy(LinuxSessionType.Wayland),
+    );
+
+    const result = service.set('record', LINUX_F12_ACCELERATOR);
+
+    assert.equal(result.success, true);
+    assert.equal(adapter.isRegistered(LINUX_F12_ACCELERATOR), true);
+    const record = result.snapshot.entries.find((entry) => entry.target === 'record');
+    assert.deepEqual(record, {
+      bindingAuthority: HotkeyBindingAuthority.DesktopEnvironment,
+      configuredAccelerator: LINUX_F12_ACCELERATOR,
+      dispatchStatus: HotkeyDispatchStatus.Enabled,
+      effectiveAccelerator: null,
       registrationStatus: HotkeyRegistrationStatus.Registered,
       target: 'record',
     });

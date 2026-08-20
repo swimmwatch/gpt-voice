@@ -1325,3 +1325,36 @@ decisions:
         QUAL-005,
         AC-AUTO-005,
       ]
+
+  - id: authorization.packet-08-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - "The user explicitly named the incremental-implementation skill for the global-hotkey-registration workstream and then replied 'ok' to authorize execution."
+      - 'Authorization is limited to Packet 08 Linux Wayland Portal, Package, And Qualification; it excludes Packet 09, commits, source transport, publishing, releases, and pull requests.'
+    answer:
+      selected_ids: [authorize-packet-08]
+      text: 'ok'
+    rationale: 'Prompt MCP was unavailable. The direct user authorization permits only Packet 08 implementation, automated verification, task-state recording, and the separately recorded manual gates.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        SCOPE-003,
+        PLAT-004,
+        PLAT-005,
+        PLAT-006,
+        PLAT-007,
+        COMP-004,
+        COMP-005,
+        DEP-001,
+        DEP-002,
+        QUAL-002,
+        QUAL-007,
+        QUAL-010,
+        AC-AUTO-002,
+        AC-AUTO-007,
+        AC-MAN-003,
+      ]

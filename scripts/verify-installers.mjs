@@ -12,8 +12,13 @@ const releaseDir = path.join(rootDir, 'release');
 const packageJson = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf-8'));
 const productName = packageJson.build?.productName || packageJson.name;
 const packageName = packageJson.name;
+const desktopIdentity = packageJson.desktopName;
 const platformArg = process.argv.find((arg) => arg.startsWith('--platform='));
 const targetPlatform = platformArg?.slice('--platform='.length) || process.platform;
+
+if (desktopIdentity !== 'com.swimmwatch.gptvoice' || packageJson.build?.linux?.syncDesktopName !== true) {
+  throw new Error('Linux desktop identity configuration is invalid');
+}
 
 function assert(condition, message) {
   if (!condition) {
@@ -172,7 +177,7 @@ async function verifyDesktopFile(filePath, { appImage }) {
     'Terminal=false',
     'Type=Application',
     `Icon=${packageName}`,
-    `StartupWMClass=${packageName}`,
+    `StartupWMClass=${desktopIdentity}`,
     'Categories=Utility;',
   ];
 
@@ -270,8 +275,12 @@ async function verifyLinuxInstallers() {
     await verifyPackagedLicense(path.join(appImageRoot, 'resources', 'LICENSE.txt'), 'AppImage license metadata');
     const desktopFile = await findFirst(
       appImageRoot,
-      (filePath) => filePath.endsWith('.desktop'),
+      (filePath) => path.relative(appImageRoot, filePath) === `${desktopIdentity}.desktop`,
       'AppImage desktop file',
+    );
+    assert(
+      !(await exists(path.join(appImageRoot, `${packageName}.desktop`))),
+      'AppImage package retained legacy desktop file',
     );
     await verifyDesktopFile(desktopFile, { appImage: true });
     await verifyLinuxIconTheme(appImageRoot);
@@ -309,13 +318,17 @@ async function verifyLinuxInstallers() {
     `./opt/${productName}/resources/app.asar`,
     `./opt/${productName}/resources/cloakbrowser/chrome`,
     `./opt/${productName}/resources/LICENSE.txt`,
-    `./usr/share/applications/${packageName}.desktop`,
+    `./usr/share/applications/${desktopIdentity}.desktop`,
     `./usr/share/icons/hicolor/512x512/apps/${packageName}.png`,
     `./usr/share/metainfo/${packageJson.build.appId}.metainfo.xml`,
     `./usr/share/doc/${packageName}/copyright`,
   ]) {
     assert(debContents.includes(expectedPath), `deb package does not own expected path: ${expectedPath}`);
   }
+  assert(
+    !debContents.includes(`./usr/share/applications/${packageName}.desktop`),
+    'deb package retained legacy desktop file',
+  );
 
   const debExtractDir = await mkdtemp(path.join(os.tmpdir(), `${packageName}-deb-`));
   try {
@@ -329,7 +342,7 @@ async function verifyLinuxInstallers() {
       path.join(debExtractDir, 'opt', productName, 'resources', 'LICENSE.txt'),
       'deb packaged license metadata',
     );
-    await verifyDesktopFile(path.join(debExtractDir, 'usr', 'share', 'applications', `${packageName}.desktop`), {
+    await verifyDesktopFile(path.join(debExtractDir, 'usr', 'share', 'applications', `${desktopIdentity}.desktop`), {
       appImage: false,
     });
     await verifyLinuxIconTheme(debExtractDir);
@@ -391,13 +404,17 @@ async function verifyLinuxInstallers() {
     `/opt/${productName}/resources/app.asar`,
     `/opt/${productName}/resources/cloakbrowser/chrome`,
     `/opt/${productName}/resources/LICENSE.txt`,
-    `/usr/share/applications/${packageName}.desktop`,
+    `/usr/share/applications/${desktopIdentity}.desktop`,
     `/usr/share/icons/hicolor/512x512/apps/${packageName}.png`,
     `/usr/share/metainfo/${packageJson.build.appId}.metainfo.xml`,
     `/usr/share/licenses/${packageName}/LICENSE.txt`,
   ]) {
     assert(rpmContents.includes(expectedPath), `RPM package does not own expected path: ${expectedPath}`);
   }
+  assert(
+    !rpmContents.includes(`/usr/share/applications/${packageName}.desktop`),
+    'RPM package retained legacy desktop file',
+  );
 
   const rpmExtractDir = await mkdtemp(path.join(os.tmpdir(), `${packageName}-rpm-`));
   try {
@@ -415,7 +432,7 @@ async function verifyLinuxInstallers() {
       path.join(rpmExtractDir, 'usr', 'share', 'licenses', packageName, 'LICENSE.txt'),
       'RPM package license metadata',
     );
-    await verifyDesktopFile(path.join(rpmExtractDir, 'usr', 'share', 'applications', `${packageName}.desktop`), {
+    await verifyDesktopFile(path.join(rpmExtractDir, 'usr', 'share', 'applications', `${desktopIdentity}.desktop`), {
       appImage: false,
     });
     await verifyLinuxIconTheme(rpmExtractDir);
@@ -427,12 +444,14 @@ async function verifyLinuxInstallers() {
   if (process.env.DISPLAY || process.env.WAYLAND_DISPLAY) {
     const cleanupDataHome = await mkdtemp(path.join(os.tmpdir(), `${packageName}-appimage-cleanup-`));
     try {
-      const cleanupDesktopFile = path.join(cleanupDataHome, 'applications', `${packageName}.desktop`);
+      const cleanupDesktopFile = path.join(cleanupDataHome, 'applications', `${desktopIdentity}.desktop`);
+      const legacyCleanupDesktopFile = path.join(cleanupDataHome, 'applications', `${packageName}.desktop`);
       const cleanupIconFile = path.join(cleanupDataHome, 'icons', 'hicolor', '512x512', 'apps', `${packageName}.png`);
       await mkdir(path.dirname(cleanupDesktopFile), { recursive: true });
       await mkdir(path.dirname(cleanupIconFile), { recursive: true });
       await access(appImage, constants.X_OK);
       await writeFile(cleanupDesktopFile, '', 'utf-8');
+      await writeFile(legacyCleanupDesktopFile, '', 'utf-8');
       await writeFile(cleanupIconFile, '', 'utf-8');
       await run(path.join(releaseDir, 'linux-unpacked', packageName), ['--remove-linux-appimage-desktop-integration'], {
         env: {
@@ -443,6 +462,10 @@ async function verifyLinuxInstallers() {
         timeout: 60000,
       });
       assert(!(await exists(cleanupDesktopFile)), 'AppImage desktop integration cleanup did not remove desktop file');
+      assert(
+        !(await exists(legacyCleanupDesktopFile)),
+        'AppImage desktop integration cleanup did not remove legacy desktop file',
+      );
       assert(!(await exists(cleanupIconFile)), 'AppImage desktop integration cleanup did not remove icon file');
     } finally {
       await rm(cleanupDataHome, { recursive: true, force: true });

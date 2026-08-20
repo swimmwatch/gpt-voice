@@ -239,11 +239,41 @@
   and `tests/renderer/appSettingsHotkeys.test.ts`, plus `npm run typecheck`,
   `npm run test:types`, scoped Prettier, and `git diff --check` — passed.
 
+## Packet 08 In Progress
+
+- Packet 08 execution is directly authorized as
+  `authorization.packet-08-execution:v1`. Its scoped Wayland policy, pre-ready
+  portal and desktop identity, AppImage launcher migration, builder metadata,
+  installer verification, and focused automated coverage are implemented.
+- Post-review corrections place `desktopName` in electron-builder's top-level
+  package metadata, configure the canonical Linux class synchronously before
+  ready, and require exact canonical AppImage/DEB/RPM desktop roles while
+  rejecting the legacy package role.
+- Changed files: `package.json`, `scripts/verify-installers.mjs`,
+  `src/main/desktopRuntimeController.ts`,
+  `src/main/di/mainProcessCompositionRoot.ts`,
+  `src/main/hotkeys/HotkeyPlatformPolicyFactory.ts`,
+  `src/main/hotkeys/LinuxHotkeyPlatformPolicy.ts`,
+  `src/main/linuxDesktopIntegration.ts`, `src/main/main.ts`, the focused main
+  and hotkey tests, and `tests/scripts/linuxDesktopIdentity.test.ts`.
+- Packet 08 automated verification passed: the focused cross-boundary suite
+  (84 tests), `npm run typecheck`, `npm run test:types`, scoped ESLint with
+  zero warnings, scoped Prettier, `npm run build:prod` (only existing webpack
+  bundle-size recommendations), and `git diff --check`.
+- Repository-wide `npm run lint -- --max-warnings 0` remains blocked by 258
+  existing warnings outside Packet 08; `npm run format:check` remains blocked
+  by 12 unrelated Local Whisper files. No Packet 08 file appears in either
+  result.
+- Manual evidence must bind to Git revision
+  `0e6786251ad639f0533e7965755a930db3a7fbaa` and Packet 08 source-set diff
+  digest `2119b903fe9b23805c56452628628cff25aa6bbf32861003685e2d95d4fba85b`.
+
 ## Exact Next Packet
 
-- [`08_linux_wayland_portal_package_and_qualification.md`](./08_linux_wayland_portal_package_and_qualification.md)
-  — do not begin without a separate explicit incremental-implementation
-  invocation and its required platform/manual gates.
+- Resume [`08_linux_wayland_portal_package_and_qualification.md`](./08_linux_wayland_portal_package_and_qualification.md)
+  only to record its required native GNOME, KDE, and package-artifact manual
+  gates. Do not start Packet 09 until Packet 08 is complete and separately
+  committed with explicit authorization.
 
 ## Blockers
 
@@ -255,3 +285,8 @@
 - No blocker remains for completed Packet 07. Do not use automated, headless,
   Wayland, Windows, or CI evidence as a substitute for the recorded interactive
   X11 gate.
+- Packet 08 cannot be checked complete until AC-MAN-003 is recorded on both
+  native GNOME Wayland and KDE Wayland, and representative local AppImage, DEB,
+  and RPM artifacts pass `npm run verify:installers` on a supported package
+  host. Source transport, if required for those hosts, needs separate user
+  authorization.

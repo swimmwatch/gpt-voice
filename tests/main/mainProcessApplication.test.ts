@@ -230,7 +230,7 @@ class RecordingDesktopRuntimeController extends DesktopRuntimeController {
   ) {
     super({
       app: {
-        commandLine: { appendSwitch: () => undefined },
+        commandLine: { appendSwitch: () => undefined, getSwitchValue: () => '' },
         disableHardwareAcceleration: () => undefined,
         getVersion: () => '1.0.0',
         isPackaged: false,
@@ -238,6 +238,7 @@ class RecordingDesktopRuntimeController extends DesktopRuntimeController {
         requestSingleInstanceLock: () => true,
         setAboutPanelOptions: () => undefined,
         setAppUserModelId: () => undefined,
+        setDesktopName: () => undefined,
         setName: () => undefined,
         showAboutPanel: () => undefined,
       },
@@ -297,6 +298,7 @@ class RecordingLinuxDesktopIntegrationController extends LinuxDesktopIntegration
       environment: {},
       fileSystem: {
         copyFileSync: () => undefined,
+        existsSync: () => false,
         mkdirSync: () => undefined,
         rmSync: () => undefined,
         writeFileSync: () => undefined,
@@ -317,8 +319,9 @@ class RecordingLinuxDesktopIntegrationController extends LinuxDesktopIntegration
     this.events.push('desktop-icons');
   }
 
-  public override registerAppImage(): void {
+  public override registerAppImage(): boolean {
     this.events.push('desktop-integration');
+    return true;
   }
 
   public override removeAppImage(): void {
@@ -645,6 +648,7 @@ describe('main process application lifecycle', () => {
     assert.ok(harness.events.indexOf('cloak-prepare') < harness.events.indexOf('translation-initialize'));
     assert.ok(harness.events.indexOf('cloak-prepare') < harness.events.indexOf('browser-initialize'));
     assert.ok(harness.events.indexOf('browser-initialize') < harness.events.indexOf('background-status'));
+    assert.ok(harness.events.indexOf('desktop-integration') < harness.events.indexOf('shortcuts-register'));
   });
 
   it('keeps integration removal and benchmark startup from opening unrelated resources', async () => {

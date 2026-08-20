@@ -694,7 +694,7 @@ export class MainProcessCompositionRoot {
       logger: loggerFactory.getLogger('hotkeys'),
       platform: desktopEnvironment.hotkeys.platform,
       policy: new HotkeyPlatformPolicyFactory({
-        createLinuxX11Policy: () => new LinuxHotkeyPlatformPolicy(),
+        createLinuxPolicy: (session) => new LinuxHotkeyPlatformPolicy(session),
       }).create(desktopEnvironment.hotkeys.desktopPlatform, desktopEnvironment.hotkeys.linuxSessionType),
     });
     hotkeyRegistrationService.connectMainInteractionLock(mainInteractionLock);

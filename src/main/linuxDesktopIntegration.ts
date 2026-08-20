@@ -1,6 +1,9 @@
 import * as path from 'node:path';
 
-const DESKTOP_FILE_NAME = 'gpt-voice.desktop';
+import { APP_ID } from './appMetadata';
+
+const CANONICAL_DESKTOP_FILE_NAME = `${APP_ID}.desktop`;
+const LEGACY_DESKTOP_FILE_NAME = 'gpt-voice.desktop';
 const ICON_FILE_NAME = 'gpt-voice.png';
 const ICON_THEME_NAME = 'hicolor';
 const ICON_CACHE_COMMAND = 'gtk-update-icon-cache';
@@ -22,6 +25,7 @@ export interface LinuxDesktopIntegrationControllerDependencies {
   readonly environment: NodeJS.ProcessEnv;
   readonly fileSystem: {
     copyFileSync(source: string, destination: string): void;
+    existsSync(path: string): boolean;
     mkdirSync(path: string, options: { recursive: true }): unknown;
     rmSync(path: string, options: { force: true }): void;
     writeFileSync(path: string, data: string, encoding: BufferEncoding): void;
@@ -49,25 +53,25 @@ export class LinuxDesktopIntegrationController {
       const dataHome = this.getXdgDataHome();
       this.syncDesktopIcons(dataHome);
       this.refreshIconCache(dataHome);
-      this.dependencies.logger.info('Updated Linux desktop icon theme');
-    } catch (error: unknown) {
-      this.dependencies.logger.warn('Failed to update Linux desktop icon theme:', error);
+      this.log('info', 'refresh-icons', 'success');
+    } catch {
+      this.log('warn', 'refresh-icons', 'failed');
     }
   }
 
-  public registerAppImage(): void {
+  public registerAppImage(): boolean {
     const appImagePath = this.dependencies.environment.APPIMAGE;
     if (this.dependencies.platform !== 'linux' || !this.dependencies.app.isPackaged || !appImagePath) {
-      return;
+      return false;
     }
 
-    const { desktopFile, iconFile } = this.getIntegrationPaths();
+    const { canonicalDesktopFile, iconFile, legacyDesktopFile } = this.getIntegrationPaths();
     try {
-      this.dependencies.fileSystem.mkdirSync(path.dirname(desktopFile), { recursive: true });
+      this.dependencies.fileSystem.mkdirSync(path.dirname(canonicalDesktopFile), { recursive: true });
       this.dependencies.fileSystem.mkdirSync(path.dirname(iconFile), { recursive: true });
       this.dependencies.fileSystem.copyFileSync(this.dependencies.getAppIconPath(), iconFile);
       this.dependencies.fileSystem.writeFileSync(
-        desktopFile,
+        canonicalDesktopFile,
         [
           '[Desktop Entry]',
           `Name=${APP_DISPLAY_NAME}`,
@@ -75,7 +79,7 @@ export class LinuxDesktopIntegrationController {
           'Terminal=false',
           'Type=Application',
           `Icon=${DESKTOP_ICON_NAME}`,
-          `StartupWMClass=${DESKTOP_ICON_NAME}`,
+          `StartupWMClass=${APP_ID}`,
           'StartupNotify=true',
           `X-AppImage-Version=${this.dependencies.app.getVersion()}`,
           'Comment=Transcribe speech through GPT web sessions or OpenAI API',
@@ -89,22 +93,28 @@ export class LinuxDesktopIntegrationController {
         ].join('\n'),
         'utf8',
       );
-      this.dependencies.logger.info('Registered AppImage desktop integration:', desktopFile);
-    } catch (error: unknown) {
-      this.dependencies.logger.warn('Failed to register AppImage desktop integration:', error);
+      if (this.dependencies.fileSystem.existsSync(legacyDesktopFile)) {
+        this.dependencies.fileSystem.rmSync(legacyDesktopFile, { force: true });
+      }
+      this.log('info', 'register', 'success');
+      return true;
+    } catch {
+      this.log('warn', 'register', 'failed');
+      return false;
     }
   }
 
   public removeAppImage(): void {
     if (this.dependencies.platform !== 'linux') return;
 
-    const { desktopFile, iconFile } = this.getIntegrationPaths();
+    const { canonicalDesktopFile, iconFile, legacyDesktopFile } = this.getIntegrationPaths();
     try {
-      this.dependencies.fileSystem.rmSync(desktopFile, { force: true });
+      this.dependencies.fileSystem.rmSync(canonicalDesktopFile, { force: true });
+      this.dependencies.fileSystem.rmSync(legacyDesktopFile, { force: true });
       this.dependencies.fileSystem.rmSync(iconFile, { force: true });
-      this.dependencies.logger.info('Removed AppImage desktop integration');
-    } catch (error: unknown) {
-      this.dependencies.logger.warn('Failed to remove AppImage desktop integration:', error);
+      this.log('info', 'remove', 'success');
+    } catch {
+      this.log('warn', 'remove', 'failed');
     }
   }
 
@@ -125,12 +135,26 @@ export class LinuxDesktopIntegrationController {
     }
   }
 
-  private getIntegrationPaths(): { readonly desktopFile: string; readonly iconFile: string } {
+  private getIntegrationPaths(): {
+    readonly canonicalDesktopFile: string;
+    readonly iconFile: string;
+    readonly legacyDesktopFile: string;
+  } {
     const dataHome = this.getXdgDataHome();
     return {
-      desktopFile: path.join(dataHome, 'applications', DESKTOP_FILE_NAME),
+      canonicalDesktopFile: path.join(dataHome, 'applications', CANONICAL_DESKTOP_FILE_NAME),
       iconFile: path.join(dataHome, 'icons', ICON_THEME_NAME, '512x512', 'apps', ICON_FILE_NAME),
+      legacyDesktopFile: path.join(dataHome, 'applications', LEGACY_DESKTOP_FILE_NAME),
     };
+  }
+
+  private log(level: 'debug' | 'info' | 'warn', action: string, result: 'failed' | 'success'): void {
+    this.dependencies.logger[level]('Linux desktop integration', {
+      action,
+      identity: APP_ID,
+      platform: this.dependencies.platform,
+      result,
+    });
   }
 
   private refreshIconCache(dataHome: string): void {
@@ -142,12 +166,12 @@ export class LinuxDesktopIntegrationController {
     );
     iconCache.once('error', (error) => {
       if (error.code !== 'ENOENT') {
-        this.dependencies.logger.debug('Failed to refresh Linux desktop icon cache:', error.message);
+        this.log('debug', 'refresh-icons', 'failed');
       }
     });
     iconCache.once('close', (code) => {
       if (code !== 0) {
-        this.dependencies.logger.debug('Linux desktop icon cache refresh exited:', code);
+        this.log('debug', 'refresh-icons', 'failed');
       }
     });
     iconCache.unref();

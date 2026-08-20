@@ -1,5 +1,6 @@
 {
   "name": "gpt-voice",
+  "desktopName": "com.swimmwatch.gptvoice",
   "version": "1.4.0",
   "private": true,
   "description": "Desktop voice transcription app powered by GPT web sessions and OpenAI API.",
@@ -352,6 +353,7 @@
       "uk"
     ],
     "linux": {
+      "syncDesktopName": true,
       "extraResources": [
         {
           "from": "build/generated/local-whisper/native",
@@ -379,7 +381,7 @@
           "GenericName": "Voice Transcriber",
           "Comment": "Transcribe speech through GPT web sessions or OpenAI API",
           "Keywords": "voice;transcription;speech;chatgpt;openai;whisper;",
-          "StartupWMClass": "gpt-voice"
+          "StartupWMClass": "com.swimmwatch.gptvoice"
         }
       }
     },

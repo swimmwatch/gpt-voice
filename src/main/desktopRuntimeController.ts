@@ -11,10 +11,12 @@ const STARTUP_BENCHMARK_ARGUMENT = '--startup-benchmark';
 const STARTUP_BENCHMARK_RENDERER_MOUNT_QUERY = "document.getElementById('window-startup-content') !== null";
 const REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT = '--remove-linux-appimage-desktop-integration';
 const ELECTRON_DISABLE_SANDBOX_ENVIRONMENT_KEY = 'ELECTRON_DISABLE_SANDBOX';
+const GLOBAL_SHORTCUTS_PORTAL_FEATURE = 'GlobalShortcutsPortal';
 
 export interface DesktopRuntimeApplication {
   readonly commandLine: {
     appendSwitch(name: string, value?: string): void;
+    getSwitchValue(name: string): string;
   };
   readonly dock?: {
     setIcon(image: string): void;
@@ -26,6 +28,7 @@ export interface DesktopRuntimeApplication {
   requestSingleInstanceLock(): boolean;
   setAboutPanelOptions(options: AboutPanelOptionsOptions): void;
   setAppUserModelId(id: string): void;
+  setDesktopName(name: string): void;
   setName(name: string): void;
   showAboutPanel(): void;
 }
@@ -52,10 +55,26 @@ export interface DesktopRuntimeControllerDependencies {
 }
 
 /** Performs Electron operations that must run synchronously before the ready event. */
-export function configureDesktopApplicationBeforeReady(app: DesktopRuntimeApplication): void {
+export function configureDesktopApplicationBeforeReady(
+  app: DesktopRuntimeApplication,
+  platform: NodeJS.Platform,
+): void {
   app.setName(APP_NAME);
   app.setAppUserModelId(APP_ID);
   app.disableHardwareAcceleration();
+  if (platform !== 'linux') return;
+
+  app.commandLine.appendSwitch('class', APP_ID);
+  app.setDesktopName(APP_ID);
+  const enabledFeatures = app.commandLine
+    .getSwitchValue('enable-features')
+    .split(',')
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0 && feature !== GLOBAL_SHORTCUTS_PORTAL_FEATURE);
+  const configuredFeatures = [...enabledFeatures, GLOBAL_SHORTCUTS_PORTAL_FEATURE].join(',');
+  if (configuredFeatures !== app.commandLine.getSwitchValue('enable-features')) {
+    app.commandLine.appendSwitch('enable-features', configuredFeatures);
+  }
 }
 
 /**
@@ -80,7 +99,7 @@ export class DesktopRuntimeController {
     if (this.beforeReadyConfigured) return;
     this.beforeReadyConfigured = true;
 
-    configureDesktopApplicationBeforeReady(this.dependencies.app);
+    configureDesktopApplicationBeforeReady(this.dependencies.app, this.dependencies.platform);
   }
 
   public acquireSingleInstanceLock(): boolean {
@@ -244,7 +263,6 @@ export class DesktopRuntimeController {
     if (this.dependencies.platform !== 'linux') return;
 
     const { app } = this.dependencies;
-    app.commandLine.appendSwitch('class', 'gpt-voice');
     app.commandLine.appendSwitch('disable-gpu');
     app.commandLine.appendSwitch('disable-dev-shm-usage');
     app.commandLine.appendSwitch('log-level', CHROMIUM_FATAL_LOG_LEVEL);

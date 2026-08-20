@@ -37,6 +37,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public readonly commandLine = {
     appendSwitch: () => undefined,
+    getSwitchValue: () => '',
   };
   public readonly isPackaged = false;
   public quitCount = 0;
@@ -60,6 +61,8 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
   public setAboutPanelOptions(): void {}
 
   public setAppUserModelId(): void {}
+
+  public setDesktopName(): void {}
 
   public setName(): void {}
 
@@ -515,6 +518,7 @@ class MainProcessCompositionHarness {
           environment: {},
           fileSystem: {
             copyFileSync: () => undefined,
+            existsSync: () => false,
             mkdirSync: () => undefined,
             rmSync: () => undefined,
             writeFileSync: () => undefined,
