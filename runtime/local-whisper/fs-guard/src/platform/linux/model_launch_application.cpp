@@ -231,6 +231,18 @@ void write_all(const int descriptor, const std::string& value) {
   }
 }
 
+void write_failure_acknowledgment(const int descriptor, const std::string_view value) noexcept {
+  std::size_t offset = 0;
+  while (offset < value.size()) {
+    const ssize_t count = write(descriptor, value.data() + offset, value.size() - offset);
+    if (count < 0 && errno == EINTR)
+      continue;
+    if (count <= 0)
+      return;
+    offset += static_cast<std::size_t>(count);
+  }
+}
+
 local_whisper::common::AuthorityBinding binding_for(const ModelLaunchRequest& request,
                                                     const pid_t launcher_pid) {
   try {
@@ -377,7 +389,7 @@ int run_linux_model_launch(const int control_descriptor, const int acknowledgmen
         launcher_environment[4].data(), nullptr};
     fexecve(kLauncherExecutableDescriptor, arguments.data(), environment.data());
     constexpr std::string_view failure = "FAILED\tMODEL_LAUNCHER_RESUME_FAILED\n";
-    static_cast<void>(write(kLauncherAcknowledgmentDescriptor, failure.data(), failure.size()));
+    write_failure_acknowledgment(kLauncherAcknowledgmentDescriptor, failure);
     _exit(common::kChildExecBootstrapFailureExitCode);
   }
 

@@ -4,6 +4,7 @@
 #include "local_whisper/launcher/launcher_error.hpp"
 #include "local_whisper/launcher/platform_launcher.hpp"
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -15,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #else
+#include <cerrno>
 #include <unistd.h>
 #endif
 
@@ -51,11 +53,20 @@ int inherited_descriptor(const char* argument, const std::string_view prefix) {
 
 void write_failure_acknowledgment(const int descriptor, const std::string_view code) noexcept {
   const std::string line = "FAILED\t" + std::string(code) + "\n";
+  std::size_t offset = 0;
+  while (offset < line.size()) {
 #ifdef _WIN32
-  static_cast<void>(_write(descriptor, line.data(), static_cast<unsigned int>(line.size())));
+    const int count =
+        _write(descriptor, line.data() + offset, static_cast<unsigned int>(line.size() - offset));
 #else
-  static_cast<void>(write(descriptor, line.data(), line.size()));
+    const ssize_t count = write(descriptor, line.data() + offset, line.size() - offset);
+    if (count < 0 && errno == EINTR)
+      continue;
 #endif
+    if (count <= 0)
+      return;
+    offset += static_cast<std::size_t>(count);
+  }
 }
 } // namespace
 

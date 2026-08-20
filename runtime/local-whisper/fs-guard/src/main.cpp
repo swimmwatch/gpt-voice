@@ -11,6 +11,7 @@
 #include "platform/linux/model_launch_application.hpp"
 #endif
 
+#include <cstddef>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -18,17 +19,27 @@
 #if defined(_WIN32)
 #include <io.h>
 #else
+#include <cerrno>
 #include <unistd.h>
 #endif
 
 namespace {
 void write_model_launch_failure(const std::string_view code) noexcept {
   const std::string line = "FAILED\t" + std::string(code) + "\n";
+  std::size_t offset = 0;
+  while (offset < line.size()) {
 #if defined(_WIN32)
-  static_cast<void>(_write(4, line.data(), static_cast<unsigned int>(line.size())));
+    const int count =
+        _write(4, line.data() + offset, static_cast<unsigned int>(line.size() - offset));
 #else
-  static_cast<void>(write(4, line.data(), line.size()));
+    const ssize_t count = write(4, line.data() + offset, line.size() - offset);
+    if (count < 0 && errno == EINTR)
+      continue;
 #endif
+    if (count <= 0)
+      return;
+    offset += static_cast<std::size_t>(count);
+  }
 }
 } // namespace
 
