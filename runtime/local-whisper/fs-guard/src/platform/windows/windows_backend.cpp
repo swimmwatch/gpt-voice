@@ -20,6 +20,7 @@
 #include <cstring>
 #include <cwctype>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -291,11 +292,17 @@ public:
                          const std::optional<unsigned int> file_mode = std::nullopt) {
     std::vector<unsigned char> sid_storage;
     PSID sid = current_user_sid(sid_storage);
-    const DWORD ace_size = sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(sid) - sizeof(DWORD);
-    const DWORD acl_size = sizeof(ACL) + ace_size * (file_mode.has_value() ? 2U : 1U);
-    std::vector<unsigned char> acl_storage(acl_size);
+    const std::uint64_t ace_size = static_cast<std::uint64_t>(sizeof(ACCESS_ALLOWED_ACE)) +
+                                   static_cast<std::uint64_t>(GetLengthSid(sid)) -
+                                   static_cast<std::uint64_t>(sizeof(DWORD));
+    const std::uint64_t acl_size =
+        static_cast<std::uint64_t>(sizeof(ACL)) + ace_size * (file_mode.has_value() ? 2ULL : 1ULL);
+    if (acl_size > static_cast<std::uint64_t>(std::numeric_limits<DWORD>::max()))
+      throw GuardError("IO_FAILED");
+    const DWORD bounded_acl_size = static_cast<DWORD>(acl_size);
+    std::vector<unsigned char> acl_storage(static_cast<std::size_t>(bounded_acl_size));
     PACL acl = reinterpret_cast<PACL>(acl_storage.data());
-    if (!InitializeAcl(acl, acl_size, ACL_REVISION) ||
+    if (!InitializeAcl(acl, bounded_acl_size, ACL_REVISION) ||
         !AddAccessAllowedAceEx(acl, ACL_REVISION, OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE,
                                FILE_ALL_ACCESS, sid) ||
         (file_mode.has_value() &&

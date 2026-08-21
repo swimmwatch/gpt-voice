@@ -59,20 +59,34 @@ async function requireCommand(command, packageHint) {
   throw new Error(`Required command "${command}" is not available. Install ${packageHint} before verifying RPMs.`);
 }
 
-async function run(command, args, options = {}) {
+async function run(command, args, { cwd, optional = false, timeout = 120000 } = {}) {
   try {
     const result = await execFile(command, args, {
+      cwd,
       maxBuffer: 32 * 1024 * 1024,
-      timeout: options.timeout ?? 120000,
-      ...options,
+      timeout,
     });
     return `${result.stdout || ''}${result.stderr || ''}`;
   } catch (error) {
-    if (error.code === 'ENOENT' && options.optional) {
+    if (error.code === 'ENOENT' && optional) {
       return '';
     }
     throw error;
   }
+}
+
+/** Runs the packaged cleanup path with only the two contract-specific environment values. */
+async function removeLinuxAppImageDesktopIntegration(appImage, cleanupDataHome) {
+  const app = path.join(releaseDir, 'linux-unpacked', packageName);
+  const result = await execFile(app, ['--remove-linux-appimage-desktop-integration'], {
+    env: {
+      APPIMAGE: appImage,
+      XDG_DATA_HOME: cleanupDataHome,
+    },
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: 60000,
+  });
+  return `${result.stdout || ''}${result.stderr || ''}`;
 }
 
 function sleep(ms) {
@@ -453,14 +467,7 @@ async function verifyLinuxInstallers() {
       await writeFile(cleanupDesktopFile, '', 'utf-8');
       await writeFile(legacyCleanupDesktopFile, '', 'utf-8');
       await writeFile(cleanupIconFile, '', 'utf-8');
-      await run(path.join(releaseDir, 'linux-unpacked', packageName), ['--remove-linux-appimage-desktop-integration'], {
-        env: {
-          ...process.env,
-          APPIMAGE: appImage,
-          XDG_DATA_HOME: cleanupDataHome,
-        },
-        timeout: 60000,
-      });
+      await removeLinuxAppImageDesktopIntegration(appImage, cleanupDataHome);
       assert(!(await exists(cleanupDesktopFile)), 'AppImage desktop integration cleanup did not remove desktop file');
       assert(
         !(await exists(legacyCleanupDesktopFile)),
