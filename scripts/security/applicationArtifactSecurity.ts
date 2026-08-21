@@ -5,6 +5,11 @@ import * as path from 'node:path';
 import { extractFile, listPackage } from '@electron/asar';
 
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
+import {
+  canonicalSecurityEvidenceBytes,
+  isSecurityRecord as isRecord,
+  SecurityEvidenceFields,
+} from './securityEvidenceFields';
 
 import { withVerifiedRegularFile } from './verifiedRegularFile';
 
@@ -21,8 +26,6 @@ const MAXIMUM_FILE_BYTES = 1024 * 1024 * 1024;
 const MAXIMUM_PACKAGE_LOCK_BYTES = 2 * 1024 * 1024;
 const MAXIMUM_PACKAGED_PACKAGE_JSON_BYTES = 64 * 1024;
 const MAXIMUM_SOURCE_LOCK_BYTES = 1024 * 1024;
-const SHA256 = /^[a-f0-9]{64}$/u;
-const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const SAFE_COMPONENT = /^[\w@.+/-]{1,160}$/u;
 const SAFE_COMPONENT_NAME = /^[\w@.+/ -]{1,160}$/u;
@@ -118,32 +121,10 @@ function fail(code: string): never {
   throw new Error(`APPLICATION_ARTIFACT_SECURITY_${code}`);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function exactKeys(value: Record<string, unknown>, keys: readonly string[], code: string): void {
-  const actual = Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'));
-  const expected = [...keys].sort((left, right) => left.localeCompare(right, 'en'));
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) fail(code);
-}
+const securityFields = Object.freeze(new SecurityEvidenceFields(fail));
 
 function sha256(value: Uint8Array | string): string {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function canonicalBytes(value: unknown): Buffer {
-  return Buffer.from(serializeCanonicalLocalWhisperCatalogJson(value), 'utf8');
-}
-
-function safeSha256(value: unknown, code: string): string {
-  if (typeof value !== 'string' || !SHA256.test(value)) fail(code);
-  return value;
-}
-
-function safeSourceCommit(value: unknown, code: string): string {
-  if (typeof value !== 'string' || !SOURCE_COMMIT.test(value)) fail(code);
-  return value;
 }
 
 function safeTimestamp(value: unknown, code: string): string {
@@ -273,12 +254,12 @@ export class ApplicationSbomGenerator {
   }): Promise<{ readonly document: ApplicationSbom; readonly sha256: string; readonly unpackedRootSha256: string }> {
     const platform = input.platform;
     const format = packageFormat(platform, input.packageFormat);
-    const sourceCommit = safeSourceCommit(input.sourceCommit, 'SOURCE_COMMIT_INVALID');
-    const packageSha256 = safeSha256(input.packageSha256, 'PACKAGE_DIGEST_INVALID');
+    const sourceCommit = securityFields.sourceCommit(input.sourceCommit, 'SOURCE_COMMIT_INVALID');
+    const packageSha256 = securityFields.sha256(input.packageSha256, 'PACKAGE_DIGEST_INVALID');
     const unpackedRoot = path.resolve(input.unpackedRoot);
     const workspaceRoot = path.resolve(input.workspaceRoot);
     const manifest = await this.fileManifest(unpackedRoot);
-    const unpackedRootSha256 = sha256(canonicalBytes(manifest));
+    const unpackedRootSha256 = sha256(canonicalSecurityEvidenceBytes(manifest));
     const packageJson = this.packageJson(
       await this.readBounded(path.join(workspaceRoot, 'package.json'), undefined, 'PACKAGE_JSON'),
     );
@@ -313,7 +294,7 @@ export class ApplicationSbomGenerator {
       specVersion: '1.6',
       version: 1,
     });
-    const encoded = canonicalBytes(document);
+    const encoded = canonicalSecurityEvidenceBytes(document);
     if (encoded.byteLength > APPLICATION_SBOM_MAXIMUM_BYTES) fail('SBOM_TOO_LARGE');
     return Object.freeze({ document, sha256: sha256(encoded), unpackedRootSha256 });
   }
@@ -564,7 +545,7 @@ export class ApplicationSbomGenerator {
         }
         if (names.has(entry.name)) fail('HELPER_MANIFEST_INVALID');
         names.add(entry.name);
-        const sha256 = safeSha256(entry.sha256, 'HELPER_MANIFEST_INVALID');
+        const sha256 = securityFields.sha256(entry.sha256, 'HELPER_MANIFEST_INVALID');
         const packaged = files.get(`resources/local-whisper/native/${entry.name}`);
         if (!packaged || packaged.sha256 !== sha256) fail('HELPER_MANIFEST_DIGEST_MISMATCH');
         return Object.freeze({ name: entry.name, sha256 });
@@ -684,33 +665,37 @@ export class ArtifactVulnerabilityPolicy {
     const database = input.database as TrivyDatabase;
     const record: ArtifactSecurityRecord = Object.freeze({
       attestation: null,
-      checksumSha256: safeSha256(input.checksumSha256, 'CHECKSUM_INVALID'),
+      checksumSha256: securityFields.sha256(input.checksumSha256, 'CHECKSUM_INVALID'),
       packageFormat: format,
-      packageSha256: safeSha256(input.packageSha256, 'PACKAGE_DIGEST_INVALID'),
+      packageSha256: securityFields.sha256(input.packageSha256, 'PACKAGE_DIGEST_INVALID'),
       platform,
       result: 'clean',
-      sbom: Object.freeze({ format: APPLICATION_SBOM_FORMAT, sha256: safeSha256(input.sbomSha256, 'SBOM_INVALID') }),
+      sbom: Object.freeze({
+        format: APPLICATION_SBOM_FORMAT,
+        sha256: securityFields.sha256(input.sbomSha256, 'SBOM_INVALID'),
+      }),
       scannedAt,
       scanner: Object.freeze({
         database: Object.freeze({
-          sha256: safeSha256(input.databaseSha256, 'DATABASE_INVALID'),
+          sha256: securityFields.sha256(input.databaseSha256, 'DATABASE_INVALID'),
           updatedAt: safeTimestamp(database.UpdatedAt, 'DATABASE_INVALID'),
         }),
         name: APPLICATION_SECURITY_SCANNER.name,
         version: APPLICATION_SECURITY_SCANNER.version,
       }),
       schemaVersion: APPLICATION_ARTIFACT_SECURITY_SCHEMA_VERSION,
-      sourceCommit: safeSourceCommit(input.sourceCommit, 'SOURCE_COMMIT_INVALID'),
-      unpackedRootSha256: safeSha256(input.unpackedRootSha256, 'UNPACKED_ROOT_INVALID'),
+      sourceCommit: securityFields.sourceCommit(input.sourceCommit, 'SOURCE_COMMIT_INVALID'),
+      unpackedRootSha256: securityFields.sha256(input.unpackedRootSha256, 'UNPACKED_ROOT_INVALID'),
     });
     this.verifyRecord(record);
-    if (canonicalBytes(record).byteLength > APPLICATION_ARTIFACT_SECURITY_MAXIMUM_BYTES) fail('RECORD_TOO_LARGE');
+    if (canonicalSecurityEvidenceBytes(record).byteLength > APPLICATION_ARTIFACT_SECURITY_MAXIMUM_BYTES)
+      fail('RECORD_TOO_LARGE');
     return record;
   }
 
   public verifyRecord(value: unknown): asserts value is ArtifactSecurityRecord {
     const record = isRecord(value) ? value : fail('RECORD_INVALID');
-    exactKeys(
+    securityFields.exactKeys(
       record,
       [
         'attestation',
@@ -738,13 +723,13 @@ export class ArtifactVulnerabilityPolicy {
     }
     const platform = record.platform;
     packageFormat(platform, record.packageFormat);
-    safeSha256(record.packageSha256, 'RECORD_INVALID');
-    safeSha256(record.unpackedRootSha256, 'RECORD_INVALID');
-    safeSha256(record.checksumSha256, 'RECORD_INVALID');
-    safeSourceCommit(record.sourceCommit, 'RECORD_INVALID');
+    securityFields.sha256(record.packageSha256, 'RECORD_INVALID');
+    securityFields.sha256(record.unpackedRootSha256, 'RECORD_INVALID');
+    securityFields.sha256(record.checksumSha256, 'RECORD_INVALID');
+    securityFields.sourceCommit(record.sourceCommit, 'RECORD_INVALID');
     safeTimestamp(record.scannedAt, 'RECORD_INVALID');
     if (!isRecord(record.sbom) || record.sbom.format !== APPLICATION_SBOM_FORMAT) fail('RECORD_INVALID');
-    safeSha256(record.sbom.sha256, 'RECORD_INVALID');
+    securityFields.sha256(record.sbom.sha256, 'RECORD_INVALID');
     if (
       !isRecord(record.scanner) ||
       record.scanner.name !== APPLICATION_SECURITY_SCANNER.name ||
@@ -753,9 +738,9 @@ export class ArtifactVulnerabilityPolicy {
     ) {
       fail('RECORD_INVALID');
     }
-    safeSha256(record.scanner.database.sha256, 'RECORD_INVALID');
+    securityFields.sha256(record.scanner.database.sha256, 'RECORD_INVALID');
     safeTimestamp(record.scanner.database.updatedAt, 'RECORD_INVALID');
-    const canonical = canonicalBytes(record);
+    const canonical = canonicalSecurityEvidenceBytes(record);
     if (canonical.byteLength > APPLICATION_ARTIFACT_SECURITY_MAXIMUM_BYTES) fail('RECORD_TOO_LARGE');
   }
 
@@ -772,13 +757,13 @@ export class ArtifactVulnerabilityPolicy {
     this.verifyRecord(input.record);
     const record = input.record;
     if (
-      record.checksumSha256 !== safeSha256(input.checksumSha256, 'BINDING_INVALID') ||
-      record.packageSha256 !== safeSha256(input.packageSha256, 'BINDING_INVALID') ||
+      record.checksumSha256 !== securityFields.sha256(input.checksumSha256, 'BINDING_INVALID') ||
+      record.packageSha256 !== securityFields.sha256(input.packageSha256, 'BINDING_INVALID') ||
       record.packageFormat !== packageFormat(input.platform, input.packageFormat) ||
       record.platform !== input.platform ||
-      record.sourceCommit !== safeSourceCommit(input.sourceCommit, 'BINDING_INVALID') ||
-      record.unpackedRootSha256 !== safeSha256(input.unpackedRootSha256, 'BINDING_INVALID') ||
-      record.sbom.sha256 !== sha256(canonicalBytes(input.sbom))
+      record.sourceCommit !== securityFields.sourceCommit(input.sourceCommit, 'BINDING_INVALID') ||
+      record.unpackedRootSha256 !== securityFields.sha256(input.unpackedRootSha256, 'BINDING_INVALID') ||
+      record.sbom.sha256 !== sha256(canonicalSecurityEvidenceBytes(input.sbom))
     ) {
       fail('BINDING_INVALID');
     }
@@ -799,7 +784,7 @@ export class ArtifactVulnerabilityPolicy {
     ) {
       fail('DATABASE_STALE');
     }
-    safeSha256(digest, 'DATABASE_INVALID');
+    securityFields.sha256(digest, 'DATABASE_INVALID');
   }
 }
 

@@ -1,3 +1,5 @@
+import { isSecurityRecord as isRecord, SecurityEvidenceFields } from './securityEvidenceFields';
+
 export const SECURITY_EVIDENCE_RETENTION_VARIABLE = '${{ vars.CI_EVIDENCE_RETENTION_DAYS }}';
 
 const SAFE_RELATIVE_EVIDENCE_PATH = /^release-artifacts\/[a-z\d][a-z\d._/-]{0,255}$/u;
@@ -51,15 +53,7 @@ function fail(code: string): never {
   throw new Error(`SECURITY_EVIDENCE_${code}`);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function exactKeys(value: Record<string, unknown>, expected: readonly string[], code: string): void {
-  const actual = Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'));
-  const keys = [...expected].sort((left, right) => left.localeCompare(right, 'en'));
-  if (JSON.stringify(actual) !== JSON.stringify(keys)) fail(code);
-}
+const securityFields = Object.freeze(new SecurityEvidenceFields(fail));
 
 function isKind(value: unknown): value is SecurityEvidenceKind {
   return typeof value === 'string' && SECURITY_EVIDENCE_KINDS.includes(value as SecurityEvidenceKind);
@@ -78,7 +72,7 @@ function isStorage(value: unknown): value is SecurityEvidenceStorage {
 export class SecurityEvidencePolicy {
   public verifyDescriptor(value: unknown): asserts value is SecurityEvidenceDescriptor {
     const descriptor = isRecord(value) ? value : fail('DESCRIPTOR_MALFORMED');
-    exactKeys(descriptor, ['digest', 'kind', 'path', 'retention', 'storage'], 'DESCRIPTOR_MALFORMED');
+    securityFields.exactKeys(descriptor, ['digest', 'kind', 'path', 'retention', 'storage'], 'DESCRIPTOR_MALFORMED');
     if (!isKind(descriptor.kind) || !isStorage(descriptor.storage)) fail('DESCRIPTOR_MALFORMED');
     const rule = SECURITY_EVIDENCE_POLICY[descriptor.kind];
     if (descriptor.storage !== rule.storage) fail('STORAGE_INVALID');

@@ -1,3 +1,5 @@
+import { isSecurityRecord as isRecord } from './securityEvidenceFields';
+
 export interface NpmCommandEvidence {
   readonly arguments: readonly string[];
   readonly exitCode: number;
@@ -12,10 +14,6 @@ interface SignatureAuditResult {
 
 const EXPECTED_INSTALL_ARGUMENTS = ['npm', 'ci', '--ignore-scripts', '--no-audit'] as const;
 const EXPECTED_SIGNATURE_ARGUMENTS = ['npm', 'audit', 'signatures', '--json', '--ignore-scripts'] as const;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function equalArguments(actual: readonly string[], expected: readonly string[]): boolean {
   return actual.length === expected.length && actual.every((value, index) => value === expected[index]);

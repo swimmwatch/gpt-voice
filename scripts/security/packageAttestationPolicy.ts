@@ -9,6 +9,11 @@ import {
   type ApplicationPackageFormat,
   type ApplicationSecurityPlatform,
 } from './applicationArtifactSecurity';
+import {
+  canonicalSecurityEvidenceBytes,
+  isSecurityRecord as isRecord,
+  SecurityEvidenceFields,
+} from './securityEvidenceFields';
 
 export const PACKAGE_ATTESTATION_SCHEMA_VERSION = 1;
 export const PACKAGE_ATTESTATION_MAXIMUM_BYTES = 16 * 1024;
@@ -25,8 +30,6 @@ export const PACKAGE_ATTESTATION_SUBJECT_NAMES = Object.freeze([
   'smoke',
 ] as const);
 
-const SHA256 = /^[a-f0-9]{64}$/u;
-const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
 const REPOSITORY = /^\w[\w.-]{0,99}\/\w[\w.-]{0,99}$/u;
 const INVOCATION = /^\d{1,20}-\d{1,4}-(?:package-smoke|release-build)-(?:linux|win32)$/u;
 const MAXIMUM_SUBJECT_BYTES = 4 * 1024 * 1024 * 1024;
@@ -76,20 +79,7 @@ function fail(code: string): never {
   throw new Error(`PACKAGE_ATTESTATION_${code}`);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function exactKeys(value: Record<string, unknown>, expected: readonly string[], code: string): void {
-  const actual = Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'));
-  const sortedExpected = [...expected].sort((left, right) => left.localeCompare(right, 'en'));
-  if (JSON.stringify(actual) !== JSON.stringify(sortedExpected)) fail(code);
-}
-
-function safeSha256(value: unknown, code: string): string {
-  if (typeof value !== 'string' || !SHA256.test(value)) fail(code);
-  return value;
-}
+const securityFields = Object.freeze(new SecurityEvidenceFields(fail));
 
 function safePlatform(value: unknown, code: string): PackageAttestationPlatform {
   if (value !== 'linux' && value !== 'win32') fail(code);
@@ -101,18 +91,9 @@ function safeRepository(value: unknown, code: string): string {
   return value;
 }
 
-function safeSourceCommit(value: unknown, code: string): string {
-  if (typeof value !== 'string' || !SOURCE_COMMIT.test(value)) fail(code);
-  return value;
-}
-
 function safeInvocation(value: unknown, platform: PackageAttestationPlatform, code: string): string {
   if (typeof value !== 'string' || !INVOCATION.test(value) || !value.endsWith(`-${platform}`)) fail(code);
   return value;
-}
-
-function canonicalBytes(value: unknown): Buffer {
-  return Buffer.from(serializeCanonicalLocalWhisperCatalogJson(value), 'utf8');
 }
 
 function digest(bytes: Uint8Array): string {
@@ -130,8 +111,8 @@ function sourceWorkflowRef(repository: string, sourceCommit: string, workflowPat
 
 function verifySubject(value: unknown, code: string): PackageAttestationSubject {
   const subject = isRecord(value) ? value : fail(code);
-  exactKeys(subject, ['sha256'], code);
-  return Object.freeze({ sha256: safeSha256(subject.sha256, code) });
+  securityFields.exactKeys(subject, ['sha256'], code);
+  return Object.freeze({ sha256: securityFields.sha256(subject.sha256, code) });
 }
 
 /** Creates the canonical, privacy-safe input that is handed from smoke to the attestation job. */
@@ -146,7 +127,7 @@ export class PackageAttestationInputPolicy {
   }): PackageAttestationInput {
     const platform = safePlatform(input.platform, 'INPUT_INVALID');
     safeRepository(input.repository, 'INPUT_INVALID');
-    safeSourceCommit(input.sourceCommit, 'INPUT_INVALID');
+    securityFields.sourceCommit(input.sourceCommit, 'INPUT_INVALID');
     safeInvocation(input.invocation, platform, 'INPUT_INVALID');
     const subjectDigests = Object.fromEntries(
       PACKAGE_ATTESTATION_SUBJECT_NAMES.map((name) => {
@@ -170,7 +151,7 @@ export class PackageAttestationInputPolicy {
   }): PackageAttestationInput {
     const platform = safePlatform(input.platform, 'INPUT_INVALID');
     const repository = safeRepository(input.repository, 'INPUT_INVALID');
-    const sourceCommit = safeSourceCommit(input.sourceCommit, 'INPUT_INVALID');
+    const sourceCommit = securityFields.sourceCommit(input.sourceCommit, 'INPUT_INVALID');
     const invocation = safeInvocation(input.invocation, platform, 'INPUT_INVALID');
     const workflowPath = safeWorkflowPath(input.workflowPath ?? PACKAGE_ATTESTATION_WORKFLOW_PATH, 'INPUT_INVALID');
     const subjects = Object.freeze(
@@ -191,7 +172,7 @@ export class PackageAttestationInputPolicy {
       subjects: Object.freeze(subjects),
     });
     this.verify(result);
-    if (canonicalBytes(result).byteLength > PACKAGE_ATTESTATION_MAXIMUM_BYTES) fail('INPUT_TOO_LARGE');
+    if (canonicalSecurityEvidenceBytes(result).byteLength > PACKAGE_ATTESTATION_MAXIMUM_BYTES) fail('INPUT_TOO_LARGE');
     return result;
   }
 
@@ -221,15 +202,19 @@ export class PackageAttestationInputPolicy {
 
   public verify(value: unknown): asserts value is PackageAttestationInput {
     const input = isRecord(value) ? value : fail('INPUT_MALFORMED');
-    exactKeys(input, ['build', 'platform', 'scanner', 'schemaVersion', 'source', 'subjects'], 'INPUT_MALFORMED');
+    securityFields.exactKeys(
+      input,
+      ['build', 'platform', 'scanner', 'schemaVersion', 'source', 'subjects'],
+      'INPUT_MALFORMED',
+    );
     if (input.schemaVersion !== PACKAGE_ATTESTATION_SCHEMA_VERSION) fail('INPUT_MALFORMED');
     const platform = safePlatform(input.platform, 'INPUT_MALFORMED');
     if (!isRecord(input.build)) fail('INPUT_MALFORMED');
-    exactKeys(input.build, ['invocation', 'status'], 'INPUT_MALFORMED');
+    securityFields.exactKeys(input.build, ['invocation', 'status'], 'INPUT_MALFORMED');
     if (input.build.status !== 'success') fail('INPUT_MALFORMED');
     safeInvocation(input.build.invocation, platform, 'INPUT_MALFORMED');
     if (!isRecord(input.scanner)) fail('INPUT_MALFORMED');
-    exactKeys(input.scanner, ['name', 'version'], 'INPUT_MALFORMED');
+    securityFields.exactKeys(input.scanner, ['name', 'version'], 'INPUT_MALFORMED');
     if (
       input.scanner.name !== APPLICATION_SECURITY_SCANNER.name ||
       input.scanner.version !== APPLICATION_SECURITY_SCANNER.version
@@ -238,9 +223,9 @@ export class PackageAttestationInputPolicy {
     }
     const source = input.source;
     if (!isRecord(source)) fail('INPUT_MALFORMED');
-    exactKeys(source, ['commit', 'repository', 'workflowRef'], 'INPUT_MALFORMED');
+    securityFields.exactKeys(source, ['commit', 'repository', 'workflowRef'], 'INPUT_MALFORMED');
     const repository = safeRepository(source.repository, 'INPUT_MALFORMED');
-    const sourceCommit = safeSourceCommit(source.commit, 'INPUT_MALFORMED');
+    const sourceCommit = securityFields.sourceCommit(source.commit, 'INPUT_MALFORMED');
     if (
       !PACKAGE_ATTESTATION_WORKFLOW_PATHS.some(
         (workflowPath) => source.workflowRef === sourceWorkflowRef(repository, sourceCommit, workflowPath),
@@ -249,9 +234,9 @@ export class PackageAttestationInputPolicy {
       fail('INPUT_MALFORMED');
     }
     const subjects = isRecord(input.subjects) ? input.subjects : fail('INPUT_MALFORMED');
-    exactKeys(subjects, PACKAGE_ATTESTATION_SUBJECT_NAMES, 'INPUT_MALFORMED');
+    securityFields.exactKeys(subjects, PACKAGE_ATTESTATION_SUBJECT_NAMES, 'INPUT_MALFORMED');
     for (const name of PACKAGE_ATTESTATION_SUBJECT_NAMES) verifySubject(subjects[name], 'INPUT_MALFORMED');
-    if (canonicalBytes(input).byteLength > PACKAGE_ATTESTATION_MAXIMUM_BYTES) fail('INPUT_TOO_LARGE');
+    if (canonicalSecurityEvidenceBytes(input).byteLength > PACKAGE_ATTESTATION_MAXIMUM_BYTES) fail('INPUT_TOO_LARGE');
   }
 
   public verifyArtifactSecurityBinding(input: {
@@ -314,7 +299,7 @@ export class PackageAttestationVerifier {
     this.policy.verify(attestation);
     const expectedPlatform = safePlatform(input.expected.platform, 'EXPECTATION_INVALID');
     const expectedRepository = safeRepository(input.expected.repository, 'EXPECTATION_INVALID');
-    const expectedCommit = safeSourceCommit(input.expected.sourceCommit, 'EXPECTATION_INVALID');
+    const expectedCommit = securityFields.sourceCommit(input.expected.sourceCommit, 'EXPECTATION_INVALID');
     const expectedInvocation = safeInvocation(input.expected.invocation, expectedPlatform, 'EXPECTATION_INVALID');
     const expectedWorkflowPath = safeWorkflowPath(input.expected.workflowPath, 'EXPECTATION_INVALID');
     if (
@@ -334,7 +319,7 @@ export class PackageAttestationVerifier {
           ? subject.byteLength > 0 && subject.byteLength <= MAXIMUM_SUBJECT_BYTES
             ? digest(subject)
             : fail('SUBJECT_UNAVAILABLE')
-          : safeSha256(subject, 'SUBJECT_UNAVAILABLE');
+          : securityFields.sha256(subject, 'SUBJECT_UNAVAILABLE');
       if (subjectDigest !== attestation.subjects[name].sha256) fail('BINDING_INVALID');
     }
   }
@@ -351,7 +336,7 @@ export class GitHubAttestationVerifier {
     readonly workflowPath: string;
   }): Promise<void> {
     const repository = safeRepository(input.repository, 'EXPECTATION_INVALID');
-    const sourceCommit = safeSourceCommit(input.sourceCommit, 'EXPECTATION_INVALID');
+    const sourceCommit = securityFields.sourceCommit(input.sourceCommit, 'EXPECTATION_INVALID');
     safeWorkflowPath(input.workflowPath, 'EXPECTATION_INVALID');
     const expectedPaths = [
       'attestation-input.json',

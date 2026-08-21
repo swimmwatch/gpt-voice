@@ -1,3 +1,5 @@
+import { isSecurityRecord as isRecord } from './securityEvidenceFields';
+
 export const HADOLINT_IMAGE =
   'hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e';
 export const TRIVY_IMAGE =
@@ -19,10 +21,6 @@ const HADOLINT_SUPPRESSION = /^\s*#\s*hadolint\s+ignore=/imu;
 const UNSAFE_DOCKERFILE_INSTRUCTION = /^\s*(?:ADD|USER\s+root\b)|--nogpgcheck\b|\b(?:curl|wget)\b/imu;
 const FEDORA_BUILDER_OS_FAMILY = 'fedora';
 const FEDORA_BUILDER_OS_NAME = '44';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function parseTimestamp(value: unknown): number | null {
   if (typeof value !== 'string') return null;
