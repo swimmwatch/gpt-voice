@@ -326,7 +326,7 @@ function inputSetDigest(files: readonly PreparedPerformanceArtifact[]): string {
   return createHash('sha256').update(JSON.stringify(identities), 'utf8').digest('hex');
 }
 
-function failureCode(error: unknown): string {
+export function performanceCollectionFailureCode(error: unknown): string {
   if (error instanceof PerformanceCollectionError && REASON_CODE.test(error.code)) return error.code;
   return 'ATTEMPT_FAILED';
 }
@@ -389,7 +389,7 @@ export class LocalWhisperPerformanceCollector {
           });
         } catch (error) {
           if (cancellationRequested(signal)) throw new PerformanceCollectionError('COLLECTION_CANCELLED');
-          const reasonCode = failureCode(error);
+          const reasonCode = performanceCollectionFailureCode(error);
           const receipt = documents.produceCacheReceipt(manifest, {
             sampleId,
             cacheState,
@@ -569,7 +569,7 @@ export class LocalWhisperPerformanceCollector {
         runOrder: input.runOrder,
         side: input.side,
         status: 'failed',
-        failureReason: failureCode(error),
+        failureReason: performanceCollectionFailureCode(error),
       });
     } finally {
       resourceSession?.terminate();

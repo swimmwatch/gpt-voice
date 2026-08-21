@@ -14,6 +14,7 @@ import {
 import {
   PerformanceCollectionError,
   PerformanceQualificationPhaseParser,
+  performanceCollectionFailureCode,
   type PerformanceAttemptProcessPort,
   type PerformanceCachePreparationPort,
   type PerformanceResourcePort,
@@ -21,13 +22,7 @@ import {
 } from './PerformanceQualificationCollector';
 import type { LocalWhisperQualificationValidator } from './QualificationContracts';
 
-const REASON_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
 const PROCESS_ROLES = ['main', 'guard', 'worker'] as const;
-
-function failureCode(error: unknown): string {
-  if (error instanceof PerformanceCollectionError && REASON_CODE.test(error.code)) return error.code;
-  return 'ATTEMPT_FAILED';
-}
 
 function inputSetDigest(inputs: FocusedPreparedPerformanceInputs): string {
   const identities = [inputs.application, inputs.runtime, inputs.model, inputs.inputFixture]
@@ -118,7 +113,7 @@ export class FocusedPerformanceQualificationCollector {
           );
         } catch (error) {
           if (signal?.aborted) throw new PerformanceCollectionError('COLLECTION_CANCELLED');
-          const reasonCode = failureCode(error);
+          const reasonCode = performanceCollectionFailureCode(error);
           const receipt = documents.produceCacheReceipt(manifest, {
             sampleId: cell.sampleId,
             cacheState: cell.cacheState,
@@ -244,7 +239,7 @@ export class FocusedPerformanceQualificationCollector {
         cacheState: cell.cacheState,
         sampleIndex: cell.sampleIndex,
         status: 'failed',
-        failureReason: failureCode(error),
+        failureReason: performanceCollectionFailureCode(error),
         endToEndNanoseconds: null,
         phases: [],
         resources: [],
