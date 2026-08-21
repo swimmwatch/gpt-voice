@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 
@@ -21,4 +21,21 @@ export function resolveClangFormat(workspaceRoot, compilerCaptureRoot) {
 
 export function resolveClangTidy(workspaceRoot, compilerCaptureRoot) {
   return resolveClangQualityTool(workspaceRoot, compilerCaptureRoot, 'CLANG_TIDY', 'clang-tidy');
+}
+
+/** Lists native implementation and header files using the filesystem's stable traversal order. */
+export function listNativeSourceFiles(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const filePath = resolve(directory, entry.name);
+    if (entry.isDirectory()) return listNativeSourceFiles(filePath);
+    return /\.(?:cpp|hpp)$/u.test(entry.name) ? [filePath] : [];
+  });
+}
+
+/** Lists implementation files while excluding the opposite platform's source directory. */
+export function listPlatformNativeImplementationFiles(directory, platform) {
+  const excludedPlatform = platform === 'win32' ? 'linux' : 'windows';
+  return listNativeSourceFiles(directory).filter(
+    (filePath) => filePath.endsWith('.cpp') && !filePath.includes(`/platform/${excludedPlatform}/`),
+  );
 }

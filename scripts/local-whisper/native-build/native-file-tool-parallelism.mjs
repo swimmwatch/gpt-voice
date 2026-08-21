@@ -1,15 +1,10 @@
 import { spawn } from 'node:child_process';
 
-import { resolveNativeBuildJobs } from './native-build-parallelism.mjs';
-
-function requirePositiveInteger(value, label) {
-  if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${label} must be a positive integer`);
-  return value;
-}
+import { requirePositiveNativeJobCount, resolveNativeBuildJobs } from './native-build-parallelism.mjs';
 
 /** Partitions independent native source-file checks without exceeding a resource-aware concurrency limit. */
 export function partitionNativeFileWork(files, jobs) {
-  requirePositiveInteger(jobs, 'Native file-tool job count');
+  requirePositiveNativeJobCount(jobs, 'Native file-tool job count');
   const batches = [];
   for (let offset = 0; offset < files.length; offset += jobs) batches.push(files.slice(offset, offset + jobs));
   return batches;

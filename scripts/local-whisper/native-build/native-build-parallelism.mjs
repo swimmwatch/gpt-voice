@@ -7,7 +7,7 @@ const CUDA_MEMORY_PER_JOB_BYTES = GIBIBYTE;
 const CPU_MEMORY_PER_JOB_BYTES = 512 * MEBIBYTE;
 const MAXIMUM_CUDA_JOBS = 8;
 
-function requirePositiveInteger(value, label) {
+export function requirePositiveNativeJobCount(value, label) {
   if (!Number.isSafeInteger(value) || value <= 0) throw new Error(`${label} must be a positive integer`);
   return value;
 }
@@ -32,7 +32,7 @@ export function resolveNativeBuildJobs({
   override = process.env.LOCAL_WHISPER_BUILD_JOBS,
 } = {}) {
   if (backend !== 'cpu' && backend !== 'cuda') throw new Error('Native build backend must be cpu or cuda');
-  const coreLimit = requirePositiveInteger(availableCores, 'Available processor count');
+  const coreLimit = requirePositiveNativeJobCount(availableCores, 'Available processor count');
   if (!Number.isSafeInteger(freeMemoryBytes) || freeMemoryBytes < 0) {
     throw new Error('Available memory must be a non-negative integer');
   }

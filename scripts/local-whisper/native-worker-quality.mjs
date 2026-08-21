@@ -1,9 +1,9 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
-import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { listNativeSourceFiles, resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { sanitizerRuntimeEnvironment } from './native-build/sanitizer-runtime-policy.mjs';
@@ -108,14 +108,6 @@ function run(command, arguments_, options = {}) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-function nativeFiles(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) return nativeFiles(path);
-    return /\.(?:cpp|hpp)$/u.test(entry.name) ? [path] : [];
-  });
-}
-
 function requireInputs() {
   for (const path of [
     cmake,
@@ -195,7 +187,7 @@ if (action === 'format') {
     command: resolveClangFormat(workspaceRoot, clangRoot),
     cwd: workspaceRoot,
     env: process.env,
-    files: nativeFiles(sourceDirectory),
+    files: listNativeSourceFiles(sourceDirectory),
     label: 'worker common clang-format',
   });
 } else if (action === 'lint') {
@@ -208,7 +200,7 @@ if (action === 'format') {
     command: resolveClangTidy(workspaceRoot, clangRoot),
     cwd: workspaceRoot,
     env: process.env,
-    files: nativeFiles(resolve(sourceDirectory, 'src')).filter((path) => path.endsWith('.cpp')),
+    files: listNativeSourceFiles(resolve(sourceDirectory, 'src')).filter((path) => path.endsWith('.cpp')),
     label: 'worker common clang-tidy',
   });
 } else {

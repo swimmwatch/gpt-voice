@@ -1,9 +1,13 @@
-import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
-import { resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import {
+  listNativeSourceFiles,
+  listPlatformNativeImplementationFiles,
+  resolveClangFormat,
+  resolveClangTidy,
+} from './native-quality-tools.mjs';
 import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
 import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
 import { resolveNativeBuildToolPaths } from './native-build/native-build-tool-paths.mjs';
@@ -97,21 +101,6 @@ function run(command, arguments_, environment = buildEnvironment) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-function nativeFiles(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) return nativeFiles(path);
-    return /\.(?:cpp|hpp)$/.test(entry.name) ? [path] : [];
-  });
-}
-
-function nativeImplementationFiles(directory) {
-  const excludedPlatform = process.platform === 'win32' ? 'linux' : 'windows';
-  return nativeFiles(directory).filter(
-    (path) => path.endsWith('.cpp') && !path.includes(`/platform/${excludedPlatform}/`),
-  );
-}
-
 function configureAndBuild() {
   const refreshConfigure = linuxGcc || process.platform === 'win32';
   const arguments_ = [
@@ -155,7 +144,7 @@ if (action === 'format') {
     command: resolveClangFormat(workspaceRoot, clangRoot),
     cwd: sourceDirectory,
     env: buildEnvironment,
-    files: nativeFiles(sourceDirectory),
+    files: listNativeSourceFiles(sourceDirectory),
     label: 'fs-guard clang-format',
   });
 } else if (action === 'lint') {
@@ -169,7 +158,7 @@ if (action === 'format') {
     command: resolveClangTidy(workspaceRoot, clangRoot),
     cwd: sourceDirectory,
     env: buildEnvironment,
-    files: nativeImplementationFiles(resolve(sourceDirectory, 'src')),
+    files: listPlatformNativeImplementationFiles(resolve(sourceDirectory, 'src'), process.platform),
     label: 'fs-guard clang-tidy',
   });
 } else {
