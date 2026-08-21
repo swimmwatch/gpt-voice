@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { withVerifiedRegularFile } from '@scripts/security/verifiedRegularFile';
 
 import { qualificationCanonicalJson } from './QualificationContracts';
+import { isQualificationRecord as isRecord } from './QualificationJsonFields';
 import type { PerformanceBackend, PerformanceExecutionMode, PerformancePlatform } from './PerformanceQualification';
 
 export const MAXIMUM_PERFORMANCE_PRIVATE_BUNDLE_BYTES = 8 * 1024 * 1024;
@@ -88,10 +89,6 @@ function invalidRoot(): never {
 
 function invalidInput(): never {
   throw new Error('PERFORMANCE_QUALIFICATION_INPUT_INVALID');
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 async function readExpectedBytes(file: FileHandle, expectedBytes: number): Promise<Buffer> {

@@ -10,6 +10,8 @@ import {
   parseLocalWhisperWorkerJson,
 } from '@shared/localWhisper';
 
+import { isQualificationRecord as isRecord } from './QualificationJsonFields';
+
 const MAXIMUM_OBSERVER_BUFFER_BYTES = LOCAL_WHISPER_MAX_CONTROL_FRAME_BYTES * 2;
 const MAXIMUM_FIELD_COUNT = 64;
 const PROTOCOL_IDENTIFIER = /^[A-Za-z][A-Za-z0-9]{0,63}$/u;
@@ -23,10 +25,6 @@ export interface QualificationWorkerProtocolObservation {
   readonly messageType: string;
   readonly requestIdState: 'absent' | 'null' | 'string' | 'unavailable';
   readonly stage: QualificationWorkerProtocolObservationStage;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function structuralObservation(value: unknown): QualificationWorkerProtocolObservation {

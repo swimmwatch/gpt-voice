@@ -15,6 +15,11 @@ import {
   type PerformanceResourceMeasurement,
   type PerformanceSide,
 } from './PerformanceQualification';
+import {
+  hasExactQualificationKeys as exactKeys,
+  isQualificationRecord as isRecord,
+  isQualificationSafeInteger as safeInteger,
+} from './QualificationJsonFields';
 
 const MAXIMUM_ATTEMPT_OUTPUT_BYTES = 64 * 1024;
 const REASON_CODE = /^[A-Z][A-Z0-9_]{2,63}$/u;
@@ -163,20 +168,6 @@ export type PerformanceAttemptOutcome =
 
 export interface PerformancePhasePort {
   parse(output: Buffer, manifest: PerformanceQualificationManifest): PerformanceAttemptOutcome;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function exactKeys(value: Readonly<Record<string, unknown>>, expected: readonly string[]): boolean {
-  const actual = Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'));
-  const sortedExpected = [...expected].sort((left, right) => left.localeCompare(right, 'en'));
-  return JSON.stringify(actual) === JSON.stringify(sortedExpected);
-}
-
-function safeInteger(value: unknown, minimum: number): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= minimum;
 }
 
 /** Parses one bounded content-free qualification hook response. */

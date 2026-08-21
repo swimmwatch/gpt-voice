@@ -16,6 +16,11 @@ import type {
   PerformanceAttemptRequest,
 } from './PerformanceQualificationCollector';
 import { PerformanceQualificationEventCollector } from './PerformanceQualificationEventProtocol';
+import {
+  hasExactQualificationKeys as exactKeys,
+  isQualificationRecord as isRecord,
+  isQualificationSafeInteger as safeInteger,
+} from './QualificationJsonFields';
 
 export const PERFORMANCE_ATTEMPT_ARGUMENT = '--local-whisper-performance-qualification-v3';
 export const MAXIMUM_PERFORMANCE_ATTEMPT_REQUEST_BYTES = 64 * 1024;
@@ -69,21 +74,6 @@ export class PerformanceQualificationAttemptError extends Error {
 
 function fail(code: string): never {
   throw new PerformanceQualificationAttemptError(code);
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function exactKeys(value: Readonly<Record<string, unknown>>, expected: readonly string[]): boolean {
-  return (
-    JSON.stringify(Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'))) ===
-    JSON.stringify([...expected].sort((left, right) => left.localeCompare(right, 'en')))
-  );
-}
-
-function safeInteger(value: unknown, minimum: number, maximum = Number.MAX_SAFE_INTEGER): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= minimum && (value as number) <= maximum;
 }
 
 function parseArtifact(value: unknown): PerformanceAttemptArtifactReference {

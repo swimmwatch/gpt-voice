@@ -5,6 +5,8 @@ import * as path from 'node:path';
 import Ajv2020, { type AnySchema, type ValidateFunction } from 'ajv/dist/2020';
 import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '../../../src/main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
 
+import { isQualificationRecord as isRecord } from './QualificationJsonFields';
+
 export const LOCAL_WHISPER_QUALIFICATION_FIXTURE_DIGEST =
   'de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226';
 
@@ -179,10 +181,6 @@ export interface LocalWhisperQualificationPlatformBranch {
   readonly measurementSeries: readonly unknown[];
   readonly platformResult: unknown;
   readonly evidenceIndex: unknown;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function canonicalValue(value: unknown): unknown {

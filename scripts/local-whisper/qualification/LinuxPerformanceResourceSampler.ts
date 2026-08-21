@@ -3,9 +3,13 @@ import { Readable } from 'node:stream';
 
 import { PerformanceCollectionError } from './PerformanceQualificationCollector';
 
-import { isRecord } from '../packaging/contracts';
 import type { PerformanceBackend } from './PerformanceQualification';
 import type { PerformanceResourceProof, PerformanceRoleRegistration } from './PerformanceQualificationCollector';
+import {
+  hasExactQualificationKeys as exactKeys,
+  isQualificationRecord as isRecord,
+  isQualificationSafeInteger as safeInteger,
+} from './QualificationJsonFields';
 
 const OUTPUT_LIMIT_BYTES = 1024 * 1024;
 const READINESS_FRAME = Buffer.from('READY\n', 'ascii');
@@ -47,17 +51,6 @@ function exactReadiness(stream: NodeJS.ReadableStream): Promise<void> {
     });
     stream.once('error', reject);
   });
-}
-
-function exactKeys(value: Readonly<Record<string, unknown>>, expected: readonly string[]): boolean {
-  return (
-    JSON.stringify(Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'))) ===
-    JSON.stringify([...expected].sort((left, right) => left.localeCompare(right, 'en')))
-  );
-}
-
-function safeInteger(value: unknown): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
 function parseRole(value: unknown, index: number): PerformanceRoleRegistration {

@@ -4,6 +4,11 @@ import type { LocalWhisperPerformancePhaseId } from './QualificationContracts';
 import { LOCAL_WHISPER_PERFORMANCE_PHASES } from './QualificationContracts';
 import type { PerformancePhaseMeasurement, PerformancePlatform, PerformanceBackend } from './PerformanceQualification';
 import type { PerformanceProcessRole, PerformanceRoleRegistration } from './PerformanceQualificationCollector';
+import {
+  hasExactQualificationKeys as exactKeys,
+  isQualificationRecord as isRecord,
+  isQualificationSafeInteger as safeInteger,
+} from './QualificationJsonFields';
 
 const MAXIMUM_EVENT_BYTES = 64 * 1024;
 const MAXIMUM_EVENT_COUNT = 64;
@@ -54,21 +59,6 @@ export class PerformanceQualificationEventError extends Error {
 
 function invalidEvent(): never {
   throw new PerformanceQualificationEventError('ATTEMPT_EVENT_PROTOCOL_INVALID');
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function exactKeys(value: Readonly<Record<string, unknown>>, expected: readonly string[]): boolean {
-  return (
-    JSON.stringify(Object.keys(value).sort((left, right) => left.localeCompare(right, 'en'))) ===
-    JSON.stringify([...expected].sort((left, right) => left.localeCompare(right, 'en')))
-  );
-}
-
-function safeInteger(value: unknown, minimum: number): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= minimum;
 }
 
 /** Writes the fixed qualification-only inherited event protocol without arbitrary metadata. */
