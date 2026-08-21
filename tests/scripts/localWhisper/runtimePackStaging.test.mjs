@@ -5,6 +5,7 @@ import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 
 import {
+  runtimePackDependencyRelationships,
   runtimePackFileEvidence,
   writeRuntimePackJson,
 } from '../../../scripts/local-whisper/runtime-pack-staging.mjs';
@@ -44,5 +45,20 @@ describe('runtime-pack staging files', () => {
       sizeBytes: metadata.size,
     });
     assert.equal(Object.isFrozen(evidence), true);
+  });
+
+  it('builds ordered SPDX relationships for each staged runtime dependency', () => {
+    assert.deepEqual(runtimePackDependencyRelationships(2), [
+      {
+        relatedSpdxElement: 'SPDXRef-Runtime-0',
+        relationshipType: 'DEPENDS_ON',
+        spdxElementId: 'SPDXRef-Package-Worker',
+      },
+      {
+        relatedSpdxElement: 'SPDXRef-Runtime-1',
+        relationshipType: 'DEPENDS_ON',
+        spdxElementId: 'SPDXRef-Package-Worker',
+      },
+    ]);
   });
 });

@@ -4,6 +4,7 @@ import process from 'node:process';
 
 import { canonicalCatalogJson, canonicalDigest, readJson, sha256 } from '../source-import/native-source-core.mjs';
 import { readVerifiedRegularFileSync } from '../secure-file-reader.mjs';
+import { runtimePackDependencyRelationships } from '../runtime-pack-staging.mjs';
 import {
   buildIdentity,
   limitTablePath,
@@ -332,11 +333,7 @@ export function stageWindowsRuntimePack({ backend, buildRoot, profile, tools = n
         relationshipType: 'DESCRIBES',
         relatedSpdxElement: 'SPDXRef-Package-Worker',
       },
-      ...stagedRuntimeEvidence.map((_, index) => ({
-        spdxElementId: 'SPDXRef-Package-Worker',
-        relationshipType: 'DEPENDS_ON',
-        relatedSpdxElement: `SPDXRef-Runtime-${index}`,
-      })),
+      ...runtimePackDependencyRelationships(stagedRuntimeEvidence.length),
     ],
   });
 

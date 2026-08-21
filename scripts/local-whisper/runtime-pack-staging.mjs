@@ -21,3 +21,12 @@ export function runtimePackFileEvidence(root, relativePath, id) {
     sha256: sha256(bytes),
   });
 }
+
+/** Builds the canonical SPDX dependency edges for staged runtime libraries. */
+export function runtimePackDependencyRelationships(dependencyCount) {
+  return Array.from({ length: dependencyCount }, (_, index) => ({
+    spdxElementId: 'SPDXRef-Package-Worker',
+    relationshipType: 'DEPENDS_ON',
+    relatedSpdxElement: `SPDXRef-Runtime-${index}`,
+  }));
+}

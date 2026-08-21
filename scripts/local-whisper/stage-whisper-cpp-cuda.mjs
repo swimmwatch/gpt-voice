@@ -13,7 +13,11 @@ import {
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
-import { runtimePackFileEvidence as fileEvidence, writeRuntimePackJson as writeJson } from './runtime-pack-staging.mjs';
+import {
+  runtimePackDependencyRelationships,
+  runtimePackFileEvidence as fileEvidence,
+  writeRuntimePackJson as writeJson,
+} from './runtime-pack-staging.mjs';
 import {
   buildIdentity,
   limitTablePath,
@@ -291,11 +295,7 @@ export function stageCudaPack(profileId, buildRoot, executionProfile = null) {
         relationshipType: 'DESCRIBES',
         relatedSpdxElement: 'SPDXRef-Package-Worker',
       },
-      ...allRuntimeDependencies.map((_, index) => ({
-        spdxElementId: 'SPDXRef-Package-Worker',
-        relationshipType: 'DEPENDS_ON',
-        relatedSpdxElement: `SPDXRef-Runtime-${index}`,
-      })),
+      ...runtimePackDependencyRelationships(allRuntimeDependencies.length),
     ],
   });
 
