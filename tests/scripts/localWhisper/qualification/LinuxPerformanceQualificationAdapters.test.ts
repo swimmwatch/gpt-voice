@@ -129,7 +129,7 @@ else:
       const diagnosticTimeout = adapter.start({
         executablePath: executable,
         workingDirectory: root,
-        timeoutMilliseconds: 50,
+        timeoutMilliseconds: 1_000,
         request: { behavior: 'diagnostic-sleep' } as unknown as PerformanceAttemptRequest,
       });
       await assert.rejects(
