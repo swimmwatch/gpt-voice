@@ -6,6 +6,8 @@ import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
+import { createLinuxAppImageCleanupEnvironment } from './linux-appimage-cleanup-environment.mjs';
+
 const execFile = promisify(execFileCallback);
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const releaseDir = path.join(rootDir, 'release');
@@ -75,14 +77,11 @@ async function run(command, args, { cwd, optional = false, timeout = 120000 } = 
   }
 }
 
-/** Runs the packaged cleanup path with only the two contract-specific environment values. */
+/** Runs the packaged cleanup path with only its contract and graphical-session environment values. */
 async function removeLinuxAppImageDesktopIntegration(appImage, cleanupDataHome) {
   const app = path.join(releaseDir, 'linux-unpacked', packageName);
   const result = await execFile(app, ['--remove-linux-appimage-desktop-integration'], {
-    env: {
-      APPIMAGE: appImage,
-      XDG_DATA_HOME: cleanupDataHome,
-    },
+    env: createLinuxAppImageCleanupEnvironment(process.env, appImage, cleanupDataHome),
     maxBuffer: 32 * 1024 * 1024,
     timeout: 60000,
   });
