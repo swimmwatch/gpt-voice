@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { SecurityCommandOptions } from '@scripts/security/securityCommandOptions';
+import { securityErrorWithCause, SecurityCommandOptions } from '@scripts/security/securityCommandOptions';
 
 function options(arguments_: readonly string[]): SecurityCommandOptions {
   return new SecurityCommandOptions(arguments_, () => {
@@ -10,6 +10,15 @@ function options(arguments_: readonly string[]): SecurityCommandOptions {
 }
 
 describe('SecurityCommandOptions', () => {
+  it('preserves a private command failure cause without changing its message', () => {
+    const cause = new Error('private cause');
+
+    const error = securityErrorWithCause('bounded message', cause);
+
+    assert.equal(error.message, 'bounded message');
+    assert.equal(Object.getOwnPropertyDescriptor(error, 'cause')?.value, cause);
+  });
+
   it('reads one optional or required value without depending on argument order', () => {
     const commandOptions = options(['node', 'script', '--source-commit=abc', '--platform=linux']);
 

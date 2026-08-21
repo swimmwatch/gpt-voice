@@ -1,5 +1,12 @@
 export type SecurityCommandPlatform = 'linux' | 'win32';
 
+/** Preserves a command failure cause without changing its bounded public message. */
+export function securityErrorWithCause(message: string, cause: unknown): Error {
+  const error = new Error(message);
+  Object.defineProperty(error, 'cause', { configurable: true, value: cause });
+  return error;
+}
+
 /** Owns bounded `--name=value` parsing for security command entrypoints. */
 export class SecurityCommandOptions {
   public constructor(

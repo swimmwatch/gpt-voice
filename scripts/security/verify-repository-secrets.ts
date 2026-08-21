@@ -4,15 +4,10 @@ import { promisify } from 'node:util';
 
 import { RepositorySecretPolicy, TRACKED_TEXT_GIT_ARGUMENTS, type RepositoryTextFile } from './repositorySecretPolicy';
 import { readVerifiedRegularFile } from '../SecureFileReader';
+import { securityErrorWithCause } from './securityCommandOptions';
 
 const execFileAsync = promisify(execFile);
 const workspaceRoot = path.resolve(__dirname, '..', '..');
-
-function errorWithCause(message: string, cause: unknown): Error {
-  const error = new Error(message);
-  Object.defineProperty(error, 'cause', { configurable: true, value: cause });
-  return error;
-}
 
 async function trackedTextFiles(): Promise<readonly RepositoryTextFile[]> {
   let stdout: string;
@@ -37,7 +32,7 @@ async function trackedTextFiles(): Promise<readonly RepositoryTextFile[]> {
       files.push({ path: filePath, text: bytes.toString('utf8') });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('Repository secret policy violation:')) throw error;
-      throw errorWithCause('Repository secret policy violation: tracked text evidence unavailable', error);
+      throw securityErrorWithCause('Repository secret policy violation: tracked text evidence unavailable', error);
     }
   }
   return files;

@@ -11,6 +11,7 @@ import {
   TRIVY_DATABASE_ARGUMENTS,
   TRIVY_IMAGE,
 } from './dockerBuilderPolicy';
+import { securityErrorWithCause } from './securityCommandOptions';
 import { withVerifiedRegularFile } from './verifiedRegularFile';
 import { MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES, trivyDatabaseIdentity } from './trivyDatabaseIdentity';
 
@@ -102,12 +103,6 @@ function reportShape(value: unknown): string {
   const report = value as Record<string, unknown>;
   const resultShape = Array.isArray(report.Results) ? `array(${report.Results.length})` : typeof report.Results;
   return `schema=${typeof report.SchemaVersion},results=${resultShape}`;
-}
-
-function errorWithCause(message: string, cause: unknown): Error {
-  const error = new Error(message);
-  Object.defineProperty(error, 'cause', { configurable: true, value: cause });
-  return error;
 }
 
 async function scannerArguments(cacheDirectory: string): Promise<readonly string[]> {
@@ -213,7 +208,7 @@ async function main(): Promise<void> {
       });
     } catch (error) {
       if (error instanceof Error && error.message.endsWith('scanner report malformed')) {
-        throw errorWithCause(`${error.message} (${reportShape(report)})`, error);
+        throw securityErrorWithCause(`${error.message} (${reportShape(report)})`, error);
       }
       throw error;
     }
