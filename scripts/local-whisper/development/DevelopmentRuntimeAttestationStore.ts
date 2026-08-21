@@ -5,6 +5,10 @@ import * as path from 'node:path';
 import { serializeCanonicalLocalWhisperCatalogJson, toLocalWhisperArtifactId } from '@shared/localWhisper';
 
 import { sha256Bytes, writeCanonicalJson } from '../packaging/fileIntegrity';
+import {
+  hasExactDevelopmentRuntimeKeys as hasExactKeys,
+  isDevelopmentRuntimeRecord as isRecord,
+} from './DevelopmentRuntimeJson';
 import type { DevelopmentRuntimeInput } from './DevelopmentRuntimeInputs';
 
 export const DEVELOPMENT_RUNTIME_ATTESTATION_FILE_NAME = 'runtime-attestation.json';
@@ -24,15 +28,6 @@ export interface DevelopmentRuntimeAttestation {
   readonly keyId: string;
   readonly publicKeyPem: string;
   readonly runtimes: readonly DevelopmentRuntimeAttestationEntry[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
-  const actual = Object.keys(value);
-  return actual.length === expected.length && actual.every((key) => expected.includes(key));
 }
 
 function isCanonicalSignature(value: unknown): value is string {

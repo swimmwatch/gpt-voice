@@ -5,6 +5,10 @@ import type { LocalWhisperRuntimeIdentity } from '@shared/localWhisper';
 
 import { readCanonicalJson, sha256File } from '../packaging/fileIntegrity';
 import type { QualificationRuntimeCatalogSeed } from '../qualification/QualificationCatalogProducer';
+import {
+  hasExactDevelopmentRuntimeKeys as hasExactKeys,
+  isDevelopmentRuntimeRecord as isRecord,
+} from './DevelopmentRuntimeJson';
 
 const SHA256_PATTERN = /^[a-f\d]{64}$/u;
 
@@ -70,15 +74,6 @@ export interface DevelopmentRuntimeInput {
     QualificationRuntimeCatalogSeed,
     'archiveFileName' | 'archiveSizeBytes' | 'archiveSha256' | 'archiveSignature'
   >;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
-  const actual = Object.keys(value);
-  return actual.length === expected.length && actual.every((key) => expected.includes(key));
 }
 
 function isDigest(value: unknown): value is string {
