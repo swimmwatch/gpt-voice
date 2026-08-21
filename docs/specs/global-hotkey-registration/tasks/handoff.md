@@ -37,6 +37,12 @@
   interactive X11 physical verification on 2026-08-20, confirming that
   assigned global keys register and operate in the isolated application
   profile.
+- Packet 08 — Linux Wayland Portal, Package, And Qualification. The shared
+  Linux policy now selects the Wayland branch, the portal and canonical desktop
+  identity are configured before ready, and AppImage/DEB/RPM metadata and
+  runtime launcher ownership use the canonical desktop role. The user confirmed
+  the required native GNOME Wayland, KDE Wayland, and package-host checks on
+  2026-08-21.
 
 ## Changed Files
 
@@ -239,9 +245,9 @@
   and `tests/renderer/appSettingsHotkeys.test.ts`, plus `npm run typecheck`,
   `npm run test:types`, scoped Prettier, and `git diff --check` — passed.
 
-## Packet 08 In Progress
+## Packet 08 Completion Evidence
 
-- Packet 08 execution is directly authorized as
+- Packet 08 execution was directly authorized as
   `authorization.packet-08-execution:v1`. Its scoped Wayland policy, pre-ready
   portal and desktop identity, AppImage launcher migration, builder metadata,
   installer verification, and focused automated coverage are implemented.
@@ -264,16 +270,28 @@
   existing warnings outside Packet 08; `npm run format:check` remains blocked
   by 12 unrelated Local Whisper files. No Packet 08 file appears in either
   result.
-- Manual evidence must bind to Git revision
-  `0e6786251ad639f0533e7965755a930db3a7fbaa` and Packet 08 source-set diff
-  digest `2119b903fe9b23805c56452628628cff25aa6bbf32861003685e2d95d4fba85b`.
+- Packet 08 AC-MAN-003 — passed by user confirmation on 2026-08-21 on both
+  native GNOME Wayland and KDE Wayland: free shortcut activation outside
+  GPT-Voice, rejected candidate with existing bindings retained, physical Test
+  without a product action, restart state, desktop-environment authority, and
+  null effective accelerator. No raw portal response, environment, profile, or
+  external-owner data was recorded.
+- Packet 08 package identity — passed by user confirmation on 2026-08-21:
+  representative AppImage, DEB, and RPM artifacts passed
+  `npm run verify:installers`; only their relative canonical desktop roles and
+  identity `com.swimmwatch.gptvoice` are retained in this handoff.
+- Manual-gate source binding: implementation revision
+  `0af484dabac208ce1d6ab716c367aed6158663b6`; exact Packet 08 source-set
+  patch SHA-256 `766990bae1b7d945d3c2bec5cc064d06924ed12718ebd8e7ef5493e3e6f3ed99`
+  over the listed Packet 08 files relative to parent
+  `0e6786251ad639f0533e7965755a930db3a7fbaa`. The earlier binding incorrectly
+  named that parent revision and is superseded by this entry.
 
 ## Exact Next Packet
 
-- Resume [`08_linux_wayland_portal_package_and_qualification.md`](./08_linux_wayland_portal_package_and_qualification.md)
-  only to record its required native GNOME, KDE, and package-artifact manual
-  gates. Do not start Packet 09 until Packet 08 is complete and separately
-  committed with explicit authorization.
+- [`09_windows_registration_and_qualification.md`](./09_windows_registration_and_qualification.md)
+  requires its own explicit `incremental-implementation` invocation. Do not
+  start it in this handoff update.
 
 ## Blockers
 
@@ -285,8 +303,5 @@
 - No blocker remains for completed Packet 07. Do not use automated, headless,
   Wayland, Windows, or CI evidence as a substitute for the recorded interactive
   X11 gate.
-- Packet 08 cannot be checked complete until AC-MAN-003 is recorded on both
-  native GNOME Wayland and KDE Wayland, and representative local AppImage, DEB,
-  and RPM artifacts pass `npm run verify:installers` on a supported package
-  host. Source transport, if required for those hosts, needs separate user
-  authorization.
+- No blocker remains for completed Packet 08. Packet 09 is a separate Windows
+  qualification unit and requires its own authorization and manual gates.
