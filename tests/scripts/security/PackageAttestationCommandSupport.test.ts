@@ -7,6 +7,7 @@ import { after, before, describe, it } from 'node:test';
 
 import {
   hashPackageAttestationSubject,
+  packageAttestationFailureMessage,
   resolvePackageAttestationWorkspacePath,
 } from '@scripts/security/packageAttestationCommandSupport';
 
@@ -44,5 +45,14 @@ describe('package attestation command support', () => {
       hashPackageAttestationSubject(path.join(workspaceRoot, 'missing.AppImage')),
       /^Error: PACKAGE_ATTESTATION_SUBJECT_UNAVAILABLE$/u,
     );
+  });
+
+  it('reports only bounded package-attestation failures', () => {
+    assert.equal(
+      packageAttestationFailureMessage(new Error('PACKAGE_ATTESTATION_SUBJECT_INVALID')),
+      'PACKAGE_ATTESTATION_SUBJECT_INVALID',
+    );
+    assert.equal(packageAttestationFailureMessage(new Error('private detail')), 'PACKAGE_ATTESTATION_FAILED');
+    assert.equal(packageAttestationFailureMessage('private detail'), 'PACKAGE_ATTESTATION_FAILED');
   });
 });

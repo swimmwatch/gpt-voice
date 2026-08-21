@@ -195,7 +195,7 @@ function isBinaryName(name: string, platform: ApplicationSecurityPlatform): bool
     : lower.endsWith('.so') || lower.includes('.so.') || lower === 'gpt-voice' || lower === 'chrome';
 }
 
-function parseJson(bytes: Buffer, code: string): unknown {
+export function parseApplicationArtifactSecurityJson(bytes: Buffer, code: string): unknown {
   try {
     return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
   } catch {
@@ -385,7 +385,7 @@ export class ApplicationSbomGenerator {
   }
 
   private packageJson(bytes: Buffer): { readonly name: string; readonly version: string } {
-    const value = parseJson(bytes, 'PACKAGE_JSON_INVALID');
+    const value = parseApplicationArtifactSecurityJson(bytes, 'PACKAGE_JSON_INVALID');
     if (!isRecord(value) || typeof value.name !== 'string' || typeof value.version !== 'string')
       fail('PACKAGE_JSON_INVALID');
     if (!SAFE_COMPONENT.test(value.name) || !SAFE_COMPONENT.test(value.version)) fail('PACKAGE_JSON_INVALID');
@@ -393,7 +393,7 @@ export class ApplicationSbomGenerator {
   }
 
   private async productionNodeComponents(workspaceRoot: string): Promise<CycloneDxComponent[]> {
-    const value = parseJson(
+    const value = parseApplicationArtifactSecurityJson(
       await this.readBounded(path.join(workspaceRoot, 'package-lock.json'), MAXIMUM_PACKAGE_LOCK_BYTES, 'LOCKFILE'),
       'LOCKFILE_INVALID',
     );
@@ -439,7 +439,7 @@ export class ApplicationSbomGenerator {
         fail('ASSEMBLY_INVALID');
       }
       if (bytes.byteLength < 1 || bytes.byteLength > MAXIMUM_PACKAGED_PACKAGE_JSON_BYTES) fail('ASSEMBLY_INVALID');
-      const value = parseJson(bytes, 'ASSEMBLY_INVALID');
+      const value = parseApplicationArtifactSecurityJson(bytes, 'ASSEMBLY_INVALID');
       if (
         !isRecord(value) ||
         typeof value.name !== 'string' ||
@@ -464,7 +464,7 @@ export class ApplicationSbomGenerator {
     const root = path.join(workspaceRoot, 'runtime', 'local-whisper', 'sources', 'locks');
     const components: CycloneDxComponent[] = [];
     for (const expected of EXPECTED_NATIVE_LOCKS) {
-      const value = parseJson(
+      const value = parseApplicationArtifactSecurityJson(
         await this.readBounded(path.join(root, `${expected.lockId}.json`), MAXIMUM_SOURCE_LOCK_BYTES, 'SOURCE_LOCK'),
         'SOURCE_LOCK_INVALID',
       );
@@ -522,7 +522,7 @@ export class ApplicationSbomGenerator {
 
   private async packageVersion(workspaceRoot: string, name: string): Promise<string> {
     const packagePath = path.join(workspaceRoot, 'node_modules', ...name.split('/'), 'package.json');
-    const value = parseJson(
+    const value = parseApplicationArtifactSecurityJson(
       await this.readBounded(packagePath, undefined, 'RUNTIME_COMPONENT'),
       'RUNTIME_COMPONENT_MISSING',
     );
@@ -543,7 +543,7 @@ export class ApplicationSbomGenerator {
     manifest: readonly FileManifestEntry[],
   ): Promise<readonly { readonly name: string; readonly sha256: string }[]> {
     const manifestPath = path.join(unpackedRoot, 'resources', 'local-whisper', 'native', 'helpers.manifest.json');
-    const value = parseJson(
+    const value = parseApplicationArtifactSecurityJson(
       await this.readBounded(manifestPath, undefined, 'HELPER_MANIFEST'),
       'HELPER_MANIFEST_INVALID',
     );

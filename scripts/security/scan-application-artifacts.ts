@@ -10,6 +10,7 @@ import {
   applicationSecurityFormats,
   ArtifactVulnerabilityPolicy,
   canonicalArtifactSecurityJson,
+  parseApplicationArtifactSecurityJson,
   type ApplicationPackageFormat,
   type ApplicationSecurityPlatform,
 } from './applicationArtifactSecurity';
@@ -134,17 +135,9 @@ async function readBoundedJsonFile(
     async (file, expectedSize) => {
       const bytes = await file.readFile().catch(() => fail(input.unavailable));
       if (bytes.byteLength !== expectedSize) fail(input.invalid);
-      return parseJson(bytes, input.invalid);
+      return parseApplicationArtifactSecurityJson(bytes, input.invalid);
     },
   );
-}
-
-function parseJson(bytes: Buffer, code: string): unknown {
-  try {
-    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as unknown;
-  } catch {
-    fail(code);
-  }
 }
 
 async function metadata(): Promise<PackageMetadata> {
@@ -323,7 +316,7 @@ async function databaseEvidence(cacheDirectory: string): Promise<{ readonly sha2
       return Object.freeze({
         sha256: sha256(bytes),
         size: expectedSize,
-        value: parseJson(bytes, 'DATABASE_INVALID'),
+        value: parseApplicationArtifactSecurityJson(bytes, 'DATABASE_INVALID'),
       });
     },
   );

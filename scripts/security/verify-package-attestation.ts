@@ -12,6 +12,7 @@ import {
 } from './packageAttestationPolicy';
 import {
   hashPackageAttestationSubject,
+  reportPackageAttestationCommandFailure,
   resolvePackageAttestationWorkspacePath,
 } from './packageAttestationCommandSupport';
 import { SecurityCommandOptions } from './securityCommandOptions';
@@ -120,11 +121,4 @@ async function main(): Promise<void> {
   process.stdout.write(`Package attestation verified for ${platform_}\n`);
 }
 
-main().catch((error: unknown) => {
-  const message =
-    error instanceof Error && /^PACKAGE_ATTESTATION_[A-Z_]+$/u.test(error.message)
-      ? error.message
-      : 'PACKAGE_ATTESTATION_FAILED';
-  process.stderr.write(`${message}\n`);
-  process.exitCode = 1;
-});
+main().catch(reportPackageAttestationCommandFailure);
