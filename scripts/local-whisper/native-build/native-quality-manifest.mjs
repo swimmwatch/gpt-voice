@@ -56,6 +56,7 @@ const WINDOWS_ONLY_BASENAMES = new Set([
   'cng_sha256.cpp',
   'device_authority_windows.cpp',
   'model_authority_windows.cpp',
+  'model_file_validator_windows_test.cpp',
   'windows_backend.cpp',
   'windows_launcher.cpp',
   'windows_model_authority_client.hpp',

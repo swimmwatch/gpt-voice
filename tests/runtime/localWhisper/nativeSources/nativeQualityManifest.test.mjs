@@ -91,6 +91,9 @@ test('native quality manifest covers every owned project and separates host-spec
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_protocol_windows_test.cpp'))?.platforms,
     ['windows'],
   );
+  const windowsValidatorTest = '/whisper-cpp/tests/model_file_validator_windows_test.cpp';
+  assert.deepEqual(manifest.find((entry) => entry.path.endsWith(windowsValidatorTest))?.platforms, ['windows']);
+  assert.ok(!manifestEntriesForPlatform(manifest, 'linux').some((entry) => entry.path.endsWith(windowsValidatorTest)));
 });
 
 test('native quality compilation coverage rejects a missing or host-inapplicable translation unit', () => {
