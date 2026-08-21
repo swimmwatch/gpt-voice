@@ -13,6 +13,7 @@ import {
   type ApplicationPackageFormat,
   type ApplicationSecurityPlatform,
 } from './applicationArtifactSecurity';
+import { SecurityCommandOptions } from './securityCommandOptions';
 import { withVerifiedRegularFile } from './verifiedRegularFile';
 import { MAXIMUM_TRIVY_DATABASE_PAYLOAD_BYTES, trivyDatabaseIdentity } from './trivyDatabaseIdentity';
 
@@ -39,23 +40,7 @@ function fail(code: string): never {
   throw new Error(`APPLICATION_ARTIFACT_SECURITY_${code}`);
 }
 
-function option(name: string): string | null {
-  const prefix = `--${name}=`;
-  const values = process.argv.filter((argument_) => argument_.startsWith(prefix));
-  if (values.length > 1) fail('ARGUMENT_INVALID');
-  return values.length === 1 ? (values[0]?.slice(prefix.length) ?? null) : null;
-}
-
-function requiredOption(name: string): string {
-  const value = option(name);
-  if (!value) fail('ARGUMENT_INVALID');
-  return value;
-}
-
-function platform(value: string): ApplicationSecurityPlatform {
-  if (value !== 'linux' && value !== 'win32') fail('ARGUMENT_INVALID');
-  return value;
-}
+const commandOptions = new SecurityCommandOptions(process.argv, () => fail('ARGUMENT_INVALID'));
 
 function safeWorkspacePath(value: string): string {
   if (!SAFE_OUTPUT_DIRECTORY.test(value)) fail('ARGUMENT_INVALID');
@@ -355,16 +340,16 @@ function sourceCommit(value: string): string {
 }
 
 async function main(): Promise<void> {
-  const platform_ = platform(requiredOption('platform'));
-  const outputDirectory = safeWorkspacePath(requiredOption('output-directory'));
+  const platform_ = commandOptions.platform();
+  const outputDirectory = safeWorkspacePath(commandOptions.required('output-directory'));
   let outputCreated = false;
   try {
     await createEmptyOutputDirectory(outputDirectory);
     outputCreated = true;
-    const source = sourceCommit(requiredOption('source-commit'));
-    const scanner = option('scanner') ?? 'trivy';
+    const source = sourceCommit(commandOptions.required('source-commit'));
+    const scanner = commandOptions.optional('scanner') ?? 'trivy';
     if (scanner !== 'trivy') fail('ARGUMENT_INVALID');
-    const cacheDirectory = option('database-directory') ?? process.env.TRIVY_CACHE_DIR;
+    const cacheDirectory = commandOptions.optional('database-directory') ?? process.env.TRIVY_CACHE_DIR;
     if (!cacheDirectory) fail('DATABASE_UNAVAILABLE');
     const resolvedCacheDirectory = path.resolve(cacheDirectory);
     const packageMetadata = await metadata();

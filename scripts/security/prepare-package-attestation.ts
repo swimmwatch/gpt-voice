@@ -10,47 +10,27 @@ import {
   type PackageAttestationSubjectName,
 } from './packageAttestationPolicy';
 import { canonicalArtifactSecurityJson } from './applicationArtifactSecurity';
+import {
+  hashPackageAttestationSubject,
+  MAXIMUM_PACKAGE_ATTESTATION_SUBJECT_BYTES,
+  resolvePackageAttestationWorkspacePath,
+} from './packageAttestationCommandSupport';
+import { SecurityCommandOptions } from './securityCommandOptions';
 import { withVerifiedRegularFile } from './verifiedRegularFile';
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 const MAXIMUM_EVIDENCE_BYTES = 256 * 1024;
-const MAXIMUM_PACKAGE_BYTES = 4 * 1024 * 1024 * 1024;
 const SOURCE_COMMIT = /^[a-f0-9]{40}$/u;
 const REPOSITORY = /^\w[\w.-]{0,99}\/\w[\w.-]{0,99}$/u;
-const SAFE_RELATIVE_PATH = /^[a-z\d][a-z\d._/-]{0,255}$/u;
 
 function fail(code: string): never {
   throw new Error(`PACKAGE_ATTESTATION_${code}`);
 }
 
-function option(name: string): string | null {
-  const prefix = `--${name}=`;
-  const values = process.argv.filter((argument_) => argument_.startsWith(prefix));
-  if (values.length > 1) fail('ARGUMENT_INVALID');
-  return values.length === 1 ? (values[0]?.slice(prefix.length) ?? null) : null;
-}
-
-function requiredOption(name: string): string {
-  const value = option(name);
-  if (!value) fail('ARGUMENT_INVALID');
-  return value;
-}
-
-function platform(value: string): PackageAttestationPlatform {
-  if (value !== 'linux' && value !== 'win32') fail('ARGUMENT_INVALID');
-  return value;
-}
+const commandOptions = new SecurityCommandOptions(process.argv, () => fail('ARGUMENT_INVALID'));
 
 function packageFormat(value: PackageAttestationPlatform): 'appimage' | 'nsis' {
   return value === 'linux' ? 'appimage' : 'nsis';
-}
-
-function safeOutputDirectory(value: string): string {
-  if (!SAFE_RELATIVE_PATH.test(value)) fail('ARGUMENT_INVALID');
-  const resolved = path.resolve(workspaceRoot, value);
-  const relative = path.relative(workspaceRoot, resolved);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) fail('ARGUMENT_INVALID');
-  return resolved;
 }
 
 async function readBounded(filePath: string, maximumBytes: number, code: string): Promise<Buffer> {
@@ -66,30 +46,6 @@ async function readBounded(filePath: string, maximumBytes: number, code: string)
       const bytes = await file.readFile().catch(() => fail(code));
       if (bytes.byteLength !== expectedSize) fail(code);
       return bytes;
-    },
-  );
-}
-
-async function hashFile(filePath: string): Promise<string> {
-  return await withVerifiedRegularFile(
-    {
-      filePath,
-      invalid: () => fail('SUBJECT_INVALID'),
-      maximumBytes: MAXIMUM_PACKAGE_BYTES,
-      minimumBytes: 1,
-      unavailable: () => fail('SUBJECT_UNAVAILABLE'),
-    },
-    async (file, expectedSize) => {
-      const hash = createHash('sha256');
-      let byteLength = 0;
-      for await (const chunk of file.createReadStream({ autoClose: false })) {
-        const bytes = Buffer.from(chunk);
-        byteLength += bytes.byteLength;
-        if (byteLength > expectedSize) fail('SUBJECT_INVALID');
-        hash.update(bytes);
-      }
-      if (byteLength !== expectedSize) fail('SUBJECT_INVALID');
-      return hash.digest('hex');
     },
   );
 }
@@ -131,7 +87,8 @@ async function copySubject(source: string, target: string): Promise<void> {
   const sourceHandle = await open(source, 'r').catch(() => fail('SUBJECT_UNAVAILABLE'));
   try {
     const metadata = await sourceHandle.stat().catch(() => fail('SUBJECT_UNAVAILABLE'));
-    if (!metadata.isFile() || metadata.size < 1 || metadata.size > MAXIMUM_PACKAGE_BYTES) fail('SUBJECT_INVALID');
+    if (!metadata.isFile() || metadata.size < 1 || metadata.size > MAXIMUM_PACKAGE_ATTESTATION_SUBJECT_BYTES)
+      fail('SUBJECT_INVALID');
   } finally {
     await sourceHandle.close().catch(() => undefined);
   }
@@ -139,13 +96,16 @@ async function copySubject(source: string, target: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const platform_ = platform(requiredOption('platform'));
-  const sourceCommit = requiredOption('source-commit');
-  const repository = requiredOption('repository');
-  const invocation = requiredOption('invocation');
-  const workflowPath = option('workflow-path') ?? '.github/workflows/pr-checks.yml';
+  const platform_ = commandOptions.platform();
+  const sourceCommit = commandOptions.required('source-commit');
+  const repository = commandOptions.required('repository');
+  const invocation = commandOptions.required('invocation');
+  const workflowPath = commandOptions.optional('workflow-path') ?? '.github/workflows/pr-checks.yml';
   if (!SOURCE_COMMIT.test(sourceCommit) || !REPOSITORY.test(repository)) fail('ARGUMENT_INVALID');
-  const outputDirectory = safeOutputDirectory(requiredOption('output-directory'));
+  const outputDirectory = resolvePackageAttestationWorkspacePath(
+    workspaceRoot,
+    commandOptions.required('output-directory'),
+  );
   await createEmptyDirectory(outputDirectory);
   const subjectDirectory = path.join(outputDirectory, 'subject');
   await mkdir(subjectDirectory).catch(() => fail('OUTPUT_INVALID'));
@@ -161,7 +121,7 @@ async function main(): Promise<void> {
   const scannerBytes = await readBounded(scannerPath, MAXIMUM_EVIDENCE_BYTES, 'SUBJECT_UNAVAILABLE');
   const sbom = parseCanonicalJson(sbomBytes, 'SUBJECT_INVALID');
   const scannerRecord = parseCanonicalJson(scannerBytes, 'SUBJECT_INVALID');
-  const packageSha256 = await hashFile(packagePath);
+  const packageSha256 = await hashPackageAttestationSubject(packagePath);
   const checksumSha256 = createHash('sha256').update(checksumBytes).digest('hex');
   const expectedSubjectDigests: Readonly<Record<Exclude<PackageAttestationSubjectName, 'smoke'>, string>> = {
     checksum: checksumSha256,
@@ -199,7 +159,8 @@ async function main(): Promise<void> {
   const subjectDigests = Object.fromEntries(
     await Promise.all(
       PACKAGE_ATTESTATION_SUBJECT_NAMES.map(
-        async (name) => [name, { sha256: await hashFile(path.join(subjectDirectory, name)) }] as const,
+        async (name) =>
+          [name, { sha256: await hashPackageAttestationSubject(path.join(subjectDirectory, name)) }] as const,
       ),
     ),
   ) as Record<PackageAttestationSubjectName, { readonly sha256: string }>;
