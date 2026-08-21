@@ -15,6 +15,7 @@ import type {
   LocalWhisperWorkerLaunchAuthority,
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 import { toLocalWhisperArtifactId, toLocalWhisperRevisionId, type LocalWhisperRevisionId } from '@shared/localWhisper';
+import { encodeWorkerControlFrame } from '@scripts/local-whisper/worker-control-frame.mjs';
 
 const WORKSPACE_ROOT = path.resolve(__dirname, '..', '..');
 const TASK_INPUT_ROOT = path.resolve(WORKSPACE_ROOT, '.cache', 'local-whisper', 'windows-readiness', 'inputs');
@@ -175,15 +176,6 @@ function deviceAuthority(operationNonce: Buffer): Uint8Array {
   return record;
 }
 
-function controlFrame(message: object): Buffer {
-  const body = Buffer.from(JSON.stringify(message), 'utf8');
-  const frame = Buffer.alloc(5 + body.byteLength);
-  frame.writeUInt32BE(body.byteLength, 0);
-  frame[4] = 1;
-  body.copy(frame, 5);
-  return frame;
-}
-
 function canonicalSilence(sampleCount = 16_000): Buffer {
   const wav = Buffer.alloc(44 + sampleCount * 2);
   for (const [offset, value] of [
@@ -272,11 +264,11 @@ class WorkerClient {
   }
 
   public async send(message: object): Promise<void> {
-    await write(this.process.input, controlFrame(message));
+    await write(this.process.input, encodeWorkerControlFrame(message));
   }
 
   public async sendFragmentedControl(message: object): Promise<void> {
-    const frame = controlFrame(message);
+    const frame = encodeWorkerControlFrame(message);
     await write(this.process.input, frame.subarray(0, 1));
     await new Promise<void>((resolve) => setTimeout(resolve, TRANSCRIPT_FIRST_FRAGMENT_DELAY_MS));
     await write(this.process.input, frame.subarray(1));

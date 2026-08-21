@@ -28,6 +28,7 @@ import type {
 } from '@main/localWhisper/supervisor/WorkerProcessOwnership';
 import { toLocalWhisperArtifactId, toLocalWhisperRevisionId, type LocalWhisperRevisionId } from '@shared/localWhisper';
 import { WindowsAsanRuntimeSidecar } from '@scripts/local-whisper/native-build/WindowsAsanRuntimeSidecar';
+import { encodeWorkerControlFrame } from '@scripts/local-whisper/worker-control-frame.mjs';
 
 interface FixturePaths {
   readonly authorityWorkerSource: string;
@@ -274,15 +275,6 @@ function processOwner(modelGuard = false, launcherExecutablePath = fixturePaths.
     : new LinuxProcessGroupOwner(dependencies);
 }
 
-function framedControl(message: object): Buffer {
-  const body = Buffer.from(JSON.stringify(message), 'utf8');
-  const frame = Buffer.alloc(5 + body.length);
-  frame.writeUInt32BE(body.length, 0);
-  frame[4] = 1;
-  body.copy(frame, 5);
-  return frame;
-}
-
 function writeStream(stream: Writable, bytes: Uint8Array): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     stream.write(bytes, (error) => {
@@ -400,7 +392,7 @@ async function verifyModelLaunchChain(): Promise<void> {
   try {
     owned = await processOwner(true, launcher).launch(authority, 'model_launch_fixture_nonce_1234');
     const reader = bufferedReader(owned.output);
-    await writeStream(owned.input, framedControl({ type: 'hello', protocolVersion: 1 }));
+    await writeStream(owned.input, encodeWorkerControlFrame({ type: 'hello', protocolVersion: 1 }));
     assert.deepEqual(await readControl(reader), {
       type: 'helloAck',
       protocolVersion: 1,

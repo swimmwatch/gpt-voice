@@ -3,6 +3,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, openSync, readSync } from 'node:fs';
 
+import { encodeWorkerControlFrame } from './worker-control-frame.mjs';
+
 export const approvedMediumModel = Object.freeze({
   path: '/home/dmitry-vasiliev/.cache/openwhispr/whisper-models/ggml-medium.bin',
   sizeBytes: 1_533_763_059,
@@ -123,7 +125,7 @@ export class WhisperCppWorkerProcess {
   }
 
   sendControl(message) {
-    this.write(controlFrame(message));
+    this.write(encodeWorkerControlFrame(message));
   }
 
   sendAudio(requestId, wav) {
@@ -159,15 +161,6 @@ export class WhisperCppWorkerProcess {
   terminate() {
     if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill('SIGKILL');
   }
-}
-
-export function controlFrame(message) {
-  const body = Buffer.from(JSON.stringify(message), 'utf8');
-  const frame = Buffer.alloc(5 + body.length);
-  frame.writeUInt32BE(body.length, 0);
-  frame[4] = 1;
-  body.copy(frame, 5);
-  return frame;
 }
 
 export function audioFrame(requestId, wav) {
