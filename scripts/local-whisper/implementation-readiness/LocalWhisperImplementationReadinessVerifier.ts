@@ -260,10 +260,11 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'start:local-whisper:development',
 ]);
 
-const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 20;
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 28;
-const IMPLEMENTATION_READINESS_TASK_COUNT = 31;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-28-acceptance-registry';
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 21;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 29;
+const IMPLEMENTATION_READINESS_TASK_COUNT = 35;
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-29-acceptance-registry';
+const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
   /(?:^|\/)(?:candidate-input|platform-input|profile-(?:cpu|cuda)|platform-graph|platform-result|evidence-index|aggregate-result)\.json$/u;
@@ -296,7 +297,7 @@ function hasResource(value: unknown, from: string, to: string): boolean {
 function expectedAcceptanceIds(): readonly string[] {
   return Object.freeze([
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 35 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 36 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ]);
 }
 
@@ -424,6 +425,7 @@ export class LocalWhisperImplementationReadinessVerifier {
       ACCEPTANCE_REGISTRY_CONTRACT_ID,
     );
     const taskFiles = record(manifest.taskFiles, ACCEPTANCE_REGISTRY_CONTRACT_ID);
+    const supersededTasks = manifest.supersededTasks;
     const expectedTasks = Array.from({ length: IMPLEMENTATION_READINESS_TASK_COUNT }, (_, index) =>
       String(index + 1).padStart(2, '0'),
     );
@@ -432,7 +434,7 @@ export class LocalWhisperImplementationReadinessVerifier {
     const properties = record(schema.properties, ACCEPTANCE_REGISTRY_CONTRACT_ID);
     const specificationRevision = record(properties.specificationRevision, ACCEPTANCE_REGISTRY_CONTRACT_ID);
     const planRevision = record(properties.planRevision, ACCEPTANCE_REGISTRY_CONTRACT_ID);
-    if (!Array.isArray(owners) || !Array.isArray(commands)) {
+    if (!Array.isArray(owners) || !Array.isArray(commands) || !Array.isArray(supersededTasks)) {
       throw new ImplementationReadinessError('IMPLEMENTATION_CONTRACT_INVALID', ACCEPTANCE_REGISTRY_CONTRACT_ID);
     }
     const ownerRecords = owners.map((owner) => record(owner, ACCEPTANCE_REGISTRY_CONTRACT_ID));
@@ -453,6 +455,11 @@ export class LocalWhisperImplementationReadinessVerifier {
       taskFiles['29'] !== '29_linux_rtx50_qualification.md' ||
       taskFiles['30'] !== '30_release_branch_preparation_and_pr_policy.md' ||
       taskFiles['31'] !== '31_hosted_production_equivalent_ci_builders.md' ||
+      taskFiles['32'] !== '32_build_v2_4_0_alpha_1.md' ||
+      taskFiles['33'] !== '33_deploy_v2_4_0_alpha_1.md' ||
+      taskFiles['34'] !== '34_build_v2_4_0.md' ||
+      taskFiles['35'] !== '35_deploy_v2_4_0.md' ||
+      JSON.stringify(supersededTasks) !== JSON.stringify(SUPERSEDED_TASKS) ||
       JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
       !commandRecords.some((value) => {
         return (
@@ -475,14 +482,14 @@ export class LocalWhisperImplementationReadinessVerifier {
       ) ||
       !commandRecords.some(
         (value) =>
-          value.id === 'task-31-ci-build-tests' &&
-          value.task === '31' &&
+          value.id === 'task-32-ci-build-tests' &&
+          value.task === '32' &&
           value.command === 'rtk npm run test:local-whisper:ci-builds',
       ) ||
       !commandRecords.some(
         (value) =>
-          value.id === 'task-31-ci-build-verification' &&
-          value.task === '31' &&
+          value.id === 'task-32-ci-build-verification' &&
+          value.task === '32' &&
           value.command === 'rtk npm run verify:local-whisper:ci-builds',
       ) ||
       JSON.stringify(task23Commands) !==
@@ -497,15 +504,14 @@ export class LocalWhisperImplementationReadinessVerifier {
       ['AC-AUTO-078', 'AC-AUTO-079', 'AC-AUTO-081'].some(
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '25',
       ) ||
-      ['AC-AUTO-080', 'AC-AUTO-083', 'AC-AUTO-084'].some(
-        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '31',
+      ['AC-AUTO-080', 'AC-AUTO-083', 'AC-AUTO-084', 'AC-AUTO-085', 'AC-AUTO-086'].some(
+        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '32',
       ) ||
-      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-082')?.primaryTask !== '22' ||
-      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-085')?.primaryTask !== '30' ||
-      ['AC-AUTO-086', 'AC-AUTO-087', 'AC-AUTO-088', 'AC-AUTO-089'].some(
-        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '28',
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-082')?.primaryTask !== '34' ||
+      ['AC-AUTO-087', 'AC-AUTO-088', 'AC-AUTO-089', 'AC-AUTO-090'].some(
+        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '33',
       ) ||
-      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-090')?.primaryTask !== '22' ||
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-091')?.primaryTask !== '35' ||
       specificationRevision.const !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       planRevision.const !== IMPLEMENTATION_READINESS_PLAN_REVISION
     ) {

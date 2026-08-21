@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-06'
+updated_at: '2026-08-21'
 decisions:
   - id: outcome.local-voice-provider
     revision: 1
@@ -8660,6 +8660,85 @@ decisions:
     supersedes_revision: 20
     requirement_ids: []
 
+  - id: planning.revision-29-packet-decomposition
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 21 requires exactly four remaining executable packets in the order alpha Build, alpha Deploy, final Build, final Deploy.
+      - Tasks 01–20 and 23–25 remain completed; Task 26 remains deferred and non-executable.
+      - Tasks 21, 22, and 27–31 become superseded historical packets when plan revision 29 is approved; their unfinished checks are not deleted.
+      - Task 32 absorbs immutable hosted inputs, disconnected builders, six-output CI, release preparation, protected signing/candidate production, and bounded two-platform alpha smoke.
+      - Task 33 owns exact-byte preserving merge, immutable alpha tag, non-clobbering staging, final-origin verification, public prerelease publication, and clean alpha deployment.
+      - Task 34 owns a distinct final head, fresh six-output build/signing, complete Linux and Windows all-six-model CPU/RTX 50 qualification, and fresh aggregate evidence.
+      - Task 35 owns exact final promotion, immutable stable tag, non-clobbering final-origin publication, clean Linux/Windows deployment, and qualified support promotion.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: 'No unresolved implementation-local choice remains: the approved specification fixes the four packet boundaries and their order. New Tasks 32–35 preserve the prior packet history and make supersession explicit instead of deleting evidence.'
+    supersedes_revision: null
+    requirement_ids: [REL-001, REL-002, REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: planning.revision-29-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - The revision-29 acceptance manifest and JSON Schema bind specification revision 21, plan revision 29, all 35 packet files, deferred Task 26, and superseded Tasks 21, 22, and 27–31.
+      - All 318 active specification and acceptance identifiers are present in at least one non-deferred, non-superseded completed or executable packet.
+      - All 90 specification-defined automated acceptance IDs have exactly one primary owner and at least one registered verification command; no superseded task owns a registered command.
+      - Tasks 32–35 contain every required packet heading, own registered commands, and form the sole acyclic executable dependency chain `32 → 33 → 34 → 35`.
+      - The four packets state exact SemVer/branch/tag values, six output classes, Linux/Windows boundaries, alpha versus final evidence depth, secrets/privacy constraints, failure/rollback behavior, and every external action as a manual gate.
+      - Targeted Prettier, JSON Schema validation, custom coverage/executability audit, YAML parsing, and `git diff --check` pass.
+      - The checked-in `scripts/local-whisper/validate-task-plan.mjs` still encodes approved plan revision 28 and Tasks 01–31; Task 32 explicitly owns its revision-29/Tasks-32–35 migration before the executable acceptance-ownership command can pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The audit found no missing active requirement, acceptance owner, packet heading, command registration, dependency, platform boundary, or manual authority. The expected legacy validator mismatch is a named first implementation responsibility rather than a weakened planning check.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: approval.plan
+    revision: 29
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 21 is Approved and fixes the ordered alpha/final Build/Deploy lifecycle.
+      - Plan revision 29 retains completed evidence, keeps Task 26 deferred, and supersedes the old seven-packet release chain without deleting any gate.
+      - Tasks 32–35 are self-contained and are the only proposed executable packets.
+      - Coverage and executability audits pass for 318 active identifiers, 90 automated acceptance owners, four packet contracts, and the `32 → 33 → 34 → 35` dependency graph.
+      - Plan approval grants no packet execution or external action authority.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: approval-round-29
+      question_id: approval.plan-revision-29
+      idempotency_key: approval.plan-revision-29:v1
+      last_status: answered
+      sequence: 103
+      revision: 1
+    question:
+      text: How should Local Whisper plan revision 29 proceed with only the four ordered alpha/final Build and Deploy packets?
+      kind: single
+      options:
+        - id: approve-plan
+          label: Approve plan revision 29 (Recommended)
+          description: Make Tasks 32 → 33 → 34 → 35 authoritative while keeping every implementation and external action separately authorized.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 29 in Draft and revise packet boundaries, ownership, commands, gates, or handoffs.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; plan revision 28 and its seven-packet release chain remain authoritative.
+    answer:
+      selected_ids: [approve-plan]
+      text: ''
+    rationale: The user explicitly approved plan revision 29. Tasks 32 → 33 → 34 → 35 are the only executable Local Whisper release packets; Tasks 21, 22, and 27–31 are superseded, and Task 26 remains deferred. Approval grants no packet execution, commit, push, branch/PR action, repository-setting change, network acquisition, workflow run, signing, physical qualification, merge, tag, GitHub Release action, publication, support promotion, or release authority.
+    supersedes_revision: 28
+    requirement_ids: []
+
   - id: execution.local-whisper-task-20-linux-preflight
     revision: 1
     category: execution
@@ -9882,6 +9961,162 @@ decisions:
     supersedes_revision: null
     requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
 
+  - id: release.alpha-publication
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user requires `v2.4.0-alpha.1` before the final `v2.4.0` release.
+      - The requested word "release" does not by itself resolve whether the alpha is public, draft-only, or retained only as CI artifacts.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-sequence-round-01
+      question_id: release.alpha-publication
+      idempotency_key: release.alpha-publication:v1
+      last_status: answered
+      sequence: 83
+      revision: 1
+    question:
+      text: How should `v2.4.0-alpha.1` be published?
+      kind: single
+      options:
+        - id: public-prerelease
+          label: Public prerelease (Recommended)
+          description: Create an immutable signed GitHub prerelease with Linux and Windows assets so real installation feedback can precede the final release.
+        - id: draft-release
+          label: Draft release
+          description: Stage signed assets in a GitHub draft without making the alpha public.
+        - id: ci-artifacts-only
+          label: CI artifacts only
+          description: Keep the alpha outputs internal to CI and create no GitHub release.
+    answer:
+      selected_ids: [public-prerelease]
+      text: ''
+    rationale: The alpha is a public immutable GitHub prerelease, not a draft-only or CI-only rehearsal. Its signed outputs remain subject to the existing no-clobbering, final-origin, and exact-byte verification rules.
+    supersedes_revision: null
+    requirement_ids: [REL-004]
+
+  - id: release.alpha-qualification
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The final `v2.4.0` must work on Linux and Windows.
+      - The existing release contract has six signed outputs: Linux and Windows installers plus CPU and RTX 50 runtime packs for both platforms.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-sequence-round-01
+      question_id: release.alpha-qualification
+      idempotency_key: release.alpha-qualification:v1
+      last_status: answered
+      sequence: 84
+      revision: 1
+    question:
+      text: Which platform and qualification boundary should `v2.4.0-alpha.1` satisfy?
+      kind: single
+      options:
+        - id: cross-platform-qualified-alpha
+          label: Qualify both platforms (Recommended)
+          description: Build all six Linux and Windows outputs and require automated checks plus bounded physical smoke tests, while reserving final support promotion for `v2.4.0`.
+        - id: cross-platform-build-only
+          label: Build both platforms
+          description: Build all six outputs but defer physical Linux and Windows qualification until the final release.
+        - id: linux-only-alpha
+          label: Linux-only alpha
+          description: Publish and qualify only Linux alpha outputs, adding Windows for the final release.
+    answer:
+      selected_ids: [cross-platform-qualified-alpha]
+      text: ''
+    rationale: The alpha carries all six Linux and Windows outputs and must pass automated validation plus bounded physical smoke on both platforms. Production support promotion and the full qualification matrix remain final-release gates.
+    supersedes_revision: null
+    requirement_ids: [QUAL-007]
+
+  - id: release.final-promotion
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - The requested sequence places `v2.4.0-alpha.1` before `v2.4.0` so alpha feedback can inform the final release.
+      - Existing qualification binds exact immutable candidate bytes, and publication cannot rebuild or mutate qualified assets.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-sequence-round-01
+      question_id: release.final-promotion
+      idempotency_key: release.final-promotion:v1
+      last_status: answered
+      sequence: 85
+      revision: 1
+    question:
+      text: How should the final `v2.4.0` candidate be created after alpha feedback?
+      kind: single
+      options:
+        - id: fresh-final-candidate
+          label: Fresh final candidate (Recommended)
+          description: Allow alpha feedback fixes, freeze a new final head, rebuild all six assets, and fully requalify their exact Linux and Windows bytes.
+        - id: version-only-final
+          label: Version-only final
+          description: Permit no product changes after alpha and rebuild only from a final version commit before full requalification.
+        - id: reuse-alpha-assets
+          label: Reuse alpha assets
+          description: Reuse alpha bytes where possible, accepting added complexity around embedded version identity and exact-tag provenance.
+    answer:
+      selected_ids: [fresh-final-candidate]
+      text: ''
+    rationale: Alpha feedback may produce bounded fixes. The final release therefore freezes a new `v2.4.0` head, rebuilds and signs all six outputs, and fully requalifies the exact new Linux and Windows bytes; alpha bytes and evidence cannot be promoted as final evidence.
+    supersedes_revision: null
+    requirement_ids: [REL-004, QUAL-007]
+
+  - id: scope.remaining-lifecycle
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested that only Build and Deploy remain after this specification and task revision.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [build-and-deploy-only]
+      text: ''
+    rationale: Existing signing, security, legal, qualification, exact-byte, final-origin, and fail-closed gates are organized under the two remaining lifecycle stages; they are not deleted or weakened.
+    supersedes_revision: null
+    requirement_ids: [REL-003, QUAL-007]
+
+  - id: release.sequence
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly selected `v2.4.0-alpha.1` as the first release and `v2.4.0` as the subsequent final release.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [alpha-then-final]
+      text: ''
+    rationale: Release identities and their branch, tag, version, candidate, catalog, evidence, and publication data must remain distinct and immutable.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004]
+
+  - id: compatibility.final-platforms
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requires the final `v2.4.0` release to work on Linux and Windows.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [linux-and-windows-final]
+      text: ''
+    rationale: Final publication remains blocked until the full Linux x64 and Windows x64 CPU plus RTX 50 qualification branches pass against exact final candidate bytes.
+    supersedes_revision: null
+    requirement_ids: [QUAL-007]
+
   - id: planning.hosted-tar-xz-materializer
     revision: 2
     category: planning
@@ -10036,3 +10271,127 @@ decisions:
     rationale: 'The user authorized the public Task 27 continuation: official-source review and exact acquisition, verified production locks/profile closure, and read-only hosted preparation. Signing, release, merge, tag, upload, publication, and Task 31 remain outside this execution pass.'
     supersedes_revision: null
     requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003]
+
+  - id: acceptance.revision-21-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: only Build and Deploy remain, the public `v2.4.0-alpha.1` prerelease comes first, and stable `v2.4.0` is withheld until both Linux and Windows pass the complete final contract.'
+      - 'Operator perspective: the fixed order is alpha Build, alpha Deploy, final Build, final Deploy; signing, platform evidence, preserving merge, immutable tags, recoverable staging, final-origin verification, and publication authority have explicit owners and failure boundaries.'
+      - 'Implementer perspective: both targets produce the same six output classes from immutable disconnected inputs, but the final target freezes a distinct head and freshly rebuilds, signs, and binds every candidate and evidence document.'
+      - 'Tester perspective: `AC-AUTO-091`, `AC-MAN-020`, and `AC-MAN-021` cover stage order, generation separation, all six assets, bounded two-platform alpha smoke, complete two-platform final qualification, and wrong-order or cross-generation failures.'
+      - 'Security-reviewer perspective: protected signing, legal/provenance review, read-only ordinary CI, no-clobbering staging, exact-byte promotion, private-data restrictions, and separate tag/upload/publication authority remain fail-closed for both releases.'
+      - 'Maintainer perspective: exact branches and tags are fixed, alpha feedback fixes are permitted, final work restarts from a new identity, and the plan must collapse the old seven-packet chain into four ordered Build/Deploy packets without deleting checks.'
+      - The prior generic release-PR rule was narrowed so the alpha requires bounded Linux/Windows smoke while final `v2.4.0` retains the complete Linux/Windows qualification profiles; no contradictory full-alpha qualification requirement remains.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved product, platform, failure, trust, operations, compatibility, migration, or acceptance choice after the three release-policy decisions were committed.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: approval.spec
+    revision: 21
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 21 reduces the remaining lifecycle to two stage types in the fixed alpha-Build, alpha-Deploy, final-Build, final-Deploy order.
+      - '`v2.4.0-alpha.1` is a public signed GitHub prerelease containing all six Linux/Windows outputs and requiring bounded physical smoke on both platforms.'
+      - Alpha publication does not promote final Production support and does not authorize the final release.
+      - '`v2.4.0` freezes a distinct final head, rebuilds and signs all six outputs, and fully requalifies fresh exact Linux and Windows bytes.'
+      - Existing signing, legal/security, privacy, acyclic evidence, exact-byte promotion, non-clobbering recovery, and final-origin gates remain mandatory within Build or Deploy.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: approval-round-24
+      question_id: approval.spec
+      idempotency_key: approval.spec:v21
+      supersedes_revision: 20
+      last_status: answered
+      sequence: 86
+      revision: 21
+    question:
+      text: How should Local Whisper specification revision 21 proceed after defining the Build/Deploy-only alpha-to-final release contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 21 (Recommended)
+          description: Make the ordered public alpha and fresh fully qualified Linux/Windows final release contract authoritative, then revise the task plan separately.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 21 in Draft and revise its stage ownership, alpha boundary, final qualification, or release sequencing.
+        - id: leave-draft
+          label: Leave Draft
+          description: Stop without approval; revision 20 remains the approved specification and the existing plan stays authoritative.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 21. The authoritative contract now has only Build and Deploy stage types, publishes `v2.4.0-alpha.1` first as a signed cross-platform prerelease, and requires a distinct freshly built and fully qualified Linux/Windows `v2.4.0` final generation. Approval grants no build, merge, tag, upload, publication, release, commit, or push authority.
+    supersedes_revision: 20
+    requirement_ids: []
+
+  - id: execution.task-32-revision-29
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 21 and plan revision 29 are Approved.
+      - Task 32 is the exact next executable packet in the authoritative `32 → 33 → 34 → 35` sequence.
+      - The user explicitly invoked incremental implementation after approving the plan, authorizing Task 32 only.
+      - Authorization covers deterministic local implementation and verification plus required checklist and handoff updates; it excludes every manual gate, commit, push, merge, tag, GitHub Release action, upload, publication, and later packet.
+    prompt_mcp: null
+    question:
+      text: Should Task 32, “Build v2.4.0-alpha.1,” be authorized for this incremental-implementation invocation?
+      kind: single
+      options:
+        - id: authorize-task-32
+          label: Authorize Task 32
+          description: Authorize exactly Task 32 now; implementation stops after local checks and handoff updates, with no commit or subsequent packet.
+        - id: keep-deferred
+          label: Keep deferred
+          description: Preserve the approved plan while leaving Task 32 unexecuted.
+    answer:
+      selected_ids: [authorize-task-32]
+      text: ''
+    rationale: The user explicitly authorized exactly one incremental-implementation invocation after approving plan revision 29; no duplicate question was asked.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, CI-004, CI-005, CI-006, CI-007, CI-008, PKG-002, PKG-003, PKG-004, PKG-009, PKG-010, PKG-011, PKG-012, SEC-003, SEC-009, SEC-014, DIST-004, REL-001, REL-002, REL-003, REL-004, QUAL-001, QUAL-004, QUAL-007, COMP-012, COMP-013, OPS-003, OPS-004, AC-AUTO-080, AC-AUTO-083, AC-AUTO-084, AC-AUTO-085, AC-AUTO-086, AC-MAN-020]
+
+  - id: execution.task-32-public-input-acquisition
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - Task 32 local registry migration is verified, but no approved immutable production-input locks or hosted build rows exist.
+      - The next packet step is the explicit Manual Gate for network research and acquisition of only manifest-named public build inputs, licenses, and provenance.
+      - This decision cannot authorize commits, pushes, pull requests, repository-setting changes, signing, hosted builds, physical smoke, tags, GitHub Release actions, uploads, publication, support promotion, or Task 33.
+      - The Microsoft VC Runtime installer matched its pre-recorded 18,731,856-byte SHA-256 `843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c` lock.
+      - The versioned Microsoft VC Runtime license page was 245,273 bytes with SHA-256 `5604aff95a9f5ef0cdcd1e26fcc97afb54d36070ca148a163f0bea4d18952581`, not the locked 244,255-byte SHA-256 `3d82deb7524f289e804f40ed209b776832354096bc701dc620c819796b183db2`; no replacement was adopted.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: execution-round-104
+      question_id: execution.task-32-public-input-acquisition
+      idempotency_key: execution.task-32-public-input-acquisition:v1
+      last_status: answered
+      sequence: 104
+      revision: 1
+    question:
+      text: May Task 32 now inspect official public sources and acquire only the manifest-named immutable build inputs, licenses, and provenance records?
+      kind: single
+      options:
+        - id: authorize-public-acquisition
+          label: Authorize public acquisition (Recommended)
+          description: Permit read-only official-source review and exact public-input acquisition for Task 32; all commits, hosted runs, signing, releases, and other manual gates remain excluded.
+        - id: retain-manual-gate
+          label: Keep gate pending
+          description: Leave public source inspection and acquisition unperformed while retaining the verified local registry migration.
+    answer:
+      selected_ids: [authorize-public-acquisition]
+      text: ''
+    rationale: The user authorized read-only official-source review and acquisition of only exact manifest-named public inputs. The first reviewed lock failed closed on changed official license bytes; every other Task 32 manual gate remains excluded.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003, SEC-009]

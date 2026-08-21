@@ -1,5 +1,9 @@
 # Task 31: Hosted Production-Equivalent CI Builders
 
+Status: **Superseded by approved plan revision 29. Do not execute this packet.**
+Its six-output hosted builder contract is owned by Task 32 and reused unchanged
+by Task 34.
+
 ## Outcome
 
 Use Task 27's immutable provisioning and disconnected-build contract on public

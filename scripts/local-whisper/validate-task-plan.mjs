@@ -8,10 +8,11 @@ const tasksRoot = path.join(specificationRoot, 'tasks');
 const manifestPath = path.join(tasksRoot, 'acceptance-owners.json');
 const schemaPath = path.join(tasksRoot, 'acceptance-owners.schema.json');
 const specificationPath = path.join(specificationRoot, 'spec.md');
-const SPECIFICATION_REVISION = 20;
-const PLAN_REVISION = 28;
-const TASK_COUNT = 31;
+const SPECIFICATION_REVISION = 21;
+const PLAN_REVISION = 29;
+const TASK_COUNT = 35;
 const DEFERRED_TASKS = Object.freeze(['26']);
+const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
 
 const REQUIRED_REPLACEMENT_HEADINGS = [
   'Outcome',
@@ -29,11 +30,15 @@ const REQUIRED_REPLACEMENT_HEADINGS = [
   'References',
   'Completion And Handoff',
 ];
-const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2\d|3[01])$/u;
-const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2\d|3[01])_[a-z\d_]+\.md$/u;
-const ACTIVE_TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5]|2[7-9]|3[01])$/u;
-const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5]|2[7-9]|3[01])-[a-z\d-]+$/u;
-const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-5]\d|06\d|07\d|08\d|090)$/u;
+const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2\d|3[0-5])$/u;
+const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2\d|3[0-5])_[a-z\d_]+\.md$/u;
+const COMMAND_OWNER_TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5]|3[2-5])$/u;
+const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5]|3[2-5])-[a-z\d-]+$/u;
+const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-8]\d|09[01])$/u;
+const SUPERSEDED_PACKET_STATUS = 'Status: **Superseded by approved plan revision 29. Do not execute this packet.**';
+const CROSS_TASK_ACCEPTANCE_COMMAND_IDS = Object.freeze({
+  'AC-AUTO-091': Object.freeze(['task-32-release-lifecycle-tests']),
+});
 
 function fail(message) {
   throw new Error(`Local Whisper task-plan validation failed: ${message}`);
@@ -55,7 +60,7 @@ function assertExactKeys(value, expectedKeys, label) {
 function expectedAcceptanceIds() {
   return [
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 35 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 36 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ];
 }
 
@@ -93,6 +98,7 @@ function validateManifestShape(manifest, schema) {
       'planRevision',
       'taskFiles',
       'deferredTasks',
+      'supersededTasks',
       'verificationCommands',
       'automatedAcceptanceOwners',
     ],
@@ -129,7 +135,7 @@ async function validateTaskFiles(manifest, taskDirectoryEntries) {
   const taskIds = Object.keys(taskFiles).sort();
   const expectedTaskIds = Array.from({ length: TASK_COUNT }, (_, index) => String(index + 1).padStart(2, '0'));
   if (taskIds.length !== expectedTaskIds.length || taskIds.some((task, index) => task !== expectedTaskIds[index])) {
-    fail('taskFiles must contain exactly Tasks 01 through 31');
+    fail('taskFiles must contain exactly Tasks 01 through 35');
   }
   if (taskFiles['23'] !== '23_main_window_residency_control.md') fail('Task 23 packet filename is unexpected');
   if (taskFiles['25'] !== '25_rtx50_readiness_closure.md') fail('Task 25 packet filename is unexpected');
@@ -151,6 +157,10 @@ async function validateTaskFiles(manifest, taskDirectoryEntries) {
   if (taskFiles['31'] !== '31_hosted_production_equivalent_ci_builders.md') {
     fail('Task 31 packet filename is unexpected');
   }
+  if (taskFiles['32'] !== '32_build_v2_4_0_alpha_1.md') fail('Task 32 packet filename is unexpected');
+  if (taskFiles['33'] !== '33_deploy_v2_4_0_alpha_1.md') fail('Task 33 packet filename is unexpected');
+  if (taskFiles['34'] !== '34_build_v2_4_0.md') fail('Task 34 packet filename is unexpected');
+  if (taskFiles['35'] !== '35_deploy_v2_4_0.md') fail('Task 35 packet filename is unexpected');
 
   const numberedFiles = taskDirectoryEntries
     .filter((entry) => entry.isFile() && /^\d{2}_.*\.md$/u.test(entry.name))
@@ -195,17 +205,36 @@ function validateDeferredTasks(manifest, packetByTask, taskIds) {
   return deferredTasks;
 }
 
-function validateVerificationCommands(manifest, packetByTask, taskIds, deferredTasks) {
+function validateSupersededTasks(manifest, packetByTask, taskIds) {
+  if (
+    !Array.isArray(manifest.supersededTasks) ||
+    manifest.supersededTasks.length !== SUPERSEDED_TASKS.length ||
+    manifest.supersededTasks.some((task, index) => task !== SUPERSEDED_TASKS[index])
+  ) {
+    fail('supersededTasks must contain exactly Tasks 21, 22, and 27 through 31');
+  }
+  const supersededTasks = new Set(manifest.supersededTasks);
+  for (const task of supersededTasks) {
+    if (!taskIds.includes(task) || !packetByTask.get(task)?.includes(SUPERSEDED_PACKET_STATUS)) {
+      fail(`superseded Task ${task} is missing its historical status`);
+    }
+  }
+  return supersededTasks;
+}
+
+function validateVerificationCommands(manifest, packetByTask, taskIds, nonCommandOwnerTasks) {
   const commandById = new Map();
-  const commandCountByTask = new Map(taskIds.filter((task) => !deferredTasks.has(task)).map((task) => [task, 0]));
+  const commandCountByTask = new Map(
+    taskIds.filter((task) => !nonCommandOwnerTasks.has(task)).map((task) => [task, 0]),
+  );
   for (const [index, rawCommand] of manifest.verificationCommands.entries()) {
     const command = assertRecord(rawCommand, `verificationCommands[${index}]`);
     assertExactKeys(command, ['id', 'task', 'command'], `verificationCommands[${index}]`);
     if (!COMMAND_ID_PATTERN.test(command.id)) fail(`invalid verification command ID: ${command.id}`);
     if (
-      !ACTIVE_TASK_ID_PATTERN.test(command.task) ||
+      !COMMAND_OWNER_TASK_ID_PATTERN.test(command.task) ||
       !packetByTask.has(command.task) ||
-      deferredTasks.has(command.task)
+      nonCommandOwnerTasks.has(command.task)
     ) {
       fail(`verification command ${command.id} references unknown Task ${command.task}`);
     }
@@ -242,11 +271,11 @@ function validateVerificationCommands(manifest, packetByTask, taskIds, deferredT
   return commandById;
 }
 
-function assertActiveOwnerTask(owner, packetByTask, deferredTasks) {
+function assertCommandOwnerTask(owner, packetByTask, nonCommandOwnerTasks) {
   if (
-    !ACTIVE_TASK_ID_PATTERN.test(owner.primaryTask) ||
+    !COMMAND_OWNER_TASK_ID_PATTERN.test(owner.primaryTask) ||
     !packetByTask.has(owner.primaryTask) ||
-    deferredTasks.has(owner.primaryTask)
+    nonCommandOwnerTasks.has(owner.primaryTask)
   ) {
     fail(`${owner.acceptanceId} references unknown Task ${owner.primaryTask}`);
   }
@@ -265,7 +294,8 @@ function validateOwnerCommandIds(owner, commandById) {
     commandIds.add(commandId);
     const command = commandById.get(commandId);
     if (!command) fail(`${owner.acceptanceId} references nonexistent verification command ${commandId}`);
-    if (command.task !== owner.primaryTask) {
+    const allowedCrossTaskCommandIds = CROSS_TASK_ACCEPTANCE_COMMAND_IDS[owner.acceptanceId];
+    if (command.task !== owner.primaryTask && !allowedCrossTaskCommandIds?.includes(command.id)) {
       fail(`${owner.acceptanceId} command ${commandId} belongs to a different task`);
     }
   }
@@ -278,31 +308,32 @@ function assertFixedAcceptanceOwners(ownersByAcceptanceId) {
     ['AC-AUTO-077', '23'],
     ['AC-AUTO-078', '25'],
     ['AC-AUTO-079', '25'],
-    ['AC-AUTO-080', '31'],
+    ['AC-AUTO-080', '32'],
     ['AC-AUTO-081', '25'],
-    ['AC-AUTO-082', '22'],
-    ['AC-AUTO-083', '31'],
-    ['AC-AUTO-084', '31'],
-    ['AC-AUTO-085', '30'],
-    ['AC-AUTO-086', '28'],
-    ['AC-AUTO-087', '28'],
-    ['AC-AUTO-088', '28'],
-    ['AC-AUTO-089', '28'],
-    ['AC-AUTO-090', '22'],
+    ['AC-AUTO-082', '34'],
+    ['AC-AUTO-083', '32'],
+    ['AC-AUTO-084', '32'],
+    ['AC-AUTO-085', '32'],
+    ['AC-AUTO-086', '32'],
+    ['AC-AUTO-087', '33'],
+    ['AC-AUTO-088', '33'],
+    ['AC-AUTO-089', '33'],
+    ['AC-AUTO-090', '33'],
+    ['AC-AUTO-091', '35'],
   ]);
   for (const [acceptanceId, task] of expectedOwners) {
     if (ownersByAcceptanceId.get(acceptanceId) !== task) fail(`${acceptanceId} must be owned by Task ${task}`);
   }
 }
 
-function validateAcceptanceOwners(manifest, specification, packetByTask, commandById, deferredTasks) {
+function validateAcceptanceOwners(manifest, specification, packetByTask, commandById, nonCommandOwnerTasks) {
   const canonicalAcceptanceIds = expectedAcceptanceIds();
   const specificationAcceptanceIds = extractSpecificationAcceptanceIds(specification);
   if (
     specificationAcceptanceIds.length !== canonicalAcceptanceIds.length ||
     specificationAcceptanceIds.some((id, index) => id !== canonicalAcceptanceIds[index])
   ) {
-    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–090');
+    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–091');
   }
 
   const ownersByAcceptanceId = new Map();
@@ -321,7 +352,7 @@ function validateAcceptanceOwners(manifest, specification, packetByTask, command
     }
     if (!canonicalAcceptanceIds.includes(owner.acceptanceId)) fail(`unknown acceptance ID: ${owner.acceptanceId}`);
     if (ownersByAcceptanceId.has(owner.acceptanceId)) fail(`duplicate primary owner: ${owner.acceptanceId}`);
-    assertActiveOwnerTask(owner, packetByTask, deferredTasks);
+    assertCommandOwnerTask(owner, packetByTask, nonCommandOwnerTasks);
     validateOwnerCommandIds(owner, commandById);
     if (!packetByTask.get(owner.primaryTask).includes(owner.acceptanceId)) {
       fail(`${owner.acceptanceId} is absent from primary Task ${owner.primaryTask}`);
@@ -338,11 +369,13 @@ async function main() {
   validateManifestShape(manifest, schema);
   const { packetByTask, taskIds } = await validateTaskFiles(manifest, taskDirectoryEntries);
   const deferredTasks = validateDeferredTasks(manifest, packetByTask, taskIds);
-  const commandById = validateVerificationCommands(manifest, packetByTask, taskIds, deferredTasks);
-  validateAcceptanceOwners(manifest, specification, packetByTask, commandById, deferredTasks);
+  const supersededTasks = validateSupersededTasks(manifest, packetByTask, taskIds);
+  const nonCommandOwnerTasks = new Set([...deferredTasks, ...supersededTasks]);
+  const commandById = validateVerificationCommands(manifest, packetByTask, taskIds, nonCommandOwnerTasks);
+  validateAcceptanceOwners(manifest, specification, packetByTask, commandById, nonCommandOwnerTasks);
 
   process.stdout.write(
-    'Local Whisper task plan is structurally valid: 30 active packets, 1 deferred packet, 89 unique AC-AUTO owners.\n',
+    'Local Whisper task plan is structurally valid: 35 packets, 4 executable packets, 1 deferred packet, 7 superseded packets, 90 unique AC-AUTO owners.\n',
   );
 }
 

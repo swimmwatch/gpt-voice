@@ -1,5 +1,8 @@
 # Task 29: Linux RTX 50 Qualification
 
+Status: **Superseded by approved plan revision 29. Do not execute this packet.**
+Its remaining final Linux qualification contract is owned by Task 34.
+
 ## Outcome
 
 On an authorized Linux x64 CPU/RTX 50 host, consume the exact Task 28 signed

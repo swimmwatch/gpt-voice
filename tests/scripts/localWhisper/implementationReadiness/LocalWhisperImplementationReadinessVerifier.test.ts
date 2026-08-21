@@ -74,11 +74,11 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
   it('rejects a stale task registry revision', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
-    const changed = source.replace('"planRevision": 28', '"planRevision": 27');
+    const changed = source.replace('"planRevision": 29', '"planRevision": 28');
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-28-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-29-acceptance-registry'),
     );
   });
 
@@ -92,7 +92,21 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-28-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-29-acceptance-registry'),
+    );
+  });
+
+  it('rejects a release acceptance owner that is not in the active v29 sequence', async () => {
+    const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
+    const source = await repository.readText(file);
+    const changed = source.replace(
+      '"acceptanceId": "AC-AUTO-080",\n      "primaryTask": "32"',
+      '"acceptanceId": "AC-AUTO-080",\n      "primaryTask": "31"',
+    );
+    assert.notEqual(changed, source);
+    await assert.rejects(
+      verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-29-acceptance-registry'),
     );
   });
 

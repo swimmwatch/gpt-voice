@@ -1,5 +1,8 @@
 # Task 21: Windows RTX 50 Qualification
 
+Status: **Superseded by approved plan revision 29. Do not execute this packet.**
+Its remaining final Windows qualification contract is owned by Task 34.
+
 ## Outcome
 
 On the authorized Windows x64 RTX 50 host, consume the unchanged Task 28 signed

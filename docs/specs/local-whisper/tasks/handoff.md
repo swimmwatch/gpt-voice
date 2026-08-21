@@ -2,266 +2,50 @@
 
 ## Authoritative State
 
-- Specification revision **20** is Approved. RTX 50 / `sm_120a` remains the
-  only active NVIDIA target on Linux and Windows; RTX 30/40 stay fail-closed
-  and deferred. Release preparation and exact signed-byte Linux/Windows
-  qualification now precede the preserving release-PR merge; the immutable tag
-  is created afterward on the unchanged qualified head.
-- Plan revision **28** is Approved. The authoritative active sequence is Task
-  27 → Task 31 → Task 30 → Task 28 → Task 29 → Task 21 → Task 22. Task 26
-  remains deferred and non-executable.
-- Tasks 01–20, 23, 24, and 25 are complete. Task 24 baseline `7ebb102` plus its
-  authorized follow-up delivered deterministic Windows CPU/RTX 50 readiness and
-  bounded Windows smoke without qualification or Production claims.
-- Task 25 is verified. It adds a bounded,
-  shell-free main-owned NVIDIA pre-install inventory, exact RTX 50
-  `sm_120a-real` applicability, catalog/migration closure, renderer-safe
-  acquisition filtering, and an artifact-acquisition guard. No physical-host
-  observation, candidate, qualification, package, or release evidence was
-  created.
-- No final signed candidate, `candidateInputDigest`, platform branch, aggregate
-  root, production upload, GitHub Release asset, publication, support promotion,
-  tag, or release exists.
+- Specification revision **21** is Approved.
+- Plan revision **29** is Approved. Plan approval grants no packet execution or
+  external-action authority.
+- Tasks 01–20 and 23–25 are complete. Task 26 remains deferred and
+  non-executable.
+- Revision 29 supersedes Tasks 21, 22, and 27–31 and makes only Tasks
+  32–35 executable in the order `32 → 33 → 34 → 35`.
+- No alpha or final candidate, evidence root, branch, tag, GitHub Release,
+  publication, support promotion, or release currently exists.
 
-## Revision 28 Roadmap
+## Task 32 Local Progress
 
-- Task 25 closed main-owned cross-platform RTX 50 inventory, applicability,
-  catalog, migration, renderer filtering, and pre-transfer acquisition
-  enforcement.
-- Task 27 has completed its authorized local automated scope: a strict hosted
-  acquisition-lock schema, raw-object and deterministic ZIP fixture
-  materializer/re-verifier, archive-entry preflight, Windows ambient-input
-  fail-closed guard, and shared Linux/Windows OS-boundary command contract are
-  in the worktree. Runtime-pack production now requests network denial on both
-  platforms. Revision 28 selects one locked acquisition-only WASM XZ decoder
-  plus strict streaming project-owned TAR parsing for Linux CUDA, both now
-  implemented and locally verified. Decoder/source/submodule/license review,
-  exact official acquisition records, closed active profiles, CUDA driver-stub
-  separation, read-only hosted workflow, and actual Linux/Windows rows remain;
-  no production object, pack, installer, or qualification evidence was
-  produced. The local scope is committed and pushed as `429aadf3`. Follow-up
-  `1a672e61` extends the strict TAR reader only for the authenticated NVIDIA
-  layout and has passed both native-quality platform jobs.
-- Task 31 consumes Task 27 unchanged and implements the read-only hosted
-  Linux/Windows application plus CPU/RTX 50 builders and reproducibility checks
-  without production secrets, installable artifact upload, or hardware claims.
-- Task 30 implements canonical package/changelog/manual-registry preparation,
-  deterministic release identity, read-only `release/v<SemVer>` PR checks, and
-  repository merge-commit-only policy verification; it creates no release
-  attempt.
-- Task 28 consumes the exact Task 30-qualified release PR head in the protected
-  reviewer-gated environment to freeze the final signed six-output candidate
-  set and signed release manifest; it merges, tags, and publishes nothing.
-- Task 29 qualifies exact Task 28 Linux candidates and seals the shared/Linux
-  branch. Task 21 consumes it unchanged and seals Windows.
-- Task 22 reconciles both branches into the required pre-merge status, verifies
-  a separately authorized merge preserved the qualified head, and implements
-  later protected exact-head tag creation plus non-clobbering GitHub Release
-  delivery. Merge/tag/upload/publication and `AC-MAN-019` remain separately
-  authorized manual gates.
+- The user explicitly authorized Task 32 only through the incremental-implementation invocation recorded as `execution.task-32-revision-29`.
+- The stale plan-28 validator and implementation-readiness registry consumer now enforce specification revision 21, plan revision 29, all 35 packets, deferred Task 26, superseded Tasks 21/22/27–31, the four-packet executable sequence, 90 automated owners, and the explicit cross-task `AC-AUTO-091` lifecycle check.
+- Focused verification passed: acceptance-ownership validation; implementation-readiness tests and verifier; hosted-toolchain tests and verifier; `test:types`; targeted Prettier; and `git diff --check` for the Task 32 local files.
+- The authorized public acquisition verified the Microsoft VC Runtime installer against its existing 18,731,856-byte SHA-256 `843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c` lock. Its versioned license page instead returned 245,273 bytes, SHA-256 `5604aff95a9f5ef0cdcd1e26fcc97afb54d36070ca148a163f0bea4d18952581`, rather than the locked 244,255-byte `3d82deb7524f289e804f40ed209b776832354096bc701dc620c819796b183db2`. The temporary files were removed; no observed replacement hash, lock update, candidate, or provenance claim was created.
+- No candidate, hosted workflow run, signed artifact, private evidence, smoke result, branch, pull request, tag, GitHub Release, upload, publication, or support claim was created.
 
-## Stable Inputs And Gates
+## Preserved Inputs
 
-- Candidate SemVer: `2.4.0`; the later release branch must commit it in
-  `package.json`, mirror it in `package-lock.json` and the changelog, use branch
-  `release/v2.4.0`, and derive expected tag `v2.4.0`.
-- Task 17 fixture digest:
+- Task 27 local hosted acquisition/materializer and network-boundary work is
+  present in commits `429aadf3` and `1a672e61`; production locks, closed active
+  profiles, and actual hosted preparation/build rows remain Task 32 gates.
+- Linux and Windows native-quality jobs passed for `1a672e61`. Unrelated dirty
+  Node/TypeScript CI work remains outside this specification bundle.
+- Task 17 fixture digest remains
   `de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226`.
-- Task 20 preflight remains advisory and must be revalidated after final source
-  and candidate freeze.
-- Available representative hardware: Linux RTX 50 and Windows RTX 5090 only.
-- Network/toolchain provisioning, protected reviewers, signing/legal inputs,
-  private evidence storage, physical qualification, commit, push, release
-  branch/PR creation or update, repository-wide merge-setting changes,
-  release-PR merge, tag creation, GitHub Release staging/upload/publication,
-  clean release installs, support promotion, and release are explicit manual
-  gates.
-- Public-runner Task 27 preparation and Task 31 six-output execution each
-  require a separately authorized immutable commit/push/PR or approved main
-  source; neither requires a physical GPU.
-- Task 27 commit `429aadf3` updates `validate-task-plan.mjs` through plan
-  revision 28, all 31 task packets, and Task 31 ownership of `AC-AUTO-080`,
-  `AC-AUTO-083`, and `AC-AUTO-084`.
-- All application/native runtime installation origins must be immutable assets
-  in the approved same-tag GitHub Release; pinned Hugging Face model objects are
-  the sole exception.
+- Representative hardware remains Linux RTX 50 and Windows RTX 5090. RTX 30/40
+  remain excluded; AMD and macOS support boundaries are unchanged.
 
-## Planning Files Changed
+## Exact Next Packet
 
-- `docs/specs/local-whisper/decisions.yaml`
-- `docs/specs/local-whisper/tasks/plan.md`, `todo.md`, and `handoff.md`
-- Tasks 21, 22, and 26–31 packets
-- `acceptance-owners.json`, `acceptance-owners.schema.json`
+Task 32 `32_build_v2_4_0_alpha_1.md` remains incomplete and is the only packet
+that may resume. It absorbs all unfinished hosted input/builder, release
+preparation, protected signing, six-output alpha candidate, and bounded
+two-platform alpha smoke work. Do not start Task 33.
 
-## Task 27 Local Automated Scope
+## Blockers And Manual Gates
 
-### Changed Components
-
-- `hosted-toolchain-acquisition-lock.schema.json` defines strict, versioned
-  exact-origin, exact-byte, provenance, license, role, target, and bounded
-  materialization records without introducing a synthetic production lock.
-- `hosted-toolchain-core.mjs` materializes identity-checked raw files and
-  checksum-locked ZIP members plus streamed GZIP/XZ TAR entries into a fresh
-  owned root. It re-verifies every file and canonical record, requires a prior
-  locked XZ-decoder record, rejects mutation/undeclared entries, and preflights
-  archive metadata against traversal, links, special files, case collisions,
-  ZIP64/multi-disk/encryption/data descriptors, local/central disagreement,
-  CRC mismatch, overlap, and size overflow.
-- `network-denied-build-core.mjs` makes both platforms choose an OS boundary;
-  Linux uses the reviewed user/network namespace path, while Windows routes to
-  the attempt-scoped Windows Firewall runner and requires a same-boundary
-  pinned probe. The runner always removes its own firewall rules in `finally`.
-- `whisper-cpp-build-core.mjs` routes configure/build/test through that shared
-  boundary when requested. Hosted Windows builds refuse static profiles with
-  uncaptured identities instead of treating ambient MSVC/SDK bytes as trusted.
-  `produce-runtime-packs.mjs` requests this boundary for Linux and Windows.
-- Package commands, focused fixture tests, and task-plan validation wiring are
-  present. The TAR fixtures include a regression for a truncated entry after
-  its output descriptor is finalized. The active Windows profiles deliberately
-  remain unclosed rather than receiving invented hashes.
-
-### Official CUDA TAR Layout Follow-up
-
-- `1a672e61` accepts one canonical leading `./` symbolic-link spelling,
-  NVIDIA's `ustar ` magic, safe empty directories, and bounded GNU `L`
-  long-path records. It continues to reject absolute, traversal, cyclic,
-  dangling, cross-component, malformed, and undeclared materialization paths.
-- The decoder package and each official Linux CUDA component (CCCL, CUDART,
-  NVCC, and CUBLAS) were materialized and re-verified from their exact public
-  bytes in separate bounded temporary roots. CUBLAS expanded 2.1 GiB without
-  retaining a production lock, profile, pack, or installer.
-
-### Local Verification
-
-Passed:
-
-- `rtk npm run test:local-whisper:hosted-toolchains`
-- `rtk npm run verify:local-whisper:hosted-toolchains`
-- `rtk npm run test:local-whisper:native-sources`
-- `rtk npm run test:local-whisper:acceptance-ownership`
-- `rtk npm run test:local-whisper:native-build-audits`
-- `rtk npm run test:local-whisper:packaging`
-- `rtk npm run verify:local-whisper:packaging:policy`
-- `rtk npm run typecheck`
-- `rtk npm run test:types`
-- `rtk npm run lint` (passes with existing repository warnings)
-- `rtk npm run format:check`
-- `rtk npm run audit:prod`
-- `rtk npm run build:prod` (passes with existing webpack entrypoint-size warnings)
-- `rtk npm test` (2,198 passing tests and one expected skip)
-- `rtk git diff --check`
-- Direct Prettier for the hosted materializer, test, schema, validator, and
-  revised task artifacts
-- Direct ESLint for the hosted materializer, focused test, and validator
-
-CI evidence:
-
-- Exact head `1a672e61c1f68fb43db2eef4de2328b12a63dcae` passed Local Whisper
-  Native Quality on Linux in 29m51s and Windows in 42m06s; the Windows job ran
-  and was not skipped.
-- The same PR's general Quality Gates job failed only because its merge ref did
-  not include unrelated, locally modified UI-test updates. It still expected a
-  removed `provider-hotkey-demo.html` and former CSS variable from
-  `tests/scripts/rendererBundle.test.ts` and
-  `tests/renderer/providerStatusIndicator.test.ts`. Do not stage, alter, or
-  bundle those other-task files with Task 27; their owner must commit them and
-  rerun PR CI before the overall PR can become green.
-- No production acquisition manifest or active-profile hash was written, no
-  Windows Firewall runner was executed, and no public GitHub workflow was
-  added or run.
-
-Revision 28 planning checks passed: JSON Schema/YAML parsing, all 31 packet
-files and required headings, 30 active plus one deferred task, all registered
-commands, 89 unique automated owners, unchanged acyclic active sequence, direct
-Prettier for revised planning files, and `rtk git diff --check`.
-
-### Remaining Manual Gates
-
-- The explicitly authorized public review confirmed that the NVIDIA
-  `redistrib_12.8.1.json` catalog and the exact `xz-decompress@0.2.3` npm
-  object match their recorded SHA-256 values. The decoder's five-entry npm
-  inventory, upstream commit, `xz-embedded` public-domain `COPYING`, and
-  `walloc` MIT-style `LICENSE.md` were also reviewed. Decision
-  `planning.hosted-tar-xz-materializer` revision 2 accepts the exact npm
-  package's declared `MIT` license for this acquisition-only use; the missing
-  standalone upstream license file no longer blocks its production record.
-- A read-only recheck on 2026-08-13 retrieved the official NVIDIA
-  `redistrib_12.8.1.json` catalog with SHA-256
-  `249e28a83008d711d5f72880541c8be6253f6d61608461de4fcb715554a6cf17`.
-  Its eight required Linux/Windows CUDA paths and SHA-256 values match Task 27.
-  No CUDA component was downloaded and no production lock or profile was
-  created from this catalog read.
-- Research and review the complete official Linux/Windows compiler, SDK, CUDA
-  12.8.1, packaging, Node/Electron, inspection, network-probe, license, and
-  signature inputs; then create verified production locks and close all active
-  profile hashes without using ambient machine observations.
-- Official-source research verified CMake 3.31.8 Linux/Windows SHA-256 release
-  records and NVIDIA's `redistrib_12.8.1.json`. Temporary Linux CUDA NVCC,
-  CUDART, and CCCL downloads matched the vendor-published SHA-256 values. The
-  CUDART component contains the build-only `lib/stubs/libcuda.so`; it confirms
-  the required separation from the real host `libcuda.so.1`. Linux CUDA inputs
-  are `.tar.xz`; revision 28 selects `xz-decompress@0.2.3` plus a project-owned
-  bounded GZIP/XZ/TAR path. The exact npm package's declared MIT license is
-  accepted under decision revision 2; it no longer blocks production provenance
-  closure.
-- Complete the CUDA toolkit driver-stub versus physical `libcuda.so.1`
-  contract and verify that runtime outputs exclude the stub.
-- Review exact commit pins for a read-only public preparation workflow, commit
-  and push the reviewed source, then run both hosted preparation rows. Windows
-  must prove the Firewall boundary and same-boundary probe with acquired tools.
-
-## Task 25 Completion
-
-### Changed Components
-
-- `NvidiaSmiHostInventory` and `NvidiaCudaRuntimeApplicability` provide bounded
-  Linux/Windows pre-install discovery and fail-closed RTX 50 applicability.
-- Production environment composition, device topology, artifact acquisition,
-  catalog parsing/types, renderer option/artifact projection, and main-process
-  NVIDIA inventory wiring enforce the result without exposing raw host data.
-- Qualification and deterministic catalog fixtures define one CPU plus one
-  `sm_120a-real` CUDA runtime per supported platform with authenticated driver,
-  compute-capability, and VRAM requirements.
-- Task 25 verification scripts, implementation-readiness registry validation,
-  and deterministic catalog/capability/composition/migration tests cover the
-  closed contract.
-
-### Verification
-
-Passed:
-
-- `rtk npm run test:local-whisper:rtx50-applicability`
-- `rtk npm run verify:local-whisper:rtx50-readiness`
-- `rtk npm run test:local-whisper:catalog`
-- `rtk npm run test:local-whisper:capability`
-- `rtk npm run test:local-whisper:migration`
-- `rtk npm run test:local-whisper:ipc`
-- `rtk npm run test:local-whisper:ui`
-- `rtk npm run test:local-whisper:composition`
-- `rtk npm run verify:local-whisper:implementation-readiness`
-- `rtk npm run typecheck`
-- `rtk npm run test:types`
-- `rtk npm run lint` (passes with existing repository warnings)
-- `rtk npm run format:check`
-- `rtk git diff --check`
-
-### Remaining Gates
-
-- Task 25's local commit is complete; push remains a separate manual gate.
-- Continuous hardware refresh, hosted builders, release preparation, candidate
-  freeze, platform qualification, packaging, signing, and publication are not
-  part of Task 25. No physical GPU, network, package, or release gate was run.
-
-## Next Packet
-
-Task 27 remains the exact next packet for its external/manual gates; its local
-XZ/TAR remediation is complete in `429aadf3` and `1a672e61`. The selected
-decoder's declared MIT license is accepted by decision revision 2. Linux and
-Windows native quality passed for `1a672e61`, but overall PR CI remains red
-until the owner commits the unrelated UI-test updates recorded above. Do not
-start Task 31, release preparation, candidate freeze, signing, hardware
-qualification, or any external release action. Do not substitute a decoder,
-create a production lock, or run a hosted row without the already-defined
-reviewed inputs and manual gates. Commit, push, Task 30, release branch/PR,
-repository-setting change, merge, tag, and publication require separate
-authorization.
+- The current Task 32 authorization excludes manual gates. Official input
+  acquisition, immutable workflow source, hosted rows,
+  protected reviewers, signing/legal/provenance inputs, physical Linux/Windows
+  smoke or qualification, release branches/PRs, repository settings, commits,
+  pushes, merges, tags, GitHub Release actions, publication, support promotion,
+  and release each require their own authority.
+- The existing Microsoft VC Runtime license lock is no longer reproducible from its exact official URL. Task 32 is blocked until an explicitly reviewed replacement license/provenance lock is supplied; the observed size and digest above are failure evidence only and must not be adopted automatically.
+- Planning approval must not be treated as packet or external-action approval.

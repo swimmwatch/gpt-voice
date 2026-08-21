@@ -10,6 +10,7 @@
     "planRevision",
     "taskFiles",
     "deferredTasks",
+    "supersededTasks",
     "verificationCommands",
     "automatedAcceptanceOwners"
   ],
@@ -18,25 +19,28 @@
       "const": 2
     },
     "specificationRevision": {
-      "const": 20
+      "const": 21
     },
     "planRevision": {
-      "const": 28
+      "const": 29
     },
     "taskFiles": {
       "type": "object",
-      "minProperties": 31,
-      "maxProperties": 31,
+      "minProperties": 35,
+      "maxProperties": 35,
       "patternProperties": {
-        "^(0[1-9]|1[0-9]|2[0-9]|3[01])$": {
+        "^(0[1-9]|[12][0-9]|3[0-5])$": {
           "type": "string",
-          "pattern": "^(0[1-9]|1[0-9]|2[0-9]|3[01])_[a-z0-9_]+\\.md$"
+          "pattern": "^(0[1-9]|[12][0-9]|3[0-5])_[a-z0-9_]+\\.md$"
         }
       },
       "additionalProperties": false
     },
     "deferredTasks": {
       "const": ["26"]
+    },
+    "supersededTasks": {
+      "const": ["21", "22", "27", "28", "29", "30", "31"]
     },
     "verificationCommands": {
       "type": "array",
@@ -48,11 +52,11 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])-[a-z0-9-]+$"
+            "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|3[2-5])-[a-z0-9-]+$"
           },
           "task": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|3[2-5])$"
           },
           "command": {
             "type": "string",
@@ -63,8 +67,8 @@
     },
     "automatedAcceptanceOwners": {
       "type": "array",
-      "minItems": 89,
-      "maxItems": 89,
+      "minItems": 90,
+      "maxItems": 90,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -72,11 +76,11 @@
         "properties": {
           "acceptanceId": {
             "type": "string",
-            "pattern": "^AC-AUTO-(00[1-9]|0[1-5][0-9]|06[0-9]|07[0-9]|08[0-9]|090)$"
+            "pattern": "^AC-AUTO-(00[1-9]|0[1-8][0-9]|09[0-1])$"
           },
           "primaryTask": {
             "type": "string",
-            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])$"
+            "pattern": "^(0[1-9]|1[0-9]|2[0-5]|3[2-5])$"
           },
           "verificationCommandIds": {
             "type": "array",
@@ -84,7 +88,7 @@
             "uniqueItems": true,
             "items": {
               "type": "string",
-              "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|2[7-9]|3[01])-[a-z0-9-]+$"
+              "pattern": "^task-(0[1-9]|1[0-9]|2[0-5]|3[2-5])-[a-z0-9-]+$"
             }
           }
         }
