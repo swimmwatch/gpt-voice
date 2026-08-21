@@ -8,6 +8,7 @@ import { classifyLinuxSessionType } from '@main/hotkeys/LinuxSessionTypeClassifi
 import { HotkeyPlatformPolicy } from '@main/hotkeys/HotkeyPlatformPolicy';
 import { HotkeyPlatformPolicyFactory } from '@main/hotkeys/HotkeyPlatformPolicyFactory';
 import { UnsupportedHotkeyPlatformPolicy } from '@main/hotkeys/UnsupportedHotkeyPlatformPolicy';
+import { WindowsHotkeyPlatformPolicy } from '@main/hotkeys/WindowsHotkeyPlatformPolicy';
 import {
   HOTKEY_TEST_TIMEOUT_MS,
   HotkeyRegistrationService,
@@ -145,6 +146,7 @@ function createManualClock() {
 function createService(
   settings = createUnassignedHotkeySettings(),
   policy: HotkeyPlatformPolicy = createAcceptedPolicy(),
+  platform: NodeJS.Platform = 'linux',
 ) {
   const adapter = new FakeAdapter();
   const config = createFakeConfig(settings);
@@ -179,7 +181,7 @@ function createService(
     clock,
     config,
     logger: { info: () => undefined, warn: () => undefined },
-    platform: 'linux',
+    platform,
     policy,
   });
   return { adapter, calls, clock, config, service };
@@ -197,7 +199,7 @@ describe('Hotkey platform policy factory', () => {
       factory.create(DesktopPlatform.Macos, LinuxSessionType.NotApplicable) instanceof UnsupportedHotkeyPlatformPolicy,
     );
 
-    const windows = createAcceptedPolicy();
+    const windows = new WindowsHotkeyPlatformPolicy();
     const x11 = new LinuxHotkeyPlatformPolicy(LinuxSessionType.X11);
     const wayland = new LinuxHotkeyPlatformPolicy(LinuxSessionType.Wayland);
     const selected = new HotkeyPlatformPolicyFactory({
@@ -217,6 +219,88 @@ describe('Hotkey platform policy factory', () => {
         },
       }).create(DesktopPlatform.Windows, LinuxSessionType.NotApplicable) instanceof UnsupportedHotkeyPlatformPolicy,
     );
+  });
+});
+
+describe('Windows hotkey policy', () => {
+  it('reserves every F12 form and Super-modifier accelerator while allowing the other function keys', () => {
+    const policy = new WindowsHotkeyPlatformPolicy();
+
+    for (const accelerator of ['F12', 'Alt+F12', 'Ctrl+Shift+F12', 'Super+F9']) {
+      assert.deepEqual(policy.validate(accelerator), {
+        accepted: false,
+        failureCode: HotkeyRegistrationFailureCode.OsReserved,
+      });
+    }
+    for (const accelerator of ['F1', 'Ctrl+F11', 'F13', 'Ctrl+Alt+F24', 'Ctrl+Shift+K']) {
+      assert.deepEqual(policy.validate(accelerator), {
+        accepted: true,
+        bindingAuthority: HotkeyBindingAuthority.Application,
+        effectiveAccelerator: accelerator,
+      });
+    }
+  });
+
+  it('preserves reserved startup preferences as failed without calling the Electron adapter', () => {
+    let settings = setHotkeyForTarget(createUnassignedHotkeySettings(), 'record', 'Ctrl+F12');
+    settings = setHotkeyForTarget(settings, 'stop', 'Super+F9');
+    const { adapter, service } = createService(settings, new WindowsHotkeyPlatformPolicy(), 'win32');
+
+    const snapshot = service.start();
+
+    assert.deepEqual(adapter.registrations, []);
+    for (const [target, configuredAccelerator] of [
+      ['record', 'Ctrl+F12'],
+      ['stop', 'Super+F9'],
+    ] as const) {
+      assert.deepEqual(
+        snapshot.entries.find((entry) => entry.target === target),
+        {
+          bindingAuthority: HotkeyBindingAuthority.None,
+          configuredAccelerator,
+          dispatchStatus: HotkeyDispatchStatus.Enabled,
+          effectiveAccelerator: null,
+          failureCode: HotkeyRegistrationFailureCode.OsReserved,
+          registrationStatus: HotkeyRegistrationStatus.Failed,
+          target,
+        },
+      );
+    }
+  });
+
+  it('rejects a reserved candidate before adapter registration', () => {
+    const { adapter, service } = createService(
+      createUnassignedHotkeySettings(),
+      new WindowsHotkeyPlatformPolicy(),
+      'win32',
+    );
+
+    const result = service.set('record', 'Super+F9');
+
+    assert.equal(result.success, false);
+    assert.equal(result.failureCode, HotkeyRegistrationFailureCode.OsReserved);
+    assert.deepEqual(adapter.registrations, []);
+  });
+
+  it('prioritizes the reserved policy over a legacy internal F12 conflict', () => {
+    let settings = setHotkeyForTarget(createUnassignedHotkeySettings(), 'prettify', 'F12');
+    settings = setHotkeyForTarget(settings, 'prettifyQuick', 'Ctrl+F12');
+    const { adapter, service } = createService(settings, new WindowsHotkeyPlatformPolicy(), 'win32');
+
+    const startup = service.start();
+    const replacement = service.set('record', 'F12');
+
+    assert.deepEqual(adapter.registrations, []);
+    assert.equal(
+      startup.entries.find((entry) => entry.target === 'prettify')?.failureCode,
+      HotkeyRegistrationFailureCode.OsReserved,
+    );
+    assert.equal(
+      startup.entries.find((entry) => entry.target === 'prettifyQuick')?.failureCode,
+      HotkeyRegistrationFailureCode.OsReserved,
+    );
+    assert.equal(replacement.success, false);
+    assert.equal(replacement.failureCode, HotkeyRegistrationFailureCode.OsReserved);
   });
 });
 

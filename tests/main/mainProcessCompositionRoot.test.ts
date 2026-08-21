@@ -29,7 +29,15 @@ import {
   FIRST_LAUNCH_STARTUP_JOB_IDS,
   type FirstLaunchStartupSnapshot,
 } from '@shared/firstLaunchStartup';
-import { DesktopPlatform, LinuxSessionType } from '@shared/hotkeys';
+import {
+  DesktopPlatform,
+  HotkeyBindingAuthority,
+  HotkeyDispatchStatus,
+  HotkeyRegistrationFailureCode,
+  HotkeyRegistrationStatus,
+  LinuxSessionType,
+} from '@shared/hotkeys';
+import { HOTKEY_IPC_CHANNELS, type HotkeyRuntimeState } from '@shared/hotkeyIpc';
 import { createDeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
@@ -160,6 +168,7 @@ type MainIpcListener = Parameters<MainIpcTransport['handle']>[1];
 interface CompositionHarnessState {
   closeCount: number;
   createCount: number;
+  readonly hotkeyRegistrationCalls: string[];
   readonly ipcHandlers: Map<string, MainIpcListener>;
   readonly removedIpcChannels: string[];
   readonly prettifyAuditRecords: string[];
@@ -167,11 +176,22 @@ interface CompositionHarnessState {
   window: TestDesktopWindow | null;
 }
 
+interface HotkeyHost {
+  readonly desktopPlatform: DesktopPlatform;
+  readonly platform: NodeJS.Platform;
+}
+
+const LINUX_HOTKEY_HOST: HotkeyHost = Object.freeze({
+  desktopPlatform: DesktopPlatform.Linux,
+  platform: 'linux',
+});
+
 class MainProcessCompositionHarness {
   public readonly app = new RecordingElectronApplication();
   public readonly state: CompositionHarnessState = {
     closeCount: 0,
     createCount: 0,
+    hotkeyRegistrationCalls: [],
     ipcHandlers: new Map(),
     removedIpcChannels: [],
     prettifyAuditRecords: [],
@@ -184,7 +204,7 @@ class MainProcessCompositionHarness {
   public readonly compositionEnvironment: MainProcessCompositionEnvironment;
   public readonly applicationEnvironment: MainProcessApplicationEnvironment;
 
-  public constructor(isRemovingLinuxDesktopIntegration = false) {
+  public constructor(isRemovingLinuxDesktopIntegration = false, hotkeyHost: HotkeyHost = LINUX_HOTKEY_HOST) {
     this.temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-main-composition-'));
     const configPaths = resolveAppConfigPaths({
       environment: { XDG_CONFIG_HOME: this.temporaryDirectory },
@@ -545,15 +565,18 @@ class MainProcessCompositionHarness {
           },
         },
         hotkeys: {
-          desktopPlatform: DesktopPlatform.Linux,
+          desktopPlatform: hotkeyHost.desktopPlatform,
           globalShortcut: {
             isRegistered: () => false,
-            register: () => true,
+            register: (accelerator) => {
+              this.state.hotkeyRegistrationCalls.push(accelerator);
+              return true;
+            },
             unregister: () => undefined,
             unregisterAll: () => undefined,
           },
           linuxSessionType: LinuxSessionType.X11,
-          platform: 'linux',
+          platform: hotkeyHost.platform,
         },
         tray: {
           application: this.app,
@@ -595,8 +618,11 @@ afterEach(async () => {
   harnesses.length = 0;
 });
 
-function createHarness(isRemovingLinuxDesktopIntegration = false): MainProcessCompositionHarness {
-  const harness = new MainProcessCompositionHarness(isRemovingLinuxDesktopIntegration);
+function createHarness(
+  isRemovingLinuxDesktopIntegration = false,
+  hotkeyHost: HotkeyHost = LINUX_HOTKEY_HOST,
+): MainProcessCompositionHarness {
+  const harness = new MainProcessCompositionHarness(isRemovingLinuxDesktopIntegration, hotkeyHost);
   harnesses.push(harness);
   return harness;
 }
@@ -606,6 +632,48 @@ function flushAsyncWork(): Promise<void> {
 }
 
 describe('main process composition root', () => {
+  it('selects the Windows policy in the production graph before Electron registration', async () => {
+    const harness = createHarness(false, {
+      desktopPlatform: DesktopPlatform.Windows,
+      platform: 'win32',
+    });
+    fs.mkdirSync(path.dirname(harness.configFile), { recursive: true });
+    fs.writeFileSync(harness.configFile, JSON.stringify({ hotkey: 'F12', stopHotkey: 'Super+F9' }), 'utf8');
+    new MainProcessCompositionRoot(harness.compositionEnvironment)
+      .createApplication(harness.applicationEnvironment)
+      .bootstrap();
+
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    const query = harness.state.ipcHandlers.get(HOTKEY_IPC_CHANNELS.snapshotQuery);
+    assert.ok(query);
+    assert.ok(harness.state.window);
+    const runtimeState = query({
+      sender: harness.state.window.webContents,
+      senderFrame: { url: harness.state.window.webContents.getURL() },
+    } as never) as HotkeyRuntimeState;
+
+    assert.deepEqual(harness.state.hotkeyRegistrationCalls, []);
+    for (const [target, configuredAccelerator] of [
+      ['record', 'F12'],
+      ['stop', 'Super+F9'],
+    ] as const) {
+      assert.deepEqual(
+        runtimeState.snapshot.entries.find((entry) => entry.target === target),
+        {
+          bindingAuthority: HotkeyBindingAuthority.None,
+          configuredAccelerator,
+          dispatchStatus: HotkeyDispatchStatus.Enabled,
+          effectiveAccelerator: null,
+          failureCode: HotkeyRegistrationFailureCode.OsReserved,
+          registrationStatus: HotkeyRegistrationStatus.Failed,
+          target,
+        },
+      );
+    }
+  });
+
   it('removes the Task 07 globals and default construction seams', () => {
     const main = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/main.ts'), 'utf8');
     const ipc = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');

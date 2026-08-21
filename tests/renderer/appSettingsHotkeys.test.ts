@@ -51,6 +51,9 @@ describe('App Settings hotkeys', () => {
     assert.match(settingsWindow, /<p aria-live="polite" className="sr-only">/u);
     assert.match(section, /const isTestWaiting = hotkeyTestState\?\.result === 'waiting';/u);
     assert.match(row, /getHotkeyAssignedAccelerator\(entry\)/u);
+    assert.match(row, /const assignment = entry\.configuredAccelerator \?\? t\('hotkey\.notAssigned'\);/u);
+    assert.match(row, /entry\.registrationStatus === HotkeyRegistrationStatus\.Failed/u);
+    assert.match(row, /getHotkeyFailureTranslationKey\(entry\.failureCode\)/u);
     assert.match(row, /canRemoveHotkey\(entry\)/u);
     assert.match(row, /canTestHotkey\(entry\)/u);
     assert.match(row, /accelerator: assignedAccelerator \?\? '', target: label/u);
@@ -65,7 +68,7 @@ describe('App Settings hotkeys', () => {
     assert.doesNotMatch(row, /testResult === 'waiting' \? t\('hotkey\.testing'\)/u);
     assert.match(row, /aria-label=\{description\}/u);
     assert.doesNotMatch(row, /changeButtonRef|testButtonRef/u);
-    assert.doesNotMatch(row, /getHotkey(?:Authority|Failure|Status)TranslationKey/u);
+    assert.doesNotMatch(row, /getHotkey(?:Authority|Status)TranslationKey/u);
     assert.match(modal, /onApply: \(hotkey: string\) => Promise<boolean>;/u);
     assert.match(modal, /if \(await onApply\(pendingHotkey\)\) restoreFocus\(\);/u);
     assert.match(modal, /if \(isApplying\) return;/u);

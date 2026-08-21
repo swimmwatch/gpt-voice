@@ -11,6 +11,7 @@ import { ElectronGlobalShortcutAdapter } from '../hotkeys/ElectronGlobalShortcut
 import { LinuxHotkeyPlatformPolicy } from '../hotkeys/LinuxHotkeyPlatformPolicy';
 import { HotkeyPlatformPolicyFactory } from '../hotkeys/HotkeyPlatformPolicyFactory';
 import { HotkeyRegistrationService } from '../hotkeys/HotkeyRegistrationService';
+import { WindowsHotkeyPlatformPolicy } from '../hotkeys/WindowsHotkeyPlatformPolicy';
 import { TrayController, type TrayControllerDependencies } from '../tray';
 import { WindowManager, type WindowManagerDependencies } from '../window';
 import { ProviderSettingsWindowController } from '../providerSettingsWindowController';
@@ -695,6 +696,7 @@ export class MainProcessCompositionRoot {
       platform: desktopEnvironment.hotkeys.platform,
       policy: new HotkeyPlatformPolicyFactory({
         createLinuxPolicy: (session) => new LinuxHotkeyPlatformPolicy(session),
+        createWindowsPolicy: () => new WindowsHotkeyPlatformPolicy(),
       }).create(desktopEnvironment.hotkeys.desktopPlatform, desktopEnvironment.hotkeys.linuxSessionType),
     });
     hotkeyRegistrationService.connectMainInteractionLock(mainInteractionLock);

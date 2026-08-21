@@ -153,11 +153,11 @@ export class HotkeyRegistrationService {
       return Object.freeze({ snapshot: this.snapshot, success: true });
     }
     const candidateSettings = setHotkeyForTarget(configuredSettings, target, accelerator);
+    const policy = this.validatePolicy(normalized);
+    if (!policy.accepted) return this.failure(policy.failureCode);
     if (getHotkeyConflict(target, accelerator, candidateSettings, this.dependencies.platform)) {
       return this.failure(HotkeyRegistrationFailureCode.InternalConflict);
     }
-    const policy = this.validatePolicy(normalized);
-    if (!policy.accepted) return this.failure(policy.failureCode);
 
     const candidateGeneration = this.allocateGeneration();
     if (!this.registerBinding(target, normalized, candidateGeneration)) {
@@ -280,11 +280,11 @@ export class HotkeyRegistrationService {
   private registerStartupTarget(target: HotkeyTarget, configured: string, settings: HotkeySettings): void {
     const normalized = normalizeHotkeyForPlatform(configured, this.dependencies.platform);
     if (!normalized) return this.setFailure(target, configured, HotkeyRegistrationFailureCode.InvalidAccelerator);
+    const policy = this.validatePolicy(normalized);
+    if (!policy.accepted) return this.setFailure(target, configured, policy.failureCode);
     if (getHotkeyConflict(target, configured, settings, this.dependencies.platform)) {
       return this.setFailure(target, configured, HotkeyRegistrationFailureCode.InternalConflict);
     }
-    const policy = this.validatePolicy(normalized);
-    if (!policy.accepted) return this.setFailure(target, configured, policy.failureCode);
     const generation = this.allocateGeneration();
     if (!this.registerBinding(target, normalized, generation)) {
       this.cleanupBinding(normalized);

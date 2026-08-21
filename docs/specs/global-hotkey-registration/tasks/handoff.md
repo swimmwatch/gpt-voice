@@ -287,11 +287,48 @@
   `0e6786251ad639f0533e7965755a930db3a7fbaa`. The earlier binding incorrectly
   named that parent revision and is superseded by this entry.
 
+## Packet 09 Complete — Windows Registration And Qualification
+
+- Implemented the Windows policy/factory branch, production composition,
+  reservation ordering, bounded Windows conflict helper, and focused
+  regression coverage. Settings now retains a configured F12/Super value as
+  visibly failed with its bounded localized reason and available repair menu.
+- Changed files: `src/main/hotkeys/WindowsHotkeyPlatformPolicy.ts`,
+  `src/main/hotkeys/HotkeyRegistrationService.ts`,
+  `src/main/di/mainProcessCompositionRoot.ts`,
+  `src/renderer/components/HotkeyRow.tsx`, the matching focused main/renderer
+  tests, and `scripts/hotkeys/qualification/windowsGlobalShortcutConflictHolder.mjs`
+  with its source-contract test.
+- Automated checks passed: focused Windows policy, production-composition,
+  shortcut-controller, IPC, Settings-presentation, and helper suites (69
+  tests); `npm run typecheck`; `npm run test:types`; `npm run format:check`;
+  `git diff --check`; and `npm run build:prod` (only existing webpack
+  bundle-size recommendations).
+- Scoped ESLint over all changed Packet 09 source/test files passed. The
+  required repository-wide `npm run lint -- --max-warnings 0` is blocked by
+  258 pre-existing warnings and no errors; no Packet 09 file appears in that
+  result.
+- Native Windows AC-MAN-001 results on 2026-08-22: representative F12 and
+  Super-modifier entries returned the bounded Windows-reserved explanation
+  before registration; a free registered binding activated exactly once while
+  another ordinary application was focused; Settings suppression and Test
+  left product actions inactive while retaining registration; the exact
+  helper-owned candidate returned only generic rejection and retained the
+  working binding; and Remove, failed legacy values, and registered values
+  remained authoritative after restart. The task-owned helper was stopped
+  after use. The physical Test, cross-application, and Super-key checks were
+  confirmed by the user on this native Windows desktop.
+- Windows qualification source binding: base revision
+  `b23a3a36`; Packet 09 source-set patch SHA-256
+  `d964266b0e573dad0a44d939519d58045f87c9dd7ee9d859e9567adff2f86477`.
+  No profile path, raw native output, external owner, or personal data is
+  recorded.
+
 ## Exact Next Packet
 
-- [`09_windows_registration_and_qualification.md`](./09_windows_registration_and_qualification.md)
-  requires its own explicit `incremental-implementation` invocation. Do not
-  start it in this handoff update.
+- [`10_documentation_and_aggregate_qualification.md`](./10_documentation_and_aggregate_qualification.md).
+  Do not start it without a separate explicit incremental-implementation
+  invocation.
 
 ## Blockers
 
@@ -303,5 +340,5 @@
 - No blocker remains for completed Packet 07. Do not use automated, headless,
   Wayland, Windows, or CI evidence as a substitute for the recorded interactive
   X11 gate.
-- No blocker remains for completed Packet 08. Packet 09 is a separate Windows
-  qualification unit and requires its own authorization and manual gates.
+- No blocker remains for completed Packet 08 or Packet 09. Packet 10 is a
+  separate aggregate-qualification and documentation unit.

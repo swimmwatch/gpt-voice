@@ -14,10 +14,11 @@ import {
   canRemoveHotkey,
   canTestHotkey,
   getHotkeyAssignedAccelerator,
+  getHotkeyFailureTranslationKey,
   getHotkeyTestTranslationKey,
 } from '@renderer/hotkeySettingsPresentation';
 import { useI18n } from '@renderer/hooks/useI18n';
-import type { HotkeyRuntimeSnapshotEntry, HotkeyTestResult } from '@shared/hotkeys';
+import { HotkeyRegistrationStatus, type HotkeyRuntimeSnapshotEntry, type HotkeyTestResult } from '@shared/hotkeys';
 
 interface HotkeyRowProps {
   disabled?: boolean;
@@ -51,9 +52,13 @@ function HotkeyRow({
   const actionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const canToggle = typeof enabled === 'boolean' && Boolean(onEnabledChange);
   const assignedAccelerator = getHotkeyAssignedAccelerator(entry);
-  const assignment = assignedAccelerator ?? t('hotkey.notAssigned');
+  const assignment = entry.configuredAccelerator ?? t('hotkey.notAssigned');
   const description = `${label}. ${assignment}`;
   const controlsDisabled = disabled || isMutationPending;
+  const registrationFailure =
+    entry.registrationStatus === HotkeyRegistrationStatus.Failed
+      ? t(getHotkeyFailureTranslationKey(entry.failureCode))
+      : null;
   const testStatus = testResult
     ? t(getHotkeyTestTranslationKey(testResult), { accelerator: assignedAccelerator ?? '', target: label })
     : null;
@@ -81,6 +86,7 @@ function HotkeyRow({
             {testStatus}
           </p>
         )}
+        {registrationFailure && <p className="text-sm text-destructive">{registrationFailure}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <DropdownMenu>
