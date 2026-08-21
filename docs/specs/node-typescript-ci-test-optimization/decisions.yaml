@@ -1,0 +1,107 @@
+schema_version: 1
+spec_slug: node-typescript-ci-test-optimization
+interview_id: spec:node-typescript-ci-test-optimization
+planning_interview_id: plan:node-typescript-ci-test-optimization
+created_at: '2026-08-21'
+updated_at: '2026-08-21'
+
+decisions:
+  - id: delivery.staging
+    revision: 1
+    category: delivery
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected staged-measured delivery in the persistent planning interview.'
+      - 'The user approved the resulting implementation plan on 2026-08-21.'
+    prompt_mcp:
+      interview_id: plan:node-typescript-ci-test-optimization
+    question: null
+    answer:
+      selected_ids: [staged-measured]
+      text: 'Land telemetry, explicit concurrency, TypeScript deduplication, and redundant-work removal first; retain compile caching or sharding only after their measurement gates pass.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-003, PERF-001, PERF-002]
+
+  - id: performance.target
+    revision: 1
+    category: performance
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected best-effort improvement in the persistent planning interview.'
+    prompt_mcp:
+      interview_id: plan:node-typescript-ci-test-optimization
+    question: null
+    answer:
+      selected_ids: [best-effort]
+      text: 'No fixed wall-time target applies to Stage 1, but every retained optimization must show repeatable improvement without correctness loss.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001, PERF-001]
+
+  - id: performance.runner-cost
+    revision: 1
+    category: performance
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected balanced-cost sharding in the persistent planning interview.'
+    prompt_mcp:
+      interview_id: plan:node-typescript-ci-test-optimization
+    question: null
+    answer:
+      selected_ids: [balanced-cost]
+      text: 'Retain four-way CI sharding only if it reduces the quality critical path by at least 10 percent and raises total Node.js and TypeScript runner minutes by no more than 50 percent.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PERF-002]
+
+  - id: performance.concurrency-policy
+    revision: 1
+    category: performance
+    state: answered
+    provenance: user
+    evidence:
+      - 'After reviewing the fixed-concurrency implementation, the user instructed Codex to use a predefined value when supplied and otherwise automatically take the maximum available parallelism.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [explicit-or-maximum]
+      text: 'The Node CI runner honors --concurrency=N when supplied; otherwise it uses the exact positive value reported by os.availableParallelism().'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CI-001, QUAL-003]
+
+  - id: approval.contract-and-plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly instructed Codex to implement the complete Node.js and TypeScript CI Test Optimization plan on 2026-08-21.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: 'The specification contract and its single implementation packet are approved.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.packet-01-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requested implementation of the approved plan and prohibited commits and pushes without separate authorization.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: 'Execute Packet 01, verify it, update the checklist and handoff, and leave all changes uncommitted.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []

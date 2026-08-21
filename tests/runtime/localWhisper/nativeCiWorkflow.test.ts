@@ -221,6 +221,32 @@ test('Quality Gates parallelizes static, test/build, and CodeQL work with scoped
   assert.equal(qualityTests['timeout-minutes'], '${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}');
   assert.equal(qualityCodeql['timeout-minutes'], '${{ fromJSON(vars.CI_QUALITY_TIMEOUT_MINUTES) }}');
   assert.equal(record(namedStep('quality-tests', 'Checkout').with, 'quality-tests checkout inputs')['fetch-depth'], 0);
+  assert.equal(qualityTests.name, 'Quality / Tests and Production Build');
+  assert.equal(namedStep('quality-static', 'Typecheck source, tests, and scripts').run, 'npm run test:types');
+  assert.equal(stepNames('quality-static').includes('Typecheck'), false);
+  const compileCacheInputs = record(
+    namedStep('quality-tests', 'Cache Node test compile output').with,
+    'Node compile cache inputs',
+  );
+  assert.equal(compileCacheInputs.path, '${{ github.workspace }}/.cache/node-compile-cache');
+  assert.match(String(compileCacheInputs.key), /vars\.CI_NODE_VERSION/u);
+  assert.match(String(compileCacheInputs.key), /package-lock\.json/u);
+  assert.match(String(compileCacheInputs.key), /scripts\/\*\*\/\*\.mjs/u);
+  assert.match(String(compileCacheInputs.key), /src\/\*\*\/\*\.tsx/u);
+  assert.match(String(compileCacheInputs.key), /tests\/\*\*\/\*\.ts/u);
+  const unitTestStep = namedStep('quality-tests', 'Unit tests');
+  assert.equal(unitTestStep.run, 'npm run test:unit:ci');
+  assert.equal(
+    record(unitTestStep.env, 'unit test environment').NODE_COMPILE_CACHE,
+    '${{ github.workspace }}/.cache/node-compile-cache',
+  );
+  assert.equal(namedStep('quality-tests', 'Build production bundles').run, 'npm run build:prod');
+  assert.equal(namedStep('quality-tests', 'Verify production renderer bundles').run, 'npm run verify:renderer-bundle');
+  assert.ok(
+    stepNames('quality-tests').indexOf('Verify production renderer bundles') >
+      stepNames('quality-tests').indexOf('Build production bundles'),
+  );
+  assert.equal(qualityTests.strategy, undefined);
 
   const gate = job('quality');
   assert.equal(gate.name, 'Quality Gates');

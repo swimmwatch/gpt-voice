@@ -546,9 +546,7 @@ jobs:
         run: npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
       - name: Lint
         run: npm run lint
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Typecheck tests
+      - name: Typecheck source, tests, and scripts
         run: npm run test:types
       - name: Prove CodeQL policy and source inclusion contracts
         run: npm run test:security:codeql-policy
@@ -587,14 +585,25 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json', 'package.json') }}
           restore-keys: |
             ${{ runner.os }}-electron-
+      - name: Cache Node test compile output
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/.cache/node-compile-cache
+          key: ${{ runner.os }}-node-compile-${{ vars.CI_NODE_VERSION }}-${{ hashFiles('package-lock.json', 'package.json', 'tsconfig*.json', 'webpack.config.js', 'scripts/**/*.mjs', 'scripts/**/*.ts', 'src/**/*.ts', 'src/**/*.tsx', 'tests/**/*.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-node-compile-${{ vars.CI_NODE_VERSION }}-
       - name: Generate package metadata
         run: npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
       - name: Unit tests
-        run: npm test
+        run: npm run test:unit:ci
+        env:
+          NODE_COMPILE_CACHE: ${{ github.workspace }}/.cache/node-compile-cache
       - name: Audit production dependencies
         run: npm run audit:prod
       - name: Build production bundles
         run: npm run build:prod
+      - name: Verify production renderer bundles
+        run: npm run verify:renderer-bundle
 
   quality-codeql:
     name: Quality / JavaScript and TypeScript CodeQL
