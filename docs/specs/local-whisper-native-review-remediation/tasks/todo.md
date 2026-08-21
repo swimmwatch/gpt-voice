@@ -20,3 +20,7 @@
 - [x] [18 — Provenance, attestation, and security reporting](18_provenance_attestation_and_security_reporting.md)
 - [x] [19 — Linux, shared, and security remediation gate](19_linux_shared_security_remediation_gate.md)
 - [x] [20 — Windows validation and remediation gate](20_windows_validation_and_remediation_gate.md) — completed with real Windows RTX 5090 CUDA 12.8.1 / MSVC 19.39 / `sm_120a-real` execution; historical CPU/native evidence remains retained
+- [ ] [21 — Native CI telemetry and command aggregation](21_native_ci_telemetry_and_command_aggregation.md)
+- [ ] [22 — Profile-keyed native build sessions](22_profile_keyed_native_build_sessions.md)
+- [ ] [23 — Verified native input reuse](23_verified_native_input_reuse.md)
+- [ ] [24 — Conditional native cache and CI fan-out](24_conditional_native_cache_and_ci_fanout.md)

@@ -3625,3 +3625,159 @@ decisions:
     rationale: The user's Go instruction and subsequent scope correction authorize continuation of the same Packet 20 under the amended contract.
     supersedes_revision: 5
     requirement_ids: [EXEC-AUTH-007, OPS-004]
+
+  - id: planning.cpp-ci-contract-owner
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md#1012-fixed-runner-versions-and-consolidated-workflow-checks
+      - RUN-003
+      - AC-AUT-040
+      - Completion criteria require one reusable owner and prohibit duplicated expensive checks.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [extend-approved-native-remediation-plan]
+      text: ''
+    rationale: The approved specification already requires consolidated setup, caches, and checks without duplicated host-independent work, so this optimization can be planned as new packets without changing the product or verification contract.
+    supersedes_revision: null
+    requirement_ids: [GAT-004, RUN-003, TST-010, AC-AUT-040]
+
+  - id: planning.cpp-ci-optimization-objective
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Pull Request Checks runs 32473799030, 32464334861, and 32461389584
+      - Median native critical path is approximately 29 minutes; median six-job native runner use is approximately 92 minutes.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-optimization-round-01
+      question_id: planning.cpp-ci-optimization-objective
+      idempotency_key: planning.cpp-ci-optimization-objective:v1
+      last_status: answered
+    question:
+      text: Which performance and runner-cost contract should govern retained C++ CI optimizations?
+      kind: single
+      options:
+        - id: balanced
+          label: Balanced speed and cost (Recommended)
+          description: Require at least 15% lower median native critical path while allowing no more than 25% additional native runner-minutes.
+        - id: wall-clock-first
+          label: Wall-clock first
+          description: Require at least 20% lower median critical path and permit up to 75% additional native runner-minutes.
+        - id: runner-efficiency-first
+          label: Runner efficiency first
+          description: Retain only changes that reduce median native runner-minutes and do not worsen the critical path.
+    answer:
+      selected_ids: [balanced]
+      text: ''
+    rationale: Retained optimizations must reduce the median native critical path by at least 15% while increasing native runner-minutes by no more than 25%.
+    supersedes_revision: null
+    requirement_ids: [GAT-004, RUN-003, AC-AUT-040]
+
+  - id: planning.cpp-compiler-cache-policy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - Compilation dominates CTest execution in the measured native jobs.
+      - AGENTS.md prohibits adding dependencies without explicit scope.
+      - Ordinary, sanitizer, TSan, analyzer, GCC, MSVC, and CodeQL profiles are not binary-compatible.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-optimization-round-01
+      question_id: planning.cpp-compiler-cache-policy
+      idempotency_key: planning.cpp-compiler-cache-policy:v1
+      last_status: answered
+    question:
+      text: How should this plan treat ccache or sccache after zero-dependency build deduplication is measured?
+      kind: single
+      options:
+        - id: defer-dependency-authorization
+          label: Defer cache tooling (Recommended)
+          description: Plan a measured experiment but require a later explicit dependency/tooling authorization before retaining ccache or sccache.
+        - id: authorize-pinned-ci-tool
+          label: Authorize pinned CI tool
+          description: Permit this plan to retain one pinned CI-only compiler-cache tool when invalidation and performance gates pass.
+        - id: prohibit-compiler-cache
+          label: No compiler cache
+          description: Exclude ccache and sccache and optimize only command aggregation, setup reuse, and same-profile build ownership.
+    answer:
+      selected_ids: [authorize-pinned-ci-tool]
+      text: ''
+    rationale: One pinned CI-only compiler-cache tool may be retained when supply-chain, invalidation, privacy, correctness, and measured performance gates pass.
+    supersedes_revision: null
+    requirement_ids: [OPS-001, SEC-006, RUN-003, AC-AUT-040]
+
+  - id: approval.plan
+    revision: 10
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/21_native_ci_telemetry_and_command_aggregation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/22_profile_keyed_native_build_sessions.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/23_verified_native_input_reuse.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/24_conditional_native_cache_and_ci_fanout.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-plan-approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v10
+      last_status: answered
+    question:
+      text: What should happen to the revised C++ CI optimization plan containing Packets 21–24?
+      kind: single
+      options:
+        - id: approve
+          label: Approve plan (Recommended)
+          description: Approve the four measured packets while keeping implementation and execution separately unauthorized.
+        - id: request-changes
+          label: Request changes
+          description: Leave the plan in draft and revise its scope, sequencing, or acceptance gates.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the plan available for review without approving or executing it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved Packets 21–24 as the measured C++ CI optimization plan; implementation remains separately unauthorized.
+    supersedes_revision: 9
+    requirement_ids: [PLAN-APPROVAL-010, GAT-004, RUN-003, AC-AUT-040]
+
+  - id: authorization.packet-21-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/21_native_ci_telemetry_and_command_aggregation.md
+      - PLAN-APPROVAL-010
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-execution-authorization-round-01
+      question_id: authorization.packet-21-execution
+      idempotency_key: authorization.packet-21-execution:v1
+      last_status: answered
+    question:
+      text: What execution authorization should follow approval of the C++ CI optimization plan?
+      kind: single
+      options:
+        - id: keep-planning-only
+          label: Keep planning only (Recommended)
+          description: Finish this request with the approved plan and leave Packet 21 implementation, commits, pushes, and CI runs unauthorized.
+        - id: authorize-packet-21-local
+          label: Authorize Packet 21 locally
+          description: Permit a later explicit incremental-implementation invocation to implement and verify Packet 21 locally, without commit, push, or CI authority.
+    answer:
+      selected_ids: [authorize-packet-21-local]
+      text: ''
+    rationale: A later explicit incremental-implementation invocation may implement and verify Packet 21 locally; commits, pushes, cache publication, and CI runs remain unauthorized.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-008, GAT-004, RUN-003, AC-AUT-040]
