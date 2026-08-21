@@ -8,6 +8,10 @@ import {
   qualificationCanonicalJson,
   type QualificationDocumentKind,
 } from './QualificationContracts';
+import {
+  requireQualificationRecord as record,
+  requireQualificationStringField as stringField,
+} from './QualificationJsonFields';
 
 export interface VerifiedLinuxQualification {
   readonly candidateInputDigest: string;
@@ -16,17 +20,6 @@ export interface VerifiedLinuxQualification {
   readonly platformInputDigest: string;
   readonly predecessorEvidenceDigest: string;
   readonly resultDigest: string;
-}
-
-function record(value: unknown, code: string): Readonly<Record<string, unknown>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(code);
-  return value as Readonly<Record<string, unknown>>;
-}
-
-function stringField(value: Readonly<Record<string, unknown>>, field: string, code: string): string {
-  const result = value[field];
-  if (typeof result !== 'string') throw new Error(code);
-  return result;
 }
 
 function strings(value: unknown, code: string): readonly string[] {

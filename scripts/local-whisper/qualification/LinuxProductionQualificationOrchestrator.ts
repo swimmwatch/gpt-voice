@@ -33,6 +33,10 @@ import {
   type QualificationLinuxPlatformSeed,
 } from './QualificationInputProducer';
 import {
+  requireQualificationRecord as record,
+  requireQualificationStringField as stringField,
+} from './QualificationJsonFields';
+import {
   LinuxProductionApplicationQualificationExecutor,
   type LinuxApplicationQualificationPort,
 } from './LinuxProductionApplicationQualificationExecutor';
@@ -100,17 +104,6 @@ export interface LinuxProductionQualificationDependencies {
   readonly packageBuilder: Pick<LinuxQualificationPackageBuilder, 'build'>;
   readonly predecessor: LinuxPredecessorQualificationPort;
   readonly tlsFactory: Pick<EphemeralQualificationTlsIdentityFactory, 'create'>;
-}
-
-function record(value: unknown, code: string): Readonly<Record<string, unknown>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(code);
-  return value as Readonly<Record<string, unknown>>;
-}
-
-function stringField(value: Readonly<Record<string, unknown>>, field: string, code: string): string {
-  const result = value[field];
-  if (typeof result !== 'string') throw new Error(code);
-  return result;
 }
 
 async function writePrivateFoundation(root: string, foundation: QualificationLinuxFoundation): Promise<void> {

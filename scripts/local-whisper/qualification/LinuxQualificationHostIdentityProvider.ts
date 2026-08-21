@@ -5,6 +5,7 @@ import { sha256Bytes, sha256File } from '../packaging/fileIntegrity';
 import { readVerifiedRegularFile } from '../../SecureFileReader';
 import type { QualificationCommandPort } from './QualificationCommandRunner';
 import type { QualificationCandidateSeed, QualificationToolIdentity } from './QualificationInputProducer';
+import { requireQualificationRecord as record } from './QualificationJsonFields';
 
 const SOURCE_LOCK_PATH = 'runtime/local-whisper/sources/locks/whisper-cpp-v1.9.1-f049fff.json';
 const PATCH_LOCK_PATH =
@@ -29,11 +30,6 @@ export interface LinuxQualificationHostIdentityPort {
     worktree: string,
     sharedTools: readonly QualificationToolIdentity[],
   ) => Promise<readonly QualificationToolIdentity[]>;
-}
-
-function record(value: unknown, code: string): Readonly<Record<string, unknown>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(code);
-  return value as Readonly<Record<string, unknown>>;
 }
 
 async function readTrackedSourceLock(filePath: string): Promise<Readonly<Record<string, unknown>>> {

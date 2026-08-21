@@ -27,6 +27,10 @@ import type {
 import type { QualificationCachedArtifact } from './QualificationArtifactHttpClient';
 import type { QualificationCandidateSeed, QualificationLinuxPlatformSeed } from './QualificationInputProducer';
 import {
+  requireQualificationRecord as record,
+  requireQualificationStringField as stringField,
+} from './QualificationJsonFields';
+import {
   PerformanceRuntimeArchiveInspector,
   type PerformanceRuntimeArchiveEvidence,
 } from './PerformanceRuntimeArchiveInspector';
@@ -71,17 +75,6 @@ export interface LoadedLinuxQualificationEvidence {
   readonly modelNoticeDigest: string;
   readonly modelSetManifestDigest: string;
   readonly runtimes: readonly LoadedRuntime[];
-}
-
-function record(value: unknown, code: string): Readonly<Record<string, unknown>> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(code);
-  return value as Readonly<Record<string, unknown>>;
-}
-
-function stringField(value: Readonly<Record<string, unknown>>, field: string, code: string): string {
-  const result = value[field];
-  if (typeof result !== 'string') throw new Error(code);
-  return result;
 }
 
 function digestField(value: Readonly<Record<string, unknown>>, field: string, code: string): string {
