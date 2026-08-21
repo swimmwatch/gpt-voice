@@ -12,8 +12,8 @@ import {
 } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 
-import { canonicalCatalogJson, canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
-import { readVerifiedRegularFileSync } from './secure-file-reader.mjs';
+import { canonicalDigest, readJson, sha256 } from './source-import/native-source-core.mjs';
+import { runtimePackFileEvidence as fileEvidence, writeRuntimePackJson as writeJson } from './runtime-pack-staging.mjs';
 import {
   buildIdentity,
   limitTablePath,
@@ -37,22 +37,6 @@ function assertOwnedPath(path) {
   const child = relative(taskCacheRoot, path);
   if (child.length === 0 || child.startsWith('..') || isAbsolute(child))
     throw new Error('CUDA staging path escaped the private task root');
-}
-
-function writeJson(path, value) {
-  writeFileSync(path, canonicalCatalogJson(value), { mode: 0o400 });
-}
-
-function fileEvidence(root, relativePath, id) {
-  const path = resolve(root, ...relativePath.split('/'));
-  const { bytes, stat: metadata } = readVerifiedRegularFileSync(path);
-  return Object.freeze({
-    id,
-    relativePath,
-    mode: metadata.mode & 0o777,
-    sizeBytes: metadata.size,
-    sha256: sha256(bytes),
-  });
 }
 
 function sourcePath(input) {
