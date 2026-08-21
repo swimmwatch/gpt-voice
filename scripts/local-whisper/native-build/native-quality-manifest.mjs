@@ -42,6 +42,8 @@ const LINUX_ONLY_BASENAMES = new Set([
   'model_authority_client.cpp',
   'model_authority_linux.cpp',
   'model_authority_server.cpp',
+  'model_file_validator_linux.cpp',
+  'model_file_validator_test.cpp',
   'model_launch_application.cpp',
   'poll_direction_test.cpp',
   'qualification_protocol_test.cpp',

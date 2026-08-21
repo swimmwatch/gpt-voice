@@ -80,6 +80,13 @@ test('native quality manifest covers every owned project and separates host-spec
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_tsan_race_proof.cpp'))?.platforms,
     ['linux'],
   );
+  for (const sourcePath of [
+    '/whisper-cpp/core/model_file_validator_linux.cpp',
+    '/whisper-cpp/tests/model_file_validator_test.cpp',
+  ]) {
+    assert.deepEqual(manifest.find((entry) => entry.path.endsWith(sourcePath))?.platforms, ['linux']);
+    assert.ok(!manifestEntriesForPlatform(manifest, 'windows').some((entry) => entry.path.endsWith(sourcePath)));
+  }
   assert.deepEqual(
     manifest.find((entry) => entry.path.endsWith('/whisper-cpp/tests/worker_protocol_windows_test.cpp'))?.platforms,
     ['windows'],
