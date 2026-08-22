@@ -208,7 +208,31 @@ const SOURCE_CONTRACTS: readonly SourceContract[] = Object.freeze([
   Object.freeze({
     id: 'release-workflow-policy',
     path: 'scripts/local-whisper/release-policy/ReleaseWorkflowPolicyVerifier.ts',
-    markers: Object.freeze(['export class ReleaseWorkflowPolicyVerifier', 'FORBIDDEN_WORKFLOW_MARKERS']),
+    markers: Object.freeze([
+      'export class ReleaseWorkflowPolicyVerifier',
+      'verifyCandidateJobs',
+      'verifyPublishJob',
+      'publish.default !== false',
+    ]),
+  }),
+  Object.freeze({
+    id: 'production-runtime-archive-construction',
+    path: 'scripts/local-whisper/release-policy/ProductionRuntimeArchiveProducer.ts',
+    markers: Object.freeze([
+      'export class ProductionRuntimeArchiveProducer',
+      'assertReproducibleRuntimePacks',
+      "purpose: 'production'",
+    ]),
+  }),
+  Object.freeze({
+    id: 'production-candidate-physical-inventory',
+    path: 'scripts/local-whisper/release-policy/ProductionCandidateInventoryVerifier.ts',
+    markers: Object.freeze([
+      'export class ProductionCandidateInventoryVerifier',
+      'Production release candidate physical inventory is incomplete or contains extra entries',
+      'this.protocol.verifyCandidate(candidate, { target: input.expectedTarget, targetKind: input.targetKind })',
+      'productionReleaseCandidateDigest(candidate)',
+    ]),
   }),
 ]);
 
@@ -237,6 +261,8 @@ const REQUIRED_FILES = Object.freeze([
   'tests/main/localWhisper/development/LocalWhisperDevelopmentActivation.test.ts',
   'tests/scripts/localWhisper/development/DevelopmentActivationDescriptorProducer.test.ts',
   'tests/scripts/localWhisper/releasePolicy/ReleaseProtocol.test.ts',
+  'tests/scripts/localWhisper/releasePolicy/ProductionRuntimeArchiveProducer.test.ts',
+  'tests/scripts/localWhisper/releasePolicy/ProductionCandidateInventoryVerifier.test.ts',
 ]);
 
 interface RuntimeProfileContract {
@@ -290,10 +316,10 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'verify:local-whisper:deploy',
 ]);
 
-const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 23;
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 31;
-const IMPLEMENTATION_READINESS_TASK_COUNT = 35;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-31-acceptance-registry';
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 25;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 33;
+const IMPLEMENTATION_READINESS_TASK_COUNT = 36;
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-33-acceptance-registry';
 const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
@@ -485,10 +511,11 @@ export class LocalWhisperImplementationReadinessVerifier {
       taskFiles['29'] !== '29_linux_rtx50_qualification.md' ||
       taskFiles['30'] !== '30_release_branch_preparation_and_pr_policy.md' ||
       taskFiles['31'] !== '31_hosted_production_equivalent_ci_builders.md' ||
-      taskFiles['32'] !== '32_release_v2_4_0_alpha_1.md' ||
-      taskFiles['33'] !== '33_test_v2_4_0_alpha_1_linux.md' ||
-      taskFiles['34'] !== '34_test_v2_4_0_alpha_1_windows.md' ||
-      taskFiles['35'] !== '35_release_v2_4_0.md' ||
+      taskFiles['32'] !== '32_complete_production_release_pipeline.md' ||
+      taskFiles['33'] !== '33_release_v2_4_0_alpha_1.md' ||
+      taskFiles['34'] !== '34_test_v2_4_0_alpha_1_linux.md' ||
+      taskFiles['35'] !== '35_test_v2_4_0_alpha_1_windows.md' ||
+      taskFiles['36'] !== '36_release_v2_4_0.md' ||
       JSON.stringify(supersededTasks) !== JSON.stringify(SUPERSEDED_TASKS) ||
       JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
       !commandRecords.some((value) => {
@@ -541,7 +568,7 @@ export class LocalWhisperImplementationReadinessVerifier {
       ['AC-AUTO-087', 'AC-AUTO-088', 'AC-AUTO-089', 'AC-AUTO-090'].some(
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '32',
       ) ||
-      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-091')?.primaryTask !== '35' ||
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-091')?.primaryTask !== '36' ||
       specificationRevision.const !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       planRevision.const !== IMPLEMENTATION_READINESS_PLAN_REVISION
     ) {

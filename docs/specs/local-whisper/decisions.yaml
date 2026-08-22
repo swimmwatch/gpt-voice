@@ -1,7 +1,7 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-21'
+updated_at: '2026-08-22'
 decisions:
   - id: outcome.local-voice-provider
     revision: 1
@@ -10952,4 +10952,264 @@ decisions:
       text: ''
     rationale: Plan revision 31 is Approved automatically. Approval grants no packet execution, code change, dependency change, network acquisition, workflow run, physical test, feedback selection, commit, push, branch/pull-request action, repository-setting change, signing, merge, tag, GitHub Release action, publication, support promotion, or release authority.
     supersedes_revision: 30
+    requirement_ids: []
+
+  - id: scope.complete-public-test-inventory
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user requires every component needed to fully test Local Whisper on Linux and Windows to be published.
+      - The six release outputs are logical classes: the Linux application class expands to AppImage, deb, and rpm; the Windows application class expands to NSIS; and the four runtime classes remain separate platform/target archives.
+      - Production catalogs, public keyring material, signatures, checksums, the signed manifest, SBOMs, notices, provenance, and compatibility records are part of the testable same-tag inventory, while the six pinned Hugging Face models remain external inputs.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [publish-complete-testable-inventory]
+      text: ''
+    rationale: A public alpha cannot be fully tested when either platform depends on unpublished trust material, CI-only artifacts, qualification packs, disabled packaging, local substitutions, or a binary outside the same immutable tag.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-007, DIST-004, REL-002, AC-AUTO-086, AC-MAN-020]
+
+  - id: acceptance.revision-24-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: each Linux and Windows smoke can obtain every installable application/runtime byte and its authentication material from one immutable public alpha, except for the already pinned Hugging Face models.
+      - Operator perspective: the complete physical inventory, exact same-tag boundary, non-clobbering publication, and final-origin verification obligations are explicit.
+      - Implementer perspective: logical output classes are expanded into configured package/archive formats and static validators are explicitly insufficient as construction evidence.
+      - Tester perspective: AC-AUTO-086 and AC-MAN-020 enumerate the required physical assets and reject missing, synthetic, disabled, qualification-only, substituted, or cross-tag inputs.
+      - Security-review perspective: catalogs, public keyring material, signatures, checksums, signed manifest, provenance, and compatibility bindings remain required without exposing private signer material.
+      - Maintainer perspective: models remain pinned external inputs, supported platforms and formats remain unchanged, and no dependency, release version, or implementation action is introduced by this clarification.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The revision-24 clarification resolves the observed publication gap without changing product behavior, platform support, the alpha feedback loop, or the final-release lineage contract.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-007, DIST-004, REL-002, AC-AUTO-086, AC-MAN-020]
+
+  - id: approval.spec
+    revision: 24
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 24 requires the public alpha to contain the complete physical Linux/Windows application, runtime, catalog, signature, and verification inventory needed for full testing.
+      - The six release outputs remain logical classes rather than an incorrect six-file count, and the pinned Hugging Face models remain the only external test inputs.
+      - Static policy validation, synthetic metadata, disabled Local Whisper packaging, CI artifacts, and qualification packs cannot satisfy production artifact construction or publication.
+      - The six-perspective gap analysis found no unresolved material product, failure, trust, compatibility, operations, or acceptance decision.
+      - The specification workflow treats this combined specification-and-plan request as approval after normalization and gap analysis, without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-revision-request]
+      text: ''
+    rationale: Specification revision 24 is Approved automatically. Approval grants no implementation, commit, push, merge, tag, upload, publication, physical-test, support-promotion, or release authority.
+    supersedes_revision: 23
+    requirement_ids: []
+
+  - id: planning.release-pipeline-boundary
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - The current release workflow prepares Local Whisper in disabled mode and uploads application artifacts without constructing the four production CPU/RTX 50 runtime archives or complete production trust/verification inventory.
+      - The repository package version remains 1.4.0 and no alpha release state exists.
+      - Existing static release-policy validators prove intended ordering and identity rules but cannot prove that production bytes can be constructed.
+      - Production-pipeline implementation is reversible repository work, while version preparation, preserving merge, tag creation, upload, and publication are separately authorized irreversible or external actions.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Plan revision 32 separates reusable production-pipeline implementation/proof into Task 32 and retains the user-selected combined Build + Deploy operation for alpha.1 in Task 33. This makes completion evidence truthful without splitting a version's release operation.
+    supersedes_revision: null
+    requirement_ids: [CI-001, CI-002, CI-007, DIST-004, REL-002, AC-AUTO-083, AC-AUTO-086, AC-MAN-020]
+
+  - id: planning.revision-32-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 24 adds no requirement or acceptance identifier; it clarifies the physical inventory required by CI-007, AC-AUTO-086, and AC-MAN-020.
+      - Revision 32 provides five current one-shot packets, each with all 14 required headings and a resolving plan/todo link.
+      - Task 32 owns production-pipeline implementation and real nonpublishing construction proof; Task 33 owns combined alpha.1 Build + Deploy; Tasks 34 and 35 independently own public-alpha Linux and Windows smoke; Task 36 owns the conditional final Build + Deploy without physical final testing.
+      - The finite graph is `32 → 33 → (34 || 35) → feedback → 36 when final is selected`; later alphas are materialized only by a new planning revision and no packet is repeatable.
+      - Revision-24 physical-inventory coverage is explicit in Tasks 32, 33, 34, 35, and 36. Existing completed-packet ownership remains unchanged; Task 32 explicitly owns migration of the stale machine-readable registry and validators to specification 24, plan 32, and Tasks 32–36.
+      - Prompt MCP `plan:local-whisper` reports 96 answered questions and zero pending, cancelled, timed-out, unavailable, or failed questions.
+      - Targeted Markdown/YAML formatting, YAML parsing, packet/link/heading checks, identifier traceability, and whitespace validation pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 32 is fully covered and executable without inventing behavior, treating static policy as artifact evidence, coupling platform smokes, requiring physical final testing, or authorizing production implementation and release actions during planning.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        CI-001,
+        CI-002,
+        CI-004,
+        CI-005,
+        CI-007,
+        CI-008,
+        PKG-011,
+        PKG-012,
+        DIST-004,
+        REL-001,
+        REL-002,
+        REL-003,
+        REL-004,
+        QUAL-001,
+        QUAL-004,
+        QUAL-007,
+        AC-AUTO-071,
+        AC-AUTO-073,
+        AC-AUTO-080,
+        AC-AUTO-082,
+        AC-AUTO-083,
+        AC-AUTO-084,
+        AC-AUTO-085,
+        AC-AUTO-086,
+        AC-AUTO-087,
+        AC-AUTO-088,
+        AC-AUTO-089,
+        AC-AUTO-090,
+        AC-AUTO-091,
+        AC-MAN-012,
+        AC-MAN-014,
+        AC-MAN-017,
+        AC-MAN-018,
+        AC-MAN-019,
+        AC-MAN-020,
+        AC-MAN-021,
+      ]
+
+  - id: approval.plan
+    revision: 32
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 24 requires the complete same-tag physical inventory needed for full Linux and Windows testing.
+      - Repository evidence requires production-pipeline implementation/proof before a version-specific release can truthfully construct and publish that inventory.
+      - Plan revision 32 preserves one combined Build + Deploy packet for each version and separate public-alpha Linux and Windows smoke packets.
+      - The coverage and executability audit preserves completed work, the finite next-alpha loop, trust/privacy boundaries, all manual gates, and the no-physical-final-test decision.
+      - The planning workflow treats this combined specification-and-plan request as approval after normalization and audit, without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: Plan revision 32 is Approved automatically. Approval grants no packet execution, code/workflow change, network acquisition, protected run, physical test, feedback selection, commit, push, branch/pull-request action, repository-setting change, signing, merge, tag, upload, GitHub Release action, publication, support promotion, or release authority.
+    supersedes_revision: 31
+    requirement_ids: []
+
+  - id: scope.preserve-later-publication-capability
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user rejected removal of the release workflow's publication job.
+      - The real public alpha must be published before the separate Linux and Windows test tasks can execute.
+      - If either public-alpha test exposes an accepted bug, the lifecycle publishes the next sequential immutable alpha with the fixes; otherwise it proceeds to the final v2.4.0 release.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-guarded-publication-for-release-task]
+      text: ''
+    rationale: Task 32's prohibition on executing publication constrains its invocation and authority. It does not authorize deleting the guarded tag-and-publication capability that Task 33 must enable to produce the real public alpha consumed by Tasks 34 and 35.
+    supersedes_revision: null
+    requirement_ids: [CI-003, CI-004, CI-007, CI-008, REL-002, REL-003, REL-004, AC-AUTO-085]
+
+  - id: acceptance.revision-25-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: the real public alpha remains mandatory and is the only application/runtime origin for the next Linux and Windows tests.
+      - Operator perspective: candidate construction defaults to nonpublishing, while one explicit Task 33 gate owns the matching tag and complete release publication.
+      - Implementer perspective: candidate jobs remain read-only; only the publication job has contents write and it depends on exact-candidate verification.
+      - Tester perspective: regression policy fails when publication disappears, defaults on, bypasses verification, uses an alternate release trigger, gains clobbering, or leaks write authority into candidate jobs.
+      - Security-review perspective: the correction restores required release capability without granting Task 32 external mutation authority or weakening immutable candidate/tag checks.
+      - Maintainer perspective: packet topology, supported platforms, alpha feedback loop, dependencies, package version, and final-release behavior remain unchanged.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 25 repairs a capability-ownership error without introducing a new product decision or changing the approved release sequence.
+    supersedes_revision: null
+    requirement_ids: [CI-003, CI-004, CI-007, CI-008, REL-002, REL-003, REL-004, AC-AUTO-085]
+
+  - id: approval.spec
+    revision: 25
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested correction of the specification, plan, and current Task 32 code.
+      - The corrected contract preserves publication for the real alpha while keeping Task 32's default path nonpublishing.
+      - No unresolved material behavior remains after the user's clarification of the alpha-test-fix/final loop.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-revision-request]
+      text: ''
+    rationale: Specification revision 25 is Approved automatically. Approval grants no workflow dispatch, protected run, commit, push, merge, tag, upload, GitHub Release action, publication, physical test, support promotion, or release authority.
+    supersedes_revision: 24
+    requirement_ids: []
+
+  - id: planning.revision-33-capability-boundary
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Task 32 must implement and prove the reusable production pipeline without creating release state.
+      - Task 32 must preserve and regression-test the default-off publication path rather than remove it.
+      - Task 33 owns explicitly enabling that path with v2.4.0-alpha.1 and publishing the complete real alpha before Tasks 34 and 35.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [task-32-preserves-task-33-publishes]
+      text: ''
+    rationale: Revision 33 changes no dependency or packet count. It corrects capability ownership at the Task 32 to Task 33 boundary and makes the later real-alpha publication executable.
+    supersedes_revision: null
+    requirement_ids: [CI-003, CI-004, CI-007, CI-008, REL-002, REL-003, REL-004, AC-AUTO-085]
+
+  - id: planning.revision-33-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 25 adds no requirement or acceptance identifier and preserves revision 32's Tasks 32 through 36.
+      - Task 32 now owns default-off publication-path preservation and regression policy; Task 33 owns explicit enablement, tag generation, and complete immutable alpha publication.
+      - Tasks 34 and 35 remain independent public-alpha tests, and Task 36 remains the conditional final release after dual pass and final selection.
+      - The finite next-alpha rule remains unchanged: an accepted fix is published through a newly planned sequential alpha release/test set, while a clean dual pass may proceed to final.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 33 closes the capability-deletion gap without reopening completed work, coupling platform tests, authorizing release actions, or changing the approved lifecycle.
+    supersedes_revision: null
+    requirement_ids: [CI-003, CI-004, CI-007, CI-008, REL-002, REL-003, REL-004, AC-AUTO-085, AC-AUTO-091]
+
+  - id: approval.plan
+    revision: 33
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 25 requires the default-off Task 32 path and the explicitly enabled Task 33 publication path to coexist.
+      - Plan revision 33 preserves the five current one-shot packets and their release, parallel platform-test, feedback, next-alpha, and final ordering.
+      - The user's combined correction request approves the revised artifacts without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: Plan revision 33 is Approved automatically. Approval grants no workflow dispatch, protected run, physical test, feedback selection, commit, push, branch/pull-request action, repository-setting change, signing, merge, tag, upload, GitHub Release action, publication, support promotion, or release authority.
+    supersedes_revision: 32
     requirement_ids: []

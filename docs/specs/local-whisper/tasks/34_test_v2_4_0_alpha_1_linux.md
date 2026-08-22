@@ -1,4 +1,4 @@
-# 33 Test v2.4.0-alpha.1 on Linux
+# 34 Test v2.4.0-alpha.1 on Linux
 
 ## Outcome
 
@@ -10,9 +10,10 @@ Windows test, feedback transition, or final work.
 
 ## Prerequisites
 
-- Specification revision 23 and plan revision 31 are approved.
-- Task 32 is complete: public prerelease `v2.4.0-alpha.1`, its immutable tag,
-  six exact public assets, signed manifest/catalogs, final-origin records, and
+- Specification revision 25 and plan revision 33 are approved.
+- Task 33 is complete: public prerelease `v2.4.0-alpha.1`, its immutable tag,
+  complete physical public inventory, signed manifest/catalogs/keyring,
+  final-origin records, and
   alpha `deploymentDigest` exist.
 - The representative Linux x64 RTX 50 host is explicitly authorized and has a
   fresh task-owned application/runtime inventory plus private evidence root.
@@ -29,10 +30,11 @@ Windows test, feedback transition, or final work.
 
 ## In Scope
 
-- Revalidate the alpha `deploymentDigest`, exact tag/prerelease state,
-  public same-tag Linux installer, Linux CPU pack, Linux
-  `sm_120a-real` pack, signed manifest/catalog bindings, and pinned public
-  Hugging Face `base/full` model identity before installation.
+- Revalidate the alpha `deploymentDigest`, exact tag/prerelease state, every
+  configured public same-tag Linux package (`AppImage`, `deb`, and `rpm`),
+  Linux CPU pack, Linux `sm_120a-real` pack, required public trust and
+  verification assets, and pinned public Hugging Face `base/full` model
+  identity before selecting the package appropriate for the test host.
 - Freeze one Linux `platformSmokeInputDigest` binding the public alpha
   deployment, exact assets, Linux x64 host class, CPU and representative RTX 50
   target, driver/runtime/device-proof class, deterministic non-private fixture,
@@ -50,7 +52,7 @@ Windows test, feedback transition, or final work.
 
 ## Out Of Scope
 
-- Windows execution or any dependency on Task 34's state.
+- Windows execution or any dependency on Task 35's state.
 - Building, signing, staging, uploading, publishing, deleting, retagging, or
   changing the public alpha or any release asset.
 - Sealing `alphaAggregateDigest`, selecting feedback, planning alpha.2, or
@@ -81,12 +83,12 @@ failure before a valid bounded attempt remains `Pending`.
 
 ## Contracts And Boundaries
 
-- Task 33 binds only Linux. It neither reads nor writes the Windows
+- Task 34 binds only Linux. It neither reads nor writes the Windows
   platform-smoke result.
-- The input graph points backward to Task 32's `deploymentDigest`; it contains
+- The input graph points backward to Task 33's `deploymentDigest`; it contains
   no result or aggregate digest.
 - The result/evidence graph contains no future feedback or final identity.
-- The later feedback gate consumes Task 33 read-only and may not alter it.
+- The later feedback gate consumes Task 34 read-only and may not alter it.
 - Public evidence is checksum-linked and privacy-safe; raw evidence remains in
   the authorized private task root only.
 
@@ -138,14 +140,14 @@ completion requirement.
 
 - Invalid/missing public assets, wrong tag, unavailable authorized host,
   untrusted fixture/tool, unsafe private root, or inability to produce a valid
-  bounded attempt leaves Task 33 pending.
+  bounded attempt leaves Task 34 pending.
 - A valid failed result is immutable completion evidence, not a reason to
   mutate/retry alpha.1 until green. Feedback must select alpha.2 through a new
   plan.
 - Clean only validated task-owned inventory, roots, processes, and
   allocations. Never delete shared caches, user data, public assets, or tags.
-- Rollback of test tooling removes only Task 33 code/workflow changes and
-  leaves Task 32's public alpha untouched.
+- Rollback of test tooling removes only Task 34 code/workflow changes and
+  leaves Task 33's public alpha untouched.
 
 ## Manual Gates
 
@@ -159,16 +161,16 @@ completion requirement.
 
 ## References
 
-- Mandatory: specification revision 23 Sections 9.6 steps 4–7, 18.4
+- Mandatory: specification revision 25 Sections 9.6 steps 4–7, 18.4
   `CI-005`, 19.2, `AC-AUTO-082`, `AC-MAN-017`, and 22.1.
-- Mandatory input: Task 32 handoff with exact alpha
+- Mandatory input: Task 33 handoff with exact alpha
   `deploymentDigest`/asset identities and the checked-in bounded fixture/profile.
 - Optional background: Section 19.2 extended diagnostic contract; it is not a
   release gate.
 
 ## Completion And Handoff
 
-Mark Task 33 complete after one valid immutable Linux result is sealed, whether
+Mark Task 34 complete after one valid immutable Linux result is sealed, whether
 Pass or Fail. Update `todo.md` and `handoff.md` with privacy-safe input,
 result, and evidence digests plus status. Stop before commit, Windows work,
 aggregate sealing, feedback selection, alpha.2 planning, or final release.

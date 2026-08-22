@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "specificationRevision": 23,
-  "planRevision": 31,
+  "specificationRevision": 25,
+  "planRevision": 33,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -34,10 +34,11 @@
     "29": "29_linux_rtx50_qualification.md",
     "30": "30_release_branch_preparation_and_pr_policy.md",
     "31": "31_hosted_production_equivalent_ci_builders.md",
-    "32": "32_release_v2_4_0_alpha_1.md",
-    "33": "33_test_v2_4_0_alpha_1_linux.md",
-    "34": "34_test_v2_4_0_alpha_1_windows.md",
-    "35": "35_release_v2_4_0.md"
+    "32": "32_complete_production_release_pipeline.md",
+    "33": "33_release_v2_4_0_alpha_1.md",
+    "34": "34_test_v2_4_0_alpha_1_linux.md",
+    "35": "35_test_v2_4_0_alpha_1_windows.md",
+    "36": "36_release_v2_4_0.md"
   },
   "deferredTasks": ["26"],
   "supersededTasks": ["21", "22", "27", "28", "29", "30", "31"],
@@ -353,19 +354,9 @@
       "command": "rtk npm run test:local-whisper:release-lifecycle"
     },
     {
-      "id": "task-32-alpha-build-verification",
-      "task": "32",
+      "id": "task-33-alpha-build-verification",
+      "task": "33",
       "command": "rtk npm run verify:local-whisper:build -- --target=v2.4.0-alpha.1"
-    },
-    {
-      "id": "task-33-qualification-tests",
-      "task": "33",
-      "command": "rtk npm run test:local-whisper:qualification"
-    },
-    {
-      "id": "task-33-alpha-linux-qualification",
-      "task": "33",
-      "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=linux --target=v2.4.0-alpha.1"
     },
     {
       "id": "task-34-qualification-tests",
@@ -373,83 +364,93 @@
       "command": "rtk npm run test:local-whisper:qualification"
     },
     {
-      "id": "task-34-alpha-windows-qualification",
+      "id": "task-34-alpha-linux-qualification",
       "task": "34",
+      "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=linux --target=v2.4.0-alpha.1"
+    },
+    {
+      "id": "task-35-qualification-tests",
+      "task": "35",
+      "command": "rtk npm run test:local-whisper:qualification"
+    },
+    {
+      "id": "task-35-alpha-windows-qualification",
+      "task": "35",
       "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=win32 --target=v2.4.0-alpha.1"
     },
     {
-      "id": "task-35-release-lifecycle-tests",
-      "task": "35",
+      "id": "task-36-release-lifecycle-tests",
+      "task": "36",
       "command": "rtk npm run test:local-whisper:release-lifecycle"
     },
     {
-      "id": "task-35-release-policy-tests",
-      "task": "35",
+      "id": "task-36-release-policy-tests",
+      "task": "36",
       "command": "rtk npm run test:local-whisper:release-policy"
     },
     {
-      "id": "task-35-release-delivery-tests",
-      "task": "35",
+      "id": "task-36-release-delivery-tests",
+      "task": "36",
       "command": "rtk npm run test:local-whisper:release-delivery"
     },
     {
-      "id": "task-35-ci-build-tests",
-      "task": "35",
+      "id": "task-36-ci-build-tests",
+      "task": "36",
       "command": "rtk npm run test:local-whisper:ci-builds"
     },
     {
-      "id": "task-35-ci-build-verification",
-      "task": "35",
+      "id": "task-36-ci-build-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:ci-builds"
     },
     {
-      "id": "task-35-release-preparation-tests",
-      "task": "35",
+      "id": "task-36-release-preparation-tests",
+      "task": "36",
       "command": "rtk npm run test:local-whisper:release-preparation"
     },
     {
-      "id": "task-35-release-preparation-verification",
-      "task": "35",
+      "id": "task-36-release-preparation-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:release-preparation"
     },
     {
-      "id": "task-35-release-candidate-tests",
-      "task": "35",
+      "id": "task-36-release-candidate-tests",
+      "task": "36",
       "command": "rtk npm run test:local-whisper:release-candidates"
     },
     {
-      "id": "task-35-release-candidate-verification",
-      "task": "35",
+      "id": "task-36-release-candidate-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:release-candidates"
     },
     {
-      "id": "task-35-final-build-verification",
-      "task": "35",
+      "id": "task-36-final-build-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:build -- --target=v2.4.0"
     },
     {
-      "id": "task-35-release-merge-verification",
-      "task": "35",
+      "id": "task-36-release-merge-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:release-merge -- --target=v2.4.0"
     },
     {
-      "id": "task-35-final-lineage-verification",
-      "task": "35",
+      "id": "task-36-final-lineage-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:final-lineage -- --target=v2.4.0"
     },
     {
-      "id": "task-35-release-origin-verification",
-      "task": "35",
+      "id": "task-36-release-origin-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:release-origin -- --target=v2.4.0"
     },
     {
-      "id": "task-35-all-verification",
-      "task": "35",
+      "id": "task-36-all-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:all"
     },
     {
-      "id": "task-35-final-deploy-verification",
-      "task": "35",
+      "id": "task-36-final-deploy-verification",
+      "task": "36",
       "command": "rtk npm run verify:local-whisper:deploy -- --target=v2.4.0"
     }
   ],
@@ -461,8 +462,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-002",
-      "primaryTask": "35",
-      "verificationCommandIds": ["task-35-release-lifecycle-tests"]
+      "primaryTask": "36",
+      "verificationCommandIds": ["task-36-release-lifecycle-tests"]
     },
     {
       "acceptanceId": "AC-AUTO-003",
@@ -566,8 +567,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-023",
-      "primaryTask": "35",
-      "verificationCommandIds": ["task-35-release-lifecycle-tests", "task-35-all-verification"]
+      "primaryTask": "36",
+      "verificationCommandIds": ["task-36-release-lifecycle-tests", "task-36-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-024",
@@ -611,8 +612,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-032",
-      "primaryTask": "35",
-      "verificationCommandIds": ["task-35-all-verification"]
+      "primaryTask": "36",
+      "verificationCommandIds": ["task-36-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-033",
@@ -651,8 +652,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-040",
-      "primaryTask": "35",
-      "verificationCommandIds": ["task-35-release-lifecycle-tests", "task-35-all-verification"]
+      "primaryTask": "36",
+      "verificationCommandIds": ["task-36-release-lifecycle-tests", "task-36-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-041",
@@ -805,8 +806,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-071",
-      "primaryTask": "35",
-      "verificationCommandIds": ["task-35-release-lifecycle-tests", "task-35-all-verification"]
+      "primaryTask": "36",
+      "verificationCommandIds": ["task-36-release-lifecycle-tests", "task-36-all-verification"]
     },
     {
       "acceptanceId": "AC-AUTO-072",
@@ -905,8 +906,8 @@
     },
     {
       "acceptanceId": "AC-AUTO-091",
-      "primaryTask": "35",
-      "verificationCommandIds": ["task-32-release-lifecycle-tests", "task-35-release-lifecycle-tests"]
+      "primaryTask": "36",
+      "verificationCommandIds": ["task-32-release-lifecycle-tests", "task-36-release-lifecycle-tests"]
     }
   ]
 }

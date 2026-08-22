@@ -1,18 +1,18 @@
-# 35 Release v2.4.0
+# 36 Release v2.4.0
 
 ## Outcome
 
 After the latest public alpha has separate passing Linux and Windows smoke
 results and feedback selects final, build and publish a fresh immutable
 `v2.4.0` generation. Prove the closed final-only source delta, rebuild and
-sign all six outputs reproducibly, preserve the exact release head through
+sign the complete physical output inventory reproducibly, preserve the exact release head through
 merge/tag/staging/final-origin verification, seal `finalLineageDigest`, and
 publish stable. Run no physical Linux or Windows test against final bytes.
 
 ## Prerequisites
 
-- Specification revision 23 and plan revision 31 are approved.
-- Tasks 33 and 34 are complete for the latest public alpha and both immutable
+- Specification revision 25 and plan revision 33 are approved.
+- Tasks 34 and 35 are complete for the latest public alpha and both immutable
   results are Pass.
 - The feedback gate has sealed `alphaAggregateDigest`, explicitly selected
   final, and confirmed no accepted product/runtime/packaging/compatibility/
@@ -20,9 +20,10 @@ publish stable. Run no physical Linux or Windows test against final bytes.
 - Under the current finite plan the latest alpha is
   `v2.4.0-alpha.1`. If feedback selected another alpha, this packet is
   superseded before execution by a new planning revision.
-- Task 32's reviewed builder/release implementation is the sole release
-  implementation. Representative platform hosts are not prerequisites because
-  final has no physical test branch.
+- Task 32's reviewed builder implementation and Task 33's version-scoped
+  release contract are the sole production release path. Representative
+  platform hosts are not prerequisites because final has no physical test
+  branch.
 
 ## Owned Requirements
 
@@ -58,9 +59,10 @@ publish stable. Run no physical Linux or Windows test against final bytes.
   `release/v2.4.0`, absent tag `v2.4.0`, committed canonical version/
   changelog/manual-script registry, clean head/current `main` base, and
   preserving merge policy.
-- Freshly build and sign the Linux/Windows application installers, CPU packs,
-  and RTX 50 `sm_120a-real` packs plus production catalogs and complete
-  release manifest. Repeat deterministic builds in independent clean roots.
+- Freshly build and sign Linux AppImage/deb/rpm, Windows NSIS, all four
+  Linux/Windows CPU/RTX 50 `sm_120a-real` runtime archives, and every required
+  catalog/keyring/signature/checksum/manifest/SBOM/notice/provenance/
+  compatibility asset. Repeat deterministic builds in independent clean roots.
 - Freeze new final `candidateInputDigest` and `releaseCandidateDigest`.
   Reuse no alpha candidate bytes, signatures, catalogs, manifest, or tag as
   final candidates even when source inputs overlap.
@@ -89,7 +91,7 @@ publish stable. Run no physical Linux or Windows test against final bytes.
 
 ## Task Contract
 
-The final Release packet has the same ordered internal phases as Task 32:
+The final Release packet has the same ordered internal phases as Task 33:
 prepare/build; sign/freeze; preserving merge; exact tag; non-installable
 staging/final-origin verification; lineage sealing; stable publication. Each
 external phase is a separate `MANUAL GATE`, but Build and Deploy remain one
@@ -115,7 +117,7 @@ rewritten; rollback selects a prior immutable stable release or a later version.
 ## Contracts And Boundaries
 
 - The final delta allowlist cannot be expanded after latest-alpha smoke.
-- Task 35 consumes Tasks 33/34 only through the sealed aggregate and preserves
+- Task 36 consumes Tasks 34/35 only through the sealed aggregate and preserves
   each platform branch read-only.
 - Final graph construction has no `platformSmokeInputDigest` or physical-test
   result for final.
@@ -149,8 +151,9 @@ rewritten; rollback selects a prior immutable stable release or a later version.
 - `AC-AUTO-087`–`AC-AUTO-090` prove frozen-byte promotion,
   no-clobbering recovery, allowed origins, and exact staged final-origin parity.
 - `AC-AUTO-091` requires the latest-alpha dual pass, explicit final
-  transition, fresh final six-output generation, closed delta, reproducibility,
-  and no physical final-test branch.
+  transition, fresh generation of the complete physical inventory represented
+  by the six logical output classes, closed delta, reproducibility, and no
+  physical final-test branch.
 - `AC-MAN-019` proves final branch preparation, closed delta,
   build/sign/reproducibility, preserving merge/tag, staging, final-origin, and
   stable publication without physical final tests.
@@ -190,7 +193,7 @@ rtk git diff --check
 ```
 
 Do not run Linux/Windows alpha-smoke, all-six-model qualification, or clean-host
-physical final commands as Task 35 completion gates.
+physical final commands as Task 36 completion gates.
 
 ## Failure And Rollback
 
@@ -199,7 +202,7 @@ physical final commands as Task 35 completion gates.
   signing/legal failure, stale head, wrong/existing tag, collision, or
   final-origin divergence blocks stable.
 - Any accepted behavior fix requires a new `/plan` revision and alpha.2
-  Release/Linux-smoke/Windows-smoke set; Task 35 is superseded before execution.
+  Release/Linux-smoke/Windows-smoke set; Task 36 is superseded before execution.
 - A prepublication final-only failure may retry from a fresh invalidated stage
   or generation as dictated by its earliest changed digest. It never changes
   alpha evidence.
@@ -225,17 +228,17 @@ physical final commands as Task 35 completion gates.
 
 ## References
 
-- Mandatory: specification revision 23 Sections 9.6, 18.3–18.5, 19.1
+- Mandatory: specification revision 25 Sections 9.6, 18.3–18.5, 19.1
   (`AC-AUTO-071`, `AC-AUTO-073`, `AC-AUTO-087`–`AC-AUTO-091`),
   `AC-MAN-019`, `AC-MAN-021`, and 22.2.
-- Mandatory inputs: latest alpha `deploymentDigest`, Tasks 33/34 immutable
+- Mandatory inputs: latest alpha `deploymentDigest`, Tasks 34/35 immutable
   passing results, sealed `alphaAggregateDigest`, explicit final transition,
-  and Task 32 builder/release contracts.
+  Task 32 builder contract, and Task 33 release contract.
 - Historical context only: superseded revision-30 Tasks 34 and 35.
 
 ## Completion And Handoff
 
-Mark Task 35 complete only after exact stable publication, final
+Mark Task 36 complete only after exact stable publication, final
 `deploymentDigest`, and permitted support promotions are recorded. Update
 `todo.md` and `handoff.md` with final immutable source/tag/release/asset/
 origin/lineage identities and residual support boundaries. Stop before any
