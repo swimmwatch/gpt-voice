@@ -1,6 +1,6 @@
 ---
 name: spec-driven-development
-description: Use only to author or revise the authoritative /spec contract for substantial GPT-Voice work when the user requests a specification or approves work that lacks one. Establish repository facts, use a persistent global Prompt MCP interview for every material user decision, maintain a decision ledger, require explicit draft approval, and stop before planning or implementation.
+description: Use only to author or revise the authoritative /spec contract for substantial GPT-Voice work when the user requests a specification or approves work that lacks one. Establish repository facts, use a persistent global Prompt MCP interview for every material user decision, maintain a decision ledger, approve the completed revision without a separate final-approval prompt, and stop before planning or implementation.
 ---
 
 # Spec-Driven Development
@@ -42,13 +42,17 @@ correction.
    tester, security reviewer, and maintainer perspectives. Normalize active
    decisions into numbered requirements, defaults, constraints, non-goals, and
    objective automated and manual acceptance criteria.
-9. Write `docs/specs/<slug>/spec.md` with `Status: Draft`. Keep raw transcripts,
-   model reasoning, option history, task ordering, estimates, and packet detail
-   out of the specification.
-10. After the draft is inspectable, checkpoint and ask a separate Prompt MCP
-    approval question. Set `Status: Approved` only after an explicit
-    `approve` answer. For changes or deferral, keep `Status: Draft`.
+9. Keep `docs/specs/<slug>/spec.md` at `Status: Draft` while material decisions
+   or the final gap analysis remain unresolved. Keep raw transcripts, model
+   reasoning, option history, task ordering, estimates, and packet detail out
+   of the specification.
+10. When every material decision is resolved and the final gap analysis
+    passes, finalize the revision with `Status: Approved`. The user's request
+    to create or revise the specification authorizes approval of that completed
+    revision; do not ask a separate final-approval question. Treat later
+    requested changes as a new revision and iteration, not as retroactive
+    disapproval.
 
-Stop after draft approval or an unresolved blocker. Never begin `/plan`,
+Stop after automatic approval or an unresolved blocker. Never begin `/plan`,
 implementation, commits, pushes, pull requests, or releases automatically, and
 never request or persist secrets.

@@ -3,7 +3,7 @@
 Use this reference while running `spec-driven-development` and for the shared
 Prompt MCP mechanics used by other migrated skills. It owns interview
 persistence, question construction, result handling, decision-ledger recovery,
-specification coverage, and draft approval. It does not own implementation
+specification coverage, and automatic finalization. It does not own implementation
 planning or task execution.
 
 ## Authority And Storage
@@ -333,18 +333,16 @@ Review from six perspectives:
 - maintainer: are compatibility, migration, docs, extension, and release
   consequences explicit?
 
-## Draft Approval
+## Automatic Finalization
 
-Write normalized contract content to `spec.md` with `Status: Draft`. Keep the
+Keep normalized contract content in `spec.md` at `Status: Draft` while a
+material decision or final gap-analysis item remains unresolved. Keep the
 ledger, raw questions, option history, and task packets separate.
 
-After the draft is inspectable, checkpoint `approval.spec` and ask a separate
-Prompt MCP `single` question with stable options:
-
-- `approve`: approve the draft as the implementation contract;
-- `request-changes`: reopen affected decisions and revise;
-- `leave-draft`: stop without approval.
-
-Treat custom approval text as requested changes, never implicit approval. Only
-an explicit `approve` answer permits `Status: Approved`. Stop after approval;
-`/plan` requires a separate invocation.
+When all material decisions are resolved and the final gap analysis passes,
+set `Status: Approved` without checkpointing or asking an `approval.spec`
+question. The user's request to create or revise the specification authorizes
+approval of the completed revision. A later request for changes starts a new
+revision and iteration; it does not require a separate approval step for the
+already completed revision. Stop after finalization; `/plan` still requires a
+separate invocation.
