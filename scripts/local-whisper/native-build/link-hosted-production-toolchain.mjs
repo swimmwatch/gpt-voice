@@ -49,6 +49,17 @@ function requireRegularFile(path, label) {
   }
 }
 
+function resolveActionExecutable(value, expectedName, label) {
+  const candidate = requireAbsolutePath(value, label);
+  const executable = lstatSync(candidate).isDirectory() ? resolve(candidate, expectedName) : candidate;
+  const canonical = requireAbsolutePath(executable, label);
+  if (basename(canonical).toLocaleLowerCase('en-US') !== expectedName) {
+    throw new Error(`Hosted production toolchain ${label} name is invalid`);
+  }
+  requireRegularFile(canonical, label);
+  return canonical;
+}
+
 function requireContainedFile(root, file, label) {
   const canonical = requireAbsolutePath(file, label);
   const child = relative(root, canonical);
@@ -69,20 +80,12 @@ export class HostedProductionToolchainLinker {
     if (!['linux', 'win32'].includes(platform) || platform !== this.platform) {
       throw new Error('Hosted production toolchain platform does not match the runner');
     }
-    const cmakeExecutable = requireAbsolutePath(cmake, 'CMake executable');
-    const ninjaExecutable = requireAbsolutePath(ninja, 'Ninja executable');
-    const cudaDirectory = requireAbsolutePath(cudaRoot, 'CUDA root');
     const expectedCmakeName = platform === 'win32' ? 'cmake.exe' : 'cmake';
     const expectedNinjaName = platform === 'win32' ? 'ninja.exe' : 'ninja';
+    const cmakeExecutable = resolveActionExecutable(cmake, expectedCmakeName, 'CMake executable');
+    const ninjaExecutable = resolveActionExecutable(ninja, expectedNinjaName, 'Ninja executable');
+    const cudaDirectory = requireAbsolutePath(cudaRoot, 'CUDA root');
     const nvcc = resolve(cudaDirectory, 'bin', platform === 'win32' ? 'nvcc.exe' : 'nvcc');
-    if (basename(cmakeExecutable).toLocaleLowerCase('en-US') !== expectedCmakeName) {
-      throw new Error('Hosted production toolchain CMake executable name is invalid');
-    }
-    if (basename(ninjaExecutable).toLocaleLowerCase('en-US') !== expectedNinjaName) {
-      throw new Error('Hosted production toolchain Ninja executable name is invalid');
-    }
-    requireRegularFile(cmakeExecutable, 'CMake executable');
-    requireRegularFile(ninjaExecutable, 'Ninja executable');
     requireRegularFile(nvcc, 'CUDA compiler');
     requireVersion(this.versionReader, cmakeExecutable, CMAKE_VERSION, 'CMake');
     requireVersion(this.versionReader, ninjaExecutable, NINJA_VERSION, 'Ninja');

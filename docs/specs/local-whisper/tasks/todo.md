@@ -13,14 +13,13 @@ policy implementation remain inputs to Task 32; they do not prove production
 artifact construction, create a release, or produce a platform-smoke result.
 
 - [ ] [32 Complete production release pipeline](32_complete_production_release_pipeline.md) —
-      locally implemented and verified. The workflow constructs and transfers
-      production Linux/Windows application packages and CPU/RTX 50 runtime
-      archives, produces signed bundles and the exact 16-asset/32-file private
-      candidate, verifies its physical inventory, and preserves the default-off
-      Task 33 publication path. The protected GitHub Environment and dedicated
-      Ed25519 signer inputs are configured. Completion remains pending only on
-      a separately authorized protected GitHub-hosted run with `publish=false`
-      that constructs and verifies the real candidate.
+      locally implemented with a verified, uncommitted hosted-toolchain repair.
+      The first protected nonpublishing run passed the input and signing
+      preflight but failed before construction because `get-cmake` exposes tool
+      directories; no candidate was created. After committing and pushing the
+      repair, a separately authorized GitHub-hosted run with `publish=false`
+      must construct and verify the real candidate. The default-off Task 33
+      publication path remains preserved.
 - [ ] [33 Release v2.4.0-alpha.1](33_release_v2_4_0_alpha_1.md) — executable
       only after Task 32 proves the complete production pipeline. Owns the
       combined alpha Build + Deploy operation, explicitly enables the guarded

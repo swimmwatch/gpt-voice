@@ -22,7 +22,15 @@ function fixture() {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, 'fixture\n');
   }
-  return { cmake, cudaRoot, destinationRoot: resolve(root, 'destination'), ninja, root };
+  return {
+    cmake,
+    cmakeActionOutput: dirname(cmake),
+    cudaRoot,
+    destinationRoot: resolve(root, 'destination'),
+    ninja,
+    ninjaActionOutput: dirname(ninja),
+    root,
+  };
 }
 
 test('links only exact action-provisioned production tool versions into a fresh task root', () => {
@@ -36,12 +44,21 @@ test('links only exact action-provisioned production tool versions into a fresh 
     platform: 'linux',
     versionReader: (path) => versions.get(path),
   });
-  linker.link({ ...input, platform: 'linux' });
+  linker.link({ ...input, cmake: input.cmakeActionOutput, ninja: input.ninjaActionOutput, platform: 'linux' });
 
   assert.equal(readlinkSync(resolve(input.destinationRoot, 'cmake-3.31.8')), resolve(input.root, 'cmake'));
   assert.equal(readlinkSync(resolve(input.destinationRoot, 'ninja-1.12.1')), resolve(input.root, 'ninja'));
   assert.equal(readlinkSync(resolve(input.destinationRoot, 'cuda-12.8.1')), input.cudaRoot);
-  assert.throws(() => linker.link({ ...input, platform: 'linux' }), /destination is not fresh/u);
+  assert.throws(
+    () =>
+      linker.link({
+        ...input,
+        cmake: input.cmakeActionOutput,
+        ninja: input.ninjaActionOutput,
+        platform: 'linux',
+      }),
+    /destination is not fresh/u,
+  );
 });
 
 test('rejects a cross-platform runner and a non-exact CUDA version before linking', () => {

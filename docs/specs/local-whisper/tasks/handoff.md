@@ -98,33 +98,55 @@ implementation-readiness, packaging, workflow, Windows-reporting, security
 workflow, unit, type, lint (existing warnings only), formatting, production
 audit, production build, and `git diff --check`.
 
-The local Task 32 implementation is complete. Candidate verification hashes
-large archives and installers with descriptor-bound streams and sequential
-inventory admission, avoiding whole-candidate memory amplification on hosted
-runners. No protected builder, signing operation, workflow dispatch, tag,
-publication, or physical smoke was attempted.
+Two protected nonpublishing attempts ran against source
+`76fdf5173efc95c8d54474d1854ca30035b7372a` and neither produced a candidate:
+
+- Run `32590116895` stopped before protected access because the supplied
+  private label was invalid (`task-32-…`; the strict private format is
+  `task32-…`). No signing or builder job started.
+- Run `32590192198` passed source-input and protected Ed25519 preflight. Linux
+  installed the pinned CUDA 12.8.1 toolkit and the pinned
+  `libnvidia-compute-595=595.84-0ubuntu0.24.04.1`, then failed because
+  `lukka/get-cmake` exposes CMake/Ninja directories while the linker required
+  executable paths. The run was cancelled before any runtime archive,
+  application package, bundle, candidate, tag, release, or publication.
+
+The uncommitted repair in
+`scripts/local-whisper/native-build/link-hosted-production-toolchain.mjs`
+resolves the documented action-output directories to their exact expected
+executables before retaining name, regular-file, and version checks. Its
+regression test is in
+`tests/runtime/localWhisper/hostedToolchains/HostedProductionToolchainLinker.test.mjs`.
+Candidate verification still hashes large archives and installers with
+descriptor-bound streams and sequential inventory admission, avoiding
+whole-candidate memory amplification on hosted runners.
 
 Before Task 32 can be marked complete, separately authorize and run the
 protected workflow on the selected GitHub-hosted Linux and Windows runners with
-`publish=false`. It must construct, sign, assemble, and verify the real complete
-candidate. Stop before Task 33 enables the preserved publication path for alpha
-source/tag/publication work.
+`publish=false`. First commit and push the linker repair, then rerun the same
+protected construction. It must construct, sign, assemble, and verify the real
+complete candidate. Stop before Task 33 enables the preserved publication path
+for alpha source/tag/publication work.
 
 ## Blockers And Manual Gates
 
-- The sole Task 32 completion blocker is the separately authorized protected
-  `publish=false` run. It must confirm the pinned Ubuntu package, CUDA license
-  files, MSVC 14.39 component, exact CMake/Ninja/CUDA/profile identities, and
-  the real Windows CPU/CUDA capture. Do not replace a failed locked identity
-  with an observed value merely to make the workflow pass.
+- The immediate blocker is the uncommitted hosted-toolchain linker repair. A
+  separately authorized commit/push and protected `publish=false` rerun must
+  then confirm the pinned Ubuntu package, CUDA license files, MSVC 14.39
+  component, exact CMake/Ninja/CUDA/profile identities, and the real Windows
+  CPU/CUDA capture. Do not replace a failed locked identity with an observed
+  value merely to make the workflow pass.
 - `local-whisper-production` now requires an approval from the sole maintainer
   and forbids admin bypass. Add a second reviewed collaborator and enable
   self-review prevention before any higher-assurance release process; this is
   not currently possible with only `swimmwatch` in the repository.
-- Pushes, release-branch/pull-request work, workflow dispatch, repository
-  settings, signing, preserving merge, tag, GitHub Release actions, uploads,
-  publication, physical tests, feedback selection, support promotion, and
-  release remain manual gates and have not been performed.
+- The two existing Task 32 commits were pushed and the two nonpublishing
+  workflow runs above were authorized. Future pushes, protected workflow
+  dispatches, release-branch/pull-request work, repository settings, signing,
+  preserving merge, tag, GitHub Release actions, uploads, publication,
+  physical tests, feedback selection, support promotion, and release remain
+  manual gates. No tag, GitHub Release, public upload, publication, or
+  physical platform test has been performed.
 - Task 34 requires an authorized Linux RTX 50 host. Task 35 requires an
   authorized Windows RTX 50 host. Both consume only public same-tag alpha
   assets and keep private evidence outside the repository.
