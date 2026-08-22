@@ -1,6 +1,6 @@
 # Task 28: Protected Signed Release Candidates
 
-Status: **Superseded by approved plan revision 29. Do not execute this packet.**
+Status: **Superseded by approved plan revision 31. Do not execute this packet.**
 Its protected candidate work is owned by Task 32 for alpha and Task 34 for the
 fresh final generation.
 

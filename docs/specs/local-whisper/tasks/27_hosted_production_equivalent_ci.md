@@ -1,6 +1,6 @@
 # Task 27: Immutable Hosted Toolchain Inputs And Disconnected Build Enforcement
 
-Status: **Superseded by approved plan revision 29. Do not execute this packet.**
+Status: **Superseded by approved plan revision 31. Do not execute this packet.**
 Its verified completed work remains evidence; every unfinished gate is owned by
 Task 32.
 

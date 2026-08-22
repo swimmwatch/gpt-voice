@@ -1,23 +1,38 @@
 # Local Whisper Task Checklist
 
-Plan revision: **29 (Approved)**
+Plan revision: **31 (Approved)**
 
-Specification baseline: **revision 21 (Approved)**
+Specification baseline: **revision 23 (Approved)**
 
-Completed baseline: Tasks 01–20 and 23–25. Their reviewed commits and evidence
-remain authoritative and are not reopened by the release sequence.
+Completed baseline: Tasks 01–20 and 23–25. Their reviewed implementation and
+evidence remain authoritative and are not reopened.
 
-Superseded: Tasks 21, 22, and 27–31. Task 27's already
-implemented hosted-materializer work remains an input to Task 32; none of these
-historical packets remains independently executable.
+Superseded: Tasks 21, 22, and 27–31, plus the revision-30 definitions of Tasks
+32–35. Task 27's reviewed hosted materializer work and verified partial
+revision-30 Task 32 implementation remain inputs to the revision-31 Task 32;
+they do not constitute a release or platform-smoke result.
 
-- [ ] [32 Build v2.4.0-alpha.1](32_build_v2_4_0_alpha_1.md) — authorized; the revision-29 task-registry migration is verified. Public acquisition found a changed Microsoft VC Runtime license page and retained the existing lock fail-closed; candidate-producing and physical-smoke gates remain pending manual authority.
-- [ ] [33 Deploy v2.4.0-alpha.1](33_deploy_v2_4_0_alpha_1.md)
-- [ ] [34 Build v2.4.0](34_build_v2_4_0.md)
-- [ ] [35 Deploy v2.4.0](35_deploy_v2_4_0.md)
+- [ ] [32 Release v2.4.0-alpha.1](32_release_v2_4_0_alpha_1.md) — partially
+      implemented under Task 32 authority. The specification-23/plan-31
+      registry migration, static release policy, candidate/staging/deployment
+      identity validation, lifecycle ordering, and local command coverage are
+      complete. Production inputs, six-output candidate construction,
+      merge/tag/staging/final-origin verification, and public prerelease
+      publication remain pending manual gates.
+- [ ] [33 Test v2.4.0-alpha.1 on Linux](33_test_v2_4_0_alpha_1_linux.md) —
+      executable only after Task 32 publishes the exact public alpha.
+- [ ] [34 Test v2.4.0-alpha.1 on Windows](34_test_v2_4_0_alpha_1_windows.md) —
+      executable only after Task 32 and independent of Task 33.
+- [ ] Alpha aggregate and feedback transition gate — after Tasks 33 and 34,
+      seal both immutable results. A failure permits only a new `/plan`
+      iteration for alpha.2; dual pass permits either another alpha or an
+      explicit final selection.
+- [ ] [35 Release v2.4.0](35_release_v2_4_0.md) — conditional on a passing
+      latest-alpha aggregate, explicit final selection, and no accepted product
+      fix absent from that alpha.
 
 Task 26 remains **Deferred · Non-executable** and is not part of either release.
 
-No final signed candidate, candidate/platform/aggregate evidence generation,
-release branch, immutable tag, GitHub Release asset, publication, support
-promotion, or `v2.4.0-alpha.1`/`v2.4.0` release is created by this checklist.
+No signed release generation, platform-smoke result, branch, pull request, tag,
+GitHub Release asset, publication, support promotion, or
+`v2.4.0-alpha.1`/`v2.4.0` release is created by this checklist.

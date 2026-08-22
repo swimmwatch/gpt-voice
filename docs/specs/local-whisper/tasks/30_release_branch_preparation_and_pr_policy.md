@@ -1,6 +1,6 @@
 # Task 30: Release Branch Preparation And Pull Request Policy
 
-Status: **Superseded by approved plan revision 29. Do not execute this packet.**
+Status: **Superseded by approved plan revision 31. Do not execute this packet.**
 Its target-aware release preparation contract is owned by Task 32 and reused by
 Task 34.
 

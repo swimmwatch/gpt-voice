@@ -10358,7 +10358,45 @@ decisions:
       text: ''
     rationale: The user explicitly authorized exactly one incremental-implementation invocation after approving plan revision 29; no duplicate question was asked.
     supersedes_revision: null
-    requirement_ids: [CI-001, CI-002, CI-003, CI-004, CI-005, CI-006, CI-007, CI-008, PKG-002, PKG-003, PKG-004, PKG-009, PKG-010, PKG-011, PKG-012, SEC-003, SEC-009, SEC-014, DIST-004, REL-001, REL-002, REL-003, REL-004, QUAL-001, QUAL-004, QUAL-007, COMP-012, COMP-013, OPS-003, OPS-004, AC-AUTO-080, AC-AUTO-083, AC-AUTO-084, AC-AUTO-085, AC-AUTO-086, AC-MAN-020]
+    requirement_ids:
+      [
+        CI-001,
+        CI-002,
+        CI-003,
+        CI-004,
+        CI-005,
+        CI-006,
+        CI-007,
+        CI-008,
+        PKG-002,
+        PKG-003,
+        PKG-004,
+        PKG-009,
+        PKG-010,
+        PKG-011,
+        PKG-012,
+        SEC-003,
+        SEC-009,
+        SEC-014,
+        DIST-004,
+        REL-001,
+        REL-002,
+        REL-003,
+        REL-004,
+        QUAL-001,
+        QUAL-004,
+        QUAL-007,
+        COMP-012,
+        COMP-013,
+        OPS-003,
+        OPS-004,
+        AC-AUTO-080,
+        AC-AUTO-083,
+        AC-AUTO-084,
+        AC-AUTO-085,
+        AC-AUTO-086,
+        AC-MAN-020,
+      ]
 
   - id: execution.task-32-public-input-acquisition
     revision: 1
@@ -10395,3 +10433,523 @@ decisions:
     rationale: The user authorized read-only official-source review and acquisition of only exact manifest-named public inputs. The first reviewed lock failed closed on changed official license bytes; every other Task 32 manual gate remains excluded.
     supersedes_revision: null
     requirement_ids: [CI-001, CI-002, CI-003, PKG-002, PKG-003, PKG-010, SEC-003, SEC-009]
+
+  - id: release.sequence
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - On 2026-08-22 the user explicitly authorized replacing the single-alpha release sequence with `Build alpha.N → Deploy alpha.N → review feedback → either Build alpha.N+1 or proceed to v2.4.0`.
+      - The preceding discussion established that published alpha releases remain immutable and that bug fixes intended for user validation require a new sequential alpha before stable.
+      - Existing signing, legal/security, bounded two-platform alpha smoke, exact-byte promotion, final-origin verification, and fresh final qualification boundaries remain unchanged.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [iterative-alpha-loop]
+      text: ''
+    rationale: Alpha numbering starts at 1 and increments without gaps. Each alpha is independently built, signed, qualified, deployed, and preserved; feedback review chooses either the next alpha containing accepted fixes or the fresh fully qualified final release when no further alpha is required.
+    supersedes_revision: 1
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: acceptance.revision-22-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: public alpha fixes can be validated through alpha 2 and later without overwriting an earlier prerelease, while stable remains withheld until feedback review selects final.'
+      - 'Operator perspective: every alpha has a dedicated branch, immutable tag, six-output generation, bounded Linux/Windows smoke, final-origin verification, and an explicit feedback transition; numbering is sequential and fail-closed.'
+      - 'Implementer perspective: one target-aware Build/Deploy implementation accepts canonical `2.4.0-alpha.N` identities, rebuilds each generation, rejects gaps and reuse, and retains the distinct fresh-final path.'
+      - 'Tester perspective: AC-AUTO-091 covers one-alpha and multi-alpha paths plus invalid numbering, ordering, transitions, and cross-generation substitution; AC-MAN-020 repeats for every alpha and AC-MAN-021 owns final.'
+      - 'Security-reviewer perspective: additional alpha iterations receive no implicit signing, merge, tag, upload, publication, or release authority and preserve all existing exact-byte, privacy, legal, and no-clobbering gates.'
+      - 'Maintainer perspective: the loop has no arbitrary alpha cap, advances by exactly one, preserves every public alpha, and sends every accepted product fix through the next alpha before stable.'
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved outcome, failure, interface, trust, operations, compatibility, migration, or acceptance choice after the user's explicit loop authorization.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: approval.spec
+    revision: 22
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 22 retains Build and Deploy as the only lifecycle stage types while allowing one or more sequential public alpha generations before final.
+      - Every alpha is a fresh immutable six-output Linux/Windows generation with bounded physical smoke and final-origin verification.
+      - Every accepted product fix after an alpha must appear in the next sequential public alpha before stable.
+      - The final release remains a distinct freshly built, signed, and fully qualified Linux/Windows generation.
+      - The updated specification workflow treats the user's revision request as approval once material decisions and gap analysis are complete, without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-revision-request]
+      text: ''
+    rationale: The user explicitly authorized this iterative-alpha specification revision. Revision 22 is Approved automatically after normalization and gap analysis; planning remains a separate invocation and no implementation, commit, push, merge, tag, upload, publication, or release authority is granted.
+    supersedes_revision: 21
+    requirement_ids: []
+
+  - id: planning.alpha-loop-packet-strategy
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 22 permits an unbounded sequential `v2.4.0-alpha.N` loop before final.
+      - Repository task packets are finite numbered executable units with one checklist completion state and one packet per incremental-implementation invocation.
+      - Predeclaring a fixed number of future alpha releases would impose an arbitrary cap, while repeatedly executing one checked packet would make checklist and handoff state ambiguous.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: alpha-loop-round-01
+      question_id: planning.alpha-loop-packet-strategy
+      idempotency_key: planning.alpha-loop-packet-strategy:v1
+      last_status: answered
+      sequence: 105
+      revision: 1
+    question:
+      text: How should the finite task plan represent the unbounded sequential alpha-release loop?
+      kind: single
+      options:
+        - id: materialize-next-pair-on-demand
+          label: Materialize the next pair (Recommended)
+          description: Keep exact finite packets; after each alpha Deploy, either proceed to the final packets or use the next planning iteration to insert one exact alpha.(N+1) Build/Deploy pair before final.
+        - id: reusable-loop-packets
+          label: Reuse loop packets
+          description: Make one Build and one Deploy packet repeatable, requiring custom mutable loop state outside the ordinary binary checklist contract.
+        - id: reserve-alpha-slots
+          label: Reserve fixed slots
+          description: Precreate a finite number of future alpha pairs, imposing an arbitrary maximum and leaving unused speculative packets.
+    answer:
+      selected_ids: [materialize-next-pair-on-demand]
+      text: ''
+    rationale: The plan will retain exact finite one-shot packets. After each alpha Deploy, feedback selects final or a later planning iteration inserts one exact next-alpha Build/Deploy pair immediately before the final pair; this preserves binary checklist state without an arbitrary alpha cap or speculative unused packets.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: planning.revision-30-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Specification revision 22 adds no requirement or acceptance identifier, so the previously audited 318 active identifiers retain their completed or executable packet coverage.
+      - Tasks 32–35 retain all 14 required packet headings and valid plan/todo links; Task 32 owns the revision-22/revision-30 registry migration and one-alpha/multi-alpha policy tests.
+      - Task 33 ends with a pending feedback transition; Task 34 is conditional on final selection and rejects accepted product fixes absent from the latest public alpha; Task 35 verifies one or more canonical sequential alpha generations followed by fresh final.
+      - A next-alpha transition leaves the current final pair unexecuted and requires a future planning revision to supersede it, append exactly one next-alpha Build/Deploy pair, and append a fresh conditional final pair.
+      - The existing acceptance-ownership command still reports its legacy specification-21/plan-29 registry as structurally valid with 35 packets, four executable packets, one deferred packet, seven superseded packets, and 90 automated owners. It does not prove revision-30 migration; Task 32 explicitly owns correcting that executable policy and its tests.
+      - Targeted Prettier, YAML parsing, packet/link structure checks, unchanged-identifier comparison, and `git diff --check` pass for the planning revision.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 30 preserves complete coverage and executable packet boundaries while adding the approved feedback transition without repeatable checklist state, speculative alpha slots, skipped release gates, or implicit external authority.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: approval.plan
+    revision: 30
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 22 requires one or more immutable sequential alpha Build/Deploy pairs, a feedback transition after each alpha, and a distinct freshly built and fully qualified final release.
+      - The user selected finite one-shot packet materialization on demand instead of repeatable packets or reserved future alpha slots.
+      - Plan revision 30 retains Tasks 32–35: Task 33 leaves feedback pending, final selection unlocks Tasks 34–35, and next-alpha selection requires a future plan revision that replaces the still-unexecuted final pair with one next-alpha pair plus a fresh conditional final pair.
+      - Coverage and executability audits preserve all active identifiers, 90 automated acceptance owners, platform/security/recovery boundaries, and every external action as a manual gate.
+      - The planning workflow treats this explicit planning request as approval after the audited revision is complete, without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: Plan revision 30 is Approved automatically after the answered packet-strategy decision and coverage/executability audit. Approval grants no packet execution, commit, push, branch/PR action, repository-setting change, network acquisition, workflow run, signing, physical qualification, feedback-transition selection, merge, tag, GitHub Release action, publication, support promotion, or release authority.
+    supersedes_revision: 29
+    requirement_ids: []
+
+  - id: planning.release-packet-topology
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user requested combining Build and Deploy work while separating Linux and Windows tests.
+      - In the durable planning interview, the user clarified that an alpha should first be built and publicly released and only then tested separately on Linux and Windows.
+      - The user also clarified that the final production release should be completed and released without platform testing.
+      - Approved specification revision 22 instead requires bounded Linux and Windows alpha smoke before alpha merge/deployment and complete Linux and Windows final qualification before stable deployment.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-packet-topology-round-01
+      question_id: planning.release-packet-topology
+      idempotency_key: planning.release-packet-topology:v1
+      last_status: answered
+      sequence: 106
+      revision: 1
+    question:
+      text: How should the plan reconcile one combined Build+Deploy task with Linux and Windows verification that must finish before deployment?
+      kind: single
+      options:
+        - id: combined-release-platform-jobs
+          label: Platform CI jobs (Recommended)
+          description: Use one numbered release packet per version, with separate Linux and Windows verification jobs inside it before the packet's Deploy phase.
+        - id: separate-build-test-deploy-packets
+          label: Separate task packets
+          description: Use numbered Build, Linux test, Windows test, and Deploy packets so exact dependency ordering remains one-shot and explicit.
+        - id: pausable-release-packet
+          label: Pausable release task
+          description: Use one combined release packet that pauses after Build, lets two numbered test packets run, then resumes Deploy, requiring a new repeatable packet workflow.
+    answer:
+      selected_ids: []
+      text: |-
+        For an alpha release, you first need to build and release an alpha version, and then test it separately on each platform.
+
+        For a final production release, testing is not required: you just need to complete it and release it.
+    rationale: This answered preference changes release ordering, qualification, failure, rollback, and acceptance behavior fixed by specification revision 22. Planning cannot apply it until `/spec` revises and approves the affected contract; plan revision 30 remains authoritative meanwhile.
+    supersedes_revision: null
+    requirement_ids:
+      [CI-004, REL-002, REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-017, AC-MAN-018, AC-MAN-020, AC-MAN-021]
+
+  - id: release.sequence
+    revision: 3
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user requested combining Build and Deploy work while separating Linux and Windows tests.
+      - The durable planning answer requires an alpha to be built and publicly released before separate Linux and Windows testing.
+      - The same answer removes a separate platform-test phase from the final production release.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-packet-topology-round-01
+      question_id: planning.release-packet-topology
+      idempotency_key: planning.release-packet-topology:v1
+      last_status: answered
+      sequence: 106
+      revision: 1
+    question: null
+    answer:
+      selected_ids: [alpha-deploy-then-platform-tests-final-without-platform-tests]
+      text: ''
+    rationale: Revision 23 replaces the predeployment alpha smoke and separate final qualification phases with post-publication alpha platform verification and a final release path whose evidence lineage is resolved by the later revision-23 acceptance decisions.
+    supersedes_revision: 2
+    requirement_ids:
+      [CI-004, REL-002, REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-017, AC-MAN-018, AC-MAN-020, AC-MAN-021]
+
+  - id: acceptance.alpha-platform-test-scope
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 22 used bounded `base/full` Linux and Windows smoke before each alpha deployment and complete all-six-model Linux and Windows qualification before final.
+      - The requested sequence moves Linux and Windows tests after public alpha deployment and removes a final platform-test phase.
+      - The repository already contains independent Linux and Windows qualification commands and evidence contracts.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-evidence-round-01
+      question_id: acceptance.alpha-platform-test-scope
+      idempotency_key: acceptance.alpha-platform-test-scope:v1
+      last_status: answered
+      sequence: 87
+      revision: 1
+    question:
+      text: How much verification should each platform perform after an alpha is publicly released?
+      kind: single
+      options:
+        - id: full-platform-qualification
+          label: Full qualification (Recommended)
+          description: Run the complete all-six-model CPU/RTX 50 Linux and Windows qualification after every public alpha so stable can rely on the latest tested alpha lineage.
+        - id: bounded-platform-smoke
+          label: Bounded smoke only
+          description: Keep the current `base/full` install, transcription, offline-reuse, and cleanup smoke, leaving stable without the former full qualification evidence.
+        - id: latest-alpha-full-only
+          label: Full test latest alpha
+          description: Use bounded smoke for intermediate alphas and require full independent Linux and Windows qualification only before selecting the latest alpha for final.
+    answer:
+      selected_ids: [bounded-platform-smoke]
+      text: ''
+    rationale: Every public alpha receives separate Linux and Windows bounded `base/full` packaged smoke after deployment. The former all-six-model performance/resource/repetition qualification is removed from the v2.4.0 release contract.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        QUAL-001,
+        QUAL-002,
+        QUAL-003,
+        QUAL-004,
+        QUAL-005,
+        QUAL-006,
+        QUAL-007,
+        AC-MAN-017,
+        AC-MAN-018,
+        AC-MAN-020,
+        AC-MAN-021,
+      ]
+
+  - id: failure.post-alpha-platform-test
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - A public alpha is immutable and cannot be patched, retagged, or have its assets overwritten after a platform test fails.
+      - The iterative alpha loop already permits a fresh sequential alpha after feedback.
+      - Stable currently claims Linux and Windows CPU plus RTX 50 support together.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-evidence-round-01
+      question_id: failure.post-alpha-platform-test
+      idempotency_key: failure.post-alpha-platform-test:v1
+      last_status: answered
+      sequence: 88
+      revision: 1
+    question:
+      text: What should happen when either post-release alpha platform test fails?
+      kind: single
+      options:
+        - id: block-final-require-next-alpha
+          label: Require next alpha (Recommended)
+          description: Preserve the failed alpha and block final until a fresh sequential alpha containing the fix passes both platform tests.
+        - id: drop-failed-platform
+          label: Drop failed platform
+          description: Permit final after removing the failed platform's support and release assets from the stable scope.
+        - id: allow-final-with-known-failure
+          label: Release with failure
+          description: Permit final publication with the known platform failure documented, without requiring another alpha.
+    answer:
+      selected_ids: [block-final-require-next-alpha]
+      text: ''
+    rationale: A failed public alpha remains immutable and visibly prerelease. Final is blocked; any accepted fix must enter a fresh sequential alpha, and both post-release platform smokes must pass before feedback may select final.
+    supersedes_revision: null
+    requirement_ids: [REL-003, REL-004, QUAL-007, OPS-002, AC-AUTO-091, AC-MAN-020, AC-MAN-021]
+
+  - id: acceptance.final-evidence-without-tests
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Final version metadata changes candidate bytes, so exact alpha binaries cannot simultaneously carry canonical `v2.4.0` identity.
+      - Revision 22 required a fresh signed final generation and qualification of those exact final bytes.
+      - The user removed a separate final platform-test phase but did not specify what lineage or reproducibility evidence replaces exact-final-byte qualification.
+    prompt_mcp:
+      interview_id: spec:local-whisper
+      batch_id: release-evidence-round-01
+      question_id: acceptance.final-evidence-without-tests
+      idempotency_key: acceptance.final-evidence-without-tests:v1
+      last_status: answered
+      sequence: 89
+      revision: 1
+    question:
+      text: What evidence should authorize `v2.4.0` when its fresh final bytes are not tested on Linux or Windows?
+      kind: single
+      options:
+        - id: tested-alpha-lineage-reproducible-final
+          label: Alpha lineage + reproducibility (Recommended)
+          description: Require both latest-alpha platform tests to pass, allow only final identity/changelog metadata changes, rebuild/sign all six final outputs reproducibly, and run deterministic automated checks without physical final tests.
+        - id: reuse-alpha-assets-as-final
+          label: Reuse alpha assets
+          description: Publish the exact tested alpha assets as stable despite their embedded prerelease version and tag identity.
+        - id: automated-final-build-only
+          label: Automated build only
+          description: Authorize final from deterministic automated build checks without requiring successful latest-alpha platform evidence.
+    answer:
+      selected_ids: [tested-alpha-lineage-reproducible-final]
+      text: ''
+    rationale: Stable relies on both latest-alpha post-release smokes plus a fresh final generation limited to final identity, changelog, tag-derived preparation, and required release metadata. All six final outputs are rebuilt, signed, reproducibility-checked, and subjected to deterministic automated gates, but receive no separate physical Linux or Windows test.
+    supersedes_revision: null
+    requirement_ids: [CI-004, PKG-011, PKG-012, REL-002, REL-003, REL-004, QUAL-004, QUAL-007, AC-AUTO-091, AC-MAN-021]
+
+  - id: acceptance.revision-23-gap-analysis
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - 'User perspective: every alpha is public before separate bounded Linux and Windows smoke, failures require an immutable next alpha, and stable is selected only after both latest-alpha passes and feedback review.'
+      - 'Operator perspective: each version has one fail-closed Build-and-Deploy release operation; platform-smoke jobs are read-only, independently authorized, secret-free activities; retry, no-clobbering, rollback, and publication authority remain explicit.'
+      - 'Implementer perspective: the acyclic generation, staging, deployment, per-platform smoke, alpha aggregate, and final-lineage digests define ordering and ownership; the closed final-delta schema rejects behavior-affecting changes without invention.'
+      - 'Tester perspective: AC-AUTO-071/090/091 and AC-MAN-017/018/020/021 cover public-before-test ordering, separate platform results, failure-to-next-alpha transitions, lineage, reproducibility, invalid substitution, and the deliberate absence of final physical tests.'
+      - 'Security-reviewer perspective: post-release test hosts receive no signing/publication authority, public evidence excludes sensitive values, immutable assets and tags cannot be rewritten, and final trust depends on exact staged bytes plus bounded lineage.'
+      - 'Maintainer perspective: alpha numbering is gap-free and unbounded, historical releases remain immutable, optional extended diagnostics are nonblocking, support labels remain platform-specific, and a later planning revision owns packet topology.'
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: The six-perspective review found no unresolved outcome, failure, interface, architecture, trust, operations, compatibility, migration, or acceptance choice after the three committed revision-23 decisions were normalized. Stale pre-publication qualification wording was removed, and optional diagnostic legal review was made conditional.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        CI-004,
+        CI-005,
+        CI-008,
+        PKG-011,
+        PKG-012,
+        REL-001,
+        REL-002,
+        REL-003,
+        REL-004,
+        QUAL-001,
+        QUAL-004,
+        QUAL-007,
+        AC-AUTO-071,
+        AC-AUTO-090,
+        AC-AUTO-091,
+        AC-MAN-012,
+        AC-MAN-014,
+        AC-MAN-017,
+        AC-MAN-018,
+        AC-MAN-019,
+        AC-MAN-020,
+        AC-MAN-021,
+      ]
+
+  - id: approval.spec
+    revision: 23
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Revision 23 combines Build and Deploy into one release operation for each version and publishes every immutable alpha before its separate Linux and Windows smoke activities.
+      - Each public alpha receives bounded `base/full` CPU and RTX 50 smoke on both platforms; either failure blocks stable and requires the next sequential alpha.
+      - Final requires both latest-alpha passes, an explicit feedback transition, a closed non-behavioral source delta, fresh signed six-output construction, reproducibility, and exact final-origin verification, but no physical final platform test.
+      - The six-perspective gap analysis found no unresolved material decision or stale normative dependency on the superseded pre-publication qualification model.
+      - The specification workflow treats this revision request as approval after normalization and gap analysis, without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-revision-request]
+      text: ''
+    rationale: Specification revision 23 is Approved automatically. Planning remains a separate invocation, and approval grants no implementation, commit, push, merge, tag, upload, publication, support-promotion, physical-test, or release authority.
+    supersedes_revision: 22
+    requirement_ids: []
+
+  - id: planning.release-packet-topology
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user requested one combined Build-and-Deploy task per release version and separate Linux and Windows test tasks.
+      - The durable planning answer requires every alpha to be built and publicly released before either platform test, while final is completed and released without platform testing.
+      - Approved specification revision 23 normalizes that order, bounded smoke depth, fail-closed next-alpha recovery, and final lineage.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: release-packet-topology-round-01
+      question_id: planning.release-packet-topology
+      idempotency_key: planning.release-packet-topology:v1
+      last_status: answered
+      sequence: 106
+      revision: 1
+    question: null
+    answer:
+      selected_ids: [combined-release-separate-alpha-platform-tests]
+      text: ''
+    rationale: Plan revision 31 uses one alpha Release packet, two independent post-publication platform-smoke packets that may run in parallel, one feedback gate, and one conditional final Release packet with no physical final test.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        CI-004,
+        CI-005,
+        REL-002,
+        REL-003,
+        REL-004,
+        QUAL-007,
+        AC-AUTO-082,
+        AC-AUTO-091,
+        AC-MAN-017,
+        AC-MAN-018,
+        AC-MAN-020,
+        AC-MAN-021,
+      ]
+
+  - id: planning.alpha-loop-packet-strategy
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user previously selected finite next-alpha materialization on demand rather than repeatable packets or reserved alpha slots.
+      - Approved specification revision 23 changes one alpha iteration from a Build/Deploy pair into one Release packet followed by separate Linux and Windows smoke packets.
+      - Binary packet completion and immutable alpha numbering still prohibit a repeatable packet or speculative fixed alpha cap.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      batch_id: alpha-loop-round-01
+      question_id: planning.alpha-loop-packet-strategy
+      idempotency_key: planning.alpha-loop-packet-strategy:v1
+      last_status: answered
+      sequence: 105
+      revision: 1
+    question: null
+    answer:
+      selected_ids: [materialize-next-release-test-set-on-demand]
+      text: ''
+    rationale: The finite plan materializes alpha.1 Release/Linux-smoke/Windows-smoke packets now. If feedback selects another alpha, a later planning revision supersedes the unexecuted final packet, appends exactly one sequential alpha release/test set, and appends a fresh conditional final Release packet.
+    supersedes_revision: 1
+    requirement_ids: [REL-003, REL-004, QUAL-007, AC-AUTO-091, AC-MAN-017, AC-MAN-018, AC-MAN-020, AC-MAN-021]
+
+  - id: planning.revision-31-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 23 adds no requirement or acceptance identifier relative to revision 22; completed Tasks 01–20 and 23–25 retain their audited ownership.
+      - Revision 31 keeps 35 numbered packet files and four current one-shot packets. Tasks 32–35 each contain all 14 required packet headings, and every plan/todo link resolves to the new packet path.
+      - Task 32 owns the shared release/evidence implementation and alpha publication; Tasks 33 and 34 independently own Linux and Windows bounded public-alpha smoke; Task 35 owns the closed-delta reproducible final release without physical final tests.
+      - The revision-23 gap-analysis requirement set is represented in Tasks 32–35. All 90 automated acceptance criteria retain exactly one conceptual primary owner; Task 32 explicitly owns migration of the stale specification-21/plan-29 machine-readable registry to the new paths and ownership.
+      - The finite graph is `32 → (33 || 34) → feedback → 35 when final is selected`. A failed smoke can select only an on-demand next-alpha planning revision; no packet is repeatable and no speculative alpha slot is reserved.
+      - Prompt MCP `plan:local-whisper` reports 96 answered questions and zero pending, cancelled, timed-out, unavailable, or failed questions.
+      - Targeted Prettier, YAML parsing, identifier validation, packet/link/heading checks, conceptual acceptance-owner validation, and `git diff --check` pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: Revision 31 is fully covered and executable without inventing behavior, weakening external/manual gates, coupling the platform tests, requiring physical final testing, or changing production implementation during planning.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        CI-004,
+        CI-005,
+        CI-008,
+        PKG-011,
+        PKG-012,
+        REL-001,
+        REL-002,
+        REL-003,
+        REL-004,
+        QUAL-001,
+        QUAL-004,
+        QUAL-007,
+        AC-AUTO-071,
+        AC-AUTO-082,
+        AC-AUTO-087,
+        AC-AUTO-088,
+        AC-AUTO-089,
+        AC-AUTO-090,
+        AC-AUTO-091,
+        AC-MAN-012,
+        AC-MAN-014,
+        AC-MAN-017,
+        AC-MAN-018,
+        AC-MAN-019,
+        AC-MAN-020,
+        AC-MAN-021,
+      ]
+
+  - id: approval.plan
+    revision: 31
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 23 requires one combined release operation per version, public alpha before platform smoke, separate Linux and Windows smoke activities, fail-closed next-alpha recovery, and final without physical platform testing.
+      - The durable planning interview records the user's requested topology and finite on-demand next-alpha materialization strategy.
+      - Plan revision 31 materializes Task 32 alpha.1 Release, parallel independent Tasks 33/34 platform smoke, one manual aggregate/feedback gate, and conditional Task 35 final Release.
+      - Coverage and executability audits preserve completed ownership, all 90 automated acceptance owners, trust/privacy/recovery boundaries, and every external action as a manual gate.
+      - The planning workflow treats this planning request as approval after normalization and audit, without a separate final-approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: Plan revision 31 is Approved automatically. Approval grants no packet execution, code change, dependency change, network acquisition, workflow run, physical test, feedback selection, commit, push, branch/pull-request action, repository-setting change, signing, merge, tag, GitHub Release action, publication, support promotion, or release authority.
+    supersedes_revision: 30
+    requirement_ids: []
