@@ -264,6 +264,10 @@ export class ReleaseWorkflowPolicyVerifier {
       !workflowText.includes('verify:local-whisper:production-workflow-inputs') ||
       !workflowText.includes('link-hosted-production-toolchain.mjs') ||
       !workflowText.includes('provision:local-whisper:ninja-license') ||
+      !workflowText.includes('kernel.apparmor_restrict_unprivileged_userns=0') ||
+      !workflowText.includes('/usr/bin/unshare -Urn -- true') ||
+      !workflowText.includes('kernel.apparmor_restrict_unprivileged_userns=1') ||
+      !workflowText.includes("steps.linux-network-namespace.outcome != 'skipped'") ||
       !workflowText.includes('provision:local-whisper:windows-vc-runtime-license') ||
       !workflowText.includes('cuda-toolkit@b8bf9c6c28f8a92fbb04dcfcaee872e60c57462d') ||
       workflowText.includes('CI_LOCAL_WHISPER_LINUX_CPU_STAGE_A_DIRECTORY') ||

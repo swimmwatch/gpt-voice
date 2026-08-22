@@ -98,7 +98,7 @@ implementation-readiness, packaging, workflow, Windows-reporting, security
 workflow, unit, type, lint (existing warnings only), formatting, production
 audit, production build, and `git diff --check`.
 
-Three protected nonpublishing attempts ran and none produced a candidate:
+Four protected nonpublishing attempts ran and none has produced a candidate:
 
 - Run `32590116895` stopped before protected access because the supplied
   private label was invalid (`task-32-…`; the strict private format is
@@ -118,6 +118,15 @@ Three protected nonpublishing attempts ran and none produced a candidate:
   12.8.1, and MSVC 14.51 initialization but rejected the absent locked VC
   Runtime license before materialization. No archive, application package,
   bundle, candidate, tag, release, or publication was created.
+- Run `32594163793` uses source
+  `b78fb076481984433faa20cf54c856144de6f1b6`. Input validation and protected
+  signing preflight passed. Linux successfully provisioned the canonical Ninja
+  license and native sources, then Ubuntu 24.04 AppArmor rejected
+  `unshare -Urn` while writing `/proc/self/uid_map`. The Windows builder remains
+  independent and was still provisioning CUDA when this handoff was updated.
+  The uncommitted repair enables the exact user-network namespace only on the
+  ephemeral hosted runner, proves `unshare -Urn`, and restores the AppArmor
+  restriction with an `always()` step before artifact upload.
 
 Commit `d093bb04` resolves the documented action-output directories in
 `scripts/local-whisper/native-build/link-hosted-production-toolchain.mjs`
@@ -142,17 +151,19 @@ Candidate verification still hashes large archives and installers with
 descriptor-bound streams and sequential inventory admission, avoiding
 whole-candidate memory amplification on hosted runners.
 
-Before Task 32 can be marked complete, commit and push this production-input
-repair, then run the protected workflow on the selected GitHub-hosted Linux and
-Windows runners with `publish=false`. It must construct, sign, assemble, and
-verify the real complete candidate. Stop before Task 33 enables the preserved
-publication path for alpha source/tag/publication work.
+Before Task 32 can be marked complete, commit and push the hosted-runner
+namespace repair, then run the protected workflow on the selected GitHub-hosted
+Linux and Windows runners with `publish=false`. This session must stop after
+dispatch rather than wait for completion. A later continuation must inspect the
+run, construct/sign/assemble/verify the real complete candidate, and stop before
+Task 33 enables the preserved publication path for alpha source/tag/publication
+work.
 
 ## Blockers And Manual Gates
 
-- The immediate blocker is the pending commit/push and protected
-  `publish=false` rerun. The current local repair is fully verified; no
-  production candidate has yet been constructed from it.
+- The immediate blocker is the pending namespace-repair commit/push and protected
+  `publish=false` rerun. The current local repair is verified; no production
+  candidate has yet been constructed from it.
 - `local-whisper-production` now requires an approval from the sole maintainer
   and forbids admin bypass. Add a second reviewed collaborator and enable
   self-review prevention before any higher-assurance release process; this is

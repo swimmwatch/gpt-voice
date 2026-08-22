@@ -147,12 +147,25 @@ jobs:
       - name: Provision verified Local Whisper native sources
         run: node scripts/local-whisper/provision-native-test-sources.mjs
 
+      - name: Enable the hosted runner user network namespace boundary
+        id: linux-network-namespace
+        run: |
+          test "$(/usr/sbin/sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "1"
+          sudo /usr/sbin/sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          /usr/bin/unshare -Urn -- true
+
       - name: Construct reproducible Linux CPU and RTX 50 runtime archives
         run: |
           node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cpu --platform=linux
           npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=linux --target=cpu --first-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-b --output=release-artifacts/local-whisper-runtimes/linux/cpu
           node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cuda --platform=linux
           npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=linux --target=sm_120a-real --first-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-b --output=release-artifacts/local-whisper-runtimes/linux/sm_120a-real
+
+      - name: Restore the hosted runner user namespace restriction
+        if: ${{ always() && steps.linux-network-namespace.outcome != 'skipped' }}
+        run: |
+          sudo /usr/sbin/sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
+          test "$(/usr/sbin/sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "1"
 
       - name: Upload exact Linux runtime archive inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

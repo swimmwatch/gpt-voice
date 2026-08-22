@@ -17,10 +17,11 @@ artifact construction, create a release, or produce a platform-smoke result.
       Runtime license provisioning repairs. The official commit-pinned Ninja
       `COPYING` identity replaced the historical extra-newline identity, and all
       three Linux profiles were requalified through real disconnected builds.
-      Three earlier protected nonpublishing runs did not construct a candidate;
-      the repaired source revision still requires one protected rerun with
-      `publish=false`. The default-off Task 33 publication path remains
-      preserved.
+      A fourth protected nonpublishing run confirmed both license provisioners,
+      then Linux exposed the hosted image's AppArmor user-namespace restriction;
+      its Windows branch remains independent. The ephemeral-runner setup repair
+      still requires one protected rerun with `publish=false`. The default-off
+      Task 33 publication path remains preserved.
 - [ ] [33 Release v2.4.0-alpha.1](33_release_v2_4_0_alpha_1.md) — executable
       only after Task 32 proves the complete production pipeline. Owns the
       combined alpha Build + Deploy operation, explicitly enables the guarded

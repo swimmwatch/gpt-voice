@@ -258,6 +258,14 @@ describe('Local Whisper release protocol', () => {
       /PRODUCTION_INPUTS_REQUIRED/u,
     );
     assert.throws(
+      () => verifier.verify(workflow.replace('kernel.apparmor_restrict_unprivileged_userns=0', '')),
+      /PRODUCTION_INPUTS_REQUIRED/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace("steps.linux-network-namespace.outcome != 'skipped'", '')),
+      /PRODUCTION_INPUTS_REQUIRED/u,
+    );
+    assert.throws(
       () => verifier.verify(workflow.replace('provision:local-whisper:windows-vc-runtime-license', '')),
       /PRODUCTION_INPUTS_REQUIRED/u,
     );
