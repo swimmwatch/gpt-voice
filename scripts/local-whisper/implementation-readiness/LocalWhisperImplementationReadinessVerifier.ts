@@ -195,6 +195,21 @@ const SOURCE_CONTRACTS: readonly SourceContract[] = Object.freeze([
     path: 'scripts/local-whisper/qualification/fleurs_materializer.py',
     markers: Object.freeze(['FLEURS', 'sha256']),
   }),
+  Object.freeze({
+    id: 'release-protocol-policy',
+    path: 'scripts/local-whisper/release-policy/ReleaseProtocol.ts',
+    markers: Object.freeze([
+      'export class ReleaseProtocolVerifier',
+      'verifySmokeEligibility',
+      'verifyFinalTransition',
+      "'sm_120a-real'",
+    ]),
+  }),
+  Object.freeze({
+    id: 'release-workflow-policy',
+    path: 'scripts/local-whisper/release-policy/ReleaseWorkflowPolicyVerifier.ts',
+    markers: Object.freeze(['export class ReleaseWorkflowPolicyVerifier', 'FORBIDDEN_WORKFLOW_MARKERS']),
+  }),
 ]);
 
 const REQUIRED_FILES = Object.freeze([
@@ -221,6 +236,7 @@ const REQUIRED_FILES = Object.freeze([
   'scripts/local-whisper/development/start-local-whisper-development.ts',
   'tests/main/localWhisper/development/LocalWhisperDevelopmentActivation.test.ts',
   'tests/scripts/localWhisper/development/DevelopmentActivationDescriptorProducer.test.ts',
+  'tests/scripts/localWhisper/releasePolicy/ReleaseProtocol.test.ts',
 ]);
 
 interface RuntimeProfileContract {
@@ -258,12 +274,26 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'verify:local-whisper:windows-readiness',
   'test:local-whisper:development',
   'start:local-whisper:development',
+  'test:local-whisper:ci-builds',
+  'verify:local-whisper:ci-builds',
+  'test:local-whisper:release-preparation',
+  'verify:local-whisper:release-preparation',
+  'test:local-whisper:release-candidates',
+  'verify:local-whisper:release-candidates',
+  'test:local-whisper:release-policy',
+  'test:local-whisper:release-delivery',
+  'test:local-whisper:release-lifecycle',
+  'verify:local-whisper:build',
+  'verify:local-whisper:release-merge',
+  'verify:local-whisper:release-origin',
+  'verify:local-whisper:final-lineage',
+  'verify:local-whisper:deploy',
 ]);
 
-const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 21;
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 29;
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 23;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 31;
 const IMPLEMENTATION_READINESS_TASK_COUNT = 35;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-29-acceptance-registry';
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-31-acceptance-registry';
 const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
@@ -455,10 +485,10 @@ export class LocalWhisperImplementationReadinessVerifier {
       taskFiles['29'] !== '29_linux_rtx50_qualification.md' ||
       taskFiles['30'] !== '30_release_branch_preparation_and_pr_policy.md' ||
       taskFiles['31'] !== '31_hosted_production_equivalent_ci_builders.md' ||
-      taskFiles['32'] !== '32_build_v2_4_0_alpha_1.md' ||
-      taskFiles['33'] !== '33_deploy_v2_4_0_alpha_1.md' ||
-      taskFiles['34'] !== '34_build_v2_4_0.md' ||
-      taskFiles['35'] !== '35_deploy_v2_4_0.md' ||
+      taskFiles['32'] !== '32_release_v2_4_0_alpha_1.md' ||
+      taskFiles['33'] !== '33_test_v2_4_0_alpha_1_linux.md' ||
+      taskFiles['34'] !== '34_test_v2_4_0_alpha_1_windows.md' ||
+      taskFiles['35'] !== '35_release_v2_4_0.md' ||
       JSON.stringify(supersededTasks) !== JSON.stringify(SUPERSEDED_TASKS) ||
       JSON.stringify(ownerRecords.map((owner) => owner.acceptanceId)) !== JSON.stringify(expectedAcceptanceIds()) ||
       !commandRecords.some((value) => {
@@ -507,9 +537,9 @@ export class LocalWhisperImplementationReadinessVerifier {
       ['AC-AUTO-080', 'AC-AUTO-083', 'AC-AUTO-084', 'AC-AUTO-085', 'AC-AUTO-086'].some(
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '32',
       ) ||
-      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-082')?.primaryTask !== '34' ||
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-082')?.primaryTask !== '32' ||
       ['AC-AUTO-087', 'AC-AUTO-088', 'AC-AUTO-089', 'AC-AUTO-090'].some(
-        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '33',
+        (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '32',
       ) ||
       ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-091')?.primaryTask !== '35' ||
       specificationRevision.const !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||

@@ -8,8 +8,8 @@ const tasksRoot = path.join(specificationRoot, 'tasks');
 const manifestPath = path.join(tasksRoot, 'acceptance-owners.json');
 const schemaPath = path.join(tasksRoot, 'acceptance-owners.schema.json');
 const specificationPath = path.join(specificationRoot, 'spec.md');
-const SPECIFICATION_REVISION = 21;
-const PLAN_REVISION = 29;
+const SPECIFICATION_REVISION = 23;
+const PLAN_REVISION = 31;
 const TASK_COUNT = 35;
 const DEFERRED_TASKS = Object.freeze(['26']);
 const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
@@ -35,7 +35,7 @@ const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2\d|3[0-5])_[a-z\d_]+\.md$/u;
 const COMMAND_OWNER_TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5]|3[2-5])$/u;
 const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5]|3[2-5])-[a-z\d-]+$/u;
 const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-8]\d|09[01])$/u;
-const SUPERSEDED_PACKET_STATUS = 'Status: **Superseded by approved plan revision 29. Do not execute this packet.**';
+const SUPERSEDED_PACKET_STATUS = 'Status: **Superseded by approved plan revision 31. Do not execute this packet.**';
 const CROSS_TASK_ACCEPTANCE_COMMAND_IDS = Object.freeze({
   'AC-AUTO-091': Object.freeze(['task-32-release-lifecycle-tests']),
 });
@@ -157,10 +157,10 @@ async function validateTaskFiles(manifest, taskDirectoryEntries) {
   if (taskFiles['31'] !== '31_hosted_production_equivalent_ci_builders.md') {
     fail('Task 31 packet filename is unexpected');
   }
-  if (taskFiles['32'] !== '32_build_v2_4_0_alpha_1.md') fail('Task 32 packet filename is unexpected');
-  if (taskFiles['33'] !== '33_deploy_v2_4_0_alpha_1.md') fail('Task 33 packet filename is unexpected');
-  if (taskFiles['34'] !== '34_build_v2_4_0.md') fail('Task 34 packet filename is unexpected');
-  if (taskFiles['35'] !== '35_deploy_v2_4_0.md') fail('Task 35 packet filename is unexpected');
+  if (taskFiles['32'] !== '32_release_v2_4_0_alpha_1.md') fail('Task 32 packet filename is unexpected');
+  if (taskFiles['33'] !== '33_test_v2_4_0_alpha_1_linux.md') fail('Task 33 packet filename is unexpected');
+  if (taskFiles['34'] !== '34_test_v2_4_0_alpha_1_windows.md') fail('Task 34 packet filename is unexpected');
+  if (taskFiles['35'] !== '35_release_v2_4_0.md') fail('Task 35 packet filename is unexpected');
 
   const numberedFiles = taskDirectoryEntries
     .filter((entry) => entry.isFile() && /^\d{2}_.*\.md$/u.test(entry.name))
@@ -310,15 +310,15 @@ function assertFixedAcceptanceOwners(ownersByAcceptanceId) {
     ['AC-AUTO-079', '25'],
     ['AC-AUTO-080', '32'],
     ['AC-AUTO-081', '25'],
-    ['AC-AUTO-082', '34'],
+    ['AC-AUTO-082', '32'],
     ['AC-AUTO-083', '32'],
     ['AC-AUTO-084', '32'],
     ['AC-AUTO-085', '32'],
     ['AC-AUTO-086', '32'],
-    ['AC-AUTO-087', '33'],
-    ['AC-AUTO-088', '33'],
-    ['AC-AUTO-089', '33'],
-    ['AC-AUTO-090', '33'],
+    ['AC-AUTO-087', '32'],
+    ['AC-AUTO-088', '32'],
+    ['AC-AUTO-089', '32'],
+    ['AC-AUTO-090', '32'],
     ['AC-AUTO-091', '35'],
   ]);
   for (const [acceptanceId, task] of expectedOwners) {

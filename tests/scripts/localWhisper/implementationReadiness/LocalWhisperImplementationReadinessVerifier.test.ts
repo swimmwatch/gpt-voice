@@ -74,11 +74,11 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
   it('rejects a stale task registry revision', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
-    const changed = source.replace('"planRevision": 29', '"planRevision": 28');
+    const changed = source.replace('"planRevision": 31', '"planRevision": 30');
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-29-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-31-acceptance-registry'),
     );
   });
 
@@ -92,11 +92,11 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-29-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-31-acceptance-registry'),
     );
   });
 
-  it('rejects a release acceptance owner that is not in the active v29 sequence', async () => {
+  it('rejects a release acceptance owner that is not in the active v31 sequence', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
     const changed = source.replace(
@@ -106,7 +106,7 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-29-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-31-acceptance-registry'),
     );
   });
 

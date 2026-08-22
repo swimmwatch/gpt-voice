@@ -4,12 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Optional release tag to use for generated app/package versions, for example v1.0.6.
-        required: false
+        description: Immutable SemVer tag to create from the verified candidate head.
+        required: true
         type: string
-  release:
-    types:
-      - published
 
 permissions:
   contents: read
@@ -56,10 +53,6 @@ jobs:
           tags: ${{ env.FEDORA_RELEASE_IMAGE }}
 
       - name: Build Linux release artifacts in Fedora
-        env:
-          PACKAGE_RELEASE_DATE: ${{ github.event.release.published_at }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          WORKFLOW_DISPATCH_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: node scripts/build-fedora-release.mjs --skip-image-build --image=${{ env.FEDORA_RELEASE_IMAGE }} --mode=release
 
       - name: Set up immutable artifact vulnerability scanner
@@ -171,13 +164,6 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
-      - name: Apply release version from tag
-        if: github.event_name == 'release' || github.event.inputs.release_tag != ''
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          WORKFLOW_DISPATCH_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
-        run: npm run apply:release-version
-
       - name: Prepare bundled CloakBrowser
         run: npm run prepare:cloakbrowser -- --target=win32
 
@@ -188,8 +174,6 @@ jobs:
         run: npm run build:prod
 
       - name: Generate package metadata
-        env:
-          PACKAGE_RELEASE_DATE: ${{ github.event.release.published_at }}
         run: npm run generate:package-metadata
 
       - name: Prepare disabled Local Whisper package resources
@@ -400,47 +384,58 @@ jobs:
           done
 
   publish:
-    name: Publish GitHub Release
+    name: Create Immutable GitHub Release
     permissions:
       contents: write
     needs:
       - build-linux
       - build-windows
       - attest-release
-    if: github.event_name == 'release'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_PUBLISH_TIMEOUT_MINUTES) }}
 
     steps:
-      - name: Download build artifacts
+      - name: Download verified Linux candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          path: release-assets
           name: gpt-voice-linux
+          path: release-assets
 
-      - name: Download Windows build artifacts
+      - name: Download verified Windows candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          path: release-assets
           name: gpt-voice-win32
+          path: release-assets
 
-      - name: Publish release assets
+      - name: Create the absent immutable tag and prerelease
+        shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          SOURCE_DIGEST: ${{ github.sha }}
         run: |
-          mapfile -d '' files < <(find release-assets -type f -print0 | sort -z)
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "No release files found"
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag is invalid" >&2
             exit 1
           fi
-
-          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "${files[@]}" --repo "$GH_REPO" --clobber
-          else
-            gh release create "$RELEASE_TAG" "${files[@]}" \
-              --repo "$GH_REPO" \
-              --title "GPT-Voice ${RELEASE_TAG}" \
-              --notes "Install GPT-Voice by downloading the package for your operating system below."
+          if gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release tag already exists" >&2
+            exit 1
           fi
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "GitHub Release already exists" >&2
+            exit 1
+          fi
+          mapfile -d '' files < <(find release-assets -type f -print0 | sort -z)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Release asset inventory is empty" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" "${files[@]}" \
+            --repo "$GH_REPO" \
+            --target "$SOURCE_DIGEST" \
+            --prerelease \
+            --title "GPT-Voice $RELEASE_TAG" \
+            --notes "Install GPT-Voice by downloading the package for your operating system below."

@@ -102,7 +102,7 @@ describe('Application artifact security workflow', () => {
     assert.doesNotMatch(attestation, /actions\/checkout|setup-ci-project|npm run/u);
   });
 
-  it('scans and attests the immutable artifact sets that the release publisher downloads', async () => {
+  it('scans and attests immutable candidate artifacts before a non-clobbering tag and prerelease', async () => {
     const workflow = await readWorkspaceFile('.github', 'workflows', 'release-builds.yml');
     const attestation = workflow.slice(workflow.indexOf('  attest-release:'), workflow.indexOf('  publish:'));
     const publish = workflow.slice(workflow.indexOf('  publish:'));
@@ -114,9 +114,10 @@ describe('Application artifact security workflow', () => {
     assert.match(attestation, /release-assets\/\*/u);
     assert.match(attestation, /security-evidence\/\*/u);
     assert.match(attestation, /--signer-workflow "\$GH_REPO\/\.github\/workflows\/release-builds\.yml"/u);
-    assert.match(publish, /- attest-release/u);
-    assert.match(publish, /name: gpt-voice-linux/u);
-    assert.match(publish, /name: gpt-voice-win32/u);
-    assert.doesNotMatch(publish, /pattern: gpt-voice-/u);
+    assert.match(publish, /needs:\n {6}- build-linux\n {6}- build-windows\n {6}- attest-release/u);
+    assert.match(publish, /gh release create/u);
+    assert.match(publish, /--target "\$SOURCE_DIGEST"/u);
+    assert.match(publish, /Release tag already exists/u);
+    assert.doesNotMatch(workflow, /github\.event\.release|gh release upload|--clobber/u);
   });
 });

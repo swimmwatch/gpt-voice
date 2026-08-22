@@ -29,6 +29,8 @@ test('Windows package jobs measure and retain current and reference size reports
   assert.doesNotMatch(releaseWorkflow, /^permissions:\n {2}contents: write$/mu);
   assert.match(releaseWorkflow, /^permissions:\n {2}contents: read$/mu);
   assert.match(releaseWorkflow, /publish:[\s\S]*permissions:\n {6}contents: write/u);
+  assert.match(releaseWorkflow, /gh release create/u);
+  assert.doesNotMatch(releaseWorkflow, /github\.event\.release|gh release upload|--clobber/u);
   assert.match(releaseWorkflow, /build-windows:[\s\S]*Build Windows v1\.4 reference/u);
   assert.match(releaseWorkflow, /build-windows:[\s\S]*fetch-depth: 0/u);
   assert.doesNotMatch(releaseWorkflow, /baseline_ref/u);
