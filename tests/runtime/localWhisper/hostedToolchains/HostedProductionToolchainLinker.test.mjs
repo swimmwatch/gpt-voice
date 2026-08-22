@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import test from 'node:test';
@@ -47,7 +47,9 @@ test('links only exact action-provisioned production tool versions into a fresh 
   linker.link({ ...input, cmake: input.cmakeActionOutput, ninja: input.ninjaActionOutput, platform: 'linux' });
 
   assert.equal(readlinkSync(resolve(input.destinationRoot, 'cmake-3.31.8')), resolve(input.root, 'cmake'));
-  assert.equal(readlinkSync(resolve(input.destinationRoot, 'ninja-1.12.1')), resolve(input.root, 'ninja'));
+  const ownedNinjaDirectory = resolve(input.destinationRoot, 'ninja-1.12.1');
+  assert.equal(lstatSync(ownedNinjaDirectory).isDirectory(), true);
+  assert.deepEqual(readFileSync(resolve(ownedNinjaDirectory, 'ninja')), readFileSync(input.ninja));
   assert.equal(readlinkSync(resolve(input.destinationRoot, 'cuda-12.8.1')), input.cudaRoot);
   assert.throws(
     () =>

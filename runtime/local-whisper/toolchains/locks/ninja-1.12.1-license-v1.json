@@ -1,0 +1,11 @@
+{
+  "$schema": "../schema/reviewed-raw-file-lock.schema.json",
+  "schemaId": "local-whisper-reviewed-raw-file-lock-v1",
+  "lockId": "ninja-1.12.1-license-v1",
+  "source": {
+    "url": "https://raw.githubusercontent.com/ninja-build/ninja/2daa09ba270b0a43e1929d29b073348aa985dfaa/COPYING",
+    "path": "ninja-1.12.1/COPYING",
+    "sizeBytes": 11358,
+    "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea"
+  }
+}

@@ -237,11 +237,11 @@
       "id": "ninja-apache-2.0-1.12.1",
       "pathKind": "toolchainRootRelative",
       "path": "ninja-1.12.1/COPYING",
-      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698"
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea"
     }
   ],
   "sbomComponents": ["clang-18.1.3", "lld-18.1.3", "cmake-3.31.8", "ninja-1.12.1"],
   "qualificationState": "qualified",
-  "evidenceDigest": "d9cfd5ec61762459de22aafebaab2391b90dcab80eb820d06b9b6f1341aced33",
+  "evidenceDigest": "a8934722f15efe9cc995d5f5856c9a097d45370a9ce9ae9572eca474e85c684f",
   "minimumDriver": null
 }

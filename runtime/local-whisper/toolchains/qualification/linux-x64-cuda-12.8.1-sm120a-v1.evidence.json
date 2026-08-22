@@ -2,7 +2,7 @@
   "$schema": "../schema/native-toolchain-evidence.schema.json",
   "schemaId": "local-whisper-native-toolchain-evidence-v1",
   "profileId": "linux-x64-cuda-12.8.1-sm120a-v1",
-  "profileInputDigest": "d1c9169ac7352dc5b9ff12d56610de4266012aefdb7adc2c2c3c4ef6a5816de6",
+  "profileInputDigest": "8c997f73bee616dda446764bf2ef01a148d91ed50be5009113727640097a38f6",
   "inputs": {
     "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
     "patchLockIds": [],
@@ -150,7 +150,7 @@
     {
       "id": "ninja-apache-2.0-1.12.1",
       "path": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
-      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698"
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea"
     },
     {
       "id": "cuda-eula-12.8.1",
@@ -164,8 +164,8 @@
     }
   ],
   "configuredCacheSha256": "dbac1a7a9b6c910da393658ff8f7f2be741e1d79476c9309978ad10dbb955bea",
-  "effectiveCacheSha256": "2cb54cfe619e3edfec48f2f3cc8b0f474d039e62a9965e5567215f987ee43c07",
-  "generatedBuildGraphSha256": "88a7ab2a73b8841dd890672d3fafa06cc0ed6938040c6959f335bb4609e01813",
+  "effectiveCacheSha256": "2c88ece5ef45580fc0f5c81755bdaa89506911b25191658cc44e58cb5e1a15be",
+  "generatedBuildGraphSha256": "cd7ef858c944135f05e540fbf5de61ebbb5a6ca511bc7ec25669b528870e4e50",
   "generatedTargets": ["ggml-base", "ggml-cpu", "ggml-cuda", "whisper", "local-whisper-build-smoke"],
   "executions": [
     {
@@ -184,7 +184,7 @@
     {
       "id": "build-smoke",
       "relativePath": "bin/local-whisper-build-smoke",
-      "sha256": "c2e5725ad4ffb55c32a69235179a945d007237811ff4e635c6648ba9c0bc96f2",
+      "sha256": "d4a5ae7ac2d7af1023167fcae11a61e7dc0ec891a9724d91393737a643de3a07",
       "mode": "100755"
     },
     {
@@ -214,7 +214,7 @@
     {
       "id": "ninja-apache-2.0-1.12.1",
       "relativePath": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
-      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698",
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea",
       "mode": "100644"
     },
     {
@@ -239,7 +239,7 @@
       {
         "fileId": "build-smoke",
         "relativePath": "bin/local-whisper-build-smoke",
-        "sha256": "c2e5725ad4ffb55c32a69235179a945d007237811ff4e635c6648ba9c0bc96f2",
+        "sha256": "d4a5ae7ac2d7af1023167fcae11a61e7dc0ec891a9724d91393737a643de3a07",
         "needed": [
           {
             "soname": "libcudart.so.12",
@@ -429,9 +429,9 @@
     ]
   },
   "relocation": {
-    "rootIdentity": "4c844a31e46c2411010f5f70c948607555d27ede67159dcd4ad686dff78c79f2",
-    "manifestSha256": "a4db884880771314447239de44bc9c4f2f016ecff116ae9320b8304ec35057a4",
-    "maliciousCwdIdentity": "9a4288909af278fc25d5603bcc02c697385cfe2acc04b7d9d086fefed6292c56",
+    "rootIdentity": "a60a57c0334951e7e92392eb21410bf5a403882f43b66d6bd12742839aea7b99",
+    "manifestSha256": "62095b91f39bc39a9eb52bc5dfc713009fe1d8d0704055043c08e378db17bc38",
+    "maliciousCwdIdentity": "c32b84d088f19fe53629420784f283097615074fc89d4c1e0bf9a2e1b7dee533",
     "environmentAllowlist": ["LANG", "LC_ALL", "PATH"],
     "inheritedEnvironmentKeys": [],
     "forbiddenVariablesAbsent": ["LD_LIBRARY_PATH", "LD_PRELOAD", "GGML_BACKEND_PATH"],
@@ -455,19 +455,19 @@
     "phases": [
       {
         "phase": "preflight",
-        "commandSha256": "ee91aff2a5e290cd0049261c7f60a2e970a954c61d7a2543ded90c54416be499",
+        "commandSha256": "3b2ea9a804d839f7f087f1b21f571c749d42649bfcc2f3198813cc7a0bc60693",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "configure",
-        "commandSha256": "69b9c81b2f1e3a7a26134fa790ea846465094e010155759d81582bf00086aaa4",
+        "commandSha256": "757749dfabefd521c89365adfd475bcb83237b76156b66e55deecf51dd0a8bd9",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "build",
-        "commandSha256": "baec4bd7fbce276e13bb4e019ee875ec287cdb6a979b3c721eda800bacb9b068",
+        "commandSha256": "c996a8fdb44686414111258f2e6362bb81ba24da6ff115f1e515c63628b9faac",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
@@ -479,7 +479,7 @@
       },
       {
         "phase": "relocated-clean-start",
-        "commandSha256": "30f5cd97a95e11f193cc277d4c2e7941ba1a5382a1b76aca14bc0385f1e0edc1",
+        "commandSha256": "cd5d86e6426392a6212c9ae22ea53143e6f7e11a57ab0b83b9544579e8e6d5e2",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       }
@@ -488,7 +488,7 @@
   "sanitizedEnvironment": {
     "allowlistedKeys": ["LANG", "LC_ALL", "PATH"],
     "inheritedKeys": [],
-    "environmentSha256": "5ec42c6829a2fb66efa4e54276f4f497f3c2baa0351b05f17926153aefce6555",
+    "environmentSha256": "a5b5470d9f070eec51c95a8dfd1fef6da146201589426d7b75e5e8c4ede9f4f5",
     "cwdPolicy": "owned-malicious-unrelated"
   }
 }

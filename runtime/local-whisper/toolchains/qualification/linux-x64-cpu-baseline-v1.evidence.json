@@ -2,7 +2,7 @@
   "$schema": "../schema/native-toolchain-evidence.schema.json",
   "schemaId": "local-whisper-native-toolchain-evidence-v1",
   "profileId": "linux-x64-cpu-baseline-v1",
-  "profileInputDigest": "b5d1050c4d10c5996c5060630af4894493e31352140504c99373135b05d3ccc6",
+  "profileInputDigest": "77acbb426ef56f61fb38fc7dbe37059725a8de6d7c12e6e939cfeeb64334049d",
   "inputs": {
     "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
     "patchLockIds": [],
@@ -104,7 +104,7 @@
     {
       "id": "ninja-apache-2.0-1.12.1",
       "path": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
-      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698"
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea"
     },
     {
       "id": "whisper-cpp-mit",
@@ -113,8 +113,8 @@
     }
   ],
   "configuredCacheSha256": "0c721b9ec473b5b06f82ae825ab4802e8918b506ad208f3b5685a8809cc15863",
-  "effectiveCacheSha256": "8d4e2eadaef9139170aee9b7f52f13a0d16dc4e9d9961f290acd85b30ec42037",
-  "generatedBuildGraphSha256": "0c387ab5d358ef0e8212db58dd974886e702b098fbebd92b7175a2963544adb2",
+  "effectiveCacheSha256": "cd823effd49ed0f08b2dc1d86d7e5568f92a58ae5036bb9979126190a0ed229b",
+  "generatedBuildGraphSha256": "11a66e5a53ff85b6c2165c0a94dda8c5f548eb6224be30780980a13fe86b221e",
   "generatedTargets": ["ggml-base", "ggml-cpu", "whisper", "local-whisper-build-smoke"],
   "executions": [
     {
@@ -133,7 +133,7 @@
     {
       "id": "build-smoke",
       "relativePath": "bin/local-whisper-build-smoke",
-      "sha256": "10e7ac89b5d4e1871d48ee77ab0744eb4c5a4c5404e801e02fac2851801414bc",
+      "sha256": "a656f0db9f830be6c4a78493056d6076cc61c4aa1d6ec6a339c671818614a196",
       "mode": "100755"
     },
     {
@@ -145,7 +145,7 @@
     {
       "id": "ninja-apache-2.0-1.12.1",
       "relativePath": "licenses/ninja-apache-2.0-1.12.1.LICENSE",
-      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698",
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea",
       "mode": "100644"
     },
     {
@@ -164,7 +164,7 @@
       {
         "fileId": "build-smoke",
         "relativePath": "bin/local-whisper-build-smoke",
-        "sha256": "10e7ac89b5d4e1871d48ee77ab0744eb4c5a4c5404e801e02fac2851801414bc",
+        "sha256": "a656f0db9f830be6c4a78493056d6076cc61c4aa1d6ec6a339c671818614a196",
         "needed": [
           {
             "soname": "libstdc++.so.6",
@@ -195,9 +195,9 @@
     ]
   },
   "relocation": {
-    "rootIdentity": "7495a3228af0fa504956a26ce42c2d9454d520a5e637424bf31e44464b309ab0",
-    "manifestSha256": "d2883cf389501b4b76307c8895f74e05fb8070c317feb6d9b6c28d98fcbe2533",
-    "maliciousCwdIdentity": "1ce9a7dcbf3589b15bd75f6f6e9bc6c949c71bf8b41f33bd7b45b89860a3c252",
+    "rootIdentity": "1af0a760d95d6802ca00131134b69e911c64fb94feacc79885216a9d06baf990",
+    "manifestSha256": "ae93f43219dd8ad775473b22d1d3e0d6efb8196c3a98645d6fb9bbdb531f75bd",
+    "maliciousCwdIdentity": "a088a75f371a1d1314d72d9e4b3323bb8ead6ed609a334a961634d4389276b55",
     "environmentAllowlist": ["LANG", "LC_ALL", "PATH"],
     "inheritedEnvironmentKeys": [],
     "forbiddenVariablesAbsent": ["LD_LIBRARY_PATH", "LD_PRELOAD", "GGML_BACKEND_PATH"],
@@ -221,19 +221,19 @@
     "phases": [
       {
         "phase": "preflight",
-        "commandSha256": "07996af06fb3d63457c110664227bd97992e47d83239ebc8649d9b8b9dc38200",
+        "commandSha256": "1de9f53dcdd742723b44c6527c2f1ea99b735307c155986ea59752fba90d2710",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "configure",
-        "commandSha256": "61c4d8ee62a3499c88d6b2265709562a3aa267aef2cdab196e5ff1f5cf993eef",
+        "commandSha256": "408acaabdaa786b873ac263f76268df6a4eb3ab2504a8bc67e117b7d6d223b38",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
       {
         "phase": "build",
-        "commandSha256": "ad1f3aa49c4032efec1d6f9744de5c001b32c65ac7d74a58311efe5d35939cd2",
+        "commandSha256": "5af2052b31de131cef78fcf5ef930b68b887f4ceddb64e59597525b9996f9ef6",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       },
@@ -245,7 +245,7 @@
       },
       {
         "phase": "relocated-clean-start",
-        "commandSha256": "3f8889f4552cd62515c3c1fe89073dd772c0cc7385cddd0c01a34f48fe65df41",
+        "commandSha256": "43890a9e3d3f65aff2a494b6297a01e6985b3c9fafed9559884a175f4ba6c016",
         "exitStatus": 0,
         "networkNamespace": "user-network-isolated"
       }
@@ -254,7 +254,7 @@
   "sanitizedEnvironment": {
     "allowlistedKeys": ["LANG", "LC_ALL", "PATH"],
     "inheritedKeys": [],
-    "environmentSha256": "cdbbbfe5d833411e7f774f7589d1efaa20bcab5b9879a7969cfdebfa4f01272a",
+    "environmentSha256": "facd8a3ebe158ea406490383f864560055fdadf5cca364a83daaa1b5a0ebb6b2",
     "cwdPolicy": "owned-malicious-unrelated"
   }
 }

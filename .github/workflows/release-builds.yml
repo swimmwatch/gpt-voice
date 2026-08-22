@@ -141,6 +141,9 @@ jobs:
           --cuda-root="$LOCAL_WHISPER_CUDA_ROOT"
           --destination-root="${{ github.workspace }}/.cache/local-whisper/toolchains"
 
+      - name: Provision exact Ninja 1.12.1 license
+        run: npm run provision:local-whisper:ninja-license
+
       - name: Provision verified Local Whisper native sources
         run: node scripts/local-whisper/provision-native-test-sources.mjs
 
@@ -222,6 +225,9 @@ jobs:
           --platform=win32 --cmake="$env:LOCAL_WHISPER_CMAKE" --ninja="$env:LOCAL_WHISPER_NINJA"
           --cuda-root="$env:LOCAL_WHISPER_CUDA_ROOT"
           --destination-root="${{ github.workspace }}\.cache\local-whisper\toolchains"
+
+      - name: Provision exact Microsoft VC Runtime license
+        run: npm run provision:local-whisper:windows-vc-runtime-license
 
       - name: Materialize exact Microsoft VC Runtime inputs
         run: npm run materialize:local-whisper:windows-vc-runtime -- --installed-runtime-proof=true

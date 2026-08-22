@@ -13,13 +13,14 @@ policy implementation remain inputs to Task 32; they do not prove production
 artifact construction, create a release, or produce a platform-smoke result.
 
 - [ ] [32 Complete production release pipeline](32_complete_production_release_pipeline.md) —
-      locally implemented with a verified, uncommitted hosted-toolchain repair.
-      The first protected nonpublishing run passed the input and signing
-      preflight but failed before construction because `get-cmake` exposes tool
-      directories; no candidate was created. After committing and pushing the
-      repair, a separately authorized GitHub-hosted run with `publish=false`
-      must construct and verify the real candidate. The default-off Task 33
-      publication path remains preserved.
+      locally implemented with verified, uncommitted Linux Ninja and Windows VC
+      Runtime license provisioning repairs. The official commit-pinned Ninja
+      `COPYING` identity replaced the historical extra-newline identity, and all
+      three Linux profiles were requalified through real disconnected builds.
+      Three earlier protected nonpublishing runs did not construct a candidate;
+      the repaired source revision still requires one protected rerun with
+      `publish=false`. The default-off Task 33 publication path remains
+      preserved.
 - [ ] [33 Release v2.4.0-alpha.1](33_release_v2_4_0_alpha_1.md) — executable
       only after Task 32 proves the complete production pipeline. Owns the
       combined alpha Build + Deploy operation, explicitly enables the guarded

@@ -348,7 +348,7 @@
       "id": "ninja-apache-2.0-1.12.1",
       "pathKind": "toolchainRootRelative",
       "path": "ninja-1.12.1/COPYING",
-      "sha256": "2a9c9aa5724cdeb0c2eae8bbfcc49aec16f8860775ae5707eb3b76a17446f698"
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea"
     },
     {
       "id": "cuda-eula-12.8.1",
@@ -365,6 +365,6 @@
   ],
   "sbomComponents": ["gcc-13.3.0", "cuda-12.8.1", "cmake-3.31.8", "ninja-1.12.1", "whisper-cpp-v1.9.1"],
   "qualificationState": "qualified",
-  "evidenceDigest": "477c3c8f9a92883fbc234d61a36399d96880d83e5a63e3dd7cce518d90aa5802",
+  "evidenceDigest": "2ce2940342e1e888b5868c8a03cfdf3dfe1c0abaff893d3810bf1778641a7c57",
   "minimumDriver": "570.26"
 }

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, realpathSync, symlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, symlinkSync } from 'node:fs';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -69,6 +69,18 @@ function requireContainedFile(root, file, label) {
   requireRegularFile(canonical, label);
 }
 
+function copyOwnedExecutable(root, source, directoryName, executableName) {
+  const directory = resolve(root, directoryName);
+  assertFreshChild(root, directory, directoryName);
+  mkdirSync(directory, { mode: 0o700 });
+  const destination = resolve(directory, executableName);
+  copyFileSync(source, destination);
+  requireRegularFile(destination, executableName);
+  if (!readFileSync(destination).equals(readFileSync(source))) {
+    throw new Error(`Hosted production toolchain ${executableName} changed while copying`);
+  }
+}
+
 /** Binds exact action-provisioned tools into the task-owned native toolchain root. */
 export class HostedProductionToolchainLinker {
   constructor({ platform = process.platform, versionReader = commandVersion } = {}) {
@@ -108,13 +120,13 @@ export class HostedProductionToolchainLinker {
     mkdirSync(root, { mode: 0o700, recursive: true });
     const links = [
       { destination: resolve(root, 'cmake-3.31.8'), source: dirname(dirname(cmakeExecutable)) },
-      { destination: resolve(root, 'ninja-1.12.1'), source: dirname(ninjaExecutable) },
       { destination: resolve(root, 'cuda-12.8.1'), source: cudaDirectory },
     ];
     for (const { destination, source } of links) {
       assertFreshChild(root, destination, basename(destination));
       symlinkSync(source, destination, platform === 'win32' ? 'junction' : 'dir');
     }
+    copyOwnedExecutable(root, ninjaExecutable, 'ninja-1.12.1', expectedNinjaName);
   }
 }
 
@@ -136,7 +148,7 @@ function main() {
     ninja: required('ninja'),
     platform: required('platform'),
   });
-  process.stdout.write('Hosted production CMake, Ninja, and CUDA inputs linked and version-checked\n');
+  process.stdout.write('Hosted production CMake, Ninja, and CUDA inputs bound and version-checked\n');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

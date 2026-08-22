@@ -98,8 +98,7 @@ implementation-readiness, packaging, workflow, Windows-reporting, security
 workflow, unit, type, lint (existing warnings only), formatting, production
 audit, production build, and `git diff --check`.
 
-Two protected nonpublishing attempts ran against source
-`76fdf5173efc95c8d54474d1854ca30035b7372a` and neither produced a candidate:
+Three protected nonpublishing attempts ran and none produced a candidate:
 
 - Run `32590116895` stopped before protected access because the supplied
   private label was invalid (`task-32-…`; the strict private format is
@@ -110,43 +109,61 @@ Two protected nonpublishing attempts ran against source
   `lukka/get-cmake` exposes CMake/Ninja directories while the linker required
   executable paths. The run was cancelled before any runtime archive,
   application package, bundle, candidate, tag, release, or publication.
+- Run `32591002895` ran against source
+  `d093bb0415c49957695ee89ad2d88df3254e23f9`; input validation and protected
+  Ed25519 preflight passed. Linux completed CMake/Ninja, CUDA 12.8.1, NVIDIA
+  driver user-space, and source provisioning but rejected the absent
+  `.cache/local-whisper/toolchains/ninja-1.12.1/COPYING` during deterministic
+  construction. Windows completed MSVC 14.39 installation, CMake/Ninja, CUDA
+  12.8.1, and MSVC 14.51 initialization but rejected the absent locked VC
+  Runtime license before materialization. No archive, application package,
+  bundle, candidate, tag, release, or publication was created.
 
-The uncommitted repair in
+Commit `d093bb04` resolves the documented action-output directories in
 `scripts/local-whisper/native-build/link-hosted-production-toolchain.mjs`
-resolves the documented action-output directories to their exact expected
-executables before retaining name, regular-file, and version checks. Its
-regression test is in
+to their exact expected executables before retaining name, regular-file, and
+version checks. Its regression test is in
 `tests/runtime/localWhisper/hostedToolchains/HostedProductionToolchainLinker.test.mjs`.
+The uncommitted repair adds one bounded verified raw-file materializer and
+dedicated Ninja/VC Runtime license provisioners. The production workflow now
+fetches only exact reviewed HTTPS origins before disconnected construction;
+redirects, unsafe destinations, failed downloads, changed sizes, and changed
+SHA-256 bytes fail closed. Ninja is copied into a task-owned directory so its
+commit-pinned `COPYING` can be materialized without trusting a symlink parent.
+The canonical Ninja source is commit
+`2daa09ba270b0a43e1929d29b073348aa985dfaa`, size `11358`, SHA-256
+`eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea`.
+The historical locked bytes were the same source with one extra terminal LF;
+all three Linux profiles and qualification evidence were regenerated through
+real network-isolated CPU, CUDA, and sanitizer builds rather than edited as
+synthetic evidence. Hosted-toolchain and release-policy tests require both
+provisioners.
 Candidate verification still hashes large archives and installers with
 descriptor-bound streams and sequential inventory admission, avoiding
 whole-candidate memory amplification on hosted runners.
 
-Before Task 32 can be marked complete, separately authorize and run the
-protected workflow on the selected GitHub-hosted Linux and Windows runners with
-`publish=false`. First commit and push the linker repair, then rerun the same
-protected construction. It must construct, sign, assemble, and verify the real
-complete candidate. Stop before Task 33 enables the preserved publication path
-for alpha source/tag/publication work.
+Before Task 32 can be marked complete, commit and push this production-input
+repair, then run the protected workflow on the selected GitHub-hosted Linux and
+Windows runners with `publish=false`. It must construct, sign, assemble, and
+verify the real complete candidate. Stop before Task 33 enables the preserved
+publication path for alpha source/tag/publication work.
 
 ## Blockers And Manual Gates
 
-- The immediate blocker is the uncommitted hosted-toolchain linker repair. A
-  separately authorized commit/push and protected `publish=false` rerun must
-  then confirm the pinned Ubuntu package, CUDA license files, MSVC 14.39
-  component, exact CMake/Ninja/CUDA/profile identities, and the real Windows
-  CPU/CUDA capture. Do not replace a failed locked identity with an observed
-  value merely to make the workflow pass.
+- The immediate blocker is the pending commit/push and protected
+  `publish=false` rerun. The current local repair is fully verified; no
+  production candidate has yet been constructed from it.
 - `local-whisper-production` now requires an approval from the sole maintainer
   and forbids admin bypass. Add a second reviewed collaborator and enable
   self-review prevention before any higher-assurance release process; this is
   not currently possible with only `swimmwatch` in the repository.
-- The two existing Task 32 commits were pushed and the two nonpublishing
-  workflow runs above were authorized. Future pushes, protected workflow
-  dispatches, release-branch/pull-request work, repository settings, signing,
-  preserving merge, tag, GitHub Release actions, uploads, publication,
-  physical tests, feedback selection, support promotion, and release remain
-  manual gates. No tag, GitHub Release, public upload, publication, or
-  physical platform test has been performed.
+- The three existing Task 32 commits were pushed and the three nonpublishing
+  workflow runs above were authorized. The current repair commit/push and one
+  protected nonpublishing rerun are also authorized. Release-branch/pull-request
+  work, repository settings, preserving merge, tag, GitHub Release actions,
+  uploads, publication, physical tests, feedback selection, support promotion,
+  and release remain manual gates. No tag, GitHub Release, public upload,
+  publication, or physical platform test has been performed.
 - Task 34 requires an authorized Linux RTX 50 host. Task 35 requires an
   authorized Windows RTX 50 host. Both consume only public same-tag alpha
   assets and keep private evidence outside the repository.

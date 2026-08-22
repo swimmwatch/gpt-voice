@@ -254,6 +254,14 @@ describe('Local Whisper release protocol', () => {
       /PRODUCTION_INPUTS_REQUIRED/u,
     );
     assert.throws(
+      () => verifier.verify(workflow.replace('provision:local-whisper:ninja-license', '')),
+      /PRODUCTION_INPUTS_REQUIRED/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace('provision:local-whisper:windows-vc-runtime-license', '')),
+      /PRODUCTION_INPUTS_REQUIRED/u,
+    );
+    assert.throws(
       () => verifier.verify(workflow.replace('permissions:\n  contents: read', 'permissions:\n  contents: write')),
       /MUTATION_FORBIDDEN/u,
     );
