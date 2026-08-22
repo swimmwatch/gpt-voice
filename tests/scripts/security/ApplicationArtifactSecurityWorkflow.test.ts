@@ -102,22 +102,87 @@ describe('Application artifact security workflow', () => {
     assert.doesNotMatch(attestation, /actions\/checkout|setup-ci-project|npm run/u);
   });
 
-  it('scans and attests immutable candidate artifacts before a non-clobbering tag and prerelease', async () => {
+  it('scans and attests immutable candidate artifacts before exact private-candidate verification', async () => {
     const workflow = await readWorkspaceFile('.github', 'workflows', 'release-builds.yml');
-    const attestation = workflow.slice(workflow.indexOf('  attest-release:'), workflow.indexOf('  publish:'));
-    const publish = workflow.slice(workflow.indexOf('  publish:'));
+    const attestation = workflow.slice(
+      workflow.indexOf('  attest-release:'),
+      workflow.indexOf('  verify-production-candidate:'),
+    );
+    const candidateVerification = workflow.slice(
+      workflow.indexOf('  verify-production-candidate:'),
+      workflow.indexOf('\n  publish:\n'),
+    );
+    const publication = workflow.slice(workflow.indexOf('\n  publish:\n') + 1);
+    const signingAuthority = workflow.slice(
+      workflow.indexOf('  verify-production-signing-authority:'),
+      workflow.indexOf('  build-linux-runtimes:'),
+    );
+    const bundleSigning = workflow.slice(
+      workflow.indexOf('  produce-production-bundles:'),
+      workflow.indexOf('  build-linux:'),
+    );
+    const linuxRuntime = workflow.slice(
+      workflow.indexOf('  build-linux-runtimes:'),
+      workflow.indexOf('  build-windows-runtimes:'),
+    );
+    const windowsRuntime = workflow.slice(
+      workflow.indexOf('  build-windows-runtimes:'),
+      workflow.indexOf('  produce-production-bundles:'),
+    );
+    const linuxApplication = workflow.slice(workflow.indexOf('  build-linux:'), workflow.indexOf('  build-windows:'));
+    const windowsApplication = workflow.slice(
+      workflow.indexOf('  build-windows:'),
+      workflow.indexOf('  verify-release-attestation-input:'),
+    );
 
     assert.match(workflow, /Generate and scan exact Linux release security evidence/u);
     assert.match(workflow, /Generate and scan exact Windows release security evidence/u);
     assert.match(workflow, /verify-release-attestation-input:[\s\S]*verify:security:package-attestation/u);
     assert.match(attestation, /needs:\n {6}- verify-release-attestation-input/u);
     assert.match(attestation, /release-assets\/\*/u);
+    assert.match(attestation, /runtime-assets\/\*\/\*\.tar\.gz/u);
     assert.match(attestation, /security-evidence\/\*/u);
     assert.match(attestation, /--signer-workflow "\$GH_REPO\/\.github\/workflows\/release-builds\.yml"/u);
-    assert.match(publish, /needs:\n {6}- build-linux\n {6}- build-windows\n {6}- attest-release/u);
-    assert.match(publish, /gh release create/u);
-    assert.match(publish, /--target "\$SOURCE_DIGEST"/u);
-    assert.match(publish, /Release tag already exists/u);
-    assert.doesNotMatch(workflow, /github\.event\.release|gh release upload|--clobber/u);
+    assert.match(candidateVerification, /- validate-production-inputs/u);
+    assert.match(candidateVerification, /- produce-production-bundles/u);
+    assert.match(candidateVerification, /- build-linux/u);
+    assert.match(candidateVerification, /- build-windows/u);
+    assert.match(candidateVerification, /- attest-release/u);
+    assert.match(candidateVerification, /construct:local-whisper:production-candidate/u);
+    assert.match(candidateVerification, /verify:local-whisper:production-candidate/u);
+    assert.match(candidateVerification, /--target-kind="\$TARGET_KIND"/u);
+    assert.match(candidateVerification, /--expected-target="\$CANDIDATE_TARGET"/u);
+    assert.doesNotMatch(candidateVerification, /CI_LOCAL_WHISPER_PRODUCTION_CANDIDATE_/u);
+    assert.match(candidateVerification, /gpt-voice-production-candidate/u);
+    assert.doesNotMatch(candidateVerification, /gh release|contents: write|--clobber/u);
+    assert.match(workflow, /build-linux:[\s\S]*environment: local-whisper-production/u);
+    assert.match(workflow, /build-windows:[\s\S]*environment: local-whisper-production/u);
+    assert.match(signingAuthority, /environment: local-whisper-production/u);
+    assert.match(signingAuthority, /verify:local-whisper:production-signing-authority/u);
+    assert.match(
+      signingAuthority,
+      /CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM: \$\{\{ secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM \}\}/u,
+    );
+    assert.match(bundleSigning, /construct:local-whisper:production-bundle/u);
+    assert.match(bundleSigning, /secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/u);
+    assert.match(candidateVerification, /secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/u);
+    assert.doesNotMatch(linuxRuntime, /secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/u);
+    assert.doesNotMatch(windowsRuntime, /secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/u);
+    assert.doesNotMatch(linuxApplication, /secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/u);
+    assert.doesNotMatch(windowsApplication, /secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/u);
+    assert.equal(workflow.match(/secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/gu)?.length, 3);
+    assert.match(candidateVerification, /environment: local-whisper-production/u);
+    assert.match(workflow, /publish:\n {8}description:[\s\S]*default: false\n {8}type: boolean/u);
+    assert.match(publication, /needs:\n {6}- verify-production-candidate/u);
+    assert.match(publication, /if: \$\{\{ inputs\.publish == true \}\}/u);
+    assert.match(publication, /permissions:\n {6}contents: write/u);
+    assert.match(publication, /gpt-voice-production-candidate-descriptor/u);
+    assert.match(publication, /verify:local-whisper:production-candidate/u);
+    assert.match(publication, /--target-kind=release/u);
+    assert.match(publication, /candidate_target/u);
+    assert.match(publication, /gh api "repos\/\$GH_REPO\/git\/ref\/tags\/\$RELEASE_TAG"/u);
+    assert.match(publication, /gh release view/u);
+    assert.match(publication, /gh release create/u);
+    assert.doesNotMatch(workflow, /github\.event\.release|--clobber/u);
   });
 });

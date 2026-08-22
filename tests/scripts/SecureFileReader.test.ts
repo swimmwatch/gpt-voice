@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { readVerifiedRegularFile } from '../../scripts/SecureFileReader';
+import { readVerifiedRegularFile, sha256VerifiedRegularFile } from '../../scripts/SecureFileReader';
 
 test('secure file reader returns bytes only after regular-file identity validation', async (context) => {
   const root = await mkdtemp(join(tmpdir(), 'gpt-voice-secure-file-reader-'));
@@ -14,9 +14,14 @@ test('secure file reader returns bytes only after regular-file identity validati
   await writeFile(filePath, 'fixture', { mode: 0o600 });
 
   const result = await readVerifiedRegularFile(filePath);
+  const digest = await sha256VerifiedRegularFile(filePath);
 
   assert.equal(result.bytes.toString('utf8'), 'fixture');
   assert.equal(result.sizeBytes, Buffer.byteLength('fixture'));
+  assert.deepEqual(digest, {
+    sha256: 'f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d',
+    sizeBytes: Buffer.byteLength('fixture'),
+  });
 });
 
 test('secure file reader rejects a directory before exposing bytes', async (context) => {
@@ -26,4 +31,5 @@ test('secure file reader rejects a directory before exposing bytes', async (cont
   await mkdir(directoryPath, { mode: 0o700 });
 
   await assert.rejects(() => readVerifiedRegularFile(directoryPath), /identity cannot be verified/u);
+  await assert.rejects(() => sha256VerifiedRegularFile(directoryPath), /identity cannot be verified/u);
 });

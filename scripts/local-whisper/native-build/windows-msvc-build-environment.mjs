@@ -48,8 +48,25 @@ function preparedDeveloperEnvironment(environment) {
 
 /** Builds the MSVC environment from a prepared developer prompt or pinned local toolchain. */
 export function resolveWindowsMsvcBuildEnvironment({ environment, includeCuda, toolchainRoot, tools }) {
-  const prepared = includeCuda ? null : preparedDeveloperEnvironment(environment);
-  if (prepared) return Object.freeze(prepared);
+  const prepared = preparedDeveloperEnvironment(environment);
+  if (prepared && !includeCuda) return Object.freeze(prepared);
+  if (prepared && includeCuda) {
+    const cudaRoot = requireDirectory(requiredEnvironmentValue(environment, 'CUDA_PATH'), 'CUDA root');
+    const cudaBinaryDirectory = requireDirectory(resolve(cudaRoot, 'bin'), 'CUDA binary directory');
+    return Object.freeze({
+      ...prepared,
+      CUDA_PATH: cudaRoot,
+      PATH: [cudaBinaryDirectory, prepared.PATH].join(';'),
+      Platform: 'x64',
+      VCINSTALLDIR: requiredEnvironmentValue(environment, 'VCINSTALLDIR'),
+      VCToolsInstallDir: requiredEnvironmentValue(environment, 'VCToolsInstallDir'),
+      VCToolsVersion: requiredEnvironmentValue(environment, 'VCToolsVersion'),
+      VisualStudioVersion: requiredEnvironmentValue(environment, 'VisualStudioVersion'),
+      VSCMD_ARG_HOST_ARCH: 'x64',
+      VSCMD_ARG_TGT_ARCH: 'x64',
+      VSINSTALLDIR: requiredEnvironmentValue(environment, 'VSINSTALLDIR'),
+    });
+  }
 
   const relativeCompiler = relative(toolchainRoot, tools.compiler);
   const [msvcDirectory] = relativeCompiler.split(sep);

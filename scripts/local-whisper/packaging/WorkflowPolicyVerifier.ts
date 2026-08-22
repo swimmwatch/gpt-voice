@@ -63,7 +63,13 @@ export class WorkflowPolicyVerifier {
       input.releaseWorkflow.includes('--mode=fixture') ||
       !input.releaseWorkflow.includes('verify:local-whisper:packaging:release-guard') ||
       !input.fedoraEntrypoint.includes('verify:local-whisper:packaging:release-guard') ||
-      input.fedoraEntrypoint.includes('--mode=fixture')
+      input.fedoraEntrypoint.includes('--mode=fixture') ||
+      input.releaseWorkflow.includes('--mode=disabled') ||
+      !input.releaseWorkflow.includes('--mode=production') ||
+      !input.releaseWorkflow.includes('LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR') ||
+      !input.releaseWorkflow.includes('construct:local-whisper:production-bundle') ||
+      !input.fedoraEntrypoint.includes('if (productionPackaging)') ||
+      !input.fedoraEntrypoint.includes('--mode=production')
     ) {
       throw new Error('Local Whisper release-collection guard coverage is incomplete');
     }

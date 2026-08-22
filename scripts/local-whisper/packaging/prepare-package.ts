@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 import process from 'node:process';
 
-import { parsePackageMode, parsePackagePlatform } from './contracts';
+import { isRecord, isSha256, parsePackageMode, parsePackagePlatform } from './contracts';
+import { readCanonicalJson } from './fileIntegrity';
 import { PackageStager, type LocalWhisperHelperInputs } from './PackageStager';
 import { assertOnlyOptions, parseOptions, requiredOption } from './arguments';
 
@@ -74,16 +75,34 @@ function buildHelpers(platform: 'darwin' | 'linux' | 'win32'): LocalWhisperHelpe
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
-  assertOnlyOptions(options, ['mode', 'platform', 'output', 'bundle', 'bundle-digest']);
+  assertOnlyOptions(options, ['mode', 'platform', 'output', 'bundle', 'bundle-digest', 'bundle-descriptor']);
   const mode = parsePackageMode(requiredOption(options, 'mode'));
   const platformInput = requiredOption(options, 'platform');
   const platform = parsePackagePlatform(platformInput === 'current' ? process.platform : platformInput);
+  const descriptorPath = options.get('bundle-descriptor');
+  if (descriptorPath && options.has('bundle-digest')) {
+    throw new Error('Production packaging accepts one frozen bundle digest authority');
+  }
+  let bundleDigest = options.get('bundle-digest');
+  if (descriptorPath) {
+    const descriptor = await readCanonicalJson(descriptorPath);
+    if (
+      !isRecord(descriptor) ||
+      descriptor.schemaVersion !== 1 ||
+      descriptor.purpose !== 'production' ||
+      descriptor.platform !== platform ||
+      !isSha256(descriptor.bundleManifestSha256)
+    ) {
+      throw new Error('Production bundle descriptor is invalid for the package platform');
+    }
+    bundleDigest = descriptor.bundleManifestSha256;
+  }
   const result = await new PackageStager().stage({
     mode,
     platform,
     outputDirectory: options.get('output') ?? path.join(workspaceRoot, 'build', 'generated', 'local-whisper'),
     bundleDirectory: options.get('bundle'),
-    expectedBundleManifestSha256: options.get('bundle-digest'),
+    expectedBundleManifestSha256: bundleDigest,
     helpers: buildHelpers(platform),
   });
   process.stdout.write(`${JSON.stringify({ mode, platform, packageManifestDigest: result.packageManifestSha256 })}\n`);

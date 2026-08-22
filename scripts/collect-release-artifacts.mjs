@@ -50,7 +50,7 @@ async function verifyLocalWhisperReleaseCollection() {
   } catch {
     throw new Error('Local Whisper package state is required before release collection');
   }
-  if (!['disabled', 'fixture', 'production'].includes(state.mode) || state.platform !== platform) {
+  if (state.mode !== 'production' || state.purpose !== 'production' || state.platform !== platform) {
     throw new Error('Local Whisper package state does not match release collection');
   }
   const arguments_ = [
@@ -62,7 +62,8 @@ async function verifyLocalWhisperReleaseCollection() {
     `--staging=${stagingDirectory}`,
   ];
   const productionBundle = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY;
-  if (productionBundle) arguments_.push(`--bundle=${productionBundle}`);
+  if (!productionBundle) throw new Error('Production Local Whisper bundle directory is required for release collection');
+  arguments_.push(`--bundle=${productionBundle}`);
   const verification = spawnSync(process.execPath, arguments_, {
     cwd: rootDir,
     encoding: 'utf8',

@@ -29,7 +29,6 @@ const REQUIRED_BUNDLE_FILES = [
   'catalog.sha256',
   'keyring.json',
   'licenses.json',
-  'model-pack.manifest.json',
   'notices.json',
   'provenance.json',
   'runtime-pack.manifest.json',
@@ -53,7 +52,7 @@ export interface LocalWhisperVerifiedBundle {
   readonly keyring: LocalWhisperKeyringDocument;
   readonly runtimePack: LocalWhisperPackManifest;
   readonly runtimePacks: readonly LocalWhisperPackManifest[];
-  readonly modelPack: LocalWhisperPackManifest;
+  readonly modelPack: LocalWhisperPackManifest | null;
 }
 
 function artifactId(value: string) {
@@ -174,34 +173,46 @@ function assertCatalogPackBindings(
   bundle: Pick<LocalWhisperVerifiedBundle, 'keyring' | 'manifest' | 'modelPack' | 'runtimePacks'>,
 ): void {
   if (catalog.payload.schemaVersion !== 2) return;
-  if (
-    bundle.keyring.appRevision !== bundle.modelPack.appRevision ||
-    bundle.modelPack.catalogRevision !== catalog.payload.catalogRevision ||
-    !catalog.payload.compatibleAppRevisions.some((revision) => revision === bundle.modelPack.appRevision)
-  ) {
-    throw new Error('Local Whisper model pack candidate identity is not cross-bound');
+  if (catalog.payload.purpose === 'production') {
+    if (
+      bundle.modelPack !== null ||
+      bundle.keyring.appRevision !== catalog.payload.compatibleAppRevisions[0] ||
+      catalog.payload.compatibleAppRevisions.length !== 1
+    ) {
+      throw new Error('Local Whisper production model distribution boundary mismatch');
+    }
+  } else {
+    const modelPack = bundle.modelPack;
+    if (
+      !modelPack ||
+      bundle.keyring.appRevision !== modelPack.appRevision ||
+      modelPack.catalogRevision !== catalog.payload.catalogRevision ||
+      !catalog.payload.compatibleAppRevisions.some((revision) => revision === modelPack.appRevision)
+    ) {
+      throw new Error('Local Whisper model pack candidate identity is not cross-bound');
+    }
+    const model = catalog.payload.models.find(
+      ({ identity }) => identity.artifactRevision === modelPack.artifactRevision,
+    );
+    const modelSource = model?.source;
+    if (
+      !model ||
+      !modelSource ||
+      modelPack.purpose !== catalog.payload.purpose ||
+      modelPack.platform !== 'portable' ||
+      modelPack.architecture !== 'portable' ||
+      modelPack.engine !== model.identity.engine ||
+      modelPack.target !== 'portable' ||
+      modelPack.backend !== 'notApplicable' ||
+      modelPack.sha256 !== model.transferSha256 ||
+      modelPack.sizeBytes !== model.transferSizeBytes ||
+      modelPack.source.commit !== modelSource.commit ||
+      modelPack.build.packDefinitionId !== model.transferProfile
+    ) {
+      throw new Error('Local Whisper catalog/model pack identity mismatch');
+    }
+    assertArchiveIdentity(modelPack, modelSource.file);
   }
-  const model = catalog.payload.models.find(
-    ({ identity }) => identity.artifactRevision === bundle.modelPack.artifactRevision,
-  );
-  const modelSource = model?.source;
-  if (
-    !model ||
-    !modelSource ||
-    bundle.modelPack.purpose !== catalog.payload.purpose ||
-    bundle.modelPack.platform !== 'portable' ||
-    bundle.modelPack.architecture !== 'portable' ||
-    bundle.modelPack.engine !== model.identity.engine ||
-    bundle.modelPack.target !== 'portable' ||
-    bundle.modelPack.backend !== 'notApplicable' ||
-    bundle.modelPack.sha256 !== model.transferSha256 ||
-    bundle.modelPack.sizeBytes !== model.transferSizeBytes ||
-    bundle.modelPack.source.commit !== modelSource.commit ||
-    bundle.modelPack.build.packDefinitionId !== model.transferProfile
-  ) {
-    throw new Error('Local Whisper catalog/model pack identity mismatch');
-  }
-  assertArchiveIdentity(bundle.modelPack, modelSource.file);
 
   if (
     bundle.runtimePacks.length !== catalog.payload.runtimes.length ||
@@ -244,7 +255,7 @@ function assertFixtureBoundary(bundle: LocalWhisperVerifiedBundle, fileText: str
     !bundle.manifest.keyId.startsWith(LOCAL_WHISPER_FIXTURE_KEY_PREFIX) ||
     bundle.keyring.origins.some((entry) => !entry.origin.endsWith(LOCAL_WHISPER_FIXTURE_ORIGIN_SUFFIX)) ||
     bundle.runtimePack.redistributionReview !== 'fixture-only' ||
-    bundle.modelPack.redistributionReview !== 'fixture-only' ||
+    bundle.modelPack?.redistributionReview !== 'fixture-only' ||
     PRIVATE_MATERIAL_PATTERN.test(fileText)
   ) {
     throw new Error('Local Whisper fixture trust boundary violation');
@@ -258,8 +269,8 @@ function assertProductionBoundary(bundle: LocalWhisperVerifiedBundle, fileText: 
     bundle.manifest.keyId.startsWith(LOCAL_WHISPER_FIXTURE_KEY_PREFIX) ||
     bundle.keyring.origins.some((entry) => entry.origin.endsWith(LOCAL_WHISPER_FIXTURE_ORIGIN_SUFFIX)) ||
     bundle.manifest.files.some((file) => /fixture|synthetic/iu.test(file.path)) ||
-    bundle.runtimePack.redistributionReview !== 'approved' ||
-    bundle.modelPack.redistributionReview !== 'approved' ||
+    bundle.runtimePacks.some((pack) => pack.redistributionReview !== 'approved') ||
+    bundle.modelPack !== null ||
     fileText.includes(SYNTHETIC_BYTES_MARKER) ||
     PRIVATE_MATERIAL_PATTERN.test(fileText)
   ) {
@@ -285,7 +296,7 @@ function assertQualificationBoundary(bundle: LocalWhisperVerifiedBundle, fileTex
     bundle.keyring.origins.length < 2 ||
     bundle.keyring.origins.some((entry) => !isQualificationOrigin(entry.origin)) ||
     bundle.runtimePack.redistributionReview !== 'pending' ||
-    bundle.modelPack.redistributionReview !== 'pending' ||
+    bundle.modelPack?.redistributionReview !== 'pending' ||
     PRIVATE_MATERIAL_PATTERN.test(fileText)
   ) {
     throw new Error('Local Whisper qualification trust boundary violation');
@@ -320,8 +331,11 @@ export class BundleVerifier {
     for (const requiredPath of REQUIRED_BUNDLE_FILES) {
       if (!actualPaths.has(requiredPath)) throw new Error(`Missing Local Whisper bundle file: ${requiredPath}`);
     }
-    if (manifest.purpose === 'qualification' && !actualPaths.has('runtime-cuda-pack.manifest.json')) {
-      throw new Error('Missing Local Whisper qualification CUDA runtime manifest');
+    if (manifest.purpose !== 'production' && !actualPaths.has('model-pack.manifest.json')) {
+      throw new Error('Missing Local Whisper fixture/qualification model manifest');
+    }
+    if (manifest.purpose !== 'fixture' && !actualPaths.has('runtime-cuda-pack.manifest.json')) {
+      throw new Error(`Missing Local Whisper ${manifest.purpose} CUDA runtime manifest`);
     }
     if (manifest.purpose === 'production' && !actualPaths.has('production-approval.json')) {
       throw new Error('Missing Local Whisper production approval');
@@ -336,27 +350,31 @@ export class BundleVerifier {
     if (keyring.purpose !== manifest.purpose) throw new Error('Local Whisper keyring purpose mismatch');
     const publicKeyPem = findPublicKey(keyring, manifest.keyId);
     const runtimePack = parsePackManifest(await readCanonicalJson(path.join(directory, 'runtime-pack.manifest.json')));
-    const modelPack = parsePackManifest(await readCanonicalJson(path.join(directory, 'model-pack.manifest.json')));
-    const qualificationCudaPack =
-      manifest.purpose === 'qualification'
+    const modelPack =
+      manifest.purpose === 'production'
+        ? null
+        : parsePackManifest(await readCanonicalJson(path.join(directory, 'model-pack.manifest.json')));
+    const cudaPack =
+      manifest.purpose !== 'fixture'
         ? parsePackManifest(await readCanonicalJson(path.join(directory, 'runtime-cuda-pack.manifest.json')))
         : null;
     if (
       runtimePack.artifactKind !== 'runtime' ||
-      modelPack.artifactKind !== 'model' ||
       runtimePack.purpose !== manifest.purpose ||
-      modelPack.purpose !== manifest.purpose ||
       runtimePack.signingKeyId !== manifest.keyId ||
-      modelPack.signingKeyId !== manifest.keyId
+      (modelPack !== null &&
+        (modelPack.artifactKind !== 'model' ||
+          modelPack.purpose !== manifest.purpose ||
+          modelPack.signingKeyId !== manifest.keyId))
     ) {
       throw new Error('Local Whisper pack purpose, kind, or key mismatch');
     }
     if (
-      qualificationCudaPack &&
-      (qualificationCudaPack.purpose !== 'qualification' ||
-        qualificationCudaPack.artifactKind !== 'runtime' ||
-        qualificationCudaPack.backend !== 'cuda' ||
-        qualificationCudaPack.signingKeyId !== manifest.keyId ||
+      cudaPack &&
+      (cudaPack.purpose !== manifest.purpose ||
+        cudaPack.artifactKind !== 'runtime' ||
+        cudaPack.backend !== 'cuda' ||
+        cudaPack.signingKeyId !== manifest.keyId ||
         runtimePack.backend !== 'cpu')
     ) {
       throw new Error('Local Whisper qualification runtime matrix mismatch');
@@ -365,8 +383,8 @@ export class BundleVerifier {
     const [catalog] = await Promise.all([
       verifyCatalog(directory, manifest, keyring),
       verifyPackSignature(directory, runtimePack, publicKeyPem),
-      ...(qualificationCudaPack ? [verifyPackSignature(directory, qualificationCudaPack, publicKeyPem)] : []),
-      verifyPackSignature(directory, modelPack, publicKeyPem),
+      ...(cudaPack ? [verifyPackSignature(directory, cudaPack, publicKeyPem)] : []),
+      ...(modelPack ? [verifyPackSignature(directory, modelPack, publicKeyPem)] : []),
       ...[
         ['licenses.json', 'licenses'],
         ['notices.json', 'notices'],
@@ -377,7 +395,7 @@ export class BundleVerifier {
       }),
     ]);
 
-    const runtimePacks = Object.freeze(qualificationCudaPack ? [runtimePack, qualificationCudaPack] : [runtimePack]);
+    const runtimePacks = Object.freeze(cudaPack ? [runtimePack, cudaPack] : [runtimePack]);
     const bundle = Object.freeze({
       directory,
       manifest,
@@ -408,7 +426,7 @@ export class BundleVerifier {
       approval.frozenCatalogSha256 !== bundle.manifest.catalogSha256 ||
       !approval.approvedSigningKeyIds.includes(bundle.manifest.keyId) ||
       bundle.keyring.origins.some((origin) => !approval.approvedOriginIds.includes(origin.id)) ||
-      [bundle.runtimePack, bundle.modelPack].some(
+      bundle.runtimePacks.some(
         (pack) =>
           !approval.approvedSourceLockIds.includes(pack.source.lockId) ||
           !approval.approvedToolchainProfileIds.includes(pack.build.toolchain) ||

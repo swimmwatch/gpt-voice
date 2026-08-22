@@ -31,7 +31,14 @@ async function selfTest(): Promise<void> {
       helpers,
     });
     const guard = new ReleaseCollectionGuard();
-    await guard.assertCollectable({ mode: 'disabled', platform: 'linux', stagingDirectory: disabledDirectory });
+    await guard.assertCollectable({ mode: 'disabled', platform: 'linux', stagingDirectory: disabledDirectory }).then(
+      () => {
+        throw new Error('Release guard accepted disabled Local Whisper authority');
+      },
+      (error: unknown) => {
+        if (!(error instanceof Error) || !error.message.includes('requires production')) throw error;
+      },
+    );
 
     const bundleDirectory = path.join(temporaryRoot, 'fixture-bundle');
     const fixture = await new FixtureBundleProducer().produce(bundleDirectory);
@@ -49,7 +56,7 @@ async function selfTest(): Promise<void> {
         throw new Error('Release guard accepted fixture trust');
       },
       (error: unknown) => {
-        if (!(error instanceof Error) || !error.message.includes('Fixture')) throw error;
+        if (!(error instanceof Error) || !error.message.includes('requires production')) throw error;
       },
     );
   } finally {

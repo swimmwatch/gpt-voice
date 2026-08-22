@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
 
 import { isSafeRelativePath, isSha256, type LocalWhisperBundleFile } from './contracts';
-import { readVerifiedRegularFile } from '../../SecureFileReader';
+import { readVerifiedRegularFile, sha256VerifiedRegularFile } from '../../SecureFileReader';
 
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
 
@@ -14,7 +14,7 @@ export function sha256Bytes(value: Uint8Array | string): string {
 }
 
 export async function sha256File(filePath: string): Promise<string> {
-  return sha256Bytes((await readVerifiedRegularFile(filePath)).bytes);
+  return (await sha256VerifiedRegularFile(filePath)).sha256;
 }
 
 export async function readCanonicalJson(filePath: string): Promise<unknown> {
@@ -47,11 +47,11 @@ export async function inspectFlatDirectory(
       throw new Error(`Unsafe Local Whisper bundle entry: ${entry.name}`);
     }
     const filePath = path.join(directory, entry.name);
-    const { bytes, sizeBytes } = await readVerifiedRegularFile(filePath);
+    const { sha256, sizeBytes } = await sha256VerifiedRegularFile(filePath);
     if (sizeBytes <= 0 || !Number.isSafeInteger(sizeBytes)) {
       throw new Error(`Invalid Local Whisper bundle file: ${entry.name}`);
     }
-    files.push(Object.freeze({ path: entry.name, sizeBytes, sha256: sha256Bytes(bytes) }));
+    files.push(Object.freeze({ path: entry.name, sizeBytes, sha256 }));
   }
   return files.sort((left, right) => left.path.localeCompare(right.path, 'en'));
 }

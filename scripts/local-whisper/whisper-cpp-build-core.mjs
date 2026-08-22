@@ -345,10 +345,13 @@ export function requiresPinnedWindowsToolchain(profile) {
 }
 
 /** Resolves the explicit, already-initialized MSVC tools used by hosted Windows quality CI. */
-export function resolvePreparedWindowsQualityTools(environment = process.env) {
+export function resolvePreparedWindowsQualityTools(environment = process.env, includeCuda = false) {
   const compiler = environment.CXX;
   const compilerDirectory = typeof compiler === 'string' && isAbsolute(compiler) ? dirname(compiler) : null;
   const sdkInputs = resolvePreparedWindowsSdkInputs(environment);
+  const cudaRoot = includeCuda ? environment.CUDA_PATH : null;
+  const cudaCompiler =
+    typeof cudaRoot === 'string' && isAbsolute(cudaRoot) ? resolve(cudaRoot, 'bin', 'nvcc.exe') : null;
   const values = {
     archiver: compilerDirectory === null ? null : resolve(compilerDirectory, 'lib.exe'),
     ctest: environment.CTEST_COMMAND,
@@ -366,7 +369,15 @@ export function resolvePreparedWindowsQualityTools(environment = process.env) {
       throw new Error(`Windows prepared native tool is unavailable: ${role}`);
     }
   }
-  return Object.freeze({ ...values, cudaCompiler: null, cudaHostCompiler: null, inputs: null });
+  if (includeCuda && (cudaCompiler === null || !existsSync(cudaCompiler))) {
+    throw new Error('Windows prepared CUDA compiler is unavailable');
+  }
+  return Object.freeze({
+    ...values,
+    cudaCompiler,
+    cudaHostCompiler: includeCuda ? compiler : null,
+    inputs: null,
+  });
 }
 
 /** Resolves the explicit Linux tools installed by the hosted native-quality workflow. */
@@ -454,7 +465,11 @@ export function configureBuild(
   },
 ) {
   const profileTemplate = requireProfile(profileId);
-  const pinnedWindowsToolchain = requiresPinnedWindowsToolchain(profileTemplate);
+  const preparedWindowsCuda =
+    profileTemplate.target.os === 'windows' &&
+    requiresPinnedWindowsToolchain(profileTemplate) &&
+    process.env.LOCAL_WHISPER_PREPARED_WINDOWS_CUDA === 'true';
+  const pinnedWindowsToolchain = requiresPinnedWindowsToolchain(profileTemplate) && !preparedWindowsCuda;
   const usePreparedLinuxQuality = profileTemplate.target.os === 'linux' && preparedLinuxQuality;
   const usePreparedWindowsQuality =
     profileTemplate.target.os === 'windows' && preparedWindowsQuality && !pinnedWindowsToolchain;
@@ -479,7 +494,7 @@ export function configureBuild(
   const tools = pinnedExecutionProfile
     ? profileTools(pinnedExecutionProfile)
     : usePreparedWindowsQuality || capturePreparedWindows
-      ? resolvePreparedWindowsQualityTools()
+      ? resolvePreparedWindowsQualityTools(process.env, preparedWindowsCuda)
       : usePreparedLinuxQuality
         ? resolvePreparedLinuxQualityTools(profileTemplate)
         : profileTools(profileTemplate);

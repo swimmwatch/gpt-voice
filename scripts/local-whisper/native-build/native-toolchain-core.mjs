@@ -498,6 +498,7 @@ export function capturePreparedWindowsInputLock(profile, { environment, toolchai
     ['c-compiler', tools.cCompiler],
     ['cmake', tools.cmake],
     ['cxx-compiler', tools.cxxCompiler],
+    ['cuda-compiler', tools.cudaCompiler],
     ['linker', tools.linker],
     ['manifest-tool', tools.manifestTool],
     ['ninja', tools.ninja],

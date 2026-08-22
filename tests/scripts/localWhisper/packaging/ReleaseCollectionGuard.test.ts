@@ -10,7 +10,7 @@ import { ReleaseCollectionGuard } from '@scripts/local-whisper/packaging/Release
 import { createSyntheticHelpers } from './packagingTestUtils';
 
 describe('Local Whisper release collection', () => {
-  it('allows explicit disabled staging and rejects fixture or incomplete production before collection', async () => {
+  it('rejects disabled and fixture staging before incomplete production inputs can reach collection', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-release-test-'));
     try {
       const stagingDirectory = path.join(root, 'disabled');
@@ -21,10 +21,13 @@ describe('Local Whisper release collection', () => {
         helpers: await createSyntheticHelpers(root),
       });
       const guard = new ReleaseCollectionGuard();
-      await guard.assertCollectable({ mode: 'disabled', platform: 'linux', stagingDirectory });
+      await assert.rejects(
+        guard.assertCollectable({ mode: 'disabled', platform: 'linux', stagingDirectory }),
+        /requires production/u,
+      );
       await assert.rejects(
         guard.assertCollectable({ mode: 'fixture', platform: 'linux', stagingDirectory }),
-        /Fixture/u,
+        /requires production/u,
       );
       await assert.rejects(
         guard.assertCollectable({ mode: 'production', platform: 'linux', stagingDirectory }),

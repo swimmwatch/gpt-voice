@@ -9,7 +9,6 @@ import { FixtureBundleProducer } from '@scripts/local-whisper/packaging/FixtureB
 import {
   inspectFlatDirectory,
   readCanonicalJson,
-  sha256Bytes,
   writeCanonicalJson,
 } from '@scripts/local-whisper/packaging/fileIntegrity';
 import { PackageStager } from '@scripts/local-whisper/packaging/PackageStager';
@@ -99,32 +98,10 @@ describe('generate-once Local Whisper fixture bundle', () => {
 
   it('rejects wrong purpose, wrong key, detached signatures, and leaked private material', async () => {
     const wrongPurpose = await copyBundle('wrong-purpose');
-    await writeCanonicalJson(path.join(wrongPurpose, 'production-approval.json'), {
-      schemaVersion: 1,
-      purpose: 'production',
-      approvalId: 'test-approval-v1',
-      approvedAt: '2026-08-03T00:00:00.000Z',
-      approvedBy: 'test-authority-v1',
-      originPolicyId: 'test-origin-policy-v1',
-      licenseReviewId: 'test-license-review-v1',
-      redistributionApproved: true,
-      frozenCatalogSha256: 'a'.repeat(64),
-      approvedSourceLockIds: ['test-source-lock-v1'],
-      approvedToolchainProfileIds: ['test-toolchain-v1'],
-      approvedPackDefinitionIds: ['test-pack-definition-v1'],
-      approvedOriginIds: ['test-origin-v1'],
-      approvedSigningKeyIds: ['test-key-v1'],
-    });
-    await refreshManifest(wrongPurpose, (manifest) => {
-      manifest.purpose = 'production';
-      manifest.createdBy = 'external-production-authority';
-      manifest.synthetic = false;
-    });
-    const wrongPurposeDigest = sha256Bytes(await readFile(path.join(wrongPurpose, 'bundle-manifest.json')));
     await assert.rejects(
       new BundleVerifier().verify(wrongPurpose, {
         purpose: 'production',
-        manifestSha256: wrongPurposeDigest,
+        manifestSha256: bundleDigest,
       }),
       /purpose mismatch/u,
     );

@@ -57,6 +57,8 @@ function namedStep(jobName: string, stepName: string): Readonly<Record<string, u
 
 test('Local Whisper uses independent native lanes with stable fail-closed platform gates', () => {
   const msvcAction = readFileSync(MSVC_ACTION_PATH, 'utf8');
+  const msvcActionInputs = record(record(parse(msvcAction), 'MSVC action').inputs, 'MSVC action inputs');
+  const msvcToolsetInput = record(msvcActionInputs['toolset-version'], 'MSVC toolset input');
   const linuxRows = matrixRows('native-linux-shards');
   const windowsRows = matrixRows('native-windows-shards');
 
@@ -117,9 +119,11 @@ test('Local Whisper uses independent native lanes with stable fail-closed platfo
   assert.doesNotMatch(nativeJobs, /continue-on-error/u);
   assert.doesNotMatch(workflowText, /ubuntu-22\.04|ubuntu-26\.04|windows-2022/u);
   assert.match(msvcAction, /vcvarsall\.bat/u);
-  assert.match(msvcAction, /VCToolsVersion.*14\.51/u);
+  assert.equal(msvcToolsetInput.default, '14.51');
+  assert.match(msvcAction, /\^14\\\.\(\?:39\|51\)\$/u);
+  assert.match(msvcAction, /VCToolsVersion.*\$toolsetVersion/u);
   assert.match(msvcAction, /\[regex\]::Match\(\$compilerBanner, 'Version\\s\+/u);
-  assert.match(msvcAction, /StartsWith\('19\.51\.'/u);
+  assert.match(msvcAction, /\$toolsetVersion -eq '14\.39'.*'19\.39\.'.*'19\.51\.'/u);
   assert.match(msvcAction, /\$env:PATH = \$values\['PATH'\]/u);
   assert.match(msvcAction, /Get-Command (?:cmake|ctest|cl|ninja)\.exe/u);
 });

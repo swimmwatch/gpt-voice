@@ -5,7 +5,7 @@ import { BundleVerifier } from './BundleVerifier';
 import { readCanonicalJson } from './fileIntegrity';
 import { PackagePolicyInspector } from './PackagePolicyInspector';
 
-/** Rejects fixture trust and incomplete production authority before release artifact collection. */
+/** Admits only verified production authority before private release-candidate collection. */
 export class ReleaseCollectionGuard {
   private readonly bundleVerifier = new BundleVerifier();
   private readonly packageInspector = new PackagePolicyInspector();
@@ -17,18 +17,14 @@ export class ReleaseCollectionGuard {
     readonly productionBundleDirectory?: string;
   }): Promise<void> {
     const mode = parsePackageMode(input.mode);
-    if (mode === 'fixture') throw new Error('Fixture Local Whisper trust cannot enter release collection');
-    if (mode === 'qualification') throw new Error('Qualification Local Whisper trust cannot enter release collection');
+    if (mode !== 'production') {
+      throw new Error('Release collection requires production Local Whisper authority');
+    }
     await this.packageInspector.inspect({
       directory: input.stagingDirectory,
       mode,
       platform: input.platform,
     });
-    if (mode === 'disabled') {
-      if (input.productionBundleDirectory)
-        throw new Error('Disabled release collection rejects production bundle inputs');
-      return;
-    }
     if (!input.productionBundleDirectory)
       throw new Error('Production release collection requires approved frozen inputs');
     const state = await readCanonicalJson(path.join(input.stagingDirectory, 'shared', 'catalog-state.json'));

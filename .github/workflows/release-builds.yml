@@ -1,11 +1,20 @@
-name: Build Release Artifacts
+name: Build Private Production Candidate
 
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: Immutable SemVer tag to create from the verified candidate head.
+      candidate_label:
+        description: Private, non-versioned label for the protected candidate evidence.
         required: true
+        type: string
+      publish:
+        description: Publish the verified candidate as an immutable GitHub Release. Task 32 leaves this false.
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: Immutable SemVer tag required when publication is explicitly enabled.
+        required: false
         type: string
 
 permissions:
@@ -24,10 +33,303 @@ env:
   NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
 
 jobs:
-  build-linux:
-    name: Build Fedora Linux x64
+  validate-production-inputs:
+    name: Validate Production Construction Inputs
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      app-revision: ${{ steps.resolve.outputs.app_revision }}
+      candidate-target: ${{ steps.resolve.outputs.candidate_target }}
+      target-kind: ${{ steps.resolve.outputs.target_kind }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Resolve the private or explicitly enabled release target
+        id: resolve
+        env:
+          LOCAL_WHISPER_WORKFLOW_CANDIDATE_LABEL: ${{ inputs.candidate_label }}
+          LOCAL_WHISPER_WORKFLOW_PUBLISH: ${{ inputs.publish }}
+          LOCAL_WHISPER_WORKFLOW_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: npm run verify:local-whisper:production-workflow-inputs
+
+  verify-production-signing-authority:
+    name: Verify Protected Production Signing Authority
+    needs: validate-production-inputs
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 10
+    environment: local-whisper-production
+    permissions:
+      contents: read
+    env:
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_ID: ${{ vars.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_ID }}
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM: ${{ secrets.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM }}
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_PUBLIC_KEY_PEM: ${{ vars.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_PUBLIC_KEY_PEM }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Verify protected Ed25519 signing authority
+        run: npm run verify:local-whisper:production-signing-authority
+
+  build-linux-runtimes:
+    name: Build Linux Local Whisper Runtimes
+    needs: verify-production-signing-authority
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_LINUX_TIMEOUT_MINUTES) }}
+    environment: local-whisper-production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Provision exact CMake and Ninja
+        id: native-tools
+        uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+        with:
+          cmakeVersion: 3.31.8
+          ninjaVersion: 1.12.1
+          useCloudCache: true
+          useLocalCache: false
+
+      - name: Provision exact CUDA 12.8.1 toolkit
+        id: cuda-toolkit
+        uses: Jimver/cuda-toolkit@b8bf9c6c28f8a92fbb04dcfcaee872e60c57462d # v0.2.36
+        with:
+          cuda: 12.8.1
+          method: local
+          use-github-cache: true
+          use-local-cache: false
+
+      - name: Provision exact NVIDIA driver user-space link authority
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes libnvidia-compute-595=595.84-0ubuntu0.24.04.1
+
+      - name: Bind action-provisioned native tools to the reviewed profile paths
+        env:
+          LOCAL_WHISPER_CMAKE: ${{ steps.native-tools.outputs.cmake-path }}
+          LOCAL_WHISPER_CUDA_ROOT: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+          LOCAL_WHISPER_NINJA: ${{ steps.native-tools.outputs.ninja-path }}
+        run: >-
+          node scripts/local-whisper/native-build/link-hosted-production-toolchain.mjs
+          --platform=linux --cmake="$LOCAL_WHISPER_CMAKE" --ninja="$LOCAL_WHISPER_NINJA"
+          --cuda-root="$LOCAL_WHISPER_CUDA_ROOT"
+          --destination-root="${{ github.workspace }}/.cache/local-whisper/toolchains"
+
+      - name: Provision verified Local Whisper native sources
+        run: node scripts/local-whisper/provision-native-test-sources.mjs
+
+      - name: Construct reproducible Linux CPU and RTX 50 runtime archives
+        run: |
+          node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cpu --platform=linux
+          npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=linux --target=cpu --first-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-b --output=release-artifacts/local-whisper-runtimes/linux/cpu
+          node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cuda --platform=linux
+          npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=linux --target=sm_120a-real --first-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-b --output=release-artifacts/local-whisper-runtimes/linux/sm_120a-real
+
+      - name: Upload exact Linux runtime archive inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-local-whisper-runtimes-linux
+          path: release-artifacts/local-whisper-runtimes/linux
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+  build-windows-runtimes:
+    name: Build Windows Local Whisper Runtimes
+    needs: verify-production-signing-authority
+    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}
+    environment: local-whisper-production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Install the exact CUDA-compatible MSVC toolset
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if ([string]::IsNullOrWhiteSpace($installationPath)) { throw 'Visual Studio C++ build tools are unavailable' }
+          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\setup.exe'
+          & $installer modify --installPath $installationPath --add Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64 --quiet --norestart --nocache
+          if ($LASTEXITCODE -ne 0) { throw 'Exact MSVC 14.39 toolset installation failed' }
+
+      - name: Provision exact CMake and Ninja
+        id: native-tools
+        uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+        with:
+          cmakeVersion: 3.31.8
+          ninjaVersion: 1.12.1
+          useCloudCache: true
+          useLocalCache: false
+
+      - name: Provision exact CUDA 12.8.1 toolkit
+        id: cuda-toolkit
+        uses: Jimver/cuda-toolkit@b8bf9c6c28f8a92fbb04dcfcaee872e60c57462d # v0.2.36
+        with:
+          cuda: 12.8.1
+          method: local
+          use-github-cache: true
+          use-local-cache: false
+
+      - name: Initialize exact MSVC 14.51 developer environment
+        uses: ./.github/actions/initialize-msvc-environment
+        with:
+          toolset-version: '14.51'
+
+      - name: Bind action-provisioned native tools to the reviewed profile paths
+        shell: pwsh
+        env:
+          LOCAL_WHISPER_CMAKE: ${{ steps.native-tools.outputs.cmake-path }}
+          LOCAL_WHISPER_CUDA_ROOT: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+          LOCAL_WHISPER_NINJA: ${{ steps.native-tools.outputs.ninja-path }}
+        run: >-
+          node scripts/local-whisper/native-build/link-hosted-production-toolchain.mjs
+          --platform=win32 --cmake="$env:LOCAL_WHISPER_CMAKE" --ninja="$env:LOCAL_WHISPER_NINJA"
+          --cuda-root="$env:LOCAL_WHISPER_CUDA_ROOT"
+          --destination-root="${{ github.workspace }}\.cache\local-whisper\toolchains"
+
+      - name: Materialize exact Microsoft VC Runtime inputs
+        run: npm run materialize:local-whisper:windows-vc-runtime -- --installed-runtime-proof=true
+
+      - name: Provision verified Local Whisper native sources
+        run: node scripts/local-whisper/provision-native-test-sources.mjs
+
+      - name: Construct reproducible Windows CPU runtime archive
+        shell: pwsh
+        run: |
+          node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cpu --platform=win32
+          npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=win32 --target=cpu --first-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-b --output=release-artifacts/local-whisper-runtimes/win32/cpu
+
+      - name: Initialize exact MSVC 14.39 developer environment
+        uses: ./.github/actions/initialize-msvc-environment
+        with:
+          toolset-version: '14.39'
+
+      - name: Construct reproducible Windows RTX 50 runtime archive
+        shell: pwsh
+        env:
+          LOCAL_WHISPER_PREPARED_WINDOWS_CUDA: 'true'
+        run: |
+          node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cuda --platform=win32
+          npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=win32 --target=sm_120a-real --first-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-b --output=release-artifacts/local-whisper-runtimes/win32/sm_120a-real
+
+      - name: Upload exact Windows runtime archive inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-local-whisper-runtimes-win32
+          path: release-artifacts/local-whisper-runtimes/win32
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+  produce-production-bundles:
+    name: Produce Signed Production Bundles
+    needs:
+      - validate-production-inputs
+      - build-linux-runtimes
+      - build-windows-runtimes
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 20
+    environment: local-whisper-production
+    permissions:
+      contents: read
+    env:
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_ID: ${{ vars.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_ID }}
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM: ${{ secrets.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM }}
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_PUBLIC_KEY_PEM: ${{ vars.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_PUBLIC_KEY_PEM }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Download exact Linux runtime archive inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-runtimes-linux
+          path: runtime-inputs/linux
+
+      - name: Download exact Windows runtime archive inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-runtimes-win32
+          path: runtime-inputs/win32
+
+      - name: Produce signed Linux and Windows bundles
+        env:
+          APP_REVISION: ${{ needs.validate-production-inputs.outputs.app-revision }}
+          APPROVED_BY: ${{ github.actor }}
+          CANDIDATE_TARGET: ${{ needs.validate-production-inputs.outputs.candidate-target }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          approved_at="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+          npm run construct:local-whisper:production-bundle -- --platform=linux --source-commit="$SOURCE_COMMIT" --app-revision="$APP_REVISION" --release-target="$CANDIDATE_TARGET" --approved-at="$approved_at" --approved-by="$APPROVED_BY" --cpu-runtime=runtime-inputs/linux/cpu --cuda-runtime=runtime-inputs/linux/sm_120a-real --output=production-bundles/linux/bundle --descriptor=production-bundles/linux/bundle-descriptor.json
+          npm run construct:local-whisper:production-bundle -- --platform=win32 --source-commit="$SOURCE_COMMIT" --app-revision="$APP_REVISION" --release-target="$CANDIDATE_TARGET" --approved-at="$approved_at" --approved-by="$APPROVED_BY" --cpu-runtime=runtime-inputs/win32/cpu --cuda-runtime=runtime-inputs/win32/sm_120a-real --output=production-bundles/win32/bundle --descriptor=production-bundles/win32/bundle-descriptor.json
+
+      - name: Upload exact signed Linux production bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-local-whisper-bundle-linux
+          path: production-bundles/linux
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+      - name: Upload exact signed Windows production bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-local-whisper-bundle-win32
+          path: production-bundles/win32
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+  build-linux:
+    name: Build Fedora Linux x64
+    needs: produce-production-bundles
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_LINUX_TIMEOUT_MINUTES) }}
+    environment: local-whisper-production
+    env:
+      LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR: ${{ github.workspace }}/production-bundle/bundle-descriptor.json
+      LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY: ${{ github.workspace }}/production-bundle/bundle
 
     steps:
       - name: Checkout
@@ -38,8 +340,14 @@ jobs:
       - name: Set up project
         uses: ./.github/actions/setup-ci-project
         with:
-          install-dependencies: 'false'
+          install-dependencies: 'true'
           node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Download exact signed Linux production bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-bundle-linux
+          path: production-bundle
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
@@ -106,8 +414,13 @@ jobs:
 
   build-windows:
     name: Build Windows x64
+    needs: produce-production-bundles
     runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}
+    environment: local-whisper-production
+    env:
+      LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR: ${{ github.workspace }}\production-bundle\bundle-descriptor.json
+      LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY: ${{ github.workspace }}\production-bundle\bundle
 
     steps:
       - name: Checkout
@@ -120,6 +433,15 @@ jobs:
         uses: ./.github/actions/setup-ci-project
         with:
           node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Initialize MSVC developer environment
+        uses: ./.github/actions/initialize-msvc-environment
+
+      - name: Download exact signed Windows production bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-bundle-win32
+          path: production-bundle
 
       - name: Cache Electron and CloakBrowser binaries
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -176,8 +498,12 @@ jobs:
       - name: Generate package metadata
         run: npm run generate:package-metadata
 
-      - name: Prepare disabled Local Whisper package resources
-        run: npm run prepare:local-whisper:packaging -- --mode=disabled --platform=win32
+      - name: Prepare verified production Local Whisper package resources
+        shell: pwsh
+        run: >-
+          npm run prepare:local-whisper:packaging -- --mode=production --platform=win32
+          --bundle="$env:LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY"
+          --bundle-descriptor="$env:LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR"
 
       - name: Package app
         env:
@@ -200,8 +526,11 @@ jobs:
       - name: Measure Windows cold startup
         run: npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
 
-      - name: Guard Local Whisper release collection
-        run: npm run verify:local-whisper:packaging:release-guard -- --mode=disabled --platform=win32 --staging=build/generated/local-whisper
+      - name: Guard verified production Local Whisper release collection
+        shell: pwsh
+        run: >-
+          npm run verify:local-whisper:packaging:release-guard -- --mode=production --platform=win32
+          --staging=build/generated/local-whisper --bundle="$env:LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY"
 
       - name: Collect installer artifacts
         run: npm run collect:release-artifacts -- --platform=win32
@@ -330,6 +659,12 @@ jobs:
           name: gpt-voice-${{ matrix.artifactPlatform }}
           path: release-assets
 
+      - name: Download exact Local Whisper runtime candidate bytes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-runtimes-${{ matrix.artifactPlatform }}
+          path: runtime-assets
+
       - name: Download exact release security evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -347,6 +682,7 @@ jobs:
             attestation-subjects/subject/scanner
             attestation-subjects/subject/smoke
             release-assets/*
+            runtime-assets/*/*.tar.gz
             security-evidence/*
 
       - name: Verify exact release provenance identities
@@ -365,6 +701,7 @@ jobs:
             attestation-subjects/subject/scanner
             attestation-subjects/subject/smoke
             release-assets/*
+            runtime-assets/*/*.tar.gz
             security-evidence/*
           )
           if (( ${#subjects[@]} < 8 )); then
@@ -383,43 +720,177 @@ jobs:
               --predicate-type https://slsa.dev/provenance/v1 >/dev/null
           done
 
-  publish:
-    name: Create Immutable GitHub Release
-    permissions:
-      contents: write
+  verify-production-candidate:
+    name: Assemble and Verify Production Candidate
     needs:
+      - validate-production-inputs
+      - build-linux-runtimes
+      - build-windows-runtimes
+      - produce-production-bundles
       - build-linux
       - build-windows
       - attest-release
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_PUBLISH_TIMEOUT_MINUTES) }}
-
+    environment: local-whisper-production
+    permissions:
+      contents: read
+    env:
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_ID: ${{ vars.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_ID }}
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM: ${{ secrets.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM }}
+      CI_LOCAL_WHISPER_PRODUCTION_SIGNING_PUBLIC_KEY_PEM: ${{ vars.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_PUBLIC_KEY_PEM }}
     steps:
-      - name: Download verified Linux candidate
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Download exact Linux application candidates
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: gpt-voice-linux
-          path: release-assets
+          path: candidate-inputs/applications/linux
 
-      - name: Download verified Windows candidate
+      - name: Download exact Windows application candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: gpt-voice-win32
+          path: candidate-inputs/applications/win32
+
+      - name: Download exact Linux runtime archive inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-runtimes-linux
+          path: candidate-inputs/runtimes/linux
+
+      - name: Download exact Windows runtime archive inputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-runtimes-win32
+          path: candidate-inputs/runtimes/win32
+
+      - name: Download exact signed Linux production bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-bundle-linux
+          path: candidate-inputs/bundles/linux
+
+      - name: Download exact signed Windows production bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-local-whisper-bundle-win32
+          path: candidate-inputs/bundles/win32
+
+      - name: Assemble the exact signed private or release candidate
+        env:
+          CANDIDATE_TARGET: ${{ needs.validate-production-inputs.outputs.candidate-target }}
+        run: >-
+          npm run construct:local-whisper:production-candidate --
+          --source-commit=${{ github.sha }} --candidate-target="$CANDIDATE_TARGET"
+          --linux-applications=candidate-inputs/applications/linux
+          --windows-applications=candidate-inputs/applications/win32
+          --linux-runtimes=candidate-inputs/runtimes/linux
+          --windows-runtimes=candidate-inputs/runtimes/win32
+          --linux-bundle=candidate-inputs/bundles/linux/bundle
+          --linux-bundle-descriptor=candidate-inputs/bundles/linux/bundle-descriptor.json
+          --windows-bundle=candidate-inputs/bundles/win32/bundle
+          --windows-bundle-descriptor=candidate-inputs/bundles/win32/bundle-descriptor.json
+          --output=candidate-output/assets --candidate=candidate-output/candidate.json
+
+      - name: Verify exact private production candidate inventory
+        env:
+          CANDIDATE_TARGET: ${{ needs.validate-production-inputs.outputs.candidate-target }}
+          TARGET_KIND: ${{ needs.validate-production-inputs.outputs.target-kind }}
+        run: >-
+          npm run verify:local-whisper:production-candidate --
+          --artifacts=candidate-output/assets --candidate=candidate-output/candidate.json
+          --expected-target="$CANDIDATE_TARGET" --target-kind="$TARGET_KIND"
+
+      - name: Preserve exact verified production candidate bytes
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-production-candidate
+          path: candidate-output/assets
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
+
+      - name: Preserve verified production candidate descriptor
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-production-candidate-descriptor
+          path: candidate-output/candidate.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
+
+  publish:
+    name: Publish Immutable GitHub Release
+    needs:
+      - verify-production-candidate
+    if: ${{ inputs.publish == true }}
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_PUBLISH_TIMEOUT_MINUTES) }}
+    environment: local-whisper-production
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Download exact verified production candidate bytes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-production-candidate
           path: release-assets
 
-      - name: Create the absent immutable tag and prerelease
+      - name: Download verified production candidate descriptor
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: gpt-voice-production-candidate-descriptor
+          path: candidate-descriptor
+
+      - name: Reverify the exact publication candidate and tag binding
         shell: bash
         env:
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
-          SOURCE_DIGEST: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "Release tag is invalid" >&2
             exit 1
           fi
+          mapfile -d '' candidate_descriptors < <(find candidate-descriptor -type f -print0)
+          if (( ${#candidate_descriptors[@]} != 1 )); then
+            echo "Production candidate descriptor inventory is invalid" >&2
+            exit 1
+          fi
+          candidate_target="$(node -e 'const fs = require("node:fs"); const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (typeof value.target !== "string") process.exit(1); process.stdout.write(value.target);' "${candidate_descriptors[0]}")"
+          if [[ "$candidate_target" != "$RELEASE_TAG" ]]; then
+            echo "Release tag does not match the verified production candidate" >&2
+            exit 1
+          fi
+          npm run verify:local-whisper:production-candidate -- \
+            --artifacts=release-assets --candidate="${candidate_descriptors[0]}" \
+            --expected-target="$RELEASE_TAG" --target-kind=release
+
+      - name: Create the absent immutable tag and publish the complete release
+        shell: bash
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_DIGEST: ${{ github.sha }}
+        run: |
           if gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Release tag already exists" >&2
             exit 1
@@ -429,13 +900,17 @@ jobs:
             exit 1
           fi
           mapfile -d '' files < <(find release-assets -type f -print0 | sort -z)
-          if [ "${#files[@]}" -eq 0 ]; then
+          if (( ${#files[@]} == 0 )); then
             echo "Release asset inventory is empty" >&2
             exit 1
+          fi
+          release_flags=()
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            release_flags+=(--prerelease)
           fi
           gh release create "$RELEASE_TAG" "${files[@]}" \
             --repo "$GH_REPO" \
             --target "$SOURCE_DIGEST" \
-            --prerelease \
+            "${release_flags[@]}" \
             --title "GPT-Voice $RELEASE_TAG" \
             --notes "Install GPT-Voice by downloading the package for your operating system below."

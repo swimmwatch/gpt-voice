@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto';
 import type { Stats } from 'node:fs';
-import { lstat, open } from 'node:fs/promises';
+import { lstat, open, type FileHandle } from 'node:fs/promises';
 
 function hasNativeFileIdentity(value: Stats): boolean {
   return value.dev !== 0 && value.ino !== 0;
@@ -26,8 +27,15 @@ export interface VerifiedRegularFile {
   readonly sizeBytes: number;
 }
 
-/** Reads one final regular file through an already-open descriptor and verifies the path still resolves to it. */
-export async function readVerifiedRegularFile(filePath: string): Promise<VerifiedRegularFile> {
+export interface VerifiedRegularFileDigest {
+  readonly sha256: string;
+  readonly sizeBytes: number;
+}
+
+async function consumeVerifiedRegularFile<T>(
+  filePath: string,
+  consume: (handle: FileHandle) => Promise<T>,
+): Promise<Readonly<{ readonly result: T; readonly sizeBytes: number }>> {
   const handle = await open(filePath, 'r');
   try {
     const opened = await handle.stat();
@@ -35,11 +43,31 @@ export async function readVerifiedRegularFile(filePath: string): Promise<Verifie
     if (!opened.isFile() || !linked.isFile() || linked.isSymbolicLink() || !hasSameFileIdentity(opened, linked)) {
       throw new Error('Opened file identity cannot be verified');
     }
-    const bytes = Buffer.from(await handle.readFile());
+    const result = await consume(handle);
     const confirmed = await handle.stat();
     if (!hasUnchangedFileMetadata(opened, confirmed)) throw new Error('Opened file changed while being read');
-    return Object.freeze({ bytes, sizeBytes: confirmed.size });
+    return Object.freeze({ result, sizeBytes: confirmed.size });
   } finally {
     await handle.close();
   }
+}
+
+/** Reads one final regular file through an already-open descriptor and verifies the path still resolves to it. */
+export async function readVerifiedRegularFile(filePath: string): Promise<VerifiedRegularFile> {
+  const consumed = await consumeVerifiedRegularFile(filePath, async (handle) => Buffer.from(await handle.readFile()));
+  return Object.freeze({ bytes: consumed.result, sizeBytes: consumed.sizeBytes });
+}
+
+/** Streams one final regular file through an already-open descriptor and verifies its stable SHA-256 identity. */
+export async function sha256VerifiedRegularFile(filePath: string): Promise<VerifiedRegularFileDigest> {
+  const consumed = await consumeVerifiedRegularFile(filePath, async (handle) => {
+    const hash = createHash('sha256');
+    for await (const chunk of handle.createReadStream({ autoClose: false })) {
+      const bytes: unknown = chunk;
+      if (!(bytes instanceof Uint8Array)) throw new Error('Opened file produced a non-binary chunk');
+      hash.update(bytes);
+    }
+    return hash.digest('hex');
+  });
+  return Object.freeze({ sha256: consumed.result, sizeBytes: consumed.sizeBytes });
 }

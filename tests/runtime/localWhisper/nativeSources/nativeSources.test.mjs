@@ -611,6 +611,44 @@ test('Windows native checks use a prepared developer environment without a cache
   assert.equal(environment.PATH, resolve(root, 'bin'));
 });
 
+test('Windows hosted CUDA builds extend the prepared MSVC environment with the exact CUDA root', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-hosted-cuda-environment-'));
+  const directories = Object.fromEntries(
+    ['include', 'lib', 'libpath', 'bin', 'cuda/bin', 'Windows', 'Visual Studio', 'Visual Studio/VC'].map((name) => {
+      const path = resolve(root, name);
+      mkdirSync(path, { recursive: true });
+      return [name, path];
+    }),
+  );
+  const environment = resolveWindowsMsvcBuildEnvironment({
+    environment: {
+      CUDA_PATH: resolve(root, 'cuda'),
+      INCLUDE: directories.include,
+      LIB: directories.lib,
+      LIBPATH: directories.libpath,
+      PATH: directories.bin,
+      SystemRoot: directories.Windows,
+      TEMP: resolve(root, 'temp'),
+      TMP: resolve(root, 'temp'),
+      VCINSTALLDIR: directories['Visual Studio/VC'],
+      VCToolsInstallDir: resolve(root, 'Visual Studio', 'VC', 'Tools', 'MSVC', '14.39.33519'),
+      VCToolsVersion: '14.39.33519',
+      VisualStudioVersion: '17.0',
+      VSINSTALLDIR: directories['Visual Studio'],
+      WINDIR: directories.Windows,
+    },
+    includeCuda: true,
+    toolchainRoot: resolve(root, 'unavailable-toolchain'),
+    tools: { cmake: 'cmake.exe', compiler: 'cl.exe', cudaHostCompiler: 'cl.exe', ninja: 'ninja.exe' },
+  });
+
+  assert.equal(environment.CUDA_PATH, resolve(root, 'cuda'));
+  assert.equal(environment.PATH, `${resolve(root, 'cuda', 'bin')};${directories.bin}`);
+  assert.equal(environment.VCToolsVersion, '14.39.33519');
+  assert.equal(environment.VSCMD_ARG_HOST_ARCH, 'x64');
+  assert.equal(environment.VSCMD_ARG_TGT_ARCH, 'x64');
+});
+
 test('Windows native tool paths honor explicit developer-environment commands', () => {
   assert.deepEqual(
     resolveNativeBuildToolPaths({
@@ -673,6 +711,42 @@ test('Windows Whisper.cpp quality uses only explicit prepared developer tools', 
     },
   );
   assert.throws(() => resolvePreparedWindowsQualityTools({}));
+});
+
+test('Windows hosted CUDA uses the prepared compiler and exact action-provisioned nvcc', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'local-whisper-windows-hosted-cuda-tools-'));
+  const sdkLibraryRoot = resolve(root, 'sdk', 'Lib', '10.0.26100.0', 'um', 'x64');
+  const sdkBinaryRoot = resolve(root, 'sdk', 'bin', '10.0.26100.0', 'x64');
+  const cudaRoot = resolve(root, 'cuda');
+  mkdirSync(sdkLibraryRoot, { recursive: true });
+  mkdirSync(sdkBinaryRoot, { recursive: true });
+  mkdirSync(resolve(cudaRoot, 'bin'), { recursive: true });
+  const paths = Object.fromEntries(
+    ['cmake.exe', 'ctest.exe', 'cl.exe', 'dumpbin.exe', 'lib.exe', 'link.exe', 'ninja.exe', 'mt.exe', 'rc.exe'].map(
+      (name) => {
+        const path = ['mt.exe', 'rc.exe'].includes(name) ? resolve(sdkBinaryRoot, name) : resolve(root, name);
+        writeFileSync(path, 'fixture\n');
+        return [name, path];
+      },
+    ),
+  );
+  const nvcc = resolve(cudaRoot, 'bin', 'nvcc.exe');
+  writeFileSync(nvcc, 'fixture\n');
+  writeFileSync(resolve(sdkLibraryRoot, 'kernel32.lib'), 'fixture\n');
+
+  const tools = resolvePreparedWindowsQualityTools(
+    {
+      CMAKE_COMMAND: paths['cmake.exe'],
+      CTEST_COMMAND: paths['ctest.exe'],
+      CUDA_PATH: cudaRoot,
+      CXX: paths['cl.exe'],
+      LIB: sdkLibraryRoot,
+      NINJA_COMMAND: paths['ninja.exe'],
+    },
+    true,
+  );
+  assert.equal(tools.cudaCompiler, nvcc);
+  assert.equal(tools.cudaHostCompiler, paths['cl.exe']);
 });
 
 test('Windows production worker builds disable optional ccache in the sanitized MSVC environment', () => {
