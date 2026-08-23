@@ -163,7 +163,7 @@ export async function resolveAdapterCommand({ command, context, environmentAllow
   const substitutions = {
     attempt: { number: context.attempt },
     invocation: { timeout_seconds: context.timeoutSeconds },
-    target: { id: context.targetId, selector: context.targetSelector },
+    target: { id: context.targetId, selector: context.targetSelector, source_sha: context.sourceSha },
     watch: { id: watchId },
     workspace: { root: workspaceRoot },
   };

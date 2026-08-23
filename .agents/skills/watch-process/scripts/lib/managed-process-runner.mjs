@@ -66,6 +66,7 @@ function validateRunnerRequest(value, inheritedAllowlist, evidenceDefaults) {
     'environmentAllowlist',
     'evidence',
     'executable',
+    'outputConsumer',
     'signal',
     'timeoutMilliseconds',
   ]);
@@ -80,9 +81,13 @@ function validateRunnerRequest(value, inheritedAllowlist, evidenceDefaults) {
     executable: value.executable,
     timeoutMilliseconds: value.timeoutMilliseconds,
   });
+  if (value.outputConsumer !== undefined && typeof value.outputConsumer !== 'function') {
+    runtimeFail('invalid-process-output-consumer');
+  }
   return freezeRecord({
     command,
     evidence: normalizeEvidenceLimits(value.evidence, evidenceDefaults),
+    outputConsumer: value.outputConsumer,
     signal: assertAbortSignal(value.signal),
   });
 }
@@ -189,6 +194,7 @@ export class ManagedProcessRunner {
       onFinished: (startToken_, execution_) => {
         if (this.#owned.get(startToken_) === execution_) this.#owned.delete(startToken_);
       },
+      outputConsumer: normalized.outputConsumer,
       platform: this.#platform,
       signalProcess: this.#signalProcess,
       startToken,

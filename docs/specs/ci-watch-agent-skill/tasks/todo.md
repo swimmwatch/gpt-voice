@@ -5,7 +5,7 @@
 - [x] [03 — Portable runtime core](03_portable_runtime_core.md)
 - [x] [04 — State, receipts, and audit](04_state_receipts_and_audit.md)
 - [x] [05 — Local and Docker adapters](05_local_and_docker_adapters.md)
-- [ ] [06 — Generic CI adapter](06_generic_ci_adapter.md)
+- [x] [06 — Generic CI adapter](06_generic_ci_adapter.md)
 - [ ] [07 — GitHub Actions adapter](07_github_actions_adapter.md)
 - [ ] [08 — Orchestrator and generated watcher](08_orchestrator_and_generated_watcher.md)
 - [ ] [09 — Stop hook and recovery](09_stop_hook_and_recovery.md)

@@ -24,6 +24,7 @@ export class ManagedProcessExecution {
   #evidence;
   #forceTimer = null;
   #onFinished;
+  #outputConsumer;
   #platform;
   #resolveCompletion;
   #settled = false;
@@ -38,6 +39,7 @@ export class ManagedProcessExecution {
     child,
     evidence,
     onFinished,
+    outputConsumer,
     platform,
     signalProcess,
     startToken,
@@ -48,6 +50,7 @@ export class ManagedProcessExecution {
     this.#child = child;
     this.#evidence = evidence;
     this.#onFinished = onFinished;
+    this.#outputConsumer = outputConsumer;
     this.#platform = platform;
     this.#signalProcess = signalProcess;
     this.#startToken = startToken;
@@ -150,7 +153,14 @@ export class ManagedProcessExecution {
 
   #listenToOutput(stream, streamName) {
     if (stream !== null && stream !== undefined && typeof stream.on === 'function') {
-      stream.on('data', (chunk) => this.#evidence.append(streamName, chunk));
+      stream.on('data', (chunk) => {
+        this.#evidence.append(streamName, chunk);
+        try {
+          this.#outputConsumer?.(streamName, chunk);
+        } catch {
+          this.#evidence.recordFailure('output-consumer-failed');
+        }
+      });
     }
   }
 }

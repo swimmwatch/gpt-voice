@@ -51,6 +51,19 @@
   - Added injected-driver adapter tests; no real Docker daemon, registry,
     external CLI, CI target, hook, repair write, delivery, dependency, or
     external process action was used during automated verification.
+- [06 — Generic CI adapter](06_generic_ci_adapter.md)
+  - Added the closed, versioned generic-CI result schema, a dependency-free
+    runtime validator, and a bounded strict-stdout JSON collector.
+  - Added a provider-neutral CLI adapter with shell-free command execution,
+    intent-before-start receipts, receipt-bound attach/idempotence, exact
+    provider/target/attempt/SHA/operation-key validation, required-member
+    checks, and separately authorized declared cancellation.
+  - Added focused fake-child coverage for strict protocol parsing, malformed
+    and prompt-like stdout, identity and status-map failures, authentication,
+    cancellation, evidence, and no-GitLab/no-external-runtime-dependency policy.
+  - No provider CLI, remote CI target, credentials, Docker daemon, hook,
+    repair write, delivery, dependency installation, or external process was
+    invoked during automated verification.
 
 ## Changed Files
 
@@ -96,6 +109,14 @@
 - `.agents/skills/watch-process/scripts/lib/adapters/local-command-process-adapter.mjs`
 - `.agents/skills/watch-process/scripts/lib/adapters/owned-process-adapter.mjs`
 - `tests/skills/watchProcess/local-docker-adapters.test.mjs`
+- `.agents/skills/watch-process/references/generic-ci-result.schema.json`
+- `.agents/skills/watch-process/scripts/lib/adapters/generic-ci-result-contract.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/generic-ci-json-output-collector.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/generic-ci-cli-process-adapter.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/adapter-support.mjs`
+- `.agents/skills/watch-process/scripts/lib/managed-process-execution.mjs`
+- `.agents/skills/watch-process/scripts/lib/managed-process-runner.mjs`
+- `tests/skills/watchProcess/generic-ci-adapter.test.mjs`
 
 ## Checks
 
@@ -140,13 +161,24 @@
 - `npm run test:types`
 - Confirmed adapter tests use an injected command driver and fake child-process
   runner only; no Docker CLI/daemon or other external process is invoked.
+- `node --check` for Task 06 modules and focused test
+- `node --test tests/skills/watchProcess/generic-ci-adapter.test.mjs` (8 passing)
+- `node --test tests/skills/watchProcess/generic-ci-adapter.test.mjs tests/skills/watchProcess/runtime-core.test.mjs tests/skills/watchProcess/scenario-contract.test.mjs tests/skills/watchProcess/local-docker-adapters.test.mjs`
+- `npx prettier --check` for all Task 06 modules, schema, and focused test
+- `npx eslint --no-warn-ignored` for all Task 06 JavaScript modules and focused test
+- `npm run test:types`
+- `npm run lint` (passes; existing repository warnings remain)
+- `npm run format:check`
+- `git diff --check`
+- Confirmed the generic adapter uses only `node:`/relative imports and exposes
+  no `gitlab`, `glab`, or dedicated-provider implementation surface.
 
 ## Next Packet
 
-[06 — Generic CI adapter](06_generic_ci_adapter.md)
+[07 — GitHub Actions adapter](07_github_actions_adapter.md)
 
 ## Blockers
 
-None. Task 05 is complete and intentionally uncommitted for the next explicit
-incremental-implementation invocation, which may commit Task 05 and start
-Task 06.
+None. Task 06 is complete and intentionally uncommitted for the next explicit
+incremental-implementation invocation, which may commit Task 06 and start
+Task 07.
