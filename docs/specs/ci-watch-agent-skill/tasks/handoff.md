@@ -113,6 +113,24 @@
     trusted config shape, and output privacy.
   - No long-running watcher, remote target, source repair, credential, commit,
     push, release, publish, or deploy action was performed.
+- [10 — Repair, verification, and delivery](10_repair_verification_and_delivery.md)
+  - Added bounded, output-free verification receipts, forward-only repair
+    ownership tracking, safe Git inspection, atomic repair delivery, and a
+    repair controller composed only from Node.js built-ins and local modules.
+  - Bound verification evidence to scenario limits and rejected malformed
+    terminal classifications before they can affect repair state.
+  - Added normal upstream-push reconciliation, operation-trailer proof for an
+    interrupted local commit, a post-stage worktree recheck, and fresh SHA/
+    attempt binding before watcher polling resumes.
+  - Made cancellation safe only in `Repairing`, `Verifying`, and `Restarting`;
+    corrupt or stale cancellation records fail closed as integrity failures.
+  - Added disposable-repository coverage for forward repair, scope/cap and
+    external-mutation enforcement, commit/push and crash reconciliation,
+    stale target rejection, evidence isolation, terminal validation, and each
+    cancellation boundary.
+  - No real repository, remote CI target, credential, publish, release, tag,
+    deploy, or external delivery was used; test delivery used disposable local
+    Git repositories and a disposable bare remote only.
 
 ## Changed Files
 
@@ -209,6 +227,21 @@
 - `tests/skills/watchProcess/stop-hook.test.mjs`
 - `tests/skills/watchProcessSkillSurface.test.ts`
 - `tests/skills/watchProcessStopHookPolicy.test.ts`
+- `.agents/skills/watch-process/scripts/lib/repair-control-contracts.mjs`
+- `.agents/skills/watch-process/scripts/lib/git-command-runner.mjs`
+- `.agents/skills/watch-process/scripts/lib/git-worktree-inspector.mjs`
+- `.agents/skills/watch-process/scripts/lib/repair-ownership-ledger.mjs`
+- `.agents/skills/watch-process/scripts/lib/focused-verification-runner.mjs`
+- `.agents/skills/watch-process/scripts/lib/git-delivery-service.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-repair-controller.mjs`
+- `.agents/skills/watch-process/scripts/lib/atomic-state-store.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-composition-root.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-library-integrity.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-orchestrator.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs`
+- `.agents/skills/watch-process/scripts/lib/scenario-repair-scope.mjs`
+- `.agents/skills/watch-process/SKILL.md`
+- `tests/skills/watchProcess/repair-delivery.test.mjs`
 
 ## Checks
 
@@ -300,14 +333,29 @@
   `operation-receipt-store.mjs`, `runtime-state-contracts.mjs`,
   `success-attestation.mjs`, and `watch-runtime-storage.mjs`. Those files are
   outside Task 08 scope; Task 08-owned files pass formatting.
+- `node --check` for every Task 10 runtime/control module and focused test
+- `node --test tests/skills/watchProcess/repair-delivery.test.mjs` (12 passing)
+- `node --test tests/skills/watchProcess/*.test.mjs` (99 passing)
+- `npm run test:types`
+- `npx eslint --no-warn-ignored` for all Task 10-owned JavaScript modules and
+  `repair-delivery.test.mjs` (no issues)
+- `npx prettier --check` for all Task 10-owned files (all formatted)
+- `git diff --check`
+- The packet-wide Prettier glob still reports the same five unchanged earlier
+  modules listed above; no unrelated reformatting was added to Task 10.
 
 ## Next Packet
 
-[10 — Repair, verification, and delivery](10_repair_verification_and_delivery.md)
+[11 — Cross-platform compatibility CI](11_cross_platform_compatibility_ci.md)
 
 ## Blockers
 
-Task 09 is complete and intentionally uncommitted for the next explicit
-incremental-implementation invocation, which may commit Task 09 and start
-Task 10. The project-local hook must still be reviewed and trusted manually
-through Codex `/hooks`; implementation cannot bypass that user-controlled gate.
+Task 10 is complete and intentionally uncommitted. The next explicit
+incremental-implementation invocation may verify and commit only Task 10, then
+start Task 11. The project-local hook must still be reviewed and trusted
+manually through Codex `/hooks`; implementation cannot bypass that
+user-controlled gate.
+
+The worktree also contains unrelated CI, security, package, and documentation
+changes outside this packet. They were neither inspected nor modified by Task
+10 and must remain excluded from its later commit.

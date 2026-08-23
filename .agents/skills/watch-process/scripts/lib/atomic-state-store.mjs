@@ -9,6 +9,7 @@ import {
   validateSafeId,
   validateWatchId,
 } from './runtime-state-contracts.mjs';
+import { REPAIR_RUNTIME_FILE_NAMES } from './repair-control-contracts.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 
 export const LOCK_FILE_NAME = 'lock.json';
@@ -20,6 +21,7 @@ const CLEANUP_FILE_NAMES = Object.freeze([
   'receipts.json',
   STATE_FILE_NAME,
   STOP_HOOK_ACKNOWLEDGEMENT_FILE_NAME,
+  ...REPAIR_RUNTIME_FILE_NAMES,
 ]);
 const LOCK_SCHEMA_VERSION = 1;
 const AUDIT_ARCHIVE_FILE_NAME_PATTERN = /^events\.\d+-\d+\.jsonl$/u;

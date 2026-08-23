@@ -1,10 +1,16 @@
 import { AtomicStateStore } from './atomic-state-store.mjs';
 import { AuditJournal } from './audit-journal.mjs';
 import { DeadlineAwarePoller } from './deadline-aware-poller.mjs';
+import { FocusedVerificationRunner } from './focused-verification-runner.mjs';
+import { GIT_ENVIRONMENT_ALLOWLIST, GitCommandRunner } from './git-command-runner.mjs';
+import { GitDeliveryService } from './git-delivery-service.mjs';
+import { GitWorktreeInspector } from './git-worktree-inspector.mjs';
 import { ManagedProcessRunner } from './managed-process-runner.mjs';
 import { OperationReceiptStore } from './operation-receipt-store.mjs';
 import { ProcessWatchAdapterRegistry } from './process-watch-adapter-registry.mjs';
 import { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
+import { ProcessWatchRepairController } from './process-watch-repair-controller.mjs';
+import { RepairOwnershipLedger } from './repair-ownership-ledger.mjs';
 import {
   validateDigest,
   validateProcessStartToken,
@@ -13,6 +19,10 @@ import {
 } from './runtime-state-contracts.mjs';
 import { isRecord, runtimeFail } from './runtime-core-support.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
+
+function hasRepairControls(scenario) {
+  return isRecord(scenario.repair) && isRecord(scenario.delivery) && Array.isArray(scenario.verification);
+}
 
 /**
  * The sole composition root for one generated watcher process. It creates the
@@ -110,6 +120,66 @@ export class ProcessWatchCompositionRoot {
       storage,
       workspaceId: this.#workspaceId,
     });
-    return Object.freeze({ adapter, orchestrator, receiptStore, runner, stateStore, storage });
+    const core = Object.freeze({ adapter, orchestrator, receiptStore, runner, stateStore, storage });
+    if (!hasRepairControls(this.#scenario)) return Object.freeze({ ...core, repairController: null });
+    const gitRunner = new ManagedProcessRunner({
+      environmentAllowlist: GIT_ENVIRONMENT_ALLOWLIST,
+      workspaceRoot: this.#workspaceRoot,
+    });
+    const gitCommandRunner = new GitCommandRunner({ runner: gitRunner });
+    const worktreeInspector = new GitWorktreeInspector({
+      commandRunner: gitCommandRunner,
+      workspaceRoot: this.#workspaceRoot,
+    });
+    const ownershipLedger = new RepairOwnershipLedger({
+      repair: this.#scenario.repair,
+      scenarioDigest: this.#scenarioDigest,
+      stateStore,
+      storage,
+      workspaceRoot: this.#workspaceRoot,
+      worktreeInspector,
+    });
+    const verificationRunner = new FocusedVerificationRunner({
+      clock: this.#clock,
+      environmentAllowlist: this.#environmentAllowlist,
+      runner,
+      scenario: this.#scenario,
+      scenarioDigest: this.#scenarioDigest,
+      storage,
+      workspaceRoot: this.#workspaceRoot,
+    });
+    const deliveryService = new GitDeliveryService({
+      commandRunner: gitCommandRunner,
+      receiptStore,
+      scenarioDigest: this.#scenarioDigest,
+      stateStore,
+      storage,
+      worktreeInspector,
+    });
+    const repairController = new ProcessWatchRepairController({
+      adapter,
+      clock: this.#clock,
+      deliveryService,
+      orchestrator,
+      ownershipLedger,
+      processStartToken: token,
+      scenario: this.#scenario,
+      scenarioDigest: this.#scenarioDigest,
+      sessionId: this.#sessionId,
+      stateStore,
+      storage,
+      verificationRunner,
+    });
+    return Object.freeze({
+      ...core,
+      deliveryService,
+      gitCommandRunner,
+      gitRunner,
+      orchestrator,
+      ownershipLedger,
+      repairController,
+      verificationRunner,
+      worktreeInspector,
+    });
   }
 }

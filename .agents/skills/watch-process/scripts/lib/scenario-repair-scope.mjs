@@ -82,7 +82,7 @@ export function validateRepairScopeDefinition(value, location, allowDefaultedFie
   return repair;
 }
 
-function normalizeWorkspaceRelativePath(value, location) {
+export function normalizeWorkspaceRelativePath(value, location = '$.workspaceRelativePath') {
   const candidatePath = requireString(value, location, 1, 200);
   if (containsControlCharacter(candidatePath) || candidatePath.includes('\\')) {
     fail('invalid-workspace-relative-path', location);

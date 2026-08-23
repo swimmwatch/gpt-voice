@@ -227,8 +227,8 @@ export class ProcessWatchOrchestrator {
     }
   }
 
-  /** Limited internal continuation hook used by a later repair controller. */
-  async advance({ blocker = null, outcome, summaryCode, toPhase } = {}) {
+  /** Performs one lock-bound repair-controller transition without exposing private state mutation. */
+  async advance({ blocker = null, failureFingerprints, outcome, receiptIds, summaryCode, target, toPhase } = {}) {
     if (!this.#stateStore.ownsLock) runtimeFail('orchestrator-lock-required');
     const state = await this.#stateStore.readState();
     if (state === null) runtimeFail('orchestrator-state-required');
@@ -237,7 +237,46 @@ export class ProcessWatchOrchestrator {
       await this.#block(state, integrityOutcome, 'state-digest-changed');
       return this.#stateStore.readState();
     }
-    return this.#transition(state, { blocker, outcome, summaryCode, toPhase });
+    return this.#transition(state, {
+      actor: 'agent',
+      blocker,
+      failureFingerprints,
+      outcome,
+      receiptIds,
+      summaryCode,
+      target,
+      toPhase,
+    });
+  }
+
+  /** Binds a newly started repair attempt before returning to normal watcher polling. */
+  async continueAfterRepair({ invocation, receiptId, target } = {}) {
+    if (!this.#stateStore.ownsLock) runtimeFail('orchestrator-lock-required');
+    const normalizedInvocation = normalizeProcessWatchInvocation(invocation, this.#scenario);
+    const state = await this.#stateStore.readState();
+    if (state === null || state.phase !== 'Restarting' || state.target === null) {
+      runtimeFail('repair-restart-state-required');
+    }
+    const integrityOutcome = this.#staticIntegrityOutcome(state);
+    if (integrityOutcome !== null) return this.#block(state, integrityOutcome, 'state-digest-changed');
+    const freshTarget = normalizeProcessWatchTarget(target, 'repair-fresh-target-required');
+    if (
+      freshTarget.attempt !== state.target.attempt + 1 ||
+      freshTarget.sourceSha !== normalizedInvocation.sourceSha ||
+      freshTarget.identityDigest === state.target.identityDigest
+    ) {
+      return this.#block(state, 'target_lost', 'repair-fresh-target-required');
+    }
+    const next = await this.#transition(state, {
+      actor: 'agent',
+      outcome: 'running',
+      receiptIds: normalizeReceiptIds([...state.receiptIds, validateReceiptId(receiptId, 'repair-receipt-missing')]),
+      summaryCode: 'repair-fresh-target-bound',
+      target: freshTarget,
+      toPhase: 'Watching',
+    });
+    this.#operationGeneration = next.generation;
+    return this.#watch(next, normalizedInvocation);
   }
 
   async #createInitialState(invocation) {
@@ -455,7 +494,10 @@ export class ProcessWatchOrchestrator {
     return this.#block(state, outcome, summaryCode);
   }
 
-  async #transition(state, { blocker = null, failureFingerprints, outcome, receiptIds, summaryCode, target, toPhase }) {
+  async #transition(
+    state,
+    { actor = 'watcher', blocker = null, failureFingerprints, outcome, receiptIds, summaryCode, target, toPhase },
+  ) {
     const transition = this.#transitionTable.assert({ blocker, fromPhase: state.phase, outcome, toPhase });
     const next = freezeRecord({
       ...state,
@@ -469,7 +511,7 @@ export class ProcessWatchOrchestrator {
       target: target ?? state.target,
     });
     const written = await this.#stateStore.compareAndSwap({ expectedGeneration: state.generation, state: next });
-    await this.#appendAudit(written, state.phase, summaryCode);
+    await this.#appendAudit(written, state.phase, summaryCode, actor);
     return written;
   }
 
@@ -559,10 +601,10 @@ export class ProcessWatchOrchestrator {
     });
   }
 
-  async #appendAudit(state, previousPhase, summaryCode) {
+  async #appendAudit(state, previousPhase, summaryCode, actor = 'watcher') {
     await this.#auditJournal.append({
       event: freezeRecord({
-        actor: 'watcher',
+        actor,
         generation: state.generation,
         libraryDigest: this.#libraryDigest,
         outcome: state.outcome,

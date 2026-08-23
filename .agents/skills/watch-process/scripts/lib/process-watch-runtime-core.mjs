@@ -9,6 +9,7 @@ export { ACTIVE_JOURNAL_FILE_NAME, AuditJournal } from './audit-journal.mjs';
 export { BoundedEvidenceBuffer } from './bounded-evidence-buffer.mjs';
 export { DeadlineAwarePoller, normalizePollTiming, waitForAbortableDelay } from './deadline-aware-poller.mjs';
 export { createFailureFingerprint } from './failure-fingerprint.mjs';
+export { FocusedVerificationRunner } from './focused-verification-runner.mjs';
 export {
   GENERATED_WATCHER_ENTRYPOINT,
   GENERATED_WATCHER_FILE_NAME,
@@ -21,6 +22,9 @@ export {
 export { GeneratedWatcherLaunchCoordinator } from './generated-watcher-launch-coordinator.mjs';
 export { GeneratedWatcherLauncher } from './generated-watcher-launcher.mjs';
 export { GeneratedWatcherStartupMonitor } from './generated-watcher-startup-monitor.mjs';
+export { GIT_ENVIRONMENT_ALLOWLIST, GIT_EXECUTABLE, GitCommandRunner } from './git-command-runner.mjs';
+export { GitDeliveryService } from './git-delivery-service.mjs';
+export { GitWorktreeInspector } from './git-worktree-inspector.mjs';
 export { ManagedProcessExecution } from './managed-process-execution.mjs';
 export { ManagedProcessRunner, isRuntimeCoreError } from './managed-process-runner.mjs';
 export { terminateOwnedProcessTree } from './managed-process-support.mjs';
@@ -32,6 +36,7 @@ export { runGeneratedProcessWatcher } from './process-watch-generated-watcher-ru
 export { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 export { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';
 export { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
+export { ProcessWatchRepairController } from './process-watch-repair-controller.mjs';
 export {
   assertStopHookBudget,
   normalizeStopHookInput,
@@ -43,6 +48,15 @@ export { ProcessWatchStopHookRepository } from './process-watch-stop-hook-reposi
 export { ProcessWatchStopHookWatch, probeStopHookProcessLiveness } from './process-watch-stop-hook-watch.mjs';
 export { ProcessWatchStopHook } from './process-watch-stop-hook.mjs';
 export { ProcessWatchTransitionTable, WATCH_TRANSITION_PHASES } from './process-watch-transition-table.mjs';
+export {
+  REPAIR_CANCELLATION_FILE_NAME,
+  REPAIR_CONTROL_SCHEMA_VERSION,
+  REPAIR_DELIVERY_FILE_NAME,
+  REPAIR_OWNERSHIP_FILE_NAME,
+  REPAIR_RUNTIME_FILE_NAMES,
+  REPAIR_VERIFICATION_RECEIPTS_FILE_NAME,
+} from './repair-control-contracts.mjs';
+export { RepairOwnershipLedger } from './repair-ownership-ledger.mjs';
 export {
   PROCESS_OBSERVATION_STATUSES,
   PROCESS_TERMINAL_CLASSIFICATIONS,
