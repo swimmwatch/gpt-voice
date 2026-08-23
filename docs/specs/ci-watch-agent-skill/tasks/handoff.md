@@ -94,6 +94,25 @@
     process, syntax, ignore, integrity, tamper, heartbeat, and launcher tests.
   - No live CI/provider/Docker command, credential, source repair, delivery,
     commit, push, release, publish, or deploy action was performed.
+- [09 — Stop hook and recovery](09_stop_hook_and_recovery.md)
+  - Reviewed the current official OpenAI Hooks contract: `Stop` input/output,
+    synchronous `decision: block` continuation, timeout units/default, trust,
+    project-local root resolution, and `commandWindows` remain compatible with
+    the packet.
+  - Added one synchronous, project-local `Stop` handler with the explicit
+    604,920-second ceiling and fixed POSIX/Windows git-root command forms.
+  - Added bounded, dependency-free Node runtime classes for private watch-root
+    discovery, exact workspace/session/generation reconciliation, liveness
+    recovery, acknowledgement generation, deadline-aware waiting, and fixed
+    sanitized continuation output.
+  - Bound the generated-watcher launch preflight to the selected timeout plus
+    120-second cleanup margin; values above 604,800 seconds or an inadequate
+    hook ceiling fail before launch.
+  - Added focused runtime and hook-policy tests for timeout, cancellation,
+    crash/restart recovery, state-write races, outcomes, transport neutrality,
+    trusted config shape, and output privacy.
+  - No long-running watcher, remote target, source repair, credential, commit,
+    push, release, publish, or deploy action was performed.
 
 ## Changed Files
 
@@ -175,6 +194,21 @@
 - `tests/skills/watchProcess/orchestrator.test.mjs`
 - `docs/specs/ci-watch-agent-skill/tasks/todo.md`
 - `docs/specs/ci-watch-agent-skill/tasks/handoff.md`
+- `.agents/skills/watch-process/SKILL.md`
+- `.codex/hooks.json`
+- `.agents/skills/watch-process/scripts/process-watch-stop-hook.mjs`
+- `.agents/skills/watch-process/scripts/lib/atomic-state-store.mjs`
+- `.agents/skills/watch-process/scripts/lib/generated-watcher-launch-coordinator.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-library-integrity.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-stop-hook-contracts.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-stop-hook-repository.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-stop-hook-watch.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-stop-hook.mjs`
+- `.agents/skills/watch-process/scripts/lib/watch-runtime-directory.mjs`
+- `tests/skills/watchProcess/stop-hook.test.mjs`
+- `tests/skills/watchProcessSkillSurface.test.ts`
+- `tests/skills/watchProcessStopHookPolicy.test.ts`
 
 ## Checks
 
@@ -245,6 +279,15 @@
 - `git diff --check`
 - Confirmed the three observed GitHub workflow files remain unchanged and all
   adapter imports are `node:` built-ins or relative local modules.
+- `node --check` for Task 09 hook entrypoint, runtime modules, and focused test
+- `node --test tests/skills/watchProcess/stop-hook.test.mjs` (8 passing)
+- `node --import tsx --test tests/skills/watchProcessStopHookPolicy.test.ts tests/skills/watchProcessSkillSurface.test.ts` (7 passing)
+- `node --test tests/skills/watchProcess/*.test.mjs` (87 passing)
+- `npm run test:types`
+- `npx prettier --check` for Task 09-owned files and tests
+- `npx eslint --no-warn-ignored` for Task 09-owned files and tests
+- `node -e "JSON.parse(require('node:fs').readFileSync('.codex/hooks.json','utf8'))"`
+- `git diff --check`
 - `node --check` for every Task 08 library module; generated disposable watcher
   syntax is exercised through `GeneratedWatcherArtifact.assertSyntax()`.
 - `node --test tests/skills/watchProcess/orchestrator.test.mjs tests/skills/watchProcess/generated-watcher.test.mjs`
@@ -260,10 +303,11 @@
 
 ## Next Packet
 
-[09 — Stop hook and recovery](09_stop_hook_and_recovery.md)
+[10 — Repair, verification, and delivery](10_repair_verification_and_delivery.md)
 
 ## Blockers
 
-None. Task 08 is complete and intentionally uncommitted for the next explicit
-incremental-implementation invocation, which may commit Task 08 and start
-Task 09.
+Task 09 is complete and intentionally uncommitted for the next explicit
+incremental-implementation invocation, which may commit Task 09 and start
+Task 10. The project-local hook must still be reviewed and trusted manually
+through Codex `/hooks`; implementation cannot bypass that user-controlled gate.

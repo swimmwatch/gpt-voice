@@ -3,6 +3,7 @@ import { GeneratedWatcherInvocationStore } from './generated-watcher-invocation.
 import { GeneratedWatcherLauncher } from './generated-watcher-launcher.mjs';
 import { GeneratedWatcherStartupMonitor } from './generated-watcher-startup-monitor.mjs';
 import { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';
+import { assertStopHookBudget } from './process-watch-stop-hook-contracts.mjs';
 import { freezeRecord, runtimeFail } from './runtime-core-support.mjs';
 
 /** Coordinates preflight, private input, generated artifact, launch, and heartbeat proof. */
@@ -51,6 +52,7 @@ export class GeneratedWatcherLaunchCoordinator {
     if (typeof preflight !== 'function' || typeof stateReader !== 'function') {
       runtimeFail('invalid-generated-watcher-launch-coordinator-request');
     }
+    assertStopHookBudget({ timeoutSeconds: invocation?.timeoutSeconds });
     this.#artifact.render(binding);
     if (binding.libraryDigest !== (await this.#libraryIntegrity.digest())) runtimeFail('library-digest-mismatch');
     await preflight();

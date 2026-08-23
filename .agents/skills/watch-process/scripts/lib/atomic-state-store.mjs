@@ -11,9 +11,16 @@ import {
 } from './runtime-state-contracts.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 
-const LOCK_FILE_NAME = 'lock.json';
-const STATE_FILE_NAME = 'state.json';
-const CLEANUP_FILE_NAMES = Object.freeze(['attestation.json', 'events.jsonl', 'receipts.json', STATE_FILE_NAME]);
+export const LOCK_FILE_NAME = 'lock.json';
+export const STATE_FILE_NAME = 'state.json';
+export const STOP_HOOK_ACKNOWLEDGEMENT_FILE_NAME = 'stop-hook-ack.json';
+const CLEANUP_FILE_NAMES = Object.freeze([
+  'attestation.json',
+  'events.jsonl',
+  'receipts.json',
+  STATE_FILE_NAME,
+  STOP_HOOK_ACKNOWLEDGEMENT_FILE_NAME,
+]);
 const LOCK_SCHEMA_VERSION = 1;
 const AUDIT_ARCHIVE_FILE_NAME_PATTERN = /^events\.\d+-\d+\.jsonl$/u;
 
@@ -401,5 +408,3 @@ export class AtomicStateStore {
     return result;
   }
 }
-
-export { LOCK_FILE_NAME, STATE_FILE_NAME };

@@ -90,19 +90,18 @@ describe('watch-process skill surface', () => {
     assert.equal(existsSync(RUNTIME_ROOT), false);
   });
 
-  it('does not register a hook, start a watcher, add a dependency, or ship a GitLab-specific surface', () => {
+  it('keeps explicit invocation separate from the trusted project hook and GitLab-specific behavior', () => {
     const activeSurface = [readText(SKILL_INSTRUCTIONS_PATH), readText(SKILL_METADATA_PATH)].join('\n');
 
-    assert.equal(existsSync(HOOKS_PATH), false);
-    assert.equal(existsSync(path.join(SKILL_PATH, 'scripts/process-watch-stop-hook.mjs')), false);
+    assert.equal(existsSync(HOOKS_PATH), true);
+    assert.equal(existsSync(path.join(SKILL_PATH, 'scripts/process-watch-stop-hook.mjs')), true);
     assert.doesNotMatch(activeSurface, /GitLabCiProcessAdapter|\bglab\b/iu);
     assertContainsEvery(normalizeText(activeSurface), [
-      'does not register a hook',
-      'launch a watcher',
-      'start a target',
-      'execute a command',
-      'add a dependency',
+      'does not override codex sandbox, approval, hook-trust',
       'change user-level configuration',
+      'start a target',
+      'execute a scenario command',
+      'add a dependency',
     ]);
   });
 });

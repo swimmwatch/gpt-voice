@@ -1,4 +1,9 @@
-export { AtomicStateStore, LOCK_FILE_NAME, STATE_FILE_NAME } from './atomic-state-store.mjs';
+export {
+  AtomicStateStore,
+  LOCK_FILE_NAME,
+  STATE_FILE_NAME,
+  STOP_HOOK_ACKNOWLEDGEMENT_FILE_NAME,
+} from './atomic-state-store.mjs';
 export { ACTIVE_JOURNAL_FILE_NAME, AuditJournal } from './audit-journal.mjs';
 /** Stable, provider-neutral public surface for generated watcher runtime composition. */
 export { BoundedEvidenceBuffer } from './bounded-evidence-buffer.mjs';
@@ -27,6 +32,16 @@ export { runGeneratedProcessWatcher } from './process-watch-generated-watcher-ru
 export { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 export { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';
 export { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
+export {
+  assertStopHookBudget,
+  normalizeStopHookInput,
+  STOP_HOOK_CLEANUP_MARGIN_SECONDS,
+  STOP_HOOK_TIMEOUT_SECONDS,
+  stopHookTimingSummary,
+} from './process-watch-stop-hook-contracts.mjs';
+export { ProcessWatchStopHookRepository } from './process-watch-stop-hook-repository.mjs';
+export { ProcessWatchStopHookWatch, probeStopHookProcessLiveness } from './process-watch-stop-hook-watch.mjs';
+export { ProcessWatchStopHook } from './process-watch-stop-hook.mjs';
 export { ProcessWatchTransitionTable, WATCH_TRANSITION_PHASES } from './process-watch-transition-table.mjs';
 export {
   PROCESS_OBSERVATION_STATUSES,
@@ -66,5 +81,6 @@ export {
   validateRuntimeRelativePath,
 } from './runtime-state-contracts.mjs';
 export { SuccessAttestation } from './success-attestation.mjs';
+export { WatchRuntimeDirectory } from './watch-runtime-directory.mjs';
 export { MAX_PRIVATE_RUNTIME_FILE_BYTES, WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 export { normalizeWatchScenario } from './watch-scenario-registry.mjs';

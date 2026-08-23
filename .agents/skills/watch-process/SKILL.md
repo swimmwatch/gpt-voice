@@ -68,11 +68,11 @@ and `.codex/process-watch/scenarios/`. Private runtime state belongs only under
 `.codex/runtime/process-watch/`; it is ignored by Git and is never authority,
 proof of success, or repair input.
 
-This initial packet establishes only the public interface and filesystem
-boundary. It does not register a hook, launch a watcher, start a target,
-execute a command, modify application behavior, or add a dependency. Later
-approved packets add those capabilities behind the same explicit authority
-boundary.
+The tracked project-local Stop hook may wait only for a matching active watch
+and request a bounded continuation when that watch needs agent action. It must
+be reviewed and trusted through Codex `/hooks`; it does not create authority,
+launch a watcher, start a target, execute a scenario command, modify application
+behavior, or add a dependency.
 
 ## Current non-goals
 

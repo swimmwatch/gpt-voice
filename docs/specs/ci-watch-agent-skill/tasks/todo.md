@@ -8,7 +8,7 @@
 - [x] [06 — Generic CI adapter](06_generic_ci_adapter.md)
 - [x] [07 — GitHub Actions adapter](07_github_actions_adapter.md)
 - [x] [08 — Orchestrator and generated watcher](08_orchestrator_and_generated_watcher.md)
-- [ ] [09 — Stop hook and recovery](09_stop_hook_and_recovery.md)
+- [x] [09 — Stop hook and recovery](09_stop_hook_and_recovery.md)
 - [ ] [10 — Repair, verification, and delivery](10_repair_verification_and_delivery.md)
 - [ ] [11 — Cross-platform compatibility CI](11_cross_platform_compatibility_ci.md)
 - [ ] [12 — Documentation and acceptance](12_documentation_and_acceptance.md)
