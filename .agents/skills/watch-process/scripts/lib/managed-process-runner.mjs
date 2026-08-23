@@ -216,6 +216,18 @@ export class ManagedProcessRunner {
   owns(startToken) {
     return typeof startToken === 'string' && this.#owned.has(startToken);
   }
+
+  /**
+   * Returns a live execution only from this runner's private ownership map.
+   * It never discovers or attaches to an operating-system PID.
+   */
+  getOwnedExecution(startToken) {
+    if (typeof startToken !== 'string' || !PROCESS_START_TOKEN_PATTERN.test(startToken)) {
+      runtimeFail('invalid-process-start-token');
+    }
+    const execution = this.#owned.get(startToken);
+    return execution === undefined || execution.finished ? null : execution;
+  }
 }
 
 export function isRuntimeCoreError(error) {

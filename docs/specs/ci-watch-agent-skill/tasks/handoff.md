@@ -38,6 +38,19 @@
     safe cleanup, and privacy-safe persisted shapes.
   - No adapter, provider, watcher, hook, repair write, delivery, dependency,
     or external CI process action was created.
+- [05 — Local and Docker adapters](05_local_and_docker_adapters.md)
+  - Added shared receipt-bound owned-process orchestration plus concrete local
+    command and Docker build adapters.
+  - Added immutable command/input/source/start-token identities, intent-before-
+    start/retry receipts, safe same-runner reattach, and owned-token-only
+    cancellation without PID lookup.
+  - Added shell-free preflight/verification command driving, bounded evidence
+    projection, declared output verification, Docker daemon probing, and an
+    allowlist-based Docker policy that rejects registry, Buildx, login, and
+    cleanup actions.
+  - Added injected-driver adapter tests; no real Docker daemon, registry,
+    external CLI, CI target, hook, repair write, delivery, dependency, or
+    external process action was used during automated verification.
 
 ## Changed Files
 
@@ -75,6 +88,14 @@
 - `.agents/skills/watch-process/scripts/lib/success-attestation.mjs`
 - `.agents/skills/watch-process/scripts/lib/watch-runtime-storage.mjs`
 - `tests/skills/watchProcess/state-and-audit.test.mjs`
+- `.agents/skills/watch-process/scripts/lib/managed-process-runner.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/adapter-support.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/declared-output-verifier.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/docker-build-process-adapter.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/docker-command-policy.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/local-command-process-adapter.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/owned-process-adapter.mjs`
+- `tests/skills/watchProcess/local-docker-adapters.test.mjs`
 
 ## Checks
 
@@ -108,13 +129,24 @@
 - `npx prettier --check .agents/skills/watch-process/scripts/lib/*.mjs tests/skills/watchProcess/state-and-audit.test.mjs`
 - `npx eslint --no-warn-ignored .agents/skills/watch-process/scripts/lib/*.mjs tests/skills/watchProcess/state-and-audit.test.mjs`
 - `git diff --check`
+- `node --check` for the Task 05 adapter modules, test, and updated runner
+- `node --test tests/skills/watchProcess/local-docker-adapters.test.mjs` (10 passing)
+- `npx prettier --check .agents/skills/watch-process/scripts/lib/managed-process-runner.mjs .agents/skills/watch-process/scripts/lib/adapters/*.mjs tests/skills/watchProcess/local-docker-adapters.test.mjs`
+- `npx eslint --no-warn-ignored .agents/skills/watch-process/scripts/lib/managed-process-runner.mjs .agents/skills/watch-process/scripts/lib/adapters/*.mjs tests/skills/watchProcess/local-docker-adapters.test.mjs`
+- `node --test tests/skills/watchProcess/runtime-core.test.mjs` (15 passing)
+- `node --test tests/skills/watchProcess/state-and-audit.test.mjs` (9 passing)
+- `node --test tests/skills/watchProcess/scenario-contract.test.mjs` (11 passing)
+- `node --import tsx --test tests/skills/watchProcessSkillSurface.test.ts` (5 passing)
+- `npm run test:types`
+- Confirmed adapter tests use an injected command driver and fake child-process
+  runner only; no Docker CLI/daemon or other external process is invoked.
 
 ## Next Packet
 
-[05 — Local and Docker adapters](05_local_and_docker_adapters.md)
+[06 — Generic CI adapter](06_generic_ci_adapter.md)
 
 ## Blockers
 
-None. Task 04 is complete and intentionally uncommitted for the next explicit
-incremental-implementation invocation, which may commit Task 04 and start
-Task 05.
+None. Task 05 is complete and intentionally uncommitted for the next explicit
+incremental-implementation invocation, which may commit Task 05 and start
+Task 06.
