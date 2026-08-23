@@ -8,7 +8,6 @@ const SKILL_PATH = path.join(WORKSPACE_PATH, '.agents/skills/watch-process');
 const SKILL_INSTRUCTIONS_PATH = path.join(SKILL_PATH, 'SKILL.md');
 const SKILL_METADATA_PATH = path.join(SKILL_PATH, 'agents/openai.yaml');
 const RUNTIME_IGNORE_ENTRY = '.codex/runtime/process-watch/';
-const RUNTIME_ROOT = path.join(WORKSPACE_PATH, '.codex/runtime/process-watch');
 const SCENARIOS_ROOT = path.join(WORKSPACE_PATH, '.codex/process-watch/scenarios');
 const HOOKS_PATH = path.join(WORKSPACE_PATH, '.codex/hooks.json');
 
@@ -63,6 +62,13 @@ describe('watch-process skill surface', () => {
       'status` is read-only',
       'resume` requires the timeout decision again',
       'does not imply remote target cancellation',
+      'process-watch.mjs continuation --watch-id <watch-id> --generation <generation> --outcome <outcome>',
+      'process-watch.mjs wait --watch-id <watch-id>',
+      'continues the already authorized request in the same chat',
+      'it is not a new user activation',
+      'report-success',
+      'report-blocked',
+      'remaining approved attempt window',
     ]);
   });
 
@@ -87,7 +93,6 @@ describe('watch-process skill surface', () => {
     assert.equal(existsSync(path.join(SKILL_PATH, 'scripts/lib/.gitkeep')), true);
     assert.equal(existsSync(path.join(SKILL_PATH, 'references/.gitkeep')), true);
     assert.equal(existsSync(path.join(SCENARIOS_ROOT, '.gitkeep')), true);
-    assert.equal(existsSync(RUNTIME_ROOT), false);
   });
 
   it('keeps explicit invocation separate from the trusted project hook and GitLab-specific behavior', () => {

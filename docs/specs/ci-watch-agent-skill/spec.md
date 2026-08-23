@@ -4,7 +4,7 @@ Status: Approved
 
 Date: 2026-08-23
 
-Revision: 5
+Revision: 8
 
 Spec slug: `ci-watch-agent-skill`
 
@@ -30,7 +30,7 @@ a Docker build, or another local command.
 
 The skill is an observe-and-repair loop, not a status-only watcher. It generates
 and launches `watch-process.mjs`, waits through deterministic Node.js code,
-continues the same Codex turn through a synchronous `Stop` hook, diagnoses a
+continues the same Codex chat through a synchronous `Stop` hook, diagnoses a
 terminal failure, makes the smallest authorized repair, verifies it, starts or
 dispatches a fresh attempt when allowed, and repeats until success or an
 objective blocker.
@@ -49,10 +49,12 @@ explicit invocation and timeout decision
   → preflight and scenario validation
   → generate, digest, and launch watch-process.mjs
   → start or attach to one logical target
-  → deterministic wait
+  → deterministic Stop-hook wait for attempt 1
   → target failure → bounded evidence → repair → local verification
-  → idempotent delivery/dispatch → bind fresh attempt → deterministic wait
+  → launch detached repair-restart watcher → prove startup → re-arm Stop hook
+  → finish repair turn → deterministic Stop-hook wait for the fresh attempt
   → target success → fresh final verification → success attestation → cleanup
+  → one validated same-chat continuation per terminal attempt → final report
 ```
 
 ## 2. Canonical invariant registry
@@ -185,11 +187,18 @@ watcher-owned local processes when safe and never cancels a remote target unless
 the scenario and invocation explicitly authorize that operation.
 
 The tracked operator entrypoint SHALL expose the exact actions `start`,
-`status`, `resume`, `cancel`, `repair-begin`, `write-begin`, `write-complete`,
-`repair-verify`, and `repair-restart`. It SHALL validate the complete action and
-option set before constructing runtime services, emit only sanitized JSON on
-success and a stable error code on failure, and route repair actions through the
-production repair controller. `resume` SHALL preserve the original input and
+`status`, `continuation`, `wait`, `resume`, `cancel`, `repair-begin`,
+`write-begin`, `write-complete`, `repair-verify`, and `repair-restart`. It SHALL
+validate the complete action and option set before constructing runtime
+services, emit only sanitized JSON on success and a stable error code on
+failure, and route repair actions through the production repair controller.
+`continuation` accepts only
+`--watch-id <id> --generation <n> --outcome <normalized-outcome>`, validates the
+persisted acknowledgement and selected session/workspace/watch identity, and
+returns only `report-success`, `repair`, `report-blocked`, or
+`report-cancelled` plus sanitized status. `wait --watch-id <id>` blocks inside
+Node.js for the remaining approved attempt window and returns the same action
+contract without model calls. `resume` SHALL preserve the original input and
 logical-target identity while replacing only the newly approved timeout and
 deadline; it SHALL reject already successful or cancelled watches.
 
@@ -226,6 +235,8 @@ input and does not grant watch authority.
   process-watch/scenarios/
     <scenario-id>.watch.json
   runtime/process-watch/
+    process-watch-selection/
+      current-watch.json
     <watch-id>/
       watch-process.mjs
       state.json
@@ -240,16 +251,18 @@ repair commit.
 
 **ARCH-001:** Cohesive state-owning components SHALL include:
 
-| Component                  | Responsibility                                                                               |
-| -------------------------- | -------------------------------------------------------------------------------------------- |
-| `ProcessWatchOrchestrator` | Own one lifecycle, transitions, repair handoff, and attempt binding.                         |
-| `WatchScenarioRegistry`    | Load, migrate, validate, normalize, and digest scenarios.                                    |
-| `ProcessAdapter`           | Preflight, start/attach, observe, evidence, identity, restart, and declared cancel contract. |
-| `AtomicStateStore`         | Lock, atomic state, monotonic generation, and compare-and-swap.                              |
-| `ManagedProcessRunner`     | Cross-platform `shell: false` child lifecycle and owned-process cleanup.                     |
-| `BoundedEvidenceBuffer`    | Private bounded raw output and sanitized inspection.                                         |
-| `OperationReceiptStore`    | Idempotent start/delivery intent, provider reconciliation, and receipts.                     |
-| `AuditJournal`             | Bounded sanitized event journal and final attestation.                                       |
+| Component                    | Responsibility                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `ProcessWatchOrchestrator`   | Own one lifecycle, transitions, repair handoff, and attempt binding.                         |
+| `WatchScenarioRegistry`      | Load, migrate, validate, normalize, and digest scenarios.                                    |
+| `ProcessAdapter`             | Preflight, start/attach, observe, evidence, identity, restart, and declared cancel contract. |
+| `AtomicStateStore`           | Lock, atomic state, monotonic generation, and compare-and-swap.                              |
+| `ManagedProcessRunner`       | Cross-platform `shell: false` child lifecycle and owned-process cleanup.                     |
+| `BoundedEvidenceBuffer`      | Private bounded raw output and sanitized inspection.                                         |
+| `OperationReceiptStore`      | Idempotent start/delivery intent, provider reconciliation, and receipts.                     |
+| `AuditJournal`               | Bounded sanitized event journal and final attestation.                                       |
+| `ProcessWatchSelectionStore` | One-shot armed selection for one session/workspace/watch; consumed before continuation.     |
+| `ProcessWatchTerminalWaiter` | Shared deadline-aware, model-free terminal wait for the Stop hook and operator.              |
 
 Stateful services own their invariants and receive dependencies through
 constructors. Truly stateless validation and normalization may remain pure
@@ -967,35 +980,88 @@ Corrupt, stale, unknown, or ownership-mismatched data is never executed.
 
 ### 8.3 Synchronous Stop-hook contract
 
-**FLOW-003 / HOOK-001:** `Stop` fires when Codex is about to finish the current turn; it is
-unrelated to stopping the watched process. It receives `turn_id`,
-`stop_hook_active`, `last_assistant_message`, and common hook fields. On exit zero
-it emits JSON; `{"decision":"block","reason":"..."}` creates an automatic
-continuation prompt. An asynchronous hook cannot control the turn.
+**FLOW-003 / HOOK-001:** `Stop` fires when Codex is about to finish the current
+turn; it is unrelated to stopping the watched process. It receives `turn_id`,
+`stop_hook_active`, `last_assistant_message`, and common hook fields. On exit
+zero it emits JSON; `{"decision":"block","reason":"..."}` creates an automatic
+continuation prompt in the same chat, not a new chat or session. An asynchronous
+hook cannot control the turn.
 
 The official documentation states that hook `timeout` is seconds and most hooks
 default to 600 seconds, but does not document a maximum for `Stop` or guarantee
 that a synchronous hook can stay alive for hours. The host may terminate it
 independently of the configured value.
 
-The user selected one synchronous hook invocation for the whole approved
-observation window. `process-watch-stop-hook.mjs` therefore uses that user value
-as its effective wait deadline. `hooks.json` SHALL declare an explicit execution
-ceiling at least the scenario maximum plus a bounded cleanup margin; it SHALL not
-rely on the 600-second default. Preflight blocks when the selected duration exceeds
+Each attempt uses one synchronous hook invocation for its approved observation
+window. `process-watch-stop-hook.mjs` therefore uses that user value as its
+effective wait deadline. After a repair, `repair-restart` launches a detached
+generated watcher, waits only for its fresh startup heartbeat, re-arms the
+one-shot selection, and returns so the agent ends that repair turn. The watcher
+observes the new attempt and the next Stop-hook invocation waits for its
+terminal state without model calls. `hooks.json` SHALL declare an explicit execution ceiling
+at least the scenario maximum plus a bounded cleanup margin; it SHALL not rely
+on the 600-second default. Preflight blocks when the selected duration exceeds
 the trusted configured ceiling. The status summary shows expected duration,
 approved effective timeout, and configured hook ceiling separately.
 
 **HOOK-002:** The hook SHALL:
 
-- emit `{}` and exit zero when no matching active watcher exists;
-- match only the active workspace/session/watch generation;
+- emit `{}` and exit zero when no matching armed watcher exists;
+- select only the one-shot workspace/session/watch armed by an explicit
+  `start` or `resume`, then revalidate persisted state; the pointer is selection
+  input, never authority;
 - wait without model calls or busy polling;
-- emit `decision: block` only after a persisted generation requires agent work;
-- use fixed continuation templates with safe IDs and normalized outcomes;
-- use `stop_hook_active` and generation acknowledgement to prevent loops; and
+- atomically consume the armed selection before emitting `decision: block` once
+  for that persisted terminal attempt result, including `Success`, repairable
+  failure, blocker, and cancellation;
+- use exactly
+  `process-watch continuation --watch-id <id> --generation <n> --outcome <outcome>`
+  with validated safe IDs, integer generation, and normalized outcome;
+- persist acknowledgement bound to session ID, watch ID, generation, and
+  outcome before emitting the continuation, so a generation creates at most one
+  continuation;
+- when `stop_hook_active=true`, proceed only if `repair-restart` has freshly
+  re-armed the exact matching selection after startup proof; otherwise return
+  `{}`;
+- return `{}` for every later ordinary Stop event unless an explicit `start` or
+  `resume`, or an authorized successful `repair-restart`, arms a selection; and
 - treat hook timeout/termination as loss of continuation transport, not target
   failure or cancellation.
+
+The fixed continuation resumes the authority of the original explicit
+`$watch-process` request only after the operator validates the current selection,
+state generation, acknowledgement, session, workspace, watch, and outcome. It
+is not a new explicit invocation. A forged, stale, foreign, malformed, or
+identity-mismatched continuation fails before diagnosis or repair. The operator
+maps validated terminal results as follows:
+
+| Phase/result                                                 | Action             |
+| ------------------------------------------------------------ | ------------------ |
+| `Success` / `succeeded`                                      | `report-success`   |
+| `NeedsAgent` / `target_failed` or another repairable failure | `repair`           |
+| `Blocked`                                                    | `report-blocked`   |
+| `Cancelled`                                                  | `report-cancelled` |
+
+After `repair-restart` proves background startup and re-arms selection, the
+agent ends the current response instead of invoking blocking `wait`. The next
+terminal continuation repeats the bounded repair/verification/restart loop only
+while the approved timeout, declared repair scope, safety checks, and a
+meaningful next fix permit it. No arbitrary retry count applies. Success is
+reported in its own continuation; cancellation, blocking, or absence of a safe
+meaningful fix stops the loop. `process-watch.mjs wait` remains an explicit
+manual/recovery fallback, not the normal post-repair path.
+
+If the shared Node.js waiter exhausts the approved attempt deadline plus its
+bounded cleanup margin while state remains active, it returns `timed_out` and a
+blocked action without mutating state or cancelling the target. This is distinct
+from `watcher_lost`, which requires liveness/ownership failure, and from a host
+forcibly terminating the hook before it can emit any continuation.
+
+Final messages use the user's language. Success names the scenario, attempt,
+elapsed duration, and says that everything is ready. Blocking or cancellation
+names the normalized outcome, explains the safe stopping reason, and states the
+required user action. Messages SHALL NOT include raw logs, absolute paths,
+secrets, or internal evidence content.
 
 Detailed lifecycle behavior is fail closed:
 
@@ -1014,8 +1080,13 @@ Detailed lifecycle behavior is fail closed:
   scenario, target, timeout, scope, or authority causes `scenario_changed` and
   `Blocked` before further mutation.
 - **Terminal target:** the watcher observes the exact target, atomically writes
-  `NeedsAgent` or `Finalizing`, closes its evidence handle, relinquishes its
-  watcher process ownership, and exits. The hook does not kill the old watcher.
+  `NeedsAgent`, `Blocked`, `Cancelled`, or `Success` after finalization, closes
+  its evidence handle, relinquishes its watcher process ownership, and exits.
+  The hook does not kill the old watcher. A result written before hook startup
+  is still found through the armed current-watch selection and acknowledged
+  once. The hook consumes that selection before continuation; every later
+  repair attempt receives a newly armed one-shot selection only after its
+  detached watcher proves startup.
 - **Watcher exits before state update:** missed heartbeat/process-start-token
   checks performed by the hook/recovery path produce `watcher_lost`; recovery
   re-observes the exact target before deciding whether to reattach, repair,
@@ -1029,9 +1100,11 @@ Detailed lifecycle behavior is fail closed:
   `authentication_failed`; no credentials are requested or stored by the skill.
 
 **PERF-001:** Deterministic waiting performs no model calls or repeated chat
-updates. The chosen one-hook strategy may occupy the current turn for the full
-approved timeout and may temporarily limit same-chat interaction; this trade-off
-is user-approved and explicitly reported at preflight.
+updates. Each Stop-hook wait may occupy the boundary after its corresponding
+model turn for the full approved timeout and may temporarily limit same-chat
+interaction. Post-repair attempts run in detached generated watchers; repair
+turns return after startup proof instead of blocking on the full attempt. This
+trade-off is user-approved and explicitly reported at preflight.
 
 ## 9. Evidence, repair, verification, and delivery
 
@@ -1066,10 +1139,12 @@ repair or verification, the agent stops before the next write, delivery, or
 dispatch. It does not merge, overwrite, or roll back either side automatically.
 The user must reconcile or authorize a new isolated worktree and `resume`.
 
-**SAFE-009:** A writing watcher requires a clean worktree at arming, a
-non-detached branch when Git delivery is enabled, a validated upstream, and an
-exclusive workspace lock. Pre-existing changes are never adopted, stashed,
-discarded, or silently committed.
+**SAFE-009:** `git-delivery` requires a clean worktree at arming, a non-detached
+branch, a validated upstream, and an exclusive workspace lock. Non-Git delivery
+strategies capture a stable baseline, preserve unrelated pre-existing changes,
+and own only declared repair candidates; they do not require a clean worktree.
+Pre-existing changes are never adopted, stashed, discarded, or silently
+committed.
 
 **SAFE-003:** Explicit invocation authorizes only scenario-bounded inspection,
 repair, verification, and declared `local-restart`, `provider-retry`,

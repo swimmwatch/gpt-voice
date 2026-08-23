@@ -97,6 +97,8 @@ operator entrypoint. These are the complete command forms:
 ```text
 node .agents/skills/watch-process/scripts/process-watch.mjs start --scenario <scenario-id> [--target <selector>] --timeout-seconds <seconds>
 node .agents/skills/watch-process/scripts/process-watch.mjs status [--watch-id <watch-id>]
+node .agents/skills/watch-process/scripts/process-watch.mjs continuation --watch-id <watch-id> --generation <generation> --outcome <outcome>
+node .agents/skills/watch-process/scripts/process-watch.mjs wait --watch-id <watch-id>
 node .agents/skills/watch-process/scripts/process-watch.mjs resume [--watch-id <watch-id>] --timeout-seconds <seconds>
 node .agents/skills/watch-process/scripts/process-watch.mjs cancel [--watch-id <watch-id>]
 node .agents/skills/watch-process/scripts/process-watch.mjs repair-begin [--watch-id <watch-id>]
@@ -108,8 +110,11 @@ node .agents/skills/watch-process/scripts/process-watch.mjs repair-restart [--wa
 
 The exact repair order is `repair-begin`, `write-begin`, the one declared agent
 write, `write-complete` with the same complete candidate set,
-`repair-verify`, then `repair-restart`. The operator rejects unknown or
-duplicate options, invalid timeouts and paths, ambiguous watch selection,
+`repair-verify`, then `repair-restart`. The restart launches a detached watcher,
+waits only for its startup heartbeat, re-arms the one-shot Stop-hook selection,
+and returns so the current model turn can finish. The operator rejects unknown
+or duplicate options, invalid
+timeouts and paths, ambiguous watch selection, forged or stale continuation,
 foreign session/workspace state, and invalid phase changes before work.
 
 One explicit live invocation names the reviewed scenario, target, and timeout.
@@ -242,7 +247,7 @@ Use these complete tracked examples rather than copying an abbreviated sample:
 
 | Use case                                  | Scenario                                                              |
 | ----------------------------------------- | --------------------------------------------------------------------- |
-| GitHub pull-request required checks       | `.codex/process-watch/scenarios/github-pr-required-checks.watch.json` |
+| Project GitHub PR checks and auto-repair  | `.codex/process-watch/scenarios/github-pr-required-checks.watch.json` |
 | Provider-neutral generic CI CLI           | `.codex/process-watch/scenarios/generic-ci-run.watch.json`            |
 | Local Docker build and image verification | `.codex/process-watch/scenarios/local-docker-build.watch.json`        |
 | Watcher-owned local long command          | `.codex/process-watch/scenarios/local-long-test.watch.json`           |
@@ -310,9 +315,53 @@ reconciliation and never blindly repeats an uncertain push.
 ## Synchronous Stop hook and recovery
 
 `Stop` fires when Codex is about to finish the current turn. It does not fire
-because the watched target stopped. The project hook is synchronous so a
-persisted `NeedsAgent`, `Blocked`, or `Cancelled` generation can request a safe
-continuation; an asynchronous hook cannot control the turn.
+because the watched target stopped. Although Codex invokes the configured event
+for ordinary turns, the project handler waits only for the one-shot selection
+armed by an explicit Watch `start` or `resume`, or by a successful authorized
+`repair-restart`. It consumes that selection before requesting one safe
+continuation for the selected attempt's `Success`, `NeedsAgent`, `Blocked`, or
+`Cancelled` result in the same chat; later unrelated turns are neutral.
+
+Every attempt is observed by a detached watcher and awaited by the Stop hook.
+Before ending that first turn,
+the operator atomically stores a private selection-only pointer containing the
+session ID, workspace ID, watch ID, and armed state. The hook uses it to find the
+exact watch even if the watcher finished before hook startup, then revalidates
+persisted state and atomically consumes the armed state. The pointer is not
+authority or success proof. After every successful `repair-restart`, the
+operator re-arms the pointer only after the new detached watcher has written a
+fresh startup heartbeat.
+
+The continuation prompt is fixed:
+
+```text
+process-watch continuation --watch-id <id> --generation <n> --outcome <outcome>
+```
+
+It contains no paths, commands, logs, or user text. It continues the original
+explicit Watch request rather than activating the skill again. Before diagnosis
+or repair, the agent passes those exact fields to the operator `continuation`
+command. The operator validates the selection, acknowledgement, session,
+workspace, watch, generation, and normalized outcome, then returns only one of
+`report-success`, `repair`, `report-blocked`, or `report-cancelled` with safe
+status. A forged, stale, malformed, or foreign continuation fails closed.
+
+After `repair-restart`, the agent finishes the current response. The detached
+generated watcher owns restart and observation for the next attempt without
+model calls. When it writes a terminal state, the re-armed Stop hook emits the
+next fixed continuation even though the host marks the previous turn with
+`stop_hook_active=true`; the fresh matching one-shot selection makes this safe.
+Once consumed, later ordinary Stop events are neutral. The operator's blocking
+`wait` command remains a manual/recovery fallback and is not part of the normal
+post-repair sequence; when explicitly used, it waits only for the remaining
+approved attempt window. There is no arbitrary retry count; the timeout, repair
+scope, safety conditions, and useful next repair bound the loop.
+
+An exhausted approved attempt window plus cleanup margin returns `timed_out`
+and a blocked action without changing state or cancelling the target.
+`watcher_lost` is reserved for failed watcher liveness/ownership proof. A host
+that kills the hook earlier prevents continuation delivery and is recovered
+through explicit `resume` instead.
 
 Official documentation describes hook timeouts in seconds and documents a
 600-second default for most hooks, but does not document a maximum Stop-hook
@@ -321,18 +370,26 @@ project declares a 604920-second ceiling (maximum scenario window plus cleanup
 margin), and preflight rejects a selected timeout above it. The host or IDE can
 terminate the hook independently of that ceiling.
 
-| Event                                 | Safe behavior                                                                                                                                                               |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IDE or host restart                   | The hook ends; a detached watcher may continue. Reopen the same workspace/chat and use `resume` with a newly chosen timeout. No session starts automatically.               |
-| User cancels while hook waits         | The host may interrupt the hook. A live watcher observes the marker; otherwise `resume` reconciles. Remote cancellation still needs separate authority.                     |
-| Another message in the chat           | Steering/queuing is host-dependent and never required. A change to scenario, target, timeout, scope, or authority becomes `scenario_changed` and `Blocked` before mutation. |
-| Target becomes terminal               | The watcher writes its generation, closes evidence, releases watcher ownership, and exits. The hook does not kill it.                                                       |
-| Watcher exits before state update     | Heartbeat and process-token checks report `watcher_lost`; recovery re-observes the exact target before attach, repair, finalization, or block.                              |
-| Hook times out first or host kills it | Continuation transport is lost, not the target. A watcher can continue to its deadline; `resume` reconciles state.                                                          |
-| Authentication expires                | Record `authentication_failed`; do not request or store credentials.                                                                                                        |
+| Event                                 | Safe behavior                                                                                                                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IDE or host restart                   | The hook ends; a detached watcher may continue. Reopen the same workspace/chat and use `resume` with a newly chosen timeout. No session starts automatically.                            |
+| User cancels while hook waits         | The host may interrupt the hook. A live watcher observes the marker; otherwise `resume` reconciles. Remote cancellation still needs separate authority.                                  |
+| Another message in the chat           | Steering/queuing is host-dependent and never required. A change to scenario, target, timeout, scope, or authority becomes `scenario_changed` and `Blocked` before mutation.              |
+| Target becomes terminal               | The watcher writes its terminal generation, closes evidence, releases watcher ownership, and exits. The hook selects and acknowledges it once, even if completion preceded hook startup. |
+| Watcher exits before state update     | Heartbeat and process-token checks report `watcher_lost`; recovery re-observes the exact target before attach, repair, finalization, or block.                                           |
+| Hook times out first or host kills it | Continuation transport is lost, not the target. A watcher can continue to its deadline; `resume` reconciles state.                                                                       |
+| Authentication expires                | Record `authentication_failed`; do not request or store credentials.                                                                                                                     |
 
-The one-hook strategy can occupy the current turn for the approved timeout and
-may limit same-chat interaction. Report that trade-off at preflight.
+Each hook wait can occupy the boundary after its corresponding model turn for
+the approved timeout and may limit same-chat interaction. The generated watcher
+does not consume model tokens while the target runs. Report that trade-off at
+preflight.
+
+On success, the final message is concise and in the user's language: scenario,
+attempt, elapsed duration, and that everything is ready. On block or cancel, it
+states the normalized outcome, a clear safe stopping reason, and the required
+user action. Never include raw logs, absolute paths, secrets, or internal
+evidence contents.
 
 ## Evidence, reviewer proof, cleanup, and uninstall
 

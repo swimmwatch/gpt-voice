@@ -2,75 +2,102 @@
 
 ## Completed Work
 
-- Tasks 01–11 are complete: project-local skill and schema, portable Node.js
-  runtime, private state/receipts/audit, four adapters, orchestrator/generated
-  watcher, synchronous Stop hook, repair/delivery controls, and the hosted
-  Node 22/24 × Linux/Windows/macOS compatibility workflow.
-- Task 12 automated work now includes the executable
-  `scripts/process-watch.mjs` operator, production repair-controller wiring,
-  explicit resume/deadline recovery, safe abandoned-lock recovery, and active
-  local/remote cancellation handling.
-- Scenario validation is fail closed: exact schema ID, adapter-specific closed
-  capabilities, environment-name allowlists with no serialized values,
-  shell/inline-code rejection, forbidden-action enforcement, and schema/runtime
-  agreement.
-- Specification Revision 5, plan Revision 2, operator guide, traceability, and
-  manual acceptance now agree that each live logical target needs one explicit
-  scenario invocation and timeout. That invocation covers only the scenario's
-  declared normal delivery/dispatch loop without repeated per-attempt approval;
-  settings, remote cancellation, release, publish, and deploy remain separate
-  gates or forbidden.
+- Tasks 01–11 remain complete. Task 12 automated implementation now includes a
+  separate same-chat continuation for every armed attempt result, including
+  success.
+- The operator stores an atomic private one-shot selection bound to session,
+  workspace, and watch. The Stop hook revalidates persisted state, consumes the
+  selection before continuation, and stays neutral on unrelated later turns.
+- Specification Revision 8 and decision
+  `hook.automatic_same_chat_continuation` Revision 3 own the per-attempt
+  continuation contract.
+- Continuation prompts use only the fixed watch ID, generation, and normalized
+  outcome grammar. The operator validates the selected acknowledgement before
+  returning `report-success`, `repair`, `report-blocked`, or
+  `report-cancelled` with sanitized status.
+- Every attempt runs in a detached watcher and is awaited by the synchronous
+  Stop hook. After repair, `repair-restart` returns after a fresh startup
+  heartbeat, re-arms the one-shot selection, and lets the repair response end.
+  The next terminal result creates a separate continuation without model
+  polling. Blocking `wait` remains a recovery/manual fallback only.
+- Local/Docker retry now survives the fresh composition root created by every
+  operator command. A bounded terminal receipt proves the prior owned attempt
+  exited, while its immutable receipt supplies the original operation
+  generation; the new attempt remains bound to the current state generation.
+- Repair continuation preserves the generation that created the fresh target
+  while later state transitions use `stateGeneration`. This prevents the first
+  post-repair observation from rejecting its own attempt identity.
+- Non-Git watches now use a stable scoped repair baseline and no longer require
+  a clean Git worktree. Unrelated existing changes remain untouched;
+  clean-worktree enforcement remains exclusive to `git-delivery`.
+- Specification Revision 8, Plan Revision 3, operator/author guidance, Task 09,
+  Task 12, traceability, and manual acceptance now describe the same per-attempt
+  loop and final-message contract. No application code, dependency, global
+  setting, commit, or push was changed.
+- The `github-pr-required-checks` scenario is now bound to
+  `swimmwatch/gpt-voice`, the six workflows that can contribute PR checks, a
+  closed project repair scope, comprehensive local verification, and
+  receipt-bound normal upstream repair delivery. It has not been launched.
 
 ## Current Packet
 
 - [12 — Documentation and acceptance](12_documentation_and_acceptance.md) is
-  still open only for real manual acceptance.
-- Automated implementation and documentation defects found by review have been
-  repaired. The final automated verification set must remain green before a
-  manual scenario is attempted.
+  still open for manual acceptance only.
+- Automated implementation and documentation checks are green on Node.js 22
+  and 24.
+- The three-attempt local manual scenario proves separate failure/repair,
+  failure/repair, and success continuations with model-free background waits.
 
 ## Current Changed Files
 
-- Watch-process schema, scenarios, validator/normalizer, command policy,
-  operator, launcher/runtime/orchestrator, state recovery, repair cancellation,
-  and runtime exports/integrity manifest.
-- Standalone scenario, adapter, generated-watcher, operator, orchestrator,
-  state/audit, and repair regression tests plus the suite entrypoint.
-- Approved specification/plan/task documentation, traceability, manual
-  acceptance, skill instructions, and scenario-author guide.
+- Watch-process skill instructions, scenario-author guide, specification,
+  decision ledger, Task 09/12 contracts, traceability, plan reference, and
+  manual acceptance index.
+- Project GitHub PR auto-repair scenario and its fail-closed contract test.
+- New `process-watch-selection-store.mjs` and
+  `process-watch-terminal-waiter.mjs`, plus Stop-hook repository/contracts,
+  operator/CLI, runtime exports, and integrity manifest.
+- Owned-process adapter context, terminal operation receipts with v1-to-v2
+  migration, restart recovery, and orchestrator retry-generation binding.
+- Stop-hook, operator, skill-surface, documentation-policy, and hook-policy
+  regression tests, plus a fail-closed three-attempt local retry test using
+  fresh state-store, receipt-store, adapter, and runner instances.
 
 ## Checks
 
-- Complete dependency-free watch-process suite: 108 passed, 0 failed.
-- Complete Node test suite: 2,519 tests; 2,517 passed, 2 skipped, 0 failed
-  (11.5 seconds).
-- Scenario/adapter, generated-watcher, operator, orchestrator, repair, state,
-  audit, skill, Stop-hook, compatibility-workflow, and documentation-policy
-  regressions: passing.
-- `npm run typecheck` and `npm run test:types`: passing.
-- `npm run format:check` plus explicit changed-file Prettier checks: passing.
-- Full lint: no errors (existing repository warnings only); focused changed-file
-  ESLint: no issues.
-- `npm run audit:prod`: 0 vulnerabilities.
-- `npm run build:prod`: passing with the existing webpack asset-size warnings;
-  `npm run verify:renderer-bundle`: passing.
-- `git diff --check`: passing.
+- Node.js 24 watch-process suite: 123 passed, 0 failed.
+- Node.js 22 watch-process suite: 122 passed, 0 failed; the additional project
+  GitHub scenario contract also passes on Node.js 22.
+- Node.js 22/24 skill, documentation, Stop-hook, and compatibility policy tests:
+  passing.
+- `npm run test:types`: passing.
+- Focused Prettier checks: passing.
+- `npm run lint`: 0 errors; 267 pre-existing repository warnings.
+- Skill Creator `quick_validate.py`: passing.
+- The regression sequence `attempt 1 failed -> attempt 2 failed -> attempt 3
+succeeded` passes; retry before a terminal receipt remains blocked.
+- Changed JavaScript syntax checks and `git diff --check`: passing.
 
 ## Next Action
 
-1. Keep Task 12 unchecked until the user explicitly invokes one pending manual
-   scenario and selects its finite timeout.
-2. Record only bounded, attempt-bound IDs/digests in
-   [manual-acceptance.md](manual-acceptance.md).
+1. Keep Task 12 unchecked.
+2. Obtain a fresh finite timeout before each separately invoked manual Watch
+   scenario.
+3. Run the disposable automatic-success scenario and record only safe
+   watch/generation/outcome plus the final scenario/attempt/duration report.
+4. Continue with the remaining separately authorized manual gates listed in
+   [manual-acceptance.md](manual-acceptance.md); the three-attempt repaired local
+   continuation loop is complete.
 
 ## Manual Blockers
 
-- Review and trust the project-local Stop hook through Codex `/hooks`.
-- Obtain a successful six-cell `Watch Process Compatibility` run, then
-  separately authorize and verify the repository required-check setting.
-- Complete the remaining live GitHub, generic-CI-if-available, Docker, local,
-  recovery, cancellation, mutation, authentication, and reviewer-revalidation
-  rows in the manual acceptance index.
-- No real target, credential, CI dispatch, Docker daemon, remote delivery,
-  repository setting, publish, release, or deploy action is authorized by this
-  handoff or by incremental implementation alone.
+- Review and trust the project-local Stop hook through Codex `/hooks` if this
+  exact project revision is not already trusted.
+- The automatic-success local scenario still requires a separate explicit
+  `$watch-process` invocation with a newly selected timeout.
+- Hosted compatibility, repository required-check configuration, GitHub,
+  generic CI, Docker, restart, auth-expiry, cancellation, mutation, and reviewer
+  revalidation rows remain pending as listed in the manual acceptance index.
+- No real target, credential, remote dispatch, Docker daemon, repository
+  setting, publish, release, deploy, commit, or push is authorized by this
+  handoff.

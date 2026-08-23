@@ -7,7 +7,7 @@ Complete the autonomous failure-to-repair loop: bounded evidence, owned forward-
 ## Prerequisites
 
 - Tasks 01–09 completed and committed.
-- Worktree must be clean, branch non-detached, and exclusive watcher lock valid before enabling any Git delivery path.
+- Worktree must be clean, branch non-detached, and exclusive watcher lock valid before enabling any Git delivery path. Non-Git delivery preserves unrelated pre-existing changes under a stable scoped baseline.
 
 ## Owned Requirements
 

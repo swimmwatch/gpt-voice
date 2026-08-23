@@ -6,6 +6,11 @@ import * as path from 'node:path';
 const WORKSPACE_PATH = path.resolve(__dirname, '../..');
 const HOOKS_PATH = path.join(WORKSPACE_PATH, '.codex/hooks.json');
 const STOP_HOOK_PATH = path.join(WORKSPACE_PATH, '.agents/skills/watch-process/scripts/process-watch-stop-hook.mjs');
+const STOP_HOOK_LIBRARY_ROOT = path.join(WORKSPACE_PATH, '.agents/skills/watch-process/scripts/lib');
+const STOP_HOOK_IMPLEMENTATION_PATH = path.join(STOP_HOOK_LIBRARY_ROOT, 'process-watch-stop-hook.mjs');
+const OPERATOR_PATH = path.join(STOP_HOOK_LIBRARY_ROOT, 'process-watch-operator.mjs');
+const SELECTION_STORE_PATH = path.join(STOP_HOOK_LIBRARY_ROOT, 'process-watch-selection-store.mjs');
+const TERMINAL_WAITER_PATH = path.join(STOP_HOOK_LIBRARY_ROOT, 'process-watch-terminal-waiter.mjs');
 const HOOK_TIMEOUT_SECONDS = 604_920;
 
 interface HookHandler {
@@ -56,5 +61,21 @@ describe('watch-process Stop-hook policy', () => {
     assert.doesNotMatch(commands, /(?:~|%USERPROFILE%|\$HOME|[A-Z]:\\Users|\/home\/|config\.toml)/iu);
     assert.doesNotMatch(commands, /(?:scenario|target|timeout|last_assistant_message|session_id)/iu);
     assert.doesNotMatch(JSON.stringify(handler), /"async":true/u);
+  });
+
+  it('shares one model-free terminal waiter and keeps current-watch selection separate from authority', () => {
+    const hook = readFileSync(STOP_HOOK_IMPLEMENTATION_PATH, 'utf8');
+    const operator = readFileSync(OPERATOR_PATH, 'utf8');
+    const selectionStore = readFileSync(SELECTION_STORE_PATH, 'utf8');
+
+    assert.equal(existsSync(TERMINAL_WAITER_PATH), true);
+    assert.match(hook, /new ProcessWatchTerminalWaiter/u);
+    assert.match(operator, /new ProcessWatchTerminalWaiter/u);
+    assert.match(operator, /async continuation\(/u);
+    assert.match(operator, /async wait\(/u);
+    assert.match(selectionStore, /selection-only pointer/u);
+    assert.doesNotMatch(hook, /if \(input\.stopHookActive/u);
+    assert.match(operator, /mode: 'repair-restart'/u);
+    assert.match(operator, /await this\.#selectCurrentWatch\(record\.watchId\)/u);
   });
 });

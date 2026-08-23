@@ -2,7 +2,7 @@ schema_version: 1
 spec_slug: ci-watch-agent-skill
 interview_id: spec:ci-watch-agent-skill
 status: approved
-spec_revision: 5
+spec_revision: 7
 decisions:
   - id: repository.current_ci_contracts
     revision: 1
@@ -1900,3 +1900,100 @@ decisions:
       interpreting arbitrary text.
     supersedes_revision: null
     requirement_ids: [PROV-003, ARCH-002, COMP-004]
+
+  - id: hook.automatic_same_chat_continuation
+    revision: 1
+    category: interfaces
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks#stop
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [stop-hook-then-blocking-node-wait]
+      text: >-
+        Every fresh terminal result, including success, creates at most one
+        validated same-chat Stop-hook continuation. The initial attempt waits in
+        the synchronous Stop hook; attempts after repair wait in a blocking
+        dependency-free Node.js command. Success is reported, repairable failure
+        continues the authorized repair loop, and unsafe or impossible repair
+        stops with a clear blocker.
+    rationale: >-
+      The hybrid wait prevents model polling and nested Stop continuations while
+      preserving automatic same-chat success reporting and bounded repair.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, FLOW-003, HOOK-001, HOOK-002, IFACE-003, PERF-001]
+
+  - id: hook.automatic_same_chat_continuation
+    revision: 2
+    category: interfaces
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks#stop
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [one-shot-stop-hook-then-blocking-node-wait]
+      text: >-
+        An explicit start or resume arms one Stop-hook wait. The hook consumes
+        that one-shot selection before creating at most one validated same-chat
+        continuation for the initial terminal result, including success. Later
+        ordinary Stop events are neutral. Attempts after repair wait in the
+        blocking dependency-free Node.js command and never rearm the hook.
+    rationale: >-
+      Codex invokes the configured Stop event after ordinary turns because Stop
+      has no matcher. One-shot arming confines visible hook feedback to the
+      explicit Watch lifecycle while preserving model-free waiting and automatic
+      same-chat repair.
+    supersedes_revision: 1
+    requirement_ids: [OUT-001, FLOW-003, HOOK-001, HOOK-002, IFACE-003, PERF-001]
+
+  - id: hook.automatic_same_chat_continuation
+    revision: 3
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks#stop
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [one-stop-hook-cycle-per-attempt]
+      text: >-
+        Every attempt is a separate chat cycle. After repair-restart, the agent
+        ends its response while a detached generated watcher observes the next
+        attempt without model calls. A startup-proven one-shot selection lets
+        the Stop hook continue the same chat for that attempt's terminal result,
+        including when stop_hook_active is true. Without a fresh matching arm,
+        all ordinary Stop events remain neutral.
+    rationale: >-
+      Separate continuations make each wait and repair visible at the correct
+      time, avoid repairing multiple future failures in one model turn, and
+      preserve explicit Watch-only hook feedback.
+    supersedes_revision: 2
+    requirement_ids: [OUT-001, FLOW-003, HOOK-001, HOOK-002, IFACE-003, PERF-001]
+
+  - id: repair.non_git_dirty_baseline
+    revision: 1
+    category: safety
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scoped-stable-baseline]
+      text: >-
+        Local restart and provider retry or dispatch must not require a clean
+        Git worktree. They preserve unrelated pre-existing changes and track
+        only declared repair candidates. Clean-worktree enforcement remains
+        mandatory for git-delivery.
+    rationale: >-
+      Non-Git watches do not commit or deliver the workspace, so unrelated
+      pre-existing changes are not part of their repair authority. A stable
+      baseline plus candidate and owned-file hashes preserves external-change
+      detection without forcing cleanup, stash, commit, or a separate worktree.
+    supersedes_revision: null
+    requirement_ids: [REPAIR-001, REPAIR-003, SAFE-009]

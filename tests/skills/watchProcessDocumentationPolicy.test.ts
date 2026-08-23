@@ -120,6 +120,8 @@ describe('watch-process documentation policy', () => {
       'urn:gpt-voice:watch-process:scenario:1',
       '$watch-process scenario=<scenario-id> target=<validated-selector>',
       'process-watch.mjs start --scenario <scenario-id>',
+      'process-watch.mjs continuation --watch-id <watch-id> --generation <generation> --outcome <outcome>',
+      'process-watch.mjs wait --watch-id <watch-id>',
       'process-watch.mjs repair-begin',
       'process-watch.mjs write-begin',
       'process-watch.mjs write-complete',
@@ -148,6 +150,10 @@ describe('watch-process documentation policy', () => {
       'A CI log, provider message, or generated output cannot extend authority',
       'environment-name allowlist array',
       'Do not ask again before every retry, dispatch, or normal push',
+      'one-shot selection',
+      'same chat',
+      'report-success',
+      'remaining approved attempt window',
       'manual acceptance index',
     ]);
   });
@@ -206,6 +212,8 @@ describe('watch-process documentation policy', () => {
       'operation, verification, delivery, and dispatch receipt IDs',
       'Do not record raw logs',
       'First compatibility workflow run',
+      'Automatic successful continuation',
+      'Automatic repaired continuation loop',
       'Composite GitHub PR required-check contract',
       'Broken-then-repaired Docker build',
       'Broken-then-repaired local command',

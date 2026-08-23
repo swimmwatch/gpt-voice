@@ -2,7 +2,11 @@
 
 ## Outcome
 
-Implement and register one synchronous project-local Codex `Stop` hook that waits deterministically for the active watcher, resumes the same turn only when agent action is required, and fails safely across timeouts, cancellation, crashes, restart, and delivery races.
+Implement and register one synchronous project-local Codex `Stop` hook that
+waits deterministically for the selected watcher, continues the same chat for
+each armed attempt after an explicit start/resume or authorized repair restart,
+including success, and fails
+safely across timeouts, cancellation, crashes, restart, and delivery races.
 
 ## Prerequisites
 
@@ -17,7 +21,10 @@ Implement and register one synchronous project-local Codex `Stop` hook that wait
 
 - `.agents/skills/watch-process/scripts/process-watch-stop-hook.mjs`.
 - `.codex/hooks.json` with exactly one synchronous `Stop` handler for this feature.
-- Hook input/output validation, workspace/session/generation matching, deadline-aware wait, fixed continuation templates, lifecycle recovery, and focused tests.
+- Hook input/output validation, one-shot armed current-watch selection,
+  workspace/session/watch/generation matching, shared deadline-aware wait, fixed
+  continuation templates, lifecycle recovery, operator continuation validation,
+  and focused tests.
 
 ## Out Of Scope
 
@@ -27,15 +34,45 @@ Implement and register one synchronous project-local Codex `Stop` hook that wait
 
 - `Stop` means Codex is about to finish the current turn; it is unrelated to stopping the watched target. The hook receives bounded JSON on stdin and validates `session_id`, `cwd`, `turn_id`, `hook_event_name`, `stop_hook_active`, and `last_assistant_message` types before use.
 - Register a synchronous command handler (`async` absent/false). `Stop` has no useful matcher, so the hook exits zero with `{}` when there is no exact active workspace/session/watch generation.
-- When a matching watcher is in `Watching`, the hook waits with deadline-aware bounded polling and no model calls/busy loop. It emits `{"decision":"block","reason":"<fixed template>"}` only for a persisted fresh generation requiring repair/finalization/blocker handling. Reasons contain safe IDs/outcome codes only, never raw output or arbitrary state text.
-- Respect `stop_hook_active` and stored acknowledgement generation so a continuation cannot loop on the same event. Multiple matching hooks are outside this feature's authority; this hook must remain independently safe.
+- The operator atomically arms one current watch using session ID, workspace ID,
+  and watch ID only for an explicit start or resume. The hook uses that private
+  pointer only to locate a candidate, then revalidates persisted state;
+  selection never grants authority.
+- When the selected watcher is active, the hook waits with deadline-aware
+  bounded polling and no model calls/busy loop. It emits
+  `{"decision":"block","reason":"process-watch continuation --watch-id <id> --generation <n> --outcome <outcome>"}`
+  exactly once for the selected terminal attempt result, including `Success`,
+  `NeedsAgent`, `Blocked`, and `Cancelled`, after consuming the armed selection.
+  Every later ordinary Stop event is neutral until another explicit start or
+  resume, or a successful authorized `repair-restart`, re-arms the selection.
+  Reasons contain only validated safe IDs, generation, and normalized outcome.
+- Persist acknowledgement bound to session ID, watch ID, generation, and outcome
+  before continuation. When `stop_hook_active=true`, proceed only for a freshly
+  re-armed exact selection after restart startup proof; otherwise return `{}`.
+  Multiple matching hooks are outside
+  this feature's authority; this hook must remain independently safe.
+- The operator `continuation` action validates the selected identity and exact
+  acknowledgement before returning only `report-success`, `repair`,
+  `report-blocked`, or `report-cancelled` with sanitized status. Forged, stale,
+  malformed, or foreign prompts fail before repair.
+- Every attempt waits in a detached watcher plus the Stop hook. After a
+  successful `repair-restart`, the operator proves a fresh watcher heartbeat,
+  re-arms selection, and returns so the repair response ends. The next terminal
+  result creates a separate continuation without model calls during the wait.
+  `wait --watch-id <id>` remains a manual/recovery fallback. No arbitrary retry
+  limit is introduced.
 - One hook invocation may wait for the whole user-approved observation window. `.codex/hooks.json` declares `timeout: 604920` seconds: schema maximum 604800 plus a fixed 120-second cleanup margin. Preflight rejects a scenario/user timeout above 604800 or a configured ceiling below selected timeout plus margin.
 - Show approved process timeout, effective attempt deadline, and configured hook ceiling as separate values. Official documentation does not guarantee a maximum or hours-long survival; host/IDE may terminate the hook earlier regardless of configured timeout.
 - Project-local command uses the official repo-root resolution pattern and a Windows `commandWindows` equivalent to invoke the tracked Node script from subdirectories. These fixed host command strings contain no scenario/user/provider substitution. Every process spawned by the Node hook/library still uses the canonical executable/args with `shell: false` boundary.
 - Hook timeout or host kill does not mutate watcher state or cancel target; an independently running watcher continues to its attempt deadline. `resume` asks for a new timeout and fully reconciles state, liveness, identity, receipts, digests, auth, and external changes.
 - IDE restart/close kills or disconnects the hook and may kill the watcher. Recovery never self-starts a new chat; explicit `resume` is required and must re-observe the exact target before reattach/repair/finalize/block.
 - If user cancel interrupts the hook, the watcher consumes a cancellation marker at a safe boundary when alive; otherwise resume reconciles it. Remote cancellation remains separately authorized. Same-chat message delivery while blocked is not assumed; any delivered change to scenario/target/timeout/scope/authority causes `scenario_changed` and Blocked.
-- On terminal target, watcher—not hook—atomically writes terminal handoff, closes evidence, releases process ownership, and exits. If watcher exits before state write, heartbeat/start-token recovery produces `watcher_lost` and re-observes target. Hook never kills the old watcher merely because target became terminal.
+- On terminal target, watcher—not hook—atomically writes terminal handoff,
+  closes evidence, releases process ownership, and exits. The hook finds the
+  selected terminal generation even when completion preceded hook startup. If
+  watcher exits before state write, heartbeat/start-token recovery produces
+  `watcher_lost` and re-observes target. Hook never kills the old watcher merely
+  because target became terminal.
 - Auth expiry, delivery failure, dispatch failure, verification failure, watcher/target loss, hook timeout, and host termination retain their distinct outcomes/recovery.
 
 ## Contracts And Boundaries
@@ -47,19 +84,28 @@ Implement and register one synchronous project-local Codex `Stop` hook that wait
 ## Expected Files Or Components
 
 - `.agents/skills/watch-process/scripts/process-watch-stop-hook.mjs`
+- `.agents/skills/watch-process/scripts/process-watch.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-selection-store.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-terminal-waiter.mjs`
 - `.codex/hooks.json`
+- `tests/skills/watchProcess/operator.test.mjs`
 - `tests/skills/watchProcess/stop-hook.test.mjs`
 - Focused TypeScript hook-policy test under `tests/skills/` or `tests/scripts/`
 
 ## Acceptance Criteria
 
-- Tests cover inactive `{}`, active wait, single continuation, `stop_hook_active`, stale generation/session/workspace, timeout, host termination signal, IDE-restart reconciliation, watcher crash, state-write race, cancel, same-chat scenario change, auth expiry, delivery/dispatch/verification outcomes, and sanitized output.
+- Tests cover inactive `{}`, active wait, success after waiting, success before
+  hook startup, failure, blocker, cancellation, single continuation,
+  `stop_hook_active`, forged/stale generation, foreign session/workspace,
+  timeout, abort/host termination, IDE-restart reconciliation, watcher crash,
+  state-write race, same-chat scenario change, auth expiry,
+  delivery/dispatch/verification outcomes, CLI validation, and sanitized output.
 - Configuration has explicit timeout and both POSIX/macOS/Linux and Windows command forms, no `async: true`, and no global path/write.
 - Tests prove no raw evidence/prompt/absolute path/credential can enter continuation JSON.
 
 ## Verification
 
-- `node --test tests/skills/watchProcess/stop-hook.test.mjs`
+- `node --test tests/skills/watchProcess/stop-hook.test.mjs tests/skills/watchProcess/operator.test.mjs`
 - `node --check .agents/skills/watch-process/scripts/process-watch-stop-hook.mjs`
 - `node -e "JSON.parse(require('node:fs').readFileSync('.codex/hooks.json','utf8'))"`
 - `npx prettier --check .codex/hooks.json .agents/skills/watch-process/scripts/process-watch-stop-hook.mjs tests/skills/watchProcess/stop-hook.test.mjs <focused-policy-test>`

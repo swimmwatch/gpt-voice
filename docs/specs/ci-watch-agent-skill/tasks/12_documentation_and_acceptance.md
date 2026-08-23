@@ -25,11 +25,28 @@ Finish operator and scenario-author documentation, audit the complete implementa
 
 ## Out Of Scope
 
-- New adapters/features, application behavior, global daemon/service, automatic chat restart, dependencies, C++, packaging, release, publish, deploy, force-push, merge, tags, or weakening any check.
+- New adapters, application behavior, global daemon/service, new chat/session
+  startup, dependencies, C++, packaging, release, publish, deploy, force-push,
+  merge, tags, or weakening any check.
 
 ## Task Contract
 
 - Documentation explains that the skill is project-local, Node 22/24, Linux/Windows/macOS, built-in-only by default, explicit-only, one logical target per invocation, and uses one synchronous Stop hook that can be killed by host/IDE regardless of configured timeout.
+- Document that a valid fixed Stop-hook continuation resumes the original
+  explicit Watch authority in the same chat and is not a new activation. The
+  hook consumes a one-shot selection and continues once for each armed terminal
+  attempt, including success. Later ordinary turns are neutral. A successful
+  `repair-restart` re-arms only after watcher startup proof; with
+  `stop_hook_active=true`, no matching fresh arm means neutral output.
+- Document the multi-turn loop: every attempt runs in a detached watcher and is
+  awaited by the synchronous Stop hook. Each repair response ends after
+  `repair-restart` proves startup and re-arms the next attempt. No model calls
+  occur while targets run; `wait` remains only a manual/recovery fallback.
+- Document the exact continuation grammar and operator validation, the four
+  normalized actions, stale/forged/foreign rejection, and final-message rules.
+  Success reports scenario, attempt, duration, and that everything is ready in
+  the user's language. Block/cancel reports normalized outcome, safe reason, and
+  required user action without raw logs, paths, secrets, or evidence contents.
 - Every live invocation/resume asks the user in their language for a finite timeout, explains why, and recommends expected process duration plus margin. Manual examples use approximately 40 minutes for a normal 30-minute process. Do not reuse a prior timeout for a new invocation/resume without asking.
 - Document exact scenario paths/schema/defaults/migration/substitution/glob/repair-scope rules; four complete examples; generic CI result schema; prerequisites (`gh`, Docker, declared CLI/program); environment-name allowlists; and no credential value collection/storage.
 - Document state diagram/outcomes, watcher/hook ownership, IDE restart, hook timeout/host kill, watcher crash/state race, authentication expiry, cancellation, same-chat limitations, scenario change during repair, verification/delivery/dispatch failures, forward-only patch preservation, external edits, and explicit resume recovery.
@@ -64,6 +81,8 @@ Finish operator and scenario-author documentation, audit the complete implementa
 
 - `.agents/skills/watch-process/scripts/process-watch.mjs`
 - `.agents/skills/watch-process/scripts/lib/process-watch-operator.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-selection-store.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-terminal-waiter.mjs`
 - `.agents/skills/watch-process/references/scenario-authoring.md`
 - Final updates to `.agents/skills/watch-process/SKILL.md` and focused policy tests
 - Standalone operator, resume, cancellation, and abandoned-lock regression tests
@@ -73,6 +92,14 @@ Finish operator and scenario-author documentation, audit the complete implementa
 ## Acceptance Criteria
 
 - All automated checks relevant to watch-process pass, including standalone suite, skill/workflow policy tests, formatting, lint, and TypeScript contracts.
+- Unit coverage proves success before/after hook wait, terminal action mapping,
+  deduplication, stale/forged/foreign continuation rejection, re-armed
+  continuation under `stop_hook_active`, neutral unrelated turns, background
+  repair restart, and model-free fallback `wait` handling.
+- Manual local acceptance proves both `success → same-chat final report` and
+  `failure continuation → repair → response ends → background attempt → failure
+  continuation → repair → response ends → background attempt → success
+  continuation` without model polling.
 - Traceability audit maps all 71 active requirements with no orphan implementation/test and no dedicated GitLab artifact, and proves the executable operator plus production repair-controller wiring.
 - Manual gates are either completed with exact attempt-bound evidence or clearly listed as pending blockers; feature is not declared complete while a mandatory gate is pending.
 - Installation/uninstall affects only project-local tracked/ignored paths and preserves user/global settings and unrelated hooks.
@@ -102,7 +129,7 @@ Repair implementation defects in their owning module with regression coverage an
 
 ## References
 
-- Mandatory: complete approved specification Revision 5 for the final traceability audit only.
+- Mandatory: complete approved specification Revision 8 for the final traceability audit only.
 - Mandatory official sources: [OpenAI Hooks](https://learn.chatgpt.com/docs/hooks) and [Long-running work](https://learn.chatgpt.com/docs/long-running-work).
 - Mandatory: all completed packet handoffs and generated automated evidence summaries.
 
