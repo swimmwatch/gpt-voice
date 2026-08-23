@@ -1,7 +1,7 @@
 # `$watch-process` Task Checklist
 
 - [x] [01 — Skill surface and project-local layout](01_skill_surface_and_layout.md)
-- [ ] [02 — Scenario contract](02_scenario_contract.md)
+- [x] [02 — Scenario contract](02_scenario_contract.md)
 - [ ] [03 — Portable runtime core](03_portable_runtime_core.md)
 - [ ] [04 — State, receipts, and audit](04_state_receipts_and_audit.md)
 - [ ] [05 — Local and Docker adapters](05_local_and_docker_adapters.md)

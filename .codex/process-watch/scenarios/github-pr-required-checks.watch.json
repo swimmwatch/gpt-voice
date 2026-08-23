@@ -1,0 +1,42 @@
+{
+  "$schema": "urn:gpt-voice:watch-process:scenario:1",
+  "schemaVersion": "1.0.0",
+  "id": "github-pr-required-checks",
+  "description": "Watch every required check for one PR head SHA.",
+  "adapter": "github-actions",
+  "target": {
+    "selectorKinds": ["pull-request-url"],
+    "identityFields": ["repository", "pullRequestNumber", "headSha", "requiredContractDigest"],
+    "requireExactSourceRevision": true
+  },
+  "success": {
+    "requiredChecksMode": "provider-required",
+    "requiredChecks": [],
+    "requiredOutputs": [],
+    "allowedSkippedChecks": []
+  },
+  "timing": {
+    "expectedDurationSeconds": 1800,
+    "minTimeoutSeconds": 600,
+    "maxTimeoutSeconds": 7200,
+    "poll": { "initialSeconds": 10, "maxSeconds": 60, "multiplier": 1.5 }
+  },
+  "evidence": { "maxBytesPerAttempt": 1048576, "maxFailures": 20, "ttlSeconds": 86400 },
+  "repair": {
+    "includeGlobs": ["src/**", "tests/**", "scripts/**", ".github/workflows/**"],
+    "excludeGlobs": ["dist/**", "node_modules/**"],
+    "allowCreate": true,
+    "allowDelete": false,
+    "maxFiles": 50,
+    "maxBytesChanged": 1048576
+  },
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
+  "forbiddenActions": ["force-push", "merge", "release", "publish", "deploy"],
+  "adapterConfig": {
+    "repository": "owner/repository",
+    "mode": "pull-request-contract",
+    "workflowAllowlist": ["pr-checks.yml"],
+    "dispatch": { "enabled": false, "inputs": {} }
+  }
+}

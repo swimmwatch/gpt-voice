@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gpt-voice:watch-process:scenario:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "id",
+    "adapter",
+    "target",
+    "success",
+    "timing",
+    "evidence",
+    "repair",
+    "verification",
+    "delivery",
+    "forbiddenActions",
+    "adapterConfig"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "const": "1.0.0" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "description": { "type": "string", "maxLength": 300, "default": "" },
+    "adapter": {
+      "enum": ["github-actions", "generic-ci-cli", "docker-build", "local-command"]
+    },
+    "target": { "$ref": "#/$defs/target" },
+    "success": { "$ref": "#/$defs/success" },
+    "timing": { "$ref": "#/$defs/timing" },
+    "evidence": { "$ref": "#/$defs/evidence" },
+    "repair": { "$ref": "#/$defs/repair" },
+    "verification": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/command" }
+    },
+    "delivery": { "$ref": "#/$defs/delivery" },
+    "forbiddenActions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }
+    },
+    "adapterConfig": { "$ref": "#/$defs/adapterConfig" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "adapter": { "const": "github-actions" } } },
+      "then": { "properties": { "adapterConfig": { "required": ["repository", "mode"] } } }
+    },
+    {
+      "if": { "properties": { "adapter": { "const": "generic-ci-cli" } } },
+      "then": {
+        "properties": {
+          "adapterConfig": { "required": ["providerId", "commands", "statusMap"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "adapter": { "const": "docker-build" } } },
+      "then": { "properties": { "adapterConfig": { "required": ["buildCommand"] } } }
+    },
+    {
+      "if": { "properties": { "adapter": { "const": "local-command" } } },
+      "then": {
+        "properties": {
+          "adapterConfig": { "required": ["startCommand", "successExitCodes"] }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectorKinds", "identityFields"],
+      "properties": {
+        "selectorKinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["run-url", "pull-request-url", "provider-id", "start"] }
+        },
+        "identityFields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][A-Za-z0-9]{1,63}$" }
+        },
+        "requireExactSourceRevision": { "type": "boolean", "default": true }
+      }
+    },
+    "success": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredChecksMode", "requiredChecks", "requiredOutputs", "allowedSkippedChecks"],
+      "properties": {
+        "requiredChecksMode": { "enum": ["provider-required", "listed", "none"] },
+        "requiredChecks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "requiredOutputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "allowedSkippedChecks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expectedDurationSeconds", "minTimeoutSeconds", "maxTimeoutSeconds", "poll"],
+      "properties": {
+        "expectedDurationSeconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "minTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "maxTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "poll": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["initialSeconds", "maxSeconds", "multiplier"],
+          "properties": {
+            "initialSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+            "maxSeconds": { "type": "integer", "minimum": 1, "maximum": 900 },
+            "multiplier": { "type": "number", "minimum": 1, "maximum": 4 }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxBytesPerAttempt", "maxFailures", "ttlSeconds"],
+      "properties": {
+        "maxBytesPerAttempt": { "type": "integer", "minimum": 1024, "maximum": 10485760 },
+        "maxFailures": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "ttlSeconds": { "type": "integer", "minimum": 60, "maximum": 604800 }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["includeGlobs", "excludeGlobs", "allowCreate", "allowDelete", "maxFiles", "maxBytesChanged"],
+      "properties": {
+        "includeGlobs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "excludeGlobs": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "default": [],
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 }
+        },
+        "allowCreate": { "type": "boolean", "default": false },
+        "allowDelete": { "type": "boolean", "default": false },
+        "maxFiles": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 },
+        "maxBytesChanged": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10485760,
+          "default": 1048576
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executable", "args"],
+      "properties": {
+        "executable": { "type": "string", "pattern": "^[A-Za-z0-9._+/-]{1,200}$" },
+        "args": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "type": "string", "maxLength": 1000 }
+        },
+        "cwd": { "type": "string", "default": ".", "maxLength": 200 },
+        "env": {
+          "type": "object",
+          "default": {},
+          "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+          "additionalProperties": { "type": "string", "maxLength": 1000 }
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "pushCurrentUpstream"],
+      "properties": {
+        "strategy": {
+          "enum": ["no-restart", "local-restart", "provider-retry", "provider-dispatch", "git-delivery"]
+        },
+        "pushCurrentUpstream": { "type": "boolean", "default": false }
+      }
+    },
+    "adapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "mode": { "enum": ["run", "pull-request-contract"] },
+        "workflowAllowlist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "dispatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "inputs"],
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "workflow": { "type": "string" },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": { "type": ["string", "boolean", "number"] }
+            },
+            "idempotencyInput": { "type": "string" }
+          }
+        },
+        "providerId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
+        "commands": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["observe", "evidence"],
+          "properties": {
+            "start": { "$ref": "#/$defs/command" },
+            "observe": { "$ref": "#/$defs/command" },
+            "evidence": { "$ref": "#/$defs/command" },
+            "cancel": { "$ref": "#/$defs/command" }
+          }
+        },
+        "statusMap": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["running", "succeeded", "failed", "cancelled"],
+          "properties": {
+            "running": { "type": "array", "items": { "type": "string" } },
+            "succeeded": { "type": "array", "items": { "type": "string" } },
+            "failed": { "type": "array", "items": { "type": "string" } },
+            "cancelled": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "buildCommand": { "$ref": "#/$defs/command" },
+        "imageVerification": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/command" }
+        },
+        "startCommand": { "$ref": "#/$defs/command" },
+        "successExitCodes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 0, "maximum": 255 }
+        }
+      }
+    }
+  }
+}

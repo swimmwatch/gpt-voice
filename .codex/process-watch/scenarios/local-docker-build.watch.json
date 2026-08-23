@@ -1,0 +1,52 @@
+{
+  "$schema": "urn:gpt-voice:watch-process:scenario:1",
+  "schemaVersion": "1.0.0",
+  "id": "local-docker-build",
+  "description": "Build and smoke-test one local image.",
+  "adapter": "docker-build",
+  "target": {
+    "selectorKinds": ["start"],
+    "identityFields": ["inputDigest", "commandDigest", "attempt", "processStartToken"],
+    "requireExactSourceRevision": false
+  },
+  "success": {
+    "requiredChecksMode": "none",
+    "requiredChecks": [],
+    "requiredOutputs": ["local-image"],
+    "allowedSkippedChecks": []
+  },
+  "timing": {
+    "expectedDurationSeconds": 900,
+    "minTimeoutSeconds": 300,
+    "maxTimeoutSeconds": 3600,
+    "poll": { "initialSeconds": 2, "maxSeconds": 15, "multiplier": 1.5 }
+  },
+  "evidence": { "maxBytesPerAttempt": 2097152, "maxFailures": 10, "ttlSeconds": 21600 },
+  "repair": {
+    "includeGlobs": ["Dockerfile", "docker/**", "src/**", "package*.json"],
+    "excludeGlobs": ["node_modules/**", "dist/**"],
+    "allowCreate": true,
+    "allowDelete": false,
+    "maxFiles": 30,
+    "maxBytesChanged": 1048576
+  },
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
+  "forbiddenActions": ["registry-push", "release", "publish", "deploy"],
+  "adapterConfig": {
+    "buildCommand": {
+      "executable": "docker",
+      "args": ["build", "--tag", "{{watch.id}}", "{{workspace.root}}"],
+      "cwd": ".",
+      "env": {}
+    },
+    "imageVerification": [
+      {
+        "executable": "docker",
+        "args": ["image", "inspect", "{{watch.id}}"],
+        "cwd": ".",
+        "env": {}
+      }
+    ]
+  }
+}
