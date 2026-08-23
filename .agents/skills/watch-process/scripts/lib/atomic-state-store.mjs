@@ -81,9 +81,17 @@ function normalizeLock(value, expectedWatchId) {
   const watchId = validateWatchId(lock.watchId, code);
   if (watchId !== expectedWatchId) runtimeFail(code);
   return freezeRecord({
-    acquiredAtEpochMilliseconds: requireNonNegativeInteger(lock.acquiredAtEpochMilliseconds, code, Number.MAX_SAFE_INTEGER),
+    acquiredAtEpochMilliseconds: requireNonNegativeInteger(
+      lock.acquiredAtEpochMilliseconds,
+      code,
+      Number.MAX_SAFE_INTEGER,
+    ),
     generation: requireNonNegativeInteger(lock.generation, code, 1_000_000_000),
-    heartbeatAtEpochMilliseconds: requireNonNegativeInteger(lock.heartbeatAtEpochMilliseconds, code, Number.MAX_SAFE_INTEGER),
+    heartbeatAtEpochMilliseconds: requireNonNegativeInteger(
+      lock.heartbeatAtEpochMilliseconds,
+      code,
+      Number.MAX_SAFE_INTEGER,
+    ),
     pid: normalizeProcessId(lock.pid),
     processStartToken: validateProcessStartToken(lock.processStartToken, code),
     schemaVersion: LOCK_SCHEMA_VERSION,
@@ -130,7 +138,8 @@ export class AtomicStateStore {
     workspaceId,
   } = {}) {
     if (!(storage instanceof WatchRuntimeStorage)) runtimeFail('invalid-state-store-storage');
-    if (livenessProbe !== undefined && typeof livenessProbe !== 'function') runtimeFail('invalid-state-store-liveness-probe');
+    if (livenessProbe !== undefined && typeof livenessProbe !== 'function')
+      runtimeFail('invalid-state-store-liveness-probe');
     this.#clock = clock;
     this.#livenessProbe = livenessProbe;
     this.#processId = normalizeProcessId(processId);
@@ -172,7 +181,19 @@ export class AtomicStateStore {
       runtimeFail('lock-already-held');
     }
     this.#ownedLock = lock;
-    return lock;
+    try {
+      const existingState = await this.readState();
+      if (existingState !== null) {
+        if (existingState.sessionId !== this.#sessionId || existingState.workspaceId !== this.#workspaceId) {
+          runtimeFail('state-lock-identity-mismatch');
+        }
+        if (existingState.generation !== lock.generation) await this.#replaceOwnedLock(existingState.generation);
+      }
+      return this.#ownedLock;
+    } catch (error) {
+      await this.#releaseLock();
+      throw error;
+    }
   }
 
   async inspectLock() {
@@ -186,7 +207,9 @@ export class AtomicStateStore {
     if (this.#livenessProbe === undefined) return freezeRecord({ generation: lock.generation, kind: 'unknown' });
     let liveness;
     try {
-      liveness = normalizeLiveness(await this.#livenessProbe(freezeRecord({ pid: lock.pid, startToken: lock.processStartToken })));
+      liveness = normalizeLiveness(
+        await this.#livenessProbe(freezeRecord({ pid: lock.pid, startToken: lock.processStartToken })),
+      );
     } catch {
       return freezeRecord({ generation: lock.generation, kind: 'unknown' });
     }
@@ -294,9 +317,7 @@ export class AtomicStateStore {
       } catch {
         return freezeRecord({ kind: 'preserved-ambiguous-state' });
       }
-      const artifactFileNames = entries
-        .filter((entry) => entry.name !== LOCK_FILE_NAME)
-        .map((entry) => entry.name);
+      const artifactFileNames = entries.filter((entry) => entry.name !== LOCK_FILE_NAME).map((entry) => entry.name);
       if (state === null) {
         return artifactFileNames.length === 0
           ? freezeRecord({ kind: 'nothing-to-clean' })
@@ -308,7 +329,10 @@ export class AtomicStateStore {
       }
 
       let removedCount = 0;
-      for (const fileName of [...artifactFileNames.filter((fileName) => fileName !== STATE_FILE_NAME), STATE_FILE_NAME]) {
+      for (const fileName of [
+        ...artifactFileNames.filter((fileName) => fileName !== STATE_FILE_NAME),
+        STATE_FILE_NAME,
+      ]) {
         if (await this.#storage.removeRegularFile(fileName)) removedCount += 1;
       }
       return freezeRecord({ kind: 'removed-expired-artifacts', removedCount });

@@ -80,6 +80,20 @@
   - Added sanitized fixtures and fake-child tests only; no live `gh` command,
     GitHub authentication, remote dispatch/cancellation, workflow edit,
     credential, release, publish, or deploy action was performed.
+- [08 — Orchestrator and generated watcher](08_orchestrator_and_generated_watcher.md)
+  - Added the state-owning `ProcessWatchOrchestrator`, explicit phase/outcome
+    transition table, safe failure normalization, deadline-aware polling,
+    terminal `NeedsAgent` handoff, fresh final observation, and attestation.
+  - Added a dependency-injected four-adapter registry/composition root and
+    generation-safe lock recovery for a preserved private watch state.
+  - Added digest-bound generated watcher artifact, private invocation store,
+    tracked-library manifest integrity check, shell-free launcher, bounded
+    startup heartbeat monitor, and launch coordinator. Generated watchers stay
+    under the ignored `.codex/runtime/process-watch/` root.
+  - Added transition/outcome, race, crash-recovery, real disposable-local
+    process, syntax, ignore, integrity, tamper, heartbeat, and launcher tests.
+  - No live CI/provider/Docker command, credential, source repair, delivery,
+    commit, push, release, publish, or deploy action was performed.
 
 ## Changed Files
 
@@ -143,6 +157,22 @@
 - `tests/skills/watchProcess/fixtures/github-pr-required-checks-success.json`
 - `tests/skills/watchProcess/fixtures/github-pr-required-checks-failure.json`
 - `tests/skills/watchProcess/fixtures/github-workflow-surface.json`
+- `.agents/skills/watch-process/scripts/lib/atomic-state-store.mjs`
+- `.agents/skills/watch-process/scripts/lib/generated-watcher-artifact.mjs`
+- `.agents/skills/watch-process/scripts/lib/generated-watcher-invocation.mjs`
+- `.agents/skills/watch-process/scripts/lib/generated-watcher-launch-coordinator.mjs`
+- `.agents/skills/watch-process/scripts/lib/generated-watcher-launcher.mjs`
+- `.agents/skills/watch-process/scripts/lib/generated-watcher-startup-monitor.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-adapter-registry.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-composition-root.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-generated-watcher-runtime.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-invocation.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-library-integrity.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-orchestrator.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-transition-table.mjs`
+- `tests/skills/watchProcess/generated-watcher.test.mjs`
+- `tests/skills/watchProcess/orchestrator.test.mjs`
 - `docs/specs/ci-watch-agent-skill/tasks/todo.md`
 - `docs/specs/ci-watch-agent-skill/tasks/handoff.md`
 
@@ -215,13 +245,25 @@
 - `git diff --check`
 - Confirmed the three observed GitHub workflow files remain unchanged and all
   adapter imports are `node:` built-ins or relative local modules.
+- `node --check` for every Task 08 library module; generated disposable watcher
+  syntax is exercised through `GeneratedWatcherArtifact.assertSyntax()`.
+- `node --test tests/skills/watchProcess/orchestrator.test.mjs tests/skills/watchProcess/generated-watcher.test.mjs`
+- `node --test tests/skills/watchProcess/*.test.mjs`
+- `npx prettier --check` for Task 08-owned modules and focused tests
+- `npx eslint --no-warn-ignored` for Task 08-owned modules and focused tests
+- `git diff --check`
+- The packet-wide Prettier glob also reports pre-existing formatting drift in
+  five unchanged earlier-task modules: `audit-journal.mjs`,
+  `operation-receipt-store.mjs`, `runtime-state-contracts.mjs`,
+  `success-attestation.mjs`, and `watch-runtime-storage.mjs`. Those files are
+  outside Task 08 scope; Task 08-owned files pass formatting.
 
 ## Next Packet
 
-[08 — Orchestrator and generated watcher](08_orchestrator_and_generated_watcher.md)
+[09 — Stop hook and recovery](09_stop_hook_and_recovery.md)
 
 ## Blockers
 
-None. Task 07 is complete and intentionally uncommitted for the next explicit
-incremental-implementation invocation, which may commit Task 07 and start
-Task 08.
+None. Task 08 is complete and intentionally uncommitted for the next explicit
+incremental-implementation invocation, which may commit Task 08 and start
+Task 09.

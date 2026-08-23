@@ -4,11 +4,30 @@ export { ACTIVE_JOURNAL_FILE_NAME, AuditJournal } from './audit-journal.mjs';
 export { BoundedEvidenceBuffer } from './bounded-evidence-buffer.mjs';
 export { DeadlineAwarePoller, normalizePollTiming, waitForAbortableDelay } from './deadline-aware-poller.mjs';
 export { createFailureFingerprint } from './failure-fingerprint.mjs';
+export {
+  GENERATED_WATCHER_ENTRYPOINT,
+  GENERATED_WATCHER_FILE_NAME,
+  GeneratedWatcherArtifact,
+} from './generated-watcher-artifact.mjs';
+export {
+  GENERATED_WATCHER_INVOCATION_FILE_NAME,
+  GeneratedWatcherInvocationStore,
+} from './generated-watcher-invocation.mjs';
+export { GeneratedWatcherLaunchCoordinator } from './generated-watcher-launch-coordinator.mjs';
+export { GeneratedWatcherLauncher } from './generated-watcher-launcher.mjs';
+export { GeneratedWatcherStartupMonitor } from './generated-watcher-startup-monitor.mjs';
 export { ManagedProcessExecution } from './managed-process-execution.mjs';
 export { ManagedProcessRunner, isRuntimeCoreError } from './managed-process-runner.mjs';
 export { terminateOwnedProcessTree } from './managed-process-support.mjs';
 export { MonotonicDeadline } from './monotonic-deadline.mjs';
 export { OperationReceiptStore, RECEIPTS_FILE_NAME, createOperationKey } from './operation-receipt-store.mjs';
+export { ProcessWatchAdapterRegistry } from './process-watch-adapter-registry.mjs';
+export { ProcessWatchCompositionRoot } from './process-watch-composition-root.mjs';
+export { runGeneratedProcessWatcher } from './process-watch-generated-watcher-runtime.mjs';
+export { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
+export { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';
+export { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
+export { ProcessWatchTransitionTable, WATCH_TRANSITION_PHASES } from './process-watch-transition-table.mjs';
 export {
   PROCESS_OBSERVATION_STATUSES,
   PROCESS_TERMINAL_CLASSIFICATIONS,
@@ -48,3 +67,4 @@ export {
 } from './runtime-state-contracts.mjs';
 export { SuccessAttestation } from './success-attestation.mjs';
 export { MAX_PRIVATE_RUNTIME_FILE_BYTES, WatchRuntimeStorage } from './watch-runtime-storage.mjs';
+export { normalizeWatchScenario } from './watch-scenario-registry.mjs';
