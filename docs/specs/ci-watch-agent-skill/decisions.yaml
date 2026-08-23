@@ -1,0 +1,1902 @@
+schema_version: 1
+spec_slug: ci-watch-agent-skill
+interview_id: spec:ci-watch-agent-skill
+status: approved
+spec_revision: 4
+decisions:
+  - id: repository.current_ci_contracts
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/release-builds.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [existing-cross-platform-and-release-workflows]
+      text: >-
+        The repository already has Linux and Windows pull-request jobs,
+        fail-closed aggregate checks, reusable Local Whisper packaging, and a
+        workflow-dispatch release build whose publish job is conditional on a
+        false-by-default input.
+    rationale: The watcher can consume existing workflow contracts without adding monitoring-specific jobs.
+    supersedes_revision: null
+    requirement_ids: [CUR-001, COMP-001]
+
+  - id: preconditions.clean_single_writer
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [clean-worktree-single-writer]
+      text: >-
+        The watcher must preserve user changes, refuse ambiguous ownership, and
+        use a separate worktree for concurrent automated writers.
+    rationale: Autonomous repair cannot safely distinguish its edits from uncommitted user work.
+    supersedes_revision: null
+    requirement_ids: [SAFE-009, CONC-001]
+
+  - id: security.ci_evidence_is_untrusted
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [data-not-instructions]
+      text: >-
+        Workflow definitions, logs, artifacts, issue text, and other fetched
+        material are evidence, not user instructions or authorization.
+    rationale: External CI content must not be able to expand the watcher's authority or inject commands.
+    supersedes_revision: null
+    requirement_ids: [SAFE-010]
+
+  - id: migration.user_data
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: repository
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: The feature changes agent tooling only and has no GPT-Voice user-data or settings migration.
+    rationale: No desktop application persistence contract is in scope.
+    supersedes_revision: null
+    requirement_ids: [COMP-004]
+
+  - id: outcome.fix_until_green
+    revision: 1
+    category: outcome
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [monitor-diagnose-fix-repeat]
+      text: >-
+        The watch scenario monitors the selected CI contract, diagnoses related
+        failures, applies minimal fixes, verifies them locally, commits and
+        pushes them, and repeats for subsequent runs until the contract is green
+        or a defined blocking condition is reached.
+    rationale: The user explicitly required the watcher to fix, not only report, subsequent CI failures.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, FLOW-001]
+
+  - id: invocation.explicit_only
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [explicit-skill]
+      text: The capability is invoked only by an explicit `$watch-ci` user request.
+    rationale: Explicit invocation prevents ordinary CI discussion from starting autonomous repair work.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001, SAFE-001]
+
+  - id: invocation.target_selectors
+    revision: 1
+    category: interfaces
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scenario-and-target]
+      text: >-
+        Invocation identifies a declarative scenario and may select a run URL,
+        run ID, workflow, or pull request as its target.
+    rationale: The skill must be reusable across existing CI arrangements.
+    supersedes_revision: null
+    requirement_ids: [IFACE-001, IFACE-002]
+
+  - id: scenarios.declarative_contracts
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - .github/workflows/local-whisper-packaging.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [existing-workflows]
+      text: >-
+        Declarative scenario contracts describe the workflows, required jobs,
+        trigger rules, success criteria, and local verification commands. Existing
+        workflows do not need modification merely to be watched.
+    rationale: Monitoring should adapt to a workflow rather than coupling every workflow to the watcher.
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, COMP-001]
+
+  - id: scenarios.required_families
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [linux-windows-pr, workflow-dispatch, generic-run]
+      text: >-
+        The initial contract supports Linux and Windows pull-request checks,
+        workflow-dispatch release candidates, and generic workflow-run monitoring.
+    rationale: These families cover the concrete cross-platform and release-validation scenarios discussed.
+    supersedes_revision: null
+    requirement_ids: [SCOPE-002]
+
+  - id: host.ide_extension
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+      - https://learn.chatgpt.com/docs/long-running-work
+      - https://learn.chatgpt.com/docs/notifications
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [vscode-codex-local-host]
+      text: >-
+        The supported operator surface is the Codex IDE extension on a connected
+        local host. ChatGPT Desktop is not required.
+    rationale: Official OpenAI documentation confirms that hooks and Goal mode are available in the IDE extension.
+    supersedes_revision: null
+    requirement_ids: [COMP-002, OPS-001]
+
+  - id: orchestration.goal_and_stop_hook
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+      - https://learn.chatgpt.com/docs/long-running-work
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [goal-and-synchronous-stop-hook]
+      text: >-
+        Each active watch session is represented by a persistent Codex Goal and
+        is resumed by a synchronous Stop hook that emits a bounded deterministic
+        continuation prompt only when runtime state requires agent work.
+    rationale: Background hooks cannot steer the agent, while a synchronous Stop hook can create a continuation prompt.
+    supersedes_revision: null
+    requirement_ids: [ARCH-002, FLOW-002]
+
+  - id: orchestration.token_free_wait
+    revision: 1
+    category: performance
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deterministic-process-wait]
+      text: >-
+        A deterministic local watcher waits for GitHub CI and updates state
+        without model calls. The model is resumed only for terminal failure,
+        blocking, cancellation, or completion handling.
+    rationale: This minimizes both token consumption and active agent time while CI is running.
+    supersedes_revision: null
+    requirement_ids: [PERF-001, FLOW-003]
+
+  - id: lifecycle.install_once_runtime_state
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [tracked-assets-once-runtime-per-watch]
+      text: >-
+        The skill, hook configuration, scripts, references, and scenario schemas
+        are installed once. A normal invocation creates or updates only ignored,
+        per-watch runtime state.
+    rationale: Repeated watch sessions should not rewrite tracked infrastructure.
+    supersedes_revision: null
+    requirement_ids: [OPS-002, DATA-001]
+
+  - id: flow.failure_repair_cycle
+    revision: 1
+    category: normal-flow
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [fetch-once-fix-verify-commit-push-rebind]
+      text: >-
+        For each failed exact-SHA run, fetch failed logs once, diagnose all
+        related errors, make the smallest coherent fixes, run scenario-relevant
+        local checks, create atomic commits, push the current branch, locate or
+        dispatch the next authorized run, bind it to the new exact SHA, and wait
+        again.
+    rationale: This is the complete autonomous repair loop requested by the user.
+    supersedes_revision: null
+    requirement_ids: [FLOW-004, GIT-001, GIT-002]
+
+  - id: flow.failure_fingerprints
+    revision: 1
+    category: failure
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [stable-fingerprint]
+      text: >-
+        Sanitized failure fingerprints prevent duplicate log downloads for the
+        same run and identify repeated blockers across repair cycles.
+    rationale: The watcher must avoid wasting tokens on unchanged evidence and must terminate safely when progress stalls.
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, DATA-002]
+
+  - id: integrity.exact_sha
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [exact-expected-sha]
+      text: >-
+        Success is valid only when all scenario-required checks belong to the
+        exact expected commit SHA. The watcher distinguishes its own pushed SHAs
+        from unexpected externally produced branch-head changes.
+    rationale: Branch-level green status could otherwise accept stale or unrelated results.
+    supersedes_revision: null
+    requirement_ids: [SAFE-002, ACCEPT-001]
+
+  - id: authorization.allowed_mutations
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/long-running-work
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bounded-fix-commit-push-rerun]
+      text: >-
+        Explicit `$watch-ci` invocation authorizes only scenario-scoped source
+        fixes, relevant local verification, atomic commits, a normal push of the
+        current branch, and safe scenario-declared CI run location or dispatch.
+        Codex sandbox, approval, repository, and branch-protection policies still
+        apply.
+    rationale: Goal mode does not broaden the host's sandbox or approval policy.
+    supersedes_revision: null
+    requirement_ids: [SAFE-003]
+
+  - id: authorization.forbidden_mutations
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deny-release-and-destructive-actions]
+      text: >-
+        Watch mode never authorizes force-push, merge, tags, releases,
+        publication, protected-environment approval, weakened or skipped checks,
+        arbitrary workflow inputs, or `publish=true`.
+    rationale: Monitoring and repair must not silently become release or destructive automation.
+    supersedes_revision: null
+    requirement_ids: [SAFE-004]
+
+  - id: concurrency.one_watcher_per_worktree
+    revision: 1
+    category: concurrency
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/long-running-work
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [single-writer-worktree]
+      text: >-
+        Only one active watcher may own a worktree. Parallel watch tasks require
+        separate worktrees and independent Codex chats/goals.
+    rationale: This prevents concurrent automated edits, commits, and branch-state corruption.
+    supersedes_revision: null
+    requirement_ids: [CONC-001]
+
+  - id: interface.lifecycle_commands
+    revision: 1
+    category: interfaces
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [status-resume-cancel]
+      text: Watch sessions support explicit `status`, `resume`, and `cancel` operations.
+    rationale: Long-running work must be inspectable and operator-controllable.
+    supersedes_revision: null
+    requirement_ids: [IFACE-003]
+
+  - id: data.runtime_minimization
+    revision: 1
+    category: privacy
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [minimal-non-authoritative-state]
+      text: >-
+        Runtime state is an ignored execution cache, never a source of
+        authorization. It stores no credentials, environment dumps, raw CI logs,
+        arbitrary shell commands, or arbitrary continuation prompts.
+    rationale: State files must not become a secret store or an injection boundary.
+    supersedes_revision: null
+    requirement_ids: [DATA-003, SAFE-005]
+
+  - id: failure.terminal_outcomes
+    revision: 1
+    category: failure
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - success
+        - failure
+        - cancelled
+        - timeout
+        - stale-head
+        - missing-required-job
+        - unexpected-skip
+        - monitoring-error
+        - scenario-changed
+        - external-head-change
+      text: >-
+        Watch state exposes explicit terminal outcomes instead of reducing every
+        unsuccessful condition to a generic CI failure.
+    rationale: Operators and the continuation agent need deterministic recovery semantics.
+    supersedes_revision: null
+    requirement_ids: [FAIL-002]
+
+  - id: notifications.host_local
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/notifications
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [same-session-plus-optional-host-notify]
+      text: >-
+        Automatic repair resumes in the same Codex IDE chat through the Stop
+        hook. Optional external notifications use the connected host's Codex
+        `notify` configuration and do not require ChatGPT Desktop or a remote
+        notification service.
+    rationale: The IDE extension has no separate notification controls but supports host-configured external notification programs.
+    supersedes_revision: null
+    requirement_ids: [OPS-003]
+
+  - id: failure.external_head_policy
+    revision: 1
+    category: failure
+    state: superseded
+    provenance: null
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-01
+      question_id: failure.external_head_policy
+      idempotency_key: failure.external_head_policy:v1
+      last_status: cancelled
+    question:
+      text: What should the watcher do when the branch head changes to a commit it did not create?
+      kind: single
+      options:
+        - id: stop-and-resume
+          label: Stop and require resume (Recommended)
+          description: Mark external_head_change, notify the user, and require an explicit resume against the new SHA.
+        - id: follow-automatically
+          label: Follow automatically
+          description: Rebind to the external SHA and continue only if the worktree is clean and the scenario is unchanged.
+    answer: null
+    rationale: null
+    supersedes_revision: null
+    requirement_ids: [FAIL-003, SAFE-006]
+
+  - id: failure.repeated_fingerprint_limit
+    revision: 1
+    category: failure
+    state: superseded
+    provenance: null
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-01
+      question_id: failure.repeated_fingerprint_limit
+      idempotency_key: failure.repeated_fingerprint_limit:v1
+      last_status: pending
+    question:
+      text: When should the watcher stop retrying the same failure fingerprint?
+      kind: single
+      options:
+        - id: three-cycles
+          label: After three cycles (Recommended)
+          description: Stop after the same blocker appears in three consecutive repair cycles and report the evidence.
+        - id: five-cycles
+          label: After five cycles
+          description: Allow two additional repair attempts before stopping on the repeated blocker.
+        - id: no-limit
+          label: No repeat limit
+          description: Continue until success, cancellation, or another non-recoverable condition regardless of repetition.
+    answer: null
+    rationale: null
+    supersedes_revision: null
+    requirement_ids: [FAIL-004]
+
+  - id: flow.initial_dispatch_policy
+    revision: 1
+    category: normal-flow
+    state: superseded
+    provenance: null
+    evidence:
+      - .github/workflows/release-builds.yml
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-01
+      question_id: flow.initial_dispatch_policy
+      idempotency_key: flow.initial_dispatch_policy:v1
+      last_status: pending
+    question:
+      text: May a watch scenario dispatch its initial CI run when no existing run is supplied?
+      kind: single
+      options:
+        - id: scenario-declared-dispatch
+          label: Allow declared dispatch (Recommended)
+          description: The explicit invocation authorizes only a validated, non-publishing dispatch declared by the selected scenario.
+        - id: existing-run-required
+          label: Require an existing run
+          description: The user must start CI separately and provide a run, PR, or workflow target that already exists.
+        - id: confirm-each-dispatch
+          label: Confirm every dispatch
+          description: Pause for explicit confirmation before both the initial and every subsequent workflow dispatch.
+    answer: null
+    rationale: null
+    supersedes_revision: null
+    requirement_ids: [FLOW-005, SAFE-007]
+
+  - id: scope.portability
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: null
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-01
+      question_id: scope.portability
+      idempotency_key: scope.portability:v1
+      last_status: pending
+    question:
+      text: What portability scope should the first implementation target?
+      kind: single
+      options:
+        - id: project-local-portable-schema
+          label: Project-local, portable schema (Recommended)
+          description: Implement and verify the skill in GPT-Voice while keeping scenario contracts repository-neutral for later extraction.
+        - id: cross-repository-package
+          label: Cross-repository package now
+          description: Build installation, upgrade, and compatibility support for arbitrary repositories in the first version.
+    answer: null
+    rationale: null
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003, COMP-003]
+
+  - id: orchestration.existing_goal_policy
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: null
+    evidence:
+      - https://learn.chatgpt.com/docs/long-running-work
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-01
+      question_id: orchestration.existing_goal_policy
+      idempotency_key: orchestration.existing_goal_policy:v1
+      last_status: pending
+    question:
+      text: What should happen if the Codex chat already has an unrelated active Goal?
+      kind: single
+      options:
+        - id: refuse-unrelated-goal
+          label: Refuse and preserve it (Recommended)
+          description: Do not replace the unrelated Goal; ask the user to finish, clear, or use another chat/worktree.
+        - id: replace-unrelated-goal
+          label: Replace it
+          description: Clear the existing Goal and start the watch Goal automatically.
+    answer: null
+    rationale: null
+    supersedes_revision: null
+    requirement_ids: [OPS-004, SAFE-008]
+
+  - id: failure.external_head_policy
+    revision: 2
+    category: failure
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-02
+      question_id: failure.external_head_policy
+      idempotency_key: failure.external_head_policy:v2
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Decide whether an active watcher may automatically adopt a branch-head
+        commit that was not produced by that watcher.
+      kind: single
+      options:
+        - id: stop-and-resume
+          label: Stop and require explicit resume
+          description: Preserve exact-SHA ownership and require the user to accept the new external head.
+        - id: follow-automatically
+          label: Follow the external head automatically
+          description: Continue only after confirming a clean worktree and an unchanged scenario contract.
+    answer:
+      selected_ids: [stop-and-resume]
+      text: >-
+        Record external_head_change, notify the user, and require an explicit
+        resume before binding the watch session to the externally produced SHA.
+    rationale: This preserves exact-SHA ownership and prevents unreviewed automated changes on top of another actor's commit.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-003, SAFE-006]
+
+  - id: failure.repeated_fingerprint_limit
+    revision: 2
+    category: failure
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-02
+      question_id: failure.repeated_fingerprint_limit
+      idempotency_key: failure.repeated_fingerprint_limit:v2
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Select the circuit-breaker threshold for consecutive repair cycles that
+        end with the same normalized failure fingerprint.
+      kind: single
+      options:
+        - id: three-cycles
+          label: Stop after three repeated cycles
+          description: Balance autonomous repair with protection against an unproductive infinite loop.
+        - id: five-cycles
+          label: Stop after five repeated cycles
+          description: Permit more autonomous attempts at the cost of additional time and tokens.
+        - id: no-limit
+          label: Do not limit repetitions
+          description: Continue until success, cancellation, or another non-recoverable condition.
+    answer:
+      selected_ids: [no-limit]
+      text: >-
+        Correctly distinguish a new failure from the same failure, but do not
+        stop merely because one fingerprint repeats a fixed number of times.
+        Continue toward the defined result unless the user cancels, authority is
+        required, or an objectively non-recoverable blocker prevents meaningful
+        progress.
+    rationale: An arbitrary retry count would contradict the purpose of a fix-until-green watch session.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-004]
+
+  - id: flow.initial_dispatch_policy
+    revision: 2
+    category: normal-flow
+    state: superseded
+    provenance: user
+    evidence:
+      - .github/workflows/release-builds.yml
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-02
+      question_id: flow.initial_dispatch_policy
+      idempotency_key: flow.initial_dispatch_policy:v2
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Decide whether explicit watch invocation may start the initial safe CI
+        run when the selected scenario has no existing run target.
+      kind: single
+      options:
+        - id: scenario-declared-dispatch
+          label: Allow only scenario-declared safe dispatch
+          description: Validate the workflow and fixed non-publishing inputs before dispatch.
+        - id: existing-run-required
+          label: Require an existing run
+          description: The user starts CI separately and supplies its target to the watcher.
+        - id: confirm-each-dispatch
+          label: Confirm every dispatch
+          description: Pause for user confirmation before initial and subsequent manual workflow dispatches.
+    answer:
+      selected_ids: [scenario-declared-dispatch]
+      text: >-
+        Explicit watch invocation may dispatch the initial and subsequent runs
+        only through a validated scenario-declared workflow and fixed,
+        non-publishing inputs.
+    rationale: This permits an unattended repair loop without broadening it into release or arbitrary workflow automation.
+    supersedes_revision: 1
+    requirement_ids: [FLOW-005, SAFE-007]
+
+  - id: scope.portability
+    revision: 2
+    category: scope
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-02
+      question_id: scope.portability
+      idempotency_key: scope.portability:v2
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Select whether the first delivery is a GPT-Voice project-local skill with
+        a portable scenario schema or a fully installable cross-repository package.
+      kind: single
+      options:
+        - id: project-local-portable-schema
+          label: Project-local skill with portable schema
+          description: Prove behavior in GPT-Voice and preserve a clean extraction path without building an installer now.
+        - id: cross-repository-package
+          label: Cross-repository package immediately
+          description: Include installation, upgrade, compatibility, and arbitrary-repository support in the first version.
+    answer:
+      selected_ids: [project-local-portable-schema]
+      text: >-
+        Implement and verify the first version inside GPT-Voice while keeping
+        the scenario schema and module boundaries repository-neutral for later
+        extraction.
+    rationale: This proves the workflow without adding premature installation and migration machinery.
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-003, COMP-003]
+
+  - id: orchestration.existing_goal_policy
+    revision: 2
+    category: operations
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/long-running-work
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: behavior-round-02
+      question_id: orchestration.existing_goal_policy
+      idempotency_key: orchestration.existing_goal_policy:v2
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Decide whether watch mode may replace an unrelated active Codex Goal in
+        the same chat.
+      kind: single
+      options:
+        - id: refuse-unrelated-goal
+          label: Preserve the existing Goal and refuse
+          description: Require another chat/worktree or explicit completion or clearing of the existing Goal.
+        - id: replace-unrelated-goal
+          label: Replace the existing Goal automatically
+          description: Clear unrelated long-running work and start the watch Goal without another confirmation.
+    answer:
+      selected_ids: [refuse-unrelated-goal]
+      text: >-
+        Preserve an unrelated active Goal and refuse to arm watch mode until the
+        user clears or completes it or starts the watcher in another chat and
+        worktree.
+    rationale: Watch mode must not silently terminate unrelated long-running work.
+    supersedes_revision: 1
+    requirement_ids: [OPS-004, SAFE-008]
+
+  - id: outcome.fix_until_green
+    revision: 2
+    category: outcome
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [watch-any-process-repair-repeat]
+      text: >-
+        The capability watches any declared long-running process, resumes the
+        agent when action is required, diagnoses and fixes failures, verifies
+        the repair, and starts a fresh attempt until the declared result is
+        reached or an objective blocker prevents meaningful progress.
+    rationale: The requested outcome now covers remote CI and local processes rather than only GitHub Actions.
+    supersedes_revision: 1
+    requirement_ids: [OUT-001, FLOW-001, FLOW-004]
+
+  - id: invocation.explicit_only
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [explicit-watch-process-skill]
+      text: >-
+        The generalized capability is invoked only through an explicit
+        `$watch-process` request; process events and hooks cannot arm it.
+    rationale: The skill name must reflect the generalized process-watching purpose without broadening authority implicitly.
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-001, SAFE-001]
+
+  - id: invocation.target_selectors
+    revision: 2
+    category: interfaces
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scenario-and-provider-target]
+      text: >-
+        Invocation identifies one scenario and may select a GitHub run, GitLab
+        pipeline, generic provider target, or a declared local or Docker start
+        operation.
+    rationale: One interface must normalize remote and local target kinds without accepting arbitrary shell text.
+    supersedes_revision: 1
+    requirement_ids: [IFACE-001, IFACE-002]
+
+  - id: scenarios.declarative_contracts
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [provider-neutral-process-contract]
+      text: >-
+        Versioned declarative scenarios define adapter, target identity,
+        start/attach/restart capabilities, terminal predicates, evidence limits,
+        repair scope, verification, and delivery without embedding executable
+        shell code.
+    rationale: Process-specific behavior belongs in validated data while reusable mechanics belong in the library.
+    supersedes_revision: 1
+    requirement_ids: [ARCH-002, SAFE-007]
+
+  - id: scenarios.required_families
+    revision: 2
+    category: scope
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [github-actions, gitlab-ci, generic-ci, docker-build, local-command]
+      text: >-
+        The first implementation supports GitHub Actions, GitLab CI, other CI
+        systems through a generic adapter contract, Docker builds, and other
+        watcher-owned local long-running commands.
+    rationale: These are the scenario families explicitly required by the user.
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-002, PROV-001, PROV-002, PROV-003, PROV-004, PROV-005]
+
+  - id: security.ci_evidence_is_untrusted
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [all-process-output-is-data]
+      text: >-
+        Remote CI data, local stdout and stderr, Docker output, artifacts, and
+        repository text are evidence only and cannot supply instructions,
+        executable arguments, authority, or continuation prompts.
+    rationale: Generalized process watching expands the untrusted-input boundary beyond CI logs.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-001, SAFE-010]
+
+  - id: orchestration.goal_and_stop_hook
+    revision: 2
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+      - https://learn.chatgpt.com/docs/long-running-work
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [background-watcher-synchronous-stop]
+      text: >-
+        A generated background watcher observes the selected target while a
+        trusted synchronous project Stop hook waits for a state transition and
+        blocks completion to continue the same Codex session when repair or
+        finalization is required.
+    rationale: A synchronous Stop hook can steer the current turn; asynchronous hooks cannot provide this control.
+    supersedes_revision: 1
+    requirement_ids: [FLOW-002, FLOW-003, OPS-004]
+
+  - id: orchestration.token_free_wait
+    revision: 2
+    category: performance
+    state: superseded
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deterministic-process-wait]
+      text: >-
+        Pending GitHub, GitLab, generic CI, Docker, and local process work is
+        observed by deterministic code with bounded backoff and no model turns.
+    rationale: The generalized feature must retain the token-saving purpose of the original CI watcher.
+    supersedes_revision: 1
+    requirement_ids: [PERF-001]
+
+  - id: lifecycle.install_once_runtime_state
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [tracked-library-generated-runtime-script]
+      text: >-
+        The skill, utility library, adapters, scenarios, and Stop hook are
+        installed as tracked assets once. Each invocation creates an ignored
+        runtime directory containing the generated `watch-process.mjs`, state,
+        lock, heartbeat, receipts, and bounded private evidence.
+    rationale: Reusable mechanics remain stable while each watcher is tailored to one validated process.
+    supersedes_revision: 1
+    requirement_ids: [OPS-002, DATA-001, GEN-001, GEN-002]
+
+  - id: flow.failure_repair_cycle
+    revision: 2
+    category: normal-flow
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [evidence-fix-verify-declared-restart]
+      text: >-
+        For each failed attempt, the agent validates state and authority,
+        inspects bounded evidence, diagnoses related failures, applies the
+        smallest coherent fix, verifies it, performs only the declared restart
+        or delivery strategy, binds a new immutable attempt, and waits again.
+    rationale: Commit and push are CI-specific options, not universal requirements for local processes.
+    supersedes_revision: 1
+    requirement_ids: [FLOW-004, SAFE-003]
+
+  - id: integrity.exact_sha
+    revision: 2
+    category: security
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [adapter-specific-immutable-target]
+      text: >-
+        Every observation binds to an adapter-specific immutable target
+        identity. Exact source SHA remains mandatory for GitHub and GitLab;
+        local and Docker attempts use an owned process start token plus command,
+        working-directory, relevant-input, and attempt digests.
+    rationale: Exact SHA cannot identify non-Git local processes, but stale results must still be impossible.
+    supersedes_revision: 1
+    requirement_ids: [SAFE-002, ACCEPT-001]
+
+  - id: authorization.allowed_mutations
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scenario-declared-mutations]
+      text: >-
+        Invocation authorizes process-scoped fixes and verification plus only
+        the scenario-declared local restart, provider retry/dispatch, normal Git
+        delivery, or no-restart strategy. Local and Docker scenarios default to
+        no commit or push.
+    rationale: Different process families require different safe ways to create the next attempt.
+    supersedes_revision: 1
+    requirement_ids: [SAFE-003]
+
+  - id: authorization.forbidden_mutations
+    revision: 2
+    category: security
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deny-destructive-publishing-and-secret-actions]
+      text: >-
+        Process watch mode does not authorize force-push, history rewrite,
+        merge, tag, release, publication, deploy, registry push, protected
+        approval, secrets changes, arbitrary provider variables, weakened
+        checks, or destructive cleanup.
+    rationale: Generalized restart support must not silently grant deployment or destructive authority.
+    supersedes_revision: 1
+    requirement_ids: [SAFE-004]
+
+  - id: interface.lifecycle_commands
+    revision: 2
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [watch-process-status-resume-cancel]
+      text: >-
+        `$watch-process` provides sanitized `status`, fully revalidated
+        `resume`, and idempotent `cancel`; remote target cancellation is allowed
+        only when the scenario explicitly grants it.
+    rationale: Lifecycle controls must work consistently without overreaching into provider-owned processes.
+    supersedes_revision: 1
+    requirement_ids: [IFACE-003]
+
+  - id: data.runtime_minimization
+    revision: 2
+    category: privacy
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [minimal-state-private-bounded-spool]
+      text: >-
+        Runtime state contains only normalized recovery fields. Streaming local
+        output may use an ignored owner-only bounded evidence ring with TTL;
+        raw evidence never enters state, hooks, notifications, or commits and is
+        deleted after controlled inspection or crash recovery.
+    rationale: Local process output cannot always remain only in memory, so it requires a separate private bounded channel.
+    supersedes_revision: 1
+    requirement_ids: [DATA-002, DATA-003, SAFE-005]
+
+  - id: failure.terminal_outcomes
+    revision: 2
+    category: failure
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - succeeded
+        - failed
+        - cancelled
+        - timed-out
+        - lost
+        - monitoring-error
+        - stale-target
+        - definition-changed
+        - external-target-change
+        - restart-failed
+      text: >-
+        All adapters normalize to a shared outcome vocabulary that separates
+        target failure from monitoring, identity, definition, external-change,
+        and restart failures.
+    rationale: The continuation agent needs provider-neutral recovery semantics without collapsing unlike failures.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-002]
+
+  - id: failure.external_head_policy
+    revision: 3
+    category: failure
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [stop-on-external-target-change]
+      text: >-
+        Any Git branch/ref or other target definition change outside watcher
+        ownership records `external_target_change` and requires explicit resume
+        after full revalidation.
+    rationale: The prior exact-head rule generalizes to every mutable external target identity.
+    supersedes_revision: 2
+    requirement_ids: [SAFE-002, ACCEPT-001]
+
+  - id: flow.initial_dispatch_policy
+    revision: 3
+    category: normal-flow
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scenario-declared-start-or-attach]
+      text: >-
+        A watch may attach to an existing target or start one only through a
+        validated scenario-declared operation: GitHub dispatch, GitLab pipeline
+        create/retry, generic provider start, Docker build, or local spawn.
+    rationale: Generalized watching requires a provider-neutral initial-start contract with the same narrow authority.
+    supersedes_revision: 2
+    requirement_ids: [IFACE-002, ADAPT-002, SAFE-007]
+
+  - id: scope.portability
+    revision: 3
+    category: scope
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [project-local-portable-process-library]
+      text: >-
+        Implement and verify the first version inside GPT-Voice while keeping
+        the process library, adapter contract, scenario schema, generated script,
+        and hook/state model portable to other repositories and CI providers.
+    rationale: The requested breadth is achieved through portable contracts without prematurely building a global installer.
+    supersedes_revision: 2
+    requirement_ids: [SCOPE-003, COMP-004]
+
+  - id: architecture.utility_library
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [small-composable-node-library]
+      text: >-
+        The skill includes a small dependency-free library with orchestration,
+        adapter, scenario, atomic-state, managed-process, bounded-evidence,
+        polling, sanitization, fingerprinting, argument-validation, and hook-
+        decision utilities.
+    rationale: Agents should compose safe watchers quickly without copying error-prone infrastructure.
+    supersedes_revision: null
+    requirement_ids: [LIB-001, LIB-002, ARCH-001]
+
+  - id: architecture.generated_watcher_script
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [watch-process-mjs]
+      text: >-
+        Each invocation generates, validates, launches, and digests a
+        process-specific ignored script named `watch-process.mjs`; the former
+        CI-specific script name is retired.
+    rationale: The requested name and lifecycle express that one mechanism watches any supported process.
+    supersedes_revision: null
+    requirement_ids: [GEN-001, GEN-002, OPS-002]
+
+  - id: adapters.required_library_adapters
+    revision: 1
+    category: architecture
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [github, gitlab, generic-ci-cli, docker, local-command]
+      text: >-
+        The library provides focused adapters for GitHub Actions, GitLab CI,
+        generic CI CLIs, Docker builds, and watcher-owned local commands behind
+        one normalized ProcessAdapter contract.
+    rationale: Popular cases should be ready to use while new providers remain easy to add.
+    supersedes_revision: null
+    requirement_ids: [ADAPT-001, ADAPT-002]
+
+  - id: dependencies.adapter_prerequisites
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [conditional-existing-tools]
+      text: >-
+        Node.js and trusted Codex hooks are common prerequisites; GitHub CLI,
+        GitLab CLI, Docker, or another provider executable is required only for
+        the selected adapter and uses existing authentication without exposing
+        credentials.
+    rationale: Unused provider tools must not become global setup requirements.
+    supersedes_revision: null
+    requirement_ids: [COMP-002, OPS-003]
+
+  - id: flow.failure_fingerprints
+    revision: 2
+    category: failure
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [stable-per-attempt-fingerprint]
+      text: >-
+        Sanitized fingerprints prevent duplicate evidence inspection for the
+        same remote or local attempt and distinguish an unchanged failure from
+        a genuinely new failure across repair cycles.
+    rationale: Fingerprinting must apply consistently to CI jobs, Docker builds, and local commands.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-001, DATA-002]
+
+  - id: compatibility.node_version_policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - package.json
+      - https://github.com/nodejs/Release#release-schedule
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: compatibility-round-03
+      question_id: compatibility.node_version_policy
+      idempotency_key: compatibility.node_version_policy:v1
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Какие основные версии Node.js должна гарантированно поддерживать и
+        проверять базовая библиотека watcher, учитывая, что приложение сейчас
+        требует Node.js >=24, Node.js 22 и 24 остаются поддерживаемыми LTS-
+        линиями, а Node.js 20 уже вышел из upstream-поддержки?
+      kind: single
+      options:
+        - id: supported-lts-22-24
+          label: Node.js 22 и 24 (Рекомендуется)
+          description: >-
+            Поддерживать две актуальные LTS-линии на Linux и Windows, не
+            обещая поддержку версии без исправлений безопасности.
+        - id: include-eol-20
+          label: Node.js 20, 22 и 24
+          description: >-
+            Добавить совместимость с всё ещё распространённой Node.js 20,
+            несмотря на завершение её upstream-поддержки.
+        - id: current-project-and-newer
+          label: Node.js 24 и новее
+          description: >-
+            Совпасть с текущим engines >=24 приложения, но не поддерживать
+            популярную действующую LTS-линию Node.js 22.
+    answer:
+      selected_ids: []
+      text: >-
+        Support current upstream-supported LTS releases for which support is
+        practical, and adapt the code for Linux, Windows, and macOS. At the
+        specification date the required LTS baselines are Node.js 22 and 24.
+    rationale: >-
+      A rolling supported-LTS policy provides useful compatibility without
+      promising security support for end-of-life runtimes. The user's answer
+      explicitly extends the platform set to all three desktop operating systems.
+    supersedes_revision: null
+    requirement_ids: [NODE-002, PLAT-001]
+
+  - id: architecture.utility_library
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [node-standard-library-first]
+      text: >-
+        Implement the base library and generated watcher in Node.js using the
+        Node standard library by default. A third-party package may be added
+        only when a documented necessity cannot be met safely and reasonably
+        with built-ins, and only after compatibility and dependency review.
+    rationale: This preserves a small portable runtime while allowing a narrowly justified exception when genuinely necessary.
+    supersedes_revision: 1
+    requirement_ids: [LIB-001, LIB-002, NODE-001, DEP-001, DEP-002, ARCH-001]
+
+  - id: compatibility.cross_platform_targets
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: compatibility-round-03
+      question_id: compatibility.node_version_policy
+      idempotency_key: compatibility.node_version_policy:v1
+      last_status: answered
+      display_language: ru
+    question: null
+    answer:
+      selected_ids: [linux-windows-macos]
+      text: >-
+        Base-library, generated-script, hook, state, and process-management code
+        must be portable across Linux, Windows, and macOS.
+    rationale: The user explicitly added macOS to the original Linux and Windows platform requirement.
+    supersedes_revision: null
+    requirement_ids: [PLAT-001, COMP-002]
+
+  - id: dependencies.built_in_first
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-dependency-default-reviewed-exception]
+      text: >-
+        The base library and generated script use no third-party packages by
+        default. Any exception must demonstrate real necessity, remain narrowly
+        scoped, support the full Node and operating-system matrix, and pass
+        security, maintenance, license, and transitive-dependency review.
+    rationale: Optional provider CLIs are external adapter prerequisites, not JavaScript library dependencies.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, DEP-002]
+
+  - id: operations.process_timeout_policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [ask-and-size-to-process]
+      text: >-
+        Before every new watch/fix invocation and explicit resume, ask the user
+        what finite observation timeout to apply and briefly explain that it
+        prevents indefinite waiting for a stalled or lost process. Recommend a
+        value close to the expected duration plus a practical margin, such as
+        about 40 minutes for a CI pipeline that normally takes 30 minutes. Reuse
+        the approved timeout for each repair attempt within that invocation.
+    rationale: >-
+      A user-approved per-invocation deadline makes expected waiting explicit
+      without interrupting every automatic repair retry, and timeout expiry does
+      not implicitly authorize target cancellation.
+    supersedes_revision: null
+    requirement_ids: [TIME-001, TIME-002, FLOW-003]
+
+  - id: orchestration.stop_hook_wait_strategy
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: null
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: operations-round-04
+      question_id: orchestration.stop_hook_wait_strategy
+      idempotency_key: orchestration.stop_hook_wait_strategy:v1
+      last_status: cancelled
+      display_language: ru
+    question:
+      text: >-
+        Как должен `$watch-process` ждать процессы дольше документированного
+        600-секундного default timeout Stop hook, если OpenAI не документирует
+        максимальный timeout и не гарантирует удержание одного hook часами?
+      kind: single
+      options:
+        - id: bounded-540-rearm
+          label: Переустановка каждые 540 секунд (Рекомендуется)
+          description: >-
+            Hook ждёт не более 540 секунд при timeout 600, затем безопасно
+            продолжает turn только для повторной установки ожидания; это
+            надёжнее, но расходует один короткий model turn примерно раз в
+            девять минут.
+        - id: unsupported-long-hook
+          label: Один многочасовой hook
+          description: >-
+            Настроить timeout на часы, хотя официальный максимум и поведение
+            host при таком ожидании не задокументированы.
+        - id: manual-resume-after-window
+          label: Ручной resume после 540 секунд
+          description: >-
+            Watcher продолжает наблюдать, но после окончания окна пользователь
+            вручную возобновляет сессию; это экономит model turns, но нарушает
+            полностью автоматическое продолжение.
+    answer: null
+    rationale: null
+    supersedes_revision: null
+    requirement_ids: [HOOK-001, HOOK-002, PERF-001]
+
+  - id: orchestration.stop_hook_wait_strategy
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: operations-round-05
+      question_id: orchestration.stop_hook_wait_strategy
+      idempotency_key: orchestration.stop_hook_wait_strategy:v2
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Мы уже договорились спрашивать общий тайм-аут наблюдения, например 40
+        минут для CI длительностью около 30 минут. Как внутри этого общего окна
+        должен работать синхронный Stop hook, если официальный максимум не
+        указан, многочасовое удержание не гарантировано, а IDE/host может
+        завершить hook раньше?
+      kind: single
+      options:
+        - id: bounded-hook-windows
+          label: Короткие окна с автопродолжением (Рекомендуется)
+          description: >-
+            Общий подтверждённый тайм-аут остаётся, но каждый Stop hook ждёт не
+            более 540 секунд при явном timeout 600 и автоматически переустанавливает
+            ожидание. Надёжнее при сбоях host, но требует короткого model
+            continuation примерно раз в девять минут.
+        - id: full-timeout-single-hook
+          label: Один hook на весь тайм-аут
+          description: >-
+            Установить timeout Stop hook на всё подтверждённое окно, например 40
+            минут. Это экономит model continuations, но длительное удержание не
+            гарантировано официальной документацией и host может оборвать его.
+        - id: manual-resume-after-window
+          label: Ручное возобновление
+          description: >-
+            Watcher продолжает следить за процессом, но после короткого окна
+            пользователь вручную вызывает resume. Это экономит model turns, но
+            убирает полностью автоматическое продолжение.
+    answer:
+      selected_ids: [full-timeout-single-hook]
+      text: ''
+    rationale: >-
+      The user chose one synchronous Stop hook invocation for the entire
+      approved observation timeout, accepting that the host may terminate it
+      independently and that recovery must remain safe.
+    supersedes_revision: 1
+    requirement_ids: [TIME-001, TIME-002, HOOK-001, HOOK-002, PERF-001]
+
+  - id: repair.rollback_policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - AGENTS.md
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: operations-round-04
+      question_id: repair.rollback_policy
+      idempotency_key: repair.rollback_policy:v1
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Как watcher должен обращаться со своим незавершённым patch после
+        неудачной локальной проверки, чтобы не потерять полезную работу и не
+        затронуть внешние изменения в той же рабочей директории?
+      kind: single
+      options:
+        - id: transactional-owned-patch
+          label: Транзакционный owned patch (Рекомендуется)
+          description: >-
+            До изменения сохранять hashes и приватный patch; после ошибки
+            исправлять текущий patch вперёд, а при отказе от подхода обращать
+            только точно принадлежащие watcher изменения. Запретить git restore
+            и временные commits; любое внешнее изменение блокирует автоматический
+            rollback.
+        - id: forward-only
+          label: Только исправление вперёд
+          description: >-
+            Никогда автоматически не откатывать patch; сохранять его и
+            продолжать исправление либо остановиться для пользователя.
+        - id: temporary-commits
+          label: Временные commits
+          description: >-
+            Делать checkpoint commits для каждой попытки и затем откатывать или
+            переписывать их, что упрощает восстановление, но загрязняет историю
+            и конфликтует с атомарной delivery.
+    answer:
+      selected_ids: [forward-only]
+      text: >-
+        Нужно локально довести работу до конца, если не удается остановиться и
+        позвать пользователя.
+    rationale: >-
+      Normalize the custom answer as forward-only repair: keep improving the
+      current owned patch locally; if safe completion is not possible, preserve
+      it, stop, and ask the user rather than automatically rolling it back.
+    supersedes_revision: null
+    requirement_ids: [REPAIR-001, REPAIR-002, REPAIR-003]
+
+  - id: scenarios.file_format
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp:
+      interview_id: spec:ci-watch-agent-skill
+      batch_id: operations-round-04
+      question_id: scenarios.file_format
+      idempotency_key: scenarios.file_format:v1
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Какой конкретный формат использовать для scenario, учитывая требование
+        JSON Schema и политику не добавлять сторонний parser без необходимости?
+      kind: single
+      options:
+        - id: json-draft-2020-12
+          label: JSON + JSON Schema 2020-12 (Рекомендуется)
+          description: >-
+            Node.js читает JSON без зависимости; tracked schema однозначно
+            задаёт required, optional, defaults, migrations и validation.
+        - id: yaml-json-schema
+          label: YAML + JSON Schema
+          description: >-
+            Сценарии удобнее читать вручную, но потребуется сторонний YAML parser
+            и дополнительный contract преобразования в JSON instance.
+        - id: javascript-modules
+          label: JavaScript modules
+          description: >-
+            Сценарий экспортирует object, но становится исполняемым кодом и
+            ослабляет текущую границу доверия.
+    answer:
+      selected_ids: [json-draft-2020-12]
+      text: ''
+    rationale: >-
+      JSON is available through Node.js built-ins, remains non-executable, and
+      can be validated against a tracked Draft 2020-12 schema without adding a
+      YAML parser dependency.
+    supersedes_revision: null
+    requirement_ids: [SCHEMA-001, SCHEMA-002, SCHEMA-003]
+
+  - id: orchestration.goal_and_stop_hook
+    revision: 3
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+      - https://learn.chatgpt.com/docs/long-running-work
+      - https://learn.chatgpt.com/docs/app-server#api-overview
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [synchronous-stop-optional-user-goal]
+      text: >-
+        Use the synchronous Stop hook for continuation. Codex Goal is optional,
+        user-owned UX only: the skill and hook must not require, create, inspect,
+        clear, or complete a Goal because project instructions and hook input do
+        not receive a documented Goal API.
+    rationale: >-
+      App Server exposes thread goal methods, but no documented bridge makes
+      them automatically callable by this project-local skill or Stop hook.
+    supersedes_revision: 2
+    requirement_ids: [FLOW-002, FLOW-003, OPS-004, SAFE-008]
+
+  - id: orchestration.existing_goal_policy
+    revision: 3
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/long-running-work
+      - https://learn.chatgpt.com/docs/app-server#api-overview
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [leave-goals-untouched]
+      text: >-
+        Existing Goals are outside watch-process authority and never block or
+        authorize a watch. A user may create or clear a Goal separately, but the
+        watcher neither depends on nor mutates it.
+    rationale: Goal state is not part of the documented Stop-hook contract.
+    supersedes_revision: 2
+    requirement_ids: [OPS-004, SAFE-008]
+
+  - id: scenarios.required_families
+    revision: 3
+    category: scope
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [github-actions, generic-ci, docker-build, local-command]
+      text: >-
+        Ship GitHub Actions, generic CI CLI, Docker build, and local command
+        support. Explicitly exclude a dedicated GitLab CI adapter and GitLab
+        implementation from the base library; GitLab may only be approached as
+        a generic external CLI scenario when the generic contract is sufficient.
+    rationale: The later explicit exclusion supersedes the earlier GitLab adapter requirement.
+    supersedes_revision: 2
+    requirement_ids: [SCOPE-002, PROV-001, PROV-002, PROV-003, PROV-004, PROV-005]
+
+  - id: adapters.required_library_adapters
+    revision: 2
+    category: architecture
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [github, generic-ci-cli, docker, local-command]
+      text: >-
+        The base library ships GitHubActionsProcessAdapter,
+        GenericCiCliProcessAdapter, DockerBuildProcessAdapter, and
+        LocalCommandProcessAdapter. It does not ship GitLabCiProcessAdapter,
+        glab-specific helpers, examples, or tests.
+    rationale: Keep provider-specific library scope aligned with the explicit GitLab exclusion.
+    supersedes_revision: 1
+    requirement_ids: [ADAPT-001, ADAPT-002, PROV-002]
+
+  - id: dependencies.adapter_prerequisites
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [conditional-existing-tools-without-glab]
+      text: >-
+        Node.js and trusted Codex hooks are common prerequisites. GitHub CLI,
+        Docker, or a declared generic-provider executable is required only for
+        its selected adapter and uses existing authentication without exposing
+        credentials. glab is not a base-library prerequisite.
+    rationale: Unused provider tools must not become global setup requirements.
+    supersedes_revision: 1
+    requirement_ids: [COMP-002, OPS-003, PROV-002]
+
+  - id: lifecycle.synchronous_stop_failure_contract
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - https://learn.chatgpt.com/docs/hooks
+      - https://learn.chatgpt.com/docs/app-server#api-overview
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [document-and-recover-every-host-interruption]
+      text: >-
+        Document Stop-hook timeout limits and unknowns, IDE restart, cancel and
+        same-chat messaging, watcher ownership, state-write races, watcher crash,
+        host-forced termination, authentication expiry, scenario change, and all
+        requested blocked/cancelled state transitions.
+    rationale: These failure paths determine whether automatic continuation is reliable and reviewable.
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, FLOW-003, HOOK-001, HOOK-002, FAIL-002, FAIL-003]
+
+  - id: outcomes.explicit_failure_taxonomy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [split-verification-delivery-dispatch-auth-loss-cancel]
+      text: >-
+        Use separate verification_failed, delivery_failed, dispatch_failed,
+        authentication_failed, watcher_lost, target_lost, user_cancelled, and
+        target_cancelled outcomes instead of generic combined values.
+    rationale: Operators and recovery logic need to distinguish causes and ownership.
+    supersedes_revision: null
+    requirement_ids: [FAIL-002, FAIL-003]
+
+  - id: targets.one_logical_aggregate
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [one-contract-many-members]
+      text: >-
+        Each invocation identifies exactly one immutable logical target contract.
+        A pull-request target may aggregate multiple workflow runs, check suites,
+        external statuses, jobs, and required checks for one repository, pull
+        request, and exact head SHA.
+    rationale: One authority boundary can still verify every member of a composite PR contract.
+    supersedes_revision: null
+    requirement_ids: [IFACE-001, IFACE-002, SAFE-002, ACCEPT-001]
+
+  - id: remote.idempotent_start_dispatch
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [intent-receipt-reconcile]
+      text: >-
+        Remote start, retry, and dispatch use a deterministic operation key,
+        durable intent and receipt records, and provider reconciliation. An
+        ambiguous response is never blindly retried; providers without a
+        provable idempotency or reconciliation mechanism cannot be dispatched
+        automatically.
+    rationale: This prevents duplicate CI runs after network or process interruption.
+    supersedes_revision: null
+    requirement_ids: [GIT-001, GIT-002, FLOW-005]
+
+  - id: audit.attempt_bound_evidence
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bounded-event-journal-success-attestation]
+      text: >-
+        Keep a bounded sanitized event journal and final success attestation that
+        bind watcher actions and accepted results to watch ID, generations,
+        scenario/script/library digests, exact source SHA, target attempt/member
+        identities, operation receipts, required checks, and verification receipts.
+    rationale: Stakeholders need an understandable history and reviewers need proof that green belongs to the intended attempt.
+    supersedes_revision: null
+    requirement_ids: [DATA-003, ACCEPT-001, IFACE-003]
+
+  - id: invocation.target_selectors
+    revision: 3
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [one-scenario-one-logical-target]
+      text: >-
+        Invocation identifies one scenario and one logical GitHub, generic CI,
+        Docker, or local-command target. A GitLab target is permitted only when
+        represented through the provider-neutral generic CLI contract; it is
+        not a dedicated adapter kind.
+    rationale: Reconciles the target list with the approved GitLab exclusion.
+    supersedes_revision: 2
+    requirement_ids: [IFACE-001, IFACE-002, PROV-002]
+
+  - id: orchestration.token_free_wait
+    revision: 3
+    category: performance
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [deterministic-process-wait]
+      text: >-
+        Pending GitHub, generic CI, Docker, and local-command work is observed by
+        deterministic code with bounded backoff and no model turns.
+    rationale: Removes the superseded dedicated GitLab family from the active decision.
+    supersedes_revision: 2
+    requirement_ids: [PERF-001]
+
+  - id: integrity.exact_sha
+    revision: 3
+    category: security
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [adapter-specific-immutable-target]
+      text: >-
+        Every observation binds to an adapter-specific immutable target identity.
+        Exact source SHA is mandatory for GitHub and source-backed generic CI;
+        local and Docker attempts use an owned process start token plus command,
+        working-directory, relevant-input, and attempt digests.
+    rationale: Aligns immutable identity with the approved adapter set.
+    supersedes_revision: 2
+    requirement_ids: [SAFE-002, ACCEPT-001]
+
+  - id: flow.initial_dispatch_policy
+    revision: 4
+    category: normal-flow
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [scenario-declared-start-or-attach]
+      text: >-
+        A watch may attach to an existing target or start one only through a
+        validated scenario-declared GitHub dispatch, generic-provider start,
+        Docker build, or local spawn with the idempotency contract applied.
+    rationale: Removes dedicated GitLab operations and incorporates the approved idempotency requirement.
+    supersedes_revision: 3
+    requirement_ids: [IFACE-002, ADAPT-002, SAFE-007, FLOW-005]
+
+  - id: ci.compatibility_matrix_placement
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+    prompt_mcp:
+      interview_id: plan:ci-watch-agent-skill
+      batch_id: null
+      question_id: ci.compatibility_matrix_placement
+      idempotency_key: ci.compatibility_matrix_placement:v1
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        Where should the required Node.js 22/24 by Linux/Windows/macOS
+        compatibility matrix for the watch-process base library run?
+      kind: single
+      options:
+        - id: existing-pr-aggregate
+          label: Existing Quality Gates
+          description: >-
+            Add the six jobs to pr-checks.yml and include them in its existing
+            fail-closed Quality Gates aggregate.
+        - id: separate-required-workflow
+          label: Separate required workflow
+          description: >-
+            Use a path-filtered workflow with its own aggregate check and make
+            that aggregate required in repository settings.
+        - id: separate-advisory-workflow
+          label: Separate advisory workflow
+          description: >-
+            Run the matrix separately without making it a pull-request gate.
+    answer:
+      selected_ids: [separate-required-workflow]
+      text: ''
+    rationale: >-
+      A dedicated path-filtered workflow limits runner use to watch-process
+      changes while retaining fail-closed pull-request enforcement through one
+      required aggregate check. Adding that check to branch protection remains
+      an explicit manual repository-settings gate.
+    supersedes_revision: null
+    requirement_ids: [COMP-002, NODE-002, PLAT-001]
+
+  - id: generic_ci.output_contract_artifact
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence: []
+    prompt_mcp:
+      interview_id: plan:ci-watch-agent-skill
+      batch_id: null
+      question_id: generic_ci.output_contract_artifact
+      idempotency_key: generic_ci.output_contract_artifact:v1
+      last_status: answered
+      display_language: ru
+    question:
+      text: >-
+        How should the GenericCiCliProcessAdapter output JSON contract be
+        published for start, observe, and evidence commands?
+      kind: single
+      options:
+        - id: tracked-json-schema
+          label: Separate JSON Schema
+          description: >-
+            Ship a versioned Draft 2020-12 schema and examples for provider CLI
+            authors and the runtime validator.
+        - id: runtime-validator-only
+          label: Runtime validator only
+          description: >-
+            Document fields and validate them in code without a standalone
+            machine-readable schema artifact.
+    answer:
+      selected_ids: [tracked-json-schema]
+      text: ''
+    rationale: >-
+      A closed tracked schema lets provider authors validate output before a
+      watch and lets the adapter prove identity and terminal state without
+      interpreting arbitrary text.
+    supersedes_revision: null
+    requirement_ids: [PROV-003, ARCH-002, COMP-004]
