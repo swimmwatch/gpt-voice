@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Watch Process'
+  short_description: 'Observe and repair one declared long-running process target'
+  default_prompt: 'Use $watch-process only for one declared target. Ask me for a finite timeout before arming or resuming it.'
