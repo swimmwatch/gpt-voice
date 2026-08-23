@@ -197,10 +197,11 @@ Repository contributors can use `$analyze-diagnostics-archive` for selective, in
 
 ## Run From Source
 
-Requires Node.js 24+ and npm 11+.
+Requires Node.js 24.15+ and Corepack with the repository-pinned npm 12.0.2.
 
 ```bash
-npm ci
+node scripts/security/verify-npm-signatures-preinstall.mjs
+corepack npm@12.0.2 ci
 npm run prepare:cloakbrowser
 npm run start
 ```

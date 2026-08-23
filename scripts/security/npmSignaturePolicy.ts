@@ -1,4 +1,5 @@
 import { isSecurityRecord as isRecord } from './securityEvidenceFields';
+import { CURRENT_PACKAGE_MANAGER } from './package-manager-policy.mjs';
 
 export interface NpmCommandEvidence {
   readonly arguments: readonly string[];
@@ -12,8 +13,14 @@ interface SignatureAuditResult {
   readonly missing: unknown[];
 }
 
-const EXPECTED_INSTALL_ARGUMENTS = ['npm', 'ci', '--ignore-scripts', '--no-audit'] as const;
-const EXPECTED_SIGNATURE_ARGUMENTS = ['npm', 'audit', 'signatures', '--json', '--ignore-scripts'] as const;
+const EXPECTED_INSTALL_ARGUMENTS = [CURRENT_PACKAGE_MANAGER, 'ci', '--ignore-scripts', '--no-audit'] as const;
+const EXPECTED_SIGNATURE_ARGUMENTS = [
+  CURRENT_PACKAGE_MANAGER,
+  'audit',
+  'signatures',
+  '--json',
+  '--ignore-scripts',
+] as const;
 
 function equalArguments(actual: readonly string[], expected: readonly string[]): boolean {
   return actual.length === expected.length && actual.every((value, index) => value === expected[index]);

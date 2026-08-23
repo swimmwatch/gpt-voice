@@ -1,26 +1,81 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { resolveCorepackCommand } from '@scripts/security/corepack-command.mjs';
 import { NpmSignaturePolicy, type NpmCommandEvidence } from '@scripts/security/npmSignaturePolicy';
+import {
+  CURRENT_COREPACK_VERSION,
+  CURRENT_PACKAGE_MANAGER,
+  HISTORICAL_SIZE_BASELINE_PACKAGE_MANAGER,
+  resolveApprovedPackageManager,
+  verifyCurrentPackageManagerManifest,
+} from '@scripts/security/package-manager-policy.mjs';
 
 const LOCKFILE_SHA256 = 'a'.repeat(64);
+const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const installation: NpmCommandEvidence = {
-  arguments: ['npm', 'ci', '--ignore-scripts', '--no-audit'],
+  arguments: [CURRENT_PACKAGE_MANAGER, 'ci', '--ignore-scripts', '--no-audit'],
   exitCode: 0,
   output: '',
   program: 'corepack',
 };
 const signatures: NpmCommandEvidence = {
-  arguments: ['npm', 'audit', 'signatures', '--json', '--ignore-scripts'],
+  arguments: [CURRENT_PACKAGE_MANAGER, 'audit', 'signatures', '--json', '--ignore-scripts'],
   exitCode: 0,
   output: JSON.stringify({ invalid: [], missing: [] }),
   program: 'corepack',
 };
 
 describe('npm signature policy', () => {
+  it('keeps current and historical package-manager pins closed and manifest-bound', () => {
+    assert.equal(resolveApprovedPackageManager(), CURRENT_PACKAGE_MANAGER);
+    assert.equal(
+      resolveApprovedPackageManager(HISTORICAL_SIZE_BASELINE_PACKAGE_MANAGER),
+      HISTORICAL_SIZE_BASELINE_PACKAGE_MANAGER,
+    );
+    assert.throws(() => resolveApprovedPackageManager('npm@12.0.1'), /PACKAGE_MANAGER_UNAPPROVED/u);
+    assert.doesNotThrow(() =>
+      verifyCurrentPackageManagerManifest({
+        devDependencies: { corepack: CURRENT_COREPACK_VERSION },
+        packageManager: CURRENT_PACKAGE_MANAGER,
+      }),
+    );
+    assert.throws(
+      () =>
+        verifyCurrentPackageManagerManifest({
+          devDependencies: { corepack: '^0.35.0' },
+          packageManager: CURRENT_PACKAGE_MANAGER,
+        }),
+      /PACKAGE_MANAGER_MANIFEST_INVALID/u,
+    );
+  });
+
+  it('denies every locked transitive dependency install script by package name', () => {
+    const packageManifest = JSON.parse(readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8')) as {
+      readonly allowScripts?: Readonly<Record<string, boolean>>;
+    };
+    const packageLock = JSON.parse(readFileSync(path.join(workspaceRoot, 'package-lock.json'), 'utf8')) as {
+      readonly packages: Readonly<Record<string, { readonly hasInstallScript?: boolean }>>;
+    };
+    assert.deepEqual(packageManifest.allowScripts, {
+      '@parcel/watcher': false,
+      'electron-winstaller': false,
+      esbuild: false,
+      fsevents: false,
+      'unrs-resolver': false,
+    });
+    assert.deepEqual(
+      Object.entries(packageLock.packages)
+        .filter(([, value]) => value.hasInstallScript === true)
+        .map(([packagePath]) => packagePath.replace(/^node_modules\//u, ''))
+        .sort(),
+      ['@parcel/watcher', 'electron-winstaller', 'esbuild', 'fsevents', 'unrs-resolver'],
+    );
+  });
+
   it('invokes the bundled Corepack entry directly on Windows without a command shell', () => {
     const nodeExecutable = String.raw`C:\Program Files\nodejs\node.exe`;
     const inspectEntry = () => ({ isFile: () => true, isSymbolicLink: () => false });
@@ -84,7 +139,10 @@ describe('npm signature policy', () => {
   });
 
   for (const input of [
-    { install: { ...installation, arguments: ['npm', 'ci'] }, reason: 'command identity mismatch' },
+    {
+      install: { ...installation, arguments: [CURRENT_PACKAGE_MANAGER, 'ci'] },
+      reason: 'command identity mismatch',
+    },
     { install: { ...installation, exitCode: 1 }, reason: 'evidence unavailable' },
     { installedLockfileSha256: 'b'.repeat(64), reason: 'lockfile identity mismatch' },
     { signatures: { ...signatures, output: '{}' }, reason: 'signature evidence malformed' },

@@ -21,9 +21,9 @@ describe('Repository security workflow', () => {
 
     const releaseWorkflow = await readWorkspaceFile('.github', 'workflows', 'release-builds.yml');
     const baselineGate = releaseWorkflow.indexOf(
-      'node scripts/security/verify-npm-signatures-preinstall.mjs --workspace=.size-baseline',
+      'node scripts/security/verify-npm-signatures-preinstall.mjs --workspace=.size-baseline --package-manager=npm@11.9.0',
     );
-    const baselineInstall = releaseWorkflow.indexOf('npm run ci:install', baselineGate);
+    const baselineInstall = releaseWorkflow.indexOf('corepack npm@11.9.0 run ci:install', baselineGate);
     assert.ok(baselineGate >= 0 && baselineInstall > baselineGate);
 
     const fedoraRunner = await readWorkspaceFile('scripts', 'build-fedora-release.mjs');

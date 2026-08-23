@@ -7,9 +7,9 @@ import process from 'node:process';
 import { TextDecoder } from 'node:util';
 
 import { resolveCorepackCommand } from './corepack-command.mjs';
+import { resolveApprovedPackageManager } from './package-manager-policy.mjs';
 
 const MAXIMUM_COMMAND_OUTPUT_BYTES = 2 * 1024 * 1024;
-const PINNED_PACKAGE_MANAGER = 'npm@11.9.0';
 
 function fail(code) {
   throw new Error(`NPM_SIGNATURE_PREINSTALL_${code}`);
@@ -80,6 +80,12 @@ function signatureResult(bytes) {
 
 async function main() {
   const workspace = path.resolve(option('workspace') ?? process.cwd());
+  let expectedPackageManager;
+  try {
+    expectedPackageManager = resolveApprovedPackageManager(option('package-manager'));
+  } catch {
+    fail('ARGUMENT_INVALID');
+  }
   const packageJsonPath = path.join(workspace, 'package.json');
   const packageLockPath = path.join(workspace, 'package-lock.json');
   const [packageJsonBytes, expectedLockfile] = await Promise.all([
@@ -92,7 +98,7 @@ async function main() {
   } catch {
     fail('INPUT_MALFORMED');
   }
-  if (packageJson?.packageManager !== PINNED_PACKAGE_MANAGER) fail('TOOLCHAIN_MISMATCH');
+  if (packageJson?.packageManager !== expectedPackageManager) fail('TOOLCHAIN_MISMATCH');
 
   const isolatedDirectory = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-npm-signatures-'));
   try {
@@ -100,14 +106,18 @@ async function main() {
       copyFile(packageJsonPath, path.join(isolatedDirectory, 'package.json')),
       copyFile(packageLockPath, path.join(isolatedDirectory, 'package-lock.json')),
     ]);
-    const install = await command(['npm', 'ci', '--ignore-scripts', '--no-audit'], isolatedDirectory, false);
+    const install = await command(
+      [expectedPackageManager, 'ci', '--ignore-scripts', '--no-audit'],
+      isolatedDirectory,
+      false,
+    );
     if (install.exitCode !== 0 || install.overflow) fail('INSTALL_FAILED');
     const installedLockfile = await readFile(path.join(isolatedDirectory, 'package-lock.json')).catch(() =>
       fail('LOCKFILE_UNAVAILABLE'),
     );
     if (sha256(installedLockfile) !== sha256(expectedLockfile)) fail('LOCKFILE_MISMATCH');
     const signatures = await command(
-      ['npm', 'audit', 'signatures', '--json', '--ignore-scripts'],
+      [expectedPackageManager, 'audit', 'signatures', '--json', '--ignore-scripts'],
       isolatedDirectory,
       true,
     );

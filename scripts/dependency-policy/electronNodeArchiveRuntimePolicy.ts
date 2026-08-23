@@ -34,7 +34,7 @@ const TAR_STREAM_PACKAGE: ExpectedPackage = {
 const BARE_FS_PACKAGE: ExpectedPackage = {
   name: 'bare-fs',
   path: 'node_modules/bare-fs',
-  version: '4.7.4',
+  version: '4.8.0',
 };
 const SHARED_BARE_EVENTS_PACKAGE_NAME = 'bare-events';
 const NODE_MODULES_PREFIX = 'node_modules/';
@@ -47,7 +47,7 @@ export const ELECTRON_NODE_ARCHIVER_BARE_ONLY_PACKAGES: readonly ExpectedPackage
   BARE_FS_PACKAGE,
   { name: 'bare-path', path: 'node_modules/bare-path', version: '3.1.1' },
   { name: 'bare-stream', path: 'node_modules/bare-stream', version: '2.13.3' },
-  { name: 'bare-url', path: 'node_modules/bare-url', version: '2.4.6' },
+  { name: 'bare-url', path: 'node_modules/bare-url', version: '2.5.2' },
   { name: 'teex', path: 'node_modules/teex', version: '1.0.1' },
 ]);
 

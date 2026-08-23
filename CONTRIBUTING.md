@@ -29,7 +29,8 @@ For non-trivial changes, open or reference an issue first. This is especially im
 Install dependencies:
 
 ```bash
-npm ci
+node scripts/security/verify-npm-signatures-preinstall.mjs
+corepack npm@12.0.2 ci
 ```
 
 Run the app from source:

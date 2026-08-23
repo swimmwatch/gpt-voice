@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 import { NpmSignaturePolicy, type NpmCommandEvidence } from './npmSignaturePolicy';
+import { CURRENT_PACKAGE_MANAGER } from './package-manager-policy.mjs';
 
 const workspaceRoot = path.resolve(__dirname, '..', '..');
 const packageJsonPath = path.join(workspaceRoot, 'package.json');
@@ -44,9 +45,12 @@ async function main(): Promise<void> {
       copyFile(packageJsonPath, path.join(isolatedDirectory, 'package.json')),
       copyFile(packageLockPath, path.join(isolatedDirectory, 'package-lock.json')),
     ]);
-    const install = await runCorepack(['npm', 'ci', '--ignore-scripts', '--no-audit'], isolatedDirectory);
+    const install = await runCorepack(
+      [CURRENT_PACKAGE_MANAGER, 'ci', '--ignore-scripts', '--no-audit'],
+      isolatedDirectory,
+    );
     const signatures = await runCorepack(
-      ['npm', 'audit', 'signatures', '--json', '--ignore-scripts'],
+      [CURRENT_PACKAGE_MANAGER, 'audit', 'signatures', '--json', '--ignore-scripts'],
       isolatedDirectory,
     );
     new NpmSignaturePolicy().verify({

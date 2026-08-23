@@ -166,16 +166,16 @@ class ElectronNodeArchiveRuntimeFixture {
           'bare-events': '2.9.1',
           'bare-path': '3.1.1',
           'bare-stream': '2.13.3',
-          'bare-url': '2.4.6',
+          'bare-url': '2.5.2',
         },
-        version: '4.7.4',
+        version: '4.8.0',
       },
       'node_modules/bare-path': { version: '3.1.1' },
       'node_modules/bare-stream': {
         dependencies: { 'bare-events': '2.9.1', teex: '1.0.1' },
         version: '2.13.3',
       },
-      'node_modules/bare-url': { version: '2.4.6' },
+      'node_modules/bare-url': { version: '2.5.2' },
       'node_modules/tar-stream': {
         dependencies: { 'bare-fs': '^4.5.5' },
         version: '3.2.0',
@@ -397,7 +397,7 @@ describe('Electron/Node archive runtime policy', () => {
     cases.push({ fixture: ambiguousConditions, targetIndex: 0 });
 
     const changedVersion = new ElectronNodeArchiveRuntimeFixture();
-    changedVersion.lockfile.packages['node_modules/bare-fs'].version = '4.7.5';
+    changedVersion.lockfile.packages['node_modules/bare-fs'].version = '4.8.1';
     cases.push({ fixture: changedVersion, targetIndex: 0 });
 
     const changedBranch = new ElectronNodeArchiveRuntimeFixture();

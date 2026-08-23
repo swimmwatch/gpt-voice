@@ -482,9 +482,9 @@ jobs:
           BASELINE_REF: 3845bad421f32650cb57a44f32345bfe0f46a127
         run: |
           git worktree add --detach .size-baseline $env:BASELINE_REF
-          node scripts/security/verify-npm-signatures-preinstall.mjs --workspace=.size-baseline
+          node scripts/security/verify-npm-signatures-preinstall.mjs --workspace=.size-baseline --package-manager=npm@11.9.0
           Push-Location .size-baseline
-          npm run ci:install
+          corepack npm@11.9.0 run ci:install
           npm run prepare:cloakbrowser -- --target=win32
           npm run smoke:cloakbrowser
           npm run build:prod
