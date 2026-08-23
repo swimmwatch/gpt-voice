@@ -17,6 +17,17 @@
     examples with focused standalone Node policy tests.
   - No adapter execution, watcher, hook, repair write, delivery, dependency, or
     external process action was created.
+- [03 — Portable runtime core](03_portable_runtime_core.md)
+  - Added the Node 22/24 preflight, frozen runtime contracts, shell-free
+    `ManagedProcessRunner`, token-bound `ManagedProcessExecution`, and bounded
+    private evidence handling.
+  - Added monotonic-deadline polling, validated cwd/environment/executable
+    preparation, terminal normalization, and sanitized failure fingerprints.
+  - Added disposable local fixtures and focused cross-platform contract tests
+    for command fidelity, restricted environments, timeout/abort cleanup,
+    bounded evidence, and Windows path semantics.
+  - No adapter, provider, state store, receipt, hook, watcher, repair write,
+    delivery, dependency, or external CI process action was created.
 
 ## Changed Files
 
@@ -34,6 +45,19 @@
 - `tests/skills/watchProcess/scenario-contract.test.mjs`
 - `docs/specs/ci-watch-agent-skill/tasks/todo.md`
 - `docs/specs/ci-watch-agent-skill/tasks/handoff.md`
+- `.agents/skills/watch-process/scripts/lib/bounded-evidence-buffer.mjs`
+- `.agents/skills/watch-process/scripts/lib/deadline-aware-poller.mjs`
+- `.agents/skills/watch-process/scripts/lib/failure-fingerprint.mjs`
+- `.agents/skills/watch-process/scripts/lib/managed-process-execution.mjs`
+- `.agents/skills/watch-process/scripts/lib/managed-process-runner.mjs`
+- `.agents/skills/watch-process/scripts/lib/managed-process-support.mjs`
+- `.agents/skills/watch-process/scripts/lib/monotonic-deadline.mjs`
+- `.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs`
+- `.agents/skills/watch-process/scripts/lib/runtime-contracts.mjs`
+- `.agents/skills/watch-process/scripts/lib/runtime-core-support.mjs`
+- `.agents/skills/watch-process/scripts/lib/runtime-preflight.mjs`
+- `tests/skills/watchProcess/fixtures/runtime-child.mjs`
+- `tests/skills/watchProcess/runtime-core.test.mjs`
 
 ## Checks
 
@@ -48,12 +72,22 @@
   no third-party runtime import, `gitlab`, `glab`, or `GitLabCiProcessAdapter`
   surface exists.
 - `git diff --check`
+- `node --check` for every Task 03 runtime module and focused test
+- `node --test tests/skills/watchProcess/runtime-core.test.mjs` (15 passing)
+- `npx prettier --check .agents/skills/watch-process/scripts/lib/*.mjs tests/skills/watchProcess/runtime-core.test.mjs tests/skills/watchProcess/fixtures/runtime-child.mjs`
+- `npx eslint --no-warn-ignored .agents/skills/watch-process/scripts/lib/*.mjs tests/skills/watchProcess/runtime-core.test.mjs tests/skills/watchProcess/fixtures/runtime-child.mjs`
+- `node --test tests/skills/watchProcess/scenario-contract.test.mjs` (11 passing)
+- `node --import tsx --test tests/skills/watchProcessSkillSurface.test.ts` (5 passing)
+- `npm run test:types`
+- Confirmed Task 03 runtime modules import only `node:` built-ins and relative
+  base-library modules, always use `shell: false`, and expose no adapter,
+  provider, state, or hook behavior.
 
 ## Next Packet
 
-[03 — Portable runtime core](03_portable_runtime_core.md)
+[04 — State, receipts, and audit](04_state_receipts_and_audit.md)
 
 ## Blockers
 
-None. Task 02 is complete and intentionally uncommitted for the next explicit
+None. Task 03 is complete and intentionally uncommitted for the next explicit
 incremental implementation invocation.
