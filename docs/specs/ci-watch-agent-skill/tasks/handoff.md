@@ -131,6 +131,20 @@
   - No real repository, remote CI target, credential, publish, release, tag,
     deploy, or external delivery was used; test delivery used disposable local
     Git repositories and a disposable bare remote only.
+- [11 — Cross-platform compatibility CI](11_cross_platform_compatibility_ci.md)
+  - Added a dedicated, read-only GitHub-hosted compatibility workflow with a
+    validated Linux scope classifier, a six-cell Node 22/24 by
+    Linux/Windows/macOS matrix, plus a stable, fail-closed aggregate named
+    `Watch Process Compatibility`.
+  - The matrix checks out the exact revision, installs only its selected Node
+    runtime, and runs the dependency-free standalone suite without `npm ci`.
+  - Added a suite entry point for all ten standalone watch-process test modules
+    and a TypeScript policy test for workflow triggers, pins, permissions,
+    timeouts, scope safety, matrix completeness, aggregate semantics, absent
+    GitLab artifacts, and shell-free child-process boundaries.
+  - Left the existing `Quality Gates` workflow and all non-watch-process CI
+    behavior unchanged. No hosted workflow run, branch-protection change,
+    credentials, remote target, publish, release, or deploy action was used.
 
 ## Changed Files
 
@@ -242,6 +256,9 @@
 - `.agents/skills/watch-process/scripts/lib/scenario-repair-scope.mjs`
 - `.agents/skills/watch-process/SKILL.md`
 - `tests/skills/watchProcess/repair-delivery.test.mjs`
+- `.github/workflows/watch-process-compatibility.yml`
+- `tests/skills/watchProcess/suite.test.mjs`
+- `tests/skills/watchProcessCompatibilityWorkflowPolicy.test.ts`
 
 ## Checks
 
@@ -343,19 +360,31 @@
 - `git diff --check`
 - The packet-wide Prettier glob still reports the same five unchanged earlier
   modules listed above; no unrelated reformatting was added to Task 10.
+- `node --test tests/skills/watchProcess/suite.test.mjs` (99 passing)
+- `node --import tsx --test tests/skills/watchProcessCompatibilityWorkflowPolicy.test.ts`
+  (4 passing)
+- `npx prettier --check .github/workflows/watch-process-compatibility.yml tests/skills/watchProcess/suite.test.mjs tests/skills/watchProcessCompatibilityWorkflowPolicy.test.ts`
+- `npx eslint --no-warn-ignored tests/skills/watchProcess/suite.test.mjs tests/skills/watchProcessCompatibilityWorkflowPolicy.test.ts`
+- `npm run test:types`
+- `git diff --check`
+- `git diff --exit-code -- .github/workflows/pr-checks.yml`
 
 ## Next Packet
 
-[11 — Cross-platform compatibility CI](11_cross_platform_compatibility_ci.md)
+[12 — Documentation and acceptance](12_documentation_and_acceptance.md)
 
 ## Blockers
 
-Task 10 is complete and intentionally uncommitted. The next explicit
-incremental-implementation invocation may verify and commit only Task 10, then
-start Task 11. The project-local hook must still be reviewed and trusted
-manually through Codex `/hooks`; implementation cannot bypass that
-user-controlled gate.
+Task 11 is complete and intentionally uncommitted. The next explicit
+incremental-implementation invocation may verify and commit only Task 11, then
+start Task 12.
+
+The new workflow has not yet produced a real successful six-cell run. After it
+does, a repository administrator must separately authorize and add the exact
+`Watch Process Compatibility` check to branch protection or rulesets. The
+project-local hook must still be reviewed and trusted manually through Codex
+`/hooks`; implementation cannot bypass that user-controlled gate.
 
 The worktree also contains unrelated CI, security, package, and documentation
 changes outside this packet. They were neither inspected nor modified by Task
-10 and must remain excluded from its later commit.
+11 and must remain excluded from its later commit.
