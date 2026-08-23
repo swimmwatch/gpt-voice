@@ -1,0 +1,11 @@
+{
+  "id": 101,
+  "runAttempt": 3,
+  "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "event": "pull_request",
+  "path": ".github/workflows/pr-checks.yml@refs/heads/main",
+  "status": "completed",
+  "conclusion": "failure",
+  "htmlUrl": "https://github.com/owner/repository/actions/runs/101",
+  "displayTitle": "Validate pull request"
+}

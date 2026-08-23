@@ -64,6 +64,22 @@
   - No provider CLI, remote CI target, credentials, Docker daemon, hook,
     repair write, delivery, dependency installation, or external process was
     invoked during automated verification.
+- [07 — GitHub Actions adapter](07_github_actions_adapter.md)
+  - Added a shell-free GitHub Actions adapter for exact workflow-run and
+    pull-request required-check contracts, using only bounded, closed JSON
+    projections from the authenticated `gh` executable.
+  - Bound run identity to repository, allowlisted workflow, provider rerun
+    attempt, exact source SHA, and watch generation; bound PR aggregates to
+    the exact head SHA and fresh branch/ruleset required-check contract.
+  - Added fail-closed handling for incomplete, duplicate, pending, neutral,
+    cancelled, stale, unexpected-skipped, and unallowlisted required members,
+    including external commit statuses and linked multiple workflow runs.
+  - Added declared-only dispatch guarded by explicit `start` authorization,
+    allowlisted workflow and fixed inputs, intent-before-action receipts, and
+    exact operation-key reconciliation without duplicate dispatches.
+  - Added sanitized fixtures and fake-child tests only; no live `gh` command,
+    GitHub authentication, remote dispatch/cancellation, workflow edit,
+    credential, release, publish, or deploy action was performed.
 
 ## Changed Files
 
@@ -117,6 +133,18 @@
 - `.agents/skills/watch-process/scripts/lib/managed-process-execution.mjs`
 - `.agents/skills/watch-process/scripts/lib/managed-process-runner.mjs`
 - `tests/skills/watchProcess/generic-ci-adapter.test.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/github-actions-response-contract.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/github-actions-json-output-collector.mjs`
+- `.agents/skills/watch-process/scripts/lib/adapters/github-actions-process-adapter.mjs`
+- `tests/skills/watchProcess/github-actions-adapter.test.mjs`
+- `tests/skills/watchProcess/fixtures/github-workflow-run-success.json`
+- `tests/skills/watchProcess/fixtures/github-workflow-run-failure.json`
+- `tests/skills/watchProcess/fixtures/github-workflow-run-jobs.json`
+- `tests/skills/watchProcess/fixtures/github-pr-required-checks-success.json`
+- `tests/skills/watchProcess/fixtures/github-pr-required-checks-failure.json`
+- `tests/skills/watchProcess/fixtures/github-workflow-surface.json`
+- `docs/specs/ci-watch-agent-skill/tasks/todo.md`
+- `docs/specs/ci-watch-agent-skill/tasks/handoff.md`
 
 ## Checks
 
@@ -172,13 +200,28 @@
 - `git diff --check`
 - Confirmed the generic adapter uses only `node:`/relative imports and exposes
   no `gitlab`, `glab`, or dedicated-provider implementation surface.
+- `node --check` for all Task 07 adapter modules and focused test
+- `node --test tests/skills/watchProcess/github-actions-adapter.test.mjs`
+  (12 passing)
+- `node --test` across Task 03–07 watch-process runtime, state, scenario,
+  local/Docker, generic-CI, and GitHub Actions suites (65 passing)
+- `npx prettier --check` and `npx eslint --no-warn-ignored` for all Task 07
+  adapter modules, test, and JSON fixtures
+- `node --import tsx --test tests/skills/watchProcessSkillSurface.test.ts`
+  (5 passing)
+- `npm run test:types`
+- `npm run format:check`
+- `npm run lint` (passes; only existing repository warnings remain)
+- `git diff --check`
+- Confirmed the three observed GitHub workflow files remain unchanged and all
+  adapter imports are `node:` built-ins or relative local modules.
 
 ## Next Packet
 
-[07 — GitHub Actions adapter](07_github_actions_adapter.md)
+[08 — Orchestrator and generated watcher](08_orchestrator_and_generated_watcher.md)
 
 ## Blockers
 
-None. Task 06 is complete and intentionally uncommitted for the next explicit
-incremental-implementation invocation, which may commit Task 06 and start
-Task 07.
+None. Task 07 is complete and intentionally uncommitted for the next explicit
+incremental-implementation invocation, which may commit Task 07 and start
+Task 08.
