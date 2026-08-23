@@ -8,6 +8,7 @@ const WORKSPACE_ROOT = process.cwd();
 const WORKFLOW_PATH = path.join(WORKSPACE_ROOT, '.github', 'workflows', 'watch-process-compatibility.yml');
 const QUALITY_WORKFLOW_PATH = path.join(WORKSPACE_ROOT, '.github', 'workflows', 'pr-checks.yml');
 const LIBRARY_ROOT = path.join(WORKSPACE_ROOT, '.agents', 'skills', 'watch-process', 'scripts');
+const STANDALONE_TEST_ROOT = path.join(WORKSPACE_ROOT, 'tests', 'skills', 'watchProcess');
 const CHECKOUT_ACTION = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1';
 const SETUP_NODE_ACTION = 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020';
 
@@ -163,11 +164,12 @@ describe('watch-process compatibility workflow policy', () => {
   });
 
   it('keeps dedicated GitLab artifacts absent and every watch-process child-process boundary shell-free', async () => {
-    const modulePaths = await allModulePaths(LIBRARY_ROOT);
+    const modulePaths = [...(await allModulePaths(LIBRARY_ROOT)), ...(await allModulePaths(STANDALONE_TEST_ROOT))];
     const sources = await Promise.all(
       modulePaths.map(async (modulePath) => ({ modulePath, source: await readFile(modulePath, 'utf8') })),
     );
-    const childProcessSources = sources.filter(({ source }) => source.includes('node:child_process'));
+    const librarySources = sources.filter(({ modulePath }) => modulePath.startsWith(`${LIBRARY_ROOT}${path.sep}`));
+    const childProcessSources = librarySources.filter(({ source }) => source.includes('node:child_process'));
 
     assert.deepEqual(
       childProcessSources
@@ -175,8 +177,23 @@ describe('watch-process compatibility workflow policy', () => {
         .sort(),
       ['lib/generated-watcher-artifact.mjs', 'lib/generated-watcher-launcher.mjs', 'lib/managed-process-runner.mjs'],
     );
-    for (const { source } of sources) {
+    for (const { source } of librarySources) {
       assert.doesNotMatch(source, /(?:GitLabCiProcessAdapter|gitlab|\bglab\b)/iu);
+    }
+    for (const { modulePath, source } of sources) {
+      const imports = [...source.matchAll(/(?:from\s+|import\s*\()['"](?<specifier>[^'"]+)['"]/gu)].map(
+        (match) => match.groups?.specifier,
+      );
+      assert.equal(
+        imports.every(
+          (specifier) =>
+            specifier?.startsWith('node:') ||
+            specifier?.startsWith('.') ||
+            (path.basename(modulePath) === 'generated-watcher-artifact.mjs' && specifier === '${entrypoint}'),
+        ),
+        true,
+        modulePath,
+      );
     }
     for (const { source } of childProcessSources) {
       assert.match(source, /shell:\s*false/u);

@@ -19,7 +19,7 @@
     "adapterConfig"
   ],
   "properties": {
-    "$schema": { "type": "string", "minLength": 1 },
+    "$schema": { "const": "urn:gpt-voice:watch-process:scenario:1" },
     "schemaVersion": { "const": "1.0.0" },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
     "description": { "type": "string", "maxLength": 300, "default": "" },
@@ -43,31 +43,43 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }
     },
-    "adapterConfig": { "$ref": "#/$defs/adapterConfig" }
+    "adapterConfig": { "type": "object" }
   },
   "allOf": [
     {
-      "if": { "properties": { "adapter": { "const": "github-actions" } } },
-      "then": { "properties": { "adapterConfig": { "required": ["repository", "mode"] } } }
-    },
-    {
-      "if": { "properties": { "adapter": { "const": "generic-ci-cli" } } },
+      "if": {
+        "properties": { "adapter": { "const": "github-actions" } },
+        "required": ["adapter"]
+      },
       "then": {
-        "properties": {
-          "adapterConfig": { "required": ["providerId", "commands", "statusMap"] }
-        }
+        "properties": { "adapterConfig": { "$ref": "#/$defs/githubActionsAdapterConfig" } }
       }
     },
     {
-      "if": { "properties": { "adapter": { "const": "docker-build" } } },
-      "then": { "properties": { "adapterConfig": { "required": ["buildCommand"] } } }
+      "if": {
+        "properties": { "adapter": { "const": "generic-ci-cli" } },
+        "required": ["adapter"]
+      },
+      "then": {
+        "properties": { "adapterConfig": { "$ref": "#/$defs/genericCiAdapterConfig" } }
+      }
     },
     {
-      "if": { "properties": { "adapter": { "const": "local-command" } } },
+      "if": {
+        "properties": { "adapter": { "const": "docker-build" } },
+        "required": ["adapter"]
+      },
       "then": {
-        "properties": {
-          "adapterConfig": { "required": ["startCommand", "successExitCodes"] }
-        }
+        "properties": { "adapterConfig": { "$ref": "#/$defs/dockerBuildAdapterConfig" } }
+      }
+    },
+    {
+      "if": {
+        "properties": { "adapter": { "const": "local-command" } },
+        "required": ["adapter"]
+      },
+      "then": {
+        "properties": { "adapterConfig": { "$ref": "#/$defs/localCommandAdapterConfig" } }
       }
     }
   ],
@@ -148,7 +160,7 @@
     "repair": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["includeGlobs", "excludeGlobs", "allowCreate", "allowDelete", "maxFiles", "maxBytesChanged"],
+      "required": ["includeGlobs"],
       "properties": {
         "includeGlobs": {
           "type": "array",
@@ -188,17 +200,18 @@
         },
         "cwd": { "type": "string", "default": ".", "maxLength": 200 },
         "env": {
-          "type": "object",
-          "default": {},
-          "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
-          "additionalProperties": { "type": "string", "maxLength": 1000 }
+          "type": "array",
+          "default": [],
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" }
         }
       }
     },
     "delivery": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["strategy", "pushCurrentUpstream"],
+      "required": ["strategy"],
       "properties": {
         "strategy": {
           "enum": ["no-restart", "local-restart", "provider-retry", "provider-dispatch", "git-delivery"]
@@ -206,9 +219,26 @@
         "pushCurrentUpstream": { "type": "boolean", "default": false }
       }
     },
-    "adapterConfig": {
+    "dispatch": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["inputs"],
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "workflow": { "type": "string" },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [{ "type": "string" }, { "type": "boolean" }, { "type": "number" }]
+          }
+        },
+        "idempotencyInput": { "type": "string" }
+      }
+    },
+    "githubActionsAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "mode"],
       "properties": {
         "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
         "mode": { "enum": ["run", "pull-request-contract"] },
@@ -217,49 +247,59 @@
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
         },
-        "dispatch": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["enabled", "inputs"],
-          "properties": {
-            "enabled": { "type": "boolean", "default": false },
-            "workflow": { "type": "string" },
-            "inputs": {
-              "type": "object",
-              "additionalProperties": { "type": ["string", "boolean", "number"] }
-            },
-            "idempotencyInput": { "type": "string" }
-          }
-        },
+        "dispatch": { "$ref": "#/$defs/dispatch" }
+      }
+    },
+    "genericCommands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observe", "evidence"],
+      "properties": {
+        "start": { "$ref": "#/$defs/command" },
+        "observe": { "$ref": "#/$defs/command" },
+        "evidence": { "$ref": "#/$defs/command" },
+        "cancel": { "$ref": "#/$defs/command" }
+      }
+    },
+    "statusMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["running", "succeeded", "failed", "cancelled"],
+      "properties": {
+        "running": { "type": "array", "items": { "type": "string" } },
+        "succeeded": { "type": "array", "items": { "type": "string" } },
+        "failed": { "type": "array", "items": { "type": "string" } },
+        "cancelled": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "genericCiAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerId", "commands", "statusMap"],
+      "properties": {
         "providerId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-        "commands": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["observe", "evidence"],
-          "properties": {
-            "start": { "$ref": "#/$defs/command" },
-            "observe": { "$ref": "#/$defs/command" },
-            "evidence": { "$ref": "#/$defs/command" },
-            "cancel": { "$ref": "#/$defs/command" }
-          }
-        },
-        "statusMap": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["running", "succeeded", "failed", "cancelled"],
-          "properties": {
-            "running": { "type": "array", "items": { "type": "string" } },
-            "succeeded": { "type": "array", "items": { "type": "string" } },
-            "failed": { "type": "array", "items": { "type": "string" } },
-            "cancelled": { "type": "array", "items": { "type": "string" } }
-          }
-        },
+        "commands": { "$ref": "#/$defs/genericCommands" },
+        "statusMap": { "$ref": "#/$defs/statusMap" }
+      }
+    },
+    "dockerBuildAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["buildCommand"],
+      "properties": {
         "buildCommand": { "$ref": "#/$defs/command" },
         "imageVerification": {
           "type": "array",
           "default": [],
           "items": { "$ref": "#/$defs/command" }
-        },
+        }
+      }
+    },
+    "localCommandAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startCommand", "successExitCodes"],
+      "properties": {
         "startCommand": { "$ref": "#/$defs/command" },
         "successExitCodes": {
           "type": "array",

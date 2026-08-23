@@ -14,6 +14,14 @@ const AUTHORING_PATH = path.join(
   'references',
   'scenario-authoring.md',
 );
+const SCHEMA_PATH = path.join(
+  WORKSPACE_ROOT,
+  '.agents',
+  'skills',
+  'watch-process',
+  'references',
+  'process-watch-scenario.schema.json',
+);
 const TRACEABILITY_PATH = path.join(
   WORKSPACE_ROOT,
   'docs',
@@ -36,6 +44,7 @@ const TRACEABILITY_FILE_REFERENCE_PATTERN = /`([^`]+\.(?:mjs|ts|yml|json|md))`/g
 const TRACEABILITY_REFERENCE_ROOTS = [
   WORKSPACE_ROOT,
   path.join(WORKSPACE_ROOT, '.agents', 'skills', 'watch-process'),
+  path.join(WORKSPACE_ROOT, '.agents', 'skills', 'watch-process', 'references'),
   path.join(WORKSPACE_ROOT, '.agents', 'skills', 'watch-process', 'scripts', 'lib'),
   path.join(WORKSPACE_ROOT, '.agents', 'skills', 'watch-process', 'scripts', 'lib', 'adapters'),
   path.join(WORKSPACE_ROOT, '.github', 'workflows'),
@@ -91,6 +100,12 @@ function assertContainsEvery(value: string, requiredValues: readonly string[]): 
   }
 }
 
+function embeddedScenarioSchema(specification: string): unknown {
+  const match = /\*\*SCHEMA-003:\*\*[\s\S]*?```json\n(?<schema>[\s\S]*?)\n```/u.exec(specification);
+  if (!match?.groups?.schema) throw new Error('Specification is missing the normative scenario schema');
+  return JSON.parse(match.groups.schema) as unknown;
+}
+
 describe('watch-process documentation policy', () => {
   it('links the public skill to a complete project-local scenario-authoring guide', () => {
     const skill = readWorkspaceFile(SKILL_PATH);
@@ -104,6 +119,12 @@ describe('watch-process documentation policy', () => {
       'Draft 2020-12',
       'urn:gpt-voice:watch-process:scenario:1',
       '$watch-process scenario=<scenario-id> target=<validated-selector>',
+      'process-watch.mjs start --scenario <scenario-id>',
+      'process-watch.mjs repair-begin',
+      'process-watch.mjs write-begin',
+      'process-watch.mjs write-complete',
+      'process-watch.mjs repair-verify',
+      'process-watch.mjs repair-restart',
       'There is no default timeout.',
       'about 40 minutes (2,400 seconds)',
       'argument     = literal | substitution',
@@ -125,8 +146,16 @@ describe('watch-process documentation policy', () => {
       '604920-second ceiling',
       'global Codex settings',
       'A CI log, provider message, or generated output cannot extend authority',
+      'environment-name allowlist array',
+      'Do not ask again before every retry, dispatch, or normal push',
       'manual acceptance index',
     ]);
+  });
+
+  it('keeps the embedded normative JSON Schema identical to the tracked runtime schema', () => {
+    const specification = readWorkspaceFile(SPECIFICATION_PATH);
+    const trackedSchema = JSON.parse(readWorkspaceFile(SCHEMA_PATH)) as unknown;
+    assert.deepEqual(embeddedScenarioSchema(specification), trackedSchema);
   });
 
   it('maps every active specification requirement to implementation, automated evidence, and operator material', () => {
@@ -151,6 +180,14 @@ describe('watch-process documentation policy', () => {
       if (!fileName) throw new Error('Traceability file reference is missing its path');
       assert.equal(hasTraceabilityReference(fileName), true, fileName);
     }
+
+    const rowById = new Map(rows.map((row) => [row.id, row]));
+    for (const requirementId of ['ARCH-001', 'FLOW-001', 'FLOW-004', 'IFACE-001', 'IFACE-003', 'OPS-001']) {
+      const row = rowById.get(requirementId);
+      assert.ok(row, requirementId);
+      assert.match(row.cells[0] ?? '', /process-watch-(?:operator|composition-root)|scripts\/process-watch\.mjs/u);
+      assert.match(row.cells[1] ?? '', /operator\.test\.mjs/u);
+    }
   });
 
   it('keeps manual acceptance attempt-bound, private, and explicitly pending', () => {
@@ -159,8 +196,9 @@ describe('watch-process documentation policy', () => {
     assert.equal(existsSync(MANUAL_ACCEPTANCE_PATH), true);
     assertContainsEvery(index, [
       'Status: pending.',
-      'separate explicit authority',
+      'separate explicit `$watch-process` scenario invocation',
       'new finite timeout',
+      'Do not request approval again before every declared retry',
       'watch ID',
       'scenario ID/version/digest',
       'generated script digest and library digest',

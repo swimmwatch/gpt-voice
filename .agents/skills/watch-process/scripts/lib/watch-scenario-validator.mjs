@@ -12,6 +12,7 @@ import {
   REQUIRED_CHECK_MODES,
   ROOT_FIELDS,
   SCENARIO_ID_PATTERN,
+  SCENARIO_SCHEMA_ID,
   SCENARIO_SCHEMA_VERSION,
   SELECTOR_KINDS,
   assertClosedObject,
@@ -28,6 +29,7 @@ import {
   validateStringArray,
 } from './scenario-contract-support.mjs';
 import { parseCommandArgument } from './scenario-command-arguments.mjs';
+import { ScenarioCommandCapabilityPolicy } from './scenario-command-capability-policy.mjs';
 import { validateRepairScopeDefinition } from './scenario-repair-scope.mjs';
 
 const TARGET_FIELDS = new Set(['selectorKinds', 'identityFields', 'requireExactSourceRevision']);
@@ -41,29 +43,25 @@ const DISPATCH_FIELDS = new Set(['enabled', 'workflow', 'inputs', 'idempotencyIn
 const DISPATCH_DEFAULTED_FIELDS = new Set(['enabled']);
 const GENERIC_COMMAND_FIELDS = new Set(['start', 'observe', 'evidence', 'cancel']);
 const STATUS_MAP_FIELDS = new Set(['running', 'succeeded', 'failed', 'cancelled']);
-const ADAPTER_CONFIG_FIELDS = new Set([
-  'repository',
-  'mode',
-  'workflowAllowlist',
-  'dispatch',
-  'providerId',
-  'commands',
-  'statusMap',
-  'buildCommand',
-  'imageVerification',
-  'startCommand',
-  'successExitCodes',
-]);
+const ADAPTER_CONFIG_FIELDS = Object.freeze({
+  'docker-build': new Set(['buildCommand', 'imageVerification']),
+  'generic-ci-cli': new Set(['providerId', 'commands', 'statusMap']),
+  'github-actions': new Set(['repository', 'mode', 'workflowAllowlist', 'dispatch']),
+  'local-command': new Set(['startCommand', 'successExitCodes']),
+});
 const GITHUB_ACTIONS_MODES = new Set(['run', 'pull-request-contract']);
-const ADAPTER_REQUIRED_FIELDS = {
-  'github-actions': ['repository', 'mode'],
-  'generic-ci-cli': ['providerId', 'commands', 'statusMap'],
-  'docker-build': ['buildCommand'],
-  'local-command': ['startCommand', 'successExitCodes'],
-};
 
 /** Owns the fixed v1 scenario contract and its closed validation rules. */
 export class WatchScenarioValidator {
+  #capabilityPolicy;
+
+  constructor({ capabilityPolicy = new ScenarioCommandCapabilityPolicy() } = {}) {
+    if (!(capabilityPolicy instanceof ScenarioCommandCapabilityPolicy)) {
+      fail('invalid-capability-policy', '$');
+    }
+    this.#capabilityPolicy = capabilityPolicy;
+  }
+
   validate(value, options = {}) {
     const { allowDefaultedFields = false } = options;
     const scenario = assertClosedObject(value, ROOT_FIELDS, '$');
@@ -88,7 +86,9 @@ export class WatchScenarioValidator {
       allowDefaultedFields,
     );
 
-    requireString(scenario.$schema, '$.$schema', 1);
+    if (requireString(scenario.$schema, '$.$schema', 1) !== SCENARIO_SCHEMA_ID) {
+      fail('unsupported-schema-id', '$.$schema');
+    }
     this.#validateSchemaVersion(scenario.schemaVersion, '$.schemaVersion');
     const id = requireString(scenario.id, '$.id', 3, 64);
     if (!SCENARIO_ID_PATTERN.test(id)) fail('string-pattern-mismatch', '$.id');
@@ -114,6 +114,7 @@ export class WatchScenarioValidator {
       pattern: FORBIDDEN_ACTION_PATTERN,
     });
     this.#validateAdapterConfig(scenario.adapterConfig, '$.adapterConfig', adapter, allowDefaultedFields);
+    this.#capabilityPolicy.validate(scenario);
     return scenario;
   }
 
@@ -211,10 +212,15 @@ export class WatchScenarioValidator {
   }
 
   #validateCommandEnvironment(value, location) {
-    const environment = requireRecord(value, location);
-    for (const [key, item] of Object.entries(environment)) {
-      if (!ENVIRONMENT_NAME_PATTERN.test(key)) fail('string-pattern-mismatch', `${location}.${key}`);
-      requireString(item, `${location}.${key}`, 0, 1000);
+    const environment = requireArray(value, location, 0, 100);
+    const canonicalNames = new Set();
+    for (const [index, name] of environment.entries()) {
+      const itemLocation = `${location}[${index}]`;
+      requireString(name, itemLocation, 1, 64);
+      if (!ENVIRONMENT_NAME_PATTERN.test(name)) fail('string-pattern-mismatch', itemLocation);
+      const canonicalName = name.toUpperCase();
+      if (canonicalNames.has(canonicalName)) fail('duplicate-array-item', location);
+      canonicalNames.add(canonicalName);
     }
   }
 
@@ -267,16 +273,24 @@ export class WatchScenarioValidator {
   }
 
   #validateAdapterConfig(value, location, adapter, allowDefaultedFields) {
-    const adapterConfig = assertClosedObject(value, ADAPTER_CONFIG_FIELDS, location);
+    const adapterConfig = assertClosedObject(value, ADAPTER_CONFIG_FIELDS[adapter], location);
+    if (adapter === 'github-actions') {
+      this.#validateGitHubConfig(adapterConfig, location, allowDefaultedFields);
+    } else if (adapter === 'generic-ci-cli') {
+      this.#validateGenericConfig(adapterConfig, location, allowDefaultedFields);
+    } else if (adapter === 'docker-build') {
+      this.#validateDockerConfig(adapterConfig, location, allowDefaultedFields);
+    } else {
+      this.#validateLocalConfig(adapterConfig, location, allowDefaultedFields);
+    }
+  }
 
-    if (hasOwn(adapterConfig, 'repository')) {
-      const repository = requireString(adapterConfig.repository, `${location}.repository`, 1);
-      if (!REPOSITORY_PATTERN.test(repository)) fail('string-pattern-mismatch', `${location}.repository`);
-    }
-    if (hasOwn(adapterConfig, 'mode')) {
-      const mode = requireString(adapterConfig.mode, `${location}.mode`, 1);
-      assertEnum(mode, GITHUB_ACTIONS_MODES, `${location}.mode`);
-    }
+  #validateGitHubConfig(adapterConfig, location, allowDefaultedFields) {
+    assertRequiredFields(adapterConfig, ['repository', 'mode'], location, allowDefaultedFields);
+    const repository = requireString(adapterConfig.repository, `${location}.repository`, 1);
+    if (!REPOSITORY_PATTERN.test(repository)) fail('string-pattern-mismatch', `${location}.repository`);
+    const mode = requireString(adapterConfig.mode, `${location}.mode`, 1);
+    assertEnum(mode, GITHUB_ACTIONS_MODES, `${location}.mode`);
     if (hasOwn(adapterConfig, 'workflowAllowlist')) {
       validateStringArray(adapterConfig.workflowAllowlist, `${location}.workflowAllowlist`, {
         unique: true,
@@ -286,17 +300,19 @@ export class WatchScenarioValidator {
     if (hasOwn(adapterConfig, 'dispatch')) {
       this.#validateDispatch(adapterConfig.dispatch, `${location}.dispatch`, allowDefaultedFields);
     }
-    if (hasOwn(adapterConfig, 'providerId')) {
-      const providerId = requireString(adapterConfig.providerId, `${location}.providerId`, 1);
-      if (!PROVIDER_ID_PATTERN.test(providerId)) fail('string-pattern-mismatch', `${location}.providerId`);
-    }
-    if (hasOwn(adapterConfig, 'commands')) {
-      this.#validateGenericCommands(adapterConfig.commands, `${location}.commands`, allowDefaultedFields);
-    }
-    if (hasOwn(adapterConfig, 'statusMap')) this.#validateStatusMap(adapterConfig.statusMap, `${location}.statusMap`);
-    if (hasOwn(adapterConfig, 'buildCommand')) {
-      this.#validateCommand(adapterConfig.buildCommand, `${location}.buildCommand`, allowDefaultedFields);
-    }
+  }
+
+  #validateGenericConfig(adapterConfig, location, allowDefaultedFields) {
+    assertRequiredFields(adapterConfig, ['providerId', 'commands', 'statusMap'], location, allowDefaultedFields);
+    const providerId = requireString(adapterConfig.providerId, `${location}.providerId`, 1);
+    if (!PROVIDER_ID_PATTERN.test(providerId)) fail('string-pattern-mismatch', `${location}.providerId`);
+    this.#validateGenericCommands(adapterConfig.commands, `${location}.commands`, allowDefaultedFields);
+    this.#validateStatusMap(adapterConfig.statusMap, `${location}.statusMap`);
+  }
+
+  #validateDockerConfig(adapterConfig, location, allowDefaultedFields) {
+    assertRequiredFields(adapterConfig, ['buildCommand'], location, allowDefaultedFields);
+    this.#validateCommand(adapterConfig.buildCommand, `${location}.buildCommand`, allowDefaultedFields);
     if (hasOwn(adapterConfig, 'imageVerification')) {
       const imageVerification = requireArray(adapterConfig.imageVerification, `${location}.imageVerification`);
       for (const [index, command] of imageVerification.entries()) {
@@ -305,17 +321,15 @@ export class WatchScenarioValidator {
     } else if (!allowDefaultedFields) {
       fail('missing-required-field', `${location}.imageVerification`);
     }
-    if (hasOwn(adapterConfig, 'startCommand')) {
-      this.#validateCommand(adapterConfig.startCommand, `${location}.startCommand`, allowDefaultedFields);
-    }
-    if (hasOwn(adapterConfig, 'successExitCodes')) {
-      validateIntegerArray(adapterConfig.successExitCodes, `${location}.successExitCodes`, 0, 255, {
-        minimumItems: 1,
-        unique: true,
-      });
-    }
+  }
 
-    assertRequiredFields(adapterConfig, ADAPTER_REQUIRED_FIELDS[adapter], location, allowDefaultedFields);
+  #validateLocalConfig(adapterConfig, location, allowDefaultedFields) {
+    assertRequiredFields(adapterConfig, ['startCommand', 'successExitCodes'], location, allowDefaultedFields);
+    this.#validateCommand(adapterConfig.startCommand, `${location}.startCommand`, allowDefaultedFields);
+    validateIntegerArray(adapterConfig.successExitCodes, `${location}.successExitCodes`, 0, 255, {
+      minimumItems: 1,
+      unique: true,
+    });
   }
 }
 

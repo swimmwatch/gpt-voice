@@ -43,17 +43,44 @@ expected process duration plus a practical margin—for example, about 40 minute
 for a process that normally takes 30 minutes.
 
 There is no default timeout. Do not arm, resume, observe, dispatch, or cancel a
-target until the finite value is supplied and later runtime validation accepts
-it. A selected timeout does not authorize remote cancellation.
+target until the finite value is supplied and runtime validation accepts it. A
+selected timeout does not authorize remote cancellation.
 
 ## Lifecycle surface
 
-- `status` is read-only and returns only a sanitized summary when a later
-  runtime exists.
-- `resume` requires the timeout decision again and later performs full
-  preflight.
-- `cancel` may later stop only a watcher-owned local process after ownership is
-  proven. It does not imply remote target cancellation.
+- `status` is read-only and returns only a sanitized summary.
+- `resume` requires the timeout decision again, performs full preflight, and is
+  rejected for an already successful or cancelled watch.
+- `cancel` stops only a watcher-owned local process after ownership is proven.
+  For a remote target it stops monitoring without cancelling the target.
+  Monitoring cancellation does not imply remote target cancellation.
+
+The agent drives the reviewed runtime with these exact commands (omit the
+optional selector or watch ID only when the declared scenario/selection rules
+allow it):
+
+```text
+node .agents/skills/watch-process/scripts/process-watch.mjs start --scenario <scenario-id> [--target <selector>] --timeout-seconds <seconds>
+node .agents/skills/watch-process/scripts/process-watch.mjs status --watch-id <watch-id>
+node .agents/skills/watch-process/scripts/process-watch.mjs resume --watch-id <watch-id> --timeout-seconds <seconds>
+node .agents/skills/watch-process/scripts/process-watch.mjs cancel --watch-id <watch-id>
+```
+
+After a `NeedsAgent` continuation, the write/repair sequence is exact and
+forward-only:
+
+```text
+repair-begin --watch-id <watch-id>
+write-begin --watch-id <watch-id> --path <candidate> [--path <candidate> ...]
+<perform only the declared agent write>
+write-complete --watch-id <watch-id> --path <same-candidate> [--path <same-candidate> ...]
+repair-verify --watch-id <watch-id>
+repair-restart --watch-id <watch-id>
+```
+
+Prefix each repair action above with
+`node .agents/skills/watch-process/scripts/process-watch.mjs`. Invalid actions,
+options, timeouts, paths, phases, or identities fail before the requested work.
 
 Codex Goal is optional, user-owned UX. Never inspect, create, replace, clear,
 or complete a Goal. Goal state neither authorizes nor blocks a watch request.
@@ -105,12 +132,15 @@ repair commit and use a normal current-upstream push only when
 Never amend, rebase, force a push, or create a temporary commit. Bind the next
 attempt to its new exact source SHA before accepting a green result.
 
-The original explicit watch authority covers this bounded repair loop; do not
-ask again merely to proceed to its next safe phase. Real remote delivery or
-dispatch remains a manual acceptance gate until the documented acceptance task
-authorizes it. A user cancel during `Repairing`, `Verifying`, or `Restarting`
-stops at the next safe boundary, preserves the patch and ambiguous receipts,
-and records `user_cancelled`.
+The original explicit watch invocation names the reviewed scenario, target, and
+timeout. It authorizes that scenario's declared normal start, retry, dispatch,
+and normal current-upstream push for the bounded repair loop; do not ask again
+before each declared attempt. A different live target requires a separate
+explicit invocation. Remote cancellation, repository settings, and every
+action prohibited by the canonical safety contract require separate authority
+or remain forbidden. A user cancel during `Repairing`, `Verifying`, or
+`Restarting` stops at the next safe boundary, preserves the patch and ambiguous
+receipts, and records `user_cancelled`.
 
 ## Current non-goals
 

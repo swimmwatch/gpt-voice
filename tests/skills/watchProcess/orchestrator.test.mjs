@@ -17,6 +17,8 @@ import {
   ProcessWatchCompositionRoot,
   ProcessWatchOrchestrator,
   ProcessWatchTransitionTable,
+  REPAIR_CANCELLATION_FILE_NAME,
+  REPAIR_CONTROL_SCHEMA_VERSION,
   RuntimeCoreError,
   SuccessAttestation,
   WATCH_TRANSITION_PHASES,
@@ -60,14 +62,19 @@ function target({ sourceSha = null } = {}) {
   };
 }
 
-function invocation({ deadlineEpochMilliseconds = 100_000, sourceSha = null } = {}) {
+function invocation({
+  deadlineEpochMilliseconds = 100_000,
+  sourceSha = null,
+  target: targetValue = null,
+  timeoutSeconds = 1,
+} = {}) {
   return {
     deadlineEpochMilliseconds,
     inputDigest: DIGESTS.input,
     sourceSha,
-    target: null,
+    target: targetValue,
     targetSelector: 'start',
-    timeoutSeconds: 1,
+    timeoutSeconds,
   };
 }
 
@@ -79,10 +86,12 @@ function state({
   scenarioDigest = DIGESTS.scenario,
   startToken = START_TOKEN,
   target: targetValue = null,
+  timeoutSeconds = 1,
+  deadlineEpochMilliseconds = 100_000,
 } = {}) {
   return {
     blocker,
-    deadlineEpochMilliseconds: 100_000,
+    deadlineEpochMilliseconds,
     failureFingerprints: [],
     generation,
     heartbeat: { atEpochMilliseconds: 10 + generation, startToken },
@@ -96,7 +105,7 @@ function state({
     scriptDigest: DIGESTS.script,
     sessionId: SESSION_ID,
     target: targetValue,
-    timeoutSeconds: 1,
+    timeoutSeconds,
     watchId: WATCH_ID,
     workspaceId: WORKSPACE_ID,
   };
@@ -139,6 +148,11 @@ class ScriptedAdapter extends ProcessAdapter {
   async collectEvidence(context) {
     this.calls.push({ kind: 'evidence', context });
     return { status: 'collected', summaryCode: 'target-failed' };
+  }
+
+  async cancel(context) {
+    this.calls.push({ kind: 'cancel', context });
+    return { status: 'cancelled', target: context.target };
   }
 }
 
@@ -395,6 +409,103 @@ describe('ProcessWatchOrchestrator', () => {
     });
   });
 
+  it('refreshes an explicit resume deadline, rearms a blocked watch, and preserves target identity', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const originalStore = new AtomicStateStore({
+        processId: 1234,
+        sessionId: SESSION_ID,
+        storage: new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot }),
+        workspaceId: WORKSPACE_ID,
+      });
+      await originalStore.acquireLock({ processStartToken: START_TOKEN });
+      await originalStore.writeInitialState(
+        state({
+          blocker: 'watcher-lost',
+          outcome: 'watcher_lost',
+          phase: 'Blocked',
+        }),
+      );
+      await originalStore.releaseLock();
+
+      const adapter = new ScriptedAdapter({
+        observations: [
+          { status: 'succeeded', target: target() },
+          { status: 'succeeded', target: target() },
+        ],
+      });
+      const harness = createHarness(workspaceRoot, adapter);
+      const result = await harness.orchestrator.resume(
+        invocation({ deadlineEpochMilliseconds: 200_000, timeoutSeconds: 2 }),
+      );
+      assert.equal(result.phase, 'Success', JSON.stringify(result));
+      const persisted = await harness.stateStore.readState();
+      assert.equal(persisted.deadlineEpochMilliseconds, 200_000);
+      assert.equal(persisted.timeoutSeconds, 2);
+      assert.equal(adapter.calls.filter((call) => call.kind === 'start').length, 1);
+      assert.equal(
+        (await harness.auditJournal.readActive()).some((event) => event.summaryCode === 'explicit-resume-rearmed'),
+        true,
+      );
+    });
+
+    await withWorkspace(async (workspaceRoot) => {
+      const existingTarget = target();
+      const originalStore = new AtomicStateStore({
+        processId: 1234,
+        sessionId: SESSION_ID,
+        storage: new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot }),
+        workspaceId: WORKSPACE_ID,
+      });
+      await originalStore.acquireLock({ processStartToken: START_TOKEN });
+      await originalStore.writeInitialState(
+        state({ outcome: 'target_failed', phase: 'NeedsAgent', target: existingTarget }),
+      );
+      await originalStore.releaseLock();
+
+      const harness = createHarness(workspaceRoot, new ScriptedAdapter());
+      const refreshed = await harness.orchestrator.resume(
+        invocation({ deadlineEpochMilliseconds: 300_000, target: existingTarget, timeoutSeconds: 3 }),
+      );
+      assert.equal(refreshed.phase, 'NeedsAgent');
+      assert.equal((await harness.stateStore.readState()).deadlineEpochMilliseconds, 300_000);
+      await assert.rejects(
+        () =>
+          harness.orchestrator.resume(
+            invocation({
+              deadlineEpochMilliseconds: 400_000,
+              target: { ...existingTarget, identityDigest: '9'.repeat(64) },
+              timeoutSeconds: 4,
+            }),
+          ),
+        { code: 'watch-state-integrity-mismatch' },
+      );
+    });
+  });
+
+  it('cancels an active owned local process but only stops monitoring a remote target', async () => {
+    for (const [adapterName, expectedCancelCalls] of [
+      ['local-command', 1],
+      ['fixture-adapter', 0],
+    ]) {
+      await withWorkspace(async (workspaceRoot) => {
+        const adapter = new ScriptedAdapter({ observations: [{ status: 'running', target: target() }] });
+        const harness = createHarness(workspaceRoot, adapter, scenario({ adapter: adapterName }));
+        await harness.storage.initialize();
+        await harness.storage.writeJson(REPAIR_CANCELLATION_FILE_NAME, {
+          requestedAtEpochMilliseconds: 100,
+          schemaVersion: REPAIR_CONTROL_SCHEMA_VERSION,
+          sessionId: SESSION_ID,
+          watchId: WATCH_ID,
+        });
+        const result = await harness.orchestrator.run(invocation());
+        assert.equal(result.phase, 'Cancelled');
+        assert.equal(result.outcome, 'user_cancelled');
+        assert.equal(adapter.calls.filter((call) => call.kind === 'cancel').length, expectedCancelCalls);
+        assert.equal(await harness.storage.readJson(REPAIR_CANCELLATION_FILE_NAME), null);
+      });
+    }
+  });
+
   it('detects a stale transition generation rather than overwriting state', async () => {
     await withWorkspace(async (workspaceRoot) => {
       const { orchestrator, stateStore } = createHarness(workspaceRoot, new ScriptedAdapter());
@@ -417,7 +528,7 @@ describe('ProcessWatchOrchestrator', () => {
         $schema: 'urn:gpt-voice:watch-process:scenario:1',
         adapter: 'local-command',
         adapterConfig: {
-          startCommand: { args: ['exit-zero.mjs'], cwd: '.', env: {}, executable: process.execPath },
+          startCommand: { args: ['exit-zero.mjs'], cwd: '.', env: [], executable: process.execPath },
           successExitCodes: [0],
         },
         delivery: { pushCurrentUpstream: false, strategy: 'local-restart' },
@@ -446,7 +557,7 @@ describe('ProcessWatchOrchestrator', () => {
           minTimeoutSeconds: 1,
           poll: { initialSeconds: 1, maxSeconds: 1, multiplier: 1 },
         },
-        verification: [{ args: ['--version'], cwd: '.', env: {}, executable: process.execPath }],
+        verification: [{ args: ['--version'], cwd: '.', env: [], executable: process.execPath }],
       });
       const storage = new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot });
       const stateStore = new AtomicStateStore({ sessionId: SESSION_ID, storage, workspaceId: WORKSPACE_ID });

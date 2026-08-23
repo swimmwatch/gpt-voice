@@ -2,7 +2,7 @@ schema_version: 1
 spec_slug: ci-watch-agent-skill
 interview_id: spec:ci-watch-agent-skill
 status: approved
-spec_revision: 4
+spec_revision: 5
 decisions:
   - id: repository.current_ci_contracts
     revision: 1

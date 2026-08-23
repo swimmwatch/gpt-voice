@@ -135,6 +135,7 @@ describe('watch-process scenario schema', () => {
 
     assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
     assert.equal(schema.$id, SCENARIO_SCHEMA_ID);
+    assert.deepEqual(schema.properties.$schema, { const: SCENARIO_SCHEMA_ID });
     assert.equal(schema.additionalProperties, false);
     assert.deepEqual(schema.properties.schemaVersion, { const: SCENARIO_SCHEMA_VERSION });
     assert.deepEqual(schema.properties.adapter.enum, [
@@ -150,10 +151,12 @@ describe('watch-process scenario schema', () => {
     assert.equal(schema.$defs.repair.properties.maxFiles.default, 50);
     assert.equal(schema.$defs.repair.properties.maxBytesChanged.default, 1048576);
     assert.equal(schema.$defs.command.properties.cwd.default, '.');
-    assert.deepEqual(schema.$defs.command.properties.env.default, {});
+    assert.deepEqual(schema.$defs.command.properties.env.default, []);
     assert.equal(schema.$defs.delivery.properties.pushCurrentUpstream.default, false);
-    assert.equal(schema.$defs.adapterConfig.properties.dispatch.properties.enabled.default, false);
-    assert.deepEqual(schema.$defs.adapterConfig.properties.imageVerification.default, []);
+    assert.equal(schema.$defs.dispatch.properties.enabled.default, false);
+    assert.deepEqual(schema.$defs.dockerBuildAdapterConfig.properties.imageVerification.default, []);
+    assert.deepEqual(schema.$defs.repair.required, ['includeGlobs']);
+    assert.deepEqual(schema.$defs.delivery.required, ['strategy']);
   });
 });
 
@@ -173,10 +176,13 @@ describe('WatchScenarioRegistry normalization', () => {
     assert.equal(normalized.scenario.repair.maxFiles, 50);
     assert.equal(normalized.scenario.repair.maxBytesChanged, 1048576);
     assert.equal(normalized.scenario.verification[0].cwd, '.');
-    assert.deepEqual(normalized.scenario.verification[0].env, {});
+    assert.deepEqual(normalized.scenario.verification[0].env, []);
     assert.equal(normalized.scenario.delivery.pushCurrentUpstream, false);
     assert.equal(normalized.scenario.adapterConfig.dispatch.enabled, false);
-    assert.deepEqual(normalized.scenario.adapterConfig.imageVerification, []);
+    assert.equal(Object.hasOwn(normalized.scenario.adapterConfig, 'imageVerification'), false);
+
+    const normalizedDocker = normalizeWatchScenario(makeScenario('docker-build'));
+    assert.deepEqual(normalizedDocker.scenario.adapterConfig.imageVerification, []);
     assert.equal(normalized.migration.fromVersion, SCENARIO_SCHEMA_VERSION);
     assert.equal(normalized.migration.toVersion, SCENARIO_SCHEMA_VERSION);
     assert.equal(normalized.migration.oldDigest, normalized.sourceDigest);
@@ -230,12 +236,106 @@ describe('WatchScenarioRegistry normalization', () => {
     expectValidationFailure(shellText, 'unknown-field');
 
     const invalidEnvironment = makeScenario();
-    invalidEnvironment.verification[0].env = { bad_name: 'value' };
+    invalidEnvironment.verification[0].env = ['bad_name'];
     expectValidationFailure(invalidEnvironment, 'string-pattern-mismatch');
 
     const tooManyRepairGlobs = makeScenario();
     tooManyRepairGlobs.repair.includeGlobs = Array.from({ length: 101 }, (_, index) => `src/${index}`);
     expectValidationFailure(tooManyRepairGlobs, 'array-length-out-of-range');
+  });
+
+  it('keeps the normative schema and runtime validator aligned for source defaults and adapter closure', async () => {
+    const schema = JSON.parse(await readFile(SCHEMA_PATH, 'utf8'));
+    const adapterDefinitionByName = Object.fromEntries(
+      schema.allOf.map((conditional) => [
+        conditional.if.properties.adapter.const,
+        conditional.then.properties.adapterConfig.$ref,
+      ]),
+    );
+    assert.deepEqual(adapterDefinitionByName, {
+      'docker-build': '#/$defs/dockerBuildAdapterConfig',
+      'generic-ci-cli': '#/$defs/genericCiAdapterConfig',
+      'github-actions': '#/$defs/githubActionsAdapterConfig',
+      'local-command': '#/$defs/localCommandAdapterConfig',
+    });
+
+    for (const adapter of ['github-actions', 'generic-ci-cli', 'docker-build', 'local-command']) {
+      const source = makeScenario(adapter);
+      assert.doesNotThrow(() => normalizeWatchScenario(source));
+      const definitionName = adapterDefinitionByName[adapter].split('/').at(-1);
+      assert.equal(schema.$defs[definitionName].additionalProperties, false);
+    }
+
+    const foreignCapability = makeScenario('github-actions');
+    foreignCapability.adapterConfig.buildCommand = command('docker', ['build', '.']);
+    assert.equal(Object.hasOwn(schema.$defs.githubActionsAdapterConfig.properties, 'buildCommand'), false);
+    expectValidationFailure(foreignCapability, 'unknown-field');
+
+    const wrongSchema = makeScenario();
+    wrongSchema.$schema = 'https://attacker.invalid/not-the-contract';
+    assert.equal(schema.properties.$schema.const, SCENARIO_SCHEMA_ID);
+    expectValidationFailure(wrongSchema, 'unsupported-schema-id');
+  });
+
+  it('rejects shell execution, inline code, forbidden actions, and credential-valued environments', () => {
+    const shell = makeScenario('local-command');
+    shell.adapterConfig.startCommand = command('bash', ['-c', 'gh release create v9.9.9']);
+    shell.forbiddenActions = ['release'];
+    expectValidationFailure(shell, 'shell-executable-forbidden');
+
+    const inlineCode = makeScenario('local-command');
+    inlineCode.adapterConfig.startCommand = command('node', ['--eval', 'process.exit(0)']);
+    expectValidationFailure(inlineCode, 'inline-code-execution-forbidden');
+
+    for (const attachedFlag of ['--eval=process.exit(0)', '-eprocess.exit(0)', '-p1+1']) {
+      const attachedInlineCode = makeScenario('local-command');
+      attachedInlineCode.adapterConfig.startCommand = command('node', [attachedFlag]);
+      expectValidationFailure(attachedInlineCode, 'inline-code-execution-forbidden');
+    }
+
+    const indirectShell = makeScenario('local-command');
+    indirectShell.adapterConfig.startCommand = command('env', ['bash', '-c', 'exit 0']);
+    expectValidationFailure(indirectShell, 'shell-executable-forbidden');
+
+    const indirectInlineCode = makeScenario('local-command');
+    indirectInlineCode.adapterConfig.startCommand = command('env', ['python3.12', '-c', 'raise SystemExit(0)']);
+    expectValidationFailure(indirectInlineCode, 'inline-code-execution-forbidden');
+
+    const indirectAttachedInlineCode = makeScenario('local-command');
+    indirectAttachedInlineCode.adapterConfig.startCommand = command('env', ['python3.12', '-craise SystemExit(0)']);
+    expectValidationFailure(indirectAttachedInlineCode, 'inline-code-execution-forbidden');
+
+    const forbiddenRelease = makeScenario('local-command');
+    forbiddenRelease.adapterConfig.startCommand = command('gh', ['release', 'create', 'v9.9.9']);
+    forbiddenRelease.forbiddenActions = ['release'];
+    expectValidationFailure(forbiddenRelease, 'forbidden-action-command');
+
+    for (const forceArgument of ['--force-with-lease=main:deadbeef', '+main:main']) {
+      const forbiddenForcePush = makeScenario('local-command');
+      forbiddenForcePush.adapterConfig.startCommand = command('git', ['push', 'origin', forceArgument]);
+      forbiddenForcePush.forbiddenActions = ['force-push'];
+      expectValidationFailure(forbiddenForcePush, 'forbidden-action-command');
+    }
+
+    const forbiddenDispatch = makeScenario('github-actions');
+    forbiddenDispatch.adapterConfig.dispatch = {
+      enabled: true,
+      idempotencyInput: 'watch_id',
+      inputs: { watch_id: '{{watch.id}}' },
+      workflow: 'ci-release.yml',
+    };
+    forbiddenDispatch.forbiddenActions = ['release'];
+    expectValidationFailure(forbiddenDispatch, 'forbidden-action-dispatch');
+
+    const credentialValue = makeScenario();
+    credentialValue.verification[0].env = { GITHUB_TOKEN: 'review-secret-fixture' };
+    expectValidationFailure(credentialValue, 'expected-array');
+
+    const allowlistedEnvironment = makeScenario();
+    allowlistedEnvironment.verification[0].env = ['PATH', 'GITHUB_TOKEN'];
+    const normalized = normalizeWatchScenario(allowlistedEnvironment);
+    assert.deepEqual(normalized.scenario.verification[0].env, ['PATH', 'GITHUB_TOKEN']);
+    assert.equal(normalized.canonicalJson.includes('review-secret-fixture'), false);
   });
 
   it('loads only filename-bound UTF-8 JSON scenarios and leaves no parser ambiguity', async () => {

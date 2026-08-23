@@ -12,11 +12,20 @@ import { freezeRecord, runtimeFail } from './runtime-core-support.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 import { WatchScenarioRegistry } from './watch-scenario-registry.mjs';
 
-function parseProcessStartToken(arguments_) {
-  if (!Array.isArray(arguments_) || arguments_.length !== 2 || arguments_[0] !== '--process-start-token') {
+function parseWatcherArguments(arguments_) {
+  if (
+    !Array.isArray(arguments_) ||
+    arguments_.length !== 4 ||
+    arguments_[0] !== '--process-start-token' ||
+    arguments_[2] !== '--mode' ||
+    !['resume', 'start'].includes(arguments_[3])
+  ) {
     runtimeFail('invalid-generated-watcher-arguments');
   }
-  return validateProcessStartToken(arguments_[1], 'invalid-generated-watcher-arguments');
+  return freezeRecord({
+    mode: arguments_[3],
+    processStartToken: validateProcessStartToken(arguments_[1], 'invalid-generated-watcher-arguments'),
+  });
 }
 
 function samePath(left, right) {
@@ -46,7 +55,7 @@ export async function runGeneratedProcessWatcher(binding, { arguments_ = process
   const artifact = new GeneratedWatcherArtifact();
   artifact.render(binding);
   const watchId = validateWatchId(binding.watchId, 'invalid-generated-watcher-binding');
-  const processStartToken = parseProcessStartToken(arguments_);
+  const { mode, processStartToken } = parseWatcherArguments(arguments_);
   const workspaceRoot = deriveWorkspaceRoot({ scriptUrl, watchId });
   const storage = new WatchRuntimeStorage({ watchId, workspaceRoot });
   await storage.initialize();
@@ -73,7 +82,7 @@ export async function runGeneratedProcessWatcher(binding, { arguments_ = process
     workspaceRoot,
   });
   const { orchestrator } = root.create({ processStartToken });
-  return orchestrator.run(envelope.invocation);
+  return mode === 'resume' ? orchestrator.resume(envelope.invocation) : orchestrator.run(envelope.invocation);
 }
 
 export function generatedWatcherRuntimeBindingSummary(binding) {

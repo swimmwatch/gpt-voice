@@ -3,7 +3,11 @@ import { FocusedVerificationRunner } from './focused-verification-runner.mjs';
 import { GitDeliveryService } from './git-delivery-service.mjs';
 import { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 import { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
-import { REPAIR_CANCELLATION_FILE_NAME, REPAIR_CONTROL_SCHEMA_VERSION } from './repair-control-contracts.mjs';
+import {
+  REPAIR_CANCELLATION_FILE_NAME,
+  REPAIR_CONTROL_SCHEMA_VERSION,
+  normalizeProcessWatchCancellation,
+} from './repair-control-contracts.mjs';
 import { RepairOwnershipLedger } from './repair-ownership-ledger.mjs';
 import { freezeRecord, isRecord, requireNonNegativeInteger, runtimeFail } from './runtime-core-support.mjs';
 import { ProcessAdapter } from './runtime-contracts.mjs';
@@ -17,25 +21,6 @@ import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 
 const BLOCKABLE_REPAIR_PHASES = new Set(['NeedsAgent', 'Repairing', 'Verifying', 'Restarting']);
 const CANCELLABLE_REPAIR_PHASES = new Set(['Repairing', 'Verifying', 'Restarting']);
-
-function normalizeCancellation(value, { sessionId, watchId }) {
-  if (!isRecord(value) || Object.keys(value).length !== 4) runtimeFail('repair-cancellation-corrupt');
-  if (
-    value.schemaVersion !== REPAIR_CONTROL_SCHEMA_VERSION ||
-    validateSafeId(value.sessionId, 'repair-cancellation-corrupt') !== sessionId ||
-    validateWatchId(value.watchId, 'repair-cancellation-corrupt') !== watchId ||
-    typeof value.requestedAtEpochMilliseconds !== 'number'
-  ) {
-    runtimeFail('repair-cancellation-corrupt');
-  }
-  requireNonNegativeInteger(value.requestedAtEpochMilliseconds, 'repair-cancellation-corrupt', Number.MAX_SAFE_INTEGER);
-  return freezeRecord({
-    requestedAtEpochMilliseconds: value.requestedAtEpochMilliseconds,
-    schemaVersion: REPAIR_CONTROL_SCHEMA_VERSION,
-    sessionId,
-    watchId,
-  });
-}
 
 function outcomeForBlocker(blocker) {
   const outcomes = Object.freeze({
@@ -331,7 +316,7 @@ export class ProcessWatchRepairController {
 
   async cancel() {
     const state = await this.#stateStore.readState();
-    if (state === null || !CANCELLABLE_REPAIR_PHASES.has(state.phase)) {
+    if (state === null || (!CANCELLABLE_REPAIR_PHASES.has(state.phase) && state.phase !== 'Watching')) {
       return state === null ? freezeRecord({ phase: null }) : this.#result(state);
     }
     await this.#storage.writeJson(REPAIR_CANCELLATION_FILE_NAME, {
@@ -340,6 +325,7 @@ export class ProcessWatchRepairController {
       sessionId: this.#sessionId,
       watchId: this.#watchId,
     });
+    if (state.phase === 'Watching') return freezeRecord({ phase: state.phase, status: 'cancel-requested' });
     try {
       return await this.#withLock(async () => {
         const current = await this.#stateStore.readState();
@@ -438,7 +424,7 @@ export class ProcessWatchRepairController {
   async #consumeCancellation(state) {
     const value = await this.#storage.readJson(REPAIR_CANCELLATION_FILE_NAME);
     if (value === null) return null;
-    normalizeCancellation(value, { sessionId: this.#sessionId, watchId: this.#watchId });
+    normalizeProcessWatchCancellation(value, { sessionId: this.#sessionId, watchId: this.#watchId });
     if (!CANCELLABLE_REPAIR_PHASES.has(state.phase)) runtimeFail('repair-cancellation-unexpected');
     const cancelled = await this.#orchestrator.advance({
       outcome: 'user_cancelled',

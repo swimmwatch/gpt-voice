@@ -105,7 +105,7 @@ function scenario({ maxBytesChanged = 1_024 * 1_024, strategy = 'local-restart',
       startCommand: Object.freeze({
         args: ['verification.mjs'],
         cwd: '.',
-        env: Object.freeze({}),
+        env: Object.freeze([]),
         executable: process.execPath,
       }),
       successExitCodes: Object.freeze([0]),
@@ -142,7 +142,7 @@ function scenario({ maxBytesChanged = 1_024 * 1_024, strategy = 'local-restart',
       poll: Object.freeze({ initialSeconds: 1, maxSeconds: 1, multiplier: 1 }),
     }),
     verification: Object.freeze([
-      Object.freeze({ args: ['verification.mjs'], cwd: '.', env: Object.freeze({}), executable: process.execPath }),
+      Object.freeze({ args: ['verification.mjs'], cwd: '.', env: Object.freeze([]), executable: process.execPath }),
     ]),
   });
 }

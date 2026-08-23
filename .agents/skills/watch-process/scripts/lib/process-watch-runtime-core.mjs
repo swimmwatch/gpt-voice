@@ -35,6 +35,7 @@ export { ProcessWatchCompositionRoot } from './process-watch-composition-root.mj
 export { runGeneratedProcessWatcher } from './process-watch-generated-watcher-runtime.mjs';
 export { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 export { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';
+export { ProcessWatchOperator } from './process-watch-operator.mjs';
 export { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
 export { ProcessWatchRepairController } from './process-watch-repair-controller.mjs';
 export {

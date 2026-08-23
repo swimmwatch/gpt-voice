@@ -99,7 +99,7 @@ function createRunner(children) {
   const launches = [];
   let tokenIndex = 0;
   const runner = new ManagedProcessRunner({
-    inheritedEnvironment: {},
+    inheritedEnvironment: { FIXTURE_DECLARED: 'declared' },
     platform: 'win32',
     signalProcess: () => {
       throw new Error('Windows cleanup must use the owned child directly');
@@ -118,7 +118,7 @@ function createRunner(children) {
 }
 
 function defaultScenarioVerification() {
-  return [{ args: [fixturePath, 'verify-contract'], cwd: fixtureDirectory, env: {}, executable: process.execPath }];
+  return [{ args: [fixturePath, 'verify-contract'], cwd: fixtureDirectory, env: [], executable: process.execPath }];
 }
 
 function baseScenario({ adapter, adapterConfig, requiredOutputs = [], verification = [] }) {
@@ -163,7 +163,7 @@ function localScenario({ successExitCodes = [0], verification } = {}) {
       startCommand: {
         args: [fixturePath, 'wait', '{{watch.id}}', '{{attempt.number}}'],
         cwd: fixtureDirectory,
-        env: { FIXTURE_DECLARED: 'declared' },
+        env: ['FIXTURE_DECLARED'],
         executable: process.execPath,
       },
       successExitCodes,
@@ -179,11 +179,11 @@ function dockerScenario({ buildArgs, imageVerification, requiredOutputs = ['loca
       buildCommand: {
         args: buildArgs ?? ['build', '--tag', '{{watch.id}}', '{{workspace.root}}'],
         cwd: '.',
-        env: {},
+        env: [],
         executable: 'docker',
       },
       imageVerification: imageVerification ?? [
-        { args: ['image', 'inspect', '{{watch.id}}'], cwd: '.', env: {}, executable: 'docker' },
+        { args: ['image', 'inspect', '{{watch.id}}'], cwd: '.', env: [], executable: 'docker' },
       ],
     },
     requiredOutputs,
@@ -429,8 +429,8 @@ describe('watch-process local and Docker adapters', () => {
   it('requires a zero Docker build exit and every image verification command before success', async () => {
     const normalized = dockerScenario({
       imageVerification: [
-        { args: ['image', 'inspect', '{{watch.id}}'], cwd: '.', env: {}, executable: 'docker' },
-        { args: ['inspect', '{{watch.id}}'], cwd: '.', env: {}, executable: 'docker' },
+        { args: ['image', 'inspect', '{{watch.id}}'], cwd: '.', env: [], executable: 'docker' },
+        { args: ['inspect', '{{watch.id}}'], cwd: '.', env: [], executable: 'docker' },
       ],
     });
     const child = new FakeChild();
@@ -480,13 +480,13 @@ describe('watch-process local and Docker adapters', () => {
     const cases = [
       dockerScenario({ buildArgs: ['build', '--push', '.'] }),
       dockerScenario({ buildArgs: ['buildx', 'build', '.'] }),
-      dockerScenario({ imageVerification: [{ args: ['login'], cwd: '.', env: {}, executable: 'docker' }] }),
-      dockerScenario({ imageVerification: [{ args: ['image', 'prune'], cwd: '.', env: {}, executable: 'docker' }] }),
+      dockerScenario({ imageVerification: [{ args: ['login'], cwd: '.', env: [], executable: 'docker' }] }),
+      dockerScenario({ imageVerification: [{ args: ['image', 'prune'], cwd: '.', env: [], executable: 'docker' }] }),
       dockerScenario({
-        imageVerification: [{ args: ['container', 'rm', 'target'], cwd: '.', env: {}, executable: 'docker' }],
+        imageVerification: [{ args: ['container', 'rm', 'target'], cwd: '.', env: [], executable: 'docker' }],
       }),
       dockerScenario({
-        imageVerification: [{ args: ['push', '{{watch.id}}'], cwd: '.', env: {}, executable: 'docker' }],
+        imageVerification: [{ args: ['push', '{{watch.id}}'], cwd: '.', env: [], executable: 'docker' }],
       }),
     ];
     for (const normalized of cases) {

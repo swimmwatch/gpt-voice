@@ -30,7 +30,7 @@
     "maxFiles": 40,
     "maxBytesChanged": 1048576
   },
-  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
@@ -38,7 +38,7 @@
       "executable": "node",
       "args": ["scripts/long-test.mjs"],
       "cwd": ".",
-      "env": {}
+      "env": ["PATH", "SYSTEMROOT"]
     },
     "successExitCodes": [0]
   }

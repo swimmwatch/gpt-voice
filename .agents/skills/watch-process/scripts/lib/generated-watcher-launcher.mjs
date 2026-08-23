@@ -25,7 +25,7 @@ export class GeneratedWatcherLauncher {
     this.#spawnProcess = spawnProcess;
   }
 
-  launch({ artifactPath, processStartToken, workspaceRoot } = {}) {
+  launch({ artifactPath, mode = 'start', processStartToken, workspaceRoot } = {}) {
     if (
       typeof artifactPath !== 'string' ||
       !path.isAbsolute(artifactPath) ||
@@ -34,10 +34,11 @@ export class GeneratedWatcherLauncher {
     ) {
       runtimeFail('invalid-generated-watcher-launch-request');
     }
+    if (!['resume', 'start'].includes(mode)) runtimeFail('invalid-generated-watcher-launch-request');
     const token = validateProcessStartToken(processStartToken, 'invalid-generated-watcher-launch-request');
     let child;
     try {
-      child = this.#spawnProcess(this.#nodeExecutable, [artifactPath, '--process-start-token', token], {
+      child = this.#spawnProcess(this.#nodeExecutable, [artifactPath, '--process-start-token', token, '--mode', mode], {
         cwd: workspaceRoot,
         detached: this.#platform !== 'win32',
         shell: false,

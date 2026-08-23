@@ -30,7 +30,7 @@
     "maxFiles": 30,
     "maxBytesChanged": 524288
   },
-  "verification": [{ "executable": "npm", "args": ["test"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["test"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
   "delivery": { "strategy": "provider-dispatch", "pushCurrentUpstream": false },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
@@ -40,19 +40,19 @@
         "executable": "acme-ci",
         "args": ["run", "start", "--source", "{{target.source_sha}}", "--request-id", "{{watch.id}}"],
         "cwd": ".",
-        "env": {}
+        "env": ["PATH", "SYSTEMROOT"]
       },
       "observe": {
         "executable": "acme-ci",
         "args": ["run", "show", "{{target.id}}", "--json"],
         "cwd": ".",
-        "env": {}
+        "env": ["PATH", "SYSTEMROOT"]
       },
       "evidence": {
         "executable": "acme-ci",
         "args": ["run", "logs", "{{target.id}}", "--failed-only"],
         "cwd": ".",
-        "env": {}
+        "env": ["PATH", "SYSTEMROOT"]
       }
     },
     "statusMap": {

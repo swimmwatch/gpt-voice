@@ -86,9 +86,39 @@ loop, but a new invocation, explicit `resume`, or requested timeout change needs
 a new answer.
 
 `status` is read-only and returns a sanitized summary. `resume` repeats full
-preflight and asks for a new timeout. `cancel` can stop only a proven
-watcher-owned local process at a safe boundary; it never implies cancelling a
-remote target without a separate declared contract and authority.
+preflight, asks for a new timeout, and is unavailable after success or
+cancellation. `cancel` can stop only a proven watcher-owned local process at a
+safe boundary. For a remote target, it stops monitoring and leaves the target
+running unless a separate cancellation contract and authority exist.
+
+After interpreting the explicit skill request, the agent uses the tracked
+operator entrypoint. These are the complete command forms:
+
+```text
+node .agents/skills/watch-process/scripts/process-watch.mjs start --scenario <scenario-id> [--target <selector>] --timeout-seconds <seconds>
+node .agents/skills/watch-process/scripts/process-watch.mjs status [--watch-id <watch-id>]
+node .agents/skills/watch-process/scripts/process-watch.mjs resume [--watch-id <watch-id>] --timeout-seconds <seconds>
+node .agents/skills/watch-process/scripts/process-watch.mjs cancel [--watch-id <watch-id>]
+node .agents/skills/watch-process/scripts/process-watch.mjs repair-begin [--watch-id <watch-id>]
+node .agents/skills/watch-process/scripts/process-watch.mjs write-begin [--watch-id <watch-id>] --path <candidate> [--path <candidate> ...]
+node .agents/skills/watch-process/scripts/process-watch.mjs write-complete [--watch-id <watch-id>] --path <same-candidate> [--path <same-candidate> ...]
+node .agents/skills/watch-process/scripts/process-watch.mjs repair-verify [--watch-id <watch-id>]
+node .agents/skills/watch-process/scripts/process-watch.mjs repair-restart [--watch-id <watch-id>]
+```
+
+The exact repair order is `repair-begin`, `write-begin`, the one declared agent
+write, `write-complete` with the same complete candidate set,
+`repair-verify`, then `repair-restart`. The operator rejects unknown or
+duplicate options, invalid timeouts and paths, ambiguous watch selection,
+foreign session/workspace state, and invalid phase changes before work.
+
+One explicit live invocation names the reviewed scenario, target, and timeout.
+It authorizes that scenario's declared normal start/retry/dispatch and, only
+when `pushCurrentUpstream` is true, one receipt-bound normal upstream delivery
+throughout the bounded repair loop. Do not ask again before every retry,
+dispatch, or normal push in that same loop. A different target needs a separate
+explicit invocation. Remote cancellation, repository rules/settings, and all
+canonically forbidden actions remain separate gates or forbidden.
 
 Codex Goal is optional, user-owned UX. The skill, watcher, and hook do not read
 or mutate it, and it does not grant or block authority.
@@ -140,7 +170,7 @@ values in the canonical scenario digest:
 | `repair.allowCreate`, `repair.allowDelete` | `false`     |
 | `repair.maxFiles`                          | `50`        |
 | `repair.maxBytesChanged`                   | `1048576`   |
-| Every command `cwd`, `env`                 | `"."`, `{}` |
+| Every command `cwd`, `env`                 | `"."`, `[]` |
 | `delivery.pushCurrentUpstream`             | `false`     |
 | `adapterConfig.dispatch.enabled`           | `false`     |
 | `adapterConfig.imageVerification`          | `[]`        |
@@ -157,8 +187,11 @@ version, or ambiguous legacy file fails preflight.
 their `statusMap` declares `running`, `succeeded`, `failed`, and `cancelled`.
 
 Every command is an `executable` plus an `args` array, with optional
-workspace-relative `cwd` and uppercase environment allowlist. Commands run with
-`shell: false`; scenario content never becomes a shell command.
+workspace-relative `cwd` and an uppercase environment-name allowlist array.
+Only already inherited variables with those names may reach the child. Values,
+credentials, and arbitrary environment objects are rejected and are never
+serialized into the scenario or runtime state. Commands run with `shell: false`;
+scenario content never becomes a shell command.
 
 ## Substitutions, paths, and repair scope
 

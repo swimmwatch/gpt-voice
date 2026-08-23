@@ -41,11 +41,7 @@ const DIGESTS = Object.freeze({
   library: '2'.repeat(64),
   script: '3'.repeat(64),
 });
-const WORKFLOW_FILENAMES = Object.freeze([
-  'pr-checks.yml',
-  'local-whisper-packaging.yml',
-  'release-builds.yml',
-]);
+const WORKFLOW_FILENAMES = Object.freeze(['pr-checks.yml', 'local-whisper-packaging.yml', 'release-builds.yml']);
 
 /** Disposable ChildProcess-compatible fixture for a declared GitHub CLI response. */
 class FakeChild extends EventEmitter {
@@ -79,7 +75,9 @@ function githubScenario({
   mode = 'run',
   requiredChecks = mode === 'run' ? ['Typecheck', 'Unit tests'] : [],
   requiredChecksMode = mode === 'run' ? 'listed' : 'provider-required',
-  selectorKinds = mode === 'run' && dispatch.enabled ? ['run-url', 'start'] : [mode === 'run' ? 'run-url' : 'pull-request-url'],
+  selectorKinds = mode === 'run' && dispatch.enabled
+    ? ['run-url', 'start']
+    : [mode === 'run' ? 'run-url' : 'pull-request-url'],
 } = {}) {
   return normalizeWatchScenario({
     $schema: 'urn:gpt-voice:watch-process:scenario:1',
@@ -119,7 +117,7 @@ function githubScenario({
       minTimeoutSeconds: 300,
       poll: { initialSeconds: 10, maxSeconds: 30, multiplier: 2 },
     },
-    verification: [{ args: ['--version'], cwd: '.', env: {}, executable: process.execPath }],
+    verification: [{ args: ['--version'], cwd: '.', env: [], executable: process.execPath }],
   });
 }
 
@@ -322,7 +320,8 @@ describe('watch-process GitHub Actions adapter', () => {
       );
       assert.throws(
         () => parseGitHubPullRequestSelector(selector, REPOSITORY),
-        (error) => error.code === 'invalid-github-pull-request-selector' || error.code === 'github-selector-repository-mismatch',
+        (error) =>
+          error.code === 'invalid-github-pull-request-selector' || error.code === 'github-selector-repository-mismatch',
       );
     }
   });
@@ -376,7 +375,10 @@ describe('watch-process GitHub Actions adapter', () => {
           status: 'blocked',
         });
 
-        assert.equal(launches.every((launch) => launch.executable === 'gh' && launch.options.shell === false), true);
+        assert.equal(
+          launches.every((launch) => launch.executable === 'gh' && launch.options.shell === false),
+          true,
+        );
         assert.deepEqual(launches[0].args, ['--version']);
         assert.equal(
           launches.some((launch) => launch.args.includes(`repos/${REPOSITORY}/actions/runs/101`)),
@@ -438,10 +440,22 @@ describe('watch-process GitHub Actions adapter', () => {
         assert.equal(success.ruleRequiredChecks.length, 1);
         assert.equal(success.statuses.length, 1);
         const commands = launches.map((launch) => launch.args.join(' '));
-        assert.equal(commands.some((command) => command.includes('/protection/required_status_checks')), true);
-        assert.equal(commands.some((command) => command.includes('/rules/branches/main')), true);
-        assert.equal(commands.some((command) => command.includes('/check-runs?per_page=100')), true);
-        assert.equal(commands.some((command) => command.includes('/status')), true);
+        assert.equal(
+          commands.some((command) => command.includes('/protection/required_status_checks')),
+          true,
+        );
+        assert.equal(
+          commands.some((command) => command.includes('/rules/branches/main')),
+          true,
+        );
+        assert.equal(
+          commands.some((command) => command.includes('/check-runs?per_page=100')),
+          true,
+        );
+        assert.equal(
+          commands.some((command) => command.includes('/status')),
+          true,
+        );
       },
     });
   });
@@ -638,7 +652,10 @@ describe('watch-process GitHub Actions adapter', () => {
         normalized: githubScenario({ dispatch }),
         run: async ({ normalized, receiptStore, runner }) => {
           assert.throws(() => createAdapter({ normalized, receiptStore, runner }), {
-            code: dispatch.inputs.deployMode === undefined ? 'invalid-github-dispatch-config' : 'github-dispatch-prohibited-input',
+            code:
+              dispatch.inputs.deployMode === undefined
+                ? 'invalid-github-dispatch-config'
+                : 'github-dispatch-prohibited-input',
           });
         },
       });
@@ -757,7 +774,10 @@ describe('watch-process GitHub Actions adapter', () => {
         enqueueDynamicJson(responders, async () => {
           const { intents } = await receiptStore.read();
           const operationKey = intents.at(-1).operationKey;
-          return [dispatchRun({ displayTitle: operationKey, id: 501 }), dispatchRun({ displayTitle: operationKey, id: 502 })];
+          return [
+            dispatchRun({ displayTitle: operationKey, id: 501 }),
+            dispatchRun({ displayTitle: operationKey, id: 502 }),
+          ];
         });
         enqueueDynamicJson(responders, async () => {
           const { intents } = await receiptStore.read();
@@ -768,7 +788,10 @@ describe('watch-process GitHub Actions adapter', () => {
           return dispatchRun({ displayTitle: intents.at(-1).operationKey, id: 502 });
         });
         assert.deepEqual(await adapter.start(context), { blocker: 'dispatch-failed', status: 'blocked' });
-        assert.equal(launches.some((launch) => launch.args[0] === 'workflow' && launch.args[1] === 'run'), false);
+        assert.equal(
+          launches.some((launch) => launch.args[0] === 'workflow' && launch.args[1] === 'run'),
+          false,
+        );
       },
     });
   });

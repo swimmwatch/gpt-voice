@@ -90,6 +90,20 @@ function containsControlCharacter(value) {
   return false;
 }
 
+function mergeEnvironmentAllowlists(inherited, declared) {
+  if (!Array.isArray(inherited) || !Array.isArray(declared)) runtimeFail('invalid-adapter-environment-allowlist');
+  const names = [];
+  const seen = new Set();
+  for (const name of [...inherited, ...declared]) {
+    const value = requireString(name, 'invalid-adapter-environment-allowlist', { minimum: 1, maximum: 128 });
+    const canonicalName = value.toUpperCase();
+    if (seen.has(canonicalName)) continue;
+    seen.add(canonicalName);
+    names.push(value);
+  }
+  return freezeArray(names);
+}
+
 function normalizeTimeout(context, timing) {
   const hasSeconds = Object.hasOwn(context, 'timeoutSeconds');
   const hasMilliseconds = Object.hasOwn(context, 'timeoutMilliseconds');
@@ -170,8 +184,8 @@ export async function resolveAdapterCommand({ command, context, environmentAllow
   const validated = validateProcessCommand({
     args: resolveCommandArguments(command.args, substitutions),
     cwd: command.cwd,
-    env: command.env,
-    environmentAllowlist,
+    env: {},
+    environmentAllowlist: mergeEnvironmentAllowlists(environmentAllowlist, command.env),
     executable: command.executable,
     timeoutMilliseconds: context.timeoutMilliseconds,
   });

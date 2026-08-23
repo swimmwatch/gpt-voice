@@ -40,6 +40,7 @@ export class GeneratedWatcherLaunchCoordinator {
   async launch({
     binding,
     invocation,
+    mode = 'start',
     preflight,
     processStartToken,
     scenario,
@@ -49,7 +50,7 @@ export class GeneratedWatcherLaunchCoordinator {
     workspaceId,
     workspaceRoot,
   } = {}) {
-    if (typeof preflight !== 'function' || typeof stateReader !== 'function') {
+    if (typeof preflight !== 'function' || typeof stateReader !== 'function' || !['resume', 'start'].includes(mode)) {
       runtimeFail('invalid-generated-watcher-launch-coordinator-request');
     }
     assertStopHookBudget({ timeoutSeconds: invocation?.timeoutSeconds });
@@ -60,7 +61,7 @@ export class GeneratedWatcherLaunchCoordinator {
     await this.#invocationStore.write({ invocation, scenario, scenarioDigest, sessionId, workspaceId });
     const artifact = await this.#artifact.write({ binding, storage: this.#invocationStore.storage });
     await this.#artifact.assertSyntax({ artifactPath: artifact.path });
-    const launch = this.#launcher.launch({ artifactPath: artifact.path, processStartToken, workspaceRoot });
+    const launch = this.#launcher.launch({ artifactPath: artifact.path, mode, processStartToken, workspaceRoot });
     const heartbeat = await this.#startupMonitor.waitForHeartbeat({ processStartToken, readState: stateReader });
     return freezeRecord({ artifact, heartbeat, launch });
   }

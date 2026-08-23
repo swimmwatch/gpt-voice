@@ -46,7 +46,7 @@ function cloneJson(value) {
 
 function applyCommandDefaults(command) {
   command.cwd ??= '.';
-  command.env ??= {};
+  command.env ??= [];
 }
 
 function applyCommandsDefaults(commands) {
@@ -87,8 +87,10 @@ export class WatchScenarioNormalizer {
     applyCommandsDefaults(scenario.adapterConfig.commands);
     if (isRecord(scenario.adapterConfig.buildCommand)) applyCommandDefaults(scenario.adapterConfig.buildCommand);
     if (isRecord(scenario.adapterConfig.startCommand)) applyCommandDefaults(scenario.adapterConfig.startCommand);
-    scenario.adapterConfig.imageVerification ??= [];
-    for (const command of scenario.adapterConfig.imageVerification) applyCommandDefaults(command);
+    if (scenario.adapter === 'docker-build') {
+      scenario.adapterConfig.imageVerification ??= [];
+      for (const command of scenario.adapterConfig.imageVerification) applyCommandDefaults(command);
+    }
     if (isRecord(scenario.adapterConfig.dispatch)) scenario.adapterConfig.dispatch.enabled ??= false;
     return scenario;
   }

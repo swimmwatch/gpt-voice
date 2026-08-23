@@ -196,10 +196,70 @@ describe('watch-process private state, receipts, and audit', () => {
       const concurrentStorage = createStorage(workspaceRoot, 'watch-concurrent');
       const attempts = await Promise.allSettled([
         createStateStore(concurrentStorage).acquireLock({ processStartToken: START_TOKEN }),
-        createStateStore(createStorage(workspaceRoot, 'watch-concurrent')).acquireLock({ processStartToken: OTHER_START_TOKEN }),
+        createStateStore(createStorage(workspaceRoot, 'watch-concurrent')).acquireLock({
+          processStartToken: OTHER_START_TOKEN,
+        }),
       ]);
       assert.equal(attempts.filter((attempt) => attempt.status === 'fulfilled').length, 1);
       assert.equal(attempts.filter((attempt) => attempt.status === 'rejected').length, 1);
+    });
+  });
+
+  it('recovers only a disproven abandoned lock that still matches persisted state', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const storage = createStorage(workspaceRoot);
+      const abandoned = createStateStore(storage);
+      await abandoned.acquireLock({ processStartToken: START_TOKEN });
+      await abandoned.writeInitialState(validState());
+
+      const recovery = createStateStore(createStorage(workspaceRoot), {
+        livenessProbe: async ({ pid, startToken }) => {
+          assert.equal(pid, 1234);
+          assert.equal(startToken, START_TOKEN);
+          return 'not-running';
+        },
+      });
+      assert.deepEqual(await recovery.recoverAbandonedLock(), {
+        generation: 0,
+        kind: 'recovered-abandoned-lock',
+      });
+      await recovery.acquireLock({ processStartToken: OTHER_START_TOKEN });
+      assert.equal(recovery.ownsLock, true);
+      await recovery.releaseLock();
+    });
+
+    await withWorkspace(async (workspaceRoot) => {
+      const storage = createStorage(workspaceRoot);
+      const active = createStateStore(storage);
+      await active.acquireLock({ processStartToken: START_TOKEN });
+      await active.writeInitialState(validState());
+
+      const uncertain = createStateStore(createStorage(workspaceRoot), {
+        livenessProbe: async () => 'unknown',
+      });
+      assert.deepEqual(await uncertain.recoverAbandonedLock(), {
+        kind: 'preserved-lock',
+        lock: 'unknown',
+      });
+      await assert.rejects(() => uncertain.acquireLock({ processStartToken: OTHER_START_TOKEN }), {
+        code: 'lock-already-held',
+      });
+    });
+
+    await withWorkspace(async (workspaceRoot) => {
+      const storage = createStorage(workspaceRoot);
+      const mismatched = createStateStore(storage);
+      await mismatched.acquireLock({ processStartToken: START_TOKEN });
+      await mismatched.writeInitialState(validState());
+      await storage.writeJson('state.json', validState({ startToken: OTHER_START_TOKEN }));
+
+      const recovery = createStateStore(createStorage(workspaceRoot), {
+        livenessProbe: async () => 'not-running',
+      });
+      assert.deepEqual(await recovery.recoverAbandonedLock(), { kind: 'preserved-ambiguous-state' });
+      await assert.rejects(() => recovery.acquireLock({ processStartToken: OTHER_START_TOKEN }), {
+        code: 'lock-already-held',
+      });
     });
   });
 
@@ -255,7 +315,8 @@ describe('watch-process private state, receipts, and audit', () => {
         { code: 'invalid-runtime-state' },
       );
       assert.throws(
-        () => normalizeRuntimeState(validState({ target: { ...targetIdentity(), targetId: 'raw output is not an id' } })),
+        () =>
+          normalizeRuntimeState(validState({ target: { ...targetIdentity(), targetId: 'raw output is not an id' } })),
         { code: 'invalid-runtime-state' },
       );
       assert.throws(() => normalizeRuntimeState({ ...validState(), command: 'do not serialize' }), {
@@ -295,7 +356,9 @@ describe('watch-process private state, receipts, and audit', () => {
       await mkdir(outsideDirectory);
       await rename(thirdStorage.rootPath, movedRootPath);
       await symlink(outsideDirectory, thirdStorage.rootPath);
-      await assert.rejects(() => thirdStorage.writeText('state.json', '{}'), { code: 'runtime-directory-link-rejected' });
+      await assert.rejects(() => thirdStorage.writeText('state.json', '{}'), {
+        code: 'runtime-directory-link-rejected',
+      });
     });
   });
 
@@ -401,10 +464,9 @@ describe('watch-process private state, receipts, and audit', () => {
     const proof = freshProofFrom(attestation);
     assert.equal(contract.validate({ attestation, freshProof: proof }).success, true);
     assert.throws(() => contract.validate({ attestation }), { code: 'fresh-success-proof-required' });
-    assert.throws(
-      () => contract.validate({ attestation, freshProof: { ...proof, observedAtEpochMilliseconds: 99 } }),
-      { code: 'stale-success-proof' },
-    );
+    assert.throws(() => contract.validate({ attestation, freshProof: { ...proof, observedAtEpochMilliseconds: 99 } }), {
+      code: 'stale-success-proof',
+    });
     assert.throws(
       () =>
         contract.validate({
@@ -464,7 +526,9 @@ describe('watch-process private state, receipts, and audit', () => {
       const storage = createStorage(workspaceRoot);
       const store = createStateStore(storage, { clock: () => 2_000 });
       await store.acquireLock({ processStartToken: START_TOKEN });
-      await store.writeInitialState(validState({ deadlineEpochMilliseconds: 1, outcome: 'succeeded', phase: 'Success' }));
+      await store.writeInitialState(
+        validState({ deadlineEpochMilliseconds: 1, outcome: 'succeeded', phase: 'Success' }),
+      );
       await mkdir(path.join(storage.rootPath, 'evidence'));
       await store.releaseLock();
 

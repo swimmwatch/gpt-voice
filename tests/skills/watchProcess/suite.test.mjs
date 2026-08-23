@@ -3,6 +3,7 @@ import './generic-ci-adapter.test.mjs';
 import './github-actions-adapter.test.mjs';
 import './local-docker-adapters.test.mjs';
 import './orchestrator.test.mjs';
+import './operator.test.mjs';
 import './repair-delivery.test.mjs';
 import './runtime-core.test.mjs';
 import './scenario-contract.test.mjs';

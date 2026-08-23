@@ -4,7 +4,7 @@ Status: Approved
 
 Date: 2026-08-23
 
-Revision: 4
+Revision: 5
 
 Spec slug: `ci-watch-agent-skill`
 
@@ -144,6 +144,15 @@ idempotent start or dispatch. A supplied selector SHALL be validated against the
 adapter, repository/project/workspace, allowed process definition, and identity
 rules before observation or mutation.
 
+The explicit live invocation names the reviewed scenario, logical target, and
+timeout. It authorizes only that scenario's declared normal start, retry,
+provider dispatch, and—when `pushCurrentUpstream=true`—receipt-bound normal
+current-upstream push throughout the bounded repair loop. The agent SHALL NOT
+request repeated approval before each such declared retry, dispatch, or normal
+push. A different target requires a separate explicit invocation. Remote target
+cancellation, repository/ruleset settings, and all actions covered by
+`SAFE-004` remain separate authority gates or forbidden.
+
 A pull-request check contract is one logical target even though its membership
 may include multiple workflow runs, run attempts, check suites, external commit
 statuses, jobs, and required checks. Its immutable aggregate identity is the
@@ -175,6 +184,15 @@ identity, attempt, elapsed time, deadline, outcome, receipts, and blocker.
 watcher-owned local processes when safe and never cancels a remote target unless
 the scenario and invocation explicitly authorize that operation.
 
+The tracked operator entrypoint SHALL expose the exact actions `start`,
+`status`, `resume`, `cancel`, `repair-begin`, `write-begin`, `write-complete`,
+`repair-verify`, and `repair-restart`. It SHALL validate the complete action and
+option set before constructing runtime services, emit only sanitized JSON on
+success and a stable error code on failure, and route repair actions through the
+production repair controller. `resume` SHALL preserve the original input and
+logical-target identity while replacing only the newly approved timeout and
+deadline; it SHALL reject already successful or cancelled watches.
+
 **OPS-001:** The supported operator surface is Codex in the IDE extension on a
 connected local host. ChatGPT Desktop is not required.
 
@@ -196,6 +214,7 @@ input and does not grant watch authority.
   SKILL.md
   agents/openai.yaml
   scripts/
+    process-watch.mjs
     process-watch-stop-hook.mjs
     lib/
   references/
@@ -313,7 +332,7 @@ versions and ambiguous legacy files fail preflight.
     "adapterConfig"
   ],
   "properties": {
-    "$schema": { "type": "string", "minLength": 1 },
+    "$schema": { "const": "urn:gpt-voice:watch-process:scenario:1" },
     "schemaVersion": { "const": "1.0.0" },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
     "description": { "type": "string", "maxLength": 300, "default": "" },
@@ -330,24 +349,24 @@ versions and ambiguous legacy files fail preflight.
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}$" }
     },
-    "adapterConfig": { "$ref": "#/$defs/adapterConfig" }
+    "adapterConfig": { "type": "object" }
   },
   "allOf": [
     {
-      "if": { "properties": { "adapter": { "const": "github-actions" } } },
-      "then": { "properties": { "adapterConfig": { "required": ["repository", "mode"] } } }
+      "if": { "properties": { "adapter": { "const": "github-actions" } }, "required": ["adapter"] },
+      "then": { "properties": { "adapterConfig": { "$ref": "#/$defs/githubActionsAdapterConfig" } } }
     },
     {
-      "if": { "properties": { "adapter": { "const": "generic-ci-cli" } } },
-      "then": { "properties": { "adapterConfig": { "required": ["providerId", "commands", "statusMap"] } } }
+      "if": { "properties": { "adapter": { "const": "generic-ci-cli" } }, "required": ["adapter"] },
+      "then": { "properties": { "adapterConfig": { "$ref": "#/$defs/genericCiAdapterConfig" } } }
     },
     {
-      "if": { "properties": { "adapter": { "const": "docker-build" } } },
-      "then": { "properties": { "adapterConfig": { "required": ["buildCommand"] } } }
+      "if": { "properties": { "adapter": { "const": "docker-build" } }, "required": ["adapter"] },
+      "then": { "properties": { "adapterConfig": { "$ref": "#/$defs/dockerBuildAdapterConfig" } } }
     },
     {
-      "if": { "properties": { "adapter": { "const": "local-command" } } },
-      "then": { "properties": { "adapterConfig": { "required": ["startCommand", "successExitCodes"] } } }
+      "if": { "properties": { "adapter": { "const": "local-command" } }, "required": ["adapter"] },
+      "then": { "properties": { "adapterConfig": { "$ref": "#/$defs/localCommandAdapterConfig" } } }
     }
   ],
   "$defs": {
@@ -415,7 +434,7 @@ versions and ambiguous legacy files fail preflight.
     "repair": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["includeGlobs", "excludeGlobs", "allowCreate", "allowDelete", "maxFiles", "maxBytesChanged"],
+      "required": ["includeGlobs"],
       "properties": {
         "includeGlobs": {
           "type": "array",
@@ -446,65 +465,104 @@ versions and ambiguous legacy files fail preflight.
         "args": { "type": "array", "maxItems": 200, "items": { "type": "string", "maxLength": 1000 } },
         "cwd": { "type": "string", "default": ".", "maxLength": 200 },
         "env": {
-          "type": "object",
-          "default": {},
-          "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
-          "additionalProperties": { "type": "string", "maxLength": 1000 }
+          "type": "array",
+          "default": [],
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" }
         }
       }
     },
     "delivery": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["strategy", "pushCurrentUpstream"],
+      "required": ["strategy"],
       "properties": {
         "strategy": { "enum": ["no-restart", "local-restart", "provider-retry", "provider-dispatch", "git-delivery"] },
         "pushCurrentUpstream": { "type": "boolean", "default": false }
       }
     },
-    "adapterConfig": {
+    "dispatch": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["inputs"],
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "workflow": { "type": "string" },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [{ "type": "string" }, { "type": "boolean" }, { "type": "number" }]
+          }
+        },
+        "idempotencyInput": { "type": "string" }
+      }
+    },
+    "githubActionsAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "mode"],
       "properties": {
         "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
         "mode": { "enum": ["run", "pull-request-contract"] },
-        "workflowAllowlist": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
-        "dispatch": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["enabled", "inputs"],
-          "properties": {
-            "enabled": { "type": "boolean", "default": false },
-            "workflow": { "type": "string" },
-            "inputs": { "type": "object", "additionalProperties": { "type": ["string", "boolean", "number"] } },
-            "idempotencyInput": { "type": "string" }
-          }
+        "workflowAllowlist": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
         },
+        "dispatch": { "$ref": "#/$defs/dispatch" }
+      }
+    },
+    "genericCommands": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observe", "evidence"],
+      "properties": {
+        "start": { "$ref": "#/$defs/command" },
+        "observe": { "$ref": "#/$defs/command" },
+        "evidence": { "$ref": "#/$defs/command" },
+        "cancel": { "$ref": "#/$defs/command" }
+      }
+    },
+    "statusMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["running", "succeeded", "failed", "cancelled"],
+      "properties": {
+        "running": { "type": "array", "items": { "type": "string" } },
+        "succeeded": { "type": "array", "items": { "type": "string" } },
+        "failed": { "type": "array", "items": { "type": "string" } },
+        "cancelled": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "genericCiAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["providerId", "commands", "statusMap"],
+      "properties": {
         "providerId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" },
-        "commands": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["observe", "evidence"],
-          "properties": {
-            "start": { "$ref": "#/$defs/command" },
-            "observe": { "$ref": "#/$defs/command" },
-            "evidence": { "$ref": "#/$defs/command" },
-            "cancel": { "$ref": "#/$defs/command" }
-          }
-        },
-        "statusMap": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["running", "succeeded", "failed", "cancelled"],
-          "properties": {
-            "running": { "type": "array", "items": { "type": "string" } },
-            "succeeded": { "type": "array", "items": { "type": "string" } },
-            "failed": { "type": "array", "items": { "type": "string" } },
-            "cancelled": { "type": "array", "items": { "type": "string" } }
-          }
-        },
+        "commands": { "$ref": "#/$defs/genericCommands" },
+        "statusMap": { "$ref": "#/$defs/statusMap" }
+      }
+    },
+    "dockerBuildAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["buildCommand"],
+      "properties": {
         "buildCommand": { "$ref": "#/$defs/command" },
-        "imageVerification": { "type": "array", "default": [], "items": { "$ref": "#/$defs/command" } },
+        "imageVerification": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/command" }
+        }
+      }
+    },
+    "localCommandAdapterConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startCommand", "successExitCodes"],
+      "properties": {
         "startCommand": { "$ref": "#/$defs/command" },
         "successExitCodes": {
           "type": "array",
@@ -522,10 +580,16 @@ Required fields are exactly those in the root and nested `required` arrays.
 Optional defaults are: `description=""`,
 `target.requireExactSourceRevision=true`, `repair.excludeGlobs=[]`,
 `repair.allowCreate=false`, `repair.allowDelete=false`, `repair.maxFiles=50`,
-`repair.maxBytesChanged=1048576`, command `cwd="."`, command `env={}`,
+`repair.maxBytesChanged=1048576`, command `cwd="."`, command `env=[]`,
 `delivery.pushCurrentUpstream=false`, `dispatch.enabled=false`, and
 `imageVerification=[]`. Defaults are applied only after schema validation and
 are included in the canonical scenario digest.
+
+Command `env` is an uppercase environment-name allowlist array, never a map of
+values. Only already inherited variables whose names are declared may reach the
+child process. Credential values, arbitrary environment assignments, and
+environment snapshots SHALL be rejected and SHALL NOT be serialized into a
+scenario, invocation, state, receipt, audit event, or attestation.
 
 ### 6.2 Substitutions, paths, and repair scope
 
@@ -599,7 +663,7 @@ GitHub pull-request aggregate:
     "maxFiles": 50,
     "maxBytesChanged": 1048576
   },
-  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
   "forbiddenActions": ["force-push", "merge", "release", "publish", "deploy"],
   "adapterConfig": {
@@ -646,7 +710,7 @@ Generic CI CLI:
     "maxFiles": 30,
     "maxBytesChanged": 524288
   },
-  "verification": [{ "executable": "npm", "args": ["test"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["test"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "provider-dispatch", "pushCurrentUpstream": false },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
@@ -656,14 +720,14 @@ Generic CI CLI:
         "executable": "acme-ci",
         "args": ["run", "start", "--source", "{{target.source_sha}}", "--request-id", "{{watch.id}}"],
         "cwd": ".",
-        "env": {}
+        "env": []
       },
-      "observe": { "executable": "acme-ci", "args": ["run", "show", "{{target.id}}", "--json"], "cwd": ".", "env": {} },
+      "observe": { "executable": "acme-ci", "args": ["run", "show", "{{target.id}}", "--json"], "cwd": ".", "env": [] },
       "evidence": {
         "executable": "acme-ci",
         "args": ["run", "logs", "{{target.id}}", "--failed-only"],
         "cwd": ".",
-        "env": {}
+        "env": []
       }
     },
     "statusMap": {
@@ -711,7 +775,7 @@ Docker build:
     "maxFiles": 30,
     "maxBytesChanged": 1048576
   },
-  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
   "forbiddenActions": ["registry-push", "release", "publish", "deploy"],
   "adapterConfig": {
@@ -719,10 +783,10 @@ Docker build:
       "executable": "docker",
       "args": ["build", "--tag", "{{watch.id}}", "{{workspace.root}}"],
       "cwd": ".",
-      "env": {}
+      "env": []
     },
     "imageVerification": [
-      { "executable": "docker", "args": ["image", "inspect", "{{watch.id}}"], "cwd": ".", "env": {} }
+      { "executable": "docker", "args": ["image", "inspect", "{{watch.id}}"], "cwd": ".", "env": [] }
     ]
   }
 }
@@ -758,11 +822,11 @@ Local command:
     "maxFiles": 40,
     "maxBytesChanged": 1048576
   },
-  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
-    "startCommand": { "executable": "node", "args": ["scripts/long-test.mjs"], "cwd": ".", "env": {} },
+    "startCommand": { "executable": "node", "args": ["scripts/long-test.mjs"], "cwd": ".", "env": [] },
     "successExitCodes": [0]
   }
 }

@@ -164,7 +164,15 @@ describe('generated process watcher', () => {
     });
     assert.equal(launch.processId, 4242);
     assert.equal(launches[0].options.shell, false);
-    assert.deepEqual(launches[0].arguments_.slice(1), ['--process-start-token', START_TOKEN]);
+    assert.deepEqual(launches[0].arguments_.slice(1), ['--process-start-token', START_TOKEN, '--mode', 'start']);
+
+    launcher.launch({
+      artifactPath: path.resolve('/tmp/watch-process.mjs'),
+      mode: 'resume',
+      processStartToken: START_TOKEN,
+      workspaceRoot: path.resolve('/tmp'),
+    });
+    assert.deepEqual(launches[1].arguments_.slice(1), ['--process-start-token', START_TOKEN, '--mode', 'resume']);
 
     let reads = 0;
     let now = 0;

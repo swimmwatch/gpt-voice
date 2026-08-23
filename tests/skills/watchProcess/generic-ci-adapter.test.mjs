@@ -60,7 +60,7 @@ function genericCommand(name) {
   return {
     args: [name, '{{target.id}}', '{{target.source_sha}}', '{{attempt.number}}'],
     cwd: '.',
-    env: {},
+    env: [],
     executable: process.execPath,
   };
 }
@@ -69,7 +69,7 @@ function genericStartCommand() {
   return {
     args: ['start', '{{target.source_sha}}', '{{attempt.number}}'],
     cwd: '.',
-    env: {},
+    env: [],
     executable: process.execPath,
   };
 }
@@ -120,7 +120,7 @@ function genericScenario({ includeCancel = true, requiredChecks = ['build', 'tes
       minTimeoutSeconds: 300,
       poll: { initialSeconds: 10, maxSeconds: 30, multiplier: 2 },
     },
-    verification: [{ args: ['--version'], cwd: '.', env: {}, executable: process.execPath }],
+    verification: [{ args: ['--version'], cwd: '.', env: [], executable: process.execPath }],
   });
 }
 

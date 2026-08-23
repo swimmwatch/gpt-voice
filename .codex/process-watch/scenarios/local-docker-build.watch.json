@@ -30,7 +30,7 @@
     "maxFiles": 30,
     "maxBytesChanged": 1048576
   },
-  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": {} }],
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
   "forbiddenActions": ["registry-push", "release", "publish", "deploy"],
   "adapterConfig": {
@@ -38,14 +38,14 @@
       "executable": "docker",
       "args": ["build", "--tag", "{{watch.id}}", "{{workspace.root}}"],
       "cwd": ".",
-      "env": {}
+      "env": ["PATH", "SYSTEMROOT"]
     },
     "imageVerification": [
       {
         "executable": "docker",
         "args": ["image", "inspect", "{{watch.id}}"],
         "cwd": ".",
-        "env": {}
+        "env": ["PATH", "SYSTEMROOT"]
       }
     ]
   }

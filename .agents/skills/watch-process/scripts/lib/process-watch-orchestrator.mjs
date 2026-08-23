@@ -4,6 +4,7 @@ import { DeadlineAwarePoller } from './deadline-aware-poller.mjs';
 import { MonotonicDeadline } from './monotonic-deadline.mjs';
 import { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 import { ProcessWatchTransitionTable } from './process-watch-transition-table.mjs';
+import { REPAIR_CANCELLATION_FILE_NAME, normalizeProcessWatchCancellation } from './repair-control-contracts.mjs';
 import { ProcessAdapter } from './runtime-contracts.mjs';
 import {
   RUNTIME_STATE_SCHEMA_VERSION,
@@ -28,6 +29,8 @@ import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 const ATTESTATION_FILE_NAME = 'attestation.json';
 const MAX_FAILURE_FINGERPRINTS = 100;
 const LOCAL_ADAPTERS = new Set(['docker-build', 'local-command']);
+const AGENT_CONTROLLED_PHASES = new Set(['NeedsAgent', 'Repairing', 'Verifying', 'Restarting']);
+const INTERRUPTED_WATCHER_PHASES = new Set(['Preparing', 'Watching', 'Finalizing']);
 
 function sameTarget(left, right) {
   return (
@@ -227,6 +230,51 @@ export class ProcessWatchOrchestrator {
     }
   }
 
+  /** Refreshes an explicitly resumed deadline and safely reattaches interrupted monitoring. */
+  async resume(invocation) {
+    const normalizedInvocation = normalizeProcessWatchInvocation(invocation, this.#scenario);
+    let shouldRun = false;
+    let result;
+    await this.#stateStore.acquireLock({ processStartToken: this.#processStartToken });
+    try {
+      let state = await this.#stateStore.readState();
+      if (state === null) runtimeFail('resume-state-required');
+      this.#assertResumeBinding(state, normalizedInvocation);
+      if (state.phase === 'Success' || state.phase === 'Cancelled') return this.#result(state);
+
+      if (INTERRUPTED_WATCHER_PHASES.has(state.phase)) {
+        await this.#block(state, 'watcher_lost', 'explicit-resume-interrupted-watcher');
+        state = await this.#stateStore.readState();
+        if (state === null) runtimeFail('resume-state-required');
+      }
+
+      if (state.phase === 'Blocked') {
+        state = await this.#transition(state, {
+          actor: 'agent',
+          deadlineEpochMilliseconds: normalizedInvocation.deadlineEpochMilliseconds,
+          outcome: null,
+          summaryCode: 'explicit-resume-rearmed',
+          timeoutSeconds: normalizedInvocation.timeoutSeconds,
+          toPhase: 'Armed',
+        });
+        shouldRun = true;
+        result = this.#result(state);
+      } else if (state.phase === 'Armed') {
+        state = await this.#refreshDeadline(state, normalizedInvocation, 'explicit-resume-refreshed');
+        shouldRun = true;
+        result = this.#result(state);
+      } else if (AGENT_CONTROLLED_PHASES.has(state.phase)) {
+        state = await this.#refreshDeadline(state, normalizedInvocation, 'explicit-resume-agent-phase');
+        result = this.#result(state);
+      } else {
+        runtimeFail('unsupported-resume-phase');
+      }
+    } finally {
+      await this.#stateStore.releaseLock();
+    }
+    return shouldRun ? this.run(normalizedInvocation) : result;
+  }
+
   /** Performs one lock-bound repair-controller transition without exposing private state mutation. */
   async advance({ blocker = null, failureFingerprints, outcome, receiptIds, summaryCode, target, toPhase } = {}) {
     if (!this.#stateStore.ownsLock) runtimeFail('orchestrator-lock-required');
@@ -350,6 +398,8 @@ export class ProcessWatchOrchestrator {
     this.#assertDeadline(state);
     if (this.#operationGeneration === null) return this.#block(state, 'watcher_lost', 'operation-generation-lost');
     let current = state;
+    const initialCancellation = await this.#consumeCancellation(current, invocation);
+    if (initialCancellation !== null) return this.#result(initialCancellation);
     const deadline = this.#deadlineFactory({ timeoutMilliseconds: this.#remainingMilliseconds(current) });
     const result = await this.#poller.poll({
       deadline,
@@ -360,6 +410,11 @@ export class ProcessWatchOrchestrator {
           summaryCode: 'watch-heartbeat',
           toPhase: 'Watching',
         });
+        const cancellation = await this.#consumeCancellation(current, invocation);
+        if (cancellation !== null) {
+          current = cancellation;
+          return freezeRecord({ cancelled: true, terminal: true });
+        }
         const observation = await this.#adapter.observe(
           this.#adapterContext(current, invocation, this.#operationGeneration),
         );
@@ -368,6 +423,7 @@ export class ProcessWatchOrchestrator {
       },
     });
     if (result.kind === 'deadline-exceeded') return this.#block(current, 'timed_out', 'watch-deadline-exceeded');
+    if (result.observation.cancelled === true) return this.#result(current);
     const observation = result.observation.observation;
     const status = responseStatus(observation);
     if (status === 'blocked')
@@ -383,6 +439,49 @@ export class ProcessWatchOrchestrator {
     }
     if (status !== 'failed') runtimeFail('adapter-observation-status-invalid');
     return this.#needsAgent(current, invocation);
+  }
+
+  async #consumeCancellation(state, invocation) {
+    const value = await this.#storage.readJson(REPAIR_CANCELLATION_FILE_NAME);
+    if (value === null) return null;
+    normalizeProcessWatchCancellation(value, { sessionId: this.#sessionId, watchId: this.#watchId });
+    let next;
+    if (LOCAL_ADAPTERS.has(this.#scenario.adapter)) {
+      const response = await this.#adapter.cancel({
+        ...this.#adapterContext(state, invocation, this.#operationGeneration),
+        cancellationOutcome: 'user_cancelled',
+      });
+      if (responseStatus(response) === 'blocked') {
+        const outcome = outcomeFromBlocker(response.blocker);
+        next = await this.#transition(state, {
+          blocker: this.#transitionTable.blockerForOutcome(outcome),
+          outcome,
+          summaryCode: 'local-cancel-blocked',
+          toPhase: 'Blocked',
+        });
+      } else if (responseStatus(response) === 'cancelled') {
+        next = await this.#transition(state, {
+          outcome: 'user_cancelled',
+          summaryCode: 'local-watch-cancelled',
+          toPhase: 'Cancelled',
+        });
+      } else {
+        next = await this.#transition(state, {
+          blocker: this.#transitionTable.blockerForOutcome('monitoring_failed'),
+          outcome: 'monitoring_failed',
+          summaryCode: 'local-cancel-unconfirmed',
+          toPhase: 'Blocked',
+        });
+      }
+    } else {
+      next = await this.#transition(state, {
+        outcome: 'user_cancelled',
+        summaryCode: 'remote-watch-stopped-without-target-cancel',
+        toPhase: 'Cancelled',
+      });
+    }
+    await this.#storage.removeRegularFile(REPAIR_CANCELLATION_FILE_NAME).catch(() => undefined);
+    return next;
   }
 
   async #needsAgent(state, invocation) {
@@ -496,12 +595,24 @@ export class ProcessWatchOrchestrator {
 
   async #transition(
     state,
-    { actor = 'watcher', blocker = null, failureFingerprints, outcome, receiptIds, summaryCode, target, toPhase },
+    {
+      actor = 'watcher',
+      blocker = null,
+      deadlineEpochMilliseconds,
+      failureFingerprints,
+      outcome,
+      receiptIds,
+      summaryCode,
+      target,
+      timeoutSeconds,
+      toPhase,
+    },
   ) {
     const transition = this.#transitionTable.assert({ blocker, fromPhase: state.phase, outcome, toPhase });
     const next = freezeRecord({
       ...state,
       blocker: transition.blocker,
+      deadlineEpochMilliseconds: deadlineEpochMilliseconds ?? state.deadlineEpochMilliseconds,
       failureFingerprints: failureFingerprints ?? state.failureFingerprints,
       generation: state.generation + 1,
       heartbeat: freezeRecord({ atEpochMilliseconds: this.#now(), startToken: this.#processStartToken }),
@@ -509,10 +620,41 @@ export class ProcessWatchOrchestrator {
       phase: transition.toPhase,
       receiptIds: receiptIds ?? state.receiptIds,
       target: target ?? state.target,
+      timeoutSeconds: timeoutSeconds ?? state.timeoutSeconds,
     });
     const written = await this.#stateStore.compareAndSwap({ expectedGeneration: state.generation, state: next });
     await this.#appendAudit(written, state.phase, summaryCode, actor);
     return written;
+  }
+
+  async #refreshDeadline(state, invocation, summaryCode) {
+    const next = freezeRecord({
+      ...state,
+      deadlineEpochMilliseconds: invocation.deadlineEpochMilliseconds,
+      generation: state.generation + 1,
+      heartbeat: freezeRecord({ atEpochMilliseconds: this.#now(), startToken: this.#processStartToken }),
+      timeoutSeconds: invocation.timeoutSeconds,
+    });
+    const written = await this.#stateStore.compareAndSwap({ expectedGeneration: state.generation, state: next });
+    await this.#appendAudit(written, state.phase, summaryCode, 'agent');
+    return written;
+  }
+
+  #assertResumeBinding(state, invocation) {
+    const staticIntegrityOutcome = this.#staticIntegrityOutcome(state);
+    if (staticIntegrityOutcome === 'scenario_changed') runtimeFail('scenario-changed');
+    if (staticIntegrityOutcome === 'integrity_failed') runtimeFail('watch-state-integrity-mismatch');
+    const targetChanged =
+      (state.target === null) !== (invocation.target === null) ||
+      (state.target !== null && invocation.target !== null && !sameTarget(state.target, invocation.target));
+    if (
+      state.sessionId !== this.#sessionId ||
+      state.workspaceId !== this.#workspaceId ||
+      targetChanged ||
+      (state.target !== null && state.target.sourceSha !== invocation.sourceSha)
+    ) {
+      runtimeFail('watch-state-integrity-mismatch');
+    }
   }
 
   #adapterContext(state, invocation, generation) {

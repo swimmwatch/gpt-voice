@@ -225,6 +225,56 @@ export class AtomicStateStore {
     return freezeRecord({ generation: lock.generation, kind: liveness });
   }
 
+  /** Removes only a lock whose exact owner PID is disproven and whose state still binds the same start token. */
+  async recoverAbandonedLock() {
+    return this.#runExclusive(async () => {
+      const lock = await this.#readLock();
+      if (lock === null) return freezeRecord({ kind: 'missing' });
+      if (
+        this.#livenessProbe === undefined ||
+        lock.sessionId !== this.#sessionId ||
+        lock.workspaceId !== this.#workspaceId
+      ) {
+        return freezeRecord({ kind: 'preserved-ambiguous-lock' });
+      }
+      let liveness;
+      try {
+        liveness = normalizeLiveness(
+          await this.#livenessProbe(freezeRecord({ pid: lock.pid, startToken: lock.processStartToken })),
+        );
+      } catch {
+        return freezeRecord({ kind: 'preserved-ambiguous-lock' });
+      }
+      if (liveness !== 'not-running') return freezeRecord({ kind: 'preserved-lock', lock: liveness });
+
+      const state = await this.readState();
+      if (
+        state === null ||
+        state.generation !== lock.generation ||
+        state.sessionId !== lock.sessionId ||
+        state.workspaceId !== lock.workspaceId ||
+        state.heartbeat.startToken !== lock.processStartToken
+      ) {
+        return freezeRecord({ kind: 'preserved-ambiguous-state' });
+      }
+      const confirmed = await this.#readLock();
+      if (
+        confirmed === null ||
+        confirmed.generation !== lock.generation ||
+        confirmed.pid !== lock.pid ||
+        confirmed.processStartToken !== lock.processStartToken ||
+        confirmed.sessionId !== lock.sessionId ||
+        confirmed.workspaceId !== lock.workspaceId
+      ) {
+        return freezeRecord({ kind: 'preserved-ambiguous-lock' });
+      }
+      if (!(await this.#storage.removeRegularFile(LOCK_FILE_NAME))) {
+        return freezeRecord({ kind: 'preserved-ambiguous-lock' });
+      }
+      return freezeRecord({ generation: lock.generation, kind: 'recovered-abandoned-lock' });
+    });
+  }
+
   async readState() {
     let value;
     try {
