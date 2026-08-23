@@ -75,6 +75,7 @@ function normalizeGenericContext(value, { timing } = {}) {
       'generation',
       'inputDigest',
       'sourceSha',
+      'stateGeneration',
       'target',
       'targetId',
       'targetSelector',

@@ -50,7 +50,11 @@ export class GeneratedWatcherLaunchCoordinator {
     workspaceId,
     workspaceRoot,
   } = {}) {
-    if (typeof preflight !== 'function' || typeof stateReader !== 'function' || !['resume', 'start'].includes(mode)) {
+    if (
+      typeof preflight !== 'function' ||
+      typeof stateReader !== 'function' ||
+      !['repair-restart', 'resume', 'start'].includes(mode)
+    ) {
       runtimeFail('invalid-generated-watcher-launch-coordinator-request');
     }
     assertStopHookBudget({ timeoutSeconds: invocation?.timeoutSeconds });

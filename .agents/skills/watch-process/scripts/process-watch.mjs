@@ -4,6 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { ProcessWatchOperator } from './lib/process-watch-operator.mjs';
+import { WATCH_OUTCOMES } from './lib/runtime-state-contracts.mjs';
 
 const CONTROL_ACTIONS = Object.freeze({
   'repair-begin': 'begin-repair',
@@ -49,6 +50,22 @@ function timeoutOption(options) {
   return Number(value);
 }
 
+function generationOption(options) {
+  const value = option(options, 'generation', { required: true });
+  if (!/^(?:0|[1-9]\d{0,9})$/u.test(value)) fail('invalid-process-watch-generation');
+  const generation = Number(value);
+  if (!Number.isSafeInteger(generation) || generation > 1_000_000_000) {
+    fail('invalid-process-watch-generation');
+  }
+  return generation;
+}
+
+function outcomeOption(options) {
+  const value = option(options, 'outcome', { required: true });
+  if (!WATCH_OUTCOMES.includes(value) || value === 'running') fail('invalid-process-watch-outcome');
+  return value;
+}
+
 function assertOnlyOptions(options, allowed) {
   for (const name of options.keys()) {
     if (!allowed.has(name)) fail('unknown-process-watch-option');
@@ -72,6 +89,18 @@ export async function runProcessWatchCommand(arguments_, dependencies = {}) {
     assertOnlyOptions(options, new Set(['watch-id']));
     const request = { watchId: option(options, 'watch-id') };
     execute = (operator) => operator.status(request);
+  } else if (action === 'continuation') {
+    assertOnlyOptions(options, new Set(['generation', 'outcome', 'watch-id']));
+    const request = {
+      generation: generationOption(options),
+      outcome: outcomeOption(options),
+      watchId: option(options, 'watch-id', { required: true }),
+    };
+    execute = (operator) => operator.continuation(request);
+  } else if (action === 'wait') {
+    assertOnlyOptions(options, new Set(['watch-id']));
+    const request = { watchId: option(options, 'watch-id', { required: true }) };
+    execute = (operator) => operator.wait(request);
   } else if (action === 'resume') {
     assertOnlyOptions(options, new Set(['timeout-seconds', 'watch-id']));
     const request = {

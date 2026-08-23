@@ -72,7 +72,7 @@ function normalizeTarget(value, code) {
 }
 
 function normalizeNullableTarget(value, code) {
-  return value === undefined ? null : normalizeTarget(value, code);
+  return value === undefined || value === null ? null : normalizeTarget(value, code);
 }
 
 function normalizeOptionalText(value, fallback, code) {
@@ -138,6 +138,7 @@ export function normalizeAdapterAttemptContext(value, { timing } = {}) {
       'generation',
       'inputDigest',
       'sourceSha',
+      'stateGeneration',
       'target',
       'targetId',
       'targetSelector',
@@ -151,6 +152,9 @@ export function normalizeAdapterAttemptContext(value, { timing } = {}) {
   const target = normalizeNullableTarget(context.target, code);
   const attempt = requirePositiveInteger(context.attempt, code, MAX_ATTEMPT);
   const sourceSha = normalizeNullableSourceSha(context.sourceSha, code);
+  const generation = requireNonNegativeInteger(context.generation, code, 1_000_000_000);
+  const stateGeneration = requireNonNegativeInteger(context.stateGeneration ?? generation, code, 1_000_000_000);
+  if (stateGeneration < generation) runtimeFail(code);
   if (target !== null && (target.attempt !== attempt || target.sourceSha !== sourceSha)) {
     runtimeFail('adapter-identity-mismatch');
   }
@@ -161,9 +165,10 @@ export function normalizeAdapterAttemptContext(value, { timing } = {}) {
   return freezeRecord({
     attempt,
     cancellationOutcome,
-    generation: requireNonNegativeInteger(context.generation, code, 1_000_000_000),
+    generation,
     inputDigest: validateDigest(context.inputDigest, code),
     sourceSha,
+    stateGeneration,
     target,
     targetId: normalizeOptionalText(context.targetId, target?.targetId ?? DEFAULT_TARGET_ID, code),
     targetSelector: normalizeOptionalText(context.targetSelector, DEFAULT_TARGET_SELECTOR, code),

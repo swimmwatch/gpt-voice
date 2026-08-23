@@ -16,6 +16,7 @@ import {
   createOperationKey,
   normalizeRuntimeState,
 } from '../../../.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs';
+import { OPERATION_RECEIPT_SCHEMA_VERSION } from '../../../.agents/skills/watch-process/scripts/lib/runtime-state-contracts.mjs';
 
 const WATCH_ID = 'watch-001';
 const WORKSPACE_ID = 'worktree-001';
@@ -415,6 +416,41 @@ describe('watch-process private state, receipts, and audit', () => {
       });
       assert.equal(recorded.kind, 'recorded');
       assert.equal((await afterCrash.read()).receipts.length, 1);
+      const terminalReceipt = {
+        operationKey: created.intent.operationKey,
+        receiptId: 'receipt-001',
+        target: targetIdentity(),
+        terminalDigest: 'e'.repeat(64),
+        watchId: WATCH_ID,
+      };
+      assert.equal(
+        (await afterCrash.recordTerminalReceipt({ expectedGeneration: 0, receipt: terminalReceipt })).kind,
+        'recorded',
+      );
+      const afterTerminalCrash = new OperationReceiptStore({ stateStore, storage });
+      assert.equal(
+        (await afterTerminalCrash.recordTerminalReceipt({ expectedGeneration: 0, receipt: terminalReceipt })).kind,
+        'existing',
+      );
+      assert.equal((await afterTerminalCrash.read()).terminalReceipts.length, 1);
+      await assert.rejects(
+        () =>
+          afterTerminalCrash.recordTerminalReceipt({
+            expectedGeneration: 0,
+            receipt: { ...terminalReceipt, terminalDigest: 'f'.repeat(64) },
+          }),
+        { code: 'operation-terminal-receipt-conflict' },
+      );
+      const currentLog = await afterTerminalCrash.read();
+      await storage.writeJson('receipts.json', {
+        intents: currentLog.intents,
+        receipts: currentLog.receipts,
+        schemaVersion: 1,
+        watchId: currentLog.watchId,
+      });
+      const migratedLog = await new OperationReceiptStore({ stateStore, storage }).read();
+      assert.equal(migratedLog.schemaVersion, OPERATION_RECEIPT_SCHEMA_VERSION);
+      assert.deepEqual(migratedLog.terminalReceipts, []);
 
       const retry = await afterCrash.recordIntent({ expectedGeneration: 0, operation: operation(0, 'retry') });
       const ambiguous = await afterCrash.reconcile({

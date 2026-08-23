@@ -1,6 +1,6 @@
 import { ManagedProcessRunner } from '../managed-process-runner.mjs';
 import { ProcessAdapter } from '../runtime-contracts.mjs';
-import { freezeRecord, isRecord, runtimeFail } from '../runtime-core-support.mjs';
+import { digestNormalizedValue, freezeRecord, isRecord, runtimeFail } from '../runtime-core-support.mjs';
 import { validateDigest, validateWatchId } from '../runtime-state-contracts.mjs';
 
 import {
@@ -23,6 +23,7 @@ const ATTACHED_STATUS = 'attached';
 const SUCCEEDED_STATUS = 'succeeded';
 const FAILED_STATUS = 'failed';
 const CANCELLED_STATUS = 'cancelled';
+const OWNED_PROCESS_TERMINAL_DIGEST_DOMAIN = 'gpt-voice/watch-process/owned-process-terminal/v1';
 
 function sameTarget(left, right) {
   return (
@@ -165,6 +166,7 @@ export class OwnedProcessAdapter extends ProcessAdapter {
     if (!record.execution.finished) return freezeRecord({ status: RUNNING_STATUS, target: record.identity.target });
 
     const result = await this.#waitForResult(record);
+    await this.#recordTerminalReceipt(record, prepared, result);
     const cancellationOutcome =
       record.cancellationOutcome ??
       (result.terminal.classification === 'signalled' && prepared.context.cancellationOutcome === 'target_cancelled'
@@ -236,9 +238,8 @@ export class OwnedProcessAdapter extends ProcessAdapter {
   /** Starts a distinct retry receipt only after the exact prior owned target is terminal. */
   async restart(context) {
     this.#requirePreflight();
-    const resolved = await this.#resolveExistingAttempt(context);
+    const resolved = await this.#resolveTerminalAttempt(context);
     if (resolved.kind === BLOCKED_STATUS) return this.#blocked(resolved.blocker);
-    if (!resolved.record.execution.finished) runtimeFail('restart-requires-terminal-target');
     const prior = resolved.prepared.context;
     return this.#startAttempt(
       {
@@ -272,6 +273,7 @@ export class OwnedProcessAdapter extends ProcessAdapter {
     try {
       const result = normalizeAdapterCommandResult(await this.#runner.abortOwned(startToken));
       record.resultTask = Promise.resolve(result);
+      await this.#recordTerminalReceipt(record, prepared, result);
       return freezeRecord({
         outcome: record.cancellationOutcome,
         status: CANCELLED_STATUS,
@@ -422,6 +424,54 @@ export class OwnedProcessAdapter extends ProcessAdapter {
   }
 
   async #attachPrepared(prepared) {
+    const resolvedReceipt = await this.#resolveReceipt(prepared);
+    if (resolvedReceipt.kind === BLOCKED_STATUS) return resolvedReceipt;
+    const { identity, intent, receipt, startToken } = resolvedReceipt;
+    if (intent.operation.generation !== prepared.context.generation) {
+      return { blocker: 'target-lost', kind: BLOCKED_STATUS };
+    }
+    const execution = this.#runner.getOwnedExecution(startToken);
+    if (execution === null || execution.finished || execution.identity.startToken !== startToken) {
+      return { blocker: 'watcher-lost', kind: BLOCKED_STATUS };
+    }
+    const existing = this.#attempts.get(identity.target.targetId);
+    if (existing !== undefined && existing.execution !== execution)
+      return { blocker: 'target-lost', kind: BLOCKED_STATUS };
+    const record = existing ?? {
+      execution,
+      identity,
+      operationKey: receipt.operationKey,
+      receiptId: receipt.receiptId,
+      resultTask: null,
+      verificationTask: null,
+    };
+    this.#attempts.set(identity.target.targetId, record);
+    return { kind: ATTACHED_STATUS, record };
+  }
+
+  async #resolveTerminalAttempt(context) {
+    const prepared = await this.#prepare(context);
+    if (prepared.context.target === null) runtimeFail('adapter-target-required');
+    const resolvedReceipt = await this.#resolveReceipt(prepared);
+    if (resolvedReceipt.kind === BLOCKED_STATUS) return resolvedReceipt;
+    const terminalReceipt = resolvedReceipt.log.terminalReceipts.find(
+      (candidate) =>
+        candidate.operationKey === resolvedReceipt.receipt.operationKey &&
+        candidate.receiptId === resolvedReceipt.receipt.receiptId &&
+        sameTarget(candidate.target, resolvedReceipt.identity.target),
+    );
+    if (terminalReceipt === undefined) return { blocker: 'watcher-lost', kind: BLOCKED_STATUS };
+    const existing = this.#attempts.get(prepared.context.target.targetId);
+    if (
+      existing !== undefined &&
+      (!sameTarget(existing.identity.target, resolvedReceipt.identity.target) || !existing.execution.finished)
+    ) {
+      return { blocker: 'target-lost', kind: BLOCKED_STATUS };
+    }
+    return { kind: ATTACHED_STATUS, prepared };
+  }
+
+  async #resolveReceipt(prepared) {
     const target = prepared.context.target;
     let startToken;
     try {
@@ -442,19 +492,6 @@ export class OwnedProcessAdapter extends ProcessAdapter {
       sourceSha: prepared.context.sourceSha,
       watchId: this.#watchId,
     });
-    const identity = createOwnedProcessIdentity({
-      adapterName: this.#adapterName,
-      attempt: prepared.context.attempt,
-      commandDigest: prepared.commandDigest,
-      fixedInputsDigest,
-      generation: prepared.context.generation,
-      inputDigest: prepared.context.inputDigest,
-      sourceSha: prepared.context.sourceSha,
-      startToken,
-      watchId: this.#watchId,
-    });
-    if (!sameTarget(identity.target, target)) return { blocker: 'target-lost', kind: BLOCKED_STATUS };
-
     const log = await this.#receiptStore.read();
     const receipt = log.receipts.find((candidate) => sameTarget(candidate.target, target));
     const intent =
@@ -464,30 +501,25 @@ export class OwnedProcessAdapter extends ProcessAdapter {
     if (
       receipt === undefined ||
       intent === undefined ||
-      intent.operation.generation !== prepared.context.generation ||
       intent.operation.scenarioDigest !== this.#scenarioDigest ||
       intent.operation.sourceSha !== prepared.context.sourceSha ||
       intent.operation.fixedInputsDigest !== fixedInputsDigest
     ) {
       return { blocker: 'target-lost', kind: BLOCKED_STATUS };
     }
-    const execution = this.#runner.getOwnedExecution(startToken);
-    if (execution === null || execution.finished || execution.identity.startToken !== startToken) {
-      return { blocker: 'watcher-lost', kind: BLOCKED_STATUS };
-    }
-    const existing = this.#attempts.get(target.targetId);
-    if (existing !== undefined && existing.execution !== execution)
-      return { blocker: 'target-lost', kind: BLOCKED_STATUS };
-    const record = existing ?? {
-      execution,
-      identity,
-      operationKey: receipt.operationKey,
-      receiptId: receipt.receiptId,
-      resultTask: null,
-      verificationTask: null,
-    };
-    this.#attempts.set(target.targetId, record);
-    return { kind: ATTACHED_STATUS, record };
+    const identity = createOwnedProcessIdentity({
+      adapterName: this.#adapterName,
+      attempt: prepared.context.attempt,
+      commandDigest: prepared.commandDigest,
+      fixedInputsDigest,
+      generation: intent.operation.generation,
+      inputDigest: prepared.context.inputDigest,
+      sourceSha: prepared.context.sourceSha,
+      startToken,
+      watchId: this.#watchId,
+    });
+    if (!sameTarget(identity.target, target)) return { blocker: 'target-lost', kind: BLOCKED_STATUS };
+    return { identity, intent, kind: ATTACHED_STATUS, log, receipt, startToken };
   }
 
   async #resolveExistingAttempt(context) {
@@ -520,6 +552,19 @@ export class OwnedProcessAdapter extends ProcessAdapter {
       );
     }
     return record.resultTask;
+  }
+
+  async #recordTerminalReceipt(record, prepared, result) {
+    await this.#receiptStore.recordTerminalReceipt({
+      expectedGeneration: prepared.context.stateGeneration,
+      receipt: {
+        operationKey: record.operationKey,
+        receiptId: record.receiptId,
+        target: record.identity.target,
+        terminalDigest: digestNormalizedValue(OWNED_PROCESS_TERMINAL_DIGEST_DOMAIN, result.terminal),
+        watchId: this.#watchId,
+      },
+    });
   }
 
   async #verifyAttempt(record, prepared) {

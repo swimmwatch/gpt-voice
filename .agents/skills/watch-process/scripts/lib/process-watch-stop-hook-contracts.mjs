@@ -115,16 +115,22 @@ export function isStopHookAcknowledged(acknowledgement, state) {
   return (
     acknowledgement !== null &&
     acknowledgement.generation === state.generation &&
+    acknowledgement.outcome === state.outcome &&
     acknowledgement.sessionId === state.sessionId &&
     acknowledgement.watchId === state.watchId
   );
 }
 
 /** Returns a fixed continuation prompt that never includes paths, evidence, or input text. */
-export function stopHookContinuation(outcome) {
+export function stopHookContinuation({ generation, outcome, watchId } = {}) {
+  const normalizedGeneration = requireNonNegativeInteger(generation, 'invalid-stop-hook-generation', 1_000_000_000);
   const normalizedOutcome = normalizeOutcome(outcome, 'invalid-stop-hook-outcome');
-  if (normalizedOutcome === 'running' || normalizedOutcome === 'succeeded') runtimeFail('invalid-stop-hook-outcome');
-  return freezeRecord({ decision: 'block', reason: `process-watch needs-agent ${normalizedOutcome}` });
+  const normalizedWatchId = validateWatchId(watchId, 'invalid-stop-hook-watch-id');
+  if (normalizedOutcome === 'running') runtimeFail('invalid-stop-hook-outcome');
+  return freezeRecord({
+    decision: 'block',
+    reason: `process-watch continuation --watch-id ${normalizedWatchId} --generation ${normalizedGeneration} --outcome ${normalizedOutcome}`,
+  });
 }
 
 /** Supplies the three separately reportable timeout values to later status surfaces. */

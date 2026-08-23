@@ -34,7 +34,9 @@ export class GeneratedWatcherLauncher {
     ) {
       runtimeFail('invalid-generated-watcher-launch-request');
     }
-    if (!['resume', 'start'].includes(mode)) runtimeFail('invalid-generated-watcher-launch-request');
+    if (!['repair-restart', 'resume', 'start'].includes(mode)) {
+      runtimeFail('invalid-generated-watcher-launch-request');
+    }
     const token = validateProcessStartToken(processStartToken, 'invalid-generated-watcher-launch-request');
     let child;
     try {

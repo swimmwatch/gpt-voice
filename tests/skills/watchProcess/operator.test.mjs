@@ -15,6 +15,8 @@ import {
   GeneratedWatcherInvocationStore,
   ProcessWatchLibraryIntegrity,
   ProcessWatchOperator,
+  ProcessWatchSelectionStore,
+  ProcessWatchStopHookWatch,
   WatchRuntimeStorage,
   normalizeWatchScenario,
 } from '../../../.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs';
@@ -48,6 +50,39 @@ async function copyLocalScenario(workspaceRoot) {
   return JSON.parse(source);
 }
 
+async function writeNeedsAgentState({ deadlineEpochMilliseconds, watchId, workspaceRoot }) {
+  const workspaceId = digestNormalizedValue('gpt-voice/watch-process/workspace/v1', workspaceRoot);
+  const storage = new WatchRuntimeStorage({ watchId, workspaceRoot });
+  const stateStore = new AtomicStateStore({ sessionId: SESSION_ID, storage, workspaceId });
+  await stateStore.acquireLock({ processStartToken: START_TOKEN });
+  await stateStore.writeInitialState({
+    blocker: null,
+    deadlineEpochMilliseconds,
+    failureFingerprints: ['e'.repeat(64)],
+    generation: 0,
+    heartbeat: { atEpochMilliseconds: 1_000, startToken: START_TOKEN },
+    libraryDigest: '1'.repeat(64),
+    outcome: 'target_failed',
+    phase: 'NeedsAgent',
+    receiptIds: ['receipt-operator-expired'],
+    scenarioDigest: '2'.repeat(64),
+    scenarioId: 'local-long-test',
+    schemaVersion: 1,
+    scriptDigest: '3'.repeat(64),
+    sessionId: SESSION_ID,
+    target: {
+      attempt: 1,
+      identityDigest: '4'.repeat(64),
+      sourceSha: SOURCE_SHA,
+      targetId: 'target-operator-expired',
+    },
+    timeoutSeconds: 120,
+    watchId,
+    workspaceId,
+  });
+  await stateStore.releaseLock();
+}
+
 async function git(workspaceRoot, arguments_) {
   return runFile('git', arguments_, { cwd: workspaceRoot });
 }
@@ -62,6 +97,14 @@ class RecordingOperator {
 
   async status(request) {
     return this.#record('status', request);
+  }
+
+  async continuation(request) {
+    return this.#record('continuation', request);
+  }
+
+  async wait(request) {
+    return this.#record('wait', request);
   }
 
   async resume(request) {
@@ -83,12 +126,53 @@ class RecordingOperator {
   }
 }
 
+async function assertBackgroundRepairRestart({ stateStore, storage, target, workspaceId, workspaceRoot }) {
+  const repairingState = await stateStore.readState();
+  await storage.writeJson('state.json', {
+    ...repairingState,
+    generation: repairingState.generation + 1,
+    phase: 'Verifying',
+  });
+  const selectionStore = new ProcessWatchSelectionStore({ workspaceRoot });
+  assert.equal(await selectionStore.consume({ sessionId: SESSION_ID, watchId: WATCH_ID, workspaceId }), true);
+  let backgroundLaunchRequest;
+  let armedDuringLaunch;
+  const backgroundOperator = new ProcessWatchOperator({
+    coordinatorFactory: () => ({
+      async launch(request) {
+        backgroundLaunchRequest = request;
+        await request.preflight();
+        armedDuringLaunch = (await selectionStore.read()).armed;
+        return { heartbeat: { phase: 'Restarting', target } };
+      },
+    }),
+    environment: { CODEX_SESSION_ID: SESSION_ID, PATH: process.env.PATH },
+    randomBytesFactory: (length) => Buffer.alloc(length, 0x0d),
+    workspaceRoot,
+  });
+
+  const restart = await backgroundOperator.control('restart', { watchId: WATCH_ID });
+
+  assert.equal(backgroundLaunchRequest.mode, 'repair-restart');
+  assert.equal(armedDuringLaunch, false);
+  assert.equal(restart.phase, 'Restarting');
+  assert.deepEqual(await selectionStore.read(), {
+    armed: true,
+    schemaVersion: 2,
+    sessionId: SESSION_ID,
+    watchId: WATCH_ID,
+    workspaceId,
+  });
+}
+
 describe('process-watch operator entrypoint', () => {
   it('routes every declared CLI action through closed validated arguments', async () => {
     const operator = new RecordingOperator();
     const commands = [
       ['start', '--scenario', 'local-long-test', '--target', 'start', '--timeout-seconds', '240'],
       ['status', '--watch-id', WATCH_ID],
+      ['continuation', '--watch-id', WATCH_ID, '--generation', '7', '--outcome', 'target_failed'],
+      ['wait', '--watch-id', WATCH_ID],
       ['resume', '--watch-id', WATCH_ID, '--timeout-seconds', '300'],
       ['cancel', '--watch-id', WATCH_ID],
       ['repair-begin', '--watch-id', WATCH_ID],
@@ -105,6 +189,11 @@ describe('process-watch operator entrypoint', () => {
         request: { scenarioId: 'local-long-test', targetSelector: 'start', timeoutSeconds: 240 },
       },
       { action: 'status', request: { watchId: WATCH_ID } },
+      {
+        action: 'continuation',
+        request: { generation: 7, outcome: 'target_failed', watchId: WATCH_ID },
+      },
+      { action: 'wait', request: { watchId: WATCH_ID } },
       { action: 'resume', request: { timeoutSeconds: 300, watchId: WATCH_ID } },
       { action: 'cancel', request: { watchId: WATCH_ID } },
       { action: 'begin-repair', request: { candidatePaths: undefined, watchId: WATCH_ID } },
@@ -124,6 +213,15 @@ describe('process-watch operator entrypoint', () => {
       [['start', '--scenario', 'local-long-test'], 'missing-process-watch-option'],
       [['start', '--scenario', 'local-long-test', '--timeout-seconds', '0'], 'invalid-watch-timeout'],
       [['status', '--unexpected', 'value'], 'unknown-process-watch-option'],
+      [
+        ['continuation', '--watch-id', WATCH_ID, '--generation', '-1', '--outcome', 'target_failed'],
+        'invalid-process-watch-generation',
+      ],
+      [
+        ['continuation', '--watch-id', WATCH_ID, '--generation', '1', '--outcome', 'running'],
+        'invalid-process-watch-outcome',
+      ],
+      [['wait'], 'missing-process-watch-option'],
       [['write-begin', '--watch-id', WATCH_ID], 'repair-candidate-paths-required'],
       [['status', '--watch-id', WATCH_ID, '--watch-id', WATCH_ID], 'duplicate-process-watch-option'],
     ]) {
@@ -133,14 +231,19 @@ describe('process-watch operator entrypoint', () => {
     }
   });
 
-  it('creates one digest-bound start invocation after clean-worktree preflight', async () => {
+  it('creates a local-restart invocation from a stable workspace snapshot without requiring a clean worktree', async () => {
     await withWorkspace(async (workspaceRoot) => {
       await copyLocalScenario(workspaceRoot);
       const snapshots = [];
       const worktreeInspector = {
-        async assertClean(request) {
+        async snapshot(request) {
           snapshots.push(request);
-          return Object.freeze({ headSha: SOURCE_SHA });
+          return Object.freeze({
+            changedFiles: Object.freeze(['existing-local-change.txt']),
+            diffDigest: 'f'.repeat(64),
+            files: Object.freeze([]),
+            headSha: SOURCE_SHA,
+          });
         },
       };
       let launchRequest;
@@ -184,6 +287,104 @@ describe('process-watch operator entrypoint', () => {
       assert.equal(factoryDependencies.invocationStore instanceof GeneratedWatcherInvocationStore, true);
       assert.equal(factoryDependencies.libraryIntegrity instanceof ProcessWatchLibraryIntegrity, true);
       assert.deepEqual(snapshots, [{ timeoutMilliseconds: 120_000 }, { timeoutMilliseconds: 120_000 }]);
+      assert.deepEqual(await new ProcessWatchSelectionStore({ workspaceRoot }).read(), {
+        armed: true,
+        schemaVersion: 2,
+        sessionId: SESSION_ID,
+        watchId: result.watchId,
+        workspaceId: digestNormalizedValue('gpt-voice/watch-process/workspace/v1', workspaceRoot),
+      });
+    });
+  });
+
+  it('allows a new start after an expired NeedsAgent handoff but still rejects an unexpired one', async () => {
+    for (const [deadlineEpochMilliseconds, expected] of [
+      [9_000, 'started'],
+      [11_000, 'active-watch-exists'],
+    ]) {
+      await withWorkspace(async (workspaceRoot) => {
+        await copyLocalScenario(workspaceRoot);
+        await writeNeedsAgentState({
+          deadlineEpochMilliseconds,
+          watchId: `local-long-test-${expected === 'started' ? 'expired' : 'active'}`,
+          workspaceRoot,
+        });
+        const snapshot = Object.freeze({
+          changedFiles: Object.freeze([]),
+          diffDigest: 'f'.repeat(64),
+          files: Object.freeze([]),
+          headSha: SOURCE_SHA,
+        });
+        const operator = new ProcessWatchOperator({
+          clock: () => 10_000,
+          coordinatorFactory: () => ({
+            async launch(request) {
+              await request.preflight();
+              return { heartbeat: { phase: 'Watching', target: null } };
+            },
+          }),
+          environment: { CODEX_SESSION_ID: SESSION_ID },
+          randomBytesFactory: (length) => Buffer.alloc(length, 0x10),
+          workspaceRoot,
+          worktreeInspector: {
+            async snapshot() {
+              return snapshot;
+            },
+          },
+        });
+        const start = () =>
+          operator.start({ scenarioId: 'local-long-test', targetSelector: 'start', timeoutSeconds: 120 });
+
+        if (expected === 'started') {
+          assert.equal((await start()).phase, 'Watching');
+        } else {
+          await assert.rejects(start, { code: expected });
+        }
+      });
+    }
+  });
+
+  it('retains clean-worktree preflight for git delivery', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const scenario = await copyLocalScenario(workspaceRoot);
+      scenario.delivery.strategy = 'git-delivery';
+      await writeFile(
+        path.join(workspaceRoot, '.codex', 'process-watch', 'scenarios', 'local-long-test.watch.json'),
+        `${JSON.stringify(scenario)}\n`,
+      );
+      let cleanChecks = 0;
+      const snapshot = Object.freeze({
+        changedFiles: Object.freeze([]),
+        diffDigest: 'f'.repeat(64),
+        files: Object.freeze([]),
+        headSha: SOURCE_SHA,
+      });
+      const operator = new ProcessWatchOperator({
+        coordinatorFactory: () => ({
+          async launch(request) {
+            await request.preflight();
+            return { heartbeat: { phase: 'Watching', target: null } };
+          },
+        }),
+        environment: { CODEX_SESSION_ID: SESSION_ID },
+        randomBytesFactory: (length) => Buffer.alloc(length, 0x0f),
+        workspaceRoot,
+        worktreeInspector: {
+          async assertClean() {
+            cleanChecks += 1;
+            return snapshot;
+          },
+          async snapshot() {
+            throw new Error('git delivery must not accept a dirty snapshot');
+          },
+        },
+      });
+
+      assert.equal(
+        (await operator.start({ scenarioId: 'local-long-test', targetSelector: 'start', timeoutSeconds: 120 })).phase,
+        'Watching',
+      );
+      assert.equal(cleanChecks, 2);
     });
   });
 
@@ -262,12 +463,112 @@ describe('process-watch operator entrypoint', () => {
         workspaceId,
       });
       await stateStore.releaseLock();
+      await new ProcessWatchSelectionStore({ workspaceRoot }).write({
+        sessionId: SESSION_ID,
+        watchId: WATCH_ID,
+        workspaceId,
+      });
+      await new ProcessWatchStopHookWatch({ storage }).writeAcknowledgement({
+        generation: 0,
+        outcome: 'target_failed',
+        schemaVersion: 1,
+        sessionId: SESSION_ID,
+        turnId: 'turn-operator-001',
+        watchId: WATCH_ID,
+      });
 
       const operator = new ProcessWatchOperator({
         environment: { CODEX_SESSION_ID: SESSION_ID, PATH: process.env.PATH },
         randomBytesFactory: (length) => Buffer.alloc(length, 0x0f),
         workspaceRoot,
       });
+      const continuation = await operator.continuation({
+        generation: 0,
+        outcome: 'target_failed',
+        watchId: WATCH_ID,
+      });
+      assert.equal(continuation.action, 'repair');
+      assert.equal(continuation.phase, 'NeedsAgent');
+      assert.equal(continuation.outcome, 'target_failed');
+      await assert.rejects(
+        () => operator.continuation({ generation: 1, outcome: 'target_failed', watchId: WATCH_ID }),
+        { code: 'invalid-process-watch-continuation' },
+      );
+      await assert.rejects(
+        () => operator.continuation({ generation: 0, outcome: 'authentication_failed', watchId: WATCH_ID }),
+        { code: 'invalid-process-watch-continuation' },
+      );
+      await new ProcessWatchSelectionStore({ workspaceRoot }).write({
+        sessionId: SESSION_ID,
+        watchId: WATCH_ID,
+        workspaceId: 'workspace-foreign-001',
+      });
+      await assert.rejects(
+        () => operator.continuation({ generation: 0, outcome: 'target_failed', watchId: WATCH_ID }),
+        { code: 'process-watch-selection-mismatch' },
+      );
+      await new ProcessWatchSelectionStore({ workspaceRoot }).write({
+        sessionId: SESSION_ID,
+        watchId: WATCH_ID,
+        workspaceId,
+      });
+      const waited = await operator.wait({ watchId: WATCH_ID });
+      assert.equal(waited.action, 'repair');
+      assert.equal(waited.outcome, 'target_failed');
+
+      const needsAgentState = await stateStore.readState();
+      await storage.writeJson('state.json', {
+        ...needsAgentState,
+        blocker: 'authentication-failed',
+        generation: 1,
+        outcome: 'authentication_failed',
+        phase: 'Blocked',
+      });
+      const blocked = await operator.wait({ watchId: WATCH_ID });
+      assert.equal(blocked.action, 'report-blocked');
+      assert.equal(blocked.outcome, 'authentication_failed');
+      await storage.writeJson('state.json', {
+        ...needsAgentState,
+        generation: 1,
+        outcome: 'user_cancelled',
+        phase: 'Cancelled',
+      });
+      const cancelled = await operator.wait({ watchId: WATCH_ID });
+      assert.equal(cancelled.action, 'report-cancelled');
+      assert.equal(cancelled.outcome, 'user_cancelled');
+      await storage.writeJson('state.json', {
+        ...needsAgentState,
+        generation: 1,
+        outcome: 'succeeded',
+        phase: 'Success',
+      });
+      const succeeded = await operator.wait({ watchId: WATCH_ID });
+      assert.equal(succeeded.action, 'report-success');
+      assert.equal(succeeded.outcome, 'succeeded');
+
+      const activeState = {
+        ...needsAgentState,
+        generation: 1,
+        outcome: 'running',
+        phase: 'Watching',
+      };
+      await storage.writeJson('state.json', activeState);
+      const timedOutOperator = new ProcessWatchOperator({
+        clock: () => Date.now(),
+        environment: { CODEX_SESSION_ID: SESSION_ID },
+        terminalWaiter: {
+          async wait() {
+            return { kind: 'continue', outcome: 'timed_out', state: activeState };
+          },
+        },
+        workspaceRoot,
+        worktreeInspector: {},
+      });
+      const timedOut = await timedOutOperator.wait({ watchId: WATCH_ID });
+      assert.equal(timedOut.action, 'report-blocked');
+      assert.equal(timedOut.outcome, 'timed_out');
+      await storage.writeJson('state.json', needsAgentState);
+
       const result = await operator.control('begin-repair', { watchId: WATCH_ID });
       assert.equal(result.phase, 'Repairing', JSON.stringify(result));
       assert.equal((await stateStore.readState()).phase, 'Repairing');
@@ -293,6 +594,8 @@ describe('process-watch operator entrypoint', () => {
       assert.equal(resumeRequest.invocation.deadlineEpochMilliseconds, 310_000);
       assert.equal(resumeRequest.invocation.inputDigest, invocation.inputDigest);
       assert.deepEqual(resumeRequest.invocation.target, target);
+
+      await assertBackgroundRepairRestart({ stateStore, storage, target, workspaceId, workspaceRoot });
     });
   });
 });

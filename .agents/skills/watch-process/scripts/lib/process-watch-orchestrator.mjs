@@ -315,6 +315,7 @@ export class ProcessWatchOrchestrator {
     ) {
       return this.#block(state, 'target_lost', 'repair-fresh-target-required');
     }
+    const operationGeneration = state.generation;
     const next = await this.#transition(state, {
       actor: 'agent',
       outcome: 'running',
@@ -323,7 +324,7 @@ export class ProcessWatchOrchestrator {
       target: freshTarget,
       toPhase: 'Watching',
     });
-    this.#operationGeneration = next.generation;
+    this.#operationGeneration = operationGeneration;
     return this.#watch(next, normalizedInvocation);
   }
 
@@ -663,6 +664,7 @@ export class ProcessWatchOrchestrator {
       generation,
       inputDigest: invocation.inputDigest,
       sourceSha: invocation.sourceSha,
+      stateGeneration: state.generation,
       targetId: state.target?.targetId ?? null,
       targetSelector: invocation.targetSelector,
       timeoutSeconds: state.timeoutSeconds,

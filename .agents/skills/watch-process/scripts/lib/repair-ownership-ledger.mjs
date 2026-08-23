@@ -62,6 +62,10 @@ function sameFileIdentity(left, right) {
   return GitWorktreeInspector.sameFileIdentity(left, right);
 }
 
+function compareFileIdentityPaths(left, right) {
+  return left.path < right.path ? -1 : left.path > right.path ? 1 : 0;
+}
+
 function normalizeSnapshot(value, code) {
   const snapshot = assertClosedRecord(value, new Set(['changedFiles', 'diffDigest', 'files', 'headSha']), code);
   assertRequiredFields(snapshot, ['changedFiles', 'diffDigest', 'files', 'headSha'], code);
@@ -73,9 +77,7 @@ function normalizeSnapshot(value, code) {
     runtimeFail(code);
   }
   const changedFiles = snapshot.changedFiles.map((candidate) => normalizePath(candidate, code)).sort();
-  const files = snapshot.files
-    .map((entry) => normalizeFileIdentity(entry, code))
-    .sort((left, right) => left.path.localeCompare(right.path));
+  const files = snapshot.files.map((entry) => normalizeFileIdentity(entry, code)).sort(compareFileIdentityPaths);
   if (
     new Set(changedFiles).size !== changedFiles.length ||
     new Set(files.map((entry) => entry.path)).size !== files.length ||
@@ -110,7 +112,7 @@ function normalizeOpenWrite(value, code) {
   const candidatePaths = openWrite.candidatePaths.map((candidate) => normalizePath(candidate, code)).sort();
   const candidateFiles = openWrite.candidateFiles
     .map((entry) => normalizeFileIdentity(entry, code))
-    .sort((left, right) => left.path.localeCompare(right.path));
+    .sort(compareFileIdentityPaths);
   if (
     candidatePaths.length === 0 ||
     candidatePaths.length > MAX_REPAIR_FILES ||
@@ -149,9 +151,7 @@ function normalizeOwnershipRecord(value, { scenarioDigest, watchId }) {
   ) {
     runtimeFail(code);
   }
-  const ownedFiles = record.ownedFiles
-    .map((entry) => normalizeOwnedFile(entry, code))
-    .sort((left, right) => left.path.localeCompare(right.path));
+  const ownedFiles = record.ownedFiles.map((entry) => normalizeOwnedFile(entry, code)).sort(compareFileIdentityPaths);
   if (new Set(ownedFiles.map((entry) => entry.path)).size !== ownedFiles.length) runtimeFail(code);
   const openWrite = normalizeOpenWrite(record.openWrite, code);
   if ((record.status === 'write-open') !== (openWrite !== null)) runtimeFail(code);
@@ -197,6 +197,7 @@ function summaryForRecord(record) {
 /** Records only hashes and safe relative paths around agent-owned forward repairs. */
 export class RepairOwnershipLedger {
   #repairScope;
+  #requireCleanBaseline;
   #scenarioDigest;
   #stateStore;
   #storage;
@@ -204,14 +205,27 @@ export class RepairOwnershipLedger {
   #workspaceRoot;
   #worktreeInspector;
 
-  constructor({ repair, scenarioDigest, stateStore, storage, workspaceRoot, worktreeInspector } = {}) {
+  constructor({
+    repair,
+    requireCleanBaseline = true,
+    scenarioDigest,
+    stateStore,
+    storage,
+    workspaceRoot,
+    worktreeInspector,
+  } = {}) {
     if (!(stateStore instanceof AtomicStateStore) || !(storage instanceof WatchRuntimeStorage)) {
       runtimeFail('invalid-repair-ownership-ledger');
     }
-    if (!(worktreeInspector instanceof GitWorktreeInspector) || typeof workspaceRoot !== 'string') {
+    if (
+      !(worktreeInspector instanceof GitWorktreeInspector) ||
+      typeof requireCleanBaseline !== 'boolean' ||
+      typeof workspaceRoot !== 'string'
+    ) {
       runtimeFail('invalid-repair-ownership-ledger');
     }
     this.#repairScope = new RepairScope(repair);
+    this.#requireCleanBaseline = requireCleanBaseline;
     this.#scenarioDigest = validateDigest(scenarioDigest, 'invalid-repair-ownership-ledger');
     this.#stateStore = stateStore;
     this.#storage = storage;
@@ -225,8 +239,13 @@ export class RepairOwnershipLedger {
       expectedGeneration,
       operation: async () => {
         const existing = await this.#readOptional();
-        if (existing !== null && existing.status !== 'delivered') runtimeFail('repair-ownership-existing');
-        const snapshot = await this.#worktreeInspector.assertClean({ timeoutMilliseconds });
+        if (existing !== null && existing.status !== 'delivered') {
+          if (existing.status === 'write-open') runtimeFail('repair-write-unresolved');
+          return this.#stableSummary(existing, timeoutMilliseconds);
+        }
+        const snapshot = this.#requireCleanBaseline
+          ? await this.#worktreeInspector.assertClean({ timeoutMilliseconds })
+          : await this.#worktreeInspector.snapshot({ timeoutMilliseconds });
         const record = freezeRecord({
           baseline: snapshot,
           latest: snapshot,
@@ -252,6 +271,7 @@ export class RepairOwnershipLedger {
         const normalizedPaths = await this.#validateCandidatePaths(candidatePaths);
         const before = await this.#worktreeInspector.snapshot({ timeoutMilliseconds });
         if (!GitWorktreeInspector.sameSnapshot(record.latest, before)) runtimeFail('repair-external-change');
+        await this.#assertOwnedFilesStable(record);
         const candidateFiles = await this.#worktreeInspector.snapshotFiles(normalizedPaths);
         const next = freezeRecord({
           ...record,
@@ -275,7 +295,11 @@ export class RepairOwnershipLedger {
           runtimeFail('repair-write-candidates-changed');
         const after = await this.#worktreeInspector.snapshot({ timeoutMilliseconds });
         this.#assertWriteWindow(record, after);
-        const next = this.#completeRecord(record, after);
+        const trackedPaths = freezeArray(
+          [...new Set([...record.ownedFiles.map((entry) => entry.path), ...normalizedPaths])].sort(),
+        );
+        const afterFiles = await this.#worktreeInspector.snapshotFiles(trackedPaths);
+        const next = this.#completeRecord(record, after, afterFiles);
         await this.#write(next);
         return summaryForRecord(next);
       },
@@ -287,15 +311,8 @@ export class RepairOwnershipLedger {
       expectedGeneration,
       operation: async () => {
         const record = await this.#read();
-        if (record.status === 'write-open') runtimeFail('repair-write-unresolved');
         if (record.status === 'delivered') return summaryForRecord(record);
-        const current = await this.#worktreeInspector.snapshot({ timeoutMilliseconds });
-        if (!GitWorktreeInspector.sameSnapshot(record.latest, current)) runtimeFail('repair-external-change');
-        const identities = await this.#worktreeInspector.snapshotFiles(record.ownedFiles.map((entry) => entry.path));
-        for (const [index, identity] of identities.entries()) {
-          if (!sameFileIdentity(identity, record.ownedFiles[index].current)) runtimeFail('repair-external-change');
-        }
-        return summaryForRecord(record);
+        return this.#stableSummary(record, timeoutMilliseconds);
       },
     });
   }
@@ -332,21 +349,26 @@ export class RepairOwnershipLedger {
     }
   }
 
-  #completeRecord(record, after) {
+  #completeRecord(record, after, afterFiles) {
     const openWrite = record.openWrite;
     if (openWrite === null) runtimeFail('repair-write-not-open');
     const priorByPath = new Map(record.ownedFiles.map((entry) => [entry.path, entry]));
     const candidateBeforeByPath = new Map(openWrite.candidateFiles.map((entry) => [entry.path, entry]));
-    const afterByPath = new Map(after.files.map((entry) => [entry.path, entry]));
+    const candidates = new Set(openWrite.candidatePaths);
+    const afterByPath = new Map(afterFiles.map((entry) => [entry.path, entry]));
     const ownedFiles = [];
     const patchFiles = [];
     let bytesChanged = 0;
-    for (const path of after.changedFiles) {
+    for (const path of [...afterByPath.keys()].sort()) {
       if (!this.#repairScope.includes(path)) runtimeFail('repair-path-outside-scope');
       const prior = priorByPath.get(path);
       const base = prior?.base ?? candidateBeforeByPath.get(path);
       const current = afterByPath.get(path);
       if (base === undefined || current === undefined) runtimeFail('repair-external-change');
+      if (prior !== undefined && !candidates.has(path) && !sameFileIdentity(prior.current, current)) {
+        runtimeFail('repair-external-change');
+      }
+      if (sameFileIdentity(base, current)) continue;
       let operation = 'modify';
       if (!base.exists && current.exists) operation = 'create';
       if (base.exists && !current.exists) operation = 'delete';
@@ -362,6 +384,21 @@ export class RepairOwnershipLedger {
       ownedFiles: freezeArray(ownedFiles),
       status: 'tracked',
     });
+  }
+
+  async #assertOwnedFilesStable(record) {
+    const identities = await this.#worktreeInspector.snapshotFiles(record.ownedFiles.map((entry) => entry.path));
+    for (const [index, identity] of identities.entries()) {
+      if (!sameFileIdentity(identity, record.ownedFiles[index].current)) runtimeFail('repair-external-change');
+    }
+  }
+
+  async #stableSummary(record, timeoutMilliseconds) {
+    if (record.status === 'write-open') runtimeFail('repair-write-unresolved');
+    const current = await this.#worktreeInspector.snapshot({ timeoutMilliseconds });
+    if (!GitWorktreeInspector.sameSnapshot(record.latest, current)) runtimeFail('repair-external-change');
+    await this.#assertOwnedFilesStable(record);
+    return summaryForRecord(record);
   }
 
   async #read() {

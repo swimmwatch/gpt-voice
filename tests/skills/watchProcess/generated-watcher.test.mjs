@@ -174,6 +174,19 @@ describe('generated process watcher', () => {
     });
     assert.deepEqual(launches[1].arguments_.slice(1), ['--process-start-token', START_TOKEN, '--mode', 'resume']);
 
+    launcher.launch({
+      artifactPath: path.resolve('/tmp/watch-process.mjs'),
+      mode: 'repair-restart',
+      processStartToken: START_TOKEN,
+      workspaceRoot: path.resolve('/tmp'),
+    });
+    assert.deepEqual(launches[2].arguments_.slice(1), [
+      '--process-start-token',
+      START_TOKEN,
+      '--mode',
+      'repair-restart',
+    ]);
+
     let reads = 0;
     let now = 0;
     const monitor = new GeneratedWatcherStartupMonitor({
@@ -190,6 +203,12 @@ describe('generated process watcher', () => {
       },
     });
     assert.equal(heartbeat.phase, 'Watching');
+
+    const restartingHeartbeat = await monitor.waitForHeartbeat({
+      processStartToken: START_TOKEN,
+      readState: async () => ({ heartbeat: { startToken: START_TOKEN }, phase: 'Restarting', target: target() }),
+    });
+    assert.equal(restartingHeartbeat.phase, 'Restarting');
   });
 
   it('runs preflight before writing and launching a generated watcher', async () => {

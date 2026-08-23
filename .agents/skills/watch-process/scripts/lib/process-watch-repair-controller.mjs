@@ -3,6 +3,7 @@ import { FocusedVerificationRunner } from './focused-verification-runner.mjs';
 import { GitDeliveryService } from './git-delivery-service.mjs';
 import { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 import { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
+import { blockerForWatchOutcome } from './process-watch-transition-table.mjs';
 import {
   REPAIR_CANCELLATION_FILE_NAME,
   REPAIR_CONTROL_SCHEMA_VERSION,
@@ -369,9 +370,9 @@ export class ProcessWatchRepairController {
       return this.#result(cancelled);
     }
     const blocked = await this.#orchestrator.advance({
-      blocker: this.#blockerForOutcome(outcome),
+      blocker: blockerForWatchOutcome(outcome),
       outcome,
-      summaryCode: 'repair-blocked',
+      summaryCode: typeof error?.code === 'string' ? error.code : 'repair-blocked',
       toPhase: 'Blocked',
     });
     return this.#result(blocked);
@@ -454,20 +455,6 @@ export class ProcessWatchRepairController {
     } catch {
       return null;
     }
-  }
-
-  #blockerForOutcome(outcome) {
-    const blockers = Object.freeze({
-      authentication_failed: 'authentication-failed',
-      delivery_failed: 'delivery-failed',
-      dispatch_failed: 'dispatch-failed',
-      integrity_failed: 'integrity-failed',
-      scenario_changed: 'scenario-changed',
-      target_lost: 'target-lost',
-      verification_failed: 'verification-failed',
-      watcher_lost: 'watcher-lost',
-    });
-    return blockers[outcome] ?? 'integrity-failed';
   }
 
   #result(state, invocation = undefined) {

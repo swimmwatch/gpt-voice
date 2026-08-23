@@ -25,7 +25,7 @@ function isConfirmedStartupState(state, processStartToken) {
     isRecord(state) &&
     isRecord(state.heartbeat) &&
     state.heartbeat.startToken === processStartToken &&
-    ['Blocked', 'NeedsAgent', 'Success', 'Watching'].includes(state.phase) &&
+    ['Blocked', 'NeedsAgent', 'Restarting', 'Success', 'Watching'].includes(state.phase) &&
     (hasTargetBinding || state.phase === 'Blocked')
   );
 }

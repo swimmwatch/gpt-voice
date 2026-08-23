@@ -18,6 +18,7 @@ import {
 } from '../../../.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs';
 import { DockerBuildProcessAdapter } from '../../../.agents/skills/watch-process/scripts/lib/adapters/docker-build-process-adapter.mjs';
 import { LocalCommandProcessAdapter } from '../../../.agents/skills/watch-process/scripts/lib/adapters/local-command-process-adapter.mjs';
+import { normalizeAdapterAttemptContext } from '../../../.agents/skills/watch-process/scripts/lib/adapters/adapter-support.mjs';
 import { normalizeWatchScenario } from '../../../.agents/skills/watch-process/scripts/lib/watch-scenario-registry.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -227,7 +228,7 @@ async function withHarness({ children, normalized, run }) {
     await stateStore.writeInitialState(stateForScenario(normalized));
     const receiptStore = new OperationReceiptStore({ stateStore, storage });
     const { launches, runner } = createRunner(children);
-    return await run({ launches, receiptStore, runner, storage });
+    return await run({ launches, receiptStore, runner, stateStore, storage });
   } finally {
     await rm(runtimeRoot, { force: true, recursive: true });
   }
@@ -271,6 +272,14 @@ function createDockerAdapter({ commandDriver, normalized, receiptStore, runner }
 }
 
 describe('watch-process local and Docker adapters', () => {
+  it('normalizes an explicit null target idempotently before a fresh attempt', () => {
+    const timing = localScenario().scenario.timing;
+    const normalized = normalizeAdapterAttemptContext(baseContext({ target: null }), { timing });
+
+    assert.equal(normalized.target, null);
+    assert.deepEqual(normalizeAdapterAttemptContext(normalized, { timing }), normalized);
+  });
+
   it('runs a local command shell-free, records its receipt first, and verifies a successful result', async () => {
     const normalized = localScenario();
     const child = new FakeChild();
@@ -304,7 +313,122 @@ describe('watch-process local and Docker adapters', () => {
         const evidence = await adapter.collectEvidence(baseContext({ target: started.target }));
         assert.equal(evidence.status, 'completed');
         assert.equal(JSON.stringify(evidence).includes('private fixture'), false);
-        assert.equal((await receiptStore.read()).receipts.length, 1);
+        const receiptLog = await receiptStore.read();
+        assert.equal(receiptLog.receipts.length, 1);
+        assert.equal(receiptLog.terminalReceipts.length, 1);
+      },
+    });
+  });
+
+  it('restarts terminal local attempts through fresh adapter and runner generations', async () => {
+    const normalized = localScenario();
+    const initialChild = new FakeChild();
+    const retryChild = new FakeChild();
+    const finalChild = new FakeChild();
+    const driver = createFakeCommandDriver([commandResult(), commandResult()]);
+    await withHarness({
+      children: [initialChild],
+      normalized,
+      run: async ({ receiptStore, runner, stateStore, storage }) => {
+        const initialAdapter = createLocalAdapter({ commandDriver: driver, normalized, receiptStore, runner });
+        await initialAdapter.preflight(baseContext());
+        const initial = await initialAdapter.start(baseContext());
+
+        const prematureAdapter = createLocalAdapter({
+          commandDriver: driver,
+          normalized,
+          receiptStore,
+          runner: createRunner([new FakeChild()]).runner,
+        });
+        await prematureAdapter.preflight(baseContext({ target: initial.target }));
+        assert.deepEqual(await prematureAdapter.restart(baseContext({ target: initial.target })), {
+          blocker: 'watcher-lost',
+          status: 'blocked',
+        });
+
+        initialChild.close(1);
+        assert.equal((await initialAdapter.observe(baseContext({ target: initial.target }))).status, 'failed');
+
+        const currentState = await stateStore.readState();
+        await stateStore.compareAndSwap({
+          expectedGeneration: currentState.generation,
+          state: { ...currentState, generation: currentState.generation + 1 },
+        });
+        await stateStore.releaseLock();
+
+        const retryStateStore = new AtomicStateStore({
+          processId: 5555,
+          sessionId: SESSION_ID,
+          storage,
+          workspaceId: WORKSPACE_ID,
+        });
+        await retryStateStore.acquireLock({ processStartToken: 'e'.repeat(32) });
+        const retryReceiptStore = new OperationReceiptStore({
+          stateStore: retryStateStore,
+          storage,
+        });
+        const retryRunner = createRunner([retryChild]).runner;
+        const retryAdapter = createLocalAdapter({
+          commandDriver: driver,
+          normalized,
+          receiptStore: retryReceiptStore,
+          runner: retryRunner,
+        });
+        const retryContext = baseContext({ generation: 1, target: initial.target });
+        await retryAdapter.preflight(retryContext);
+        const restarted = await retryAdapter.restart(retryContext);
+
+        assert.equal(restarted.status, 'started', JSON.stringify(restarted));
+        assert.equal(restarted.target.attempt, 2);
+        retryChild.close(1);
+        assert.equal(
+          (
+            await retryAdapter.observe(
+              baseContext({ attempt: 2, generation: 1, stateGeneration: 1, target: restarted.target }),
+            )
+          ).status,
+          'failed',
+        );
+        const retryState = await retryStateStore.readState();
+        await retryStateStore.compareAndSwap({
+          expectedGeneration: retryState.generation,
+          state: {
+            ...retryState,
+            generation: retryState.generation + 1,
+            heartbeat: { ...retryState.heartbeat, startToken: 'e'.repeat(32) },
+          },
+        });
+        await retryStateStore.releaseLock();
+
+        const finalStateStore = new AtomicStateStore({
+          processId: 6666,
+          sessionId: SESSION_ID,
+          storage,
+          workspaceId: WORKSPACE_ID,
+        });
+        await finalStateStore.acquireLock({ processStartToken: 'd'.repeat(32) });
+        const finalReceiptStore = new OperationReceiptStore({ stateStore: finalStateStore, storage });
+        const finalAdapter = createLocalAdapter({
+          commandDriver: driver,
+          normalized,
+          receiptStore: finalReceiptStore,
+          runner: createRunner([finalChild]).runner,
+        });
+        const finalContext = baseContext({ attempt: 2, generation: 2, target: restarted.target });
+        await finalAdapter.preflight(finalContext);
+        const finalAttempt = await finalAdapter.restart(finalContext);
+        assert.equal(finalAttempt.status, 'started', JSON.stringify(finalAttempt));
+        assert.equal(finalAttempt.target.attempt, 3);
+        finalChild.close(0);
+        assert.equal(
+          (
+            await finalAdapter.observe(
+              baseContext({ attempt: 3, generation: 2, stateGeneration: 2, target: finalAttempt.target }),
+            )
+          ).status,
+          'succeeded',
+        );
+        await finalStateStore.releaseLock();
       },
     });
   });

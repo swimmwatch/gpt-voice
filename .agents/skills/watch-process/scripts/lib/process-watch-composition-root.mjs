@@ -133,6 +133,7 @@ export class ProcessWatchCompositionRoot {
     });
     const ownershipLedger = new RepairOwnershipLedger({
       repair: this.#scenario.repair,
+      requireCleanBaseline: this.#scenario.delivery.strategy === 'git-delivery',
       scenarioDigest: this.#scenarioDigest,
       stateStore,
       storage,

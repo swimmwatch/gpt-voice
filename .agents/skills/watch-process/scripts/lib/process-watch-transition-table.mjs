@@ -28,6 +28,14 @@ const BLOCKER_BY_OUTCOME = Object.freeze({
   watcher_lost: 'watcher-lost',
 });
 
+/** Owns the canonical outcome-to-blocker mapping used by every state transition. */
+export function blockerForWatchOutcome(outcome) {
+  const normalized = validateOutcome(outcome, 'invalid-transition-outcome');
+  const blocker = BLOCKER_BY_OUTCOME[normalized];
+  if (blocker === undefined) runtimeFail('transition-outcome-not-blockable');
+  return blocker;
+}
+
 const NEEDS_AGENT_OUTCOMES = new Set([
   'authentication_failed',
   'delivery_failed',
@@ -78,10 +86,7 @@ export class ProcessWatchTransitionTable {
   }
 
   blockerForOutcome(outcome) {
-    const normalized = validateOutcome(outcome, 'invalid-transition-outcome');
-    const blocker = BLOCKER_BY_OUTCOME[normalized];
-    if (blocker === undefined) runtimeFail('transition-outcome-not-blockable');
-    return blocker;
+    return blockerForWatchOutcome(outcome);
   }
 
   assert({ blocker = null, fromPhase, outcome = null, toPhase } = {}) {

@@ -158,13 +158,14 @@ function targetFor(context, { attempt = context.attempt, sourceSha = context.sou
 
 /** Test adapter with optional gates for deterministic phase-boundary coverage. */
 class ScriptedAdapter extends ProcessAdapter {
+  #failedObservationsRemaining;
   #freshSourceSha;
   #restartGate;
   #restartBlocker;
-  #shouldFailInitialObservation = true;
 
-  constructor({ freshSourceSha = null, restartBlocker = null, restartGate = null } = {}) {
+  constructor({ failedObservationCount = 1, freshSourceSha = null, restartBlocker = null, restartGate = null } = {}) {
     super();
+    this.#failedObservationsRemaining = failedObservationCount;
     this.#freshSourceSha = freshSourceSha;
     this.#restartGate = restartGate;
     this.#restartBlocker = restartBlocker;
@@ -196,8 +197,8 @@ class ScriptedAdapter extends ProcessAdapter {
 
   async observe(context) {
     this.calls.push(Object.freeze({ kind: 'observe', context }));
-    if (this.#shouldFailInitialObservation) {
-      this.#shouldFailInitialObservation = false;
+    if (this.#failedObservationsRemaining > 0) {
+      this.#failedObservationsRemaining -= 1;
       return Object.freeze({ status: 'failed', target: context.target });
     }
     return Object.freeze({ status: 'succeeded', target: context.target });
@@ -225,6 +226,7 @@ class ScriptedAdapter extends ProcessAdapter {
 
 async function createHarness({
   adapterOptions,
+  clock,
   gitRunnerOverride,
   sourceSha,
   strategy,
@@ -244,6 +246,7 @@ async function createHarness({
   const worktreeInspector = new GitWorktreeInspector({ commandRunner: gitCommandRunner, workspaceRoot });
   const ownershipLedger = new RepairOwnershipLedger({
     repair: scenarioValue.repair,
+    requireCleanBaseline: scenarioValue.delivery.strategy === 'git-delivery',
     scenarioDigest,
     stateStore,
     storage,
@@ -282,6 +285,7 @@ async function createHarness({
   });
   const controller = new ProcessWatchRepairController({
     adapter,
+    clock,
     deliveryService,
     orchestrator,
     ownershipLedger,
@@ -326,6 +330,24 @@ async function prepareRepair(harness, workspaceRoot, paths, write) {
 }
 
 describe('watch-process repair, verification, and delivery', () => {
+  it('blocks an expired repair with the canonical timed-out blocker', async () => {
+    await withRepository({}, async ({ workspaceRoot }) => {
+      const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      const harness = await createHarness({
+        clock: () => Date.now() + 60_000,
+        sourceSha,
+        strategy: { strategy: 'local-restart', pushCurrentUpstream: false },
+        workspaceRoot,
+      });
+
+      const result = await harness.controller.beginRepair({ invocation: harness.invocation });
+
+      assert.equal(result.phase, 'Blocked');
+      assert.equal(result.outcome, 'timed_out');
+      assert.equal(result.blocker, 'atomicity-uncertain');
+    });
+  });
+
   it('repairs a failed verification forward without destructive rollback', async () => {
     await withRepository({ verificationSource: 'process.exitCode = 1;\n' }, async ({ workspaceRoot }) => {
       const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
@@ -351,6 +373,58 @@ describe('watch-process repair, verification, and delivery', () => {
       assert.equal(blocked.phase, 'Blocked');
       assert.equal(blocked.outcome, 'verification_failed');
       assert.equal(await readFile(path.join(workspaceRoot, 'verification.mjs'), 'utf8'), 'process.exitCode = 0;\n');
+    });
+  });
+
+  it('keeps unrelated pre-existing changes outside a local-restart repair scope', async () => {
+    await withRepository({}, async ({ workspaceRoot }) => {
+      await mkdir(path.join(workspaceRoot, '.agents'), { recursive: true });
+      await writeFile(path.join(workspaceRoot, '.agents', 'existing.mjs'), 'export const dotted = true;\n');
+      await writeFile(path.join(workspaceRoot, 'app.mjs'), 'export const existing = 2;\n');
+      const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      const harness = await createHarness({
+        sourceSha,
+        strategy: { strategy: 'local-restart', pushCurrentUpstream: false },
+        workspaceRoot,
+      });
+
+      await prepareRepair(harness, workspaceRoot, ['src/app.mjs'], async () => {
+        await writeFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'export const value = 2;\n');
+      });
+
+      const verified = await harness.controller.verify({ invocation: harness.invocation });
+      assert.equal(verified.phase, 'Verifying', JSON.stringify(verified));
+      assert.equal(await readFile(path.join(workspaceRoot, 'app.mjs'), 'utf8'), 'export const existing = 2;\n');
+      assert.equal((await harness.ownershipLedger.summary()).changedFileCount, 1);
+    });
+  });
+
+  it('retains cumulative repair ownership across repeated local restart failures', async () => {
+    await withRepository({}, async ({ workspaceRoot }) => {
+      const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      const harness = await createHarness({
+        adapterOptions: { failedObservationCount: 2 },
+        sourceSha,
+        strategy: { strategy: 'local-restart', pushCurrentUpstream: false },
+        workspaceRoot,
+      });
+
+      await prepareRepair(harness, workspaceRoot, ['src/app.mjs'], async () => {
+        await writeFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'export const value = 2;\n');
+      });
+      assert.equal((await harness.controller.verify({ invocation: harness.invocation })).phase, 'Verifying');
+      assert.equal(
+        (await harness.controller.deliverAndRestart({ invocation: harness.invocation })).phase,
+        'NeedsAgent',
+      );
+
+      await prepareRepair(harness, workspaceRoot, ['src/app.mjs'], async () => {
+        await writeFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'export const value = 3;\n');
+      });
+      assert.equal((await harness.controller.verify({ invocation: harness.invocation })).phase, 'Verifying');
+      assert.equal((await harness.controller.deliverAndRestart({ invocation: harness.invocation })).phase, 'Success');
+      assert.equal((await harness.ownershipLedger.summary()).changedFileCount, 1);
+      assert.equal(await readFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'utf8'), 'export const value = 3;\n');
     });
   });
 
@@ -422,6 +496,10 @@ describe('watch-process repair, verification, and delivery', () => {
       const receipts = await readFile(path.join(harness.storage.rootPath, 'receipts.json'), 'utf8');
       assert.match(receipts, /receipt-delivery-/u);
       assert.equal(harness.adapter.calls.filter((call) => call.kind === 'start').length, 2);
+      const retryStart = harness.adapter.calls.filter((call) => call.kind === 'start').at(-1);
+      const retryObservation = harness.adapter.calls.filter((call) => call.kind === 'observe').at(-1);
+      assert.equal(retryObservation.context.generation, retryStart.context.generation);
+      assert.ok(retryObservation.context.stateGeneration > retryObservation.context.generation);
     });
   });
 

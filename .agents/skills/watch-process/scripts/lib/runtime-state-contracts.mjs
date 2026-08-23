@@ -15,7 +15,7 @@ import {
 
 export const RUNTIME_STATE_SCHEMA_VERSION = 1;
 export const RUNTIME_AUDIT_SCHEMA_VERSION = 1;
-export const OPERATION_RECEIPT_SCHEMA_VERSION = 1;
+export const OPERATION_RECEIPT_SCHEMA_VERSION = 2;
 export const SUCCESS_ATTESTATION_SCHEMA_VERSION = 1;
 
 export const WATCH_PHASES = freezeArray([
@@ -301,7 +301,11 @@ export function normalizeRuntimeState(value, { expectedWatchId } = {}) {
   if (phase !== 'Blocked' && blocker !== null) runtimeFail(code);
   return freezeRecord({
     blocker,
-    deadlineEpochMilliseconds: requireNonNegativeInteger(state.deadlineEpochMilliseconds, code, Number.MAX_SAFE_INTEGER),
+    deadlineEpochMilliseconds: requireNonNegativeInteger(
+      state.deadlineEpochMilliseconds,
+      code,
+      Number.MAX_SAFE_INTEGER,
+    ),
     failureFingerprints: validateStringArray(state.failureFingerprints, code, validateDigest),
     generation: requireNonNegativeInteger(state.generation, code, 1_000_000_000),
     heartbeat: normalizeHeartbeat(state.heartbeat, code),

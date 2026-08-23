@@ -1,4 +1,11 @@
-import { digestNormalizedValue, freezeArray, freezeRecord, isRecord, requireNonNegativeInteger, runtimeFail } from './runtime-core-support.mjs';
+import {
+  digestNormalizedValue,
+  freezeArray,
+  freezeRecord,
+  isRecord,
+  requireNonNegativeInteger,
+  runtimeFail,
+} from './runtime-core-support.mjs';
 import {
   OPERATION_RECEIPT_SCHEMA_VERSION,
   validateDigest,
@@ -12,6 +19,7 @@ import { AtomicStateStore } from './atomic-state-store.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 
 const RECEIPTS_FILE_NAME = 'receipts.json';
+const LEGACY_OPERATION_RECEIPT_SCHEMA_VERSION = 1;
 const MAX_OPERATION_RECORDS = 100;
 const MAX_RECEIPT_FILE_BYTES = 262_144;
 
@@ -41,7 +49,11 @@ function normalizeOperation(value, expectedWatchId) {
     new Set(['fixedInputsDigest', 'generation', 'kind', 'scenarioDigest', 'sourceSha', 'watchId']),
     code,
   );
-  assertRequiredFields(operation, ['fixedInputsDigest', 'generation', 'kind', 'scenarioDigest', 'sourceSha', 'watchId'], code);
+  assertRequiredFields(
+    operation,
+    ['fixedInputsDigest', 'generation', 'kind', 'scenarioDigest', 'sourceSha', 'watchId'],
+    code,
+  );
   const watchId = validateWatchId(operation.watchId, code);
   if (watchId !== expectedWatchId) runtimeFail(code);
   return freezeRecord({
@@ -123,25 +135,73 @@ function normalizeReceipt(value, expectedWatchId) {
   });
 }
 
+function normalizeTerminalReceipt(value, expectedWatchId) {
+  const code = 'invalid-operation-receipt-log';
+  const receipt = assertClosedRecord(
+    value,
+    new Set(['operationKey', 'receiptId', 'target', 'terminalDigest', 'watchId']),
+    code,
+  );
+  assertRequiredFields(receipt, ['operationKey', 'receiptId', 'target', 'terminalDigest', 'watchId'], code);
+  const watchId = validateWatchId(receipt.watchId, code);
+  if (watchId !== expectedWatchId) runtimeFail(code);
+  return freezeRecord({
+    operationKey: validateDigest(receipt.operationKey, code),
+    receiptId: validateReceiptId(receipt.receiptId, code),
+    target: normalizeTarget(receipt.target, code),
+    terminalDigest: validateDigest(receipt.terminalDigest, code),
+    watchId,
+  });
+}
+
 function emptyLog(watchId) {
-  return freezeRecord({ intents: freezeArray([]), receipts: freezeArray([]), schemaVersion: OPERATION_RECEIPT_SCHEMA_VERSION, watchId });
+  return freezeRecord({
+    intents: freezeArray([]),
+    receipts: freezeArray([]),
+    schemaVersion: OPERATION_RECEIPT_SCHEMA_VERSION,
+    terminalReceipts: freezeArray([]),
+    watchId,
+  });
 }
 
 function normalizeLog(value, expectedWatchId) {
   const code = 'invalid-operation-receipt-log';
   if (value === null) return emptyLog(expectedWatchId);
-  const log = assertClosedRecord(value, new Set(['intents', 'receipts', 'schemaVersion', 'watchId']), code);
+  const log = assertClosedRecord(
+    value,
+    new Set(['intents', 'receipts', 'schemaVersion', 'terminalReceipts', 'watchId']),
+    code,
+  );
   assertRequiredFields(log, ['intents', 'receipts', 'schemaVersion', 'watchId'], code);
-  if (log.schemaVersion !== OPERATION_RECEIPT_SCHEMA_VERSION || validateWatchId(log.watchId, code) !== expectedWatchId) {
+  if (
+    ![LEGACY_OPERATION_RECEIPT_SCHEMA_VERSION, OPERATION_RECEIPT_SCHEMA_VERSION].includes(log.schemaVersion) ||
+    validateWatchId(log.watchId, code) !== expectedWatchId
+  ) {
     runtimeFail(code);
   }
   if (!Array.isArray(log.intents) || !Array.isArray(log.receipts)) runtimeFail(code);
-  if (log.intents.length > MAX_OPERATION_RECORDS || log.receipts.length > MAX_OPERATION_RECORDS) runtimeFail(code);
+  const terminalReceiptValues =
+    log.schemaVersion === LEGACY_OPERATION_RECEIPT_SCHEMA_VERSION ? [] : log.terminalReceipts;
+  if (!Array.isArray(terminalReceiptValues)) runtimeFail(code);
+  if (
+    log.intents.length > MAX_OPERATION_RECORDS ||
+    log.receipts.length > MAX_OPERATION_RECORDS ||
+    terminalReceiptValues.length > MAX_OPERATION_RECORDS
+  ) {
+    runtimeFail(code);
+  }
   const intents = log.intents.map((intent) => normalizeIntent(intent, expectedWatchId));
   const receipts = log.receipts.map((receipt) => normalizeReceipt(receipt, expectedWatchId));
+  const terminalReceipts = terminalReceiptValues.map((receipt) => normalizeTerminalReceipt(receipt, expectedWatchId));
   if (new Set(intents.map((intent) => intent.operationKey)).size !== intents.length) runtimeFail(code);
   if (new Set(receipts.map((receipt) => receipt.receiptId)).size !== receipts.length) runtimeFail(code);
   if (new Set(receipts.map((receipt) => receipt.operationKey)).size !== receipts.length) runtimeFail(code);
+  if (new Set(terminalReceipts.map((receipt) => receipt.receiptId)).size !== terminalReceipts.length) {
+    runtimeFail(code);
+  }
+  if (new Set(terminalReceipts.map((receipt) => receipt.operationKey)).size !== terminalReceipts.length) {
+    runtimeFail(code);
+  }
   for (const receipt of receipts) {
     const intent = intents.find((candidate) => candidate.operationKey === receipt.operationKey);
     if (
@@ -153,10 +213,21 @@ function normalizeLog(value, expectedWatchId) {
       runtimeFail(code);
     }
   }
+  for (const terminalReceipt of terminalReceipts) {
+    const receipt = receipts.find((candidate) => candidate.receiptId === terminalReceipt.receiptId);
+    if (
+      receipt === undefined ||
+      receipt.operationKey !== terminalReceipt.operationKey ||
+      !sameCanonicalValue(receipt.target, terminalReceipt.target)
+    ) {
+      runtimeFail(code);
+    }
+  }
   return freezeRecord({
     intents: freezeArray(intents),
     receipts: freezeArray(receipts),
     schemaVersion: OPERATION_RECEIPT_SCHEMA_VERSION,
+    terminalReceipts: freezeArray(terminalReceipts),
     watchId: expectedWatchId,
   });
 }
@@ -164,7 +235,9 @@ function normalizeLog(value, expectedWatchId) {
 function replaceIntent(log, replacement) {
   return freezeRecord({
     ...log,
-    intents: freezeArray(log.intents.map((intent) => (intent.operationKey === replacement.operationKey ? replacement : intent))),
+    intents: freezeArray(
+      log.intents.map((intent) => (intent.operationKey === replacement.operationKey ? replacement : intent)),
+    ),
   });
 }
 
@@ -255,7 +328,9 @@ export class OperationReceiptStore {
           if (!sameCanonicalValue(existingById, normalizedReceipt)) runtimeFail('receipt-id-conflict');
           return freezeRecord({ kind: 'existing', receipt: existingById });
         }
-        const existingForOperation = log.receipts.find((candidate) => candidate.operationKey === normalizedReceipt.operationKey);
+        const existingForOperation = log.receipts.find(
+          (candidate) => candidate.operationKey === normalizedReceipt.operationKey,
+        );
         if (existingForOperation !== undefined) {
           if (!sameCanonicalValue(existingForOperation.target, normalizedReceipt.target)) {
             runtimeFail('operation-receipt-ambiguous');
@@ -275,6 +350,45 @@ export class OperationReceiptStore {
     });
   }
 
+  async recordTerminalReceipt({ expectedGeneration, receipt }) {
+    return this.#mutate(() => this.#recordTerminalReceipt({ expectedGeneration, receipt }));
+  }
+
+  async #recordTerminalReceipt({ expectedGeneration, receipt }) {
+    const normalizedReceipt = normalizeTerminalReceipt(receipt, this.watchId);
+    return this.#stateStore.withOwnership({
+      expectedGeneration,
+      operation: async () => {
+        const log = await this.read();
+        const operationReceipt = log.receipts.find((candidate) => candidate.receiptId === normalizedReceipt.receiptId);
+        if (
+          operationReceipt === undefined ||
+          operationReceipt.operationKey !== normalizedReceipt.operationKey ||
+          !sameCanonicalValue(operationReceipt.target, normalizedReceipt.target)
+        ) {
+          runtimeFail('operation-terminal-receipt-mismatch');
+        }
+        const existing = log.terminalReceipts.find((candidate) => candidate.receiptId === normalizedReceipt.receiptId);
+        if (existing !== undefined) {
+          if (!sameCanonicalValue(existing, normalizedReceipt)) {
+            runtimeFail('operation-terminal-receipt-conflict');
+          }
+          return freezeRecord({ kind: 'existing', receipt: existing });
+        }
+        if (log.terminalReceipts.length === MAX_OPERATION_RECORDS) {
+          runtimeFail('operation-receipt-limit-reached');
+        }
+        await this.#writeLog(
+          freezeRecord({
+            ...log,
+            terminalReceipts: freezeArray([...log.terminalReceipts, normalizedReceipt]),
+          }),
+        );
+        return freezeRecord({ kind: 'recorded', receipt: normalizedReceipt });
+      },
+    });
+  }
+
   /**
    * Reconciliation is idempotent: exactly one exact match attaches; zero can
    * reserve one fresh operation; multiple or unprovable results become blocked.
@@ -285,7 +399,11 @@ export class OperationReceiptStore {
 
   async #reconcile({ exactMatches, expectedGeneration, identityProven, operationKey }) {
     const key = validateDigest(operationKey, 'invalid-operation-key');
-    if (typeof identityProven !== 'boolean' || !Array.isArray(exactMatches) || exactMatches.length > MAX_OPERATION_RECORDS) {
+    if (
+      typeof identityProven !== 'boolean' ||
+      !Array.isArray(exactMatches) ||
+      exactMatches.length > MAX_OPERATION_RECORDS
+    ) {
       runtimeFail('invalid-operation-reconciliation');
     }
     const normalizedMatches = exactMatches.map((target) => normalizeTarget(target, 'invalid-operation-reconciliation'));
@@ -296,7 +414,8 @@ export class OperationReceiptStore {
       operation: async () => {
         const log = await this.read();
         const intent = log.intents.find((candidate) => candidate.operationKey === key);
-        if (intent === undefined || intent.operation.generation !== expectedGeneration) runtimeFail('operation-intent-not-found');
+        if (intent === undefined || intent.operation.generation !== expectedGeneration)
+          runtimeFail('operation-intent-not-found');
 
         if (intent.status === 'ambiguous') return freezeRecord({ blocker: 'dispatch-failed', kind: 'blocked' });
         if (!identityProven || normalizedMatches.length > 1) {

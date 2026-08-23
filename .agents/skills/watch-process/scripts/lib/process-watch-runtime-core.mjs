@@ -39,6 +39,12 @@ export { ProcessWatchOperator } from './process-watch-operator.mjs';
 export { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
 export { ProcessWatchRepairController } from './process-watch-repair-controller.mjs';
 export {
+  PROCESS_WATCH_SELECTION_FILE_NAME,
+  PROCESS_WATCH_SELECTION_SCHEMA_VERSION,
+  PROCESS_WATCH_SELECTION_STORAGE_ID,
+  ProcessWatchSelectionStore,
+} from './process-watch-selection-store.mjs';
+export {
   assertStopHookBudget,
   normalizeStopHookInput,
   STOP_HOOK_CLEANUP_MARGIN_SECONDS,
@@ -48,6 +54,7 @@ export {
 export { ProcessWatchStopHookRepository } from './process-watch-stop-hook-repository.mjs';
 export { ProcessWatchStopHookWatch, probeStopHookProcessLiveness } from './process-watch-stop-hook-watch.mjs';
 export { ProcessWatchStopHook } from './process-watch-stop-hook.mjs';
+export { ProcessWatchTerminalWaiter } from './process-watch-terminal-waiter.mjs';
 export { ProcessWatchTransitionTable, WATCH_TRANSITION_PHASES } from './process-watch-transition-table.mjs';
 export {
   REPAIR_CANCELLATION_FILE_NAME,

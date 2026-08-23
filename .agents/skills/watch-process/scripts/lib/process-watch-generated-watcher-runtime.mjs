@@ -18,7 +18,7 @@ function parseWatcherArguments(arguments_) {
     arguments_.length !== 4 ||
     arguments_[0] !== '--process-start-token' ||
     arguments_[2] !== '--mode' ||
-    !['resume', 'start'].includes(arguments_[3])
+    !['repair-restart', 'resume', 'start'].includes(arguments_[3])
   ) {
     runtimeFail('invalid-generated-watcher-arguments');
   }
@@ -81,7 +81,11 @@ export async function runGeneratedProcessWatcher(binding, { arguments_ = process
     workspaceId: envelope.workspaceId,
     workspaceRoot,
   });
-  const { orchestrator } = root.create({ processStartToken });
+  const { orchestrator, repairController } = root.create({ processStartToken });
+  if (mode === 'repair-restart') {
+    if (repairController === null) runtimeFail('process-watch-repair-control-unavailable');
+    return repairController.deliverAndRestart({ invocation: envelope.invocation });
+  }
   return mode === 'resume' ? orchestrator.resume(envelope.invocation) : orchestrator.run(envelope.invocation);
 }
 
