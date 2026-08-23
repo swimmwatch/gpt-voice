@@ -2,7 +2,7 @@
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
   "schemaVersion": "1.0.0",
   "id": "github-pr-required-checks",
-  "description": "Watch every required check for one PR head SHA.",
+  "description": "Watch and repair every required check for one swimmwatch/gpt-voice PR head SHA.",
   "adapter": "github-actions",
   "target": {
     "selectorKinds": ["pull-request-url"],
@@ -16,27 +16,75 @@
     "allowedSkippedChecks": []
   },
   "timing": {
-    "expectedDurationSeconds": 1800,
-    "minTimeoutSeconds": 600,
+    "expectedDurationSeconds": 3600,
+    "minTimeoutSeconds": 900,
     "maxTimeoutSeconds": 7200,
     "poll": { "initialSeconds": 10, "maxSeconds": 60, "multiplier": 1.5 }
   },
   "evidence": { "maxBytesPerAttempt": 1048576, "maxFailures": 20, "ttlSeconds": 86400 },
   "repair": {
-    "includeGlobs": ["src/**", "tests/**", "scripts/**", ".github/workflows/**"],
-    "excludeGlobs": ["dist/**", "node_modules/**"],
+    "includeGlobs": [
+      ".gitattributes",
+      ".gitignore",
+      ".prettierignore",
+      ".prettierrc",
+      ".agents/**",
+      ".github/**",
+      "AGENTS.md",
+      "build/**",
+      "docs/**",
+      "eslint.config.mjs",
+      "package-lock.json",
+      "package.json",
+      "postcss.config.js",
+      "runtime/**",
+      "scripts/**",
+      "src/**",
+      "tests/**",
+      "tsconfig*.json",
+      "webpack.config.js"
+    ],
+    "excludeGlobs": [
+      ".agents/skills/watch-process/**",
+      ".cache/**",
+      ".codex/**",
+      "dist/**",
+      "node_modules/**",
+      "release-artifacts/**"
+    ],
     "allowCreate": true,
     "allowDelete": false,
     "maxFiles": 50,
     "maxBytesChanged": 1048576
   },
-  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
+  "verification": [
+    { "executable": "npm", "args": ["run", "format:check"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "lint"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "test:unit:ci"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "build:prod"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    {
+      "executable": "npm",
+      "args": ["run", "verify:renderer-bundle"],
+      "cwd": ".",
+      "env": ["PATH", "SYSTEMROOT"]
+    },
+    { "executable": "npm", "args": ["run", "validate:workflows"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "validate:dependabot"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }
+  ],
   "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
   "forbiddenActions": ["force-push", "merge", "release", "publish", "deploy"],
   "adapterConfig": {
-    "repository": "owner/repository",
+    "repository": "swimmwatch/gpt-voice",
     "mode": "pull-request-contract",
-    "workflowAllowlist": ["pr-checks.yml"],
+    "workflowAllowlist": [
+      "actionlint.yml",
+      "dependency-review.yml",
+      "local-whisper-packaging.yml",
+      "pr-checks.yml",
+      "repository-security.yml",
+      "watch-process-compatibility.yml"
+    ],
     "dispatch": { "enabled": false, "inputs": {} }
   }
 }

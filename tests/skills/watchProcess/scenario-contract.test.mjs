@@ -392,6 +392,39 @@ describe('watch-process scenarios', () => {
       assert.equal(normalized.canonicalDigest, digestCanonicalJson(normalized.canonicalJson));
     }
   });
+
+  it('binds the GitHub PR scenario to this repository and its fail-closed repair loop', async () => {
+    const scenario = (await new WatchScenarioRegistry(SCENARIOS_PATH).load('github-pr-required-checks')).scenario;
+
+    assert.equal(scenario.adapterConfig.repository, 'swimmwatch/gpt-voice');
+    assert.equal(scenario.adapterConfig.mode, 'pull-request-contract');
+    assert.deepEqual(scenario.adapterConfig.workflowAllowlist, [
+      'actionlint.yml',
+      'dependency-review.yml',
+      'local-whisper-packaging.yml',
+      'pr-checks.yml',
+      'repository-security.yml',
+      'watch-process-compatibility.yml',
+    ]);
+    assert.deepEqual(scenario.delivery, { strategy: 'git-delivery', pushCurrentUpstream: true });
+    assert.equal(scenario.target.requireExactSourceRevision, true);
+    assert.equal(scenario.success.requiredChecksMode, 'provider-required');
+    assert.equal(scenario.repair.excludeGlobs.includes('.agents/skills/watch-process/**'), true);
+    assert.equal(scenario.repair.excludeGlobs.includes('.codex/**'), true);
+    assert.deepEqual(
+      scenario.verification.map((command) => command.args.join(' ')),
+      [
+        'run format:check',
+        'run lint',
+        'run test:types',
+        'run test:unit:ci',
+        'run build:prod',
+        'run verify:renderer-bundle',
+        'run validate:workflows',
+        'run validate:dependabot',
+      ],
+    );
+  });
 });
 
 describe('substitutions and repair scope', () => {
