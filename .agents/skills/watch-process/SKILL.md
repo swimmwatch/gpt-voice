@@ -117,3 +117,11 @@ and records `user_cancelled`.
 Do not create a global service, change user-level configuration, mutate Goals,
 implement GitLab-specific behavior, collect credentials, publish, deploy,
 release, tag, merge, force-push, or weaken checks.
+
+## Operator and scenario-author reference
+
+Read [scenario authoring and operations](references/scenario-authoring.md)
+before creating or changing a scenario. It is the project-local guide for
+installation and hook trust, scenario schema and examples, timeout decisions,
+recovery, evidence, cleanup, and the manual acceptance record. It does not
+authorize a watch, a process start, a remote delivery, or a deployment.

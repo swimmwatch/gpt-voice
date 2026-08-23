@@ -146,6 +146,19 @@
     behavior unchanged. No hosted workflow run, branch-protection change,
     credentials, remote target, publish, release, or deploy action was used.
 
+## Current Packet
+
+- [12 — Documentation and acceptance](12_documentation_and_acceptance.md)
+  - Completed the automated documentation/audit portion: a project-local
+    scenario-authoring and operator guide, an executable 71-requirement
+    traceability matrix, and a bounded manual acceptance index.
+  - Added policy coverage that verifies every active Specification Revision 4
+    ID has implementation, automated-evidence, and operator-material entries,
+    and that every referenced implementation/test file exists.
+  - Task 12 remains unchecked and incomplete because no real target, CI run,
+    Docker daemon, hook-trust setting, remote delivery, or repository ruleset
+    was authorized or exercised.
+
 ## Changed Files
 
 - `.agents/skills/watch-process/references/process-watch-scenario.schema.json`
@@ -259,6 +272,10 @@
 - `.github/workflows/watch-process-compatibility.yml`
 - `tests/skills/watchProcess/suite.test.mjs`
 - `tests/skills/watchProcessCompatibilityWorkflowPolicy.test.ts`
+- `.agents/skills/watch-process/references/scenario-authoring.md`
+- `docs/specs/ci-watch-agent-skill/tasks/manual-acceptance.md`
+- `docs/specs/ci-watch-agent-skill/tasks/traceability.md`
+- `tests/skills/watchProcessDocumentationPolicy.test.ts`
 
 ## Checks
 
@@ -368,23 +385,36 @@
 - `npm run test:types`
 - `git diff --check`
 - `git diff --exit-code -- .github/workflows/pr-checks.yml`
+- `node --test tests/skills/watchProcess/suite.test.mjs` (99 passing)
+- `node --import tsx --test tests/skills/watchProcessSkillSurface.test.ts tests/skills/watchProcessStopHookPolicy.test.ts tests/skills/watchProcessCompatibilityWorkflowPolicy.test.ts tests/skills/watchProcessDocumentationPolicy.test.ts` (14 passing)
+- `npm run format:check`
+- `npm run lint` (passes; existing repository warnings remain)
+- `npm run test:types`
+- `git diff --check`
+- `npm run test:unit:ci` not run: the standalone suite and all affected root
+  policy tests cover the documentation-only integration surface.
 
 ## Next Packet
 
-[12 — Documentation and acceptance](12_documentation_and_acceptance.md)
+[12 — Documentation and acceptance](12_documentation_and_acceptance.md): resume
+only after the user gives separate explicit authority for one pending manual
+acceptance gate and selects its finite timeout when it starts a process.
 
 ## Blockers
 
-Task 11 is complete and intentionally uncommitted. The next explicit
-incremental-implementation invocation may verify and commit only Task 11, then
-start Task 12.
+Task 11 was committed as `1313454f ci(watch-process): add compatibility matrix`.
+Task 12 is intentionally incomplete. Its complete pending-gate
+list is [manual-acceptance.md](manual-acceptance.md); each real watch, resume,
+or dispatch requires separate explicit authority and a freshly selected finite
+timeout.
 
-The new workflow has not yet produced a real successful six-cell run. After it
-does, a repository administrator must separately authorize and add the exact
-`Watch Process Compatibility` check to branch protection or rulesets. The
-project-local hook must still be reviewed and trusted manually through Codex
-`/hooks`; implementation cannot bypass that user-controlled gate.
+The project-local hook must still be reviewed and trusted manually through Codex
+`/hooks`. The compatibility workflow has not produced a real successful
+six-cell run, and a repository administrator must separately authorize adding
+the exact `Watch Process Compatibility` check to branch protection or rulesets
+only after that run succeeds. No manual gate may be inferred from this
+implementation invocation.
 
 The worktree also contains unrelated CI, security, package, and documentation
 changes outside this packet. They were neither inspected nor modified by Task
-11 and must remain excluded from its later commit.
+12 and must remain excluded from any later watch-process commit.
