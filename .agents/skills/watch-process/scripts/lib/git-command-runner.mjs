@@ -13,7 +13,19 @@ import {
 import { PROCESS_TERMINAL_CLASSIFICATIONS } from './runtime-contracts.mjs';
 
 export const GIT_EXECUTABLE = 'git';
-export const GIT_ENVIRONMENT_ALLOWLIST = freezeArray(['PATH', 'SystemRoot']);
+// Git resolves the per-user configuration from these profile locations.  Keep
+// the child environment otherwise empty so unrelated inherited values cannot
+// affect repair delivery or be exposed through its bounded evidence.
+export const GIT_ENVIRONMENT_ALLOWLIST = freezeArray([
+  'PATH',
+  'SystemRoot',
+  'HOME',
+  'USERPROFILE',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'XDG_CONFIG_HOME',
+  'GIT_CONFIG_GLOBAL',
+]);
 
 const MAX_GIT_ARGUMENTS = 600;
 const MAX_GIT_ARGUMENT_BYTES = 4_096;

@@ -33,7 +33,6 @@ import { WatchRuntimeDirectory } from './watch-runtime-directory.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 import { WatchScenarioRegistry } from './watch-scenario-registry.mjs';
 
-const GIT_OPERATOR_ENVIRONMENT = freezeArray(['HOME', 'USERPROFILE', 'XDG_CONFIG_HOME']);
 const CONTROL_ACTIONS = new Set(['begin-repair', 'begin-write', 'complete-write', 'restart', 'verify']);
 const ACTIVE_BLOCKING_OUTCOMES = new Set(['integrity_failed', 'monitoring_failed', 'timed_out', 'watcher_lost']);
 
@@ -521,10 +520,7 @@ export class ProcessWatchOperator {
       inheritedEnvironment: this.#environment,
       workspaceRoot: this.#workspaceRoot,
     });
-    const commandRunner = new GitCommandRunner({
-      environmentAllowlist: GIT_OPERATOR_ENVIRONMENT,
-      runner,
-    });
+    const commandRunner = new GitCommandRunner({ runner });
     return new GitWorktreeInspector({ commandRunner, workspaceRoot: this.#workspaceRoot });
   }
 

@@ -330,6 +330,33 @@ async function prepareRepair(harness, workspaceRoot, paths, write) {
 }
 
 describe('watch-process repair, verification, and delivery', () => {
+  it('passes only profile configuration locations to Git without exposing their values', async () => {
+    let request = null;
+    const commandRunner = new GitCommandRunner({
+      runner: Object.freeze({
+        async run(value) {
+          request = value;
+          return successfulCommandResult();
+        },
+      }),
+    });
+
+    await commandRunner.run({ args: ['config', '--get', 'user.email'], timeoutMilliseconds: 1_000 });
+
+    assert.deepEqual(request.environmentAllowlist, GIT_ENVIRONMENT_ALLOWLIST);
+    assert.deepEqual(request.env, {});
+    assert.deepEqual(GIT_ENVIRONMENT_ALLOWLIST, [
+      'PATH',
+      'SystemRoot',
+      'HOME',
+      'USERPROFILE',
+      'HOMEDRIVE',
+      'HOMEPATH',
+      'XDG_CONFIG_HOME',
+      'GIT_CONFIG_GLOBAL',
+    ]);
+  });
+
   it('blocks an expired repair with the canonical timed-out blocker', async () => {
     await withRepository({}, async ({ workspaceRoot }) => {
       const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
