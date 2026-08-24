@@ -490,6 +490,11 @@ describe('watch-process GitHub Actions adapter', () => {
           commands.some((command) => command.includes('/rules/branches/main')),
           true,
         );
+        const rulesQuery = launches.find((launch) => launch.args.some((argument) => argument.includes('/rules/branches/main')));
+        assert.equal(
+          rulesQuery.args.at(-1),
+          '[.[]? | select(.type == "required_status_checks") | (.parameters.required_status_checks // [])[] | {context,appId:(.integration_id // null)}]',
+        );
         assert.equal(
           commands.some((command) => command.includes('/check-runs?per_page=100')),
           true,

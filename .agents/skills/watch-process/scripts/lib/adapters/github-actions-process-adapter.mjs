@@ -73,7 +73,7 @@ const JSON_PROJECTIONS = Object.freeze({
   pullRequest: '{number,headSha:.head.sha,baseRef:.base.ref}',
   repository: '{fullName:.full_name}',
   ruleRequiredChecks:
-    '[.rules[]? | select(.type == "required_status_checks") | (.parameters.required_status_checks // [])[] | {context,appId:(.integration_id // null)}]',
+    '[.[]? | select(.type == "required_status_checks") | (.parameters.required_status_checks // [])[] | {context,appId:(.integration_id // null)}]',
   run: '{id,runAttempt:.run_attempt,headSha:.head_sha,event,path,status,conclusion,htmlUrl:.html_url,displayTitle:.display_title}',
   statuses: '[.statuses[] | {id,context,state,sha}]',
   user: '{login}',
