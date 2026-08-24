@@ -4,7 +4,7 @@
 
 Implement and verify the complete production Local Whisper release pipeline so
 one frozen source revision can construct, authenticate, and inventory every
-Linux and Windows application/runtime byte required by specification revision 25. Prove the real production builders can generate the complete physical
+Linux and Windows application/runtime byte required by specification revision 26. Prove the real production builders can generate the complete physical
 candidate in protected nonpublishing runs. Create no release branch, version
 commit, tag, GitHub Release, public asset, deployment digest, platform-smoke
 result, or support claim. Preserve and regression-test the explicit default-off
@@ -12,7 +12,7 @@ publication path that the next packet will use.
 
 ## Prerequisites
 
-- Specification revision 25 and plan revision 33 are approved.
+- Specification revision 26 and plan revision 34 are approved.
 - Tasks 01–20 and 23–25 remain complete; Task 26 remains deferred and
   non-executable.
 - Task 27 commits `429aadf3` and `1a672e61`, plus verified partial former-Task
@@ -35,7 +35,7 @@ publication path that the next packet will use.
 - Primary `AC-AUTO-073`, `AC-AUTO-080`, and `AC-AUTO-083`–`AC-AUTO-090`;
   supporting implementation of the shared `AC-AUTO-082` and
   `AC-AUTO-091` validators without instantiating release or smoke evidence.
-- Plan/acceptance-owner migration to specification 25, plan 33, Tasks 32–36,
+- Plan/acceptance-owner migration to specification 26, plan 34, Tasks 32–36,
   public-before-smoke ordering, parallel platform tests, and the conditional
   final path.
 
@@ -247,14 +247,17 @@ a release/tag/upload command or a physical platform smoke.
   provenance, catalog, and signer inputs without persisting secrets.
 - `MANUAL GATE`: authorize hosted Linux/Windows protected nonpublishing
   candidate construction and private evidence retention.
-- Every commit, push, workflow dispatch, protected-environment access, signing
+- Outside an active exact `local-whisper-alpha-release` invocation, every
+  commit, push, workflow dispatch, protected-environment access, signing
   operation, repository-setting change, or private runner use requires
-  separate authority. No branch, merge, tag, upload, publication, physical
-  test, support promotion, or release is authorized.
+  separate authority. The exact six-hour invocation is the sole exception: it
+  authorizes this packet's protected nonpublishing completion and may continue
+  immediately into Task 33 under `OPS-005`; repository settings, destructive
+  history, deploy, and physical platform tests remain forbidden.
 
 ## References
 
-- Mandatory: specification revision 25 Sections 9.6, 18.1–18.5, 19.1
+- Mandatory: specification revision 26 Sections 9.6, 18.1–18.5, 19.1
   (`AC-AUTO-073`, `AC-AUTO-080`, `AC-AUTO-083`–`AC-AUTO-091`), and 22.1.
 - Mandatory local inputs: completed Task 25 handoff; Task 27 commits
   `429aadf3`/`1a672e61`; current hosted-toolchain, native-build, packaging,
@@ -267,7 +270,9 @@ a release/tag/upload command or a physical platform smoke.
 Mark Task 32 complete only after the production pipeline is implemented, all
 local checks pass, and separately authorized nonpublishing Linux and Windows
 runs have constructed and verified the complete physical candidate. Update
-`todo.md` and `handoff.md`; stop before commit, version/changelog preparation,
-release branch work, merge, tag, staging, upload, publication, platform smoke,
-feedback, final work, or support promotion. A later explicit
-`incremental-implementation` invocation is required for Task 33.
+`todo.md` and `handoff.md`. Ordinary incremental execution stops before
+version/changelog preparation, release branch work, merge, tag, staging,
+upload, publication, platform smoke, feedback, final work, or support
+promotion. An already active exact `local-whisper-alpha-release` Watch is the
+sole exception: after recording Task 32 success it proceeds directly to Task
+33 within the same target and remaining deadline, without a second approval.

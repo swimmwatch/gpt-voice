@@ -14,8 +14,11 @@ That one invocation authorizes the reviewed scenario's declared normal
 start/retry/dispatch and optional normal current-upstream push throughout its
 bounded repair loop. Do not request approval again before every declared retry,
 dispatch, or normal push. Repository/ruleset settings, remote target
-cancellation, release, publish, deploy, and canonically forbidden operations
-remain separate gates or forbidden.
+cancellation, deploy, and canonically forbidden operations remain separate
+gates or forbidden. The sole exception is an exact
+`local-whisper-alpha-release` invocation with a six-hour shared deadline; it
+authorizes only the closed `AUTH-001` alpha.1 release operations and stops
+before platform smoke.
 
 ## Record format
 
@@ -47,6 +50,7 @@ cookies, absolute paths, or provider response bodies.
 | Required-check configuration                | Authorize repository ruleset/branch-protection change after the successful first run       | Exact aggregate check name and ruleset evidence; no unrelated required check changed                                                 | Pending |
 | Safe GitHub Actions run                     | Authorize one declared GitHub target and choose a timeout                                  | Repository, workflow/run/attempt, exact SHA, final fresh query, and cleanup                                                          | Pending |
 | Composite GitHub PR required-check contract | Authorize one PR contract and choose a timeout                                             | PR number, head SHA, required-contract digest, all required members, and final fresh query                                           | Pending |
+| Version-scoped alpha.1 release               | Explicitly invoke `local-whisper-alpha-release` with a six-hour timeout after implementation review | Exact feature/release heads, Task 32 and release PRs, candidate/promotion run IDs, preserving merge ancestry, public tag/release URL, workflow success, and no Task 34/35 action | Pending |
 | Disposable generic CI target                | If available, authorize the declared provider-neutral CLI target and choose a timeout      | Closed generic result identity, operation key, target/attempt, status map, and final query; otherwise record unavailable             | Pending |
 | Broken-then-repaired Docker build           | Authorize a disposable local Docker scenario and choose a timeout                          | Input/command digest, owned process token, forward-only repair ownership, image verification, and cleanup                            | Pending |
 | Broken-then-repaired local command          | Authorize a disposable local command scenario and choose a timeout                         | Command/input digest, owned process token, forward-only repair ownership, declared exit/output verification, and cleanup             | Pending |

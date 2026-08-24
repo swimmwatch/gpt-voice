@@ -20,14 +20,17 @@ Finish operator and scenario-author documentation, audit the complete implementa
 
 - Complete `scenario-authoring.md` and skill/operator guidance for installation/trust, prerequisites, explicit invocation, timeout, one logical target, exact runtime commands, status/resume/cancel, Goal independence, privacy, recovery, repair/delivery boundaries, audit proof, cleanup, and uninstall.
 - Explicit support table for GitHub Actions, generic CI CLI, Docker, and local command, plus explicit exclusion of dedicated GitLab support.
+- Document and regression-test schema `1.1.0` standard authority plus the sole
+  version-scoped `local-whisper-alpha-release` exception from `AUTH-001`.
 - Automated traceability/coverage audit and the full dependency-free suite, root policy tests, formatting, lint, and type checks relevant to changed files.
 - Manual acceptance checklist/evidence index using bounded sanitized IDs/digests only.
 
 ## Out Of Scope
 
 - New adapters, application behavior, global daemon/service, new chat/session
-  startup, dependencies, C++, packaging, release, publish, deploy, force-push,
-  merge, tags, or weakening any check.
+  startup, dependencies, C++, packaging, or weakening any check. Live release
+  execution remains out of scope for this packet; only the reviewed
+  version-scoped contract and unlaunched scenario implementation are included.
 
 ## Task Contract
 
@@ -50,9 +53,14 @@ Finish operator and scenario-author documentation, audit the complete implementa
 - Every live invocation/resume asks the user in their language for a finite timeout, explains why, and recommends expected process duration plus margin. Manual examples use approximately 40 minutes for a normal 30-minute process. Do not reuse a prior timeout for a new invocation/resume without asking.
 - Document exact scenario paths/schema/defaults/migration/substitution/glob/repair-scope rules; four complete examples; generic CI result schema; prerequisites (`gh`, Docker, declared CLI/program); environment-name allowlists; and no credential value collection/storage.
 - Document state diagram/outcomes, watcher/hook ownership, IDE restart, hook timeout/host kill, watcher crash/state race, authentication expiry, cancellation, same-chat limitations, scenario change during repair, verification/delivery/dispatch failures, forward-only patch preservation, external edits, and explicit resume recovery.
-- Document canonical forbidden actions once by reference and explain that real publish/release/deploy remains outside this skill even when a CI log asks for it.
+- Document canonical forbidden actions once by reference. Standard scenarios
+  keep real publish/release/deploy outside the skill even when CI output asks
+  for it. The sole `AUTH-001` exception must remain bound to exact alpha.1
+  identity, immutable script digest, complete operation allowlist, independent
+  prohibitions, shared deadline, prepublication repair, and post-publication
+  block.
 - Stakeholder status/audit examples show what watcher did using watch/generation, target/attempt/member IDs, scenario/script/library digests, receipts, verification classifications, source SHA, and timestamps without raw logs/secrets. Reviewer steps re-query the provider/local predicate and prove attestation belongs to the intended attempt/SHA.
-- Run a requirement traceability audit proving all 71 IDs have implementation and tests/docs as applicable. Duplicate invariant text must reference the canonical owner rather than diverge.
+- Run a requirement traceability audit proving all 72 IDs have implementation and tests/docs as applicable. Duplicate invariant text must reference the canonical owner rather than diverge.
 - Manual acceptance uses a separate explicit scenario invocation and newly asked
   timeout for each logical target. Once invoked, the reviewed scenario's
   declared normal start/retry/dispatch and optional normal upstream push remain
@@ -71,9 +79,10 @@ Finish operator and scenario-author documentation, audit the complete implementa
   one explicit `$watch-process` invocation for each manual logical target and
   ask the required timeout for every new watch/resume. That invocation covers
   the scenario-declared normal delivery/dispatch loop; do not ask again before
-  every declared push or dispatch. Repository/ruleset settings, remote target
-  cancellation, release, publish, deploy, and other canonically forbidden
-  actions remain separate gates or forbidden.
+  every declared push or dispatch. The exact alpha.1 scenario invocation also
+  covers only its `AUTH-001` release operations without per-phase approval.
+  Repository/ruleset settings, remote target cancellation, deploy, and every
+  non-allowlisted action remain separate gates or forbidden.
 - If a disposable generic CI target is unavailable, record that specific gate as pending; do not substitute GitLab-specific implementation.
 - Success cannot be inferred from local state, a branch-level green, a different SHA, or a workflow run unrelated to the recorded attempt.
 
@@ -100,7 +109,7 @@ Finish operator and scenario-author documentation, audit the complete implementa
   `failure continuation → repair → response ends → background attempt → failure
   continuation → repair → response ends → background attempt → success
   continuation` without model polling.
-- Traceability audit maps all 71 active requirements with no orphan implementation/test and no dedicated GitLab artifact, and proves the executable operator plus production repair-controller wiring.
+- Traceability audit maps all 72 active requirements with no orphan implementation/test and no dedicated GitLab artifact, and proves the executable operator plus production repair-controller wiring.
 - Manual gates are either completed with exact attempt-bound evidence or clearly listed as pending blockers; feature is not declared complete while a mandatory gate is pending.
 - Installation/uninstall affects only project-local tracked/ignored paths and preserves user/global settings and unrelated hooks.
 
@@ -129,7 +138,7 @@ Repair implementation defects in their owning module with regression coverage an
 
 ## References
 
-- Mandatory: complete approved specification Revision 8 for the final traceability audit only.
+- Mandatory: complete approved specification Revision 9 for the final traceability audit only.
 - Mandatory official sources: [OpenAI Hooks](https://learn.chatgpt.com/docs/hooks) and [Long-running work](https://learn.chatgpt.com/docs/long-running-work).
 - Mandatory: all completed packet handoffs and generated automated evidence summaries.
 

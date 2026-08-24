@@ -11,7 +11,7 @@ publish stable. Run no physical Linux or Windows test against final bytes.
 
 ## Prerequisites
 
-- Specification revision 25 and plan revision 33 are approved.
+- Specification revision 26 and plan revision 34 are approved.
 - Tasks 34 and 35 are complete for the latest public alpha and both immutable
   results are Pass.
 - The feedback gate has sealed `alphaAggregateDigest`, explicitly selected
@@ -228,7 +228,7 @@ physical final commands as Task 36 completion gates.
 
 ## References
 
-- Mandatory: specification revision 25 Sections 9.6, 18.3–18.5, 19.1
+- Mandatory: specification revision 26 Sections 9.6, 18.3–18.5, 19.1
   (`AC-AUTO-071`, `AC-AUTO-073`, `AC-AUTO-087`–`AC-AUTO-091`),
   `AC-MAN-019`, `AC-MAN-021`, and 22.2.
 - Mandatory inputs: latest alpha `deploymentDigest`, Tasks 34/35 immutable

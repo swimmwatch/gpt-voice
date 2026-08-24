@@ -169,9 +169,9 @@ describe('watch-process documentation policy', () => {
     const rows = traceabilityRows(readWorkspaceFile(TRACEABILITY_PATH));
     const traceabilityIds = rows.map(({ id }) => id).sort();
 
-    assert.equal(specificationIds.length, 71);
-    assert.equal(rows.length, 71);
-    assert.equal(new Set(traceabilityIds).size, 71);
+    assert.equal(specificationIds.length, 72);
+    assert.equal(rows.length, 72);
+    assert.equal(new Set(traceabilityIds).size, 72);
     assert.deepEqual(traceabilityIds, specificationIds);
     for (const { cells, id } of rows) {
       assert.equal(cells.length, 3, id);

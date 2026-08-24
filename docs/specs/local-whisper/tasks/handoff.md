@@ -2,16 +2,17 @@
 
 ## Authoritative State
 
-- Specification revision **25** is Approved.
-- Plan revision **33** is Approved. Plan approval grants no packet execution or
+- Specification revision **26** is Approved.
+- Plan revision **34** is Approved. Plan approval grants no live process or
   external-action authority.
 - Tasks 01–20 and 23–25 are complete. Task 26 remains deferred and
   non-executable.
-- Revision 33 preserves five one-shot packets: Task 32 completes/proves the
-  production pipeline without release state; Task 33 builds and deploys
-  alpha.1; Tasks 34 and 35 independently test its public Linux/Windows assets;
-  a feedback gate seals the aggregate; Task 36 conditionally releases final
-  without physical final testing.
+- Revision 34 preserves Tasks 32–36 while allowing one exact future
+  `local-whisper-alpha-release` Watch to cross the Task 32/33 boundary. It uses
+  one six-hour deadline, one version-scoped authority, and one exact
+  prior-candidate promotion without rebuilding. Tasks 34 and 35 remain
+  independent later consumers of the public alpha; the feedback gate and Task
+  36 remain unchanged.
 - No complete production candidate, alpha/final deployment, platform-smoke
   result, aggregate, lineage root, release branch, tag, GitHub Release,
   publication, support promotion, or release currently exists.
@@ -22,7 +23,7 @@
   commits `429aadf3` and `1a672e61`.
 - Former Task 32 static task-registry, lifecycle-policy, candidate/staging/
   deployment identity, workflow-shape, and focused test work remains reusable
-  but is superseded by specification 25, plan 33, and Tasks 32–36.
+but is superseded by specification 26, plan 34, and Tasks 32–36.
 - `.github/workflows/release-builds.yml` still prepares Local Whisper with
   production-only packaging now, constructs deterministic Linux/Windows CPU
   and RTX 50 runtime candidate bytes from independently built stages, and
@@ -50,7 +51,9 @@
 
 - `spec.md` and `decisions.yaml` define the complete physical same-tag
   inventory, reject static/disabled/qualification-only substitutes, and state
-  that a nonexecution boundary cannot delete a later packet's capability.
+  that a nonexecution boundary cannot delete a later packet's capability. They
+  now also define the exact alpha.1 Watch authority, shared deadline,
+  prepublication repair, prior-run candidate reuse, and post-publication block.
 - `plan.md`, `todo.md`, and this handoff separate pipeline completion from
   irreversible publication while requiring Task 32 to preserve the guarded
   default-off path that Task 33 enables for the real public alpha.
@@ -60,9 +63,9 @@
   `34_test_v2_4_0_alpha_1_linux.md`,
   `35_test_v2_4_0_alpha_1_windows.md`, and `36_release_v2_4_0.md`.
 - Planning validation covers YAML/Markdown formatting, links, packet headings,
-  identifier traceability, and whitespace. Revision 33 also corrects workflow
-  code and regression policy; package versions, dependencies, and external
-  release state remain unchanged.
+  identifier traceability, and whitespace. Revision 34 adds the unlaunched
+  class-based release Watch scenario and protected promotion policy; package
+  versions, dependencies, and external release state remain unchanged.
 
 ## Exact Next Packet
 
@@ -92,11 +95,14 @@ build starts. Windows activates MSVC 14.51 before CPU construction, then MSVC
 14.39 before CUDA construction; policy tests fail if that order or mapping
 changes.
 
-Local checks passed: focused hosted-toolchain, CI-build, release-preparation,
-release-candidate, release-policy/delivery/lifecycle, acceptance-ownership,
-implementation-readiness, packaging, workflow, Windows-reporting, security
-workflow, unit, type, lint (existing warnings only), formatting, production
-audit, production build, and `git diff --check`.
+Latest local checks passed: release policy/delivery/lifecycle,
+acceptance-ownership, implementation-readiness (7/7), task-plan structure (36
+packets and 90 unique automated owners), workflow and supply-chain policy,
+Windows-reporting, security workflow, full Node.js unit tests (2,522 passed, 2
+skipped), Node.js 22/24 Watch compatibility (135/135 on each runtime), types,
+lint (0 errors), formatting, production build, post-build renderer verification,
+and `git diff --check`. The final alpha-release bundle digest is
+`d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560`.
 
 Four protected nonpublishing attempts ran and none has produced a candidate:
 
@@ -151,13 +157,24 @@ Candidate verification still hashes large archives and installers with
 descriptor-bound streams and sequential inventory admission, avoiding
 whole-candidate memory amplification on hosted runners.
 
+The current uncommitted revision adds schema `1.1.0` version-scoped Watch
+authority, the `local-whisper-alpha-release` scenario, and a separate
+class-based Node.js orchestrator. The release workflow now builds a versioned
+candidate with `publish=false`; promotion names that prior run, skips the
+construction graph, downloads the same private artifacts, retains protected
+tag generation, streams public final-origin verification, and preserves
+deployment evidence. Contract/unit tests cover ordinary-scenario denial,
+binding forgery, multiple repairs, source invalidation, remote operation
+reconciliation, shared deadline, authentication failure, preserving ancestry,
+partial publication, and no Task 34/35 action. No Watch or release was launched.
+
 Before Task 32 can be marked complete, commit and push the hosted-runner
 namespace repair, then run the protected workflow on the selected GitHub-hosted
-Linux and Windows runners with `publish=false`. This session must stop after
-dispatch rather than wait for completion. A later continuation must inspect the
-run, construct/sign/assemble/verify the real complete candidate, and stop before
-Task 33 enables the preserved publication path for alpha source/tag/publication
-work.
+Linux and Windows runners with `publish=false`. The future exact
+`local-whisper-alpha-release` invocation may own that dispatch, repair failures,
+record Task 32 completion, and continue through Task 33 publication within its
+remaining six-hour budget. Without that invocation, ordinary packet boundaries
+and separate external gates still apply.
 
 ## Blockers And Manual Gates
 
@@ -168,13 +185,15 @@ work.
   and forbids admin bypass. Add a second reviewed collaborator and enable
   self-review prevention before any higher-assurance release process; this is
   not currently possible with only `swimmwatch` in the repository.
-- The three existing Task 32 commits were pushed and the three nonpublishing
-  workflow runs above were authorized. The current repair commit/push and one
-  protected nonpublishing rerun are also authorized. Release-branch/pull-request
-  work, repository settings, preserving merge, tag, GitHub Release actions,
-  uploads, publication, physical tests, feedback selection, support promotion,
-  and release remain manual gates. No tag, GitHub Release, public upload,
-  publication, or physical platform test has been performed.
+- The existing Task 32 commits and nonpublishing workflow runs above remain
+  historical authorized evidence. This implementation does not launch the new
+  Watch or grant external release state by itself. A later exact
+  `$watch-process scenario=local-whisper-alpha-release timeout=6h` invocation
+  grants only the version-scoped Task 32/33 sequence. Repository settings,
+  destructive history, deploy, physical tests, feedback selection, support
+  promotion, and every other release remain separate or forbidden. No tag,
+  GitHub Release, public upload, publication, or physical platform test has
+  been performed.
 - Task 34 requires an authorized Linux RTX 50 host. Task 35 requires an
   authorized Windows RTX 50 host. Both consume only public same-tag alpha
   assets and keep private evidence outside the repository.

@@ -1,8 +1,8 @@
 # Local Whisper Task Checklist
 
-Plan revision: **33 (Approved)**
+Plan revision: **34 (Approved)**
 
-Specification baseline: **revision 25 (Approved)**
+Specification baseline: **revision 26 (Approved)**
 
 Completed baseline: Tasks 01–20 and 23–25. Their reviewed implementation and
 evidence remain authoritative and are not reopened.
@@ -20,12 +20,15 @@ artifact construction, create a release, or produce a platform-smoke result.
       A fourth protected nonpublishing run confirmed both license provisioners,
       then Linux exposed the hosted image's AppArmor user-namespace restriction;
       its Windows branch remains independent. The ephemeral-runner setup repair
-      still requires one protected rerun with `publish=false`. The default-off
+      still requires one protected rerun with `publish=false`. The unlaunched
+      `local-whisper-alpha-release` scenario can perform that rerun, complete
+      Task 32, and continue under its remaining six-hour budget; the default-off
       Task 33 publication path remains preserved.
 - [ ] [33 Release v2.4.0-alpha.1](33_release_v2_4_0_alpha_1.md) — executable
       only after Task 32 proves the complete production pipeline. Owns the
       combined alpha Build + Deploy operation, explicitly enables the guarded
-      tag/publication job, and publishes the complete public same-tag
+      tag/publication job with the exact prior versioned-candidate run, skips a
+      second build, and publishes/verifies the complete public same-tag
       inventory; performs no physical platform smoke.
 - [ ] [34 Test v2.4.0-alpha.1 on Linux](34_test_v2_4_0_alpha_1_linux.md) —
       executable only after Task 33 publishes the exact public alpha.

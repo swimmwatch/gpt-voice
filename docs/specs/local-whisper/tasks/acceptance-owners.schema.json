@@ -19,10 +19,10 @@
       "const": 2
     },
     "specificationRevision": {
-      "const": 25
+      "const": 26
     },
     "planRevision": {
-      "const": 33
+      "const": 34
     },
     "taskFiles": {
       "type": "object",

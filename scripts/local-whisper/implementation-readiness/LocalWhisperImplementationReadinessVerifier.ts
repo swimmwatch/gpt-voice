@@ -316,10 +316,10 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'verify:local-whisper:deploy',
 ]);
 
-const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 25;
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 33;
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 26;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 34;
 const IMPLEMENTATION_READINESS_TASK_COUNT = 36;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-33-acceptance-registry';
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-34-acceptance-registry';
 const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =

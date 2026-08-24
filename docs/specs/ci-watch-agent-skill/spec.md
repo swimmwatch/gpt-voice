@@ -2,9 +2,9 @@
 
 Status: Approved
 
-Date: 2026-08-23
+Date: 2026-08-24
 
-Revision: 8
+Revision: 9
 
 Spec slug: `ci-watch-agent-skill`
 
@@ -13,6 +13,11 @@ Decision evidence: [decisions.yaml](decisions.yaml)
 Approval: completing this requested revision authorizes its approval without a
 separate final-approval question. It does not authorize planning, implementation,
 commits, pushes, process dispatch, publication, or deployment.
+
+Revision 9 is approved by the user's explicit implementation plan. It adds one
+closed version-scoped release-authority exception for
+`swimmwatch/gpt-voice@v2.4.0-alpha.1`; every standard scenario retains the
+original release/publish prohibitions.
 
 Authoritative Codex references:
 
@@ -70,7 +75,7 @@ requirements reference these IDs and SHALL NOT restate or weaken them.
 | `DEP-001`                | The base runtime uses Node.js built-ins and has zero third-party JavaScript runtime dependencies by default.                                                                                                                                                                |
 | `SAFE-006`               | Commands are executable-plus-argument arrays passed with `shell: false`; shell parsing, interpolation, `eval`, executable scenario modules, and untrusted dynamic imports are forbidden.                                                                                    |
 | `SAFE-002`               | Every observation, repair, dispatch, verification, and accepted success is bound to one immutable target identity and, for source-backed targets, the exact source SHA.                                                                                                     |
-| `SAFE-004`               | Force-push, merge, rebase, amend, tag, release, publish, deploy, registry push, protected-environment approval, secret changes, arbitrary CI variables, check weakening, and destructive cleanup are forbidden unless a later explicit contract separately authorizes them. |
+| `SAFE-004`               | Standard Watch scenarios forbid force-push, merge, rebase, amend, tag, release, publish, deploy, registry push, protected-environment approval, secret changes, arbitrary CI variables, check weakening, and destructive cleanup. Only `AUTH-001` may narrow this invariant for one reviewed version-scoped release target. |
 | `DATA-002`               | Raw output is untrusted, private, size- and time-bounded evidence. It never enters hook prompts, notifications, commits, or durable state.                                                                                                                                  |
 | `GEN-001`                | Every generated `watch-process.mjs` is ignored, validated, and bound to canonical scenario, library, and script digests before execution.                                                                                                                                   |
 | `DATA-003`               | Runtime state is a versioned execution cache, never authority or proof of success. Provider/local revalidation is authoritative.                                                                                                                                            |
@@ -86,6 +91,36 @@ the smallest possible scope. Convenience alone is insufficient.
 **NODE-001:** Runtime modules SHALL be portable ESM using `node:` built-ins and
 syntax supported by Node.js 22. They SHALL not require Electron, a browser,
 Deno, Bun, transpilation, or a platform shell.
+
+**AUTH-001:** Schema `1.1.0` adds an `authority` record. Its default and normal
+form is exactly `{ "kind": "standard" }`, which preserves every prohibition in
+`SAFE-004`. The sole approved exception is
+`version-scoped-github-release`: it must bind one reviewed repository, SemVer
+prerelease, absent tag, base/feature/release branches, workflow, protected
+environment, immutable class-based Node.js entrypoint bundle digest, and the
+complete closed operation allowlist. The current approved binding is only
+`swimmwatch/gpt-voice@v2.4.0-alpha.1` through scenario
+`local-whisper-alpha-release`.
+
+One explicit invocation of that exact scenario authorizes, for its one logical
+release target and one shared deadline, protected nonpublishing Task 32
+completion, atomic repair commits and normal pushes, feature/release pull
+requests, protected-environment approval, preserving merge commits, candidate
+workflow dispatch, workflow-owned tag creation, and immutable prerelease
+publication. It does not authorize force-push, amend, rebase, squash,
+tag/release/asset overwrite or deletion, repository settings, deploy, platform
+smoke, Tasks 34/35, unrelated files, versions, repositories, branches,
+workflows, or environments. Those prohibitions are validated independently of
+the allowlist.
+
+Source changes before publication invalidate the prior candidate and require a
+new exact-SHA candidate. Operation correlations and remote reconciliation make
+dispatch, PR creation, merge, and environment approval idempotent. A public tag
+or release makes that prerelease immutable: any remaining failure becomes
+`Blocked` and requires a new approved alpha version. Runtime state assists
+reconciliation but remains non-authoritative under `DATA-003`; remote exact-SHA,
+ancestry, workflow, candidate, tag, release, inventory, and final-origin proof
+remain authoritative.
 
 ## 3. Scope and non-goals
 
@@ -151,13 +186,15 @@ repository/project/workspace, allowed process definition, and identity rules
 before observation or mutation.
 
 The explicit live invocation names the reviewed scenario, logical target, and
-timeout. It authorizes only that scenario's declared normal start, retry,
-provider dispatch, and—when `pushCurrentUpstream=true`—receipt-bound normal
+timeout. It authorizes that scenario's declared normal start, retry, provider
+dispatch, and—when `pushCurrentUpstream=true`—receipt-bound normal
 current-upstream push throughout the bounded repair loop. The agent SHALL NOT
 request repeated approval before each such declared retry, dispatch, or normal
-push. A different target requires a separate explicit invocation. Remote target
-cancellation, repository/ruleset settings, and all actions covered by
-`SAFE-004` remain separate authority gates or forbidden.
+push. `AUTH-001` additionally governs the one version-scoped release scenario;
+all other scenarios remain standard. A different target requires a separate
+explicit invocation. Remote target cancellation, repository/ruleset settings,
+and actions not explicitly admitted by `AUTH-001` remain separate authority
+gates or forbidden.
 
 A pull-request check contract is one logical target even though its membership
 may include multiple workflow runs, run attempts, check suites, external commit
@@ -181,13 +218,12 @@ indefinite waiting for a stalled, lost, or unexpectedly slow target. The agent
 SHALL recommend expected duration plus a practical margin—for example, about 40
 minutes for a CI pipeline that normally takes 30 minutes.
 
-The approved duration is normalized to positive integer seconds, checked against
-the scenario's minimum and maximum, and applied separately to every attempt in
-that autonomous repair loop. The same value may be reused after repairs without
-asking before every retry. A new invocation, explicit `resume`, or requested
-change requires a new question. Missing, zero, negative, malformed, infinite, or
-out-of-range values fail preflight. Timeout expiry does not authorize target
-cancellation.
+The approved duration is normalized to positive integer seconds, checked
+against the scenario's minimum and maximum, and applied as one shared deadline
+to the complete autonomous repair loop. Every restart uses only the remaining
+budget. A new invocation, explicit `resume`, or requested change requires a new
+question. Missing, zero, negative, malformed, infinite, or out-of-range values
+fail preflight. Timeout expiry does not authorize target cancellation.
 
 ### 4.3 Lifecycle commands and Goal
 
@@ -315,15 +351,18 @@ script name remain repository-neutral and reusable.
 **ARCH-002:** Every scenario SHALL be versioned, declarative,
 machine-validated, non-executable, and closed to unknown capabilities. It owns
 target selectors and identity, success predicates, timing bounds, evidence
-limits, repair scope, verification, delivery strategy, adapter configuration,
-and additional forbidden actions, subject to the canonical invariants.
+limits, repair scope, verification, delivery strategy, authority,
+adapter configuration, and additional forbidden actions, subject to the
+canonical invariants.
 
 **SCHEMA-001:** Scenarios are non-executable UTF-8 JSON files named
 `.codex/process-watch/scenarios/<scenario-id>.watch.json`. They validate against
 the tracked Draft 2020-12 schema
 `.agents/skills/watch-process/references/process-watch-scenario.schema.json`.
-The schema ID is `urn:gpt-voice:watch-process:scenario:1`; the scenario version is
-the required string `1.0.0`.
+The schema ID is `urn:gpt-voice:watch-process:scenario:1`; the current scenario
+version is `1.1.0`. Source version `1.0.0` migrates deterministically by adding
+`authority: { "kind": "standard" }`; no source file is rewritten during a
+watch.
 
 **SCHEMA-002:** Unknown fields are rejected. The loader accepts only the current
 major version. Additive minor/patch revisions may provide deterministic defaults
@@ -352,12 +391,13 @@ versions and ambiguous legacy files fail preflight.
     "repair",
     "verification",
     "delivery",
+    "authority",
     "forbiddenActions",
     "adapterConfig"
   ],
   "properties": {
     "$schema": { "const": "urn:gpt-voice:watch-process:scenario:1" },
-    "schemaVersion": { "const": "1.0.0" },
+    "schemaVersion": { "const": "1.1.0" },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
     "description": { "type": "string", "maxLength": 300, "default": "" },
     "adapter": { "enum": ["github-actions", "generic-ci-cli", "docker-build", "local-command"] },
@@ -368,6 +408,7 @@ versions and ambiguous legacy files fail preflight.
     "repair": { "$ref": "#/$defs/repair" },
     "verification": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/$defs/command" } },
     "delivery": { "$ref": "#/$defs/delivery" },
+    "authority": { "$ref": "#/$defs/authority" },
     "forbiddenActions": {
       "type": "array",
       "uniqueItems": true,
@@ -505,6 +546,50 @@ versions and ambiguous legacy files fail preflight.
         "strategy": { "enum": ["no-restart", "local-restart", "provider-retry", "provider-dispatch", "git-delivery"] },
         "pushCurrentUpstream": { "type": "boolean", "default": false }
       }
+    },
+    "authority": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "standard" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind", "repository", "version", "tag", "baseBranch", "featureBranch",
+            "releaseBranch", "workflow", "environment", "scriptEntrypoint",
+            "scriptSha256", "allowedOperations"
+          ],
+          "properties": {
+            "kind": { "const": "version-scoped-github-release" },
+            "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+            "version": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$" },
+            "tag": { "type": "string", "pattern": "^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$" },
+            "baseBranch": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$" },
+            "featureBranch": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$" },
+            "releaseBranch": { "type": "string", "pattern": "^release/v[A-Za-z0-9][A-Za-z0-9.-]{0,119}$" },
+            "workflow": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*\\.ya?ml$" },
+            "environment": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+            "scriptEntrypoint": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "scriptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "allowedOperations": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "approve-environment", "commit", "create-pull-request",
+                  "create-release-branch", "merge-pull-request", "publish-prerelease",
+                  "push", "tag-via-workflow", "workflow-dispatch"
+                ]
+              }
+            }
+          }
+        }
+      ]
     },
     "dispatch": {
       "type": "object",
@@ -657,7 +742,7 @@ GitHub pull-request aggregate:
 ```json
 {
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "github-pr-required-checks",
   "description": "Watch every required check for one PR head SHA.",
   "adapter": "github-actions",
@@ -689,6 +774,7 @@ GitHub pull-request aggregate:
   },
   "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
+  "authority": { "kind": "standard" },
   "forbiddenActions": ["force-push", "merge", "release", "publish", "deploy"],
   "adapterConfig": {
     "repository": "owner/repository",
@@ -704,7 +790,7 @@ Generic CI CLI:
 ```json
 {
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "generic-ci-run",
   "description": "Watch one provider run through a strict JSON CLI.",
   "adapter": "generic-ci-cli",
@@ -736,6 +822,7 @@ Generic CI CLI:
   },
   "verification": [{ "executable": "npm", "args": ["test"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "provider-dispatch", "pushCurrentUpstream": false },
+  "authority": { "kind": "standard" },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
     "providerId": "acme-ci",
@@ -769,7 +856,7 @@ Docker build:
 ```json
 {
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "local-docker-build",
   "description": "Build and smoke-test one local image.",
   "adapter": "docker-build",
@@ -801,6 +888,7 @@ Docker build:
   },
   "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
+  "authority": { "kind": "standard" },
   "forbiddenActions": ["registry-push", "release", "publish", "deploy"],
   "adapterConfig": {
     "buildCommand": {
@@ -821,7 +909,7 @@ Local command:
 ```json
 {
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "local-long-test",
   "description": "Run and repair one watcher-owned local test command.",
   "adapter": "local-command",
@@ -848,6 +936,7 @@ Local command:
   },
   "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": [] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
+  "authority": { "kind": "standard" },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
     "startCommand": { "executable": "node", "args": ["scripts/long-test.mjs"], "cwd": ".", "env": [] },
@@ -855,6 +944,14 @@ Local command:
   }
 }
 ```
+
+The four examples above use `standard` authority. The complete reviewed
+`version-scoped-github-release` example is the tracked
+`.codex/process-watch/scenarios/local-whisper-alpha-release.watch.json`; its
+class-based immutable implementation lives beside it under
+`.codex/process-watch/scenarios/local-whisper-alpha-release/`. Contract tests
+must prove that its declared digest matches the bundle and that changing any
+binding, operation, prohibition, entrypoint, or command fails closed.
 
 ## 7. Generated watcher and provider behavior
 

@@ -6,7 +6,7 @@ Date: 2026-08-23
 
 Revision: 3
 
-Specification: [../spec.md](../spec.md) (`Status: Approved`, Revision 8)
+Specification: [../spec.md](../spec.md) (`Status: Approved`, Revision 9)
 
 Decision ledger: [../decisions.yaml](../decisions.yaml)
 

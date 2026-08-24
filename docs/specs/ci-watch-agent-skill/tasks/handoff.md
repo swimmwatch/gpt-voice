@@ -8,9 +8,9 @@
 - The operator stores an atomic private one-shot selection bound to session,
   workspace, and watch. The Stop hook revalidates persisted state, consumes the
   selection before continuation, and stays neutral on unrelated later turns.
-- Specification Revision 8 and decision
+- Specification Revision 9, `AUTH-001`, and decision
   `hook.automatic_same_chat_continuation` Revision 3 own the per-attempt
-  continuation contract.
+  continuation contract plus the sole version-scoped alpha.1 exception.
 - Continuation prompts use only the fixed watch ID, generation, and normalized
   outcome grammar. The operator validates the selected acknowledgement before
   returning `report-success`, `repair`, `report-blocked`, or
@@ -30,10 +30,16 @@
 - Non-Git watches now use a stable scoped repair baseline and no longer require
   a clean Git worktree. Unrelated existing changes remain untouched;
   clean-worktree enforcement remains exclusive to `git-delivery`.
-- Specification Revision 8, Plan Revision 3, operator/author guidance, Task 09,
+- Specification Revision 9, Plan Revision 3, operator/author guidance, Task 09,
   Task 12, traceability, and manual acceptance now describe the same per-attempt
   loop and final-message contract. No application code, dependency, global
   setting, commit, or push was changed.
+- Scenario schema `1.1.0` adds `authority`; legacy `1.0.0` receives standard
+  authority deterministically. All ordinary scenarios remain nonpublishing.
+- The unlaunched `local-whisper-alpha-release` scenario is bound to one exact
+  repository/version/tag/branch/workflow/environment and immutable Node.js
+  bundle. It owns the Task 32/33 alpha.1 sequence under one six-hour deadline,
+  rejects external source changes, and blocks after public release state.
 - The `github-pr-required-checks` scenario is now bound to
   `swimmwatch/gpt-voice`, the six workflows that can contribute PR checks, a
   closed project repair scope, comprehensive local verification, and
@@ -54,6 +60,9 @@
   decision ledger, Task 09/12 contracts, traceability, plan reference, and
   manual acceptance index.
 - Project GitHub PR auto-repair scenario and its fail-closed contract test.
+- Version-scoped source binding, separate class-based Local Whisper release
+  orchestrator, operation-reconciliation tests, and protected promotion/public
+  verification policy.
 - New `process-watch-selection-store.mjs` and
   `process-watch-terminal-waiter.mjs`, plus Stop-hook repository/contracts,
   operator/CLI, runtime exports, and integrity manifest.
@@ -65,18 +74,21 @@
 
 ## Checks
 
-- Node.js 24 watch-process suite: 123 passed, 0 failed.
-- Node.js 22 watch-process suite: 122 passed, 0 failed; the additional project
-  GitHub scenario contract also passes on Node.js 22.
-- Node.js 22/24 skill, documentation, Stop-hook, and compatibility policy tests:
-  passing.
-- `npm run test:types`: passing.
-- Focused Prettier checks: passing.
-- `npm run lint`: 0 errors; 267 pre-existing repository warnings.
-- Skill Creator `quick_validate.py`: passing.
-- The regression sequence `attempt 1 failed -> attempt 2 failed -> attempt 3
-succeeded` passes; retry before a terminal receipt remains blocked.
-- Changed JavaScript syntax checks and `git diff --check`: passing.
+- Node.js 22 and 24 standalone Watch suite: 135 passed, 0 failed on each
+  runtime. Node.js 22 ran in the official full image with the workspace mounted
+  read-only and process networking disabled.
+- Full Node.js 24 Watch regression glob, skill/documentation/Stop-hook policy,
+  schema equality, source binding, release orchestration, and remote-operation
+  reconciliation tests: passing.
+- Full Node.js unit suite: 2,524 tests, 2,522 passed, 2 skipped, 0 failed.
+- `npm run test:types` and the test TypeScript configuration: passing.
+- `npm run lint`: 0 errors; the repository warning baseline remains nonfatal.
+- Prettier, workflow validation, Local Whisper implementation readiness,
+  release policy/delivery/lifecycle, task-plan validation, production build,
+  post-build renderer verification, and `git diff --check`: passing.
+- The immutable alpha-release implementation bundle digest is
+  `d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560`.
+- No Watch, GitHub operation, release, commit, or push was executed.
 
 ## Next Action
 
@@ -88,6 +100,8 @@ succeeded` passes; retry before a terminal receipt remains blocked.
 4. Continue with the remaining separately authorized manual gates listed in
    [manual-acceptance.md](manual-acceptance.md); the three-attempt repaired local
    continuation loop is complete.
+5. Do not launch `local-whisper-alpha-release` until the user separately invokes
+   `$watch-process scenario=local-whisper-alpha-release timeout=6h`.
 
 ## Manual Blockers
 
@@ -100,4 +114,5 @@ succeeded` passes; retry before a terminal receipt remains blocked.
   revalidation rows remain pending as listed in the manual acceptance index.
 - No real target, credential, remote dispatch, Docker daemon, repository
   setting, publish, release, deploy, commit, or push is authorized by this
-  handoff.
+  handoff. The release authority begins only with the exact explicit Watch
+  invocation above.

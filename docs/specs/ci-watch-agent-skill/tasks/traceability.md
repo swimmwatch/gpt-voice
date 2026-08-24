@@ -1,7 +1,7 @@
-# Watch Process Revision 8 Traceability Audit
+# Watch Process Revision 9 Traceability Audit
 
-This matrix is the automated-documentation audit for the 71 active requirement
-IDs in [Specification Revision 8](../spec.md). Paths below are repository
+This matrix is the automated-documentation audit for the 72 active requirement
+IDs in [Specification Revision 9](../spec.md). Paths below are repository
 relative. Each row identifies implementation, deterministic automated evidence,
 and operator/reviewer material; manual execution evidence is tracked separately
 in [manual-acceptance.md](manual-acceptance.md).
@@ -15,6 +15,7 @@ in [manual-acceptance.md](manual-acceptance.md).
 | `ADAPT-002`  | `adapters/owned-process-adapter.mjs`                                                                  | Adapter contract tests                                                                             | Scenario guide: Adapter-specific configuration |
 | `ARCH-001`   | `process-watch-operator.mjs`, `process-watch-composition-root.mjs`, `process-watch-orchestrator.mjs`  | `operator.test.mjs`, `orchestrator.test.mjs`                                                       | Scenario guide: Lifecycle and operator         |
 | `ARCH-002`   | `watch-scenario-registry.mjs`, scenario schema                                                        | `scenario-contract.test.mjs`                                                                       | Scenario guide: Scenario files                 |
+| `AUTH-001`   | version-scoped authority validator, release source binding, alpha release orchestrator               | `scenario-contract.test.mjs`, `version-scoped-release-source-binding.test.mjs`, `local-whisper-alpha-release.test.mjs`, `local-whisper-alpha-release-github-client.test.mjs` | Scenario guide: release authority              |
 | `COMP-001`   | Four adapter implementations                                                                          | Adapter tests                                                                                      | Scenario guide: Adapter table                  |
 | `COMP-002`   | `watch-process-compatibility.yml`, standalone suite                                                   | `watchProcessCompatibilityWorkflowPolicy.test.ts`                                                  | Manual acceptance: compatibility run           |
 | `COMP-003`   | Project-local skill/hook/scenario layout                                                              | `watchProcessSkillSurface.test.ts`                                                                 | Scenario guide: Scope, installation, trust     |

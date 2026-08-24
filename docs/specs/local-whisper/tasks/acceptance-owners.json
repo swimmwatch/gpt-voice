@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "specificationRevision": 25,
-  "planRevision": 33,
+  "specificationRevision": 26,
+  "planRevision": 34,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",

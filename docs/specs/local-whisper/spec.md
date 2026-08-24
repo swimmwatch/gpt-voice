@@ -1,7 +1,7 @@
 # Local Whisper Technical Specification
 
 Status: Approved
-Date: 2026-08-22
+Date: 2026-08-24
 Spec slug: `local-whisper`
 Decision evidence: [decisions.yaml](decisions.yaml)
 Research baseline: [Local Whisper Runtime and GPU Compatibility Research](../../researches/local-whisper/main.md)
@@ -45,6 +45,13 @@ Revision 23 review: reopened on 2026-08-22 after the user required each alpha to
 Revision 23 approval: automatically approved on 2026-08-22 after bounded post-publication Linux and Windows alpha smoke, fail-closed next-alpha recovery, and reproducible latest-alpha lineage for a fresh final release without physical final testing were normalized and passed the six-perspective gap analysis.
 Revision 24 approval: automatically approved on 2026-08-22 after the user required every application, runtime, catalog, signature, and verification component needed for complete Linux and Windows alpha testing to be published together. This revision clarifies that six output classes are a logical matrix rather than six physical files and that static policy validation cannot substitute for production artifact construction.
 Revision 25 approval: automatically approved on 2026-08-22 after the user corrected the Task 32 boundary: private candidate construction must not execute publication, but it must preserve and regression-test the guarded tag-and-publication capability that Task 33 uses to publish the real alpha before Linux and Windows testing.
+Revision 26 approval: automatically approved on 2026-08-24 by the user's
+explicit `local-whisper-alpha-release` implementation plan. One six-hour
+version-scoped Watch invocation now owns the complete Task 32-to-Task 33
+prepublication repair and immutable alpha.1 publication loop. Promotion reuses
+the exact versioned candidate from its prior run without rebuilding; success
+stops after the green publication workflow and public prerelease identity,
+before Tasks 34/35.
 
 ## 1. Objective
 
@@ -1280,9 +1287,32 @@ The six release outputs are logical classes, not a six-file public inventory. Th
 
 **CI-008, PKG-011, PKG-012, QUAL-004** The protected workflow SHALL build and sign candidates from the frozen release pull-request head. For final, it SHALL prove that the source differs from the latest passing alpha only by the allowlisted final identity/changelog/tag-derived preparation and required release metadata, repeat deterministic builds in independent clean roots, and reject every product/runtime/packaging/compatibility delta. After automated, reproducibility, signing, legal, and reviewer gates pass, the pull request may merge only by a method that preserves the frozen head unchanged and reachable from `main`; squash, rebase, conflict-resolution mutation, or any new release-branch commit after candidate freeze invalidates the generation. Publication promotes the same bytes without rebuild, re-signing, timestamp replacement, repackaging, catalog regeneration, or metadata mutation. A filename collision, existing asset, tag/source mismatch, digest mismatch, stale approval, rewritten head, unapproved delta, reproducibility mismatch, or post-freeze byte change fails closed; asset clobbering is prohibited.
 
+For `v2.4.0-alpha.1`, the protected `publish=false` versioned candidate run
+freezes the complete release-target inventory for the exact release-PR head.
+After the preserving merge proves that head reachable from `main`, the
+`publish=true` promotion run SHALL identify that prior run by immutable run ID,
+revalidate repository/workflow/conclusion/source SHA and candidate descriptor,
+download its private artifacts, and publish those same bytes. Every
+construction, signing, application packaging, runtime build, attestation, and
+candidate-assembly job SHALL be skipped during promotion. A changed source SHA
+invalidates the candidate and requires a new release PR and versioned candidate
+before another promotion.
+
 The release workflow SHALL preserve one and only one guarded tag-and-publication path while production-pipeline construction is implemented and verified. Its publication input defaults to `false`; every candidate construction, attestation, and inventory job remains read-only and nonpublishing. The publication job alone may receive `contents: write`, SHALL depend on the verified complete candidate, SHALL require an explicit release tag matching that candidate, and SHALL reject any existing tag or GitHub Release before creating immutable release state. Task 32 verifies this path with publication disabled. Task 33 explicitly authorizes and enables it for the real public alpha. Removing the later capability is not a valid implementation of the earlier nonexecution boundary.
 
-Publication SHALL use a recoverable draft/staging state that is not an installation origin until the complete signed asset set has been uploaded and structurally verified. The workflow downloads every candidate from its final GitHub Release asset endpoint and verifies length, digest, native/artifact signature, manifest membership, catalog binding, and platform/target applicability before publication. Physical install/runtime smoke is not part of staging: it occurs separately after alpha publication and does not run for final. A failed or cancelled upload/verification leaves the release non-installable, preserves immutable successful candidates and evidence for an authorized retry, removes or quarantines only explicitly proven incomplete staging owned by that attempt, and never overwrites a published asset. Rollback selects a previously approved immutable release; it never mutates assets under an existing tag.
+Before public state exists, the private exact candidate and descriptor are the
+recoverable non-installable staging authority. The protected publication job
+first revalidates that candidate, then creates the absent tag and complete
+prerelease without clobbering. In the same job it downloads every public asset
+through its canonical GitHub Release endpoint, streams and verifies exact
+length/digest plus manifest inventory and release identity, seals
+`deploymentDigest`, and preserves bounded deployment evidence. Physical
+install/runtime smoke is not part of this workflow: it occurs separately in
+Tasks 34/35. Before tag/release creation, a failed attempt may repair forward
+and construct a new exact-SHA candidate. Once either the tag or release becomes
+public, alpha.1 is immutable; any upload or final-origin verification failure
+blocks the process and requires a separately planned sequential alpha. It never
+overwrites or deletes public state.
 
 ### 18.5 Release branch, pull request, and tag lifecycle
 
@@ -1298,7 +1328,28 @@ Release automation SHALL validate committed version data; it SHALL NOT silently 
 
 The release pull request SHALL be current with its protected `main` base before freeze. It SHALL NOT merge until its deterministic, reproducibility, signing, legal, reviewer, and release-preparation gates pass. An alpha has no pre-merge physical platform gate. A final additionally requires both latest-alpha post-release smokes, explicit final selection, and an allowlisted final-only source delta; it has no physical test of final bytes. The merge preserves the frozen pull-request head as an unchanged commit reachable from `main`; squash and rebase merging are prohibited for release pull requests. A conflict, required base update, or any content change returns the attempt to release preparation and invalidates prior candidate/evidence identities rather than weakening the gate.
 
-Only after the frozen release head is reachable from `main` SHALL the protected release workflow create the final immutable `v<SemVer>` Git tag, pointing to that exact head. The workflow proves the tag did not exist, the tag value matches every committed version and candidate identity, and the tagged commit equals the frozen release pull-request head. It never creates the tag before merge, moves or reuses a tag, tags a replacement merge commit, or publishes from a different commit. Tag creation, draft staging, upload, final-origin verification, and publication remain separately authorized external actions; approval of the release pull request alone grants none of them.
+Only after the frozen release head is reachable from `main` SHALL the protected release workflow create the final immutable `v<SemVer>` Git tag, pointing to that exact head. The workflow proves the tag did not exist, the tag value matches every committed version and candidate identity, and the tagged commit equals the frozen release pull-request head. It never creates the tag before merge, moves or reuses a tag, tags a replacement merge commit, or publishes from a different commit. Approval of a release pull request alone grants no tag or publication authority. For alpha.1 only, the explicit version-scoped Watch invocation in `OPS-005` grants the complete closed external sequence without repeated phase approvals; all other releases retain their own explicit authority gates.
+
+**OPS-005, REL-005** The exact invocation
+`$watch-process scenario=local-whisper-alpha-release timeout=6h` identifies one
+logical target, `swimmwatch/gpt-voice@v2.4.0-alpha.1`, and one shared six-hour
+deadline. It may finish Task 32 with `publish=false`, repair allowed files,
+create atomic commits and normal pushes, merge the exact feature PR by merge
+commit, create and review `release/v2.4.0-alpha.1`, build the versioned
+candidate, preserve the exact release head through a merge commit, approve the
+existing `local-whisper-production` environment, and dispatch the protected
+promotion that creates the tag and prerelease. Dispatch, PR, approval, and
+merge operations use durable correlation/remote reconciliation so an ambiguous
+response cannot create a duplicate.
+
+That authority excludes force-push, amend, rebase, squash, tag/release/asset
+overwrite or deletion, repository-setting changes, deploy, platform smoke,
+Tasks 34/35, unrelated files, and every other repository/version/branch/
+workflow/environment. External changes, authentication expiration, exact-SHA
+conflicts, or ambiguous remote state block safely. The Watch succeeds only
+after the protected publication workflow is green and the public alpha.1
+prerelease identity is revalidated, then stops without downloading, installing,
+or smoke-testing artifacts.
 
 For this release sequence, the preceding lifecycle applies first to `release/v2.4.0-alpha.1` and tag `v2.4.0-alpha.1`. After each alpha is public and final-origin verified, Linux and Windows run independent bounded smoke against that exact tag. Feedback review then chooses exactly one transition: create the next sequential `release/v2.4.0-alpha.(N+1)` containing every accepted fix, or proceed to `release/v2.4.0` only when both smokes pass and no accepted product change requires another alpha. Either smoke failure forbids final. Each later alpha restarts release construction, deployment, and both post-release smokes from its own identity. The final release branch may add only allowlisted final preparation and restarts deterministic/reproducibility/signing/staging gates without physical platform testing. Publishing any alpha grants no authority over a later alpha or final release.
 

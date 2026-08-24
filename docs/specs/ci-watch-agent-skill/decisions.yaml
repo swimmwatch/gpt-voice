@@ -1997,3 +1997,33 @@ decisions:
       detection without forcing cleanup, stash, commit, or a separate worktree.
     supersedes_revision: null
     requirement_ids: [REPAIR-001, REPAIR-003, SAFE-009]
+
+  - id: authority.version_scoped_alpha_release
+    revision: 1
+    category: safety
+    state: answered
+    provenance: user
+    evidence:
+      - The user approved the local-whisper-alpha-release implementation plan on 2026-08-24.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [one-bounded-version-scoped-release-target]
+      text: >-
+        One explicit Watch invocation may authorize the complete
+        swimmwatch/gpt-voice v2.4.0-alpha.1 release path, including atomic
+        commits and normal pushes, pull requests, protected approval,
+        preserving merges, workflow-owned tag creation, and immutable
+        prerelease publication. The scenario is bound to exact branches,
+        workflow, environment, repair scope, operation allowlist, and script
+        digest. Standard scenarios remain nonpublishing; destructive history,
+        overwrite/delete, repository settings, deploy, and platform smoke stay
+        forbidden. One six-hour deadline covers every attempt, and public
+        release state blocks alpha.1 repair.
+    rationale: >-
+      The release must be repairable before publication without repeatedly
+      asking for already granted phase approval, while preventing the narrow
+      exception from broadening ordinary Watch authority or mutating an
+      immutable public prerelease.
+    supersedes_revision: null
+    requirement_ids: [AUTH-001, SAFE-004, SAFE-002, TIME-002, DATA-003]

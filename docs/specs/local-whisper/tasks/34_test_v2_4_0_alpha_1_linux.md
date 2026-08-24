@@ -10,7 +10,7 @@ Windows test, feedback transition, or final work.
 
 ## Prerequisites
 
-- Specification revision 25 and plan revision 33 are approved.
+- Specification revision 26 and plan revision 34 are approved.
 - Task 33 is complete: public prerelease `v2.4.0-alpha.1`, its immutable tag,
   complete physical public inventory, signed manifest/catalogs/keyring,
   final-origin records, and
@@ -161,7 +161,7 @@ completion requirement.
 
 ## References
 
-- Mandatory: specification revision 25 Sections 9.6 steps 4–7, 18.4
+- Mandatory: specification revision 26 Sections 9.6 steps 4–7, 18.4
   `CI-005`, 19.2, `AC-AUTO-082`, `AC-MAN-017`, and 22.1.
 - Mandatory input: Task 33 handoff with exact alpha
   `deploymentDigest`/asset identities and the checked-in bounded fixture/profile.

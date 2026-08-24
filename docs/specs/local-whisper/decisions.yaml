@@ -1,8 +1,32 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-22'
+updated_at: '2026-08-24'
 decisions:
+  - id: release.alpha1-watch-authority
+    revision: 1
+    category: release
+    state: answered
+    provenance: user
+    evidence:
+      - The user approved the local-whisper-alpha-release implementation plan on 2026-08-24.
+    answer:
+      selected_ids: [version-scoped-six-hour-alpha1-release-loop]
+      text: >-
+        One explicit local-whisper-alpha-release Watch invocation may complete
+        Task 32, prepare and preserving-merge the alpha.1 release branch, build
+        one exact versioned candidate, promote those same prior-run bytes
+        without rebuilding, and publish the immutable prerelease. It repairs
+        and retries before public tag/release state within one six-hour
+        deadline, then stops after the green publication workflow without
+        Tasks 34/35. Public-state failure requires a separately planned alpha.2.
+    rationale: >-
+      This makes the real release repairable as one bounded operation while
+      keeping standard Watch scenarios nonpublishing and preventing mutation
+      of a public alpha.
+    supersedes_revision: null
+    requirement_ids: [OPS-005, REL-005, CI-008, REL-003, REL-004]
+
   - id: outcome.local-voice-provider
     revision: 1
     category: outcome
