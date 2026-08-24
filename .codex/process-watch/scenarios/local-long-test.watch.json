@@ -1,6 +1,6 @@
 {
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "local-long-test",
   "description": "Run and repair one watcher-owned local test command.",
   "adapter": "local-command",
@@ -32,6 +32,7 @@
   },
   "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
   "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
+  "authority": { "kind": "standard" },
   "forbiddenActions": ["force-push", "release", "publish", "deploy"],
   "adapterConfig": {
     "startCommand": {

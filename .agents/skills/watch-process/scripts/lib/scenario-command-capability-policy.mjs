@@ -1,4 +1,4 @@
-import { fail, hasOwn } from './scenario-contract-support.mjs';
+import { RELEASE_AUTHORITY_OPERATIONS, fail, hasOwn } from './scenario-contract-support.mjs';
 
 const SHELL_EXECUTABLES = new Set(['bash', 'cmd', 'dash', 'fish', 'ksh', 'powershell', 'pwsh', 'sh', 'zsh']);
 
@@ -32,6 +32,33 @@ const COMMAND_FIELDS_BY_ADAPTER = Object.freeze({
   'github-actions': Object.freeze([]),
   'local-command': Object.freeze(['startCommand']),
 });
+const RELEASE_REQUIRED_PROHIBITIONS = new Set([
+  'amend',
+  'delete-release',
+  'delete-tag',
+  'deploy',
+  'force-push',
+  'overwrite-release',
+  'platform-smoke',
+  'rebase',
+  'repository-settings',
+  'squash',
+]);
+const RELEASE_AUTHORITY_BINDINGS = new Map([
+  [
+    '.codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs',
+    Object.freeze({
+      baseBranch: 'main',
+      environment: 'local-whisper-production',
+      featureBranch: 'feat/local-whisper-provider',
+      releaseBranch: 'release/v2.4.0-alpha.1',
+      repository: 'swimmwatch/gpt-voice',
+      tag: 'v2.4.0-alpha.1',
+      version: '2.4.0-alpha.1',
+      workflow: 'release-builds.yml',
+    }),
+  ],
+]);
 
 function executableName(executable) {
   const name = executable.split(/[\\/]/u).at(-1).toLowerCase();
@@ -120,7 +147,84 @@ export class ScenarioCommandCapabilityPolicy {
       this.#validateCommand(command, location, forbiddenActions);
     }
     this.#validateDispatch(scenario, forbiddenActions);
+    this.#validateAuthority(scenario, forbiddenActions);
     return scenario;
+  }
+
+  #validateAuthority(scenario, forbiddenActions) {
+    const authority = scenario.authority ?? { kind: 'standard' };
+    if (authority.kind === 'standard') return;
+    if (
+      authority.kind !== 'version-scoped-github-release' ||
+      scenario.adapter !== 'local-command' ||
+      scenario.delivery.strategy !== 'git-delivery' ||
+      scenario.delivery.pushCurrentUpstream !== true ||
+      scenario.target.requireExactSourceRevision !== false ||
+      scenario.target.selectorKinds.length !== 1 ||
+      scenario.target.selectorKinds[0] !== 'start'
+    ) {
+      fail('release-authority-scenario-invalid', '$.authority');
+    }
+    const operations = new Set(authority.allowedOperations);
+    if (
+      operations.size !== RELEASE_AUTHORITY_OPERATIONS.size ||
+      [...RELEASE_AUTHORITY_OPERATIONS].some((operation) => !operations.has(operation))
+    ) {
+      fail('release-authority-operations-incomplete', '$.authority.allowedOperations');
+    }
+    for (const prohibition of RELEASE_REQUIRED_PROHIBITIONS) {
+      if (!forbiddenActions.has(prohibition)) {
+        fail('release-authority-prohibition-missing', '$.forbiddenActions');
+      }
+    }
+    if (
+      !authority.version.includes('-') ||
+      authority.baseBranch === authority.featureBranch ||
+      authority.baseBranch === authority.releaseBranch ||
+      authority.featureBranch === authority.releaseBranch ||
+      !authority.scriptEntrypoint.startsWith('.codex/process-watch/scenarios/') ||
+      !authority.scriptEntrypoint.endsWith('.mjs')
+    ) {
+      fail('release-authority-binding-invalid', '$.authority');
+    }
+    const approvedBinding = RELEASE_AUTHORITY_BINDINGS.get(authority.scriptEntrypoint);
+    if (
+      approvedBinding === undefined ||
+      Object.entries(approvedBinding).some(([field, expected]) => authority[field] !== expected)
+    ) {
+      fail('release-authority-binding-invalid', '$.authority');
+    }
+    const start = scenario.adapterConfig.startCommand;
+    const expectedStartArguments = [
+      authority.scriptEntrypoint,
+      'run',
+      '--watch-id',
+      '{{watch.id}}',
+      '--timeout-seconds',
+      '{{invocation.timeout_seconds}}',
+      '--bundle-sha256',
+      authority.scriptSha256,
+    ];
+    if (
+      executableName(start.executable) !== 'node' ||
+      JSON.stringify(start.args) !== JSON.stringify(expectedStartArguments)
+    ) {
+      fail('release-authority-command-invalid', '$.adapterConfig.startCommand');
+    }
+    const expectedVerificationArguments = [
+      authority.scriptEntrypoint,
+      'verify-final',
+      '--watch-id',
+      '{{watch.id}}',
+      '--bundle-sha256',
+      authority.scriptSha256,
+    ];
+    const hasFinalVerification = scenario.verification.some(
+      (command) =>
+        executableName(command.executable) === 'node' &&
+        JSON.stringify(command.args) === JSON.stringify(expectedVerificationArguments),
+    );
+    if (!hasFinalVerification) fail('release-authority-final-verification-missing', '$.verification');
   }
 
   #validateCommand(command, location, forbiddenActions) {

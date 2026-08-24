@@ -105,19 +105,39 @@ function deployment(): AlphaDeployment {
 }
 
 describe('Local Whisper release protocol', () => {
-  it('resolves a private Task 32 target by default and a release target only behind publication', () => {
+  it('resolves private construction, versioned candidate, and prior-run publication inputs', () => {
     assert.deepEqual(
       resolveProductionWorkflowInputs({ appRevision: '1.4.0', candidateLabel: 'task32-proof-1', publish: false }),
-      { appRevision: '1.4.0', candidateTarget: 'task32-proof-1', targetKind: 'private' },
+      { appRevision: '1.4.0', candidateRunId: null, candidateTarget: 'task32-proof-1', targetKind: 'private' },
     );
     assert.deepEqual(
       resolveProductionWorkflowInputs({
         appRevision: '2.4.0-alpha.1',
         candidateLabel: 'task32-alpha-construction',
+        publish: false,
+        releaseTag: LOCAL_WHISPER_RELEASE_TARGETS.alpha,
+      }),
+      {
+        appRevision: '2.4.0-alpha.1',
+        candidateRunId: null,
+        candidateTarget: LOCAL_WHISPER_RELEASE_TARGETS.alpha,
+        targetKind: 'release',
+      },
+    );
+    assert.deepEqual(
+      resolveProductionWorkflowInputs({
+        appRevision: '2.4.0-alpha.1',
+        candidateLabel: 'task32-alpha-construction',
+        candidateRunId: '32594163793',
         publish: true,
         releaseTag: LOCAL_WHISPER_RELEASE_TARGETS.alpha,
       }),
-      { appRevision: '2.4.0-alpha.1', candidateTarget: LOCAL_WHISPER_RELEASE_TARGETS.alpha, targetKind: 'release' },
+      {
+        appRevision: '2.4.0-alpha.1',
+        candidateRunId: '32594163793',
+        candidateTarget: LOCAL_WHISPER_RELEASE_TARGETS.alpha,
+        targetKind: 'release',
+      },
     );
     assert.equal(isReleaseCandidateTarget('task32-proof-1', 'private'), true);
     assert.equal(isReleaseCandidateTarget(LOCAL_WHISPER_RELEASE_TARGETS.alpha, 'release'), true);
@@ -126,10 +146,10 @@ describe('Local Whisper release protocol', () => {
         resolveProductionWorkflowInputs({
           appRevision: '1.4.0',
           candidateLabel: 'task32-proof-1',
+          candidateRunId: '32594163793',
           publish: false,
-          releaseTag: LOCAL_WHISPER_RELEASE_TARGETS.alpha,
         }),
-      /rejects a release tag/u,
+      /rejects a prior candidate run/u,
     );
     assert.throws(
       () =>
@@ -285,7 +305,21 @@ describe('Local Whisper release protocol', () => {
       /TRIGGER_INVALID/u,
     );
     assert.throws(
-      () => verifier.verify(workflow.replace('if: ${{ inputs.publish == true }}', 'if: ${{ true }}')),
+      () =>
+        verifier.verify(
+          workflow.replace(
+            'run-name: ${{ inputs.watch_correlation || inputs.candidate_label }}',
+            'run-name: uncorrelated-candidate',
+          ),
+        ),
+      /MUTATION_FORBIDDEN/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace('watch_correlation:', 'unreviewed_input:')),
+      /PUBLICATION_INPUT_INVALID/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace('inputs.publish == true', 'true')),
       /PUBLICATION_GATE_INVALID/u,
     );
     assert.throws(

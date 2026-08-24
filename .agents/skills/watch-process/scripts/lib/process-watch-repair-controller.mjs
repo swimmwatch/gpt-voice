@@ -246,6 +246,9 @@ export class ProcessWatchRepairController {
       }
       let sourceSha = state.target?.sourceSha;
       if (this.#scenario.delivery.strategy === 'git-delivery') {
+        if (this.#scenario.authority?.kind === 'version-scoped-github-release') {
+          sourceSha = normalizedInvocation.sourceSha;
+        }
         if (sourceSha === null || sourceSha === undefined) runtimeFail('delivery-source-required');
         let delivery = await this.#deliveryService.reconcile({
           attempt: state.target?.attempt ?? 0,
@@ -362,12 +365,13 @@ export class ProcessWatchRepairController {
 
   #assertInvocationBinding(state, invocation) {
     const normalized = normalizeProcessWatchInvocation(invocation, this.#scenario);
+    const releaseSourceRebind = this.#scenario.authority?.kind === 'version-scoped-github-release';
     if (
       state.scenarioDigest !== this.#scenarioDigest ||
       state.timeoutSeconds !== normalized.timeoutSeconds ||
       state.deadlineEpochMilliseconds !== normalized.deadlineEpochMilliseconds ||
       state.target === null ||
-      state.target.sourceSha !== normalized.sourceSha
+      (!releaseSourceRebind && state.target.sourceSha !== normalized.sourceSha)
     ) {
       runtimeFail('scenario-changed');
     }

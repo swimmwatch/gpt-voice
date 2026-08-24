@@ -32,6 +32,10 @@ import { WATCH_OUTCOMES, isTerminalPhase, validateSafeId, validateWatchId } from
 import { WatchRuntimeDirectory } from './watch-runtime-directory.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 import { WatchScenarioRegistry } from './watch-scenario-registry.mjs';
+import {
+  VERSION_SCOPED_RELEASE_STATE_FILE_NAME,
+  VersionScopedReleaseSourceBinding,
+} from './version-scoped-release-source-binding.mjs';
 
 const CONTROL_ACTIONS = new Set(['begin-repair', 'begin-write', 'complete-write', 'restart', 'verify']);
 const ACTIVE_BLOCKING_OUTCOMES = new Set(['integrity_failed', 'monitoring_failed', 'timed_out', 'watcher_lost']);
@@ -324,7 +328,10 @@ export class ProcessWatchOperator {
     if (!CONTROL_ACTIONS.has(action)) runtimeFail('invalid-process-watch-control-action');
     const record = await this.#selectWatch(watchId);
     const control = await this.#loadControlContext(record);
-    const invocation = control.envelope.invocation;
+    const invocation =
+      action === 'begin-repair'
+        ? await this.#rebindVersionScopedReleaseSource({ control, record })
+        : control.envelope.invocation;
     if (action === 'begin-repair') return control.repairController.beginRepair({ invocation });
     if (action === 'begin-write') {
       return control.repairController.beginWrite({ candidatePaths: validateCandidatePaths(candidatePaths) });
@@ -334,6 +341,48 @@ export class ProcessWatchOperator {
     }
     if (action === 'verify') return control.repairController.verify({ invocation });
     return this.#restartInBackground({ control, record });
+  }
+
+  async #rebindVersionScopedReleaseSource({ control, record }) {
+    const authority = control.normalizedScenario.scenario.authority;
+    if (authority.kind !== 'version-scoped-github-release') return control.envelope.invocation;
+    const timeoutMilliseconds = Math.max(1, record.state.deadlineEpochMilliseconds - this.#now());
+    const [branch, snapshot] = await Promise.all([
+      this.#worktreeInspector.currentBranch({ timeoutMilliseconds }),
+      this.#worktreeInspector.assertClean({ timeoutMilliseconds }),
+    ]);
+    const prior = control.envelope.invocation;
+    if (![authority.featureBranch, authority.releaseBranch].includes(branch)) {
+      runtimeFail('release-repair-branch-not-authorized');
+    }
+    if (branch === authority.featureBranch && snapshot.headSha === prior.sourceSha) return prior;
+    const releaseState = await record.storage.readJson(VERSION_SCOPED_RELEASE_STATE_FILE_NAME);
+    const sourceSha = new VersionScopedReleaseSourceBinding({
+      authority,
+      deadlineEpochMilliseconds: record.state.deadlineEpochMilliseconds,
+      priorSourceSha: prior.sourceSha,
+      watchId: record.watchId,
+    }).resolve({ branch, headSha: snapshot.headSha, releaseState });
+    const invocation = normalizeProcessWatchInvocation(
+      {
+        ...prior,
+        inputDigest: digestNormalizedValue('gpt-voice/watch-process/release-source-rebind/v1', {
+          priorInputDigest: prior.inputDigest,
+          sourceSha,
+          watchId: record.watchId,
+        }),
+        sourceSha,
+      },
+      control.normalizedScenario.scenario,
+    );
+    await new GeneratedWatcherInvocationStore({ storage: record.storage }).write({
+      invocation,
+      scenario: control.normalizedScenario.scenario,
+      scenarioDigest: control.normalizedScenario.canonicalDigest,
+      sessionId: this.#sessionId,
+      workspaceId: this.#workspaceId,
+    });
+    return invocation;
   }
 
   async #restartInBackground({ control, record }) {

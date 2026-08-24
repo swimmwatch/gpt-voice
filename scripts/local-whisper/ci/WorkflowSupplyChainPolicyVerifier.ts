@@ -49,6 +49,7 @@ function parseWorkflow(text: string, name: string): WorkflowDocument {
 function validatePermissions(value: Record<string, unknown>, location: string, allowAttestation = false): void {
   const entries = Object.entries(value);
   const allowed = new Map([
+    ['actions', new Set(['read'])],
     ['contents', new Set(['read', 'write'])],
     ['security-events', new Set(['write'])],
   ]);

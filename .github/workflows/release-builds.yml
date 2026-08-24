@@ -1,4 +1,5 @@
-name: Build Private Production Candidate
+name: Build and Publish Production Candidate
+run-name: ${{ inputs.watch_correlation || inputs.candidate_label }}
 
 on:
   workflow_dispatch:
@@ -13,7 +14,15 @@ on:
         default: false
         type: boolean
       release_tag:
-        description: Immutable SemVer tag required when publication is explicitly enabled.
+        description: Immutable SemVer tag for a release candidate or explicitly enabled publication.
+        required: false
+        type: string
+      candidate_run_id:
+        description: Successful release-candidate run reused by publication without rebuilding.
+        required: false
+        type: string
+      watch_correlation:
+        description: Optional receipt correlation for the project-local nonpublishing Watch process.
         required: false
         type: string
 
@@ -43,6 +52,7 @@ jobs:
       app-revision: ${{ steps.resolve.outputs.app_revision }}
       candidate-target: ${{ steps.resolve.outputs.candidate_target }}
       target-kind: ${{ steps.resolve.outputs.target_kind }}
+      candidate-run-id: ${{ steps.resolve.outputs.candidate_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -58,6 +68,7 @@ jobs:
         id: resolve
         env:
           LOCAL_WHISPER_WORKFLOW_CANDIDATE_LABEL: ${{ inputs.candidate_label }}
+          LOCAL_WHISPER_WORKFLOW_CANDIDATE_RUN_ID: ${{ inputs.candidate_run_id }}
           LOCAL_WHISPER_WORKFLOW_PUBLISH: ${{ inputs.publish }}
           LOCAL_WHISPER_WORKFLOW_RELEASE_TAG: ${{ inputs.release_tag }}
         run: npm run verify:local-whisper:production-workflow-inputs
@@ -65,6 +76,7 @@ jobs:
   verify-production-signing-authority:
     name: Verify Protected Production Signing Authority
     needs: validate-production-inputs
+    if: ${{ inputs.publish != true }}
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: 10
     environment: local-whisper-production
@@ -849,12 +861,17 @@ jobs:
   publish:
     name: Publish Immutable GitHub Release
     needs:
+      - validate-production-inputs
       - verify-production-candidate
-    if: ${{ inputs.publish == true }}
+    if: >-
+      ${{ always() && inputs.publish == true &&
+      needs.validate-production-inputs.result == 'success' &&
+      needs.verify-production-candidate.result == 'skipped' }}
     runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_PUBLISH_TIMEOUT_MINUTES) }}
     environment: local-whisper-production
     permissions:
+      actions: read
       contents: write
     steps:
       - name: Checkout
@@ -867,17 +884,29 @@ jobs:
         with:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
+      - name: Verify the successful frozen candidate run selected for promotion
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOCAL_WHISPER_CANDIDATE_RUN_ID: ${{ needs.validate-production-inputs.outputs.candidate-run-id }}
+        run: npm run verify:local-whisper:production-promotion-source
+
       - name: Download exact verified production candidate bytes
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: gpt-voice-production-candidate
           path: release-assets
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-production-inputs.outputs.candidate-run-id }}
 
       - name: Download verified production candidate descriptor
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: gpt-voice-production-candidate-descriptor
           path: candidate-descriptor
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.validate-production-inputs.outputs.candidate-run-id }}
 
       - name: Reverify the exact publication candidate and tag binding
         shell: bash
@@ -933,3 +962,19 @@ jobs:
             "${release_flags[@]}" \
             --title "GPT-Voice $RELEASE_TAG" \
             --notes "Install GPT-Voice by downloading the package for your operating system below."
+
+      - name: Verify public final-origin bytes and seal deployment identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOCAL_WHISPER_CANDIDATE_DESCRIPTOR: candidate-descriptor/candidate.json
+          LOCAL_WHISPER_DEPLOYMENT_EVIDENCE: deployment-evidence/deployment.json
+          LOCAL_WHISPER_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: npm run verify:local-whisper:published-release
+
+      - name: Preserve verified deployment identity
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gpt-voice-alpha-deployment-evidence
+          path: deployment-evidence/deployment.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}

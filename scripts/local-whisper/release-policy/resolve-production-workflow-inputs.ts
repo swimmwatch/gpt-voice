@@ -25,13 +25,14 @@ async function main(): Promise<void> {
   const resolved = resolveProductionWorkflowInputs({
     appRevision: packageDocument.version,
     candidateLabel: requiredEnvironment('LOCAL_WHISPER_WORKFLOW_CANDIDATE_LABEL'),
+    candidateRunId: process.env.LOCAL_WHISPER_WORKFLOW_CANDIDATE_RUN_ID,
     publish: publishValue === 'true',
     releaseTag: process.env.LOCAL_WHISPER_WORKFLOW_RELEASE_TAG,
   });
   const outputPath = requiredEnvironment('GITHUB_OUTPUT');
   await appendFile(
     outputPath,
-    `candidate_target=${resolved.candidateTarget}\ntarget_kind=${resolved.targetKind}\napp_revision=${resolved.appRevision}\n`,
+    `candidate_target=${resolved.candidateTarget}\ntarget_kind=${resolved.targetKind}\napp_revision=${resolved.appRevision}\ncandidate_run_id=${resolved.candidateRunId ?? ''}\n`,
     { encoding: 'utf8' },
   );
   process.stdout.write(`Production workflow inputs accepted for ${resolved.targetKind} construction\n`);

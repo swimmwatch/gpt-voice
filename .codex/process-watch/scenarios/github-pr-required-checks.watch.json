@@ -1,6 +1,6 @@
 {
   "$schema": "urn:gpt-voice:watch-process:scenario:1",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "id": "github-pr-required-checks",
   "description": "Watch and repair every required check for the current swimmwatch/gpt-voice branch PR head SHA.",
   "adapter": "github-actions",
@@ -73,6 +73,7 @@
     { "executable": "npm", "args": ["run", "validate:dependabot"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }
   ],
   "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
+  "authority": { "kind": "standard" },
   "forbiddenActions": ["force-push", "merge", "release", "publish", "deploy"],
   "adapterConfig": {
     "repository": "swimmwatch/gpt-voice",

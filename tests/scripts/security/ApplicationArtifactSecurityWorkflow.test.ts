@@ -173,9 +173,11 @@ describe('Application artifact security workflow', () => {
     assert.equal(workflow.match(/secrets\.CI_LOCAL_WHISPER_PRODUCTION_SIGNING_KEY_PEM/gu)?.length, 3);
     assert.match(candidateVerification, /environment: local-whisper-production/u);
     assert.match(workflow, /publish:\n {8}description:[\s\S]*default: false\n {8}type: boolean/u);
-    assert.match(publication, /needs:\n {6}- verify-production-candidate/u);
-    assert.match(publication, /if: \$\{\{ inputs\.publish == true \}\}/u);
-    assert.match(publication, /permissions:\n {6}contents: write/u);
+    assert.match(publication, /needs:\n {6}- validate-production-inputs\n {6}- verify-production-candidate/u);
+    assert.match(publication, /if: >-[\s\S]*inputs\.publish == true/u);
+    assert.match(publication, /needs\.validate-production-inputs\.result == 'success'/u);
+    assert.match(publication, /needs\.verify-production-candidate\.result == 'skipped'/u);
+    assert.match(publication, /permissions:\n {6}actions: read\n {6}contents: write/u);
     assert.match(publication, /gpt-voice-production-candidate-descriptor/u);
     assert.match(publication, /verify:local-whisper:production-candidate/u);
     assert.match(publication, /--target-kind=release/u);

@@ -47,20 +47,30 @@ function verifyDispatchContract(triggers: Readonly<Record<string, unknown>>): vo
   if (!isRecord(dispatch) || !isRecord(dispatch.inputs) || Object.keys(triggers).length !== 1) {
     throw new Error('RELEASE_WORKFLOW_TRIGGER_INVALID');
   }
+  const inputNames = Object.keys(dispatch.inputs).sort();
   const candidateLabel = dispatch.inputs.candidate_label;
+  const candidateRunId = dispatch.inputs.candidate_run_id;
   const publish = dispatch.inputs.publish;
   const releaseTag = dispatch.inputs.release_tag;
+  const watchCorrelation = dispatch.inputs.watch_correlation;
   if (
+    inputNames.join(',') !== 'candidate_label,candidate_run_id,publish,release_tag,watch_correlation' ||
     !isRecord(candidateLabel) ||
     candidateLabel.required !== true ||
     candidateLabel.type !== 'string' ||
+    !isRecord(candidateRunId) ||
+    candidateRunId.required !== false ||
+    candidateRunId.type !== 'string' ||
     !isRecord(publish) ||
     publish.required !== false ||
     publish.default !== false ||
     publish.type !== 'boolean' ||
     !isRecord(releaseTag) ||
     releaseTag.required !== false ||
-    releaseTag.type !== 'string'
+    releaseTag.type !== 'string' ||
+    !isRecord(watchCorrelation) ||
+    watchCorrelation.required !== false ||
+    watchCorrelation.type !== 'string'
   ) {
     throw new Error('RELEASE_WORKFLOW_PUBLICATION_INPUT_INVALID');
   }
@@ -145,6 +155,10 @@ function verifySigningAuthority(jobs: Readonly<Record<string, unknown>>): void {
       throw new Error('RELEASE_WORKFLOW_SIGNING_AUTHORITY_REQUIRED');
     }
   }
+  const preflight = jobs['verify-production-signing-authority'];
+  if (!isRecord(preflight) || preflight.if !== '${{ inputs.publish != true }}') {
+    throw new Error('RELEASE_WORKFLOW_PUBLICATION_REBUILD_FORBIDDEN');
+  }
 }
 
 function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void {
@@ -170,6 +184,13 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
     !needsJob(candidate, 'attest-release')
   ) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
+  for (const jobId of CANDIDATE_JOB_IDS) {
+    if (jobId === 'validate-production-inputs' || jobId === 'verify-production-signing-authority') continue;
+    const job = jobs[jobId];
+    if (isRecord(job) && Object.prototype.hasOwnProperty.call(job, 'if')) {
+      throw new Error('RELEASE_WORKFLOW_PUBLICATION_REBUILD_FORBIDDEN');
+    }
   }
   if (
     JSON.stringify(linuxApplication).includes('produce-runtime-packs.mjs') ||
@@ -197,11 +218,16 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
 
 function verifyPublishJob(jobs: Readonly<Record<string, unknown>>): void {
   const publish = jobs.publish;
+  const publishCondition = isRecord(publish) && typeof publish.if === 'string' ? publish.if : '';
   if (
     !isRecord(publish) ||
-    publish.if !== '${{ inputs.publish == true }}' ||
+    !publishCondition.includes('inputs.publish == true') ||
+    !publishCondition.includes("needs.validate-production-inputs.result == 'success'") ||
+    !publishCondition.includes("needs.verify-production-candidate.result == 'skipped'") ||
+    !needsJob(publish, 'validate-production-inputs') ||
     !needsJob(publish, 'verify-production-candidate') ||
     !isRecord(publish.permissions) ||
+    publish.permissions.actions !== 'read' ||
     publish.permissions.contents !== 'write'
   ) {
     throw new Error('RELEASE_WORKFLOW_PUBLICATION_GATE_INVALID');
@@ -210,7 +236,13 @@ function verifyPublishJob(jobs: Readonly<Record<string, unknown>>): void {
   const requiredMarkers = [
     'gpt-voice-production-candidate',
     'gpt-voice-production-candidate-descriptor',
+    'candidate-run-id',
+    'github-token',
+    'run-id',
+    'verify:local-whisper:production-promotion-source',
     'verify:local-whisper:production-candidate',
+    'verify:local-whisper:published-release',
+    'gpt-voice-alpha-deployment-evidence',
     'inputs.release_tag',
     'candidate_target',
     'github.sha',
@@ -224,6 +256,16 @@ function verifyPublishJob(jobs: Readonly<Record<string, unknown>>): void {
   if (requiredMarkers.some((marker) => !publishText.includes(marker))) {
     throw new Error('RELEASE_WORKFLOW_PUBLICATION_INCOMPLETE');
   }
+  if (
+    [
+      'construct:local-whisper:production-candidate',
+      'construct:local-whisper:production-bundle',
+      'electron-builder',
+      'produce-runtime-packs.mjs',
+    ].some((marker) => publishText.includes(marker))
+  ) {
+    throw new Error('RELEASE_WORKFLOW_PUBLICATION_REBUILD_FORBIDDEN');
+  }
 }
 
 /** Guards the default-off candidate path while preserving the Task 33 publication capability. */
@@ -235,6 +277,7 @@ export class ReleaseWorkflowPolicyVerifier {
     verifyDispatchContract(triggers);
 
     if (
+      document['run-name'] !== '${{ inputs.watch_correlation || inputs.candidate_label }}' ||
       workflow.includes('github.event.release') ||
       workflow.includes('--clobber') ||
       !isRecord(document.permissions) ||

@@ -76,6 +76,8 @@ export class WatchScenarioNormalizer {
   applyDefaults(value) {
     const scenario = cloneJson(value);
     scenario.description ??= '';
+    scenario.authority ??= { kind: 'standard' };
+    scenario.schemaVersion = SCENARIO_SCHEMA_VERSION;
     scenario.target.requireExactSourceRevision ??= true;
     scenario.repair.excludeGlobs ??= [];
     scenario.repair.allowCreate ??= false;

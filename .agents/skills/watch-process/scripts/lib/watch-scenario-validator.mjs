@@ -1,5 +1,6 @@
 import {
   ADAPTERS,
+  AUTHORITY_KINDS,
   COMMAND_FIELDS,
   CURRENT_SCHEMA_MAJOR,
   DELIVERY_STRATEGIES,
@@ -7,9 +8,11 @@ import {
   EXECUTABLE_PATTERN,
   FORBIDDEN_ACTION_PATTERN,
   IDENTITY_FIELD_PATTERN,
+  LEGACY_SCENARIO_SCHEMA_VERSIONS,
   PROVIDER_ID_PATTERN,
   REPOSITORY_PATTERN,
   REQUIRED_CHECK_MODES,
+  RELEASE_AUTHORITY_OPERATIONS,
   ROOT_FIELDS,
   SCENARIO_ID_PATTERN,
   SCENARIO_SCHEMA_ID,
@@ -38,6 +41,20 @@ const TIMING_FIELDS = new Set(['expectedDurationSeconds', 'minTimeoutSeconds', '
 const POLL_FIELDS = new Set(['initialSeconds', 'maxSeconds', 'multiplier']);
 const EVIDENCE_FIELDS = new Set(['maxBytesPerAttempt', 'maxFailures', 'ttlSeconds']);
 const DELIVERY_FIELDS = new Set(['strategy', 'pushCurrentUpstream']);
+const AUTHORITY_FIELDS = new Set([
+  'kind',
+  'repository',
+  'version',
+  'tag',
+  'baseBranch',
+  'featureBranch',
+  'releaseBranch',
+  'workflow',
+  'environment',
+  'scriptEntrypoint',
+  'scriptSha256',
+  'allowedOperations',
+]);
 const DELIVERY_DEFAULTED_FIELDS = new Set(['pushCurrentUpstream']);
 const DISPATCH_FIELDS = new Set(['enabled', 'workflow', 'inputs', 'idempotencyInput']);
 const DISPATCH_DEFAULTED_FIELDS = new Set(['enabled']);
@@ -79,17 +96,19 @@ export class WatchScenarioValidator {
         'repair',
         'verification',
         'delivery',
+        'authority',
         'forbiddenActions',
         'adapterConfig',
       ],
       '$',
       allowDefaultedFields,
+      new Set(['authority']),
     );
 
     if (requireString(scenario.$schema, '$.$schema', 1) !== SCENARIO_SCHEMA_ID) {
       fail('unsupported-schema-id', '$.$schema');
     }
-    this.#validateSchemaVersion(scenario.schemaVersion, '$.schemaVersion');
+    this.#validateSchemaVersion(scenario.schemaVersion, '$.schemaVersion', allowDefaultedFields);
     const id = requireString(scenario.id, '$.id', 3, 64);
     if (!SCENARIO_ID_PATTERN.test(id)) fail('string-pattern-mismatch', '$.id');
     if (hasOwn(scenario, 'description')) requireString(scenario.description, '$.description', 0, 300);
@@ -107,6 +126,8 @@ export class WatchScenarioValidator {
       this.#validateCommand(command, `$.verification[${index}]`, allowDefaultedFields);
     }
     this.#validateDelivery(scenario.delivery, '$.delivery', allowDefaultedFields);
+    if (hasOwn(scenario, 'authority')) this.#validateAuthority(scenario.authority, '$.authority');
+    else if (!allowDefaultedFields) fail('missing-required-field', '$.authority');
     validateStringArray(scenario.forbiddenActions, '$.forbiddenActions', {
       unique: true,
       itemMinimum: 2,
@@ -118,13 +139,69 @@ export class WatchScenarioValidator {
     return scenario;
   }
 
-  #validateSchemaVersion(value, location) {
+  #validateSchemaVersion(value, location, allowLegacy) {
     const version = requireString(value, location, 1);
     const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.exec(version);
     if (match === null) fail('invalid-schema-version', location);
     if (Number(match[1]) !== CURRENT_SCHEMA_MAJOR) fail('unsupported-schema-major', location);
-    if (version !== SCENARIO_SCHEMA_VERSION) fail('unsupported-schema-version', location);
+    if (version !== SCENARIO_SCHEMA_VERSION && !(allowLegacy && LEGACY_SCENARIO_SCHEMA_VERSIONS.has(version))) {
+      fail('unsupported-schema-version', location);
+    }
     return version;
+  }
+
+  #validateAuthority(value, location) {
+    const authority = assertClosedObject(value, AUTHORITY_FIELDS, location);
+    assertRequiredFields(authority, ['kind'], location, false);
+    const kind = requireString(authority.kind, `${location}.kind`, 1);
+    assertEnum(kind, AUTHORITY_KINDS, `${location}.kind`);
+    if (kind === 'standard') {
+      if (Object.keys(authority).length !== 1) fail('standard-authority-fields-forbidden', location);
+      return;
+    }
+    const required = [
+      'repository',
+      'version',
+      'tag',
+      'baseBranch',
+      'featureBranch',
+      'releaseBranch',
+      'workflow',
+      'environment',
+      'scriptEntrypoint',
+      'scriptSha256',
+      'allowedOperations',
+    ];
+    assertRequiredFields(authority, required, location, false);
+    const repository = requireString(authority.repository, `${location}.repository`, 1, 200);
+    if (!REPOSITORY_PATTERN.test(repository)) fail('string-pattern-mismatch', `${location}.repository`);
+    const version = requireString(authority.version, `${location}.version`, 1, 64);
+    if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[\dA-Za-z.-]+)?$/u.test(version)) {
+      fail('string-pattern-mismatch', `${location}.version`);
+    }
+    if (authority.tag !== `v${version}` || authority.releaseBranch !== `release/v${version}`) {
+      fail('release-authority-version-mismatch', location);
+    }
+    for (const field of ['baseBranch', 'featureBranch', 'releaseBranch']) {
+      const branch = requireString(authority[field], `${location}.${field}`, 1, 128);
+      if (!/^[A-Za-z0-9][\w./-]*$/u.test(branch) || branch.includes('..') || branch.includes('//')) {
+        fail('string-pattern-mismatch', `${location}.${field}`);
+      }
+    }
+    for (const field of ['workflow', 'environment', 'scriptEntrypoint']) {
+      requireString(authority[field], `${location}.${field}`, 1, 200);
+    }
+    if (!/^[a-f\d]{64}$/u.test(requireString(authority.scriptSha256, `${location}.scriptSha256`, 64, 64))) {
+      fail('string-pattern-mismatch', `${location}.scriptSha256`);
+    }
+    const operations = validateStringArray(authority.allowedOperations, `${location}.allowedOperations`, {
+      minimum: 1,
+      unique: true,
+      itemMinimum: 2,
+    });
+    for (const [index, operation] of operations.entries()) {
+      assertEnum(operation, RELEASE_AUTHORITY_OPERATIONS, `${location}.allowedOperations[${index}]`);
+    }
   }
 
   #validateTarget(value, location, allowDefaultedFields) {

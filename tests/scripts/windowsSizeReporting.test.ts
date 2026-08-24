@@ -30,8 +30,8 @@ test('Windows package jobs measure and retain current and reference size reports
   assert.match(releaseWorkflow, /^permissions:\n {2}contents: read$/mu);
   assert.match(releaseWorkflow, /verify-production-candidate:[\s\S]*permissions:\n {6}contents: read/u);
   assert.match(releaseWorkflow, /Assemble and Verify Production Candidate/u);
-  assert.match(releaseWorkflow, /publish:[\s\S]*if: \$\{\{ inputs\.publish == true \}\}/u);
-  assert.match(releaseWorkflow, /publish:[\s\S]*permissions:\n {6}contents: write/u);
+  assert.match(releaseWorkflow, /publish:[\s\S]*if: >-[\s\S]*inputs\.publish == true/u);
+  assert.match(releaseWorkflow, /publish:[\s\S]*permissions:\n {6}actions: read\n {6}contents: write/u);
   assert.doesNotMatch(releaseWorkflow, /github\.event\.release|--clobber/u);
   assert.match(releaseWorkflow, /build-windows:[\s\S]*Build Windows v1\.4 reference/u);
   assert.match(releaseWorkflow, /build-windows:[\s\S]*fetch-depth: 0/u);

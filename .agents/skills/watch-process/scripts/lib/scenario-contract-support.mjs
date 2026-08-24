@@ -1,5 +1,6 @@
 export const SCENARIO_SCHEMA_ID = 'urn:gpt-voice:watch-process:scenario:1';
-export const SCENARIO_SCHEMA_VERSION = '1.0.0';
+export const SCENARIO_SCHEMA_VERSION = '1.1.0';
+export const LEGACY_SCENARIO_SCHEMA_VERSIONS = new Set(['1.0.0']);
 export const SCENARIO_FILE_SUFFIX = '.watch.json';
 
 export const CURRENT_SCHEMA_MAJOR = 1;
@@ -15,6 +16,18 @@ export const SUBSTITUTION_PATTERN =
 export const EXT_GLOB_PATTERN = /[@+?!*]\(/u;
 
 export const ADAPTERS = new Set(['github-actions', 'generic-ci-cli', 'docker-build', 'local-command']);
+export const AUTHORITY_KINDS = new Set(['standard', 'version-scoped-github-release']);
+export const RELEASE_AUTHORITY_OPERATIONS = new Set([
+  'approve-environment',
+  'commit',
+  'create-pull-request',
+  'create-release-branch',
+  'merge-pull-request',
+  'publish-prerelease',
+  'push',
+  'tag-via-workflow',
+  'workflow-dispatch',
+]);
 export const SELECTOR_KINDS = new Set(['run-url', 'pull-request-url', 'provider-id', 'start']);
 export const REQUIRED_CHECK_MODES = new Set(['provider-required', 'listed', 'none']);
 export const DELIVERY_STRATEGIES = new Set([
@@ -47,6 +60,7 @@ export const ROOT_FIELDS = new Set([
   'repair',
   'verification',
   'delivery',
+  'authority',
   'forbiddenActions',
   'adapterConfig',
 ]);

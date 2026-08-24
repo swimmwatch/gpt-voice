@@ -10,6 +10,18 @@ stable-versus-prerelease decision before changing release state. Use the global
 Prompt MCP for any missing material release decision, with a persistent
 workspace interview and stable IDs.
 
+The exact invocation
+`$watch-process scenario=local-whisper-alpha-release timeout=6h` is a reviewed
+version-scoped exception for `swimmwatch/gpt-voice@v2.4.0-alpha.1`. It confirms
+the prerelease target and authorizes the complete closed `AUTH-001` sequence
+without a new approval between its normal phases: atomic commits and normal
+pushes, feature/release pull requests, protected-environment approval,
+preserving merge commits, release-candidate/promotion dispatch,
+workflow-owned tag creation, and immutable prerelease publication. The Watch
+contract, repair scope, shared deadline, exact-SHA/candidate proofs, operation
+receipts, and independent prohibitions remain mandatory. No other Watch or
+release inherits this exception.
+
 ## Evidence And Preconditions
 
 1. Read `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
@@ -44,7 +56,10 @@ workspace interview and stable IDs.
    Publishing the release is therefore a consequential manual gate.
 5. Obtain explicit authorization immediately before each commit, tag, push,
    GitHub Release publish, asset upload, overwrite, or other external mutation.
-   Approval to prepare is not approval to publish.
+   Approval to prepare is not approval to publish. The sole exception is an
+   active exact `local-whisper-alpha-release` invocation, which already grants
+   only the closed non-destructive operations above for alpha.1; do not ask
+   again between those phases.
 6. After publication, verify workflow completion, attached filenames,
    checksums, install/uninstall behavior on supported platforms, bundled
    CloakBrowser, Electron fuses, license/metadata, and documented availability.
@@ -54,3 +69,9 @@ recovery. Report published state and prepare a follow-up release unless the
 user explicitly chooses another safe recovery. Finish with version, tag,
 commit, release URL, assets, checksums, checks run, skipped platform checks, and
 residual risks.
+
+For the alpha.1 Watch, stop after the protected publication workflow is green
+and the public prerelease identity is confirmed. Do not download, install, or
+smoke-test artifacts in that process; Tasks 34 and 35 own those later Linux and
+Windows checks. Any failure after tag/release visibility blocks alpha.1 and
+requires a separate alpha.2 planning iteration.

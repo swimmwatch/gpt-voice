@@ -33,6 +33,10 @@ or process argument.
 An invocation identifies exactly one logical target. It does not override
 Codex sandbox, approval, hook-trust, repository, branch-protection, or other
 applicable policies.
+Standard scenarios cannot authorize release actions. The sole reviewed
+exception is `local-whisper-alpha-release`, whose
+`version-scoped-github-release` authority is closed by `AUTH-001` to
+`swimmwatch/gpt-voice@v2.4.0-alpha.1`.
 
 ## Timeout decision
 
@@ -43,8 +47,10 @@ expected process duration plus a practical margin—for example, about 40 minute
 for a process that normally takes 30 minutes.
 
 There is no default timeout. Do not arm, resume, observe, dispatch, or cancel a
-target until the finite value is supplied and runtime validation accepts it. A
-selected timeout does not authorize remote cancellation.
+target until the finite value is supplied and runtime validation accepts it.
+The value is one shared deadline for the complete repair loop; every new
+attempt uses only the remaining budget. A selected timeout does not authorize
+remote cancellation.
 
 ## Lifecycle surface
 
@@ -180,18 +186,36 @@ attempt to its new exact source SHA before accepting a green result.
 The original explicit watch invocation names the reviewed scenario, target, and
 timeout. It authorizes that scenario's declared normal start, retry, dispatch,
 and normal current-upstream push for the bounded repair loop; do not ask again
-before each declared attempt. A different live target requires a separate
-explicit invocation. Remote cancellation, repository settings, and every
-action prohibited by the canonical safety contract require separate authority
-or remain forbidden. A user cancel during `Repairing`, `Verifying`, or
-`Restarting` stops at the next safe boundary, preserves the patch and ambiguous
-receipts, and records `user_cancelled`.
+before each declared attempt. For `local-whisper-alpha-release` only, the same
+invocation also authorizes the exact `AUTH-001` release operation allowlist:
+atomic commits and normal pushes, feature/release PRs, protected-environment
+approval, preserving merge commits, release-candidate/promotion dispatch,
+workflow-owned tag creation, and immutable `v2.4.0-alpha.1` prerelease
+publication. It never authorizes force-push, amend, rebase, squash,
+overwrite/delete, repository settings, deploy, platform smoke, Tasks 34/35, or
+another version/repository/branch/workflow/environment. A different live target
+requires a separate explicit invocation. A user cancel during `Repairing`,
+`Verifying`, or `Restarting` stops at the next safe boundary, preserves the
+patch and ambiguous receipts, and records `user_cancelled`.
+
+The release scenario repairs prepublication failures forward. A changed source
+invalidates every earlier candidate, so the next attempt must create and verify
+a new exact-SHA candidate before promotion. Remote operation correlation must
+reconcile uncertain dispatch, PR, approval, merge, and publication responses
+before retry. Once the tag or GitHub Release is public, alpha.1 is immutable:
+stop `Blocked` and require a separate alpha.2 planning iteration. Success ends
+after the protected publication workflow is green and the prerelease identity
+is revalidated; do not run artifact installation, Linux/Windows smoke, or Tasks
+34/35 in this Watch.
 
 ## Current non-goals
 
 Do not create a global service, change user-level configuration, mutate Goals,
-implement GitLab-specific behavior, collect credentials, publish, deploy,
-release, tag, merge, force-push, or weaken checks.
+implement GitLab-specific behavior, collect credentials, force-push, amend,
+rebase, squash, overwrite/delete release state, deploy, change repository
+settings, or weaken checks. Standard scenarios also cannot publish, release,
+tag, merge, or approve protected environments; only the exact
+`local-whisper-alpha-release` exception above may perform its closed operations.
 
 ## Operator and scenario-author reference
 

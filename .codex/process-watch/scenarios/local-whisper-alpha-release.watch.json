@@ -1,0 +1,143 @@
+{
+  "$schema": "urn:gpt-voice:watch-process:scenario:1",
+  "schemaVersion": "1.1.0",
+  "id": "local-whisper-alpha-release",
+  "description": "Complete the bounded v2.4.0-alpha.1 Local Whisper release lifecycle, repairing prepublication failures and stopping after the protected publication workflow succeeds.",
+  "adapter": "local-command",
+  "target": {
+    "selectorKinds": ["start"],
+    "identityFields": ["repository", "releaseTag", "watchId", "attempt"],
+    "requireExactSourceRevision": false
+  },
+  "success": {
+    "requiredChecksMode": "none",
+    "requiredChecks": [],
+    "requiredOutputs": ["published-release-attestation"],
+    "allowedSkippedChecks": []
+  },
+  "timing": {
+    "expectedDurationSeconds": 10800,
+    "minTimeoutSeconds": 3600,
+    "maxTimeoutSeconds": 21600,
+    "poll": { "initialSeconds": 15, "maxSeconds": 120, "multiplier": 1.5 }
+  },
+  "evidence": { "maxBytesPerAttempt": 1048576, "maxFailures": 30, "ttlSeconds": 86400 },
+  "repair": {
+    "includeGlobs": [
+      ".github/actions/**",
+      ".github/workflows/release-builds.yml",
+      "CHANGELOG.md",
+      "build/fedora-release/**",
+      "docs/releases/**",
+      "docs/specs/local-whisper/**",
+      "package-lock.json",
+      "package.json",
+      "runtime/local-whisper/**",
+      "scripts/local-whisper/**",
+      "tests/runtime/localWhisper/**",
+      "tests/scripts/localWhisper/**"
+    ],
+    "excludeGlobs": [
+      ".agents/skills/watch-process/**",
+      ".cache/**",
+      ".codex/**",
+      "dist/**",
+      "node_modules/**",
+      "release/**",
+      "release-artifacts/**",
+      "src/**"
+    ],
+    "allowCreate": true,
+    "allowDelete": false,
+    "maxFiles": 50,
+    "maxBytesChanged": 1048576
+  },
+  "verification": [
+    { "executable": "npm", "args": ["run", "format:check"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "lint"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    {
+      "executable": "npm",
+      "args": ["run", "test:local-whisper:release-candidates"],
+      "cwd": ".",
+      "env": ["PATH", "SYSTEMROOT"]
+    },
+    { "executable": "npm", "args": ["run", "validate:workflows"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "test:unit:ci"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    { "executable": "npm", "args": ["run", "build:prod"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] },
+    {
+      "executable": "npm",
+      "args": ["run", "verify:renderer-bundle"],
+      "cwd": ".",
+      "env": ["PATH", "SYSTEMROOT"]
+    },
+    {
+      "executable": "node",
+      "args": [
+        ".codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs",
+        "verify-final",
+        "--watch-id",
+        "{{watch.id}}",
+        "--bundle-sha256",
+      "d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560"
+      ],
+      "cwd": ".",
+      "env": ["HOME", "PATH", "SYSTEMROOT", "XDG_CONFIG_HOME"]
+    }
+  ],
+  "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
+  "authority": {
+    "kind": "version-scoped-github-release",
+    "repository": "swimmwatch/gpt-voice",
+    "version": "2.4.0-alpha.1",
+    "tag": "v2.4.0-alpha.1",
+    "baseBranch": "main",
+    "featureBranch": "feat/local-whisper-provider",
+    "releaseBranch": "release/v2.4.0-alpha.1",
+    "workflow": "release-builds.yml",
+    "environment": "local-whisper-production",
+    "scriptEntrypoint": ".codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs",
+      "scriptSha256": "d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560",
+    "allowedOperations": [
+      "approve-environment",
+      "commit",
+      "create-pull-request",
+      "create-release-branch",
+      "merge-pull-request",
+      "publish-prerelease",
+      "push",
+      "tag-via-workflow",
+      "workflow-dispatch"
+    ]
+  },
+  "forbiddenActions": [
+    "amend",
+    "delete-release",
+    "delete-tag",
+    "deploy",
+    "force-push",
+    "overwrite-release",
+    "platform-smoke",
+    "rebase",
+    "repository-settings",
+    "squash"
+  ],
+  "adapterConfig": {
+    "startCommand": {
+      "executable": "node",
+      "args": [
+        ".codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs",
+        "run",
+        "--watch-id",
+        "{{watch.id}}",
+        "--timeout-seconds",
+        "{{invocation.timeout_seconds}}",
+        "--bundle-sha256",
+      "d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560"
+      ],
+      "cwd": ".",
+      "env": ["HOME", "PATH", "SYSTEMROOT", "XDG_CONFIG_HOME"]
+    },
+    "successExitCodes": [0]
+  }
+}

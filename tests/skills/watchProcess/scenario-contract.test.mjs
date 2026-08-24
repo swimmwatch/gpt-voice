@@ -23,6 +23,7 @@ import {
   resolveCommandArguments,
   validateRepairGlob,
 } from '../../../.agents/skills/watch-process/scripts/lib/watch-scenario-registry.mjs';
+import { releaseBundleDigest } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/bundle.mjs';
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_PATH = path.resolve(TEST_DIRECTORY, '../../..');
@@ -91,7 +92,8 @@ function makeScenario(adapter = 'github-actions') {
 function expectValidationFailure(value, expectedCode) {
   assert.throws(
     () => normalizeWatchScenario(value),
-    (error) => error?.name === 'ScenarioValidationError' && error.code === expectedCode,
+    (error) =>
+      error?.name === 'ScenarioValidationError' && (expectedCode === undefined || error.code === expectedCode),
   );
 }
 
@@ -401,6 +403,7 @@ describe('watch-process scenarios', () => {
       ['generic-ci-run', 'generic-ci-cli'],
       ['local-docker-build', 'docker-build'],
       ['local-long-test', 'local-command'],
+      ['local-whisper-alpha-release', 'local-command'],
     ];
 
     for (const [id, adapter] of expected) {
@@ -443,6 +446,115 @@ describe('watch-process scenarios', () => {
         'run validate:dependabot',
       ],
     );
+  });
+
+  it('binds the Local Whisper release authority to alpha.1 and its immutable orchestrator bundle', async () => {
+    const scenario = (await new WatchScenarioRegistry(SCENARIOS_PATH).load('local-whisper-alpha-release')).scenario;
+
+    assert.equal(scenario.authority.kind, 'version-scoped-github-release');
+    assert.deepEqual(
+      {
+        baseBranch: scenario.authority.baseBranch,
+        environment: scenario.authority.environment,
+        featureBranch: scenario.authority.featureBranch,
+        releaseBranch: scenario.authority.releaseBranch,
+        repository: scenario.authority.repository,
+        tag: scenario.authority.tag,
+        version: scenario.authority.version,
+        workflow: scenario.authority.workflow,
+      },
+      {
+        baseBranch: 'main',
+        environment: 'local-whisper-production',
+        featureBranch: 'feat/local-whisper-provider',
+        releaseBranch: 'release/v2.4.0-alpha.1',
+        repository: 'swimmwatch/gpt-voice',
+        tag: 'v2.4.0-alpha.1',
+        version: '2.4.0-alpha.1',
+        workflow: 'release-builds.yml',
+      },
+    );
+    assert.deepEqual(scenario.authority.allowedOperations, [
+      'approve-environment',
+      'commit',
+      'create-pull-request',
+      'create-release-branch',
+      'merge-pull-request',
+      'publish-prerelease',
+      'push',
+      'tag-via-workflow',
+      'workflow-dispatch',
+    ]);
+    assert.match(scenario.authority.scriptSha256, /^[a-f\d]{64}$/u);
+    assert.equal(scenario.authority.scriptSha256, await releaseBundleDigest());
+    assert.deepEqual(scenario.target.selectorKinds, ['start']);
+    assert.equal(scenario.target.requireExactSourceRevision, false);
+    assert.deepEqual(scenario.delivery, { strategy: 'git-delivery', pushCurrentUpstream: true });
+    assert.deepEqual(scenario.success.requiredOutputs, ['published-release-attestation']);
+    assert.deepEqual(scenario.forbiddenActions, [
+      'amend',
+      'delete-release',
+      'delete-tag',
+      'deploy',
+      'force-push',
+      'overwrite-release',
+      'platform-smoke',
+      'rebase',
+      'repository-settings',
+      'squash',
+    ]);
+    assert.equal(isPathInRepairScope(scenario.repair, '.github/workflows/release-builds.yml'), true);
+    assert.equal(isPathInRepairScope(scenario.repair, 'build/fedora-release/fedora-release-entrypoint.mjs'), true);
+    assert.equal(isPathInRepairScope(scenario.repair, 'scripts/local-whisper/native-build/tool.mjs'), true);
+    assert.equal(isPathInRepairScope(scenario.repair, 'src/main.ts'), false);
+    assert.equal(isPathInRepairScope(scenario.repair, '.agents/skills/watch-process/SKILL.md'), false);
+    assert.deepEqual(
+      scenario.verification.map((command) => command.args.join(' ')),
+      [
+        'run format:check',
+        'run lint',
+        'run test:types',
+        'run test:local-whisper:release-candidates',
+        'run validate:workflows',
+        'run test:unit:ci',
+        'run build:prod',
+        'run verify:renderer-bundle',
+        `.codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs verify-final --watch-id {{watch.id}} --bundle-sha256 ${scenario.authority.scriptSha256}`,
+      ],
+    );
+    assert.deepEqual(scenario.adapterConfig.startCommand.args, [
+      scenario.authority.scriptEntrypoint,
+      'run',
+      '--watch-id',
+      '{{watch.id}}',
+      '--timeout-seconds',
+      '{{invocation.timeout_seconds}}',
+      '--bundle-sha256',
+      scenario.authority.scriptSha256,
+    ]);
+  });
+
+  it('rejects incomplete, forged, or broadened release authority while standard scenarios remain nonpublishing', async () => {
+    const registry = new WatchScenarioRegistry(SCENARIOS_PATH);
+    const releaseScenario = clone((await registry.load('local-whisper-alpha-release')).scenario);
+    for (const mutate of [
+      (scenario) => scenario.authority.allowedOperations.pop(),
+      (scenario) => (scenario.authority.repository = 'attacker/repository'),
+      (scenario) => (scenario.authority.tag = 'v2.4.0-alpha.2'),
+      (scenario) => (scenario.authority.scriptSha256 = '0'.repeat(64)),
+      (scenario) => scenario.forbiddenActions.splice(scenario.forbiddenActions.indexOf('force-push'), 1),
+      (scenario) => (scenario.adapterConfig.startCommand.args[0] = 'scripts/release.mjs'),
+    ]) {
+      const forged = clone(releaseScenario);
+      mutate(forged);
+      expectValidationFailure(forged, forged.authority.tag === 'v2.4.0-alpha.2' ? 'release-authority-version-mismatch' : undefined);
+    }
+
+    for (const id of ['github-pr-required-checks', 'generic-ci-run', 'local-docker-build', 'local-long-test']) {
+      const standard = (await registry.load(id)).scenario;
+      assert.deepEqual(standard.authority, { kind: 'standard' });
+      assert.equal(standard.forbiddenActions.includes('release'), true);
+    }
   });
 });
 
@@ -612,9 +724,13 @@ describe('scenario runtime boundary', () => {
       ...librarySources,
       await readFile(SCHEMA_PATH, 'utf8'),
       ...(await Promise.all(
-        ['github-pr-required-checks', 'generic-ci-run', 'local-docker-build', 'local-long-test'].map((id) =>
-          readFile(path.join(SCENARIOS_PATH, `${id}${SCENARIO_FILE_SUFFIX}`), 'utf8'),
-        ),
+        [
+          'github-pr-required-checks',
+          'generic-ci-run',
+          'local-docker-build',
+          'local-long-test',
+          'local-whisper-alpha-release',
+        ].map((id) => readFile(path.join(SCENARIOS_PATH, `${id}${SCENARIO_FILE_SUFFIX}`), 'utf8')),
       )),
     ].join('\n');
     const imports = librarySources.flatMap((source) =>
