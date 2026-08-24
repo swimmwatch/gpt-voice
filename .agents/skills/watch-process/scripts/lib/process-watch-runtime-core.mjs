@@ -32,6 +32,7 @@ export { MonotonicDeadline } from './monotonic-deadline.mjs';
 export { OperationReceiptStore, RECEIPTS_FILE_NAME, createOperationKey } from './operation-receipt-store.mjs';
 export { ProcessWatchAdapterRegistry } from './process-watch-adapter-registry.mjs';
 export { ProcessWatchCompositionRoot } from './process-watch-composition-root.mjs';
+export { ProcessWatchCancellationController } from './process-watch-cancellation-controller.mjs';
 export { runGeneratedProcessWatcher } from './process-watch-generated-watcher-runtime.mjs';
 export { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 export { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';

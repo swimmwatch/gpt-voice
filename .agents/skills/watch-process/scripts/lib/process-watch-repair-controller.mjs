@@ -1,6 +1,7 @@
 import { AtomicStateStore } from './atomic-state-store.mjs';
 import { FocusedVerificationRunner } from './focused-verification-runner.mjs';
 import { GitDeliveryService } from './git-delivery-service.mjs';
+import { ProcessWatchCancellationController } from './process-watch-cancellation-controller.mjs';
 import { normalizeProcessWatchInvocation, normalizeProcessWatchTarget } from './process-watch-invocation.mjs';
 import { ProcessWatchOrchestrator } from './process-watch-orchestrator.mjs';
 import { blockerForWatchOutcome } from './process-watch-transition-table.mjs';
@@ -62,6 +63,7 @@ function outcomeForError(error) {
 /** Owns safe repair phases around agent edits while preserving every failed patch forward. */
 export class ProcessWatchRepairController {
   #adapter;
+  #cancellationController;
   #clock;
   #deliveryService;
   #orchestrator;
@@ -111,6 +113,13 @@ export class ProcessWatchRepairController {
     }
     if (stateStore.watchId !== storage.watchId) runtimeFail('invalid-process-watch-repair-controller');
     this.#adapter = adapter;
+    this.#cancellationController = new ProcessWatchCancellationController({
+      clock,
+      processStartToken,
+      sessionId,
+      stateStore,
+      storage,
+    });
     this.#clock = clock;
     this.#deliveryService = deliveryService;
     this.#orchestrator = orchestrator;
@@ -316,34 +325,7 @@ export class ProcessWatchRepairController {
   }
 
   async cancel() {
-    const state = await this.#stateStore.readState();
-    if (state === null || (!CANCELLABLE_REPAIR_PHASES.has(state.phase) && state.phase !== 'Watching')) {
-      return state === null ? freezeRecord({ phase: null }) : this.#result(state);
-    }
-    await this.#storage.writeJson(REPAIR_CANCELLATION_FILE_NAME, {
-      requestedAtEpochMilliseconds: this.#now(),
-      schemaVersion: REPAIR_CONTROL_SCHEMA_VERSION,
-      sessionId: this.#sessionId,
-      watchId: this.#watchId,
-    });
-    if (state.phase === 'Watching') return freezeRecord({ phase: state.phase, status: 'cancel-requested' });
-    try {
-      return await this.#withLock(async () => {
-        const current = await this.#stateStore.readState();
-        if (current === null) runtimeFail('repair-state-required');
-        if (!CANCELLABLE_REPAIR_PHASES.has(current.phase)) {
-          await this.#storage.removeRegularFile(REPAIR_CANCELLATION_FILE_NAME).catch(() => undefined);
-          return this.#result(current);
-        }
-        const cancelled = await this.#consumeCancellation(current);
-        return cancelled === null ? this.#result(current) : this.#result(cancelled);
-      });
-    } catch (error) {
-      if (error?.code === 'lock-already-held' || error?.code === 'lock-already-owned') {
-        return freezeRecord({ phase: state.phase, status: 'cancel-requested' });
-      }
-      throw error;
-    }
+    return this.#cancellationController.cancel();
   }
 
   async #withLock(operation) {

@@ -13,6 +13,7 @@ import { GitCommandRunner } from './git-command-runner.mjs';
 import { GitWorktreeInspector } from './git-worktree-inspector.mjs';
 import { ManagedProcessRunner } from './managed-process-runner.mjs';
 import { ProcessWatchCompositionRoot } from './process-watch-composition-root.mjs';
+import { ProcessWatchCancellationController } from './process-watch-cancellation-controller.mjs';
 import { ProcessWatchLibraryIntegrity } from './process-watch-library-integrity.mjs';
 import { normalizeProcessWatchInvocation } from './process-watch-invocation.mjs';
 import { ProcessWatchSelectionStore } from './process-watch-selection-store.mjs';
@@ -310,8 +311,14 @@ export class ProcessWatchOperator {
   }
 
   async cancel({ watchId } = {}) {
-    const control = await this.#loadControlContext(await this.#selectWatch(watchId));
-    return control.repairController.cancel();
+    const record = await this.#selectWatch(watchId);
+    return new ProcessWatchCancellationController({
+      clock: this.#clock,
+      processStartToken: processStartToken(this.#randomBytesFactory),
+      sessionId: this.#sessionId,
+      stateStore: record.stateStore,
+      storage: record.storage,
+    }).cancel();
   }
 
   async control(action, { candidatePaths, watchId } = {}) {

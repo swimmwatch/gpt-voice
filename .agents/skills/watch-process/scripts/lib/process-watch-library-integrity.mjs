@@ -43,6 +43,7 @@ export const PROCESS_WATCH_LIBRARY_FILES = freezeArray([
   'operation-receipt-store.mjs',
   'portable-command-resolver.mjs',
   'process-watch-adapter-registry.mjs',
+  'process-watch-cancellation-controller.mjs',
   'process-watch-composition-root.mjs',
   'process-watch-generated-watcher-runtime.mjs',
   'process-watch-invocation.mjs',
