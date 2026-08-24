@@ -485,7 +485,7 @@ versions and ambiguous legacy files fail preflight.
       "additionalProperties": false,
       "required": ["executable", "args"],
       "properties": {
-        "executable": { "type": "string", "pattern": "^[A-Za-z0-9._+/-]{1,200}$" },
+        "executable": { "type": "string", "pattern": "^(?:[A-Za-z0-9._+/-]{1,200}|[A-Za-z]:[\\\\/][A-Za-z0-9_ .+()@#~\\\\/-]{0,196})$" },
         "args": { "type": "array", "maxItems": 200, "items": { "type": "string", "maxLength": 1000 } },
         "cwd": { "type": "string", "default": ".", "maxLength": 200 },
         "env": {

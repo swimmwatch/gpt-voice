@@ -101,17 +101,18 @@ if (mode === 'smoke') {
     '--report=release-artifacts/size-linux-x64.json',
     '--baseline=build/size-baselines/v1.4.0-linux-x64.json',
   ]);
-  const guardArguments = [
-    'run',
-    'verify:local-whisper:packaging:release-guard',
-    '--',
-    `--mode=${productionPackaging ? 'production' : 'disabled'}`,
-    '--platform=linux',
-    '--staging=build/generated/local-whisper',
-  ];
-  if (productionPackaging) guardArguments.push(`--bundle=${productionBundleDirectory}`);
-  await run('npm', guardArguments);
-  await run('npm', ['run', 'collect:release-artifacts', '--', '--platform=linux']);
+  if (productionPackaging) {
+    await run('npm', [
+      'run',
+      'verify:local-whisper:packaging:release-guard',
+      '--',
+      '--mode=production',
+      '--platform=linux',
+      '--staging=build/generated/local-whisper',
+      `--bundle=${productionBundleDirectory}`,
+    ]);
+    await run('npm', ['run', 'collect:release-artifacts', '--', '--platform=linux']);
+  }
 }
 
 console.log(`Fedora ${mode} build completed`);

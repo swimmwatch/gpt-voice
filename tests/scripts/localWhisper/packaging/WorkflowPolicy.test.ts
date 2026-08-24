@@ -44,4 +44,16 @@ describe('Local Whisper packaging workflow policy', () => {
       /authorization/u,
     );
   });
+
+  it('rejects an unguarded Fedora release collection', async () => {
+    const actual = await inputs();
+    assert.throws(
+      () =>
+        new WorkflowPolicyVerifier().verify({
+          ...actual,
+          fedoraEntrypoint: actual.fedoraEntrypoint.replace(/if \(productionPackaging\) \{/gu, 'if (true) {'),
+        }),
+      /release-collection guard/u,
+    );
+  });
 });

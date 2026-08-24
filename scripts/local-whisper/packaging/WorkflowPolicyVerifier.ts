@@ -68,7 +68,9 @@ export class WorkflowPolicyVerifier {
       !input.releaseWorkflow.includes('--mode=production') ||
       !input.releaseWorkflow.includes('LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR') ||
       !input.releaseWorkflow.includes('construct:local-whisper:production-bundle') ||
-      !input.fedoraEntrypoint.includes('if (productionPackaging)') ||
+      !/if \(productionPackaging\) \{\s+await run\('npm', \[\s+'run',\s+'verify:local-whisper:packaging:release-guard'[\s\S]*?`--bundle=\$\{productionBundleDirectory\}`,\s+\]\);\s+await run\('npm', \['run', 'collect:release-artifacts', '--', '--platform=linux'\]\);\s+\}/u.test(
+        input.fedoraEntrypoint,
+      ) ||
       !input.fedoraEntrypoint.includes('--mode=production')
     ) {
       throw new Error('Local Whisper release-collection guard coverage is incomplete');
