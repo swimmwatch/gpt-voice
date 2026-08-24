@@ -16,6 +16,7 @@ import {
   assertAdapterDependencies,
   createFixedInputsDigest,
   isSuccessfulCommandResult,
+  mergeEnvironmentAllowlists,
   normalizeAdapterAttemptContext,
   normalizeAdapterCommandResult,
 } from './adapter-support.mjs';
@@ -42,6 +43,19 @@ import {
 
 const GITHUB_ACTIONS_ADAPTER = 'github-actions';
 const GITHUB_CLI_EXECUTABLE = 'gh';
+const GITHUB_CLI_ENVIRONMENT_ALLOWLIST = freezeArray([
+  'PATH',
+  'HOME',
+  'USERPROFILE',
+  'XDG_CONFIG_HOME',
+  'XDG_DATA_HOME',
+  'XDG_CACHE_HOME',
+  'XDG_STATE_HOME',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'GH_CONFIG_DIR',
+  'SystemRoot',
+]);
 const MAX_JSON_OUTPUT_BYTES = 262_144;
 const REMOTE_COMMAND_FAILED = Symbol('remote-command-failed');
 const RUN_TARGET_PATTERN = /^github-actions-run-(\d+)-provider-attempt-(\d+)$/u;
@@ -315,7 +329,10 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
       runtimeFail('github-dispatch-start-not-authorized');
     }
     this.#dispatch = dispatch;
-    this.#environmentAllowlist = freezeArray([...environmentAllowlist]);
+    this.#environmentAllowlist = mergeEnvironmentAllowlists(
+      GITHUB_CLI_ENVIRONMENT_ALLOWLIST,
+      environmentAllowlist,
+    );
     this.#mode = mode;
     this.#receiptStore = receiptStore;
     this.#repository = repository;

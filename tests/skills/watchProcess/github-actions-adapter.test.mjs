@@ -144,13 +144,13 @@ function stateForScenario(normalized) {
   };
 }
 
-function createRunner() {
+function createRunner({ inheritedEnvironment = {}, platform = 'win32' } = {}) {
   const launches = [];
   const responders = [];
   let tokenIndex = 0;
   const runner = new ManagedProcessRunner({
-    inheritedEnvironment: {},
-    platform: 'win32',
+    inheritedEnvironment,
+    platform,
     signalProcess: () => {
       throw new Error('GitHub Actions adapter tests never signal a process.');
     },
@@ -171,7 +171,7 @@ function createRunner() {
   return { launches, responders, runner };
 }
 
-async function withHarness({ normalized = githubScenario(), run }) {
+async function withHarness({ normalized = githubScenario(), run, runnerOptions } = {}) {
   const runtimeRoot = await mkdtemp(path.join(os.tmpdir(), 'watch-process-github-actions-'));
   const storage = new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot: runtimeRoot });
   const stateStore = new AtomicStateStore({
@@ -184,7 +184,7 @@ async function withHarness({ normalized = githubScenario(), run }) {
     await stateStore.acquireLock({ processStartToken: LOCK_START_TOKEN });
     await stateStore.writeInitialState(stateForScenario(normalized));
     const receiptStore = new OperationReceiptStore({ stateStore, storage });
-    const { launches, responders, runner } = createRunner();
+    const { launches, responders, runner } = createRunner(runnerOptions);
     return await run({ launches, normalized, receiptStore, responders, runner });
   } finally {
     await rm(runtimeRoot, { force: true, recursive: true });
@@ -328,6 +328,40 @@ describe('watch-process GitHub Actions adapter', () => {
           error.code === 'invalid-github-pull-request-selector' || error.code === 'github-selector-repository-mismatch',
       );
     }
+  });
+
+  it('preserves only GitHub CLI configuration variables needed for authenticated API calls', async () => {
+    const runSuccess = await fixture('github-workflow-run-success.json');
+    await withHarness({
+      runnerOptions: {
+        inheritedEnvironment: {
+          GH_CONFIG_DIR: '/test/gh-config',
+          GH_TOKEN: 'must-not-reach-gh',
+          HOME: '/test/home',
+          NODE_OPTIONS: '--inspect',
+          PATH: '/test/bin',
+          XDG_CONFIG_HOME: '/test/config',
+          XDG_STATE_HOME: '/test/state',
+        },
+        platform: 'linux',
+      },
+      run: async ({ launches, normalized, receiptStore, responders, runner }) => {
+        const adapter = createAdapter({ normalized, receiptStore, runner });
+        const context = baseContext({ targetSelector: RUN_SELECTOR });
+        enqueuePreflight(responders);
+        enqueueRunResolution(responders, runSuccess);
+
+        await adapter.preflight(context);
+
+        assert.deepEqual(launches[1].options.env, {
+          GH_CONFIG_DIR: '/test/gh-config',
+          HOME: '/test/home',
+          PATH: '/test/bin',
+          XDG_CONFIG_HOME: '/test/config',
+          XDG_STATE_HOME: '/test/state',
+        });
+      },
+    });
   });
 
   it('binds a workflow run to the provider attempt and exact SHA before accepting required jobs', async () => {

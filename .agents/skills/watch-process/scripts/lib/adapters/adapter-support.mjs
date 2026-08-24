@@ -91,7 +91,7 @@ function containsControlCharacter(value) {
   return false;
 }
 
-function mergeEnvironmentAllowlists(inherited, declared) {
+export function mergeEnvironmentAllowlists(inherited, declared) {
   if (!Array.isArray(inherited) || !Array.isArray(declared)) runtimeFail('invalid-adapter-environment-allowlist');
   const names = [];
   const seen = new Set();
