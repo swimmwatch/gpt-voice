@@ -376,6 +376,27 @@ describe('watch-process repair, verification, and delivery', () => {
     });
   });
 
+  it('restarts after a forward repair of a failed verification', async () => {
+    await withRepository({ verificationSource: 'process.exitCode = 1;\n' }, async ({ workspaceRoot }) => {
+      const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      const harness = await createHarness({
+        sourceSha,
+        strategy: { strategy: 'local-restart', pushCurrentUpstream: false },
+        workspaceRoot,
+      });
+      await prepareRepair(harness, workspaceRoot, ['src/app.mjs'], async () => {
+        await writeFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'export const value = 2;\n');
+      });
+      assert.equal((await harness.controller.verify({ invocation: harness.invocation })).phase, 'Repairing');
+
+      await harness.controller.beginWrite({ candidatePaths: ['verification.mjs'] });
+      await writeFile(path.join(workspaceRoot, 'verification.mjs'), 'process.exitCode = 0;\n');
+      await harness.controller.completeWrite({ candidatePaths: ['verification.mjs'] });
+      assert.equal((await harness.controller.verify({ invocation: harness.invocation })).phase, 'Verifying');
+      assert.equal((await harness.controller.deliverAndRestart({ invocation: harness.invocation })).phase, 'Success');
+    });
+  });
+
   it('keeps unrelated pre-existing changes outside a local-restart repair scope', async () => {
     await withRepository({}, async ({ workspaceRoot }) => {
       await mkdir(path.join(workspaceRoot, '.agents'), { recursive: true });

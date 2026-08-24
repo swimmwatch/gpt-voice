@@ -48,6 +48,8 @@ const NEEDS_AGENT_OUTCOMES = new Set([
   'watcher_lost',
 ]);
 
+const REPAIR_OUTCOMES = new Set(['target_failed', 'verification_failed', 'delivery_failed', 'dispatch_failed']);
+
 function assertClosedRecord(value, fields, code) {
   if (!isRecord(value)) runtimeFail(code);
   for (const field of Object.keys(value)) {
@@ -115,14 +117,14 @@ export class ProcessWatchTransitionTable {
     }
     if (
       to === 'Repairing' &&
-      !['target_failed', 'verification_failed', 'delivery_failed', 'dispatch_failed'].includes(normalizedOutcome)
+      !REPAIR_OUTCOMES.has(normalizedOutcome)
     ) {
       runtimeFail('transition-outcome-repairing-mismatch');
     }
-    if (to === 'Verifying' && !['target_failed', 'verification_failed'].includes(normalizedOutcome)) {
+    if (to === 'Verifying' && !REPAIR_OUTCOMES.has(normalizedOutcome)) {
       runtimeFail('transition-outcome-verifying-mismatch');
     }
-    if (to === 'Restarting' && normalizedOutcome !== 'target_failed')
+    if (to === 'Restarting' && !REPAIR_OUTCOMES.has(normalizedOutcome))
       runtimeFail('transition-outcome-restarting-mismatch');
 
     return freezeRecord({ blocker: normalizedBlocker, fromPhase: from, outcome: normalizedOutcome, toPhase: to });
