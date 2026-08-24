@@ -1,5 +1,15 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  fsyncSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  realpathSync,
+  writeSync,
+} from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 
 import { validateRelativePath } from '../source-import/native-source-core.mjs';
@@ -47,6 +57,27 @@ function createBoundedParent(root, destination) {
     assert(relative(root, current).startsWith('..') === false, 'Verified raw-file parent escaped root');
   }
   return current;
+}
+
+function writeVerifiedDestination(destination, bytes, sizeBytes) {
+  let descriptor;
+  try {
+    descriptor = openSync(destination, 'wx', 0o600);
+    let offset = 0;
+    while (offset < bytes.byteLength) {
+      const written = writeSync(descriptor, bytes, offset, bytes.byteLength - offset);
+      assert(written > 0, 'Verified raw-file destination write failed');
+      offset += written;
+    }
+    fsyncSync(descriptor);
+    const metadata = fstatSync(descriptor);
+    assert(
+      metadata.isFile() && metadata.size === sizeBytes,
+      'Verified raw-file destination is not the expected regular file',
+    );
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
 }
 
 function verifySource(source) {
@@ -107,10 +138,7 @@ export class VerifiedRawFileMaterializer {
     assert(sha256(bytes) === source.sha256, 'Verified raw-file digest mismatch');
 
     createBoundedParent(canonicalRoot, destination);
-    writeFileSync(destination, bytes, { flag: 'wx', mode: 0o600 });
-    const metadata = lstatSync(destination);
-    assert(metadata.isFile() && !metadata.isSymbolicLink(), 'Verified raw-file destination is not a regular file');
-    assert(sha256(readFileSync(destination)) === source.sha256, 'Verified raw-file destination identity changed');
+    writeVerifiedDestination(destination, bytes, source.sizeBytes);
     return Object.freeze({ path: destination, sha256: source.sha256, sizeBytes: source.sizeBytes });
   }
 }
