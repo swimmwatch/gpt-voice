@@ -1,6 +1,13 @@
 import { URL } from 'node:url';
 
-import { freezeArray, freezeRecord, isRecord, requirePositiveInteger, requireString, runtimeFail } from '../runtime-core-support.mjs';
+import {
+  freezeArray,
+  freezeRecord,
+  isRecord,
+  requirePositiveInteger,
+  requireString,
+  runtimeFail,
+} from '../runtime-core-support.mjs';
 import { validateSourceSha } from '../runtime-state-contracts.mjs';
 
 const MAX_COLLECTION_ITEMS = 100;
@@ -132,6 +139,20 @@ function normalizeJob(value, code) {
   });
 }
 
+function normalizeCurrentBranchPullRequest(value, code) {
+  const pullRequest = assertClosedRecord(value, new Set(['baseRef', 'headRef', 'headSha', 'number', 'state']), code);
+  assertRequiredFields(pullRequest, ['baseRef', 'headRef', 'headSha', 'number', 'state'], code);
+  const state = normalizeSafeText(pullRequest.state, code, { maximum: 16 });
+  if (!['CLOSED', 'MERGED', 'OPEN'].includes(state)) runtimeFail(code);
+  return freezeRecord({
+    baseRef: normalizeSafeText(pullRequest.baseRef, code, { maximum: 512 }),
+    headRef: normalizeSafeText(pullRequest.headRef, code, { maximum: 512 }),
+    headSha: validateSourceSha(pullRequest.headSha, code),
+    number: requirePositiveInteger(pullRequest.number, code, Number.MAX_SAFE_INTEGER),
+    state,
+  });
+}
+
 function selectorUrl(value, code) {
   const selector = normalizeSafeText(value, code, { maximum: 2_048 });
   let url;
@@ -202,6 +223,10 @@ export function normalizeGitHubPullRequest(value) {
   });
 }
 
+export function normalizeGitHubCurrentBranchPullRequest(value) {
+  return normalizeCurrentBranchPullRequest(value, 'invalid-github-current-branch-pull-request-response');
+}
+
 export function normalizeGitHubBranchRequiredChecks(value) {
   const code = 'invalid-github-branch-required-checks-response';
   const required = assertClosedRecord(value, new Set(['checks', 'contexts']), code);
@@ -209,9 +234,7 @@ export function normalizeGitHubBranchRequiredChecks(value) {
   if (!Array.isArray(required.contexts) || required.contexts.length > MAX_COLLECTION_ITEMS) runtimeFail(code);
   return freezeRecord({
     checks: normalizeArray(required.checks, code, normalizeRequiredCheck),
-    contexts: freezeArray(
-      required.contexts.map((context) => normalizeSafeText(context, code, { maximum: 256 })),
-    ),
+    contexts: freezeArray(required.contexts.map((context) => normalizeSafeText(context, code, { maximum: 256 }))),
   });
 }
 

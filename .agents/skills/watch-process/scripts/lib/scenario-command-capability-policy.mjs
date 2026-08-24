@@ -34,8 +34,8 @@ const COMMAND_FIELDS_BY_ADAPTER = Object.freeze({
 });
 
 function executableName(executable) {
-  const name = executable.split('/').at(-1).toLowerCase();
-  return name.endsWith('.exe') ? name.slice(0, -4) : name;
+  const name = executable.split(/[\\/]/u).at(-1).toLowerCase();
+  return name.replace(/\.(?:bat|cmd|com|exe)$/u, '');
 }
 
 function inlineCodeFlags(executable) {

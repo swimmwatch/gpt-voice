@@ -251,6 +251,10 @@ function enqueuePullRequestResolution(responders, result) {
   enqueueJson(responders, result.workflowRuns);
 }
 
+function currentBranchPullRequest(result, overrides = {}) {
+  return { ...result.pullRequest, headRef: 'feature-branch', state: 'OPEN', ...overrides };
+}
+
 function parseOutput(chunks, maximumBytes = 1_024) {
   const collector = new GitHubActionsJsonOutputCollector({ maximumBytes });
   try {
@@ -441,8 +445,12 @@ describe('watch-process GitHub Actions adapter', () => {
         assert.equal(success.statuses.length, 1);
         const commands = launches.map((launch) => launch.args.join(' '));
         assert.equal(
-          commands.some((command) => command.includes('/protection/required_status_checks')),
+          commands.some((command) => command.includes(`repos/${REPOSITORY}/branches/main`)),
           true,
+        );
+        assert.equal(
+          commands.some((command) => command.includes('/protection/required_status_checks')),
+          false,
         );
         assert.equal(
           commands.some((command) => command.includes('/rules/branches/main')),
@@ -456,6 +464,160 @@ describe('watch-process GitHub Actions adapter', () => {
           commands.some((command) => command.includes('/status')),
           true,
         );
+      },
+    });
+  });
+
+  it('uses the current branch PR and attaches to its already-running exact-HEAD pipeline', async () => {
+    const success = await fixture('github-pr-required-checks-success.json');
+    await withHarness({
+      normalized: githubScenario({
+        mode: 'pull-request-contract',
+        selectorKinds: ['pull-request-url', 'start'],
+      }),
+      run: async ({ launches, normalized, receiptStore, responders, runner }) => {
+        const adapter = createAdapter({ normalized, receiptStore, runner });
+        const context = baseContext({ targetSelector: 'unspecified' });
+        enqueuePreflight(responders);
+        enqueueJson(responders, currentBranchPullRequest(success));
+        enqueuePullRequestResolution(responders, success);
+        assert.deepEqual(await adapter.preflight(context), { adapter: 'github-actions', status: 'ready' });
+
+        enqueueJson(responders, currentBranchPullRequest(success));
+        enqueuePullRequestResolution(responders, success);
+        const attached = await adapter.start(context);
+
+        assert.equal(attached.status, 'attached');
+        assert.equal(attached.identity.pullRequestNumber, success.pullRequest.number);
+        assert.equal(attached.target.sourceSha, SOURCE_SHA);
+        assert.match(attached.receiptId, /^receipt-github-actions-attach-[a-f0-9]{32}$/u);
+        const currentBranchSelections = launches.filter(
+          (launch) => launch.args[0] === 'pr' && launch.args[1] === 'view',
+        );
+        assert.equal(currentBranchSelections.length, 2);
+        for (const selection of currentBranchSelections) {
+          assert.deepEqual(selection.args, [
+            'pr',
+            'view',
+            '--json',
+            'number,headRefOid,baseRefName,headRefName,state',
+            '--jq',
+            '{number,headSha:.headRefOid,baseRef:.baseRefName,headRef:.headRefName,state}',
+          ]);
+        }
+        assert.equal(
+          launches.some((launch) => launch.args[0] === 'pr' && launch.args[1] === 'list'),
+          false,
+        );
+        assert.equal(
+          launches.some((launch) =>
+            launch.args.some((argument) => argument.includes(`/commits/${SOURCE_SHA}/pulls`)),
+          ),
+          false,
+        );
+        assert.equal(
+          launches.some((launch) => launch.args[0] === 'workflow' && launch.args[1] === 'run'),
+          false,
+        );
+      },
+    });
+  });
+
+  it('fails closed when the current branch has no open PR at the exact committed HEAD', async () => {
+    const success = await fixture('github-pr-required-checks-success.json');
+    const responses = [
+      null,
+      currentBranchPullRequest(success, { state: 'CLOSED' }),
+      currentBranchPullRequest(success, { headSha: OTHER_SOURCE_SHA }),
+    ];
+    for (const response of responses) {
+      await withHarness({
+        normalized: githubScenario({
+          mode: 'pull-request-contract',
+          selectorKinds: ['pull-request-url', 'start'],
+        }),
+        run: async ({ normalized, receiptStore, responders, runner }) => {
+          const adapter = createAdapter({ normalized, receiptStore, runner });
+          enqueuePreflight(responders);
+          if (response === null) enqueueExit(responders, 1);
+          else enqueueJson(responders, response);
+          assert.deepEqual(await adapter.preflight(baseContext({ targetSelector: 'unspecified' })), {
+            blocker: 'target-lost',
+            status: 'blocked',
+          });
+        },
+      });
+    }
+  });
+
+  it('blocks when the current branch PR changes between preflight and attachment', async () => {
+    const success = await fixture('github-pr-required-checks-success.json');
+    const changed = clone(success);
+    changed.pullRequest.number = 43;
+    await withHarness({
+      normalized: githubScenario({
+        mode: 'pull-request-contract',
+        selectorKinds: ['pull-request-url', 'start'],
+      }),
+      run: async ({ normalized, receiptStore, responders, runner }) => {
+        const adapter = createAdapter({ normalized, receiptStore, runner });
+        const context = baseContext({ targetSelector: 'unspecified' });
+        enqueuePreflight(responders);
+        enqueueJson(responders, currentBranchPullRequest(success));
+        enqueuePullRequestResolution(responders, success);
+        await adapter.preflight(context);
+
+        enqueueJson(responders, currentBranchPullRequest(changed, { headRef: 'different-feature-branch' }));
+        enqueuePullRequestResolution(responders, changed);
+        assert.deepEqual(await adapter.start(context), { blocker: 'target-lost', status: 'blocked' });
+      },
+    });
+  });
+
+  it('tracks the current branch exact-SHA pipeline when provider required checks are not configured', async () => {
+    const success = await fixture('github-pr-required-checks-success.json');
+    const discovered = clone(success);
+    discovered.branchRequiredChecks = { checks: [], contexts: [] };
+    discovered.ruleRequiredChecks = [];
+    await withHarness({
+      normalized: githubScenario({
+        mode: 'pull-request-contract',
+        selectorKinds: ['pull-request-url', 'start'],
+      }),
+      run: async ({ normalized, receiptStore, responders, runner }) => {
+        const adapter = createAdapter({ normalized, receiptStore, runner });
+        const context = baseContext({ targetSelector: 'unspecified' });
+        enqueuePreflight(responders);
+        enqueueJson(responders, currentBranchPullRequest(discovered));
+        enqueuePullRequestResolution(responders, discovered);
+        await adapter.preflight(context);
+        enqueueJson(responders, currentBranchPullRequest(discovered));
+        enqueuePullRequestResolution(responders, discovered);
+        const attached = await adapter.start(context);
+
+        enqueuePullRequestResolution(responders, discovered);
+        assert.deepEqual(await adapter.observe(baseContext({ target: attached.target })), {
+          status: 'running',
+          target: attached.target,
+        });
+        enqueuePullRequestResolution(responders, discovered);
+        assert.deepEqual(await adapter.observe(baseContext({ target: attached.target })), {
+          outcome: 'succeeded',
+          status: 'succeeded',
+          target: attached.target,
+        });
+
+        const changedMembership = clone(discovered);
+        changedMembership.workflowRuns.push({
+          ...changedMembership.workflowRuns[0],
+          id: 303,
+          path: '.github/workflows/unallowlisted.yml@refs/heads/main',
+        });
+        enqueuePullRequestResolution(responders, changedMembership);
+        assert.deepEqual(await adapter.observe(baseContext({ target: attached.target })), {
+          blocker: 'target-lost',
+          status: 'blocked',
+        });
       },
     });
   });

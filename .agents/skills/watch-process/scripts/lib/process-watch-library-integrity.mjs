@@ -41,6 +41,7 @@ export const PROCESS_WATCH_LIBRARY_FILES = freezeArray([
   'managed-process-support.mjs',
   'monotonic-deadline.mjs',
   'operation-receipt-store.mjs',
+  'portable-command-resolver.mjs',
   'process-watch-adapter-registry.mjs',
   'process-watch-composition-root.mjs',
   'process-watch-generated-watcher-runtime.mjs',

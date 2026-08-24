@@ -72,6 +72,20 @@ can include several runs, suites, statuses, jobs, and required checks, but every
 member must match the same repository, PR, head SHA, required-check-contract
 digest, and watch generation.
 
+For the tracked GitHub PR scenario, omitting `target` authorizes observation-
+only resolution of the workspace's current branch through `gh pr view`. The
+adapter does not enumerate or search PRs by commit: it verifies that the current
+branch has an open PR at the committed exact `HEAD`, then attaches to workflow
+runs already executing for that SHA. It never dispatches merely because the
+selector was omitted.
+When GitHub has no configured required-check contract, the adapter watches the
+actual allowlisted workflow runs plus external checks/statuses and requires a
+stable member set across two observations before success.
+
+Commands remain shell-free on every platform. On Windows, declared `npm`
+verification commands are resolved to the active `node.exe` and its colocated
+`npm-cli.js`, so scenario authors must not add `cmd.exe` wrappers.
+
 Before every new watch or explicit `resume`, the agent asks in the user's
 language for a finite timeout. It explains that the timeout prevents indefinite
 waiting for a stalled, lost, or unexpectedly slow target. Use expected duration

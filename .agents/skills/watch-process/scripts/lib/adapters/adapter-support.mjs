@@ -1,6 +1,7 @@
 import * as path from 'node:path';
 
 import { OperationReceiptStore } from '../operation-receipt-store.mjs';
+import { PortableCommandResolver } from '../portable-command-resolver.mjs';
 import { resolveCommandArguments } from '../scenario-command-arguments.mjs';
 import { PROCESS_TERMINAL_CLASSIFICATIONS, normalizeProcessTerminal } from '../runtime-contracts.mjs';
 import {
@@ -178,7 +179,15 @@ export function normalizeAdapterAttemptContext(value, { timing } = {}) {
 }
 
 /** Resolves scenario substitutions exactly once and validates the final spawn request. */
-export async function resolveAdapterCommand({ command, context, environmentAllowlist, watchId, workspaceRoot }) {
+export async function resolveAdapterCommand({
+  command,
+  commandResolver = new PortableCommandResolver(),
+  context,
+  environmentAllowlist,
+  watchId,
+  workspaceRoot,
+}) {
+  if (!(commandResolver instanceof PortableCommandResolver)) runtimeFail('invalid-portable-command-resolver');
   const substitutions = {
     attempt: { number: context.attempt },
     invocation: { timeout_seconds: context.timeoutSeconds },
@@ -195,7 +204,7 @@ export async function resolveAdapterCommand({ command, context, environmentAllow
     timeoutMilliseconds: context.timeoutMilliseconds,
   });
   const cwd = await resolveValidatedWorkingDirectory({ cwd: validated.cwd, workspaceRoot });
-  return freezeRecord({ ...validated, cwd });
+  return validateProcessCommand(commandResolver.resolve(freezeRecord({ ...validated, cwd })));
 }
 
 /** Digests a resolved command without returning its path, environment, or arguments to state callers. */

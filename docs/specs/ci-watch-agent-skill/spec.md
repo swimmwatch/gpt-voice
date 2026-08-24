@@ -141,10 +141,14 @@ $watch-process cancel
 Natural-language input is normalized into schema fields and never copied into a
 command. One invocation identifies exactly one logical target contract.
 
-**IFACE-002:** A target may be omitted only when the scenario authorizes a safe,
-idempotent start or dispatch. A supplied selector SHALL be validated against the
-adapter, repository/project/workspace, allowed process definition, and identity
-rules before observation or mutation.
+**IFACE-002:** A target may be omitted only when the scenario authorizes exact-
+source attachment from the current workspace identity, a safe idempotent start,
+or a safe idempotent dispatch. Attachment is observation-only: it SHALL derive
+exactly one provider target from the adapter's declared workspace identity and
+then prove that target's source SHA. It SHALL NOT enumerate candidates by SHA.
+A supplied selector SHALL be validated against the adapter,
+repository/project/workspace, allowed process definition, and identity rules
+before observation or mutation.
 
 The explicit live invocation names the reviewed scenario, logical target, and
 timeout. It authorizes only that scenario's declared normal start, retry,
@@ -161,6 +165,13 @@ statuses, jobs, and required checks. Its immutable aggregate identity is the
 repository, pull-request number, exact head SHA, ruleset/required-check contract
 digest, and watch generation. All members must belong to that identity; unrelated
 runs are never folded into it.
+
+For a GitHub pull-request scenario with an omitted selector, the adapter SHALL
+use the workspace's current branch through `gh pr view`; it SHALL NOT enumerate
+or search pull requests by commit. The resolved PR must be open and its head
+must equal the committed exact source SHA. This permits a Watch invocation
+created after commit/push to attach to an already-running pipeline without
+dispatching another workflow.
 
 ### 4.2 Required timeout question
 
@@ -261,7 +272,7 @@ repair commit.
 | `BoundedEvidenceBuffer`      | Private bounded raw output and sanitized inspection.                                         |
 | `OperationReceiptStore`      | Idempotent start/delivery intent, provider reconciliation, and receipts.                     |
 | `AuditJournal`               | Bounded sanitized event journal and final attestation.                                       |
-| `ProcessWatchSelectionStore` | One-shot armed selection for one session/workspace/watch; consumed before continuation.     |
+| `ProcessWatchSelectionStore` | One-shot armed selection for one session/workspace/watch; consumed before continuation.      |
 | `ProcessWatchTerminalWaiter` | Shared deadline-aware, model-free terminal wait for the Stop hook and operator.              |
 
 Stateful services own their invariants and receive dependencies through
@@ -651,7 +662,7 @@ GitHub pull-request aggregate:
   "description": "Watch every required check for one PR head SHA.",
   "adapter": "github-actions",
   "target": {
-    "selectorKinds": ["pull-request-url"],
+    "selectorKinds": ["pull-request-url", "start"],
     "identityFields": ["repository", "pullRequestNumber", "headSha", "requiredContractDigest"],
     "requireExactSourceRevision": true
   },
@@ -854,9 +865,16 @@ and proves heartbeat plus target binding. Launch failure is repaired in the same
 turn; the Stop hook is not a recovery mechanism for a watcher that never started.
 
 **PROV-001:** GitHub run identity includes repository, workflow/event, run ID,
-attempt, and exact SHA. PR aggregate success requires every provider-required
-check/status for the exact head SHA. Missing, pending, cancelled, neutral, stale,
-or unexpectedly skipped members fail closed.
+attempt, and exact SHA. When GitHub exposes provider-required checks, PR
+aggregate success requires every one for the exact head SHA. When neither
+branch protection nor active rulesets declares required checks, the adapter
+falls back to the discovered exact-SHA pipeline: every observed workflow must
+be allowlisted, at least one workflow must exist, linked GitHub Actions job
+checks are evaluated through their workflow run, and external check runs plus
+commit statuses remain members. Success requires two consecutive observations
+with the same member set. Unknown workflows, missing identity links, duplicate
+members, pending, cancelled, neutral, stale, failed, or unexpectedly skipped
+members fail closed.
 
 **PROV-003:** Generic CI commands must emit schema-validated bounded JSON with an
 exact identity and status mapping. If a provider cannot prove target identity,

@@ -23,6 +23,8 @@ import {
   validateExecutable,
   validateProcessArguments,
 } from '../../../.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs';
+import { resolveAdapterCommand } from '../../../.agents/skills/watch-process/scripts/lib/adapters/adapter-support.mjs';
+import { PortableCommandResolver } from '../../../.agents/skills/watch-process/scripts/lib/portable-command-resolver.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const fixturePath = path.join(repositoryRoot, 'tests/skills/watchProcess/fixtures/runtime-child.mjs');
@@ -152,6 +154,32 @@ describe('watch-process portable runtime core', () => {
     assert.equal(launch.options.windowsHide, true);
     child.close(0);
     assert.equal((await execution.wait()).terminal.classification, 'succeeded');
+  });
+
+  it('runs npm through the active Node installation on Windows without a command shell', async () => {
+    const nodeExecutable = String.raw`C:\hostedtoolcache\windows\node\24.0.0\x64\node.exe`;
+    const resolved = await resolveAdapterCommand({
+      command: { args: ['run', 'test:types'], cwd: '.', env: [], executable: 'npm' },
+      commandResolver: new PortableCommandResolver({ nodeExecutable, platform: 'win32' }),
+      context: {
+        attempt: 1,
+        sourceSha: 'a'.repeat(40),
+        targetId: 'github-actions-pr-42-attempt-1',
+        targetSelector: 'unspecified',
+        timeoutMilliseconds: 30_000,
+        timeoutSeconds: 30,
+      },
+      environmentAllowlist: [],
+      watchId: 'watch-001',
+      workspaceRoot: repositoryRoot,
+    });
+
+    assert.equal(resolved.executable, nodeExecutable);
+    assert.deepEqual(resolved.args, [
+      String.raw`C:\hostedtoolcache\windows\node\24.0.0\x64\node_modules\npm\bin\npm-cli.js`,
+      'run',
+      'test:types',
+    ]);
   });
 
   it('rejects an invalid workspace cwd before a child can be created', async () => {

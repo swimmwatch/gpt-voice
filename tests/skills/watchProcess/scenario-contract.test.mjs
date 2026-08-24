@@ -152,6 +152,12 @@ describe('watch-process scenario schema', () => {
     assert.equal(schema.$defs.repair.properties.maxBytesChanged.default, 1048576);
     assert.equal(schema.$defs.command.properties.cwd.default, '.');
     assert.deepEqual(schema.$defs.command.properties.env.default, []);
+    assert.equal(
+      new RegExp(schema.$defs.command.properties.executable.pattern, 'u').test(
+        String.raw`C:\Program Files\nodejs\node.exe`,
+      ),
+      true,
+    );
     assert.equal(schema.$defs.delivery.properties.pushCurrentUpstream.default, false);
     assert.equal(schema.$defs.dispatch.properties.enabled.default, false);
     assert.deepEqual(schema.$defs.dockerBuildAdapterConfig.properties.imageVerification.default, []);
@@ -278,6 +284,18 @@ describe('WatchScenarioRegistry normalization', () => {
   });
 
   it('rejects shell execution, inline code, forbidden actions, and credential-valued environments', () => {
+    const windowsNode = makeScenario();
+    windowsNode.verification[0].executable = String.raw`C:\Program Files\nodejs\node.exe`;
+    assert.doesNotThrow(() => normalizeWatchScenario(windowsNode));
+
+    const windowsCommandShell = makeScenario('local-command');
+    windowsCommandShell.adapterConfig.startCommand = command(String.raw`C:\Windows\System32\cmd.exe`, [
+      '/c',
+      'exit',
+      '0',
+    ]);
+    expectValidationFailure(windowsCommandShell, 'shell-executable-forbidden');
+
     const shell = makeScenario('local-command');
     shell.adapterConfig.startCommand = command('bash', ['-c', 'gh release create v9.9.9']);
     shell.forbiddenActions = ['release'];
@@ -408,6 +426,7 @@ describe('watch-process scenarios', () => {
     ]);
     assert.deepEqual(scenario.delivery, { strategy: 'git-delivery', pushCurrentUpstream: true });
     assert.equal(scenario.target.requireExactSourceRevision, true);
+    assert.deepEqual(scenario.target.selectorKinds, ['pull-request-url', 'start']);
     assert.equal(scenario.success.requiredChecksMode, 'provider-required');
     assert.equal(scenario.repair.excludeGlobs.includes('.agents/skills/watch-process/**'), true);
     assert.equal(scenario.repair.excludeGlobs.includes('.codex/**'), true);

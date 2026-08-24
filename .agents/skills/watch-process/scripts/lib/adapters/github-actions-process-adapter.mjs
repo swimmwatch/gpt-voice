@@ -2,7 +2,14 @@ import { URL } from 'node:url';
 
 import { ManagedProcessRunner } from '../managed-process-runner.mjs';
 import { ProcessAdapter } from '../runtime-contracts.mjs';
-import { digestNormalizedValue, freezeArray, freezeRecord, isRecord, requireString, runtimeFail } from '../runtime-core-support.mjs';
+import {
+  digestNormalizedValue,
+  freezeArray,
+  freezeRecord,
+  isRecord,
+  requireString,
+  runtimeFail,
+} from '../runtime-core-support.mjs';
 import { validateDigest, validateWatchId } from '../runtime-state-contracts.mjs';
 
 import {
@@ -18,6 +25,7 @@ import {
   normalizeGitHubBranchRequiredChecks,
   normalizeGitHubCheckRuns,
   normalizeGitHubCommitStatuses,
+  normalizeGitHubCurrentBranchPullRequest,
   normalizeGitHubJobs,
   normalizeGitHubPullRequest,
   normalizeGitHubRepository,
@@ -42,10 +50,12 @@ const DISPATCH_INPUT_NAME_PATTERN = /^[A-Za-z][\w-]{0,63}$/u;
 const DISPATCH_FORBIDDEN_PATTERN = /deploy|force[-_]?push|publish|release/iu;
 
 const JSON_PROJECTIONS = Object.freeze({
-  branchRequiredChecks: '{contexts:(.contexts // []),checks:((.checks // []) | map({context,appId:.app_id}))}',
+  branchRequiredChecks:
+    '{contexts:(.protection.required_status_checks.contexts // []),checks:((.protection.required_status_checks.checks // []) | map({context,appId:.app_id}))}',
   checkRuns:
     '[.check_runs[] | {id,name,status,conclusion,headSha:.head_sha,detailsUrl:.details_url,appId:(.app.id // null)}]',
   jobs: '[.jobs[] | {id,name,status,conclusion}]',
+  currentBranchPullRequest: '{number,headSha:.headRefOid,baseRef:.baseRefName,headRef:.headRefName,state}',
   pullRequest: '{number,headSha:.head.sha,baseRef:.base.ref}',
   repository: '{fullName:.full_name}',
   ruleRequiredChecks:
@@ -196,22 +206,27 @@ function requiredContract({ branchRequiredChecks, mode, ruleRequiredChecks, scen
     const rightKey = `${right.context}:${right.appId ?? ''}`;
     return leftKey.localeCompare(rightKey);
   });
+  let evaluationMode;
   let requirements;
   if (mode === 'provider-required') {
-    if (provider.length === 0) runtimeFail('github-required-contract-empty');
+    evaluationMode = provider.length === 0 ? 'pipeline-discovery' : 'provider-required';
     requirements = provider;
   } else if (mode === 'listed') {
+    evaluationMode = 'listed';
     requirements = scenario.success.requiredChecks.map((context) => ({ appId: null, context }));
   } else {
+    evaluationMode = 'none';
     requirements = [];
   }
   const selected = requirements.map((requirement) => freezeRecord({ ...requirement }));
   return freezeRecord({
     digest: digestNormalizedValue('gpt-voice/watch-process/github-required-contract/v1', {
       provider,
+      evaluationMode,
       requiredChecksMode: mode,
       selected,
     }),
+    evaluationMode,
     requirements: freezeArray(selected),
   });
 }
@@ -254,8 +269,10 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
   #dispatch;
   #environmentAllowlist;
   #evidenceByIdentity = new Map();
+  #fallbackMembership = null;
   #mode;
   #preflightCompleted = false;
+  #preflightTarget = null;
   #receiptStore;
   #repository;
   #runner;
@@ -265,9 +282,21 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
   #workflowAllowlist;
   #workspaceRoot;
 
-  constructor({ environmentAllowlist = [], receiptStore, runner, scenario, scenarioDigest, watchId, workspaceRoot } = {}) {
+  constructor({
+    environmentAllowlist = [],
+    receiptStore,
+    runner,
+    scenario,
+    scenarioDigest,
+    watchId,
+    workspaceRoot,
+  } = {}) {
     super();
-    if (!(runner instanceof ManagedProcessRunner) || !isRecord(scenario) || scenario.adapter !== GITHUB_ACTIONS_ADAPTER) {
+    if (
+      !(runner instanceof ManagedProcessRunner) ||
+      !isRecord(scenario) ||
+      scenario.adapter !== GITHUB_ACTIONS_ADAPTER
+    ) {
       runtimeFail('invalid-github-actions-adapter-dependency');
     }
     if (!Array.isArray(environmentAllowlist) || !isRecord(scenario.adapterConfig)) {
@@ -275,7 +304,10 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     }
     const normalizedWatchId = validateWatchId(watchId, 'invalid-github-actions-adapter-dependency');
     assertAdapterDependencies({ receiptStore, watchId: normalizedWatchId });
-    const repository = normalizeRepository(scenario.adapterConfig.repository, 'invalid-github-actions-adapter-scenario');
+    const repository = normalizeRepository(
+      scenario.adapterConfig.repository,
+      'invalid-github-actions-adapter-scenario',
+    );
     const mode = normalizeMode(scenario.adapterConfig.mode);
     const workflowAllowlist = normalizeGitHubWorkflowAllowlist(scenario.adapterConfig.workflowAllowlist);
     const dispatch = normalizeDispatch(scenario.adapterConfig.dispatch, workflowAllowlist);
@@ -297,31 +329,40 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
   }
 
   async preflight(context) {
+    this.#preflightCompleted = false;
+    this.#preflightTarget = null;
     const normalized = this.#normalizeContext(context);
     const cli = await this.#runExitOnly(normalized, ['--version']);
     if (!cli.succeeded) runtimeFail('github-cli-unavailable');
     const authentication = await this.#readJson(normalized, ['api', 'user', '--jq', JSON_PROJECTIONS.user]);
-    if (!authentication.succeeded) return this.#authenticationFailure();
+    if (!authentication.succeeded) return this.#blocked('authentication-failed');
     normalizeGitHubUser(authentication.value);
-    const workspace = await this.#requireJson(normalized, ['repo', 'view', '--json', 'nameWithOwner']);
-    const workspaceRepository = normalizeGitHubWorkspaceRepository(workspace.value);
-    if (workspaceRepository.nameWithOwner.toLowerCase() !== this.#repository.toLowerCase()) {
-      runtimeFail('github-workspace-repository-mismatch');
-    }
-    const repository = await this.#requireJson(normalized, [
-      'api',
-      `repos/${this.#repository}`,
-      '--jq',
-      JSON_PROJECTIONS.repository,
-    ]);
-    const selectedRepository = normalizeGitHubRepository(repository.value);
-    if (selectedRepository.fullName.toLowerCase() !== this.#repository.toLowerCase()) {
-      runtimeFail('github-repository-mismatch');
-    }
-    if (normalized.target !== null || normalized.targetSelector !== 'unspecified') {
-      await this.#resolveTarget(normalized);
-    } else {
-      this.#assertDispatchPermitted();
+    try {
+      const workspace = await this.#requireJson(normalized, ['repo', 'view', '--json', 'nameWithOwner']);
+      const workspaceRepository = normalizeGitHubWorkspaceRepository(workspace.value);
+      if (workspaceRepository.nameWithOwner.toLowerCase() !== this.#repository.toLowerCase()) {
+        runtimeFail('github-workspace-repository-mismatch');
+      }
+      const repository = await this.#requireJson(normalized, [
+        'api',
+        `repos/${this.#repository}`,
+        '--jq',
+        JSON_PROJECTIONS.repository,
+      ]);
+      const selectedRepository = normalizeGitHubRepository(repository.value);
+      if (selectedRepository.fullName.toLowerCase() !== this.#repository.toLowerCase()) {
+        runtimeFail('github-repository-mismatch');
+      }
+      if (this.#resolvesExistingTarget(normalized)) {
+        this.#preflightTarget = (await this.#resolveTarget(normalized)).target;
+      } else {
+        this.#preflightTarget = null;
+        this.#assertDispatchPermitted();
+      }
+    } catch (error) {
+      if (error === REMOTE_COMMAND_FAILED) return await this.#remoteBlocker(normalized);
+      if (this.#isTargetIdentityError(error)) return this.#blocked('target-lost');
+      throw error;
     }
     this.#preflightCompleted = true;
     return freezeRecord({ adapter: GITHUB_ACTIONS_ADAPTER, status: 'ready' });
@@ -330,11 +371,18 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
   async start(context) {
     this.#requirePreflight();
     const normalized = this.#normalizeContext(context);
-    if (normalized.target !== null || normalized.targetSelector !== 'unspecified') {
-      const resolved = await this.#resolveTarget(normalized);
-      return this.#attachmentResponse(resolved);
+    try {
+      if (this.#resolvesExistingTarget(normalized)) {
+        const resolved = await this.#resolveTarget(normalized);
+        if (!sameTarget(this.#preflightTarget, resolved.target)) return this.#blocked('target-lost');
+        return this.#attachmentResponse(resolved);
+      }
+      return await this.#dispatchWorkflow(normalized);
+    } catch (error) {
+      if (error === REMOTE_COMMAND_FAILED) return await this.#remoteBlocker(normalized);
+      if (this.#isTargetIdentityError(error)) return this.#blocked('target-lost');
+      throw error;
     }
-    return this.#dispatchWorkflow(normalized);
   }
 
   async attach(context) {
@@ -421,7 +469,8 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
 
   #normalizeContext(context) {
     const normalized = normalizeAdapterAttemptContext(context, { timing: this.#scenario.timing });
-    if (this.#scenario.target.requireExactSourceRevision && normalized.sourceSha === null) runtimeFail('source-sha-required');
+    if (this.#scenario.target.requireExactSourceRevision && normalized.sourceSha === null)
+      runtimeFail('source-sha-required');
     return normalized;
   }
 
@@ -429,6 +478,12 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     if (!this.#dispatch.enabled || this.#mode !== 'run' || !this.#scenario.target.selectorKinds.includes('start')) {
       runtimeFail('github-target-required');
     }
+  }
+
+  #resolvesExistingTarget(context) {
+    return (
+      this.#mode === 'pull-request-contract' || context.target !== null || context.targetSelector !== 'unspecified'
+    );
   }
 
   async #resolveTarget(context) {
@@ -447,13 +502,39 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
       this.#assertExactTarget(context, resolved.target);
       return resolved;
     }
-    const selection =
-      context.target === null
-        ? parseGitHubPullRequestSelector(context.targetSelector, this.#repository)
-        : parsePullRequestTarget(context.target);
+    let selection;
+    if (context.target !== null) {
+      selection = parsePullRequestTarget(context.target);
+    } else if (context.targetSelector === 'unspecified') {
+      selection = await this.#currentBranchPullRequest(context);
+    } else {
+      selection = parseGitHubPullRequestSelector(context.targetSelector, this.#repository);
+    }
     const resolved = await this.#queryPullRequest(context, selection.number);
     this.#assertExactTarget(context, resolved.target);
     return resolved;
+  }
+
+  async #currentBranchPullRequest(context) {
+    const response = await this.#readJson(context, [
+      'pr',
+      'view',
+      '--json',
+      'number,headRefOid,baseRefName,headRefName,state',
+      '--jq',
+      JSON_PROJECTIONS.currentBranchPullRequest,
+    ]);
+    if (!response.succeeded) runtimeFail('github-current-branch-pull-request-not-found');
+    const pullRequest = normalizeGitHubCurrentBranchPullRequest(response.value);
+    if (pullRequest.state !== 'OPEN' || pullRequest.headSha !== context.sourceSha) {
+      runtimeFail('github-source-sha-mismatch');
+    }
+    return freezeRecord({
+      baseRef: pullRequest.baseRef,
+      headRef: pullRequest.headRef,
+      number: pullRequest.number,
+      repository: this.#repository,
+    });
   }
 
   #assertExactTarget(context, target) {
@@ -527,7 +608,7 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     const baseRef = encodeURIComponent(pullRequest.baseRef);
     const branchRequirementsResponse = await this.#requireJson(context, [
       'api',
-      `repos/${this.#repository}/branches/${baseRef}/protection/required_status_checks`,
+      `repos/${this.#repository}/branches/${baseRef}`,
       '--jq',
       JSON_PROJECTIONS.branchRequiredChecks,
     ]);
@@ -622,8 +703,10 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
   async #observeRun(context, resolved) {
     const category = classifyRun(resolved.run);
     if (category === 'running') return freezeRecord({ status: 'running', target: resolved.target });
-    if (category === 'cancelled') return freezeRecord({ outcome: 'target_cancelled', status: 'cancelled', target: resolved.target });
-    if (category === 'failed') return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
+    if (category === 'cancelled')
+      return freezeRecord({ outcome: 'target_cancelled', status: 'cancelled', target: resolved.target });
+    if (category === 'failed')
+      return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
     const jobsResponse = await this.#requireJson(context, [
       'api',
       `repos/${this.#repository}/actions/runs/${resolved.run.id}/attempts/${resolved.run.runAttempt}/jobs?per_page=100`,
@@ -637,7 +720,8 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     if (jobsCategory === 'cancelled') {
       return freezeRecord({ outcome: 'target_cancelled', status: 'cancelled', target: resolved.target });
     }
-    if (jobsCategory === 'failed') return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
+    if (jobsCategory === 'failed')
+      return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
     return freezeRecord({ outcome: 'succeeded', status: 'succeeded', target: resolved.target });
   }
 
@@ -657,11 +741,17 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
   }
 
   #observePullRequest(context, resolved) {
+    if (resolved.required.evaluationMode === 'pipeline-discovery') {
+      return this.#observeDiscoveredPullRequest(resolved);
+    }
     const outcomes = [];
     for (const requirement of resolved.required.requirements) {
       const candidates = [];
       for (const checkRun of resolved.checkRuns) {
-        if (checkRun.name === requirement.context && (requirement.appId === null || checkRun.appId === requirement.appId)) {
+        if (
+          checkRun.name === requirement.context &&
+          (requirement.appId === null || checkRun.appId === requirement.appId)
+        ) {
           candidates.push({ kind: 'check-run', value: checkRun });
         }
       }
@@ -670,16 +760,14 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
           if (status.context === requirement.context) candidates.push({ kind: 'commit-status', value: status });
         }
       }
-      if (candidates.length !== 1) return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
+      if (candidates.length !== 1)
+        return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
       const candidate = candidates[0];
       if (candidate.kind === 'check-run') {
         const referencedRun = detailsRunId(candidate.value.detailsUrl, this.#repository);
         if (referencedRun !== null) {
           const workflowRuns = resolved.workflowRuns.filter((run) => run.id === referencedRun);
-          if (
-            workflowRuns.length !== 1 ||
-            !isAllowedGitHubWorkflow(workflowRuns[0], this.#workflowAllowlist)
-          ) {
+          if (workflowRuns.length !== 1 || !isAllowedGitHubWorkflow(workflowRuns[0], this.#workflowAllowlist)) {
             return this.#blocked('target-lost');
           }
         }
@@ -693,8 +781,83 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     if (category === 'cancelled') {
       return freezeRecord({ outcome: 'target_cancelled', status: 'cancelled', target: resolved.target });
     }
-    if (category === 'failed') return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
+    if (category === 'failed')
+      return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
     return freezeRecord({ outcome: 'succeeded', status: 'succeeded', target: resolved.target });
+  }
+
+  #observeDiscoveredPullRequest(resolved) {
+    const pipeline = this.#discoveredPipeline(resolved);
+    if (pipeline.blocked) return this.#blocked('target-lost');
+    if (pipeline.workflowCount === 0 || pipeline.members.length === 0) {
+      this.#fallbackMembership = null;
+      return freezeRecord({ status: 'running', target: resolved.target });
+    }
+    const membershipStable = this.#recordFallbackMembership(resolved.target, pipeline.members);
+    const category = combineOutcomes(pipeline.outcomes);
+    if (category === 'running' || (category === 'succeeded' && !membershipStable)) {
+      return freezeRecord({ status: 'running', target: resolved.target });
+    }
+    if (category === 'cancelled') {
+      return freezeRecord({ outcome: 'target_cancelled', status: 'cancelled', target: resolved.target });
+    }
+    if (category === 'failed') {
+      return freezeRecord({ outcome: 'target_failed', status: 'failed', target: resolved.target });
+    }
+    return freezeRecord({ outcome: 'succeeded', status: 'succeeded', target: resolved.target });
+  }
+
+  #discoveredPipeline(resolved) {
+    const members = [];
+    const outcomes = [];
+    const workflowRunsById = new Map();
+    for (const run of resolved.workflowRuns) {
+      if (!isAllowedGitHubWorkflow(run, this.#workflowAllowlist) || workflowRunsById.has(run.id)) {
+        return freezeRecord({ blocked: true, members: freezeArray([]), outcomes: freezeArray([]), workflowCount: 0 });
+      }
+      workflowRunsById.set(run.id, run);
+      members.push(`workflow-run-${run.id}-attempt-${run.runAttempt}`);
+      outcomes.push(classifyRun(run));
+    }
+    for (const checkRun of resolved.checkRuns) {
+      const referencedRun = detailsRunId(checkRun.detailsUrl, this.#repository);
+      if (referencedRun !== null) {
+        if (!workflowRunsById.has(referencedRun)) {
+          return freezeRecord({ blocked: true, members: freezeArray([]), outcomes: freezeArray([]), workflowCount: 0 });
+        }
+        continue;
+      }
+      members.push(`check-run-${checkRun.id}`);
+      outcomes.push(classifyCheckRun(checkRun, this.#scenario.success.allowedSkippedChecks));
+    }
+    for (const status of resolved.statuses) {
+      members.push(`commit-status-${status.id}`);
+      outcomes.push(classifyCommitStatus(status));
+    }
+    if (new Set(members).size !== members.length) {
+      return freezeRecord({ blocked: true, members: freezeArray([]), outcomes: freezeArray([]), workflowCount: 0 });
+    }
+    members.sort((left, right) => left.localeCompare(right));
+    return freezeRecord({
+      blocked: false,
+      members: freezeArray(members),
+      outcomes: freezeArray(outcomes),
+      workflowCount: resolved.workflowRuns.length,
+    });
+  }
+
+  #recordFallbackMembership(target, members) {
+    const digest = digestNormalizedValue('gpt-voice/watch-process/github-pr-pipeline-members/v1', {
+      members,
+      sourceSha: target.sourceSha,
+      targetId: target.targetId,
+    });
+    const observations =
+      this.#fallbackMembership?.identityDigest === target.identityDigest && this.#fallbackMembership.digest === digest
+        ? this.#fallbackMembership.observations + 1
+        : 1;
+    this.#fallbackMembership = freezeRecord({ digest, identityDigest: target.identityDigest, observations });
+    return observations >= 2;
   }
 
   async #collectRunEvidence(context, resolved) {
@@ -720,6 +883,18 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
 
   async #collectPullRequestEvidence(context, resolved) {
     const failureEntries = [];
+    if (resolved.required.evaluationMode === 'pipeline-discovery') {
+      for (const workflowRun of resolved.workflowRuns) {
+        if (classifyRun(workflowRun) === 'failed') {
+          failureEntries.push(
+            freezeRecord({
+              classification: 'github-workflow-failed',
+              memberId: `workflow-${workflowRun.id}-attempt-${workflowRun.runAttempt}`,
+            }),
+          );
+        }
+      }
+    }
     for (const checkRun of resolved.checkRuns) {
       if (classifyCheckRun(checkRun, this.#scenario.success.allowedSkippedChecks) === 'failed') {
         failureEntries.push(freezeRecord({ classification: 'github-check-failed', memberId: `check-${checkRun.id}` }));
@@ -774,8 +949,8 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
       if (reconciliation.kind === 'blocked') return this.#blocked(reconciliation.blocker);
       if (reconciliation.kind === 'attached') {
         if (before.length !== 1) return this.#blocked('target-lost');
-        await this.#recordDispatchReceipt(context, operationKey, before[0]);
-        return this.#attachmentResponse(before[0]);
+        const receiptId = await this.#recordDispatchReceipt(context, operationKey, before[0]);
+        return this.#attachmentResponse(before[0], receiptId);
       }
       const dispatch = await this.#runExitOnly(context, this.#dispatchArguments(context, operationKey));
       if (!dispatch.succeeded) return await this.#dispatchFailure(context);
@@ -789,8 +964,8 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
       if (afterReconciliation.kind !== 'attached' || after.length !== 1) {
         return this.#blocked(afterReconciliation.blocker ?? 'dispatch-failed');
       }
-      await this.#recordDispatchReceipt(context, operationKey, after[0]);
-      return freezeRecord({ identity: after[0].identity, status: 'started', target: after[0].target });
+      const receiptId = await this.#recordDispatchReceipt(context, operationKey, after[0]);
+      return freezeRecord({ identity: after[0].identity, receiptId, status: 'started', target: after[0].target });
     } catch (error) {
       if (error === REMOTE_COMMAND_FAILED) return this.#dispatchFailure(context);
       throw error;
@@ -842,6 +1017,7 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     } catch {
       runtimeFail('github-dispatch-receipt-failed');
     }
+    return receiptId;
   }
 
   async #dispatchFailure(context) {
@@ -856,6 +1032,11 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     return freezeRecord({ outcome: 'monitoring_failed', status: 'failed', summaryCode });
   }
 
+  async #remoteBlocker(context) {
+    const authentication = await this.#readJson(context, ['api', 'user', '--jq', JSON_PROJECTIONS.user]);
+    return this.#blocked(authentication.succeeded ? 'watcher-lost' : 'authentication-failed');
+  }
+
   #authenticationFailure() {
     return freezeRecord({
       outcome: 'authentication_failed',
@@ -864,8 +1045,15 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
     });
   }
 
-  #attachmentResponse(resolved) {
-    return freezeRecord({ identity: resolved.identity, status: 'attached', target: resolved.target });
+  #attachmentResponse(resolved, receiptId = null) {
+    const normalizedReceiptId =
+      receiptId ?? `receipt-github-actions-attach-${resolved.target.identityDigest.slice(0, 32)}`;
+    return freezeRecord({
+      identity: resolved.identity,
+      receiptId: normalizedReceiptId,
+      status: 'attached',
+      target: resolved.target,
+    });
   }
 
   #blocked(blocker) {
@@ -874,11 +1062,13 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
 
   #isTargetIdentityError(error) {
     return [
+      'github-current-branch-pull-request-not-found',
       'github-pr-member-source-sha-mismatch',
       'github-run-attempt-mismatch',
       'github-source-sha-mismatch',
       'github-target-identity-mismatch',
       'github-workflow-not-allowed',
+      'invalid-github-workflow-path',
     ].includes(error?.code);
   }
 
@@ -912,7 +1102,8 @@ export class GitHubActionsProcessAdapter extends ProcessAdapter {
         timeoutMilliseconds: context.timeoutMilliseconds,
       });
       const result = normalizeAdapterCommandResult(await execution.wait());
-      if (!isSuccessfulCommandResult(result)) return freezeRecord({ evidence: result.evidence, succeeded: false, value: null });
+      if (!isSuccessfulCommandResult(result))
+        return freezeRecord({ evidence: result.evidence, succeeded: false, value: null });
       return freezeRecord({ evidence: result.evidence, succeeded: true, value: collector.parse() });
     } finally {
       collector.dispose();
