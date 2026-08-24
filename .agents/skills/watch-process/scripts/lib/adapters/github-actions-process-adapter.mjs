@@ -200,9 +200,9 @@ function classifyCommitStatus(status) {
 }
 
 function combineOutcomes(outcomes) {
+  if (outcomes.some((outcome) => outcome === 'running')) return 'running';
   if (outcomes.some((outcome) => outcome === 'failed')) return 'failed';
   if (outcomes.some((outcome) => outcome === 'cancelled')) return 'cancelled';
-  if (outcomes.some((outcome) => outcome === 'running')) return 'running';
   return 'succeeded';
 }
 

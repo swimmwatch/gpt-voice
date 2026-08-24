@@ -661,6 +661,50 @@ describe('watch-process GitHub Actions adapter', () => {
     });
   });
 
+  it('waits for every discovered pipeline member before reporting a failed target', async () => {
+    const success = await fixture('github-pr-required-checks-success.json');
+    const mixed = clone(success);
+    mixed.branchRequiredChecks = { checks: [], contexts: [] };
+    mixed.ruleRequiredChecks = [];
+    mixed.workflowRuns[0] = { ...mixed.workflowRuns[0], conclusion: 'failure', status: 'completed' };
+    mixed.workflowRuns[1] = { ...mixed.workflowRuns[1], conclusion: null, status: 'in_progress' };
+    const completed = clone(mixed);
+    completed.workflowRuns[1] = { ...completed.workflowRuns[1], conclusion: 'success', status: 'completed' };
+
+    await withHarness({
+      normalized: githubScenario({
+        mode: 'pull-request-contract',
+        selectorKinds: ['pull-request-url', 'start'],
+      }),
+      run: async ({ normalized, receiptStore, responders, runner }) => {
+        const adapter = createAdapter({ normalized, receiptStore, runner });
+        const context = baseContext({ targetSelector: 'unspecified' });
+        enqueuePreflight(responders);
+        enqueueJson(responders, currentBranchPullRequest(mixed));
+        enqueuePullRequestResolution(responders, mixed);
+        await adapter.preflight(context);
+        enqueueJson(responders, currentBranchPullRequest(mixed));
+        enqueuePullRequestResolution(responders, mixed);
+        const attached = await adapter.start(context);
+
+        for (let observation = 0; observation < 2; observation += 1) {
+          enqueuePullRequestResolution(responders, mixed);
+          assert.deepEqual(await adapter.observe(baseContext({ target: attached.target })), {
+            status: 'running',
+            target: attached.target,
+          });
+        }
+
+        enqueuePullRequestResolution(responders, completed);
+        assert.deepEqual(await adapter.observe(baseContext({ target: attached.target })), {
+          outcome: 'target_failed',
+          status: 'failed',
+          target: attached.target,
+        });
+      },
+    });
+  });
+
   it('fails closed for missing, duplicate, pending, skipped, neutral, cancelled, failed, and stale PR required members', async () => {
     const [success, failure] = await Promise.all([
       fixture('github-pr-required-checks-success.json'),
