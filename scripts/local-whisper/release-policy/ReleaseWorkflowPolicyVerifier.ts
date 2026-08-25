@@ -295,9 +295,12 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
     cudaBuildIndex <= cudaToolsetIndex ||
     !windowsRuntimeText.includes('"toolset-version":"14.51"') ||
     !windowsRuntimeText.includes('"toolset-version":"14.39"') ||
+    !windowsRuntimeText.includes('Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64') ||
     !windowsRuntimeText.includes(
-      'Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64 --quiet --wait --norestart --nocache',
-    )
+      'Start-Process -FilePath $installer -ArgumentList $installerArguments -Wait -PassThru',
+    ) ||
+    !windowsRuntimeText.includes('$installation.ExitCode -ne 0') ||
+    windowsRuntimeText.includes('--wait')
   ) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }

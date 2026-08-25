@@ -351,7 +351,17 @@ describe('Local Whisper release protocol', () => {
       /CONSTRUCTION_GRAPH_INVALID/u,
     );
     assert.throws(
-      () => verifier.verify(workflow.replace('--quiet --wait --norestart --nocache', '--quiet --norestart --nocache')),
+      () =>
+        verifier.verify(
+          workflow.replace(
+            'Start-Process -FilePath $installer -ArgumentList $installerArguments -Wait -PassThru',
+            'Start-Process -FilePath $installer -ArgumentList $installerArguments -PassThru',
+          ),
+        ),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace('$installation.ExitCode -ne 0', '$false')),
       /CONSTRUCTION_GRAPH_INVALID/u,
     );
     assert.throws(
