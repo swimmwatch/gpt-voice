@@ -7,7 +7,10 @@ import {
   RELEASE_POLL_INTERVAL_MILLISECONDS,
   RELEASE_PULL_REQUEST_DISCOVERY_INTERVAL_MILLISECONDS,
   RELEASE_PULL_REQUEST_DISCOVERY_TIMEOUT_MILLISECONDS,
+  RELEASE_READ_RETRY_DELAY_MILLISECONDS,
+  RELEASE_READ_RETRY_MAX_ATTEMPTS,
 } from './constants.mjs';
+import { ReleaseCommandError } from './command-runner.mjs';
 
 const SHA_PATTERN = /^[a-f\d]{40}$/u;
 
@@ -47,8 +50,8 @@ export class ReleaseGitHubClient {
     let repository;
     try {
       [user, repository] = await Promise.all([
-        this.#runner.json('gh', ['api', 'user']),
-        this.#runner.json('gh', ['api', `repos/${RELEASE_CONTRACT.repository}`]),
+        this.#readJson(['api', 'user']),
+        this.#readJson(['api', `repos/${RELEASE_CONTRACT.repository}`]),
       ]);
     } catch {
       throw new Error('release-remote-state-ambiguous');
@@ -59,8 +62,7 @@ export class ReleaseGitHubClient {
   }
 
   async release() {
-    const result = await this.#runner.run(
-      'gh',
+    const result = await this.#readRun(
       ['api', `repos/${RELEASE_CONTRACT.repository}/releases/tags/${RELEASE_CONTRACT.releaseTag}`],
       { allowFailure: true },
     );
@@ -87,8 +89,7 @@ export class ReleaseGitHubClient {
 
   async assertReleaseAbsent() {
     if ((await this.release()) !== null) throw new Error('release-already-published');
-    const tag = await this.#runner.run(
-      'gh',
+    const tag = await this.#readRun(
       ['api', `repos/${RELEASE_CONTRACT.repository}/git/ref/tags/${RELEASE_CONTRACT.releaseTag}`],
       { allowFailure: true },
     );
@@ -102,7 +103,7 @@ export class ReleaseGitHubClient {
   }
 
   async findPullRequest(branch, { includeMerged = false, sourceSha } = {}) {
-    const result = await this.#runner.json('gh', [
+    const result = await this.#readJson([
       'pr',
       'list',
       '--repo',
@@ -182,8 +183,7 @@ export class ReleaseGitHubClient {
 
   async waitForPullRequestChecks(pullRequestNumber, sourceSha, deadlineEpochMilliseconds) {
     while (Date.now() < deadlineEpochMilliseconds) {
-      const result = await this.#runner.run(
-        'gh',
+      const result = await this.#readRun(
         [
           'pr',
           'checks',
@@ -207,7 +207,7 @@ export class ReleaseGitHubClient {
         throw new Error('release-pull-request-checks-failed');
       }
       if (checks.every((check) => ['pass', 'skipping'].includes(check.bucket))) {
-        const pullRequest = await this.#runner.json('gh', [
+        const pullRequest = await this.#readJson([
           'pr',
           'view',
           String(pullRequestNumber),
@@ -270,7 +270,7 @@ export class ReleaseGitHubClient {
     }
     while (Date.now() < deadlineEpochMilliseconds) {
       await this.#approvePendingDeployments(run.databaseId);
-      const observed = await this.#runner.json('gh', [
+      const observed = await this.#readJson([
         'run',
         'view',
         String(run.databaseId),
@@ -307,7 +307,7 @@ export class ReleaseGitHubClient {
     ) {
       throw new Error('release-publication-invalid');
     }
-    const reference = await this.#runner.json('gh', [
+    const reference = await this.#readJson([
       'api',
       `repos/${RELEASE_CONTRACT.repository}/git/ref/tags/${RELEASE_CONTRACT.releaseTag}`,
     ]);
@@ -316,7 +316,7 @@ export class ReleaseGitHubClient {
   }
 
   async #findWorkflowRun(correlation, sourceSha) {
-    const result = await this.#runner.json('gh', [
+    const result = await this.#readJson([
       'run',
       'list',
       '--repo',
@@ -349,7 +349,7 @@ export class ReleaseGitHubClient {
   }
 
   async #approvePendingDeployments(runId) {
-    const pending = await this.#runner.json('gh', [
+    const pending = await this.#readJson([
       'api',
       `repos/${RELEASE_CONTRACT.repository}/actions/runs/${runId}/pending_deployments`,
     ]);
@@ -368,5 +368,27 @@ export class ReleaseGitHubClient {
         }),
       },
     );
+  }
+
+  async #readJson(args) {
+    return await this.#retryRead(() => this.#runner.json('gh', args));
+  }
+
+  async #readRun(args, options) {
+    return await this.#retryRead(() => this.#runner.run('gh', args, options));
+  }
+
+  async #retryRead(operation) {
+    for (let attempt = 1; attempt <= RELEASE_READ_RETRY_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        if (!(error instanceof ReleaseCommandError) || attempt === RELEASE_READ_RETRY_MAX_ATTEMPTS) {
+          throw error;
+        }
+        await this.#delay(RELEASE_READ_RETRY_DELAY_MILLISECONDS);
+      }
+    }
+    throw new Error('release-read-retry-exhausted');
   }
 }

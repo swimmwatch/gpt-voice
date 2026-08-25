@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { RELEASE_CONTRACT } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/constants.mjs';
+import {
+  RELEASE_CONTRACT,
+  RELEASE_READ_RETRY_DELAY_MILLISECONDS,
+  RELEASE_READ_RETRY_MAX_ATTEMPTS,
+} from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/constants.mjs';
+import { ReleaseCommandError } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/command-runner.mjs';
 import { ReleaseGitHubClient } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/github-release-client.mjs';
 
 const SOURCE_SHA = 'a'.repeat(40);
@@ -179,6 +184,90 @@ describe('ReleaseGitHubClient operation receipts', () => {
 
     assert.equal(pullRequest.number, 58);
     assert.deepEqual(delays, [5_000, 5_000]);
+  });
+
+  it('retries a transient read-only GitHub query before accepting its result', async () => {
+    const runner = new RecordingGitHubRunner();
+    runner.pullRequests = [
+      {
+        baseRefName: 'main',
+        headRefName: RELEASE_CONTRACT.featureBranch,
+        headRefOid: SOURCE_SHA,
+        mergedAt: null,
+        number: 59,
+        state: 'OPEN',
+      },
+    ];
+    const originalJson = runner.json.bind(runner);
+    let attempts = 0;
+    runner.json = async (executable, args, options) => {
+      if (args[0] === 'pr' && args[1] === 'list' && attempts++ === 0) {
+        throw new ReleaseCommandError('release-command-timed-out');
+      }
+      return await originalJson(executable, args, options);
+    };
+    const delays = [];
+    const client = new ReleaseGitHubClient({
+      delay: async (milliseconds) => delays.push(milliseconds),
+      runner,
+    });
+
+    const pullRequest = await client.findPullRequest(RELEASE_CONTRACT.featureBranch, { sourceSha: SOURCE_SHA });
+
+    assert.equal(pullRequest.number, 59);
+    assert.equal(attempts, 2);
+    assert.deepEqual(delays, [RELEASE_READ_RETRY_DELAY_MILLISECONDS]);
+  });
+
+  it('fails closed when all bounded read attempts are interrupted', async () => {
+    const runner = new RecordingGitHubRunner();
+    let attempts = 0;
+    runner.json = async () => {
+      attempts += 1;
+      throw new ReleaseCommandError('release-command-timed-out');
+    };
+    const delays = [];
+    const client = new ReleaseGitHubClient({
+      delay: async (milliseconds) => delays.push(milliseconds),
+      runner,
+    });
+
+    await assert.rejects(
+      client.findPullRequest(RELEASE_CONTRACT.featureBranch, { sourceSha: SOURCE_SHA }),
+      /release-command-timed-out/u,
+    );
+    assert.equal(attempts, RELEASE_READ_RETRY_MAX_ATTEMPTS);
+    assert.deepEqual(
+      delays,
+      Array(RELEASE_READ_RETRY_MAX_ATTEMPTS - 1).fill(RELEASE_READ_RETRY_DELAY_MILLISECONDS),
+    );
+  });
+
+  it('does not retry a failed workflow dispatch mutation', async () => {
+    const runner = new RecordingGitHubRunner();
+    const originalRun = runner.run.bind(runner);
+    let dispatches = 0;
+    runner.run = async (executable, args, options) => {
+      if (args[0] === 'workflow' && args[1] === 'run') {
+        dispatches += 1;
+        throw new ReleaseCommandError('release-command-timed-out');
+      }
+      return await originalRun(executable, args, options);
+    };
+    const client = new ReleaseGitHubClient({ runner });
+
+    await assert.rejects(
+      client.dispatchAndWait({
+        deadlineEpochMilliseconds: Date.now() + 60_000,
+        phase: 'task32',
+        publish: false,
+        releaseTag: null,
+        sourceSha: SOURCE_SHA,
+        watchId: WATCH_ID,
+      }),
+      /release-command-timed-out/u,
+    );
+    assert.equal(dispatches, 1);
   });
 
   it('dispatches against the declared branch, reuses the correlated run, and deduplicates approval', async () => {
