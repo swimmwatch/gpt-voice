@@ -864,7 +864,7 @@ describe('watch-process repair, verification, and delivery', () => {
     );
   });
 
-  it('does not turn an unsupported or corrupt cancellation request into a user cancellation', async () => {
+  it('does not turn a corrupt cancellation request into a user cancellation', async () => {
     await withRepository({}, async ({ workspaceRoot }) => {
       const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
       const harness = await createHarness({
@@ -872,10 +872,6 @@ describe('watch-process repair, verification, and delivery', () => {
         strategy: { strategy: 'local-restart', pushCurrentUpstream: false },
         workspaceRoot,
       });
-      const ignored = await harness.controller.cancel();
-      assert.equal(ignored.phase, 'NeedsAgent');
-      assert.equal(await harness.storage.readJson(REPAIR_CANCELLATION_FILE_NAME), null);
-
       await harness.controller.beginRepair({ invocation: harness.invocation });
       await harness.storage.writeJson(REPAIR_CANCELLATION_FILE_NAME, {
         requestedAtEpochMilliseconds: Date.now(),

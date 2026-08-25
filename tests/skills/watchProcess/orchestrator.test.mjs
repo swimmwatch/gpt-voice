@@ -262,7 +262,7 @@ describe('ProcessWatchOrchestrator', () => {
     for (const outcome of ['target_failed', 'verification_failed', 'delivery_failed', 'dispatch_failed']) {
       assert.equal(table.assert({ fromPhase: 'Verifying', outcome, toPhase: 'Restarting' }).outcome, outcome);
     }
-    for (const phase of ['Repairing', 'Verifying', 'Restarting']) {
+    for (const phase of ['NeedsAgent', 'Repairing', 'Verifying', 'Restarting']) {
       assert.equal(
         table.assert({ fromPhase: phase, outcome: 'user_cancelled', toPhase: 'Cancelled' }).toPhase,
         'Cancelled',

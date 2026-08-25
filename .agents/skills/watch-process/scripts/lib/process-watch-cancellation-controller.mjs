@@ -13,7 +13,7 @@ import {
 } from './runtime-state-contracts.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 
-const CANCELLABLE_REPAIR_PHASES = new Set(['Repairing', 'Verifying', 'Restarting']);
+const CANCELLABLE_SAFE_PHASES = new Set(['NeedsAgent', 'Repairing', 'Verifying', 'Restarting']);
 
 function cancellationResult(state) {
   return freezeRecord({
@@ -68,7 +68,7 @@ export class ProcessWatchCancellationController {
 
   async cancel() {
     const state = await this.#stateStore.readState();
-    if (state === null || (!CANCELLABLE_REPAIR_PHASES.has(state.phase) && state.phase !== 'Watching')) {
+    if (state === null || (!CANCELLABLE_SAFE_PHASES.has(state.phase) && state.phase !== 'Watching')) {
       return state === null ? freezeRecord({ phase: null }) : cancellationResult(state);
     }
     await this.#writeRequest();
@@ -83,7 +83,7 @@ export class ProcessWatchCancellationController {
       acquired = true;
       const state = await this.#stateStore.readState();
       if (state === null) return freezeRecord({ phase: null });
-      if (!CANCELLABLE_REPAIR_PHASES.has(state.phase)) {
+      if (!CANCELLABLE_SAFE_PHASES.has(state.phase)) {
         await this.#storage.removeRegularFile(REPAIR_CANCELLATION_FILE_NAME).catch(() => undefined);
         return cancellationResult(state);
       }

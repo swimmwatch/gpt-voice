@@ -5,7 +5,7 @@ const TRANSITIONS = Object.freeze({
   Armed: Object.freeze(['Preparing', 'Blocked']),
   Preparing: Object.freeze(['Watching', 'Blocked']),
   Watching: Object.freeze(['Watching', 'NeedsAgent', 'Finalizing', 'Blocked', 'Cancelled']),
-  NeedsAgent: Object.freeze(['Repairing', 'Blocked']),
+  NeedsAgent: Object.freeze(['Repairing', 'Blocked', 'Cancelled']),
   Repairing: Object.freeze(['Verifying', 'Blocked', 'Cancelled']),
   Verifying: Object.freeze(['Restarting', 'Repairing', 'Blocked', 'Cancelled']),
   Restarting: Object.freeze(['Watching', 'Repairing', 'Blocked', 'Cancelled']),

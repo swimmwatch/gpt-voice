@@ -275,6 +275,27 @@ describe('process-watch operator entrypoint', () => {
     });
   });
 
+  it('cancels a NeedsAgent handoff so the same logical target can be recovered with updated tooling', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      await writeNeedsAgentState({ deadlineEpochMilliseconds: 100_000, watchId: WATCH_ID, workspaceRoot });
+      const storage = new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot });
+      const operator = new ProcessWatchOperator({
+        clock: () => 2_000,
+        environment: { CODEX_SESSION_ID: SESSION_ID },
+        randomBytesFactory: (length) => Buffer.alloc(length, 0x0e),
+        workspaceRoot,
+      });
+
+      const cancelled = await operator.cancel({ watchId: WATCH_ID });
+
+      assert.equal(cancelled.phase, 'Cancelled');
+      assert.equal(cancelled.outcome, 'user_cancelled');
+      const persisted = await storage.readJson('state.json');
+      assert.equal(persisted.phase, 'Cancelled');
+      assert.equal(persisted.outcome, 'user_cancelled');
+    });
+  });
+
   it('creates a local-restart invocation from a stable workspace snapshot without requiring a clean worktree', async () => {
     await withWorkspace(async (workspaceRoot) => {
       await copyLocalScenario(workspaceRoot);
