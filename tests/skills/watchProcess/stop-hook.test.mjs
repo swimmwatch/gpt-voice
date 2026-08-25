@@ -90,6 +90,15 @@ function watchState({
   });
 }
 
+const TERMINAL_PHASES = new Set(['Blocked', 'Cancelled', 'NeedsAgent', 'Success']);
+
+function lockForState(state) {
+  return Object.freeze({
+    ...(TERMINAL_PHASES.has(state.phase) ? {} : { generation: state.generation }),
+    kind: TERMINAL_PHASES.has(state.phase) ? 'missing' : 'unknown',
+  });
+}
+
 /** Provides deterministic persisted state without touching an actual watcher process. */
 class FakeWatch {
   acknowledgement = null;
@@ -99,7 +108,7 @@ class FakeWatch {
 
   constructor(state) {
     this.state = state;
-    this.lock = Object.freeze({ generation: state.generation, kind: 'unknown' });
+    this.lock = lockForState(state);
   }
 
   async inspectWatcher() {
@@ -116,7 +125,7 @@ class FakeWatch {
 
   setState(state) {
     this.state = state;
-    this.lock = Object.freeze({ generation: state.generation, kind: 'unknown' });
+    this.lock = lockForState(state);
   }
 
   async writeAcknowledgement(acknowledgement) {
@@ -226,6 +235,28 @@ describe('process-watch Stop hook', () => {
     assert.deepEqual(second, {});
   });
 
+  it('waits for a terminal watcher to release its lock before consuming the selection', async () => {
+    const watch = new FakeWatch(watchState());
+    let observation = 0;
+    const hook = createHook(watch, {
+      afterSleep: () => {
+        observation += 1;
+        if (observation === 1) {
+          watch.state = watchState({ generation: 4, outcome: 'target_failed', phase: 'NeedsAgent' });
+          watch.lock = Object.freeze({ generation: 4, kind: 'unknown' });
+          return;
+        }
+        watch.lock = Object.freeze({ kind: 'missing' });
+      },
+    });
+
+    assert.deepEqual(await hook.handle(hookInput()), {
+      decision: 'block',
+      reason: continuationReason({ generation: 4, outcome: 'target_failed' }),
+    });
+    assert.equal(observation, 2);
+  });
+
   it('ignores later terminal generations after consuming the explicitly armed selection', async () => {
     const watch = new FakeWatch(watchState({ outcome: 'target_failed', phase: 'NeedsAgent' }));
     const hook = createHook(watch);
@@ -270,6 +301,24 @@ describe('process-watch Stop hook', () => {
     assert.deepEqual(await hook.handle({ ...hookInput(), last_assistant_message: 1 }), {});
     assert.deepEqual(await hook.handle(hookInput(), { signal: cancelled.signal }), {});
     assert.equal(watch.acknowledgement, null);
+  });
+
+  it('reports a validated matched-hook failure instead of silently losing the Watch', async () => {
+    const watch = new FakeWatch(watchState());
+    const hook = new ProcessWatchStopHook({
+      repository: fakeRepository(watch),
+      waiter: {
+        async wait() {
+          throw new Error('simulated-hook-failure');
+        },
+      },
+    });
+
+    assert.deepEqual(await hook.handle(hookInput()), {
+      decision: 'block',
+      reason: continuationReason({ outcome: 'monitoring_failed' }),
+    });
+    assert.equal(watch.acknowledgement.outcome, 'monitoring_failed');
   });
 
   it('allows one fresh re-armed Watch continuation when the previous turn came from the Stop hook', async () => {

@@ -8,6 +8,11 @@ import { assertAbortSignal, freezeRecord, runtimeFail } from './runtime-core-sup
 
 const MAX_RECONCILIATION_ATTEMPTS = 3;
 
+function fallbackOutcome(state) {
+  if (state.phase === 'Success') return 'succeeded';
+  return state.outcome === null || state.outcome === 'running' ? 'monitoring_failed' : state.outcome;
+}
+
 function isSameState(left, right) {
   return (
     left !== null &&
@@ -25,11 +30,7 @@ export class ProcessWatchStopHook {
   #waiter;
 
   constructor({ clock = () => Date.now(), deadlineFactory, hookTimeoutSeconds, poller, repository, waiter } = {}) {
-    if (
-      repository === null ||
-      typeof repository?.find !== 'function' ||
-      typeof repository?.consume !== 'function'
-    ) {
+    if (repository === null || typeof repository?.find !== 'function' || typeof repository?.consume !== 'function') {
       runtimeFail('invalid-stop-hook');
     }
     this.#repository = repository;
@@ -45,17 +46,34 @@ export class ProcessWatchStopHook {
   }
 
   async handle(value, { signal } = {}) {
-    let input;
+    let input = null;
+    let match = null;
     try {
       assertAbortSignal(signal);
       input = normalizeStopHookInput(value);
       if (signal?.aborted) return freezeRecord({});
-      const match = await this.#repository.find(input);
+      match = await this.#repository.find(input);
       if (match.kind !== 'matched') return freezeRecord({});
       return await this.#handleMatch(input, match.watch, signal);
     } catch {
+      if (input !== null && match?.kind === 'matched' && !signal?.aborted) {
+        try {
+          return await this.#reportMatchedFailure(input, match.watch);
+        } catch {
+          // A failure before an identity-bound acknowledgement must stay
+          // neutral; an unvalidated continuation would grant no safe action.
+        }
+      }
       return freezeRecord({});
     }
+  }
+
+  async #reportMatchedFailure(input, watch) {
+    const state = await watch.readState();
+    if (state === null || state.sessionId !== input.sessionId) return freezeRecord({});
+    const outcome = fallbackOutcome(state);
+    const acknowledgement = await this.#acknowledge(input, watch, freezeRecord({ outcome, state }));
+    return acknowledgement.kind === 'complete' ? acknowledgement.output : freezeRecord({});
   }
 
   async #acknowledge(input, watch, action) {

@@ -92,6 +92,18 @@ export class ProcessWatchTerminalWaiter {
       return freezeRecord({ kind: 'continue', outcome: 'integrity_failed', state });
     }
     if (TERMINAL_HANDOFF_PHASES.includes(state.phase)) {
+      // A watcher writes its terminal state before it releases the ownership
+      // lock. Do not acknowledge that state while the writer can still advance
+      // it: an acknowledgement for the old generation would consume the
+      // one-shot selection and strand the later result.
+      const lock = await watch.inspectWatcher(state);
+      if (lock.kind === 'ambiguous') return freezeRecord({ kind: 'continue', outcome: 'monitoring_failed', state });
+      if (lock.kind === 'unknown' || lock.kind === 'matching') {
+        return freezeRecord({ kind: 'wait', state });
+      }
+      if (lock.kind === 'reused' || (lock.generation !== undefined && lock.generation !== state.generation)) {
+        return freezeRecord({ kind: 'continue', outcome: 'watcher_lost', state });
+      }
       const outcome = state.phase === 'Success' ? 'succeeded' : (state.outcome ?? 'monitoring_failed');
       return freezeRecord({ kind: 'continue', outcome, state });
     }
