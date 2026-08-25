@@ -16,6 +16,7 @@ const CANDIDATE_JOB_IDS = Object.freeze([
 ]);
 const PRODUCTION_ENVIRONMENT_NAME = 'local-whisper-production';
 const WINDOWS_CUDA_RUNNER = 'windows-2022';
+const LINUX_RUNTIME_ARTIFACT_NAME = 'gpt-voice-local-whisper-runtimes-linux';
 const WINDOWS_RUNTIME_ARTIFACT_PATTERN = 'gpt-voice-local-whisper-runtime-win32-*';
 const WINDOWS_RUNTIME_MATRIX = Object.freeze([
   Object.freeze({
@@ -120,15 +121,40 @@ function verifyWindowsRuntimeMatrix(job: Readonly<Record<string, unknown>>): voi
   }
 }
 
-function verifyMergedWindowsRuntimeDownload(job: unknown, path: string): void {
+function verifyLinuxRuntimeDownload(
+  job: unknown,
+  path: string,
+  name = 'Download exact Linux runtime archive inputs',
+  condition?: string,
+): void {
   if (!isRecord(job)) throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
-  const download = namedStep(jobSteps(job), 'Download exact Windows runtime archive inputs');
+  const download = namedStep(jobSteps(job), name);
+  if (
+    !isRecord(download) ||
+    !isRecord(download.with) ||
+    download.with.name !== LINUX_RUNTIME_ARTIFACT_NAME ||
+    download.with.path !== path ||
+    (condition !== undefined && download.if !== condition)
+  ) {
+    throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
+}
+
+function verifyMergedWindowsRuntimeDownload(
+  job: unknown,
+  path: string,
+  name = 'Download exact Windows runtime archive inputs',
+  condition?: string,
+): void {
+  if (!isRecord(job)) throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  const download = namedStep(jobSteps(job), name);
   if (
     !isRecord(download) ||
     !isRecord(download.with) ||
     download.with.pattern !== WINDOWS_RUNTIME_ARTIFACT_PATTERN ||
     download.with.path !== path ||
-    download.with['merge-multiple'] !== true
+    download.with['merge-multiple'] !== true ||
+    (condition !== undefined && download.if !== condition)
   ) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }
@@ -258,6 +284,7 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
   const linuxApplication = jobs['build-linux'];
   const windowsApplication = jobs['build-windows'];
   const windowsRuntimes = jobs['build-windows-runtimes'];
+  const attestation = jobs['attest-release'];
   const candidate = jobs['verify-production-candidate'];
   if (
     !isRecord(bundle) ||
@@ -273,7 +300,8 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
     !needsJob(candidate, 'produce-production-bundles') ||
     !needsJob(candidate, 'build-linux') ||
     !needsJob(candidate, 'build-windows') ||
-    !needsJob(candidate, 'attest-release')
+    !needsJob(candidate, 'attest-release') ||
+    !isRecord(attestation)
   ) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }
@@ -292,8 +320,22 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
   }
   if (!isRecord(windowsRuntimes)) throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   verifyWindowsRuntimeMatrix(windowsRuntimes);
+  verifyLinuxRuntimeDownload(bundle, 'runtime-inputs/linux');
   verifyMergedWindowsRuntimeDownload(bundle, 'runtime-inputs/win32');
+  verifyLinuxRuntimeDownload(candidate, 'candidate-inputs/runtimes/linux');
   verifyMergedWindowsRuntimeDownload(candidate, 'candidate-inputs/runtimes/win32');
+  verifyLinuxRuntimeDownload(
+    attestation,
+    'runtime-assets',
+    'Download exact Linux Local Whisper runtime candidate bytes',
+    "matrix.artifactPlatform == 'linux'",
+  );
+  verifyMergedWindowsRuntimeDownload(
+    attestation,
+    'runtime-assets',
+    'Download exact Windows Local Whisper runtime candidate bytes',
+    "matrix.artifactPlatform == 'win32'",
+  );
   const windowsRuntimeText = JSON.stringify(windowsRuntimes);
   const cpuToolsetIndex = windowsRuntimeText.indexOf('Initialize exact MSVC 14.51 developer environment');
   const cpuBuildIndex = windowsRuntimeText.indexOf('--backend=cpu --platform=win32');

@@ -387,6 +387,26 @@ describe('Local Whisper release protocol', () => {
       /CONSTRUCTION_GRAPH_INVALID/u,
     );
     assert.throws(
+      () =>
+        verifier.verify(
+          workflow.replace(
+            '          pattern: gpt-voice-local-whisper-runtime-win32-*\n          path: runtime-assets\n          merge-multiple: true',
+            '          name: gpt-voice-local-whisper-runtimes-win32\n          path: runtime-assets',
+          ),
+        ),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
+      () =>
+        verifier.verify(
+          workflow.replace(
+            '          name: gpt-voice-local-whisper-runtimes-linux\n          path: runtime-assets',
+            '          name: gpt-voice-local-whisper-runtimes-win32\n          path: runtime-assets',
+          ),
+        ),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
       () => verifier.verify(workflow.slice(0, workflow.indexOf('\n  publish:\n'))),
       /PUBLICATION_GATE_INVALID/u,
     );

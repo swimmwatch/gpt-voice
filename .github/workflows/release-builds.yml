@@ -713,11 +713,20 @@ jobs:
           name: gpt-voice-${{ matrix.artifactPlatform }}
           path: release-assets
 
-      - name: Download exact Local Whisper runtime candidate bytes
+      - name: Download exact Linux Local Whisper runtime candidate bytes
+        if: matrix.artifactPlatform == 'linux'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: gpt-voice-local-whisper-runtimes-${{ matrix.artifactPlatform }}
+          name: gpt-voice-local-whisper-runtimes-linux
           path: runtime-assets
+
+      - name: Download exact Windows Local Whisper runtime candidate bytes
+        if: matrix.artifactPlatform == 'win32'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: gpt-voice-local-whisper-runtime-win32-*
+          path: runtime-assets
+          merge-multiple: true
 
       - name: Download exact release security evidence
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
