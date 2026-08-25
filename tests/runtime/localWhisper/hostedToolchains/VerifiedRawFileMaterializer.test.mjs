@@ -62,6 +62,24 @@ test('materializes an exact unredirected HTTPS object into a fresh bounded path'
   );
 });
 
+test('retries a transient mismatched response without weakening the exact identity', async () => {
+  const bytes = Buffer.from('locked license\n', 'utf8');
+  const destinationRoot = root();
+  let attempts = 0;
+  const fetcher = async () => {
+    attempts += 1;
+    return response(attempts === 1 ? Buffer.from('temporary response\n', 'utf8') : bytes);
+  };
+
+  const result = await new VerifiedRawFileMaterializer({ fetcher }).materialize({
+    root: destinationRoot,
+    source: source(bytes),
+  });
+
+  assert.equal(attempts, 2);
+  assert.deepEqual(readFileSync(result.path), bytes);
+});
+
 test('rejects redirects, tampered bytes, and paths outside the declared root', async () => {
   const destinationRoot = root();
   const bytes = Buffer.from('locked license\n', 'utf8');
@@ -74,10 +92,15 @@ test('rejects redirects, tampered bytes, and paths outside the declared root', a
   );
   assert.equal(existsSync(resolve(destinationRoot, 'licenses', 'locked-license.txt')), false);
 
+  let tamperedAttempts = 0;
   const tampered = new VerifiedRawFileMaterializer({
-    fetcher: async () => response(Buffer.from('tampered\n', 'utf8')),
+    fetcher: async () => {
+      tamperedAttempts += 1;
+      return response(Buffer.from('tampered\n', 'utf8'));
+    },
   });
   await assert.rejects(() => tampered.materialize({ root: destinationRoot, source: source(bytes) }), /size mismatch/u);
+  assert.equal(tamperedAttempts, 3);
 
   const escaped = { ...source(bytes), path: '../escaped-license.txt' };
   await assert.rejects(

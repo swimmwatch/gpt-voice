@@ -15,6 +15,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { validateRelativePath } from '../source-import/native-source-core.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const MAXIMUM_DOWNLOAD_ATTEMPTS = 3;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -120,25 +121,48 @@ export class VerifiedRawFileMaterializer {
     const destination = resolveDestination(canonicalRoot, source.path);
     assert(!existsSync(destination), 'Verified raw-file destination is not fresh');
 
-    let response;
-    try {
-      response = await this.fetcher(source.url, { redirect: 'error' });
-    } catch {
-      throw new Error('Verified raw-file download failed');
-    }
-    assert(response && typeof response === 'object' && response.ok === true, 'Verified raw-file download failed');
-    assert(typeof response.arrayBuffer === 'function', 'Verified raw-file response is invalid');
-    let bytes;
-    try {
-      bytes = Buffer.from(await response.arrayBuffer());
-    } catch {
-      throw new Error('Verified raw-file response is invalid');
-    }
-    assert(bytes.byteLength === source.sizeBytes, 'Verified raw-file size mismatch');
-    assert(sha256(bytes) === source.sha256, 'Verified raw-file digest mismatch');
+    const bytes = await this.#downloadVerifiedBytes(source);
 
     createBoundedParent(canonicalRoot, destination);
     writeVerifiedDestination(destination, bytes, source.sizeBytes);
     return Object.freeze({ path: destination, sha256: source.sha256, sizeBytes: source.sizeBytes });
+  }
+
+  async #downloadVerifiedBytes(source) {
+    let failureMessage = 'Verified raw-file download failed';
+    for (let attempt = 0; attempt < MAXIMUM_DOWNLOAD_ATTEMPTS; attempt += 1) {
+      let response;
+      try {
+        response = await this.fetcher(source.url, { redirect: 'error' });
+      } catch {
+        failureMessage = 'Verified raw-file download failed';
+        continue;
+      }
+      if (!response || typeof response !== 'object' || response.ok !== true) {
+        failureMessage = 'Verified raw-file download failed';
+        continue;
+      }
+      if (typeof response.arrayBuffer !== 'function') {
+        failureMessage = 'Verified raw-file response is invalid';
+        continue;
+      }
+      let bytes;
+      try {
+        bytes = Buffer.from(await response.arrayBuffer());
+      } catch {
+        failureMessage = 'Verified raw-file response is invalid';
+        continue;
+      }
+      if (bytes.byteLength !== source.sizeBytes) {
+        failureMessage = 'Verified raw-file size mismatch';
+        continue;
+      }
+      if (sha256(bytes) !== source.sha256) {
+        failureMessage = 'Verified raw-file digest mismatch';
+        continue;
+      }
+      return bytes;
+    }
+    throw new Error(failureMessage);
   }
 }
