@@ -16,7 +16,7 @@ try {
     tests: false,
   });
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
-  const stagingRoot = stageCudaPack(profileId, configured.buildRoot, configured.profile);
+  const stagingRoot = stageCudaPack(profileId, configured.buildRoot, configured.profile, configured.tools);
   process.stdout.write(`Local Whisper CUDA worker staged at ${stagingRoot}\n`);
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Whisper.cpp CUDA build failed'}\n`);

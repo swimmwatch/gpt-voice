@@ -116,10 +116,15 @@ export function cudaStageRoot(profileId) {
   return resolve(taskCacheRoot, 'stage', profileId);
 }
 
-export function stageCudaPack(profileId, buildRoot, executionProfile = null) {
+export function stageCudaPack(profileId, buildRoot, executionProfile = null, executionTools = null) {
   if (profileId === 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1') {
     if (!executionProfile) throw new Error('Windows CUDA staging requires the captured execution profile');
-    return stageWindowsRuntimePack({ backend: 'cuda', buildRoot, profile: executionProfile });
+    return stageWindowsRuntimePack({
+      backend: 'cuda',
+      buildRoot,
+      profile: executionProfile,
+      tools: executionTools,
+    });
   }
   if (profileId !== CUDA_PROFILE) throw new Error(`Unsupported CUDA staging profile: ${profileId}`);
   const profile = executionProfile ?? requireProfile(profileId);

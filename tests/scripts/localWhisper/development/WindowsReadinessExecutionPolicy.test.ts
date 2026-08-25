@@ -29,6 +29,10 @@ const runtimePackProduction = readFileSync(
   resolve(workspaceRoot, 'scripts/local-whisper/qualification/produce-runtime-packs.mjs'),
   'utf8',
 );
+const cudaRuntimePackStaging = readFileSync(
+  resolve(workspaceRoot, 'scripts/local-whisper/stage-whisper-cpp-cuda.mjs'),
+  'utf8',
+);
 
 test('Windows readiness executes MSVC 19.51 CPU and real MSVC 19.39 CUDA evidence', () => {
   assert.match(readiness, /windows-x64-cpu-msvc-19\.51-v1[\s\S]+?--contract-only/u);
@@ -70,5 +74,10 @@ test('Windows executable smoke owns the required guard restart and cancellation 
   assert.match(windowsUnpackedVerification, /\['SystemRoot', 'WINDIR', 'TEMP', 'TMP'\]/u);
   assert.doesNotMatch(windowsUnpackedVerification, /env: \{ \.\.\.process\.env/u);
   assert.match(runtimePackProduction, /p20w-/u);
+  assert.match(
+    runtimePackProduction,
+    /stageCudaPack\(profileId, configured\.buildRoot, configured\.profile, configured\.tools\)/u,
+  );
+  assert.match(cudaRuntimePackStaging, /tools: executionTools/u);
   assert.doesNotMatch(runtimePackProduction, /task24-windows/u);
 });

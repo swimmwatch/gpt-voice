@@ -45,7 +45,7 @@ function buildAndStage(profileId, backend, platform, repetition) {
   buildTargets(configured, ['local-whisper-whisper-cpp-worker']);
   return backend === 'cpu'
     ? stageCpuPack(profileId, configured.buildRoot, configured.profile, configured.tools)
-    : stageCudaPack(profileId, configured.buildRoot, configured.profile);
+    : stageCudaPack(profileId, configured.buildRoot, configured.profile, configured.tools);
 }
 
 async function produce(backend, platform) {
