@@ -191,7 +191,7 @@ jobs:
     name: Build Windows Local Whisper Runtimes
     needs: verify-production-signing-authority
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
     environment: local-whisper-production
     permissions:
       contents: read
@@ -201,9 +201,11 @@ jobs:
         include:
           - target: cpu
             runner: ${{ vars.CI_WINDOWS_RUNNER }}
+            timeoutMinutes: ${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}
             toolset: '14.51'
           - target: sm_120a-real
             runner: windows-2022
+            timeoutMinutes: 90
             toolset: '14.39'
     steps:
       - name: Checkout

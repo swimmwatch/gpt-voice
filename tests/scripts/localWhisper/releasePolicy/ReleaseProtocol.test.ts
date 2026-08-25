@@ -290,6 +290,10 @@ describe('Local Whisper release protocol', () => {
       /PRODUCTION_INPUTS_REQUIRED/u,
     );
     assert.throws(
+      () => verifier.verify(workflow.replace('timeoutMinutes: 90', 'timeoutMinutes: 60')),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
       () => verifier.verify(workflow.replace('permissions:\n  contents: read', 'permissions:\n  contents: write')),
       /MUTATION_FORBIDDEN/u,
     );

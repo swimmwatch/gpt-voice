@@ -18,8 +18,13 @@ const PRODUCTION_ENVIRONMENT_NAME = 'local-whisper-production';
 const WINDOWS_CUDA_RUNNER = 'windows-2022';
 const WINDOWS_RUNTIME_ARTIFACT_PATTERN = 'gpt-voice-local-whisper-runtime-win32-*';
 const WINDOWS_RUNTIME_MATRIX = Object.freeze([
-  Object.freeze({ runner: '${{ vars.CI_WINDOWS_RUNNER }}', target: 'cpu', toolset: '14.51' }),
-  Object.freeze({ runner: WINDOWS_CUDA_RUNNER, target: 'sm_120a-real', toolset: '14.39' }),
+  Object.freeze({
+    runner: '${{ vars.CI_WINDOWS_RUNNER }}',
+    target: 'cpu',
+    timeoutMinutes: '${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}',
+    toolset: '14.51',
+  }),
+  Object.freeze({ runner: WINDOWS_CUDA_RUNNER, target: 'sm_120a-real', timeoutMinutes: 90, toolset: '14.39' }),
 ]);
 const PRODUCTION_SIGNING_JOB_IDS: readonly string[] = Object.freeze([
   'verify-production-signing-authority',
@@ -68,6 +73,7 @@ function verifyWindowsRuntimeMatrix(job: Readonly<Record<string, unknown>>): voi
   const include = isRecord(matrix) ? matrix.include : undefined;
   if (
     job['runs-on'] !== '${{ matrix.runner }}' ||
+    job['timeout-minutes'] !== '${{ matrix.timeoutMinutes }}' ||
     !isRecord(strategy) ||
     strategy['fail-fast'] !== false ||
     !Array.isArray(include) ||
@@ -76,10 +82,15 @@ function verifyWindowsRuntimeMatrix(job: Readonly<Record<string, unknown>>): voi
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }
   const rows = include.map((row) => {
-    if (!isRecord(row) || Object.keys(row).sort().join(',') !== 'runner,target,toolset') {
+    if (!isRecord(row) || Object.keys(row).sort().join(',') !== 'runner,target,timeoutMinutes,toolset') {
       throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
     }
-    return { runner: row.runner, target: row.target, toolset: row.toolset };
+    return {
+      runner: row.runner,
+      target: row.target,
+      timeoutMinutes: row.timeoutMinutes,
+      toolset: row.toolset,
+    };
   });
   if (JSON.stringify(rows) !== JSON.stringify(WINDOWS_RUNTIME_MATRIX)) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
