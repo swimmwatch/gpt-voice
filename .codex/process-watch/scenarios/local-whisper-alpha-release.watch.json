@@ -84,7 +84,7 @@
     "workflow": "release-builds.yml",
     "environment": "local-whisper-production",
     "scriptEntrypoint": ".codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs",
-    "scriptSha256": "82d1595c29930963ab7d99cbea3565745ac48317831240286c75c2fb92715aa5",
+    "scriptSha256": "90a5d0420ac343f0ad8dc3e32aaf577e94fb5368aaca641aae1b19d1f069cbab",
     "allowedOperations": [
       "approve-environment",
       "commit",
@@ -120,7 +120,7 @@
         "--timeout-seconds",
         "{{invocation.timeout_seconds}}",
         "--bundle-sha256",
-        "82d1595c29930963ab7d99cbea3565745ac48317831240286c75c2fb92715aa5"
+        "90a5d0420ac343f0ad8dc3e32aaf577e94fb5368aaca641aae1b19d1f069cbab"
       ],
       "cwd": ".",
       "env": ["HOME", "PATH", "SYSTEMROOT", "XDG_CONFIG_HOME"]

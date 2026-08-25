@@ -69,7 +69,9 @@ export class LocalWhisperAlphaReleaseOrchestrator {
         watchId,
       });
     }
-    if (state.timeoutSeconds !== timeoutSeconds) throw new ReleaseBlockedError('release-timeout-changed');
+    // A resumed outer Watch may pass only its remaining approved budget. The
+    // persisted release state owns the original shared deadline, so its
+    // timeout must remain stable rather than rejecting a safe reattachment.
     try {
       await this.#git.authenticateIdentity();
       await this.#github.preflight();

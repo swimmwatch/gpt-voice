@@ -255,8 +255,8 @@ function harness(initialState = null) {
   return { git, github, orchestrator, preparation, stateStore };
 }
 
-async function run(orchestrator) {
-  return await orchestrator.run({ timeoutSeconds: 21_600, watchId: WATCH_ID });
+async function run(orchestrator, timeoutSeconds = 21_600) {
+  return await orchestrator.run({ timeoutSeconds, watchId: WATCH_ID });
 }
 
 describe('VerifiedReleaseLifecycle', () => {
@@ -367,6 +367,29 @@ describe('LocalWhisperAlphaReleaseOrchestrator', () => {
         ['task32', REPAIRED_FEATURE_SHA],
         ['release-candidate', REPAIRED_RELEASE_SHA],
         ['promotion', REPAIRED_RELEASE_SHA],
+      ],
+    );
+  });
+
+  it('uses the original release deadline when a resumed Watch supplies only its remaining budget', async () => {
+    const context = harness();
+    context.github.dispatchFailures.set('task32', 1);
+    await assert.rejects(run(context.orchestrator), /release-workflow-task32-failed/u);
+
+    context.git.repairCurrentBranch(REPAIRED_FEATURE_SHA);
+    context.github.updatePullRequestHead(RELEASE_CONTRACT.featureBranch, REPAIRED_FEATURE_SHA);
+    const state = await run(context.orchestrator, 7_855);
+
+    assert.equal(state.phase, 'succeeded');
+    assert.equal(state.sourceSha, RELEASE_SHA);
+    assert.equal(state.timeoutSeconds, 21_600);
+    assert.deepEqual(
+      context.github.dispatches.map((dispatch) => [dispatch.phase, dispatch.sourceSha]),
+      [
+        ['task32', FEATURE_SHA],
+        ['task32', REPAIRED_FEATURE_SHA],
+        ['release-candidate', RELEASE_SHA],
+        ['promotion', RELEASE_SHA],
       ],
     );
   });

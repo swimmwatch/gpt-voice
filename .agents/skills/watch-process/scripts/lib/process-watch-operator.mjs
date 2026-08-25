@@ -386,6 +386,10 @@ export class ProcessWatchOperator {
   }
 
   async #restartInBackground({ control, record }) {
+    const recovery = await record.stateStore.recoverAbandonedLock();
+    if (!['missing', 'recovered-abandoned-lock'].includes(recovery.kind)) {
+      runtimeFail('process-watch-repair-restart-lock-ambiguous');
+    }
     const launchContext = await this.#createLaunchContext({
       normalizedScenario: control.normalizedScenario,
       watchId: record.watchId,

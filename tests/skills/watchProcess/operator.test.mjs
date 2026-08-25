@@ -143,13 +143,34 @@ class RecordingOperator {
   }
 }
 
-async function assertBackgroundRepairRestart({ stateStore, storage, target, workspaceId, workspaceRoot }) {
+async function assertBackgroundRepairRestart({
+  stateStore,
+  storage,
+  target,
+  workspaceId,
+  workspaceRoot,
+  staleLock = false,
+}) {
   const repairingState = await stateStore.readState();
-  await storage.writeJson('state.json', {
+  const verifyingState = {
     ...repairingState,
     generation: repairingState.generation + 1,
     phase: 'Verifying',
-  });
+  };
+  await storage.writeJson('state.json', verifyingState);
+  if (staleLock) {
+    await storage.writeJson('lock.json', {
+      acquiredAtEpochMilliseconds: verifyingState.heartbeat.atEpochMilliseconds,
+      generation: verifyingState.generation,
+      heartbeatAtEpochMilliseconds: verifyingState.heartbeat.atEpochMilliseconds,
+      pid: 999_999_999,
+      processStartToken: verifyingState.heartbeat.startToken,
+      schemaVersion: 1,
+      sessionId: SESSION_ID,
+      watchId: WATCH_ID,
+      workspaceId,
+    });
+  }
   const selectionStore = new ProcessWatchSelectionStore({ workspaceRoot });
   assert.equal(await selectionStore.consume({ sessionId: SESSION_ID, watchId: WATCH_ID, workspaceId }), true);
   let backgroundLaunchRequest;
@@ -180,6 +201,7 @@ async function assertBackgroundRepairRestart({ stateStore, storage, target, work
     watchId: WATCH_ID,
     workspaceId,
   });
+  if (staleLock) assert.equal(await storage.readJson('lock.json'), null);
 }
 
 describe('process-watch operator entrypoint', () => {
@@ -660,7 +682,14 @@ describe('process-watch operator entrypoint', () => {
       assert.equal(resumeRequest.invocation.inputDigest, invocation.inputDigest);
       assert.deepEqual(resumeRequest.invocation.target, target);
 
-      await assertBackgroundRepairRestart({ stateStore, storage, target, workspaceId, workspaceRoot });
+      await assertBackgroundRepairRestart({
+        staleLock: true,
+        stateStore,
+        storage,
+        target,
+        workspaceId,
+        workspaceRoot,
+      });
     });
   });
 
