@@ -33,7 +33,7 @@ async function runtime(
   target: ProductionRuntimeTarget,
 ): Promise<string> {
   const directory = path.join(root, 'runtimes', platform, target);
-  const file = `gpt-voice-local-whisper-${platform}-x64-${target}.tar.gz`;
+  const file = `gpt-voice-local-whisper-runtime-${target}.tar.gz`;
   const bytes = Buffer.from(`${platform} ${target} runtime`, 'utf8');
   const cpu = target === 'cpu';
   await mkdir(directory, { recursive: true });
@@ -141,6 +141,18 @@ describe('ProductionCandidateAssembler', () => {
 
       assert.equal(candidate.assets.length, 16);
       assert.equal((await readdir(outputDirectory)).length, 32);
+      assert.deepEqual(
+        candidate.assets
+          .filter((asset) => asset.role === 'runtime')
+          .map((asset) => asset.fileName)
+          .sort(),
+        [
+          'linux-gpt-voice-local-whisper-runtime-cpu.tar.gz',
+          'linux-gpt-voice-local-whisper-runtime-sm_120a-real.tar.gz',
+          'win32-gpt-voice-local-whisper-runtime-cpu.tar.gz',
+          'win32-gpt-voice-local-whisper-runtime-sm_120a-real.tar.gz',
+        ],
+      );
       assert.equal(
         candidate.assets.some(({ fileName }) => fileName.includes('ggml-')),
         false,
