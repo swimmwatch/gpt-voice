@@ -551,6 +551,42 @@ describe('watch-process repair, verification, and delivery', () => {
     });
   });
 
+  it('creates a fresh atomic delivery after a completed repair attempt fails again', async () => {
+    await withRepository({ remote: true }, async ({ remoteRoot, workspaceRoot }) => {
+      const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      const harness = await createHarness({
+        adapterOptions: { failedObservationCount: 2 },
+        sourceSha,
+        strategy: { strategy: 'git-delivery', pushCurrentUpstream: true },
+        workspaceRoot,
+      });
+
+      await prepareRepair(harness, workspaceRoot, ['src/app.mjs'], async () => {
+        await writeFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'export const value = 2;\n');
+      });
+      assert.equal((await harness.controller.verify({ invocation: harness.invocation })).phase, 'Verifying');
+      const first = await harness.controller.deliverAndRestart({ invocation: harness.invocation });
+      assert.equal(first.phase, 'NeedsAgent', JSON.stringify(first));
+      const firstRepairSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      const secondInvocation = Object.freeze({ ...harness.invocation, sourceSha: firstRepairSha });
+
+      assert.equal((await harness.controller.beginRepair({ invocation: secondInvocation })).phase, 'Repairing');
+      assert.equal((await harness.controller.beginWrite({ candidatePaths: ['src/app.mjs'] })).phase, 'Repairing');
+      await writeFile(path.join(workspaceRoot, 'src', 'app.mjs'), 'export const value = 3;\n');
+      await harness.controller.completeWrite({ candidatePaths: ['src/app.mjs'] });
+      assert.equal((await harness.controller.verify({ invocation: secondInvocation })).phase, 'Verifying');
+      const second = await harness.controller.deliverAndRestart({ invocation: secondInvocation });
+      assert.equal(second.phase, 'Success', JSON.stringify(second));
+
+      const secondRepairSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);
+      assert.notEqual(secondRepairSha, firstRepairSha);
+      assert.equal(await gitText(remoteRoot, ['rev-parse', 'HEAD']), secondRepairSha);
+      assert.equal(await gitText(workspaceRoot, ['status', '--porcelain']), '');
+      const receipts = JSON.parse(await readFile(path.join(harness.storage.rootPath, 'receipts.json'), 'utf8'));
+      assert.equal(receipts.receipts.filter(({ receiptId }) => receiptId.startsWith('receipt-delivery-')).length, 2);
+    });
+  });
+
   it('blocks a worktree mutation that races delivery after staging and before the commit', async () => {
     await withRepository({ remote: true }, async ({ remoteRoot, workspaceRoot }) => {
       const sourceSha = await gitText(workspaceRoot, ['rev-parse', 'HEAD']);

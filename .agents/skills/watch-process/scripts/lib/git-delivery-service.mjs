@@ -200,7 +200,17 @@ export class GitDeliveryService {
     });
     const intent = await this.#receiptStore.recordIntent({ expectedGeneration: generation, operation });
     this.#assertIntentGeneration(intent.intent, generation);
-    const existing = await this.#read();
+    let existing = await this.#read();
+    if (existing !== null && existing.operationKey !== intent.intent.operationKey) {
+      await this.#assertCompletedPredecessor(existing, {
+        branch,
+        generation,
+        pushCurrentUpstream,
+        sourceSha: source,
+        upstreamDigest: selectedUpstreamDigest,
+      });
+      existing = null;
+    }
     if (existing !== null) {
       this.#assertSameOperation(existing, {
         branch,
@@ -267,7 +277,16 @@ export class GitDeliveryService {
     await this.#stateStore.assertOwnership(generation);
     const existing = await this.#read();
     if (existing === null) return null;
-    await this.#assertReceiptIntentGeneration(existing.operationKey, generation);
+    const receipts = await this.#receiptStore.read();
+    const intent = receipts.intents.find((candidate) => candidate.operationKey === existing.operationKey);
+    if (intent === undefined) runtimeFail('delivery-operation-conflict');
+    if (intent.operation.generation !== generation) {
+      this.#assertCompletedReceipt(existing, generation, receipts);
+      const current = await this.#worktreeInspector.snapshot({ timeoutMilliseconds });
+      if (current.headSha !== existing.newHeadSha) runtimeFail('delivery-operation-conflict');
+      return null;
+    }
+    this.#assertIntentGeneration(intent, generation);
     const [branch, upstream] = await Promise.all([
       this.#worktreeInspector.currentBranch({ timeoutMilliseconds }),
       this.#worktreeInspector.currentUpstream({ timeoutMilliseconds }),
@@ -467,11 +486,35 @@ export class GitDeliveryService {
     }
   }
 
-  async #assertReceiptIntentGeneration(operationKey, expectedGeneration) {
+  async #assertCompletedPredecessor(record, expected) {
+    const expectedStatus = record.pushCurrentUpstream ? 'pushed' : 'committed';
+    if (
+      record.status !== expectedStatus ||
+      record.newHeadSha !== expected.sourceSha ||
+      record.branch !== expected.branch ||
+      record.pushCurrentUpstream !== expected.pushCurrentUpstream ||
+      record.upstreamDigest !== expected.upstreamDigest
+    ) {
+      runtimeFail('delivery-operation-conflict');
+    }
     const receipts = await this.#receiptStore.read();
-    const intent = receipts.intents.find((candidate) => candidate.operationKey === operationKey);
-    if (intent === undefined) runtimeFail('delivery-operation-conflict');
-    this.#assertIntentGeneration(intent, expectedGeneration);
+    this.#assertCompletedReceipt(record, expected.generation, receipts);
+  }
+
+  #assertCompletedReceipt(record, expectedGeneration, receipts) {
+    const intent = receipts.intents.find((candidate) => candidate.operationKey === record.operationKey);
+    const receipt = receipts.receipts.find((candidate) => candidate.operationKey === record.operationKey);
+    if (
+      intent?.status !== 'attached' ||
+      intent.operation.kind !== 'delivery' ||
+      intent.operation.scenarioDigest !== this.#scenarioDigest ||
+      intent.operation.generation >= expectedGeneration ||
+      receipt === undefined ||
+      receipt.target.sourceSha !== record.sourceSha ||
+      receipt.target.targetId !== `git-delivery-${record.newHeadSha}`
+    ) {
+      runtimeFail('delivery-operation-conflict');
+    }
   }
 
   #assertSameOperation(record, expected) {
