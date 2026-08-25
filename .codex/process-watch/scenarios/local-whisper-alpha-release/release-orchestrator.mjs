@@ -29,6 +29,10 @@ function finalDigest(state) {
     .digest('hex');
 }
 
+const LEGACY_RETRYABLE_BLOCK_PHASES = Object.freeze({
+  'release-feature-pull-request-missing': 'task32-candidate',
+});
+
 export class LocalWhisperAlphaReleaseOrchestrator {
   #git;
   #github;
@@ -109,6 +113,13 @@ export class LocalWhisperAlphaReleaseOrchestrator {
 
   async #reconcile(state) {
     await this.#git.assertClean();
+    if (state.phase === 'blocked' && Object.hasOwn(LEGACY_RETRYABLE_BLOCK_PHASES, state.failureCode)) {
+      state = await this.#stateStore.write({
+        ...state,
+        failureCode: null,
+        phase: LEGACY_RETRYABLE_BLOCK_PHASES[state.failureCode],
+      });
+    }
     const [branch, head, release] = await Promise.all([this.#git.branch(), this.#git.head(), this.#github.release()]);
     if (release !== null && state.phase !== 'succeeded') {
       const promotionRun =
@@ -193,12 +204,13 @@ export class LocalWhisperAlphaReleaseOrchestrator {
       throw new ReleaseBlockedError('release-feature-branch-required');
     }
     const sourceSha = await this.#git.assertUpstreamHead();
-    const pullRequest = await this.#github.findPullRequest(RELEASE_CONTRACT.featureBranch, {
+    const pullRequest = await this.#github.waitForPullRequest(RELEASE_CONTRACT.featureBranch, {
+      deadlineEpochMilliseconds: state.deadlineEpochMilliseconds,
       includeMerged: true,
       sourceSha,
     });
     if (pullRequest === null || pullRequest.headRefOid !== sourceSha) {
-      throw new ReleaseBlockedError('release-feature-pull-request-missing');
+      throw new Error('release-feature-pull-request-missing');
     }
     const run = await this.#github.dispatchAndWait({
       deadlineEpochMilliseconds: state.deadlineEpochMilliseconds,
@@ -259,7 +271,9 @@ export class LocalWhisperAlphaReleaseOrchestrator {
   async #releasePullRequestChecks(state) {
     await this.#preparation.verify();
     const sourceSha = await this.#git.assertUpstreamHead();
-    const pullRequest = await this.#github.createReleasePullRequest(sourceSha);
+    const pullRequest = await this.#github.createReleasePullRequest(sourceSha, {
+      deadlineEpochMilliseconds: state.deadlineEpochMilliseconds,
+    });
     await this.#github.waitForPullRequestChecks(
       pullRequest.number,
       sourceSha,

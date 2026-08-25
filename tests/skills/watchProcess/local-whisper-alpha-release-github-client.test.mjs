@@ -11,6 +11,7 @@ class RecordingGitHubRunner {
   calls = [];
   dispatched = false;
   pendingApproval = true;
+  pullRequestVisibilityMisses = 0;
   pullRequests = [];
 
   async run(executable, args, options = {}) {
@@ -40,7 +41,11 @@ class RecordingGitHubRunner {
   async json(executable, args, options = {}) {
     this.calls.push({ args: [...args], executable, options: globalThis.structuredClone(options) });
     if (args[0] === 'pr' && args[1] === 'list') {
-    return { exitCode: 0, stderr: '', stdout: '', value: globalThis.structuredClone(this.pullRequests) };
+      if (this.pullRequestVisibilityMisses > 0) {
+        this.pullRequestVisibilityMisses -= 1;
+        return { exitCode: 0, stderr: '', stdout: '', value: [] };
+      }
+      return { exitCode: 0, stderr: '', stdout: '', value: globalThis.structuredClone(this.pullRequests) };
     }
     if (args[0] === 'run' && args[1] === 'list') {
       return {
@@ -140,6 +145,40 @@ describe('ReleaseGitHubClient operation receipts', () => {
     ];
     assert.equal((await new ReleaseGitHubClient({ runner }).createReleasePullRequest(SOURCE_SHA)).number, 3);
     assert.equal(runner.calls.some((call) => call.args[0] === 'pr' && call.args[1] === 'create'), false);
+  });
+
+  it('waits within a bounded window for a just-pushed PR to become visible', async () => {
+    const runner = new RecordingGitHubRunner();
+    runner.pullRequestVisibilityMisses = 2;
+    runner.pullRequests = [
+      {
+        baseRefName: 'main',
+        headRefName: RELEASE_CONTRACT.featureBranch,
+        headRefOid: SOURCE_SHA,
+        mergedAt: null,
+        number: 58,
+        state: 'OPEN',
+      },
+    ];
+    let now = 10_000;
+    const delays = [];
+    const client = new ReleaseGitHubClient({
+      clock: () => now,
+      delay: async (milliseconds) => {
+        delays.push(milliseconds);
+        now += milliseconds;
+      },
+      runner,
+    });
+
+    const pullRequest = await client.waitForPullRequest(RELEASE_CONTRACT.featureBranch, {
+      deadlineEpochMilliseconds: now + 90_000,
+      includeMerged: true,
+      sourceSha: SOURCE_SHA,
+    });
+
+    assert.equal(pullRequest.number, 58);
+    assert.deepEqual(delays, [5_000, 5_000]);
   });
 
   it('dispatches against the declared branch, reuses the correlated run, and deduplicates approval', async () => {

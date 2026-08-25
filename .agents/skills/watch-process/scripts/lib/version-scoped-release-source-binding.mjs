@@ -13,25 +13,25 @@ const RELEASE_BRANCH_PHASES = new Set([
 
 /** Proves that a release script, rather than an unrelated clean checkout, advanced the repair source. */
 export class VersionScopedReleaseSourceBinding {
+  #attemptSourceSha;
   #authority;
   #deadlineEpochMilliseconds;
-  #priorSourceSha;
   #watchId;
 
-  constructor({ authority, deadlineEpochMilliseconds, priorSourceSha, watchId }) {
+  constructor({ attemptSourceSha, authority, deadlineEpochMilliseconds, watchId }) {
+    this.#attemptSourceSha = attemptSourceSha;
     this.#authority = authority;
     this.#deadlineEpochMilliseconds = deadlineEpochMilliseconds;
-    this.#priorSourceSha = priorSourceSha;
     this.#watchId = watchId;
   }
 
   resolve({ branch, headSha, releaseState }) {
-    if (!SHA_PATTERN.test(headSha) || !SHA_PATTERN.test(this.#priorSourceSha)) {
+    if (!SHA_PATTERN.test(headSha) || !SHA_PATTERN.test(this.#attemptSourceSha)) {
       runtimeFail('release-repair-source-invalid');
     }
     if (branch === this.#authority.featureBranch) {
-      if (headSha !== this.#priorSourceSha) runtimeFail('release-repair-source-unexpected');
-      return this.#priorSourceSha;
+      if (headSha !== this.#attemptSourceSha) runtimeFail('release-repair-source-unexpected');
+      return this.#attemptSourceSha;
     }
     if (branch !== this.#authority.releaseBranch) runtimeFail('release-repair-branch-not-authorized');
     if (

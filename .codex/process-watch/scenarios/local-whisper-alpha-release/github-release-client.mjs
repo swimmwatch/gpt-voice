@@ -5,6 +5,8 @@ import {
   RELEASE_COMMAND_TIMEOUT_MILLISECONDS,
   RELEASE_CONTRACT,
   RELEASE_POLL_INTERVAL_MILLISECONDS,
+  RELEASE_PULL_REQUEST_DISCOVERY_INTERVAL_MILLISECONDS,
+  RELEASE_PULL_REQUEST_DISCOVERY_TIMEOUT_MILLISECONDS,
 } from './constants.mjs';
 
 const SHA_PATTERN = /^[a-f\d]{40}$/u;
@@ -23,9 +25,16 @@ function runCorrelation(watchId, phase, sourceSha) {
 }
 
 export class ReleaseGitHubClient {
+  #clock;
+  #delay;
   #runner;
 
-  constructor({ runner }) {
+  constructor({ clock = () => Date.now(), delay: wait = delay, runner }) {
+    if (typeof clock !== 'function' || typeof wait !== 'function') {
+      throw new TypeError('release-github-client-dependencies-invalid');
+    }
+    this.#clock = clock;
+    this.#delay = wait;
     this.#runner = runner;
   }
 
@@ -125,7 +134,25 @@ export class ReleaseGitHubClient {
     return merged[0] ?? null;
   }
 
-  async createReleasePullRequest(sourceSha) {
+  async waitForPullRequest(
+    branch,
+    { deadlineEpochMilliseconds = Number.MAX_SAFE_INTEGER, includeMerged = false, sourceSha } = {},
+  ) {
+    requireSha(sourceSha);
+    const discoveryDeadline = Math.min(
+      deadlineEpochMilliseconds,
+      this.#clock() + RELEASE_PULL_REQUEST_DISCOVERY_TIMEOUT_MILLISECONDS,
+    );
+    while (true) {
+      const pullRequest = await this.findPullRequest(branch, { includeMerged, sourceSha });
+      if (pullRequest !== null) return pullRequest;
+      const remainingMilliseconds = discoveryDeadline - this.#clock();
+      if (remainingMilliseconds <= 0) return null;
+      await this.#delay(Math.min(RELEASE_PULL_REQUEST_DISCOVERY_INTERVAL_MILLISECONDS, remainingMilliseconds));
+    }
+  }
+
+  async createReleasePullRequest(sourceSha, { deadlineEpochMilliseconds = Number.MAX_SAFE_INTEGER } = {}) {
     const existing = await this.findPullRequest(RELEASE_CONTRACT.releaseBranch, { sourceSha });
     if (existing !== null) {
       if (existing.headRefOid !== sourceSha) throw new Error('release-pull-request-head-mismatch');
@@ -145,7 +172,10 @@ export class ReleaseGitHubClient {
       '--body-file',
       `docs/releases/${RELEASE_CONTRACT.version}.md`,
     ]);
-    const created = await this.findPullRequest(RELEASE_CONTRACT.releaseBranch, { sourceSha });
+    const created = await this.waitForPullRequest(RELEASE_CONTRACT.releaseBranch, {
+      deadlineEpochMilliseconds,
+      sourceSha,
+    });
     if (created === null || created.headRefOid !== sourceSha) throw new Error('release-pull-request-create-failed');
     return created;
   }

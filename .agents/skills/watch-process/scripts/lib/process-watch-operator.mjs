@@ -355,14 +355,14 @@ export class ProcessWatchOperator {
     if (![authority.featureBranch, authority.releaseBranch].includes(branch)) {
       runtimeFail('release-repair-branch-not-authorized');
     }
-    if (branch === authority.featureBranch && snapshot.headSha === prior.sourceSha) return prior;
     const releaseState = await record.storage.readJson(VERSION_SCOPED_RELEASE_STATE_FILE_NAME);
     const sourceSha = new VersionScopedReleaseSourceBinding({
+      attemptSourceSha: record.state.target?.sourceSha,
       authority,
       deadlineEpochMilliseconds: record.state.deadlineEpochMilliseconds,
-      priorSourceSha: prior.sourceSha,
       watchId: record.watchId,
     }).resolve({ branch, headSha: snapshot.headSha, releaseState });
+    if (sourceSha === prior.sourceSha) return prior;
     const invocation = normalizeProcessWatchInvocation(
       {
         ...prior,

@@ -145,6 +145,10 @@ class FakeReleaseGitHubClient {
     return exact.find((pullRequest) => pullRequest.state === 'OPEN') ?? exact[0] ?? null;
   }
 
+  async waitForPullRequest(branch, options = {}) {
+    return await this.findPullRequest(branch, options);
+  }
+
   async createReleasePullRequest(sourceSha) {
     const existing = await this.findPullRequest(RELEASE_CONTRACT.releaseBranch, { sourceSha });
     if (existing !== null) return existing;
@@ -365,6 +369,34 @@ describe('LocalWhisperAlphaReleaseOrchestrator', () => {
         ['promotion', REPAIRED_RELEASE_SHA],
       ],
     );
+  });
+
+  it('recovers the legacy transient PR visibility block and completes without another source change', async () => {
+    const startedAtEpochMilliseconds = Date.now();
+    const context = harness({
+      candidateRun: null,
+      completionDigest: null,
+      deadlineEpochMilliseconds: startedAtEpochMilliseconds + 21_600_000,
+      failureCode: 'release-feature-pull-request-missing',
+      featurePr: null,
+      phase: 'blocked',
+      promotionRun: null,
+      releasePr: null,
+      releaseTag: RELEASE_CONTRACT.releaseTag,
+      releaseUrl: null,
+      schemaVersion: 1,
+      sourceSha: FEATURE_SHA,
+      startedAtEpochMilliseconds,
+      task32Run: null,
+      timeoutSeconds: 21_600,
+      watchId: WATCH_ID,
+    });
+
+    const state = await run(context.orchestrator);
+
+    assert.equal(state.phase, 'succeeded');
+    assert.equal(state.failureCode, null);
+    assert.equal(context.github.dispatches[0].phase, 'task32');
   });
 
   it('rebuilds from a new preserving follow-up PR after a promotion failure before tag creation', async () => {

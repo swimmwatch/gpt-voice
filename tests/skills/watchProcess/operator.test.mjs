@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import process from 'node:process';
@@ -26,6 +26,7 @@ const SESSION_ID = 'session-operator-001';
 const SOURCE_SHA = 'a'.repeat(40);
 const START_TOKEN = 'b'.repeat(32);
 const WATCH_ID = 'local-long-test-deadbeefcafe';
+const RELEASE_WATCH_ID = 'local-whisper-alpha-release-deadbeefcafe';
 const repositoryRoot = path.resolve(import.meta.dirname, '../../..');
 const runFile = promisify(execFile);
 
@@ -47,6 +48,22 @@ async function copyLocalScenario(workspaceRoot) {
   );
   const scenarioPath = path.join(scenarioRoot, 'local-long-test.watch.json');
   await writeFile(scenarioPath, source);
+  return JSON.parse(source);
+}
+
+async function copyReleaseScenario(workspaceRoot) {
+  const scenarioRoot = path.join(workspaceRoot, '.codex', 'process-watch', 'scenarios');
+  await mkdir(scenarioRoot, { recursive: true });
+  await cp(
+    path.join(repositoryRoot, '.codex', 'process-watch', 'scenarios', 'local-whisper-alpha-release'),
+    path.join(scenarioRoot, 'local-whisper-alpha-release'),
+    { recursive: true },
+  );
+  const source = await readFile(
+    path.join(repositoryRoot, '.codex', 'process-watch', 'scenarios', 'local-whisper-alpha-release.watch.json'),
+    'utf8',
+  );
+  await writeFile(path.join(scenarioRoot, 'local-whisper-alpha-release.watch.json'), source);
   return JSON.parse(source);
 }
 
@@ -623,6 +640,104 @@ describe('process-watch operator entrypoint', () => {
       assert.deepEqual(resumeRequest.invocation.target, target);
 
       await assertBackgroundRepairRestart({ stateStore, storage, target, workspaceId, workspaceRoot });
+    });
+  });
+
+  it('rebinds release repair to the failed attempt source instead of the original invocation source', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const scenarioSource = await copyReleaseScenario(workspaceRoot);
+      await writeFile(path.join(workspaceRoot, '.gitignore'), '.codex/runtime/process-watch/\nremote.git/\n');
+      await writeFile(path.join(workspaceRoot, 'package.json'), '{"name":"release-fixture"}\n');
+      await git(workspaceRoot, ['init']);
+      await git(workspaceRoot, ['config', 'user.name', 'Watch Process Test']);
+      await git(workspaceRoot, ['config', 'user.email', 'watch-process@example.invalid']);
+      await git(workspaceRoot, ['checkout', '-b', 'feat/local-whisper-provider']);
+      await git(workspaceRoot, ['init', '--bare', 'remote.git']);
+      await git(workspaceRoot, ['remote', 'add', 'origin', path.join(workspaceRoot, 'remote.git')]);
+      await git(workspaceRoot, ['add', '.']);
+      await git(workspaceRoot, ['commit', '-m', 'initial source']);
+      await git(workspaceRoot, ['push', '--set-upstream', 'origin', 'feat/local-whisper-provider']);
+      const invocationSourceSha = (await git(workspaceRoot, ['rev-parse', 'HEAD'])).stdout.trim();
+      await writeFile(path.join(workspaceRoot, 'package.json'), '{"name":"release-fixture","version":"1.0.0"}\n');
+      await git(workspaceRoot, ['add', 'package.json']);
+      await git(workspaceRoot, ['commit', '-m', 'delivered repair']);
+      await git(workspaceRoot, ['push']);
+      const attemptSourceSha = (await git(workspaceRoot, ['rev-parse', 'HEAD'])).stdout.trim();
+
+      const normalizedScenario = normalizeWatchScenario(scenarioSource);
+      const libraryDigest = await new ProcessWatchLibraryIntegrity().digest();
+      const workspaceId = digestNormalizedValue('gpt-voice/watch-process/workspace/v1', workspaceRoot);
+      const storage = new WatchRuntimeStorage({ watchId: RELEASE_WATCH_ID, workspaceRoot });
+      await storage.initialize();
+      const artifact = new GeneratedWatcherArtifact();
+      const binding = artifact.createBinding({
+        libraryDigest,
+        scenarioDigest: normalizedScenario.canonicalDigest,
+        scenarioId: normalizedScenario.scenario.id,
+        watchId: RELEASE_WATCH_ID,
+      });
+      await artifact.write({ binding, storage });
+      const target = {
+        attempt: 2,
+        identityDigest: 'c'.repeat(64),
+        sourceSha: attemptSourceSha,
+        targetId: 'target-release-attempt-002',
+      };
+      const invocation = {
+        deadlineEpochMilliseconds: Date.now() + 21_600_000,
+        inputDigest: 'd'.repeat(64),
+        sourceSha: invocationSourceSha,
+        target,
+        targetSelector: 'start',
+        timeoutSeconds: 21_600,
+      };
+      const invocationStore = new GeneratedWatcherInvocationStore({ storage });
+      await invocationStore.write({
+        invocation,
+        scenario: normalizedScenario.scenario,
+        scenarioDigest: normalizedScenario.canonicalDigest,
+        sessionId: SESSION_ID,
+        workspaceId,
+      });
+      const stateStore = new AtomicStateStore({ sessionId: SESSION_ID, storage, workspaceId });
+      await stateStore.acquireLock({ processStartToken: START_TOKEN });
+      await stateStore.writeInitialState({
+        blocker: null,
+        deadlineEpochMilliseconds: invocation.deadlineEpochMilliseconds,
+        failureFingerprints: ['e'.repeat(64)],
+        generation: 0,
+        heartbeat: { atEpochMilliseconds: Date.now(), startToken: START_TOKEN },
+        libraryDigest,
+        outcome: 'target_failed',
+        phase: 'NeedsAgent',
+        receiptIds: ['receipt-release-attempt-002'],
+        scenarioDigest: normalizedScenario.canonicalDigest,
+        scenarioId: normalizedScenario.scenario.id,
+        schemaVersion: 1,
+        scriptDigest: binding.scriptDigest,
+        sessionId: SESSION_ID,
+        target,
+        timeoutSeconds: invocation.timeoutSeconds,
+        watchId: RELEASE_WATCH_ID,
+        workspaceId,
+      });
+      await stateStore.releaseLock();
+      const worktreeStatus = await git(workspaceRoot, ['status', '--short']);
+      assert.equal(worktreeStatus.stdout, '', worktreeStatus.stdout);
+
+      const operator = new ProcessWatchOperator({
+        environment: { CODEX_SESSION_ID: SESSION_ID, PATH: process.env.PATH },
+        workspaceRoot,
+      });
+      const result = await operator.control('begin-repair', { watchId: RELEASE_WATCH_ID });
+      const rebound = await invocationStore.read({
+        scenario: normalizedScenario.scenario,
+        scenarioDigest: normalizedScenario.canonicalDigest,
+      });
+
+      assert.equal(result.phase, 'Repairing', JSON.stringify(result));
+      assert.equal(rebound.invocation.sourceSha, attemptSourceSha);
+      assert.notEqual(rebound.invocation.inputDigest, invocation.inputDigest);
     });
   });
 });

@@ -17,9 +17,9 @@ const AUTHORITY = Object.freeze({
 
 function binding() {
   return new VersionScopedReleaseSourceBinding({
+    attemptSourceSha: FEATURE_SHA,
     authority: AUTHORITY,
     deadlineEpochMilliseconds: DEADLINE,
-    priorSourceSha: FEATURE_SHA,
     watchId: WATCH_ID,
   });
 }
