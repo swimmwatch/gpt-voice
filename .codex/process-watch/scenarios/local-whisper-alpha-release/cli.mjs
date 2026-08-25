@@ -10,6 +10,7 @@ import { ReleaseGitHubClient } from './github-release-client.mjs';
 import { LocalWhisperAlphaReleaseOrchestrator, ReleaseBlockedError } from './release-orchestrator.mjs';
 import { ReleasePreparationWriter } from './release-preparation.mjs';
 import { ReleaseStateStore } from './state-store.mjs';
+import { VerifiedReleaseLifecycle } from './verified-release-lifecycle.mjs';
 
 function parseArguments(arguments_) {
   const [command, ...options] = arguments_;
@@ -28,6 +29,10 @@ function required(values, name, pattern) {
   const value = values.get(name);
   if (typeof value !== 'string' || !pattern.test(value)) throw new Error('release-option-invalid');
   return value;
+}
+
+function reportSuccess(state) {
+  process.stdout.write(`LOCAL_WHISPER_ALPHA_RELEASE_SUCCEEDED:${state.releaseTag}:${state.promotionRun.databaseId}\n`);
 }
 
 async function main() {
@@ -53,16 +58,15 @@ async function main() {
   });
   if (parsed.command === 'verify-final') {
     const state = await orchestrator.verifyFinal();
-    process.stdout.write(
-      `LOCAL_WHISPER_ALPHA_RELEASE_SUCCEEDED:${state.releaseTag}:${state.promotionRun.databaseId}\n`,
-    );
+    reportSuccess(state);
     return;
   }
   const timeoutSeconds = Number(required(parsed.values, '--timeout-seconds', /^[1-9]\d{0,5}$/u));
   if (!Number.isSafeInteger(timeoutSeconds) || timeoutSeconds < 3_600 || timeoutSeconds > 21_600) {
     throw new Error('release-timeout-invalid');
   }
-  await orchestrator.run({ timeoutSeconds, watchId });
+  const state = await new VerifiedReleaseLifecycle({ orchestrator }).execute({ timeoutSeconds, watchId });
+  reportSuccess(state);
 }
 
 main().catch((error) => {

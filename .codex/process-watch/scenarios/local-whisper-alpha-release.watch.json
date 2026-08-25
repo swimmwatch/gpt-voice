@@ -70,19 +70,6 @@
       "args": ["run", "verify:renderer-bundle"],
       "cwd": ".",
       "env": ["PATH", "SYSTEMROOT"]
-    },
-    {
-      "executable": "node",
-      "args": [
-        ".codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs",
-        "verify-final",
-        "--watch-id",
-        "{{watch.id}}",
-        "--bundle-sha256",
-      "d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560"
-      ],
-      "cwd": ".",
-      "env": ["HOME", "PATH", "SYSTEMROOT", "XDG_CONFIG_HOME"]
     }
   ],
   "delivery": { "strategy": "git-delivery", "pushCurrentUpstream": true },
@@ -97,7 +84,7 @@
     "workflow": "release-builds.yml",
     "environment": "local-whisper-production",
     "scriptEntrypoint": ".codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs",
-      "scriptSha256": "d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560",
+    "scriptSha256": "07e37dc15855cf2549433883475e135f08f855401f45a44a41e3bae3aa64ca7c",
     "allowedOperations": [
       "approve-environment",
       "commit",
@@ -133,7 +120,7 @@
         "--timeout-seconds",
         "{{invocation.timeout_seconds}}",
         "--bundle-sha256",
-      "d5d8929eb7476a2ef0604332ac5923ea439963f9685daa862336f0f45c8be560"
+        "07e37dc15855cf2549433883475e135f08f855401f45a44a41e3bae3aa64ca7c"
       ],
       "cwd": ".",
       "env": ["HOME", "PATH", "SYSTEMROOT", "XDG_CONFIG_HOME"]

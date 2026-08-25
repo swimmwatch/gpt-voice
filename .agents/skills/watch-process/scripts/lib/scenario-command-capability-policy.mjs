@@ -211,20 +211,15 @@ export class ScenarioCommandCapabilityPolicy {
     ) {
       fail('release-authority-command-invalid', '$.adapterConfig.startCommand');
     }
-    const expectedVerificationArguments = [
-      authority.scriptEntrypoint,
-      'verify-final',
-      '--watch-id',
-      '{{watch.id}}',
-      '--bundle-sha256',
-      authority.scriptSha256,
-    ];
-    const hasFinalVerification = scenario.verification.some(
+    const hasPostPublicationVerification = scenario.verification.some(
       (command) =>
         executableName(command.executable) === 'node' &&
-        JSON.stringify(command.args) === JSON.stringify(expectedVerificationArguments),
+        command.args[0] === authority.scriptEntrypoint &&
+        command.args[1] === 'verify-final',
     );
-    if (!hasFinalVerification) fail('release-authority-final-verification-missing', '$.verification');
+    if (hasPostPublicationVerification) {
+      fail('release-authority-postpublication-verification-forbidden', '$.verification');
+    }
   }
 
   #validateCommand(command, location, forbiddenActions) {

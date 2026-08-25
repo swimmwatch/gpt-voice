@@ -35,6 +35,7 @@ export const RELEASE_BUNDLE_FILES = Object.freeze([
   'release-orchestrator.mjs',
   'release-preparation.mjs',
   'state-store.mjs',
+  'verified-release-lifecycle.mjs',
 ]);
 
 export const RELEASE_REPAIRABLE_BRANCHES = Object.freeze([

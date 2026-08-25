@@ -10,6 +10,7 @@ import {
   ReleaseBlockedError,
 } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/release-orchestrator.mjs';
 import { ReleaseStateStore } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/state-store.mjs';
+import { VerifiedReleaseLifecycle } from '../../../.codex/process-watch/scenarios/local-whisper-alpha-release/verified-release-lifecycle.mjs';
 
 const WATCH_ID = 'local-whisper-alpha-release-test';
 const FEATURE_SHA = 'a'.repeat(40);
@@ -253,6 +254,46 @@ function harness(initialState = null) {
 async function run(orchestrator) {
   return await orchestrator.run({ timeoutSeconds: 21_600, watchId: WATCH_ID });
 }
+
+describe('VerifiedReleaseLifecycle', () => {
+  it('revalidates the published release after orchestration and before reporting success', async () => {
+    const calls = [];
+    const finalState = Object.freeze({ phase: 'succeeded' });
+    const lifecycle = new VerifiedReleaseLifecycle({
+      orchestrator: {
+        async run(options) {
+          calls.push(['run', options]);
+        },
+        async verifyFinal() {
+          calls.push(['verify-final']);
+          return finalState;
+        },
+      },
+    });
+    const options = Object.freeze({ timeoutSeconds: 21_600, watchId: WATCH_ID });
+
+    assert.equal(await lifecycle.execute(options), finalState);
+    assert.deepEqual(calls, [
+      ['run', options],
+      ['verify-final'],
+    ]);
+  });
+
+  it('does not report success when final public-release revalidation fails', async () => {
+    const lifecycle = new VerifiedReleaseLifecycle({
+      orchestrator: {
+        async run() {},
+        async verifyFinal() {
+          throw new Error('release-final-state-invalid');
+        },
+      },
+    });
+
+    await assert.rejects(lifecycle.execute({ timeoutSeconds: 21_600, watchId: WATCH_ID }), {
+      message: 'release-final-state-invalid',
+    });
+  });
+});
 
 describe('LocalWhisperAlphaReleaseOrchestrator', () => {
   it('completes Task 32, preserving merges, candidate reuse, and publication on the first attempt', async () => {

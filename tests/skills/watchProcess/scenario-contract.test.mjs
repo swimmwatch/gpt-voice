@@ -519,8 +519,11 @@ describe('watch-process scenarios', () => {
         'run test:unit:ci',
         'run build:prod',
         'run verify:renderer-bundle',
-        `.codex/process-watch/scenarios/local-whisper-alpha-release/cli.mjs verify-final --watch-id {{watch.id}} --bundle-sha256 ${scenario.authority.scriptSha256}`,
       ],
+    );
+    assert.equal(
+      scenario.verification.some((command) => command.args.includes('verify-final')),
+      false,
     );
     assert.deepEqual(scenario.adapterConfig.startCommand.args, [
       scenario.authority.scriptEntrypoint,
@@ -549,6 +552,25 @@ describe('watch-process scenarios', () => {
       mutate(forged);
       expectValidationFailure(forged, forged.authority.tag === 'v2.4.0-alpha.2' ? 'release-authority-version-mismatch' : undefined);
     }
+
+    const postPublicationRepairCheck = clone(releaseScenario);
+    postPublicationRepairCheck.verification.push({
+      executable: 'node',
+      args: [
+        postPublicationRepairCheck.authority.scriptEntrypoint,
+        'verify-final',
+        '--watch-id',
+        '{{watch.id}}',
+        '--bundle-sha256',
+        postPublicationRepairCheck.authority.scriptSha256,
+      ],
+      cwd: '.',
+      env: [],
+    });
+    expectValidationFailure(
+      postPublicationRepairCheck,
+      'release-authority-postpublication-verification-forbidden',
+    );
 
     for (const id of ['github-pr-required-checks', 'generic-ci-run', 'local-docker-build', 'local-long-test']) {
       const standard = (await registry.load(id)).scenario;
