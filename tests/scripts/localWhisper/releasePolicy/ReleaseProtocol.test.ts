@@ -351,6 +351,10 @@ describe('Local Whisper release protocol', () => {
       /CONSTRUCTION_GRAPH_INVALID/u,
     );
     assert.throws(
+      () => verifier.verify(workflow.replace('--quiet --wait --norestart --nocache', '--quiet --norestart --nocache')),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
       () => verifier.verify(workflow.slice(0, workflow.indexOf('\n  publish:\n'))),
       /PUBLICATION_GATE_INVALID/u,
     );

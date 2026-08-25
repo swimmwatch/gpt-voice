@@ -210,7 +210,10 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
     cudaToolsetIndex <= cpuBuildIndex ||
     cudaBuildIndex <= cudaToolsetIndex ||
     !windowsRuntimeText.includes('"toolset-version":"14.51"') ||
-    !windowsRuntimeText.includes('"toolset-version":"14.39"')
+    !windowsRuntimeText.includes('"toolset-version":"14.39"') ||
+    !windowsRuntimeText.includes(
+      'Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64 --quiet --wait --norestart --nocache',
+    )
   ) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }
