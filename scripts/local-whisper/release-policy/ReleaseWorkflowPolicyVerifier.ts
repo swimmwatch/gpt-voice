@@ -15,6 +15,12 @@ const CANDIDATE_JOB_IDS = Object.freeze([
   'verify-production-candidate',
 ]);
 const PRODUCTION_ENVIRONMENT_NAME = 'local-whisper-production';
+const WINDOWS_CUDA_RUNNER = 'windows-2022';
+const WINDOWS_RUNTIME_ARTIFACT_PATTERN = 'gpt-voice-local-whisper-runtime-win32-*';
+const WINDOWS_RUNTIME_MATRIX = Object.freeze([
+  Object.freeze({ runner: '${{ vars.CI_WINDOWS_RUNNER }}', target: 'cpu', toolset: '14.51' }),
+  Object.freeze({ runner: WINDOWS_CUDA_RUNNER, target: 'sm_120a-real', toolset: '14.39' }),
+]);
 const PRODUCTION_SIGNING_JOB_IDS: readonly string[] = Object.freeze([
   'verify-production-signing-authority',
   'produce-production-bundles',
@@ -40,6 +46,81 @@ function parseWorkflow(text: string): Readonly<Record<string, unknown>> {
 
 function needsJob(job: Readonly<Record<string, unknown>>, dependency: string): boolean {
   return job.needs === dependency || (Array.isArray(job.needs) && job.needs.includes(dependency));
+}
+
+function jobSteps(job: Readonly<Record<string, unknown>>): readonly Readonly<Record<string, unknown>>[] {
+  if (!Array.isArray(job.steps) || job.steps.some((step) => !isRecord(step))) {
+    throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
+  return job.steps;
+}
+
+function namedStep(
+  steps: readonly Readonly<Record<string, unknown>>[],
+  name: string,
+): Readonly<Record<string, unknown>> | undefined {
+  return steps.find((step) => step.name === name);
+}
+
+function verifyWindowsRuntimeMatrix(job: Readonly<Record<string, unknown>>): void {
+  const strategy = job.strategy;
+  const matrix = isRecord(strategy) ? strategy.matrix : undefined;
+  const include = isRecord(matrix) ? matrix.include : undefined;
+  if (
+    job['runs-on'] !== '${{ matrix.runner }}' ||
+    !isRecord(strategy) ||
+    strategy['fail-fast'] !== false ||
+    !Array.isArray(include) ||
+    include.length !== WINDOWS_RUNTIME_MATRIX.length
+  ) {
+    throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
+  const rows = include.map((row) => {
+    if (!isRecord(row) || Object.keys(row).sort().join(',') !== 'runner,target,toolset') {
+      throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+    }
+    return { runner: row.runner, target: row.target, toolset: row.toolset };
+  });
+  if (JSON.stringify(rows) !== JSON.stringify(WINDOWS_RUNTIME_MATRIX)) {
+    throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
+
+  const steps = jobSteps(job);
+  const expectedConditions = new Map([
+    ['Install the exact CUDA-compatible MSVC toolset', "matrix.target == 'sm_120a-real'"],
+    ['Initialize exact MSVC 14.51 developer environment', "matrix.target == 'cpu'"],
+    ['Construct reproducible Windows CPU runtime archive', "matrix.target == 'cpu'"],
+    ['Initialize exact MSVC 14.39 developer environment', "matrix.target == 'sm_120a-real'"],
+    ['Construct reproducible Windows RTX 50 runtime archive', "matrix.target == 'sm_120a-real'"],
+  ]);
+  for (const [name, condition] of expectedConditions) {
+    if (namedStep(steps, name)?.if !== condition) {
+      throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+    }
+  }
+  const upload = namedStep(steps, 'Upload exact Windows runtime archive inputs');
+  if (
+    !isRecord(upload) ||
+    !isRecord(upload.with) ||
+    upload.with.name !== 'gpt-voice-local-whisper-runtime-win32-${{ matrix.target }}' ||
+    upload.with.path !== 'release-artifacts/local-whisper-runtimes/win32'
+  ) {
+    throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
+}
+
+function verifyMergedWindowsRuntimeDownload(job: unknown, path: string): void {
+  if (!isRecord(job)) throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  const download = namedStep(jobSteps(job), 'Download exact Windows runtime archive inputs');
+  if (
+    !isRecord(download) ||
+    !isRecord(download.with) ||
+    download.with.pattern !== WINDOWS_RUNTIME_ARTIFACT_PATTERN ||
+    download.with.path !== path ||
+    download.with['merge-multiple'] !== true
+  ) {
+    throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  }
 }
 
 function verifyDispatchContract(triggers: Readonly<Record<string, unknown>>): void {
@@ -199,6 +280,9 @@ function verifyConstructionGraph(jobs: Readonly<Record<string, unknown>>): void 
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }
   if (!isRecord(windowsRuntimes)) throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+  verifyWindowsRuntimeMatrix(windowsRuntimes);
+  verifyMergedWindowsRuntimeDownload(bundle, 'runtime-inputs/win32');
+  verifyMergedWindowsRuntimeDownload(candidate, 'candidate-inputs/runtimes/win32');
   const windowsRuntimeText = JSON.stringify(windowsRuntimes);
   const cpuToolsetIndex = windowsRuntimeText.indexOf('Initialize exact MSVC 14.51 developer environment');
   const cpuBuildIndex = windowsRuntimeText.indexOf('--backend=cpu --platform=win32');

@@ -190,11 +190,21 @@ jobs:
   build-windows-runtimes:
     name: Build Windows Local Whisper Runtimes
     needs: verify-production-signing-authority
-    runs-on: ${{ vars.CI_WINDOWS_RUNNER }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ fromJSON(vars.CI_RELEASE_WINDOWS_TIMEOUT_MINUTES) }}
     environment: local-whisper-production
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: cpu
+            runner: ${{ vars.CI_WINDOWS_RUNNER }}
+            toolset: '14.51'
+          - target: sm_120a-real
+            runner: windows-2022
+            toolset: '14.39'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -207,6 +217,7 @@ jobs:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Install the exact CUDA-compatible MSVC toolset
+        if: matrix.target == 'sm_120a-real'
         shell: pwsh
         run: |
           $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
@@ -235,6 +246,7 @@ jobs:
           use-local-cache: false
 
       - name: Initialize exact MSVC 14.51 developer environment
+        if: matrix.target == 'cpu'
         uses: ./.github/actions/initialize-msvc-environment
         with:
           toolset-version: '14.51'
@@ -261,17 +273,20 @@ jobs:
         run: node scripts/local-whisper/provision-native-test-sources.mjs
 
       - name: Construct reproducible Windows CPU runtime archive
+        if: matrix.target == 'cpu'
         shell: pwsh
         run: |
           node --import tsx scripts/local-whisper/qualification/produce-runtime-packs.mjs --backend=cpu --platform=win32
           npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=win32 --target=cpu --first-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cpu/build-b --output=release-artifacts/local-whisper-runtimes/win32/cpu
 
       - name: Initialize exact MSVC 14.39 developer environment
+        if: matrix.target == 'sm_120a-real'
         uses: ./.github/actions/initialize-msvc-environment
         with:
           toolset-version: '14.39'
 
       - name: Construct reproducible Windows RTX 50 runtime archive
+        if: matrix.target == 'sm_120a-real'
         shell: pwsh
         env:
           LOCAL_WHISPER_PREPARED_WINDOWS_CUDA: 'true'
@@ -282,7 +297,7 @@ jobs:
       - name: Upload exact Windows runtime archive inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: gpt-voice-local-whisper-runtimes-win32
+          name: gpt-voice-local-whisper-runtime-win32-${{ matrix.target }}
           path: release-artifacts/local-whisper-runtimes/win32
           if-no-files-found: error
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
@@ -322,8 +337,9 @@ jobs:
       - name: Download exact Windows runtime archive inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: gpt-voice-local-whisper-runtimes-win32
+          pattern: gpt-voice-local-whisper-runtime-win32-*
           path: runtime-inputs/win32
+          merge-multiple: true
 
       - name: Produce signed Linux and Windows bundles
         env:
@@ -802,8 +818,9 @@ jobs:
       - name: Download exact Windows runtime archive inputs
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: gpt-voice-local-whisper-runtimes-win32
+          pattern: gpt-voice-local-whisper-runtime-win32-*
           path: candidate-inputs/runtimes/win32
+          merge-multiple: true
 
       - name: Download exact signed Linux production bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8

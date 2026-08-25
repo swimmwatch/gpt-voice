@@ -355,6 +355,24 @@ describe('Local Whisper release protocol', () => {
       /CONSTRUCTION_GRAPH_INVALID/u,
     );
     assert.throws(
+      () =>
+        verifier.verify(
+          workflow.replace(
+            '          - target: sm_120a-real\n            runner: windows-2022',
+            '          - target: sm_120a-real\n            runner: ${{ vars.CI_WINDOWS_RUNNER }}',
+          ),
+        ),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace("        if: matrix.target == 'cpu'", '')),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
+      () => verifier.verify(workflow.replace('          merge-multiple: true', '')),
+      /CONSTRUCTION_GRAPH_INVALID/u,
+    );
+    assert.throws(
       () => verifier.verify(workflow.slice(0, workflow.indexOf('\n  publish:\n'))),
       /PUBLICATION_GATE_INVALID/u,
     );
