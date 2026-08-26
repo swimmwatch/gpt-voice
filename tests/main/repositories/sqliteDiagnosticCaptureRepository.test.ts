@@ -45,7 +45,7 @@ class DiagnosticRepositoryHarness {
     return {
       actionId,
       actionType,
-      contractVersion: actionType === 'translation' ? '2026-07-25' : null,
+      contractVersion: actionType === 'translation' ? '2026-08-09' : null,
       providerId: actionType === 'translation' ? 'google' : 'ollama',
       providerOperationId: null,
       recordedAt: CURRENT_TIME,

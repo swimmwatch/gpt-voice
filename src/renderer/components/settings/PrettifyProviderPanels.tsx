@@ -1,4 +1,3 @@
-import { LoaderCircle } from 'lucide-react';
 import type { JSX } from 'react';
 import type { PrettifySettingsDraft } from '@renderer/appSettingsUtils';
 import SearchableSelectInput from '@renderer/components/SearchableSelectInput';
@@ -7,6 +6,7 @@ import { Field } from '@renderer/components/ui/field';
 import { Input } from '@renderer/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import { Slider } from '@renderer/components/ui/slider';
+import { Spinner } from '@renderer/components/ui/spinner';
 import type { CodexCliModelControls } from '@renderer/prettifyModelControl';
 import {
   CLAUDE_CLI_PRETTIFY_EFFORT_VALUES,
@@ -296,7 +296,7 @@ function ModelsLoadingStatus({ isLoading, t }: { isLoading: boolean; t: Translat
   if (!isLoading) return null;
   return (
     <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground" role="status">
-      <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+      <Spinner active={isLoading} announce={false} label={t('prettify.loadingModels')} size="sm" />
       <span>{t('prettify.loadingModels')}</span>
     </div>
   );

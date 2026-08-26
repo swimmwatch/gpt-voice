@@ -44,16 +44,23 @@ window.
 | Native title                  | `Choose a Prettify profile`                             |
 | Resizing                      | Fixed at the size calculated for the active work area   |
 | Background                    | `var(--background)` / `#181a1b`                         |
-| Initial focus                 | Profile search                                          |
+| Initial focus                 | Configured default profile option                       |
 | Close paths                   | Escape, native close, Cancel, Manage profiles, or Apply |
 
-Calculate the content size against the cursor display's work area before showing
-the window. Use the preferred size when it fits. Otherwise reduce width and
-height to preserve the inset. The renderer is responsive down to the target
-size; if the operating-system work area is smaller, use the available area and
-keep the profile list as the flexible scroll region. Center the chooser within
-the resolved work area and show it only after its operation-scoped payload is
-ready.
+Calculate the content size against the OS-active display containing the cursor
+before showing the window. Use active-display geometry first; only when it is
+ambiguous use nearest-display identity, then the active primary display, then
+the first active display. Use nearest/primary best effort only when active
+display enumeration is unavailable. Use the preferred size when it fits.
+Otherwise reduce width and height to preserve the inset. The renderer is
+responsive down to the target size; if the operating-system work area is
+smaller, use the available area and keep the profile list as the flexible scroll
+region. Center the chooser within the resolved work area, apply its final bounds
+before `show()`, and show it only after its operation-scoped payload is ready.
+
+A physical display input switch is outside Electron's visibility. When the OS
+removes that display from the desktop, it is unavailable to the chooser; when it
+remains extended, the cursor's active display remains eligible.
 
 Do not add a custom title bar or a second close icon. Existing secondary windows
 use native chrome, and duplicate window controls add noise to this short task.
@@ -124,8 +131,9 @@ the transient chooser and must not render a redundant overlay.
 ### Resting
 
 - `Prompt-ready` is the default marker on a new installation.
-- A remembered chooser selection may be preselected when it is still valid.
-- Without a remembered selection, no row is selected and Apply is disabled.
+- Every opening selects and keyboard-focuses the configured default profile.
+- Apply is enabled on open and becomes disabled only when filtering removes the
+  selected profile.
 - Profile rows use `bg-surface`; the source preview and search input use
   `bg-surface-muted`.
 
@@ -173,7 +181,7 @@ the transient chooser and must not render a redundant overlay.
 
 | Input                         | Result                                                                                                    |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Open                          | Focus search and expose the selected row, if any, through `aria-selected`.                                |
+| Open                          | Select and focus the configured default row, exposing it through `aria-selected`.                         |
 | Arrow Down in search          | Move to and select the first visible profile.                                                             |
 | Arrow Up/Down in list         | Move the one-off selection and focus together.                                                            |
 | Home/End in list              | Select the first/last visible profile.                                                                    |

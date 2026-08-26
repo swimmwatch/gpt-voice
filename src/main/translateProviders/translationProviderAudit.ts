@@ -109,6 +109,8 @@ export class TranslationProviderAudit extends BaseProviderAudit<'translation'> {
         return 'timeout';
       case 'cancelledOrStaleOperation':
         return 'cancellation';
+      case 'resultDeliveryFailure':
+        return 'internal';
       case 'cleanupFailure':
         return 'cleanup';
     }

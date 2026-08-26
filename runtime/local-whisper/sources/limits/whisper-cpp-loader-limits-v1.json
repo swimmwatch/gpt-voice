@@ -1,0 +1,102 @@
+{
+  "$schema": "../schema/loader-limit-table.schema.json",
+  "schemaId": "local-whisper-loader-limit-table-schema-v1",
+  "tableId": "whisper-cpp-loader-limits-v1",
+  "sourceLockId": "whisper-cpp-v1.9.1-f049fff",
+  "gitTree": "f49541eaed447bce9b5e3598cc7a487ce5e54678",
+  "originalManifestSha256": "aeaed8ce38467815c0b3ee64f05bd7989bba42bb0baccd5dba853247a7f680de",
+  "layoutSources": [
+    {
+      "path": "src/whisper.cpp",
+      "gitBlob": "5ffc70af00e76fc121b961613259c7c179a4d2d4",
+      "sha256": "a884ff3eb3bbf7558958c4d06a299cd8d97d87a7d5c7aac9138b8ff6a2ef04d7",
+      "symbols": ["read_safe", "whisper_model_load", "whisper_hparams", "whisper_model_loader"]
+    }
+  ],
+  "derivationToolSha256": "97a590ddfbc966a7cd804ba3fb5d87c00af47144d6792c12f16bcda4401e0924",
+  "families": ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"],
+  "variants": ["full", "q5_0"],
+  "tensorTypes": ["F32", "F16", "Q5_0"],
+  "limits": {
+    "authenticatedModelBytes": {
+      "minimum": 1,
+      "maximum": 17179869184
+    },
+    "vocabularyCount": {
+      "minimum": 1,
+      "maximum": 131072
+    },
+    "audioContext": {
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "audioState": {
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "audioHeads": {
+      "minimum": 1,
+      "maximum": 64
+    },
+    "audioLayers": {
+      "minimum": 1,
+      "maximum": 128
+    },
+    "textContext": {
+      "minimum": 1,
+      "maximum": 2048
+    },
+    "textState": {
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "textHeads": {
+      "minimum": 1,
+      "maximum": 64
+    },
+    "textLayers": {
+      "minimum": 1,
+      "maximum": 128
+    },
+    "melDimension": {
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "melFilterElements": 1048576,
+    "melFilterBytes": 4194304,
+    "tokenBytes": {
+      "minimum": 0,
+      "maximum": 4096
+    },
+    "aggregateTokenBytes": 67108864,
+    "tensorRank": {
+      "minimum": 1,
+      "maximum": 4
+    },
+    "tensorCount": 16384,
+    "tensorNameBytes": {
+      "minimum": 1,
+      "maximum": 256
+    },
+    "tensorDimension": {
+      "minimum": 1,
+      "maximum": 1048576
+    },
+    "tensorElementProduct": 2147483648,
+    "tensorPayloadBytes": 8589934592,
+    "aggregateTensorPayloadBytes": 17179869184,
+    "aggregateParsedMetadataBytes": 134217728,
+    "alignmentPaddingBytes": {
+      "minimum": 0,
+      "maximum": 31
+    }
+  },
+  "review": {
+    "status": "approved",
+    "reviewedAt": "2026-08-09T00:00:00.000Z",
+    "reviewedBy": "Packet 04 cross-platform CI remediation",
+    "provenancePath": "whisper-cpp-loader-limits-v1.provenance.json",
+    "unresolvedExclusions": []
+  },
+  "tableSha256": "e625802a6fbf31aba996150df44babc2f5784ab7ce28aa1408ae67bacd53f715"
+}

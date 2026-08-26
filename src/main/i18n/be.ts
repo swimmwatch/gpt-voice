@@ -1,9 +1,17 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/be';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('be'),
   'translate.provider': 'Пастаўшчык перакладу',
   'translate.saving': 'Захаванне...',
+  'providerHotkeyDemo.fixtureControls': 'Элементы кіравання дэманстрацыяй',
+  'providerHotkeyDemo.fixture': 'Сцэнарый',
+  'providerHotkeyDemo.advanceClock': 'Перавесці гадзіннік дэманстрацыі наперад',
+  'providerHotkeyDemo.clearLock': 'Зняць блакіроўку дэманстрацыі',
+  'providerHotkeyDemo.ownerlessLock': 'Блакіроўка без уладальніка',
+  'providerHotkeyDemo.statusDetailPriority': 'Прыярытэт дэталяў стану',
   'translate.settingsSaveFailed': 'Не ўдалося захаваць налады перакладу',
 
   // Status messages
@@ -57,6 +65,7 @@ export default {
   'error.translationConsentOrChallenge': 'Сэрвіс перакладу патрабуе згоды або праверкі. Паўтарыце спробу пазней.',
   'error.translationPageChanged': 'Старонка сэрвісу перакладу змянілася. Паўтарыце спробу пазней.',
   'error.translationResultUnavailable': 'Вынік перакладу не быў атрыманы да заканчэння часу чакання.',
+  'error.translationTimedOut': 'Час перакладу скончыўся. Паспрабуйце яшчэ раз.',
   'error.translationCleanupFailed': 'Не ўдалося ачысціць даныя перакладу. Вынік не скапіраваны.',
   'error.translationSettingsInvalid': 'Выберыце падтрыманы сэрвіс і мову перакладу.',
   'error.translationSettingsSaveFailed': 'Не ўдалося захаваць налады перакладу. Папярэдні выбар застаецца актыўным.',
@@ -132,6 +141,11 @@ export default {
 
   // App settings
   'appSettings.open': 'Налады праграмы',
+  'settings.blockedWhileOpen': 'Закрыйце налады, каб працягнуць працу з GPT-Voice.',
+  'settings.opening': 'Адкрыццё налад…',
+  'settings.show': 'Паказаць налады',
+  'settings.blockedWhileRecording': 'Спыніце запіс перад адкрыццём налад.',
+  'settings.blockedWhileOperationActive': 'Дачакайцеся завяршэння бягучай аперацыі перад адкрыццём налад.',
   'appSettings.title': 'Налады',
   'appSettings.system': 'Сістэма',
   'appSettings.language': 'Мова праграмы',
@@ -216,10 +230,12 @@ export default {
   'recording.pause': 'Прыпыніць запіс',
   'recording.resume': 'Працягнуць запіс',
   'recording.cancel': 'Скасаваць запіс',
+  'recording.capturedAudioDuration': 'Запісанае аўдыё: {duration}',
 
   // Model memory
   'modelMemory.title': 'Памяць мадэлі',
   'modelMemory.ollamaGpu': 'Мадэль паляпшэння тэксту',
+  'modelMemory.ram': 'АЗП',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Загружана',
   'modelMemory.notLoaded': 'Не загружана',
@@ -359,6 +375,36 @@ export default {
   'hotkey.pressKeyCombination': 'Націсніце камбінацыю клавіш',
   'hotkey.waitingForInput': 'Чаканне ўводу...',
   'hotkey.apply': 'Прымяніць',
+  'hotkey.notAssigned': 'Не прызначана',
+  'hotkey.remove': 'Выдаліць',
+  'hotkey.test': 'Праверыць камбінацыю',
+  'hotkey.testing': 'Слухаем {accelerator}. Націсніце яго на працягу пяці секунд; гэта не запусціць {target}.',
+  'hotkey.status.unassigned': 'Не прызначана',
+  'hotkey.status.registered': 'Зарэгістравана',
+  'hotkey.status.failed': 'Памылка',
+  'hotkey.status.suppressed': 'Прыглушана',
+  'hotkey.status.desktopManaged': 'Зарэгістравана — кіруецца асяроддзем працоўнага стала',
+  'hotkey.authority.application': 'Камбінацыя кіруецца праграмай',
+  'hotkey.authority.desktopEnvironment': 'Камбінацыя кіруецца асяроддзем працоўнага стала',
+  'hotkey.authority.none': 'Няма актыўнай камбінацыі',
+  'hotkey.recoveryAction': 'Змяніце камбінацыю ў наладах.',
+  'hotkey.preference': 'Наладжаная камбінацыя: {accelerator}',
+  'hotkey.effective': 'Дакладны трыгер: {accelerator}',
+  'hotkey.failure.invalidAccelerator': 'Увядзіце сапраўдную камбінацыю клавіш.',
+  'hotkey.failure.internalConflict': 'Гэта камбінацыя канфліктуе з іншай наладжанай камбінацыяй.',
+  'hotkey.failure.osReserved':
+    'Гэта камбінацыя зарэзерваваная Windows, у тым ліку F12 і камбінацыі з клавішай Windows.',
+  'hotkey.failure.registrationRejected':
+    'Гэта камбінацыя недаступная або выкарыстоўваецца сістэмай ці іншай праграмай.',
+  'hotkey.failure.persistenceFailed': 'Не ўдалося захаваць камбінацыю. Папярэдняя камбінацыя застаецца актыўнай.',
+  'hotkey.failure.reconciliationFailed':
+    'Стан камбінацыі не ўдалося бяспечна ўзгадніць. Перазапусціце праграму або відавочна адрамантуйце камбінацыю перад выкарыстаннем.',
+  'hotkey.failure.unsupportedPlatform': 'Рэгістрацыя камбінацый не падтрымліваецца на гэтай платформе.',
+  'hotkey.test.detected': 'Камбінацыя {accelerator} выяўлена. Яна працуе.',
+  'hotkey.test.timedOut':
+    'Камбінацыя {accelerator} не выяўлена за пяць секунд. Яна можа выкарыстоўвацца іншай праграмай або сістэмай.',
+  'hotkey.test.unavailable': 'Праверка камбінацыі больш недаступная. Прызначце яе наноў і паспрабуйце яшчэ раз.',
+  'hotkey.stateUpdated': 'Стан рэгістрацыі камбінацыі абноўлены.',
 
   // Translate
   'translate.label': 'Пераклад',
@@ -490,6 +536,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не аўтарызаваны. Калі ласка, увайдзіце.',
+  'error.selectedProviderNotReady': 'Абраны правайдар не гатовы.',
   'error.noAccessToken': 'Няма токена доступу або API key. Наладзьце правайдара і паўтарыце спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не змог апрацаваць запісаны гук ({mimeType}). Паспрабуйце запісаць яшчэ раз.',
   'error.chatGptConnectionInterrupted': 'Распазнаванне праз ChatGPT было перапынена. Паўтарыце спробу.',
@@ -655,7 +702,47 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Seed лічбавага адбітка павінен змяшчаць толькі лічбы.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Загрузіць мадэль',
+  'localWhisper.main.freeModel': 'Выгрузіць мадэль',
+  'localWhisper.main.loadingStatus': 'Загрузка стану Local Whisper',
+  'localWhisper.main.loadingModel': 'Загрузка мадэлі',
+  'localWhisper.main.freeingModel': 'Выгрузка мадэлі',
+  'localWhisper.main.modelInUse': 'Мадэль выкарыстоўваецца для транскрыпцыі.',
+  'localWhisper.main.actionInProgress': 'Выконваецца іншая аперацыя Local Whisper.',
+  'localWhisper.main.setupRequired': 'Усталюйце выбранае асяроддзе і мадэль у наладах Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Выбраная мадэль недаступная. Адкрыйце налады Local Whisper.',
+  'localWhisper.main.modelUnavailableCode': 'Выбраная мадэль недаступная ({code}). Адкрыйце налады Local Whisper.',
+  'localWhisper.main.operationFailed': 'Не ўдалося выканаць аперацыю з мадэллю Local Whisper. Паўтарыце спробу.',
+  'localWhisper.main.operationFailedCode':
+    'Не ўдалося выканаць аперацыю з мадэллю Local Whisper ({code}). Паўтарыце спробу.',
+
+  'startup.preparing': 'Падрыхтоўка запуску',
+  'startup.preparingJobs': 'Падрыхтоўваем: {jobs}',
+  'startup.preparingJobsWithMore': 'Падрыхтоўваем: {jobs} і яшчэ {count}',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Галасавы правайдар',
+  'startup.job.translation': 'Пераклад',
+  'startup.job.prettify': 'Паляпшэнне тэксту',
+  'startup.progress': 'Ход падрыхтоўкі',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Не ўдалося падрыхтаваць запуск. Паўтарыце спробу.',
+  'startup.retryFailed': 'Не ўдалося паўтарыць падрыхтоўку запуску. Паўтарыце спробу.',
+  'startup.retry': 'Паўтарыць',
+  'startup.selectProvider': 'Выберыце правайдара, каб пачаць запіс.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Паказаць',
   'tray.quit': 'Выхад',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Незалежная настольная праграма для галасавой транскрыпцыі праз вэб-сеансы GPT.',
+  'nativeMenu.file': 'Файл',
+  'nativeMenu.edit': 'Праўка',
+  'nativeMenu.view': 'Выгляд',
+  'nativeMenu.help': 'Даведка',
+  'nativeMenu.projectOnGitHub': 'Праект на GitHub',
+  'nativeMenu.aboutApp': 'Пра {app}',
+  'prettify.providerUnavailable': 'Пастаўшчык Prettify недаступны.',
+  'prettify.modelLoadUnavailable': 'Загрузка мадэлі недаступная для гэтага пастаўшчыка.',
+  'prettify.modelUnloadUnavailable': 'Выгрузка мадэлі недаступная для гэтага пастаўшчыка.',
+  'prettify.instructionInvalid': 'Запыт Prettify некарэктны.',
 } as const;

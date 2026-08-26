@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/evidence-index-v1.schema.json",
+  "title": "Local Whisper immutable evidence index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "candidateDigest", "fixtureDigest", "entries"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "candidateDigest": { "$ref": "#/$defs/sha256" },
+    "fixtureDigest": { "const": "de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226" },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "platform", "evidenceClass", "sha256", "byteLength"],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "platform": { "enum": ["linux", "win32", "shared"] },
+          "evidenceClass": {
+            "enum": ["deterministic", "source", "native", "platform", "hardware", "package", "manual", "external"]
+          },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "byteLength": { "type": "integer", "minimum": 1 },
+          "sanitizedLabel": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

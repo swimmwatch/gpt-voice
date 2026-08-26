@@ -1,17 +1,8 @@
 import { History, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type KeyboardEvent, type UIEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type UIEvent } from 'react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import HistoryEntry from '@renderer/components/HistoryEntry';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
 import { Button } from '@renderer/components/ui/button';
 import {
@@ -262,9 +253,9 @@ function HistoryWindow(): JSX.Element {
     }
   };
 
-  const clearHistory = async (): Promise<void> => {
+  const clearHistory = async (): Promise<boolean> => {
     if (isClearing || itemsRef.current.length === 0) {
-      return;
+      return false;
     }
 
     const requestVersion = ++requestVersionRef.current;
@@ -274,11 +265,11 @@ function HistoryWindow(): JSX.Element {
     try {
       const result = await desktopApi.clearTranscriptionHistory();
       if (!isMountedRef.current || requestVersion !== requestVersionRef.current) {
-        return;
+        return false;
       }
       if (!result.success) {
         setError(presentHistoryError(result.error, t('history.clearFailed')));
-        return;
+        return false;
       }
 
       itemsRef.current = [];
@@ -289,10 +280,12 @@ function HistoryWindow(): JSX.Element {
       setRetryRequest(null);
       setCopiedId(null);
       setIsCleared(true);
+      return true;
     } catch (clearError: unknown) {
       if (isMountedRef.current && requestVersion === requestVersionRef.current) {
         setError(presentHistoryError(clearError, t('history.clearFailed')));
       }
+      return false;
     } finally {
       if (isMountedRef.current && requestVersion === requestVersionRef.current) {
         setIsClearing(false);
@@ -304,13 +297,6 @@ function HistoryWindow(): JSX.Element {
     setIsClearConfirmationOpen(open);
     if (!open) {
       window.requestAnimationFrame(() => clearButtonRef.current?.focus());
-    }
-  };
-
-  const handleClearConfirmationKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      handleClearConfirmationOpenChange(false);
     }
   };
 
@@ -445,25 +431,17 @@ function HistoryWindow(): JSX.Element {
         <ScrollAreaScrollbar />
       </ScrollArea>
 
-      <AlertDialog open={isClearConfirmationOpen} onOpenChange={handleClearConfirmationOpenChange}>
-        <AlertDialogContent onKeyDown={handleClearConfirmationKeyDown}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('history.clearConfirm')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('history.clearConfirmDescription')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel asChild>
-              <Button variant="outline">{t('common.keepEditing')}</Button>
-            </AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button onClick={() => void clearHistory()} variant="destructive">
-                <Trash2 aria-hidden="true" />
-                {t('history.clear')}
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        actionIcon={<Trash2 aria-hidden="true" />}
+        cancelLabel={t('common.keepEditing')}
+        confirmLabel={t('history.clear')}
+        description={t('history.clearConfirmDescription')}
+        onConfirm={clearHistory}
+        onOpenChange={handleClearConfirmationOpenChange}
+        open={isClearConfirmationOpen}
+        title={t('history.clearConfirm')}
+        tone="destructive"
+      />
     </main>
   );
 }

@@ -1,0 +1,3783 @@
+schema_version: 1
+spec_slug: local-whisper-native-review-remediation
+interview_id: spec:local-whisper-native-review-remediation
+decisions:
+  - id: outcome.remediation-objective
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+      - User requested an authoritative specification for the review-remediation document.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: Specify the approved native review remediation without planning or implementation.
+    rationale: The request explicitly selects specification work and names the source document.
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+
+  - id: scope.selected-review-comments
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - c1-thread-exception-safety
+        - h1-fs-guard-raii-and-lease-bound
+        - h3-bounded-line-reader
+        - m1-prompt-inference-failure
+        - m2-cancel-lost-race
+        - m3-pollhup-spin
+        - m5-linux-list-expectations
+        - m9-scm-rights-cleanup
+        - m4-sha256-consolidation
+        - m6-typed-launch-errors
+        - m7-typed-backend-commands
+        - native-exploit-mitigations
+        - canonical-audio-frame-overhead
+      text: ''
+    rationale: '"This document" refers to the complete curated list of thirteen comments.'
+    supersedes_revision: null
+    requirement_ids:
+      - THR-001
+      - FSG-001
+      - FSG-002
+      - INF-001
+      - CAN-001
+      - LNX-001
+      - FSG-003
+      - CAP-001
+      - CRY-001
+      - ERR-001
+      - ARC-001
+      - BLD-001
+      - FRM-001
+
+  - id: scope.explicit-exclusions
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-metadata-digest-cache
+        - no-unmeasured-hash-pass-removal
+        - no-linux-acknowledgment-redesign
+        - no-stale-msg-cmsg-cloexec-finding
+        - no-release-or-publication-action
+      text: ''
+    rationale: The curated review document expressly narrows or rejects these source-review suggestions.
+    supersedes_revision: null
+    requirement_ids: [SCP-001]
+
+  - id: architecture.existing-native-boundaries
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - runtime/local-whisper/fs-guard/
+      - runtime/local-whisper/launcher/
+      - runtime/local-whisper/whisper-cpp/
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - cpp20
+        - raii-resource-ownership
+        - typed-safe-errors
+        - linux-windows-platform-backends
+        - no-mutable-global-runtime-state
+      text: ''
+    rationale: These are existing repository constraints, not remediation choices.
+    supersedes_revision: null
+    requirement_ids: [ARC-002, ARC-003]
+
+  - id: compatibility.supported-platforms
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper/tasks/todo.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-x64
+        - windows-x64
+        - macos-remains-unavailable
+      text: ''
+    rationale: The remediation must preserve the approved Local Whisper platform support policy.
+    supersedes_revision: null
+    requirement_ids: [CMP-001]
+
+  - id: compatibility.cross-platform-remediation
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly required every remediation contract to cover both Linux and Windows.
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - equivalent-linux-windows-outcomes
+        - platform-specific-implementations-allowed
+        - shared-contract-tests
+      text: ''
+    rationale: Platform-specific defects must be corrected with an equivalent safety property and regression coverage on the sibling platform where the mechanism differs.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, TST-002]
+
+  - id: interfaces.renderer-ipc
+    revision: 1
+    category: interfaces
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: The selected work may change private main-to-worker protocol types but introduces no renderer, preload, public IPC, settings, history, or provider-selection contract.
+    supersedes_revision: null
+    requirement_ids: [SCP-002]
+
+  - id: data.user-migration
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: No persisted user data, catalog, settings, cache, history, or artifact schema is in scope.
+    supersedes_revision: null
+    requirement_ids: [CMP-002]
+
+  - id: security.privacy-preservation
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-sensitive-logs
+        - no-path-or-capability-exposure
+        - exact-descriptor-cleanup
+        - bounded-inputs
+      text: ''
+    rationale: The remediation strengthens existing filesystem/process boundaries and must not alter privacy guarantees.
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002]
+
+  - id: operations.dependencies-and-release
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/tasks/handoff.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-new-dependencies
+        - no-package-target-change
+        - no-generated-artifact-commit
+        - no-qualification-or-release-claim
+      text: ''
+    rationale: The request authorizes specification only and does not broaden dependency, packaging, qualification, or release authority.
+    supersedes_revision: null
+    requirement_ids: [OPS-001]
+
+  - id: quality.native-verification-baseline
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - runtime/local-whisper/common/CMakeLists.txt
+      - runtime/local-whisper/fs-guard/CMakeLists.txt
+      - runtime/local-whisper/launcher/CMakeLists.txt
+      - runtime/local-whisper/whisper-cpp/CMakeLists.txt
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - warnings-as-errors
+        - clang-format
+        - clang-tidy
+        - linux-asan-ubsan
+        - linux-native-tests
+        - windows-msvc-tests
+        - deterministic-failure-injection
+      text: ''
+    rationale: These checks are mandatory for changed native code under the repository contract.
+    supersedes_revision: null
+    requirement_ids: [TST-001]
+
+  - id: scope.follow-up-completion-gate
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+      - docs/specs/local-whisper/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: remediation-contract-round-01
+      question_id: scope.follow-up-completion-gate
+      idempotency_key: scope.follow-up-completion-gate:v1
+      last_status: answered
+    question:
+      text: What milestone must gate completion of the five follow-up cleanup and hardening items?
+      kind: single
+      options:
+        - id: before-qualification
+          label: Before qualification (Recommended)
+          description: Complete them before candidate freezing or platform qualification so measured native bytes include the remediation.
+        - id: before-release
+          label: Before release
+          description: Permit qualification preparation first, but require all five items before a production release candidate can ship.
+        - id: advisory-backlog
+          label: Advisory backlog
+          description: Keep the five items outside this remediation's completion gate and track them separately.
+    answer:
+      selected_ids: [before-qualification]
+      text: ''
+    rationale: Qualification and candidate evidence must measure the final remediated native bytes.
+    supersedes_revision: null
+    requirement_ids: [GAT-001]
+
+  - id: compatibility.worker-protocol-revision
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper/tasks/07_framed_worker_supervisor.md
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: remediation-contract-round-01
+      question_id: compatibility.worker-protocol-revision
+      idempotency_key: compatibility.worker-protocol-revision:v1
+      last_status: answered
+    question:
+      text: How should the private worker protocol version handle the new cancel-race outcome?
+      kind: single
+      options:
+        - id: revise-v1-in-place
+          label: Revise v1 in place (Recommended)
+          description: Update the unreleased protocol-v1 peers and fixtures together, rejecting mixed old/new runtime identities.
+        - id: introduce-v2
+          label: Introduce protocol v2
+          description: Add explicit version negotiation or rejection and retain protocol-v1 definitions for compatibility.
+    answer:
+      selected_ids: [revise-v1-in-place]
+      text: ''
+    rationale: Protocol v1 is unreleased and all private peers and fixtures can be updated atomically.
+    supersedes_revision: null
+    requirement_ids: [CMP-003]
+
+  - id: failure.cancel-lost-outcome
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-comments-to-address.md
+      - docs/specs/local-whisper/tasks/07_framed_worker_supervisor.md
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: remediation-contract-round-01
+      question_id: failure.cancel-lost-outcome
+      idempotency_key: failure.cancel-lost-outcome:v1
+      last_status: answered
+    question:
+      text: What terminal result should a valid cancel receive when the transcript committed first?
+      kind: single
+      options:
+        - id: cancel-too-late
+          label: cancelTooLate (Recommended)
+          description: Add an explicit nonfatal response that preserves the committed transcript and healthy worker.
+        - id: nonfatal-failure
+          label: Nonfatal failure
+          description: Return a typed request failure and teach the supervisor that this specific cancel failure does not terminate the worker.
+        - id: cancelled-noop
+          label: cancelled no-op
+          description: Reuse cancelled as a successful acknowledgment even though the transcript already won.
+    answer:
+      selected_ids: [cancel-too-late]
+      text: ''
+    rationale: An explicit nonfatal terminal result preserves truthful request semantics and worker health.
+    supersedes_revision: null
+    requirement_ids: [CAN-002]
+
+  - id: failure.overlong-guard-line
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/fs-guard/src/common/guard_application.cpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: remediation-contract-round-01
+      question_id: failure.overlong-guard-line
+      idempotency_key: failure.overlong-guard-line:v1
+      last_status: answered
+    question:
+      text: What should the fs-guard do as soon as an input line exceeds its byte limit?
+      kind: single
+      options:
+        - id: fail-stop-process
+          label: Fail-stop process (Recommended)
+          description: Terminate the guard without unbounded draining so the main-owned transport rejects pending work and starts fresh later.
+        - id: drain-and-continue
+          label: Drain and continue
+          description: Discard input through the next newline, return INVALID_INPUT when possible, and keep the existing guard alive.
+    answer:
+      selected_ids: [fail-stop-process]
+      text: ''
+    rationale: The guard must not drain an attacker-sized or newline-free stream after the bound is crossed.
+    supersedes_revision: null
+    requirement_ids: [FSG-004]
+
+  - id: resources.live-lease-budget
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/fs-guard/src/platform/linux/linux_backend.cpp
+      - runtime/local-whisper/fs-guard/src/platform/windows/windows_backend.cpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: remediation-contract-round-01
+      question_id: resources.live-lease-budget
+      idempotency_key: resources.live-lease-budget:v1
+      last_status: answered
+    question:
+      text: Which live-lease budget should both long-lived Linux and Windows fs-guard backends enforce?
+      kind: single
+      options:
+        - id: fixed-64
+          label: 64 leases (Recommended)
+          description: Bound retained Linux descriptors and Windows handles while leaving ample room for transient resources under common limits.
+        - id: fixed-128
+          label: 128 leases
+          description: Allow more concurrent artifact operations at the cost of retaining up to 256 Linux lease descriptors and the analogous Windows handles.
+        - id: runtime-derived
+          label: Runtime-derived budget
+          description: Derive conservative platform-specific caps from OS resource limits with a fixed reserve, adding implementation and test complexity.
+    answer:
+      selected_ids: [fixed-64]
+      text: ''
+    rationale: The fixed cross-platform cap bounds retained native resources with substantial headroom over the application's expected concurrency.
+    supersedes_revision: null
+    requirement_ids: [FSG-005]
+
+  - id: failure.cancel-too-late-supervisor-result
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: failure-contract-round-02
+      question_id: failure.cancel-too-late-supervisor-result
+      idempotency_key: failure.cancel-too-late-supervisor-result:v1
+      last_status: answered
+    question:
+      text: How should the supervisor complete its cancel call after the worker returns cancelTooLate?
+      kind: single
+      options:
+        - id: operation-conflict
+          label: Operation conflict (Recommended)
+          description: Return the existing nonfatal OPERATION_CONFLICT cancellation result while preserving the successful transcript and warmed worker.
+        - id: successful-noop
+          label: Successful no-op
+          description: Resolve cancel successfully even though it did not cancel the already committed transcript.
+        - id: dedicated-public-failure
+          label: Dedicated failure code
+          description: Add a new public failure code for cancel-too-late and propagate it through the existing failure contracts.
+    answer:
+      selected_ids: [operation-conflict]
+      text: ''
+    rationale: The existing nonfatal conflict result reports that cancellation did not win without discarding the committed transcript or terminating the warmed worker.
+    supersedes_revision: null
+    requirement_ids: [CAN-003]
+
+  - id: failure.lease-limit-code
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/error.hpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: failure-contract-round-02
+      question_id: failure.lease-limit-code
+      idempotency_key: failure.lease-limit-code:v1
+      last_status: answered
+    question:
+      text: Which guard error should be returned when an operation would exceed 64 live leases?
+      kind: single
+      options:
+        - id: io-failed
+          label: IO_FAILED (Recommended)
+          description: Use the existing safe resource-failure code without expanding the guard or main-process error contract.
+        - id: conflict
+          label: CONFLICT
+          description: Treat capacity as a retryable conflict even though no artifact identity conflict occurred.
+        - id: resource-limit
+          label: RESOURCE_LIMIT
+          description: Add a dedicated guard protocol and main-process adapter error code for resource exhaustion.
+    answer:
+      selected_ids: [io-failed]
+      text: ''
+    rationale: The existing safe I/O failure code accurately reports native resource exhaustion without expanding the private guard or main-process error contracts.
+    supersedes_revision: null
+    requirement_ids: [FSG-006]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: What should happen to the Local Whisper native review remediation specification draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve draft (Recommended)
+          description: Approve the draft as the authoritative implementation contract and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the draft open, identify revisions, and revisit affected decisions before approval.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the specification retained in Draft status and no approval or implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the earlier 13-comment contract; that approval was superseded when the specification reopened to incorporate the selected native CI-hardening requirements.
+    supersedes_revision: null
+    requirement_ids: [APPROVAL-001]
+
+  - id: plan.packet-platform-slicing
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - runtime/local-whisper/fs-guard/
+      - runtime/local-whisper/launcher/
+      - runtime/local-whisper/whisper-cpp/
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: decomposition-round-01
+      question_id: plan.packet-platform-slicing
+      idempotency_key: plan.packet-platform-slicing:v1
+      last_status: answered
+    question:
+      text: How should implementation packets own Linux and Windows remediation work?
+      kind: single
+      options:
+        - id: vertical-cross-platform
+          label: Cross-platform slices (Recommended)
+          description: Each behavior packet changes and tests both operating-system paths so parity is reviewed before that packet completes.
+        - id: platform-phases
+          label: Platform phases
+          description: Implement shared and Linux behavior first, then use later Windows packets that revisit the same contracts and components.
+    answer:
+      selected_ids: [vertical-cross-platform]
+      text: ''
+    rationale: Each packet must close its Linux and Windows parity contract before completion so platform debt cannot be deferred to a later overlapping implementation phase.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, TST-002]
+
+  - id: plan.packet-platform-slicing
+    revision: 2
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: null
+      question_id: plan.packet-platform-slicing
+      idempotency_key: plan.packet-platform-slicing:v2
+      last_status: answered
+    question:
+      text: How should the revised plan schedule real Windows-host testing and the fixes discovered by it?
+      kind: single
+      options:
+        - id: deferred-windows-remediation
+          label: Final Windows packet (Recommended)
+          description: Complete implementation packets with available Linux/shared checks, then use one final Windows x64 packet to run all MSVC, ASan, analysis, binary, and smoke gates and fix every Windows finding before the workstream can complete.
+        - id: packet-local-windows
+          label: Packet-local Windows
+          description: Keep real Windows testing and any resulting fixes inside each behavior or CI packet before it can be completed.
+        - id: deferred-windows-verification-only
+          label: Final verification only
+          description: Defer Windows tests to the end, but send discovered fixes back to their original packets instead of completing them inside the final Windows packet.
+    answer:
+      selected_ids: [deferred-windows-remediation]
+      text: ''
+    rationale: The implementation packets retain Windows code, tests, profiles, and manifests, but all real Windows-host execution and test-discovered remediation is consolidated into final Packet 15. This preserves mandatory Windows evidence while allowing Linux/shared work to proceed first.
+    supersedes_revision: 1
+    requirement_ids: [CMP-004, CMP-006, TST-001, TST-002, TST-007, OPS-004]
+
+  - id: plan.worker-packet-granularity
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - src/shared/localWhisper/protocol.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - src/main/localWhisper/coordinator/LocalWhisperCoordinator.ts
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: decomposition-round-01
+      question_id: plan.worker-packet-granularity
+      idempotency_key: plan.worker-packet-granularity:v1
+      last_status: answered
+    question:
+      text: Should worker concurrency repair and the cancel-too-late protocol update be one atomic packet or two sequential packets?
+      kind: single
+      options:
+        - id: atomic-worker-packet
+          label: One atomic packet (Recommended)
+          description: Update thread ownership, inference wakeup, protocol peers, fixtures, supervisor, and coordinator together so no intermediate mixed contract exists.
+        - id: split-worker-packets
+          label: Two worker packets
+          description: Land concurrency and inference-failure repair first, then revisit the worker and TypeScript peers for cancellation semantics.
+    answer:
+      selected_ids: [atomic-worker-packet]
+      text: ''
+    rationale: The thread lifecycle, completion wakeup, cancellation wire result, TypeScript peers, and coordinator semantics form one atomic private protocol change.
+    supersedes_revision: null
+    requirement_ids: [THR-001, INF-001, CAN-001, CAN-002, CAN-003, CMP-003]
+
+  - id: plan.hardening-verification-surface
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/common/CMakeLists.txt
+      - runtime/local-whisper/fs-guard/CMakeLists.txt
+      - runtime/local-whisper/launcher/CMakeLists.txt
+      - runtime/local-whisper/whisper-cpp/CMakeLists.txt
+      - scripts/local-whisper/native-quality-tools.mjs
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: decomposition-round-01
+      question_id: plan.hardening-verification-surface
+      idempotency_key: plan.hardening-verification-surface:v1
+      last_status: answered
+    question:
+      text: Where should the automated ELF and PE exploit-mitigation verification contract live?
+      kind: single
+      options:
+        - id: dedicated-hardening-check
+          label: Dedicated check (Recommended)
+          description: Add one shared native-hardening verifier and package command that inspects every production executable on its host platform.
+        - id: embedded-quality-checks
+          label: Embed in quality checks
+          description: Extend each existing native quality wrapper to inspect only the executables it builds, with common behavior factored into a helper.
+    answer:
+      selected_ids: [dedicated-hardening-check]
+      text: ''
+    rationale: One dedicated verifier can inspect the complete native executable set consistently while the build policies remain shared by all CMake projects.
+    supersedes_revision: null
+    requirement_ids: [BLD-001, AC-AUT-014]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/06_typed_launch_failures.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/07_native_hardening_and_binary_verifier.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: What should happen to the Local Whisper native review remediation plan draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve plan (Recommended)
+          description: Approve the eight-packet plan as the authoritative execution sequence without authorizing implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan open and revise packet scope, dependencies, verification, or gates before approval.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Stop with the plan retained in Draft status and no implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the audited eight-packet plan as the authoritative execution sequence without authorizing implementation.
+    supersedes_revision: null
+    requirement_ids: [PLAN-APPROVAL-001]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/06_typed_launch_failures.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/07_native_hardening_and_binary_verifier.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/08_sanitizer_and_stl_hardening.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_native_execution_analysis_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_linux_shared_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: null
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      last_status: answered
+    question:
+      text: What should happen to the revised Local Whisper native remediation plan, which moves all real Windows-host testing and resulting fixes into final Packet 15?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan (Recommended)
+          description: Approve the 15-packet plan as the authoritative execution breakdown; no implementation packet is authorized.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise the packet structure or contracts before execution.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current artifacts without approval or execution authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the 15-packet plan with all real Windows-host testing and test-discovered remediation consolidated into final Packet 15. Approval does not authorize implementation.
+    supersedes_revision: 1
+    requirement_ids: [PLAN-APPROVAL-002, OPS-004]
+
+  - id: authorization.packet-01-execution
+    revision: 1
+    category: authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-01
+      question_id: authorization.packet-01-execution
+      idempotency_key: authorization.packet-01-execution:v1
+      last_status: answered
+    question:
+      text: Should Packet 01 execution be authorized after this planning turn?
+      kind: single
+      options:
+        - id: plan-only
+          label: Plan only (Recommended)
+          description: Stop after planning with no packet authorized; implementation will require a later explicit authorization.
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Authorize only Packet 01 for a later incremental-implementation invocation; do not execute it during this planning turn.
+    answer:
+      selected_ids: [plan-only]
+      text: ''
+    rationale: The user approved planning artifacts but explicitly left Packet 01 execution unauthorized for this planning turn.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-001]
+
+  - id: authorization.packet-01-execution
+    revision: 2
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'User request: "PLEASE IMPLEMENT THIS PLAN" for Packet 01 — Worker Concurrency And Cancel Protocol.'
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user explicitly authorized implementation of Packet 01 only. This authorization does not cover commits, additional packets, releases, publishing, or real Windows-host execution.
+    supersedes_revision: 1
+    requirement_ids: [EXEC-AUTH-001]
+
+  - id: outcome.ci-hardening-specification
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - User explicitly requested a specification covering cross-platform compatibility, thread safety, security, and comparable native-quality concerns, with planning deferred.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [specification-only]
+      text: ''
+    rationale: The current authorization is limited to specification work and explicitly excludes planning and implementation.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, OPS-004]
+
+  - id: scope.ci-review-overlap
+    revision: 1
+    category: scope
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - approved-spec-overlap
+        - approved-plan-unstarted
+        - merge-gate-and-follow-up-ci-items
+      text: ''
+    rationale: Descriptor/handle regression coverage, real Windows execution, and emitted-binary hardening already overlap approved requirements and unstarted packets, while sanitizer enforcement, staged analyzers, STL hardening, fuzzing, TSan, focused second-compiler coverage, and advisory monitoring are not fully owned.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, GAT-002]
+
+  - id: scope.ci-contract-bundle
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-scope-round-01
+      question_id: scope.ci-contract-bundle
+      idempotency_key: scope.ci-contract-bundle:v1
+      last_status: answered
+    question:
+      text: How should the new native CI-hardening requirements relate to the approved native-review remediation specification?
+      kind: single
+      options:
+        - id: amend-existing
+          label: Amend existing specification
+          description: Reopen the approved remediation specification as Draft, integrate all selected CI requirements into one authoritative contract, and revise its plan only in a later /plan invocation.
+        - id: dependent-ci-spec
+          label: Create dependent CI specification
+          description: Preserve the approved remediation specification and plan unchanged, and create a separate CI-hardening contract that depends on them without duplicating their owned behavior.
+        - id: split-by-gate
+          label: Split by completion gate
+          description: Amend the existing remediation contract for merge-gate CI requirements and create a separate post-remediation specification for follow-up hardening.
+    answer:
+      selected_ids: [amend-existing]
+      text: ''
+    rationale: One amended authoritative contract avoids overlapping specifications; the already approved plan remains unexecuted and will be revised only through a later explicit /plan invocation.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, OPS-004]
+
+  - id: scope.ci-selected-set
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-contract-round-01
+      question_id: scope.ci-selected-set
+      idempotency_key: scope.ci-selected-set:v1
+      last_status: answered
+    question:
+      text: Which curated native CI comments must the amended specification own?
+      kind: single
+      options:
+        - id: all-ten-selected
+          label: All ten selected comments
+          description: Own all six merge/remediation-gate items and all four follow-up hardening items from the curated CI review.
+        - id: merge-gate-six
+          label: Merge-gate six only
+          description: Own only UBSan enforcement, Windows execution/analysis/ASan, staged clang analysis, resource-balance tests, binary hardening, and Linux STL assertions.
+        - id: exclude-advisory-monitoring
+          label: Exclude advisory monitoring
+          description: Own items 1-9 but leave scheduled upstream advisory monitoring outside this native-remediation contract.
+    answer:
+      selected_ids: [all-ten-selected]
+      text: ''
+    rationale: The amended authoritative contract owns every curated CI comment, including the four follow-up hardening items.
+    supersedes_revision: null
+    requirement_ids: [OUT-002]
+
+  - id: scope.ci-followup-completion-gate
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-contract-round-01
+      question_id: scope.ci-followup-completion-gate
+      idempotency_key: scope.ci-followup-completion-gate:v1
+      last_status: answered
+    question:
+      text: What milestone should gate completion of the selected follow-up CI-hardening items?
+      kind: single
+      options:
+        - id: before-qualification
+          label: Before qualification
+          description: Require the selected fuzzing, TSan, focused GCC, and advisory-monitoring contracts before candidate freezing or platform qualification.
+        - id: before-release
+          label: Before release
+          description: Permit qualification preparation first, but require the selected follow-up gates before a production release candidate can ship.
+        - id: continuous-backlog
+          label: Continuous hardening backlog
+          description: Keep the follow-up items in the specification but outside its completion gate, with no milestone required to close this remediation.
+    answer:
+      selected_ids: [before-qualification]
+      text: ''
+    rationale: Candidate and qualification evidence must measure the final runtime after all selected CI hardening is operational.
+    supersedes_revision: null
+    requirement_ids: [GAT-002]
+
+  - id: compatibility.windows-toolchain-policy
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.39-v1.json
+      - .github/workflows/pr-checks.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-contract-round-01
+      question_id: compatibility.windows-toolchain-policy
+      idempotency_key: compatibility.windows-toolchain-policy:v1
+      last_status: answered
+    question:
+      text: Which Windows compiler policy should the amended native CI contract require?
+      kind: single
+      options:
+        - id: pinned-msvc-only
+          label: Preserve pinned MSVC
+          description: Keep MSVC 19.39 as the sole supported Windows compiler and add real execution, MSVC analysis, and a compatible dedicated MSVC ASan configuration.
+        - id: add-clang-cl
+          label: Add clang-cl toolchain
+          description: Add a locked clang-cl profile to gain a second Windows frontend and additional sanitizer, fuzzing, and coverage options at greater toolchain and packaging complexity.
+    answer:
+      selected_ids: [pinned-msvc-only]
+      text: ''
+    rationale: Preserve the approved Windows compiler and close the coverage gap through real MSVC execution, MSVC analysis, and a dedicated compatible MSVC ASan configuration without adding clang-cl.
+    supersedes_revision: null
+    requirement_ids: [CMP-005]
+
+  - id: compatibility.platform-specific-quality-tools
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - equivalent-safety-properties
+        - platform-appropriate-tooling
+        - shared-contract-tests
+        - no-false-tool-parity-claims
+      text: ''
+    rationale: Existing CMP-004 requires equivalent observable safety and cleanup on Linux and Windows while permitting different OS primitives; the same rule applies to quality tooling where UBSan, TSan, and LeakSanitizer have no supported MSVC counterpart.
+    supersedes_revision: null
+    requirement_ids: [CMP-006, TST-003]
+
+  - id: operations.fuzzing-cadence
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - .github/workflows/pr-checks.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-operations-round-01
+      question_id: operations.fuzzing-cadence
+      idempotency_key: operations.fuzzing-cadence:v1
+      last_status: answered
+    question:
+      text: How should the bounded native parser fuzzers participate in CI after they are introduced?
+      kind: single
+      options:
+        - id: bounded-pr-gate
+          label: Bounded PR gate
+          description: Run every target with a fixed per-target time and memory budget on affected pull requests and fail on any crash, sanitizer finding, timeout, or resource breach.
+        - id: corpus-pr-scheduled-fuzz
+          label: Corpus on PR, fuzz on schedule
+          description: Run committed regression corpora on pull requests and perform time-bounded mutation fuzzing only in a scheduled workflow required before qualification.
+        - id: scheduled-only
+          label: Scheduled fuzzing only
+          description: Keep both corpus and mutation fuzzing outside pull-request checks and require only a fresh scheduled result before qualification.
+    answer:
+      selected_ids: [bounded-pr-gate]
+      text: ''
+    rationale: Every selected parser target will provide bounded, deterministic pull-request feedback rather than deferring mutation testing to a later workflow.
+    supersedes_revision: null
+    requirement_ids: [TST-004]
+
+  - id: operations.tsan-cadence
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/whisper-cpp/core/cancellation.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-operations-round-01
+      question_id: operations.tsan-cadence
+      idempotency_key: operations.tsan-cadence:v1
+      last_status: answered
+    question:
+      text: When should the Linux ThreadSanitizer worker suite be required?
+      kind: single
+      options:
+        - id: pr-blocking
+          label: Pull-request blocking
+          description: Run the deterministic worker concurrency suite under TSan for affected pull requests after the worker redesign is complete.
+        - id: scheduled-prequalification
+          label: Scheduled before qualification
+          description: Run TSan on a schedule and require a fresh successful result before qualification, without adding it to every pull request.
+        - id: manual-prequalification
+          label: Manual before qualification
+          description: Require a recorded supported-host TSan run before qualification but no recurring automated gate.
+    answer:
+      selected_ids: [pr-blocking]
+      text: ''
+    rationale: Deterministic worker concurrency regressions must be detected on affected pull requests after the redesigned ownership and cancellation paths exist.
+    supersedes_revision: null
+    requirement_ids: [TST-005]
+
+  - id: security.advisory-failure-policy
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - runtime/local-whisper/sources/locks/
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-operations-round-01
+      question_id: security.advisory-failure-policy
+      idempotency_key: security.advisory-failure-policy:v1
+      last_status: answered
+    question:
+      text: How should scheduled upstream-advisory results affect pull requests and qualification?
+      kind: single
+      options:
+        - id: confirmed-blocks-qualification
+          label: Confirmed advisory blocks qualification
+          description: Keep live advisory queries out of PR checks, require a fresh successful scheduled scan before qualification, and block qualification only on a confirmed applicable advisory or unavailable fresh evidence.
+        - id: informational-only
+          label: Informational alerts only
+          description: Notify maintainers about matches and scan outages, but never make advisory evidence a qualification or release gate.
+        - id: live-pr-gate
+          label: Live query on every PR
+          description: Query the advisory service during affected pull requests and fail the PR on matches or service unavailability.
+    answer:
+      selected_ids: [confirmed-blocks-qualification]
+      text: ''
+    rationale: Pull requests remain reproducible and independent of live advisory availability, while qualification requires fresh evidence and stops for a confirmed applicable advisory or unavailable scan evidence.
+    supersedes_revision: null
+    requirement_ids: [SEC-003, OPS-002]
+
+  - id: quality.analysis-rollout-policy
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - runtime/local-whisper/common/.clang-tidy
+      - runtime/local-whisper/fs-guard/.clang-tidy
+      - runtime/local-whisper/launcher/.clang-tidy
+      - runtime/local-whisper/whisper-cpp/.clang-tidy
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - analyzer-first
+        - reviewed-check-by-check-rollout
+        - warnings-as-errors-after-burn-down
+        - no-blanket-noisy-check-family
+        - documented-false-positive-suppressions-only
+      text: ''
+    rationale: Repository policy treats warnings as errors, while the curated review demonstrated that broad bugprone/cert/concurrency families require classification before they can become blocking.
+    supersedes_revision: null
+    requirement_ids: [ANA-001, ANA-002, TST-006]
+
+  - id: security.synthetic-native-test-data
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - tests/fixtures/local-whisper/
+      - runtime/local-whisper/common/tests/
+      - runtime/local-whisper/whisper-cpp/tests/
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - synthetic-fixtures-only
+        - no-private-audio-or-transcripts
+        - no-secrets-or-capabilities
+        - sanitized-failure-output
+      text: ''
+    rationale: Native quality and fuzzing artifacts must preserve the existing privacy contract and never commit or upload sensitive runtime data.
+    supersedes_revision: null
+    requirement_ids: [SEC-004]
+
+  - id: operations.advisory-scan-cadence
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - .github/workflows/
+      - runtime/local-whisper/sources/locks/
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-advisory-round-01
+      question_id: operations.advisory-scan-cadence
+      idempotency_key: operations.advisory-scan-cadence:v1
+      last_status: answered
+    question:
+      text: How fresh must upstream-advisory evidence be for Local Whisper qualification?
+      kind: single
+      options:
+        - id: weekly-seven-days
+          label: Weekly, seven-day freshness
+          description: Run the scan at least weekly and require a successful result no older than seven days when qualification begins.
+        - id: daily-forty-eight-hours
+          label: Daily, forty-eight-hour freshness
+          description: Run daily and require a successful result no older than forty-eight hours, increasing external-service use and maintenance sensitivity.
+        - id: qualification-time
+          label: Qualification-time scan
+          description: Require an explicit scan immediately before each qualification attempt without a recurring scheduled cadence.
+    answer:
+      selected_ids: [weekly-seven-days]
+      text: ''
+    rationale: A weekly scan with a seven-day qualification freshness window bounds exposure without coupling every pull request to live advisory-service availability.
+    supersedes_revision: null
+    requirement_ids: [OPS-003, AC-AUT-026]
+
+  - id: operations.fuzzing-resource-budget
+    revision: 1
+    category: operations
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-security-checks.md
+      - User selected bounded-pr-gate for every curated parser target.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - sixty-seconds-per-target
+        - two-gib-rss-per-target
+        - committed-seed-and-regression-corpora
+      text: ''
+    rationale: The source review supplies a concrete bounded PR budget; it is reversible, uses the already provisioned Clang toolchain, and will be exposed in the draft for approval.
+    supersedes_revision: null
+    requirement_ids: [FUZ-001, TST-004]
+
+  - id: security.advisory-reporting-boundary
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - .github/workflows/pr-checks.yml
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - read-only-public-sources
+        - no-credentials
+        - no-auto-upgrade
+        - no-auto-issue-or-pull-request
+        - exact-revision-mapping
+        - sanitized-report
+      text: ''
+    rationale: Specification work does not authorize external writes or dependency changes; advisory monitoring may read public data and fail its own workflow but may not mutate the repository or contact maintainers through new external records.
+    supersedes_revision: null
+    requirement_ids: [SEC-003, OPS-002]
+
+  - id: scope.excluded-ci-suggestions
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-single-platform-codeql
+        - no-diff-coverage-as-thread-safety-proof
+        - no-pr-valgrind
+        - no-blanket-warning-family-rollout
+        - no-arbitrary-stack-frame-ceiling
+        - no-windows-clang-tidy-requirement
+      text: ''
+    rationale: These suggestions were explicitly rejected or made conditional by the curated review and are not among the ten selected actions.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: operations.existing-plan-revision
+    revision: 1
+    category: operations
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - User explicitly stated that the plan will be described later.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - specification-only
+        - plan-revision-deferred
+        - no-packet-execution
+      text: ''
+    rationale: The amended specification invalidates the old plan's coverage audit, but this turn is not authorized to revise planning artifacts or execute any packet.
+    supersedes_revision: null
+    requirement_ids: [OPS-004]
+
+  - id: interfaces.ci-public-contract-impact
+    revision: 1
+    category: interfaces
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - src/main/ipc.ts
+      - src/main/preload.ts
+      - src/renderer/types.d.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: The native quality amendment changes build, test, workflow, and evidence contracts only; it adds no renderer, preload, public IPC, settings, provider-selection, or persisted-data behavior.
+    supersedes_revision: null
+    requirement_ids: [SCP-002, CMP-002]
+
+  - id: acceptance.ci-failure-semantics
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - sanitizer-findings-fail
+        - analyzer-findings-fail-after-rollout
+        - fuzzer-crash-timeout-or-budget-breach-fails
+        - tsan-findings-fail
+        - real-windows-execution-required
+        - no-weakened-check-to-obtain-pass
+      text: ''
+    rationale: The repository already requires warnings as errors, sanitizers, deterministic native tests, and equivalent Windows evidence; selected new checks must be enforceable gates rather than advisory labels.
+    supersedes_revision: null
+    requirement_ids: [TST-003, TST-006, TST-007]
+
+  - id: acceptance.final-gap-analysis
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-outcomes-and-compatibility-covered
+        - operator-gates-freshness-and-rollback-covered
+        - implementer-boundaries-and-toolchains-covered
+        - tester-normal-failure-and-negative-cases-covered
+        - security-privacy-trust-and-abuse-limits-covered
+        - maintainer-scope-evidence-and-plan-handoff-covered
+      text: ''
+    rationale: The amended draft was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives; no unresolved material behavior remains before draft approval.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, CMP-005, CMP-006, SEC-003, SEC-004, OPS-002, OPS-003, OPS-004, TST-003, TST-007]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - docs/reviews/2026-08-08-local-whisper-native-ci-comments-to-address.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: ci-approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: What should happen to the amended Local Whisper native review remediation specification draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amended draft
+          description: Approve the amended draft as the authoritative implementation contract and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the amended specification in Draft status, identify revisions, and reopen affected decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the amended specification retained in Draft status and no approval, planning, or implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the inspectable amended draft as the authoritative implementation contract and retained the separate later /plan gate.
+    supersedes_revision: 1
+    requirement_ids: [APPROVAL-002]
+
+  - id: authorization.packet-02-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'User reply: "approve" after the exact Packet 02 execution request.'
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - Prompt MCP batch authorization request returned invalid_request, so no persisted Prompt MCP answer was available.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: approve
+    rationale: The user explicitly authorized implementation of Packet 02 only. This authorization excludes Packet 03 and later packets, commits, releases, publishing, and real Windows-host execution.
+    supersedes_revision: null
+    requirement_ids: [FSG-001, FSG-005, FSG-006, EXEC-AUTH-001]
+
+  - id: authorization.packet-02-commit
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: authorization-packet-02-commit-round-01
+      question_id: authorization.packet-02-commit
+      idempotency_key: authorization.packet-02-commit:v1
+      last_status: answered
+    question:
+      text: May I create one isolated local commit containing only the completed Packet 02 filesystem-guard resource-ownership changes and its checklist, handoff, and decision-ledger updates? This is required before Packet 03 can begin; it will exclude all unrelated review files and will not push or publish anything.
+      kind: single
+      options:
+        - id: authorize-isolated-commit
+          label: Authorize isolated commit (Recommended)
+          description: Create the local Packet 02 commit only, then proceed to Packet 03 in this invocation.
+        - id: do-not-commit
+          label: Do not commit
+          description: Leave Packet 02 uncommitted and stop before Packet 03.
+    answer:
+      selected_ids: [authorize-isolated-commit]
+      text: ''
+    rationale: The user authorized one isolated local Packet 02 commit, excluding unrelated worktree files, pushes, and publication.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-001]
+
+  - id: authorization.packet-03-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: authorization-packet-03-execution-round-01
+      question_id: authorization.packet-03-execution
+      idempotency_key: authorization.packet-03-execution:v1
+      last_status: answered
+    question:
+      text: May I implement Packet 03, Filesystem-Guard Input And Typed Commands, in this invocation? It will add the bounded 262,144-byte reader, typed command boundary, exact cross-platform LIST validation, and transport recovery tests; Windows source and tests will be authored but real MSVC execution remains deferred to Packet 15. It excludes commits, pushes, releases, and later packets.
+      kind: single
+      options:
+        - id: authorize-packet-03
+          label: Authorize Packet 03 (Recommended)
+          description: Implement and verify Packet 03 only, then update its checklist and handoff without committing.
+        - id: do-not-authorize-packet-03
+          label: Do not authorize Packet 03
+          description: Stop after retaining the Packet 03 execution decision as unresolved.
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: The user authorized implementation and verification of Packet 03 only, with Windows source/test authoring but no real Windows-host execution.
+    supersedes_revision: null
+    requirement_ids: [FSG-002, FSG-003, FSG-004, ARC-001, EXEC-AUTH-001]
+
+  - id: plan.packet-platform-slicing
+    revision: 3
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+      - .github/workflows/pr-checks.yml
+      - User required every task to commit and push its changes, verify CI launch, inspect Linux and Windows implementation jobs, and pass every required C++ check before completion.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: remote-completion-round-01
+      question_id: plan.packet-platform-slicing
+      idempotency_key: plan.packet-platform-slicing:v3
+      last_status: answered
+    question:
+      text: How should automated Linux and Windows CI evidence be scheduled after this plan revision?
+      kind: single
+      options:
+        - id: packet-local-cross-platform-ci
+          label: Per-packet CI (Recommended)
+          description: After every packet, commit and push it, then require all applicable Linux and Windows CI jobs plus every required C++ check to pass; keep only supported-host manual Windows smoke testing in final Packet 15.
+        - id: final-windows-ci
+          label: Final Windows CI
+          description: Continue deferring automated Windows execution and fixes to Packet 15 while earlier packets use Linux/shared evidence only.
+    answer:
+      selected_ids: [packet-local-cross-platform-ci]
+      text: ''
+    rationale: Beginning with Packet 04, automated Linux and Windows execution is a packet-local completion gate. Packet 15 retains only supported-host manual Windows validation, final regression, and manual-only remediation ownership.
+    supersedes_revision: 2
+    requirement_ids: [CMP-004, CMP-006, TST-001, TST-002, TST-007, OPS-004, EXEC-AUTH-001]
+
+  - id: plan.remote-completion-backfill
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - Packet 01 is already in commit 0b4d7825, Packet 02 is already in commit b645421, and Packet 03 is implemented but uncommitted.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: remote-completion-round-01
+      question_id: plan.remote-completion-backfill
+      idempotency_key: plan.remote-completion-backfill:v1
+      last_status: answered
+    question:
+      text: How should Packets 01–03, which were checked under the previous local-only completion rule, be handled?
+      kind: single
+      options:
+        - id: reopen-and-backfill
+          label: Reopen and backfill (Recommended)
+          description: Mark them incomplete, push their existing packet commits sequentially, require a distinct successful cross-platform CI run for each packet revision, then commit/push/check Packet 03 before Packet 04.
+        - id: prospective-only
+          label: Future packets only
+          description: Keep Packets 01–03 complete under the former rule and apply the new remote completion gate only to Packet 04 onward.
+    answer:
+      selected_ids: [prospective-only]
+      text: ''
+    rationale: Packets 01–03 remain complete under their prior approved evidence rules. The new commit, push, exact-SHA CI, Linux, Windows, and full native-check gate begins with Packet 04; any later reopening of Packets 01–03 uses the new gate.
+    supersedes_revision: null
+    requirement_ids: [OPS-004, EXEC-AUTH-001]
+
+  - id: plan.windows-job-skip-policy
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User instruction: 'No skip windows jobs'
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-jobs-must-run]
+      text: ''
+    rationale: Every required Windows CI job for Packet 04 onward must be scheduled, execute, and conclude successfully. A skipped Windows job is missing evidence and leaves the packet incomplete.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, CMP-005, CMP-006, TST-001, TST-002, TST-003, TST-007]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/01_worker_concurrency_and_cancel_protocol.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/06_typed_launch_failures.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/07_native_hardening_and_binary_verifier.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/08_sanitizer_and_stl_hardening.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_native_execution_analysis_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_linux_shared_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-03
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+    question:
+      text: What should happen to the revised 15-packet plan, where Packet 04 onward requires candidate and completion-record commits/pushes, exact-SHA Linux and Windows CI success, every required C++ check, and no skipped Windows jobs, while Packets 01–03 remain complete under the prior rule?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan (Recommended)
+          description: Make this the authoritative packet contract; implementation still requires a separate incremental-implementation invocation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise its packet, push, CI, or completion rules.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the edited artifacts without approving or executing them.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the packet-local remote completion contract. Packets 04–15 require candidate and completion-record commits/pushes, exact-SHA CI, all required C++ checks, and successful execution of every required Windows job; Packets 01–03 remain complete under the prior rule.
+    supersedes_revision: 2
+    requirement_ids: [PLAN-APPROVAL-003, OPS-004, EXEC-AUTH-001]
+
+  - id: authorization.packet-03-commit
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: implementation:local-whisper-native-review-remediation
+      batch_id: authorization-round-01
+      question_id: authorization.packet-03-commit
+      idempotency_key: authorization.packet-03-commit:v1
+      last_status: answered
+    question:
+      text: May I create one isolated local commit containing only the completed Packet 03 filesystem-guard input/typed-command changes and its checklist/handoff updates? This prerequisite excludes the separate plan revisions and unrelated review files; it will not push, publish, or start Packet 04 by itself.
+      kind: single
+      options:
+        - id: authorize-isolated-packet-03-commit
+          label: Authorize Packet 03 commit
+          description: Create the isolated local Packet 03 commit, then continue to the separately authorized Packet 04 work.
+        - id: do-not-authorize-packet-03-commit
+          label: Do not commit
+          description: Leave Packet 03 uncommitted and stop before Packet 04.
+    answer:
+      selected_ids: [authorize-isolated-packet-03-commit]
+      text: ''
+    rationale: The user authorized one local, isolated Packet 03 commit as the prerequisite for Packet 04; it excludes plan revisions, unrelated review files, pushing, and publishing.
+    supersedes_revision: null
+    requirement_ids: [FSG-002, FSG-003, FSG-004, EXEC-AUTH-001]
+
+  - id: authorization.packet-04-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/04_process_and_capability_lifecycle.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+    prompt_mcp:
+      interview_id: implementation:local-whisper-native-review-remediation
+      batch_id: authorization-round-01
+      question_id: authorization.packet-04-execution
+      idempotency_key: authorization.packet-04-execution:v1
+      last_status: answered
+    question:
+      text: May I implement Packet 04, Process And Capability Lifecycle, in this invocation? It will fix closed-control wait lifecycle and Linux/Windows rejected-capability cleanup, run the packet's local checks, then complete its required non-force candidate and completion-record pushes with exact-SHA Linux and Windows CI evidence. It excludes Packet 05, releases, and manual supported-host Windows testing.
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize Packet 04
+          description: Commit Packet 03 as its prerequisite and implement, verify, push, and close Packet 04 under its two-phase CI gate.
+        - id: do-not-authorize-packet-04
+          label: Do not authorize
+          description: Stop after preserving the existing Packet 03 and planning work unchanged.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: The user authorized exactly Packet 04, including its required two-phase non-force pushes and exact-SHA Linux/Windows CI gates; Packet 05, releases, and supported-host manual Windows testing remain excluded.
+    supersedes_revision: null
+    requirement_ids: [LNX-001, CAP-001, CMP-004, ARC-002, ARC-003, SEC-001, SEC-002, TST-001, TST-002, EXEC-AUTH-001]
+
+  - id: authorization.packet-04-ci-remediation
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - https://github.com/swimmwatch/gpt-voice/actions/runs/31277185750
+      - .github/workflows/pr-checks.yml
+    prompt_mcp:
+      interview_id: implementation:local-whisper-native-review-remediation
+      batch_id: authorization-round-02
+      question_id: authorization.packet-04-ci-remediation
+      idempotency_key: authorization.packet-04-ci-remediation:v1
+      last_status: answered
+    question:
+      text: >-
+        May I expand Packet 04 to repair the candidate SHA's pre-existing CI blockers: Actionlint rejects the permanently false Windows AMD placeholder at .github/workflows/pr-checks.yml:223, and the Linux native job fails while provisioning its locked test sources before any Packet 04 code runs? The repair would be limited to CI/workflow or locked-source provisioning and their regressions, then would repeat both exact-SHA Linux and Windows gates. It excludes Packet 05, releases, and manual Windows testing.
+      kind: single
+      options:
+        - id: authorize-packet-04-ci-remediation
+          label: Authorize CI remediation (Recommended)
+          description: Repair the two blocking CI paths and rerun the required candidate and completion-record gates.
+        - id: keep-packet-04-native-only
+          label: Keep native-only scope
+          description: Leave Packet 04 unchecked and stop with the existing CI blockers recorded.
+    answer:
+      selected_ids: [authorize-packet-04-ci-remediation]
+      text: User authorized continuation without separate commit-fix approval and made that commit authorization policy applicable to subsequent approved tasks.
+    rationale: The user authorized the focused CI repair needed to complete Packet 04 and standing scoped commits for approved packet work; releases, publishing outside the packet's required non-force PR pushes, and unrelated work remain excluded.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, TST-001, TST-002, OPS-004, EXEC-AUTH-001]
+
+  - id: scope.security-research-controls
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - https://github.com/swimmwatch/cloakbrowser-mcp/tree/3479090cef9a36cfe38a0fced4c4bc09993ddac4
+      - .github/workflows/
+      - .github/dependabot.yml
+      - build/fedora-release/Dockerfile
+      - User requested that the specification be updated to take the comparative security-check research into account.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: scope.security-research-controls
+      idempotency_key: scope.security-research-controls:v1
+      last_status: answered
+    question:
+      text: How broadly should the comparative security-control research expand this specification?
+      kind: single
+      options:
+        - id: full-recommended-stack
+          label: Full recommended stack (Recommended)
+          description: Require repository/workflow controls plus whole-application Linux and Windows artifact scanning, SBOM, provenance, and attestation while keeping OpenSSF Scorecard advisory.
+        - id: repository-controls-only
+          label: Repository controls only
+          description: Require workflow, dependency, source, secret, and Docker-build controls but leave installer SBOM, artifact scanning, provenance, and attestation outside this contract.
+        - id: native-contract-only
+          label: Native contract only
+          description: Preserve the existing native advisory and C++ quality contract without adding broader repository or release-artifact controls.
+    answer:
+      selected_ids: [full-recommended-stack]
+      text: ''
+    rationale: The user selected the complete repository, workflow, dependency, source, secret, Docker-build, installer-artifact, SBOM, provenance, and attestation control set; OpenSSF Scorecard remains advisory.
+    supersedes_revision: null
+    requirement_ids: [SUP-001, ART-001]
+
+  - id: security.hosted-scanner-policy
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/docs/security.md
+      - Comparative analysis found that Cloakbrowser MCP does not use Snyk and instead uses GitHub-native and credential-free open-source controls.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: security.hosted-scanner-policy
+      idempotency_key: security.hosted-scanner-policy:v1
+      last_status: answered
+    question:
+      text: What role, if any, should Snyk or another third-party hosted scanner have in the amended contract?
+      kind: single
+      options:
+        - id: no-third-party-scanner
+          label: No hosted scanner (Recommended)
+          description: Use GitHub-native and credential-free local tools; do not require Snyk or another hosted security vendor.
+        - id: optional-nonblocking-pilot
+          label: Optional pilot
+          description: Permit a separately approved, non-blocking hosted-service evaluation without making it qualification or release evidence.
+        - id: mandatory-hosted-gate
+          label: Mandatory hosted gate
+          description: Require Snyk or an equivalent hosted service as a blocking check and define its credentials, data handling, availability, and licensing contract.
+    answer:
+      selected_ids: [no-third-party-scanner]
+      text: ''
+    rationale: Snyk and equivalent hosted security vendors are excluded; required checks use GitHub-native or credential-free local tooling.
+    supersedes_revision: null
+    requirement_ids: [SRV-001]
+
+  - id: security.codeql-coverage
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/codeql.yml
+      - .github/workflows/pr-checks.yml
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: security.codeql-coverage
+      idempotency_key: security.codeql-coverage:v1
+      last_status: answered
+    question:
+      text: Which CodeQL coverage should the amended specification require?
+      kind: single
+      options:
+        - id: javascript-typescript-only
+          label: JS/TS CodeQL only (Recommended)
+          description: Add blocking JavaScript/TypeScript CodeQL for Electron and scripts while retaining Clang and MSVC as the authoritative cross-platform C++ analyzers.
+        - id: js-ts-and-cross-platform-cpp
+          label: JS/TS and C++
+          description: Add JavaScript/TypeScript CodeQL plus supplemental C++ CodeQL backed by real Linux and Windows builds; it may not substitute for existing native gates.
+        - id: no-codeql
+          label: No CodeQL
+          description: Keep the current lint and native-analysis tools without adding GitHub CodeQL.
+    answer:
+      selected_ids: [js-ts-and-cross-platform-cpp]
+      text: ''
+    rationale: CodeQL covers JavaScript and TypeScript plus supplemental C++ databases produced by real Linux and Windows builds; existing platform-native analyzers and execution remain independently authoritative.
+    supersedes_revision: null
+    requirement_ids: [SAST-001]
+
+  - id: security.vulnerability-enforcement
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - SECURITY.md
+      - package.json
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/ci.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: security.vulnerability-enforcement
+      idempotency_key: security.vulnerability-enforcement:v1
+      last_status: answered
+    question:
+      text: How should confirmed high or critical dependency and packaged-artifact vulnerabilities affect delivery?
+      kind: single
+      options:
+        - id: fail-closed-no-exceptions
+          label: Fail closed (Recommended)
+          description: Block the applicable merge, freeze, qualification, or release gate whether or not a fix exists; missing or malformed evidence is not a clean result and no standing exceptions are permitted.
+        - id: time-bounded-waiver
+          label: Time-bounded waiver
+          description: Block by default but permit a separately reviewed, owner-assigned, expiring risk acceptance with documented exposure and mitigation.
+        - id: advisory-only
+          label: Advisory only
+          description: Report high and critical findings without preventing merge, qualification, or release.
+    answer:
+      selected_ids: [fail-closed-no-exceptions]
+      text: ''
+    rationale: Confirmed high or critical findings block the applicable gate regardless of fix availability; missing or malformed evidence is not clean and no standing exception is permitted.
+    supersedes_revision: null
+    requirement_ids: [VUL-001]
+
+  - id: operations.security-reporting-boundary
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - SECURITY.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/scorecard.yml
+      - https://github.com/swimmwatch/cloakbrowser-mcp/blob/3479090cef9a36cfe38a0fced4c4bc09993ddac4/.github/workflows/ci.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: operations.security-reporting-boundary
+      idempotency_key: operations.security-reporting-boundary:v1
+      last_status: answered
+    question:
+      text: Where may the new security checks publish sanitized evidence?
+      kind: single
+      options:
+        - id: github-native-only
+          label: GitHub-native only (Recommended)
+          description: Permit bounded SARIF, SBOM, provenance, and attestations in the existing GitHub repository while keeping native advisory collection read-only and forbidding third-party uploads.
+        - id: workflow-local-only
+          label: Workflow-local only
+          description: Retain only pass/fail logs and short-lived private workflow artifacts; do not publish SARIF, attestations, or public security results.
+        - id: hosted-reporting-allowed
+          label: Hosted reporting allowed
+          description: Permit approved third-party dashboards and uploads after explicit data-retention, credential, privacy, and availability requirements are defined.
+    answer:
+      selected_ids: [github-native-only]
+      text: ''
+    rationale: Sanitized SARIF, SBOM, provenance, and attestations may use the existing GitHub repository and workflow authority; native advisory collection remains read-only and third-party uploads remain forbidden.
+    supersedes_revision: null
+    requirement_ids: [REP-001]
+
+  - id: security.comparative-control-baseline
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - https://github.com/swimmwatch/cloakbrowser-mcp/tree/3479090cef9a36cfe38a0fced4c4bc09993ddac4
+      - .github/workflows/
+      - .github/dependabot.yml
+      - package.json
+      - build/fedora-release/Dockerfile
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - codeql-missing
+        - dependency-review-missing
+        - zizmor-missing
+        - artifact-vulnerability-scan-missing
+        - scorecard-missing
+        - hadolint-missing
+        - npm-signature-audit-missing
+        - secret-gate-missing
+        - action-sha-pins-missing
+        - container-digest-pins-missing
+        - whole-app-attestation-missing
+      text: ''
+    rationale: GPT-Voice has strong native execution and source-lock evidence but lacks the listed repository and whole-application supply-chain controls used or implied by the comparative source.
+    supersedes_revision: null
+    requirement_ids: [SUP-001, WF-001, DEP-001, SEC-005, DCK-001, SAST-001, ART-001, VUL-001, ATT-001, REP-002]
+
+  - id: operations.existing-plan-revision
+    revision: 2
+    category: operations
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - User requested specification revision; planning was explicitly deferred to a later workflow.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-completed-evidence
+        - new-controls-unowned
+        - plan-revision-required-after-approval
+        - no-plan-edit-this-turn
+      text: ''
+    rationale: The current approved 15-packet plan postdates revision 1 but predates this security-control amendment. Existing completed or authorized evidence remains recorded; new requirements require a later planning revision and are not authorized now.
+    supersedes_revision: 1
+    requirement_ids: [OPS-004]
+
+  - id: operations.dependencies-and-release
+    revision: 2
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - User selected the full recommended repository and artifact security-control stack.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-research-round-01
+      question_id: scope.security-research-controls
+      idempotency_key: scope.security-research-controls:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids:
+        - allow-development-security-tools
+        - allow-ci-security-metadata
+        - no-product-runtime-dependency
+        - no-package-target-or-signing-change
+        - no-publication-or-release-authorization
+      text: ''
+    rationale: The new contract may add pinned CI actions, development-only tools, SBOMs, provenance, and attestations, but it does not change product runtime dependencies, package targets, signing authority, or authorization to publish or release.
+    supersedes_revision: 1
+    requirement_ids: [OPS-001, SCP-001, SCP-002]
+
+  - id: acceptance.final-gap-analysis
+    revision: 2
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - SECURITY.md
+      - .github/workflows/
+      - package.json
+      - build/fedora-release/Dockerfile
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-no-ui-or-runtime-behavior-change
+        - operator-gates-outages-artifact-identities-and-rollback-covered
+        - implementer-tool-boundaries-platform-builds-and-reporting-covered
+        - tester-positive-negative-malformed-stale-and-cross-platform-cases-covered
+        - security-privacy-least-privilege-fail-closed-and-no-hosted-upload-covered
+        - maintainer-pinning-update-scorecard-and-plan-handoff-covered
+      text: ''
+    rationale: The reopened draft was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The five material choices are committed, every new control has an owning gate and evidence boundary, and no unresolved material behavior remains before draft approval.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        OUT-003,
+        GAT-003,
+        CMP-007,
+        CMP-008,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        OPS-001,
+        OPS-004,
+        TST-008,
+        TST-009,
+      ]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - https://github.com/swimmwatch/cloakbrowser-mcp/tree/3479090cef9a36cfe38a0fced4c4bc09993ddac4
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: security-approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      last_status: answered
+    question:
+      text: What should happen to the reopened Local Whisper native and repository security-controls specification draft?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amended draft (Recommended)
+          description: Approve this draft as the authoritative contract and stop before revising the plan or implementing any new control.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and reopen the affected requirements or decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current files without approval, planning, or implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the inspectable repository and packaged-artifact security-control amendment as the authoritative contract and retained the separate later planning gate.
+    supersedes_revision: 2
+    requirement_ids: [APPROVAL-003]
+
+  - id: compatibility.runner-version-matrix
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - .github/workflows/actionlint.yml
+      - .github/workflows/local-whisper-packaging-windows.yml
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - Linux x64 and Windows x64 are the supported packaged targets; macOS distribution remains paused and no ARM product target is declared.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: compatibility-round-04
+      question_id: compatibility.runner-version-matrix
+      idempotency_key: compatibility.runner-version-matrix:v1
+      last_status: answered
+    question:
+      text: Which fixed GitHub-hosted runner matrix should the amended specification require?
+      kind: single
+      options:
+        - id: two-generation-x64
+          label: Two x64 generations (Recommended)
+          description: Use Ubuntu 24.04 and 22.04 plus Windows Server 2025 and 2022, with no macOS, ARM, preview, or third Linux-host runner.
+        - id: every-available-x64
+          label: Every available x64
+          description: Add every currently advertised x64 Ubuntu and Windows Server image, increasing cost and churn beyond the declared product support boundary.
+        - id: one-fixed-version
+          label: One fixed version
+          description: Replace latest aliases with Ubuntu 24.04 and Windows Server 2025 only, avoiding drift but adding no older compatibility evidence.
+    answer:
+      selected_ids: [two-generation-x64]
+      text: ''
+    rationale: The required GitHub-hosted matrix is limited to the two established x64 generations that cover the supported Linux and Windows product families without adding macOS, ARM, preview, or a third Linux host.
+    supersedes_revision: null
+    requirement_ids: [RUN-001, RUN-002, RUN-003]
+
+  - id: compatibility.runner-version-matrix
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - Repository variables currently select `ubuntu-24.04` and `windows-latest`; no compatibility-runner variables or compatibility matrix rows exist.
+      - Exact-SHA run 31386616990 passed primary Linux and Windows native quality plus Fedora and Windows package smoke, but it did not execute Ubuntu 22.04 or Windows Server 2022 compatibility lanes.
+      - User requested that duplicated CI jobs be consolidated and reusable operating-system, environment, and build parameters be extracted to matrix, environment, or repository configuration.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: compatibility-round-05
+      question_id: compatibility.runner-version-matrix
+      idempotency_key: compatibility.runner-version-matrix:v2
+      last_status: answered
+    question:
+      text: Which native runner matrix should replace the previously approved four-runner contract after the CI consolidation?
+      kind: single
+      options:
+        - id: two-primary-explicit
+          label: Two explicit primary runners (Recommended)
+          description: Require Ubuntu 24.04 and Windows Server 2025 only, remove Ubuntu 22.04 and Windows Server 2022 compatibility tasks, and continue rejecting latest aliases.
+        - id: retain-four-runner
+          label: Retain four runners
+          description: Keep Ubuntu 24.04/22.04 and Windows Server 2025/2022, adding lean compatibility rows to the consolidated native matrix.
+        - id: configured-primary-runners
+          label: Configured primary runners
+          description: Require one repository-configured explicit x64 runner per supported OS without fixing the permitted versions in the specification.
+    answer:
+      selected_ids: [two-primary-explicit]
+      text: ''
+    rationale: The consolidated matrix keeps one explicit, current x64 runner per supported operating-system family. Ubuntu 22.04 and Windows Server 2022 compatibility lanes and their deferred package-smoke obligations are removed; mutable latest aliases remain prohibited.
+    supersedes_revision: 1
+    requirement_ids: [OUT-004, GAT-004, CMP-009, CMP-010, RUN-001, RUN-002, RUN-003, RUN-004, RUN-005, RUN-006, TST-010]
+
+  - id: compatibility.runner-check-allocation
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/local-whisper-packaging-windows.yml
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/release-builds.yml
+      - build/fedora-release/Dockerfile
+      - Existing native, sanitizer, analysis, CodeQL, packaging, SBOM, vulnerability, and attestation requirements have distinct evidence purposes and need not all be duplicated across host-image generations.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: compatibility-round-04
+      question_id: compatibility.runner-check-allocation
+      idempotency_key: compatibility.runner-check-allocation:v1
+      last_status: answered
+    question:
+      text: How should checks be divided between the current and older runner versions?
+      kind: single
+      options:
+        - id: exhaustive-primary-lean-compatibility
+          label: Tiered matrix (Recommended)
+          description: Run exhaustive analysis, sanitizers, CodeQL, packaging, and artifact security on current runners; use older runners for ordinary native build/tests and smoke of the exact candidate artifacts.
+        - id: exhaustive-on-every-runner
+          label: Full duplication
+          description: Repeat every analyzer, sanitizer, CodeQL, package build, and security check on all four runners for maximum evidence at substantially higher cost.
+        - id: artifact-smoke-only
+          label: Smoke only
+          description: Use older runners only to smoke current-runner artifacts, without rebuilding or executing the ordinary native unit and integration suites there.
+    answer:
+      selected_ids: [exhaustive-primary-lean-compatibility]
+      text: ''
+    rationale: Current runners own exhaustive analysis and artifact production while older runners prove ordinary native execution and exact-candidate runtime compatibility; expensive host-independent or defect-oriented checks are not duplicated without a distinct evidence purpose.
+    supersedes_revision: null
+    requirement_ids: [RUN-004, RUN-005, TST-010]
+
+  - id: compatibility.runner-check-allocation
+    revision: 2
+    category: compatibility
+    state: not_applicable
+    provenance: user
+    evidence:
+      - compatibility.runner-version-matrix revision 2 selects exactly one primary runner per supported operating-system family.
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-older-compatibility-tier
+        - required-platform-checks-run-on-primary
+        - no-duplicate-host-independent-gates
+      text: ''
+    rationale: With no older compatibility generation, the previous primary-versus-compatibility allocation no longer applies. Linux-only, Windows-only, and host-independent checks retain distinct ownership in the consolidated workflow.
+    supersedes_revision: 1
+    requirement_ids: [RUN-004, RUN-005, TST-010]
+
+  - id: operations.workflow-parameterization
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - User requested duplicate operating-system workflows, jobs, and steps to be consolidated where conditions or matrices can express the differences.
+      - User requested reusable constants—including runner labels, versions, architectures, timeouts, retention, images, and tool versions—to be extracted to matrix, environment, repository variables, or shared local actions.
+      - .github/actions/setup-ci-project/action.yml
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - consolidate-duplicate-jobs
+        - matrix-or-conditions-for-platform-differences
+        - shared-local-actions-for-common-setup
+        - reusable-configuration-values
+        - separate-jobs-only-for-distinct-build-mechanisms
+        - locally-and-remotely-validated-runner-values
+      text: ''
+    rationale: CI configuration has one authoritative owner for each reusable value and one shared path for equivalent setup or verification. Platform-specific jobs remain separate only where Fedora-container and native-Windows packaging mechanisms cannot safely share a job.
+    supersedes_revision: null
+    requirement_ids: [SUP-001, WF-001, RUN-001, RUN-004, OPS-004]
+
+  - id: compatibility.runner-hosted-image-baseline
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: authoritative-doc
+    evidence:
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - GitHub documents `ubuntu-24.04`, `ubuntu-22.04`, `windows-2025`, and `windows-2022` as explicit x64 hosted-runner labels and documents that `*-latest` aliases migrate between OS generations.
+      - GitHub documents in-place weekly runner-image updates and deprecation of older images when generation support changes.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - ubuntu-24.04-primary
+        - ubuntu-22.04-compatibility
+        - windows-2025-primary
+        - windows-2022-compatibility
+        - reject-latest-aliases
+        - reviewed-generation-replacement
+      text: ''
+    rationale: Explicit labels prevent unreviewed operating-system migration; lifecycle changes still require a reviewed matrix update because the label's installed software changes in place and old generations are eventually deprecated.
+    supersedes_revision: null
+    requirement_ids: [CMP-009, RUN-001, RUN-006]
+
+  - id: compatibility.runner-hosted-image-baseline
+    revision: 2
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - GitHub documents `ubuntu-24.04` and `windows-2025` as explicit x64 hosted-runner labels and documents that `*-latest` aliases migrate between operating-system generations.
+      - GitHub documents in-place runner-image updates and label deprecation independently of repository workflow configuration.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - ubuntu-24.04-primary
+        - windows-2025-primary
+        - reject-latest-aliases
+        - no-required-older-generation
+        - reviewed-generation-replacement
+      text: ''
+    rationale: Explicit labels prevent unreviewed operating-system migration. The selected baseline now has one current primary runner per supported operating-system family; any later compatibility expansion or generation replacement requires review.
+    supersedes_revision: 1
+    requirement_ids: [CMP-009, RUN-001, RUN-006]
+
+  - id: compatibility.runner-evidence-boundary
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - README.md
+      - AGENTS.md
+      - build/fedora-release/Dockerfile
+      - .github/workflows/local-whisper-packaging.yml
+      - .github/workflows/local-whisper-packaging-windows.yml
+      - .github/workflows/release-builds.yml
+      - The product artifacts are Linux x64 AppImage/DEB/RPM and Windows x64 NSIS; macOS release work is paused and no ARM product target is declared.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - hosted-windows-server-is-not-client-qualification
+        - ubuntu-is-not-all-linux-distributions
+        - fedora-44-is-builder-not-runner
+        - package-smoke-follows-format-applicability
+        - no-macos-or-arm-matrix
+      text: ''
+    rationale: The selected hosted runners provide bounded CI compatibility evidence, while Fedora package construction and supported desktop verification retain their own environments and claims.
+    supersedes_revision: null
+    requirement_ids: [CMP-011, CMP-012, RUN-002, RUN-007]
+
+  - id: operations.existing-plan-revision
+    revision: 3
+    category: operations
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - User requested another specification revision; planning remains a separate later workflow.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-completed-evidence
+        - runner-matrix-unowned
+        - plan-revision-required-after-approval
+        - no-plan-edit-this-turn
+      text: ''
+    rationale: The current 15-packet plan predates both the repository-security amendment and the new runner-version contract. Existing completed evidence remains recorded, but the fixed matrix and its acceptance gates require later `/plan` revision before implementation.
+    supersedes_revision: 2
+    requirement_ids: [OPS-004]
+
+  - id: operations.existing-plan-revision
+    revision: 4
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - The current 19-packet plan assigns the former four-runner foundation and compatibility evidence to Packets 09, 18, and 19.
+      - User explicitly requested both specification and plan revision for the consolidated two-runner workflow contract.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-completed-packets-01-08
+        - revise-uncompleted-runner-scopes
+        - preserve-one-packet-per-execution
+        - no-implementation-during-document-revision
+      text: ''
+    rationale: Completed native remediation evidence remains unchanged. Uncompleted packet contracts must remove the older-runner obligations and add consolidated workflow-configuration acceptance after this draft is approved.
+    supersedes_revision: 3
+    requirement_ids: [OPS-004]
+
+  - id: compatibility.runner-toolchain-independence
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - .github/actions/initialize-msvc-environment/action.yml
+      - .github/workflows/pr-checks.yml
+      - https://github.com/actions/runner-images/blob/main/README.md
+      - Existing contract CMP-005 pins MSVC 19.39 while GitHub runner images update installed software independently of their OS-generation labels.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - runner-version-is-not-compiler-version
+        - provision-and-verify-pinned-toolchains
+        - no-ambient-compiler-fallback
+        - same-ordinary-source-manifest-per-platform
+      text: ''
+    rationale: Adding runner generations must not change the accepted compiler profile or allow image-default toolchains to produce misleading compatibility evidence.
+    supersedes_revision: null
+    requirement_ids: [CMP-010, RUN-005]
+
+  - id: acceptance.final-gap-analysis
+    revision: 3
+    category: acceptance
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - .github/workflows/
+      - build/fedora-release/Dockerfile
+      - https://github.com/actions/runner-images/blob/main/README.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-no-runtime-or-support-tier-change
+        - operator-explicit-labels-gates-artifact-identities-and-image-lifecycle-covered
+        - implementer-primary-compatibility-allocation-toolchains-and-path-owners-covered
+        - tester-positive-negative-mismatch-cancelled-and-cross-generation-cases-covered
+        - security-no-gate-weakening-cross-environment-substitution-or-hosted-upload
+        - maintainer-minimal-runner-cost-deprecation-boundary-and-plan-handoff-covered
+      text: ''
+    rationale: The runner amendment was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The two material decisions are committed; exact versions, check allocation, triggers, package applicability, evidence identity, failure behavior, claim boundaries, and lifecycle replacement are objective; and no unresolved material behavior remains before draft approval.
+    supersedes_revision: 2
+    requirement_ids:
+      [
+        OUT-004,
+        GAT-004,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-010,
+        OPS-004,
+      ]
+
+  - id: acceptance.final-gap-analysis
+    revision: 4
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - .github/actions/setup-ci-project/action.yml
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - Exact-SHA workflow runs 31386616990, 31386617480, and 31386617497
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - user-no-runtime-platform-or-public-contract-change
+        - operator-two-explicit-primary-labels-and-reusable-configuration-defined
+        - implementer-matrix-conditions-shared-actions-and-platform-job-exceptions-defined
+        - tester-latest-invalid-variable-missing-platform-and-duplicate-owner-proofs-defined
+        - security-no-permission-identity-toolchain-or-evidence-weakening
+        - maintainer-former-compatibility-obligations-and-plan-impact-explicit
+      text: ''
+    rationale: The revision was checked from user, operator, implementer, tester, security-reviewer, and maintainer perspectives. The runner choice and CI parameterization contract are committed; exact labels, configuration ownership, platform exceptions, failure behavior, acceptance, historical evidence, and plan impact are objective; and no unresolved material behavior remains before draft approval.
+    supersedes_revision: 3
+    requirement_ids:
+      [
+        OUT-004,
+        GAT-004,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-010,
+        OPS-004,
+      ]
+
+  - id: approval.spec
+    revision: 4
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - https://github.com/actions/runner-images/blob/main/README.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: runner-approval-round-04
+      question_id: approval.spec
+      idempotency_key: approval.spec:v4
+      last_status: answered
+    question:
+      text: What should happen to the Local Whisper native specification draft amended with the fixed runner-version matrix?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amended draft (Recommended)
+          description: Approve the four-runner tiered contract as authoritative and stop before revising the plan or implementing workflow changes.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and reopen the affected runner requirements or decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current files without approval, planning, or implementation authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the fixed four-runner x64 and tiered compatibility-check amendment as the authoritative contract and retained the separate later planning gate.
+    supersedes_revision: 3
+    requirement_ids: [APPROVAL-004]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - compatibility.runner-version-matrix revision 2
+      - operations.workflow-parameterization revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: runner-approval-round-05
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+    question:
+      text: What should happen to the Local Whisper native specification draft revised for two explicit primary runners and consolidated parameterized CI workflows?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised draft (Recommended)
+          description: Approve Ubuntu 24.04 and Windows Server 2025 as the exact required runners, remove the older compatibility lanes, and make consolidated reusable CI configuration authoritative.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and reopen the affected runner or workflow-configuration decisions.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current files without approval or plan revision.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved Ubuntu 24.04 and Windows Server 2025 as the exact required runner matrix, removal of the former Ubuntu 22.04 and Windows Server 2022 compatibility lanes, and consolidated reusable CI configuration as the authoritative contract.
+    supersedes_revision: 4
+    requirement_ids: [APPROVAL-005]
+
+  - id: plan.amendment-packet-sequencing
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_native_execution_analysis_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_linux_shared_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_windows_validation_and_remediation_gate.md
+      - Packets 01–08 are complete; Packets 09–15 are unchecked and may be revised without changing completed evidence.
+      - The approved amendment makes immutable workflow inputs and the fixed runner policy foundational merge blockers, while C++ CodeQL depends on the native source manifests currently assigned to Packet 09.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: allocation-round-01
+      question_id: plan.amendment-packet-sequencing
+      idempotency_key: plan.amendment-packet-sequencing:v1
+      last_status: answered
+    question:
+      text: How should the approved security and fixed-runner amendments be integrated with the unstarted Packets 09–15?
+      kind: single
+      options:
+        - id: renumber-unstarted-focused
+          label: Renumber focused packets
+          description: Preserve completed Packets 01–08, put workflow/runner foundations first, shift and retain the valid native packets, add focused repository/artifact security packets, and keep Linux then Windows closure last.
+        - id: preserve-unstarted-numbers
+          label: Preserve 09–13 numbers
+          description: Keep the existing native Packet 09–13 identities, append the amendment packets after them, and move only the two closure packets later.
+        - id: fold-into-existing-packets
+          label: Fold into existing packets
+          description: Broaden Packets 09–15 to absorb all new controls without adding focused packet identities, producing substantially larger execution units.
+    answer:
+      selected_ids: [renumber-unstarted-focused]
+      text: ''
+    rationale: The user selected focused renumbering so completed Packets 01–08 retain their evidence, foundational workflow and runner controls precede later CI work, valid unstarted native scopes remain distinct, and integrated Linux then supported-host Windows closure stays last.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        GAT-003,
+        GAT-004,
+        CMP-007,
+        CMP-008,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-008,
+        TST-009,
+        TST-010,
+      ]
+
+  - id: plan.amendment-packet-map
+    revision: 1
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - packets-01-08-preserved
+        - packet-09-workflow-runner-foundation
+        - packet-10-repository-builder-controls
+        - packet-11-native-analysis-codeql
+        - packets-12-15-retained-native-gates
+        - packet-16-application-sbom-vulnerability
+        - packet-17-attestation-reporting
+        - packet-18-linux-shared-security-closure
+        - packet-19-final-windows-closure
+      text: ''
+    rationale: The selected focused-renumbering option is implemented as eleven unstarted packets. Workflow and runner prerequisites come first; CodeQL shares the canonical real-build source manifests; the valid fuzz, TSan, GCC, and advisory scopes remain independent; artifact inventory/scanning precedes attestation; and all integrated testing/fixing closes in Linux then the final supported-host Windows packet.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        GAT-003,
+        GAT-004,
+        CMP-007,
+        CMP-008,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-008,
+        TST-009,
+        TST-010,
+      ]
+
+  - id: approval.plan
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - Completed Packets 01–08 and their evidence remain unchanged.
+      - Coverage audit maps 151 active requirement and acceptance identifiers; section, link, numbering, YAML, Markdown-format, and diff-whitespace audits pass.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-04
+      question_id: approval.plan
+      idempotency_key: approval.plan:v4
+      last_status: answered
+    question:
+      text: What should happen to the revised 19-packet Local Whisper remediation plan that preserves completed Packets 01–08, integrates the approved security and fixed-runner amendments, and keeps Linux/shared/security then real Windows testing/fixing in Packets 18–19?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan
+          description: Make this 19-packet plan authoritative while keeping implementation subject to a separate execution-authorization decision.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise its allocation, dependencies, verification, or completion rules.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the planning files without approving or authorizing implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the revised 19-packet plan as authoritative. Completed Packets 01–08 remain unchanged; Packets 09–17 own the approved amendment and retained native scopes; Packet 18 owns integrated Linux/shared/security closure; Packet 19 owns final supported-host Windows closure. Implementation still requires the separate execution-authorization gate.
+    supersedes_revision: 3
+    requirement_ids: [PLAN-APPROVAL-004, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - PLAN-APPROVAL-004 approves planning only and does not start implementation.
+      - User standing instruction authorizes packet/fix commits and non-force pushes after all applicable local checks, followed by exact-SHA CI with required Linux and Windows jobs and no skipped required Windows stage.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-04
+      question_id: authorization.plan-execution
+      idempotency_key: authorization.plan-execution:v1
+      last_status: answered
+    question:
+      text: How should execution of approved Packets 09–19 be authorized after this planning turn?
+      kind: single
+      options:
+        - id: authorize-revised-sequence
+          label: Authorize revised sequence
+          description: Authorize Packets 09–19 one at a time on later explicit incremental-implementation invocations, including local-first checks, scoped commits/fixes, non-force pushes, and exact-SHA CI gates.
+        - id: authorize-packet-09-only
+          label: Authorize Packet 09 only
+          description: Authorize only Packet 09 on a later explicit incremental-implementation invocation; later packets need another execution decision.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep the plan approved but permit no implementation, commit, or push from it.
+    answer:
+      selected_ids: [authorize-revised-sequence]
+      text: ''
+    rationale: The user authorized approved Packets 09–19 for later execution one packet per explicit incremental-implementation invocation. Authorization includes all applicable local-first checks, packet/fix conventional commits, non-force pushes, and exact-SHA CI gates with every required Linux and Windows job executed successfully; it does not start implementation in this planning turn or authorize force-push, PR mutation, manual dispatch, signing, publication, qualification, or release.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-002, OPS-004]
+
+  - id: plan.amendment-packet-map
+    revision: 2
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-005 changes the required runner matrix and workflow-parameterization contract without reopening completed Packets 01–08 or adding a new independently executable scope.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-packets-01-08
+        - preserve-packet-identities-09-19
+        - revise-only-unchecked-scopes
+        - packet-09-workflow-runner-foundation
+        - packet-10-repository-builder-controls
+        - packet-11-native-analysis-codeql
+        - packets-12-15-retained-native-gates
+        - packet-16-application-sbom-vulnerability
+        - packet-17-attestation-reporting
+        - packet-18-linux-shared-security-closure
+        - packet-19-final-windows-closure
+      text: ''
+    rationale: The approved amendment changes only runner and workflow-ownership obligations already assigned to unchecked Packets 09–19. Their existing identities, dependencies, and focused scopes remain executable, so renumbering or reopening completed work would add churn without improving coverage.
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        GAT-003,
+        GAT-004,
+        CMP-007,
+        CMP-008,
+        CMP-009,
+        CMP-010,
+        CMP-011,
+        CMP-012,
+        SUP-001,
+        SUP-002,
+        WF-001,
+        DEP-001,
+        DEP-002,
+        SEC-005,
+        SEC-006,
+        DCK-001,
+        SAST-001,
+        ART-001,
+        VUL-001,
+        ATT-001,
+        REP-001,
+        REP-002,
+        SRV-001,
+        RUN-001,
+        RUN-002,
+        RUN-003,
+        RUN-004,
+        RUN-005,
+        RUN-006,
+        RUN-007,
+        TST-008,
+        TST-009,
+        TST-010,
+        OPS-004,
+      ]
+
+  - id: approval.plan
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/09_workflow_supply_chain_and_runner_foundation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/10_repository_dependency_secret_and_builder_security.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/11_native_execution_codeql_and_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/12_bounded_parser_fuzzing.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/13_worker_tsan_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - Completed Packets 01–08 and their recorded evidence remain unchanged.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-05
+      question_id: approval.plan
+      idempotency_key: approval.plan:v5
+      last_status: answered
+    question:
+      text: What should happen to the revised 19-packet plan that now requires exactly Ubuntu 24.04 and Windows Server 2025, rejects latest aliases, consolidates reusable CI configuration, preserves completed Packets 01–08, and updates only unchecked Packets 09–19?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan
+          description: Make this two-runner, parameterized-workflow revision authoritative while keeping execution authorization separate.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan in Draft and revise packet scope, dependencies, verification, or completion gates.
+        - id: leave-draft
+          label: Leave as draft
+          description: Retain the current planning files without approving or authorizing implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved the revised 19-packet plan as authoritative. Completed Packets 01–08 remain unchanged; unchecked Packets 09–19 retain their identities while adopting the exact Ubuntu 24.04 and Windows Server 2025 matrix, latest-alias rejection, and consolidated reusable CI configuration. Implementation remains subject to the separate execution-authorization gate.
+    supersedes_revision: 4
+    requirement_ids: [PLAN-APPROVAL-005, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 2
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - Plan approval revision 5 is a separate gate and does not itself start implementation.
+      - User standing instruction authorizes packet/fix commits and non-force pushes after all applicable local checks, followed by exact-SHA CI with required Ubuntu 24.04 and Windows Server 2025 jobs and no skipped required Windows stage.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-05
+      question_id: authorization.plan-execution
+      idempotency_key: authorization.plan-execution:v2
+      last_status: answered
+    question:
+      text: How should execution of the revised approved Packets 09–19 be authorized after this planning turn?
+      kind: single
+      options:
+        - id: authorize-revised-sequence
+          label: Authorize revised sequence
+          description: Authorize Packets 09–19 one at a time on later explicit incremental-implementation invocations, including local-first checks, scoped commits/fixes, non-force pushes, and exact-SHA CI gates on Ubuntu 24.04 and Windows Server 2025.
+        - id: authorize-packet-09-only
+          label: Authorize Packet 09 only
+          description: Authorize only Packet 09 on a later explicit incremental-implementation invocation; later packets require another execution decision.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep the plan approved but permit no implementation, commit, or push from it.
+    answer:
+      selected_ids: [authorize-revised-sequence]
+      text: ''
+    rationale: The user authorized revised Packets 09–19 for later execution one packet per explicit incremental-implementation invocation. Authorization includes all applicable local-first checks, packet/fix conventional commits, non-force pushes, and exact-SHA CI gates with the required Ubuntu 24.04 and Windows Server 2025 jobs executed successfully; it does not start implementation in this planning turn or authorize force-push, PR mutation, manual dispatch, signing, publication, qualification, or release.
+    supersedes_revision: 1
+    requirement_ids: [EXEC-AUTH-003, OPS-004]
+
+  - id: outcome.native-structured-logging
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User requested an adequate native logging system for CI, local development, moderate production logging, and diagnostics-archive collection.
+      - User requested this functionality as the next roadmap task.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - ci-development-diagnostics
+        - local-development-diagnostics
+        - moderate-production-logging
+        - diagnostics-archive-export
+        - next-roadmap-task
+      text: ''
+    rationale: The requested observable outcome and roadmap priority are explicit and must not be asked again.
+    supersedes_revision: null
+    requirement_ids: [LOG-001, LOG-002, LOG-003, LOG-006]
+
+  - id: compatibility.native-logging-platforms
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly required the logging design and implementation to be cross-platform, thread-safe, and architecturally correct.
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-x64
+        - windows-x64
+        - thread-safe
+        - injected-ownership
+        - no-mutable-global-logger
+      text: ''
+    rationale: Linux and Windows must provide equivalent logging behavior while keeping platform I/O behind native boundaries and logger ownership explicit.
+    supersedes_revision: null
+    requirement_ids: [LOG-004, LOG-005, CMP-004, ARC-002]
+
+  - id: operations.native-production-capture-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Production requires a moderate logging level and diagnostics-archive collection.
+      - Existing translation and prettify diagnostic-text capture is opt-in because it may contain user text.
+      - The existing prompt-free Local Whisper diagnostics snapshot is included independently of diagnostic-text capture settings.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: native-logging-round-01
+      question_id: operations.native-production-capture-policy
+      idempotency_key: operations.native-production-capture-policy:v1
+      last_status: answered
+    question:
+      text: How should privacy-safe native runtime events be captured in production?
+      kind: single
+      options:
+        - id: always-on-bounded-info
+          label: Always-on bounded info (Recommended)
+          description: Capture only the closed privacy-safe info/warn/error schema by default, with strict bounds and no user content.
+        - id: explicit-native-setting
+          label: Explicit native setting
+          description: Add a separate user setting that must be enabled before native production events are retained or exported.
+        - id: errors-only-default
+          label: Errors only by default
+          description: Retain errors automatically and require explicit enablement for informational native lifecycle events.
+    answer:
+      selected_ids: [always-on-bounded-info]
+      text: ''
+    rationale: A closed privacy-safe event schema can provide moderate production diagnostics without enabling the user-text diagnostic-capture categories.
+    supersedes_revision: null
+    requirement_ids: [LOG-003, LOG-006, SEC-007]
+
+  - id: architecture.native-log-retention-path
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - Native stdout is reserved for the private worker protocol.
+      - Native stderr is already captured by the TypeScript supervisor in a bounded private ring.
+      - electron-log already retains current and rotated main-process logs used as diagnostics-archive evidence.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: native-logging-round-01
+      question_id: architecture.native-log-retention-path
+      idempotency_key: architecture.native-log-retention-path:v1
+      last_status: answered
+    question:
+      text: Where should validated native production events be retained before archive export?
+      kind: single
+      options:
+        - id: scoped-main-log
+          label: Scoped main log (Recommended)
+          description: Parse and validate native stderr JSONL, forward approved records to scoped electron-log, and extract them into a separate archive member.
+        - id: dedicated-native-log
+          label: Dedicated native log
+          description: Maintain a separate bounded rotating native-event file and export it without forwarding records into the main log.
+        - id: memory-only-tail
+          label: Memory-only tail
+          description: Keep only a bounded in-memory event tail, so archives contain events only from the current application process.
+    answer:
+      selected_ids: [scoped-main-log]
+      text: ''
+    rationale: The existing main-log rotation and archive extraction path avoids a second production log store while keeping native records separately identifiable and exportable.
+    supersedes_revision: null
+    requirement_ids: [LOG-006, LOG-007, ARC-004]
+
+  - id: operations.native-log-purge-policy
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - Existing diagnostics text can be cleared per category or all at once.
+      - Current and rotated main-process logs have lifecycle retention but no Local Whisper-specific clear target.
+      - Production native records must remain bounded and private even though their schema excludes user content.
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: native-logging-round-01
+      question_id: operations.native-log-purge-policy
+      idempotency_key: operations.native-log-purge-policy:v1
+      last_status: answered
+    question:
+      text: What user-facing purge behavior should apply to retained native runtime events?
+      kind: single
+      options:
+        - id: lifecycle-retention-only
+          label: Lifecycle retention only (Recommended)
+          description: Treat privacy-safe native events as ordinary app logs and rely on bounded log rotation without adding a new settings or IPC surface.
+        - id: new-native-clear-target
+          label: Native clear target
+          description: Add a Local Whisper diagnostics clear target and confirmation flow for independently deleting retained native events.
+        - id: clear-with-all-diagnostics
+          label: Clear with all diagnostics
+          description: Keep no independent target, but make the existing confirmed clear-all action also purge retained native events.
+    answer:
+      selected_ids: [lifecycle-retention-only]
+      text: ''
+    rationale: Native events follow ordinary bounded application-log lifecycle retention and do not expand settings, IPC, or diagnostic clear-category behavior.
+    supersedes_revision: null
+    requirement_ids: [LOG-007, SCP-002, SEC-007]
+
+  - id: approval.spec
+    revision: 6
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+    prompt_mcp:
+      interview_id: spec:local-whisper-native-review-remediation
+      batch_id: approval-round-06
+      question_id: approval.spec
+      idempotency_key: approval.spec:v6
+      last_status: answered
+    question:
+      text: Do you approve the native structured-logging specification amendment for roadmap planning?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Approve the cross-platform logging contract and allow a later planning invocation to revise the roadmap.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification as a draft and revise its requirements before planning.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the amendment documented but do not approve it for planning.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the cross-platform, thread-safe native structured-logging amendment for subsequent roadmap planning.
+    supersedes_revision: 5
+    requirement_ids: [APPROVAL-006]
+
+  - id: plan.native-logging-sequence
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - User requested logging implementation as the next roadmap task.
+      - LOG-001–LOG-008
+      - OPS-004
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [insert-packet-14-shift-unchecked]
+      text: ''
+    rationale: Completed Packets 01–13 remain immutable; native logging becomes Packet 14 and former unchecked Packets 14–19 shift mechanically to 15–20.
+    supersedes_revision: null
+    requirement_ids: [PLAN-REVISION-006, OPS-004]
+
+  - id: planning.native-log-process-configuration
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - LOG-002 requires an opaque process-instance identifier.
+      - LOG-003 requires the parent composition root to select and propagate the native log level.
+      - Main-process composition already owns injectable UUID generation and native process launch configuration.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: native-logging-plan-round-01
+      question_id: planning.native-log-process-configuration
+      idempotency_key: planning.native-log-process-configuration:v1
+      last_status: answered
+    question:
+      text: Which private configuration owner should provide native process-instance IDs and log levels?
+      kind: single
+      options:
+        - id: parent-generated-private-config
+          label: Parent-generated config (Recommended)
+          description: Main-process composition creates each UUID and passes it with the validated level through private launch fields, updating runtime identity atomically.
+        - id: native-generated-id
+          label: Native-generated ID
+          description: Main passes only the level while every C++ executable adds platform-specific secure UUID generation for its own process identifier.
+        - id: launcher-generated-descendant-id
+          label: Split ownership
+          description: Main identifies directly launched processes while the native launcher generates identifiers for descendant workers.
+    answer:
+      selected_ids: [parent-generated-private-config]
+      text: ''
+    rationale: Reusing main-process UUID and launch-configuration ownership avoids platform-specific native randomness and keeps process identity and log-level policy at the process composition boundary.
+    supersedes_revision: null
+    requirement_ids: [LOG-002, LOG-003, ARC-004, OPS-005]
+
+  - id: planning.native-log-schema-and-rate-policy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - LOG-002 requires a closed canonical schema and stable events/error codes.
+      - LOG-005 requires a named deterministic bounded rate policy.
+      - A finite enum-key policy avoids user-controlled map growth and provides deterministic cross-platform fixtures.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: native-logging-plan-round-01
+      question_id: planning.native-log-schema-and-rate-policy
+      idempotency_key: planning.native-log-schema-and-rate-policy:v1
+      last_status: answered
+    question:
+      text: Which concrete schema and repetition policy should Packet 14 implement?
+      kind: single
+      options:
+        - id: closed-events-10-per-minute
+          label: Closed schema, 10/min (Recommended)
+          description: Use the packet's fixed components/events/error codes and emit at most 10 records per component/event/code key per 60-second monotonic window with suppression counts.
+        - id: closed-events-30-per-minute
+          label: Closed schema, 30/min
+          description: Keep the same finite schema but allow 30 records per key per 60-second window before suppression.
+        - id: severity-wide-buckets
+          label: Severity-wide buckets
+          description: Rate-limit broad component/severity buckets, reducing state but allowing one noisy event to suppress unrelated classifications.
+    answer:
+      selected_ids: [closed-events-10-per-minute]
+      text: ''
+    rationale: A finite closed-key policy prevents attacker-controlled state growth and provides useful production classifications while bounding repetitive output tightly.
+    supersedes_revision: null
+    requirement_ids: [LOG-002, LOG-004, LOG-005, TST-011]
+
+  - id: planning.native-log-archive-bounds
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - LOG-007 requires independent record and byte bounds while keeping newest complete records.
+      - Each native source record is at most 4,096 bytes and production persistence is already limited to current/rotated main logs.
+      - The general diagnostics member ceiling is much larger and should not become the effective native-runtime allowance.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: native-logging-plan-round-01
+      question_id: planning.native-log-archive-bounds
+      idempotency_key: planning.native-log-archive-bounds:v1
+      last_status: answered
+    question:
+      text: What dedicated cap should apply to diagnostics/native-runtime.jsonl?
+      kind: single
+      options:
+        - id: ten-thousand-four-mib
+          label: 10,000 / 4 MiB (Recommended)
+          description: Retain the newest complete records within 10,000 lines and 4 MiB, comfortably below the general archive-member ceiling.
+        - id: five-thousand-two-mib
+          label: 5,000 / 2 MiB
+          description: Minimize archive size with a shorter production diagnostic history.
+        - id: twenty-five-thousand-eight-mib
+          label: 25,000 / 8 MiB
+          description: Preserve more history at the cost of larger archives and validation work.
+    answer:
+      selected_ids: [ten-thousand-four-mib]
+      text: ''
+    rationale: The dedicated cap preserves useful bounded history while remaining far below the general diagnostics member ceiling and the two retained main-log generations.
+    supersedes_revision: null
+    requirement_ids: [LOG-007, LOG-008, TST-011]
+
+  - id: approval.plan
+    revision: 6
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_native_structured_logging_and_diagnostics.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/15_focused_gcc_quality.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/16_locked_source_advisory_monitoring.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/17_application_sbom_and_vulnerability_evidence.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/18_provenance_attestation_and_security_reporting.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/19_linux_shared_security_remediation_gate.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: approval-round-06
+      question_id: approval.plan
+      idempotency_key: approval.plan:v6
+      last_status: answered
+    question:
+      text: Do you approve the revised 20-packet roadmap with native structured logging as the next Packet 14?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised plan (Recommended)
+          description: Approve Packet 14 logging, the mechanical shift to Packets 15–20, and updated Linux/Windows final-gate ownership.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan as a draft and revise packet boundaries, contracts, or sequencing.
+        - id: leave-draft
+          label: Leave draft
+          description: Retain the planning artifacts without approving them for execution authorization.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the 20-packet roadmap with native structured logging as Packet 14, the unchecked-packet shift, and updated final Linux/Windows gates.
+    supersedes_revision: 5
+    requirement_ids: [PLAN-APPROVAL-006]
+
+  - id: authorization.plan-execution
+    revision: 3
+    category: authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/14_native_structured_logging_and_diagnostics.md
+      - PLAN-APPROVAL-006
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: execution-authorization-round-06
+      question_id: authorization.plan-execution
+      idempotency_key: authorization.plan-execution:v3
+      last_status: answered
+    question:
+      text: What execution authorization should apply to the approved revised Packet 14–20 sequence?
+      kind: single
+      options:
+        - id: authorize-revised-sequence
+          label: Authorize Packets 14–20 (Recommended)
+          description: Authorize later one-packet-at-a-time implementation, local-first checks, scoped fix commits, non-force pushes, and exact-SHA Linux/Windows CI gates.
+        - id: authorize-packet-14-only
+          label: Authorize Packet 14 only
+          description: Authorize only native structured logging on a later incremental invocation; Packets 15–20 require another authorization.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep the roadmap approved but permit no packet implementation, commit, or push from this revision.
+    answer:
+      selected_ids: [authorize-revised-sequence]
+      text: ''
+    rationale: The user authorized later one-packet-at-a-time execution of Packets 14–20 with local-first verification, scoped candidate/fix commits, non-force pushes, exact-SHA CI, and mandatory successful Linux and Windows jobs. This planning turn does not start execution.
+    supersedes_revision: 2
+    requirement_ids: [EXEC-AUTH-004, OPS-004]
+
+  - id: compatibility.windows-toolchain-policy
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - A dedicated MSVC 19.51 filesystem-guard ASan run passed with the required halt-on-error policy after the equivalent MSVC 19.39 run failed before project test execution with an ASan interception-runtime classification.
+      - https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-microsoft-windows/index.html
+      - https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-VS2026-Readme.md
+      - The user explicitly instructed the specification and plan to be corrected and Packet 20 to continue after the MSVC 19.51 experiment.
+    prompt_mcp: null
+    question:
+      text: Which Windows compiler policy should replace the blocked MSVC 19.39 executable-evidence contract?
+      kind: single
+      options:
+        - id: msvc-19.51-executable-evidence
+          label: MSVC 19.51 executable evidence
+          description: Use MSVC 19.51 for every real Windows build, analysis, ASan, CPU runtime, and PE claim while retaining CUDA 12.8.1 and AMD Vulkan MSVC 19.39 profiles only as contract-only inputs.
+        - id: retain-msvc-19.39
+          label: Retain MSVC 19.39
+          description: Keep the blocked executable-evidence profile and leave Packet 20 unable to satisfy its required ASan run on the supported host.
+        - id: migrate-accelerator-dependencies
+          label: Migrate accelerator dependencies
+          description: Expand scope to a new CUDA or accelerator toolchain that supports MSVC 19.51 and requalify packaging contracts.
+    answer:
+      selected_ids: [msvc-19.51-executable-evidence]
+      text: ''
+    rationale: The user selected the proven MSVC 19.51 route. CUDA 12.8 officially supports the MSVC 193x Windows host-compiler family, so its existing 19.39 profile and the unqualified AMD preview profile remain explicitly contract-only rather than being falsely relabeled or compiled with an unsupported override.
+    supersedes_revision: 1
+    requirement_ids: [CMP-005, CMP-010, WIN-001, WIN-002, AC-AUT-042, AC-MAN-004]
+
+  - id: approval.spec
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/decisions.yaml
+      - compatibility.windows-toolchain-policy revision 2
+      - The user explicitly requested the specification correction and continuation on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: Should the MSVC 19.51 Windows executable-evidence amendment become the approved Packet 20 contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amendment
+          description: Approve the narrowly scoped compiler amendment and retain all unaffected remediation requirements.
+        - id: request-changes
+          label: Request changes
+          description: Revise the compiler boundary before Packet 20 continues.
+        - id: leave-draft
+          label: Leave draft
+          description: Retain the proposed amendment without approving execution against it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user's instruction to correct the specification and continue explicitly approves the MSVC 19.51 amendment selected after the successful isolated experiment.
+    supersedes_revision: 6
+    requirement_ids: [APPROVAL-007]
+
+  - id: approval.plan
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-007
+      - The user explicitly requested the plan correction and continuation on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: Should Packet 20 own the atomic MSVC 19.51 executable-evidence and CPU-profile migration before resuming its final Windows gate?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Packet 20
+          description: Keep completed Packets 01–19 historical and add the narrow toolchain migration to the active final packet.
+        - id: request-changes
+          label: Request changes
+          description: Revise task ownership or the toolchain boundary before execution.
+        - id: leave-draft
+          label: Leave draft
+          description: Retain the revised planning artifacts without continuing Packet 20.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly instructed the plan to be corrected and work to continue; assigning the migration to active Packet 20 preserves completed packet evidence and one-packet execution scope.
+    supersedes_revision: 6
+    requirement_ids: [PLAN-APPROVAL-007, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 4
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - PLAN-APPROVAL-007
+      - The user explicitly instructed Packet 20 execution to continue after the specification and plan correction.
+    prompt_mcp: null
+    question:
+      text: What execution authorization applies after the MSVC 19.51 Packet 20 amendment?
+      kind: single
+      options:
+        - id: continue-packet-20
+          label: Continue Packet 20
+          description: Authorize the scoped migration, local-first Windows and affected shared checks, conventional fix commits, non-force pushes, and exact-SHA CI gate already owned by Packet 20.
+        - id: documentation-only
+          label: Documentation only
+          description: Permit the specification and plan revision but stop before implementation.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Retain the approved plan without further execution.
+    answer:
+      selected_ids: [continue-packet-20]
+      text: ''
+    rationale: The user said to correct the plan and specification and continue, preserving the original Packet 20 commit, push, CI, and no-release boundaries.
+    supersedes_revision: 3
+    requirement_ids: [EXEC-AUTH-005, OPS-004]
+
+  - id: compatibility.windows-execution-input-closure
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+      - runtime/local-whisper/toolchains/locks/microsoft-vc-runtime-14.51.36247.0-x64-v1.json
+      - The user explicitly instructed the agent to fix the discovered Windows input-closure blockers on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: How should Packet 20 close the exact prepared Windows CPU inputs and materialize an already installed locked VC Runtime?
+      kind: single
+      options:
+        - id: exact-execution-inputs-and-installed-proof
+          label: Exact installed proof
+          description: Hash every prepared executable and SDK/Runtime input, use the same-boundary Node probe, and permit installed-runtime materialization only after exact registry, DLL digest, Authenticode, and license checks.
+        - id: require-redownloaded-installer-only
+          label: Installer only
+          description: Retain the exact downloaded-installer prerequisite even when the already installed runtime and all output DLL bytes are independently locked and verifiable.
+        - id: accept-version-only-tools
+          label: Version only
+          description: Accept version banners for unreadable tools, weakening the executable-input identity contract.
+    answer:
+      selected_ids: [exact-execution-inputs-and-installed-proof]
+      text: ''
+    rationale: The selected remediation keeps the pending static profile separate from executable evidence, binds each execution to its exact readable input bytes, retains fail-closed firewall proof, and permits no ambient Runtime DLL or version-only tool substitution. Installed-runtime proof changes only acquisition evidence; the packaged bytes and license remain checksum locked.
+    supersedes_revision: null
+    requirement_ids: [CMP-010, WIN-001, GAT-001, SEC-004]
+
+  - id: approval.spec
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - compatibility.windows-execution-input-closure revision 1
+      - The user explicitly instructed the agent to fix the blocker on 2026-08-14.
+    prompt_mcp: null
+    question:
+      text: Should the closed Windows execution-input and installed-runtime proof remediation become the approved Packet 20 specification contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve remediation
+          description: Approve the narrow fail-closed input and runtime-proof correction while retaining every other Packet 20 requirement.
+        - id: request-changes
+          label: Request changes
+          description: Revise the remediation boundary before continuing Packet 20.
+        - id: leave-blocked
+          label: Leave blocked
+          description: Keep the known defects and stop Packet 20 without implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user's instruction to fix the identified blocker explicitly authorizes this narrow specification correction and continuation without adding a dependency, public API, target, or release scope.
+    supersedes_revision: 7
+    requirement_ids: [APPROVAL-008]
+
+  - id: approval.plan
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-008
+    prompt_mcp: null
+    question:
+      text: Should active Packet 20 own the closed Windows execution-input and installed-runtime proof remediation?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revised Packet 20
+          description: Keep the remediation in the active final Windows packet and preserve completed packet history.
+        - id: request-changes
+          label: Request changes
+          description: Revise task ownership before implementation.
+        - id: leave-blocked
+          label: Leave blocked
+          description: Record the defects but do not remediate them in Packet 20.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The defects were discovered while executing Packet 20 and affect only its Windows build/package gate, so the user's fix instruction keeps them within the already authorized packet.
+    supersedes_revision: 7
+    requirement_ids: [PLAN-APPROVAL-008, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 5
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - PLAN-APPROVAL-008
+      - The user explicitly said to fix the blocker.
+    prompt_mcp: null
+    question:
+      text: What execution authorization applies after the Packet 20 input-closure correction?
+      kind: single
+      options:
+        - id: continue-packet-20
+          label: Continue Packet 20
+          description: Implement and verify the correction, then continue the existing scoped commit, push, and exact-SHA CI contract.
+        - id: documentation-only
+          label: Documentation only
+          description: Record the correction but stop before implementation.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep Packet 20 blocked without further execution.
+    answer:
+      selected_ids: [continue-packet-20]
+      text: ''
+    rationale: The user explicitly instructed the agent to fix the blocker, preserving Packet 20's original local-first, non-force push, exact-SHA CI, and no-release boundaries.
+    supersedes_revision: 4
+    requirement_ids: [EXEC-AUTH-006, OPS-004]
+
+  - id: compatibility.windows-toolchain-policy
+    revision: 3
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json
+      - The user explicitly required Windows CUDA validation to remain inside Packet 20 and rejected creating a separate specification.
+    prompt_mcp: null
+    question:
+      text: How should Packet 20 validate Windows CUDA without weakening the proven MSVC 19.51 ordinary Windows lanes?
+      kind: single
+      options:
+        - id: dual-execution-profiles
+          label: Execute the existing CUDA profile
+          description: Keep ordinary Windows and CPU evidence on MSVC 19.51 while separately executing the existing CUDA 12.8.1 / MSVC 19.39 / sm_120a-real profile on the supported RTX 5090 desktop.
+        - id: retain-contract-only
+          label: Retain contract-only CUDA
+          description: Leave CUDA unavailable in the ordinary Windows development application and preserve the prior Packet 20 completion boundary.
+        - id: migrate-cuda-toolchain
+          label: Migrate CUDA toolchain
+          description: Introduce a different CUDA or compiler profile and require a broader dependency and compatibility revision.
+    answer:
+      selected_ids: [dual-execution-profiles]
+      text: ''
+    rationale: The product path and exact CUDA profile already exist. The amendment requires real readiness execution on the available representative desktop without inventing a new profile or allowing CUDA evidence to replace the ordinary MSVC 19.51 gates.
+    supersedes_revision: 2
+    requirement_ids: [CMP-005, CMP-010, WIN-001, AC-AUT-042, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-011]
+
+  - id: approval.spec
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - compatibility.windows-toolchain-policy revision 3
+      - The user explicitly approved changing the existing Packet 20 contract on 2026-08-15.
+    prompt_mcp: null
+    question:
+      text: Should real supported-desktop execution of the existing Windows CUDA profile become part of the approved Packet 20 specification contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve amendment
+          description: Reopen Packet 20 for exact CUDA execution while retaining every unaffected remediation requirement.
+        - id: request-changes
+          label: Request changes
+          description: Revise the CUDA execution boundary before Packet 20 continues.
+        - id: leave-contract-only
+          label: Leave contract-only
+          description: Keep the previous Packet 20 completion without real CUDA execution.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: After rejecting a separate specification, the user explicitly asked to change the existing contract as described.
+    supersedes_revision: 8
+    requirement_ids: [APPROVAL-009]
+
+  - id: approval.plan
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - APPROVAL-009
+    prompt_mcp: null
+    question:
+      text: Should the existing Packet 20 be reopened to own the approved Windows CUDA execution amendment?
+      kind: single
+      options:
+        - id: approve
+          label: Approve reopened Packet 20
+          description: Preserve historical evidence and make Packet 20 incomplete until the amended CUDA gates pass.
+        - id: request-changes
+          label: Request changes
+          description: Revise task ownership before execution.
+        - id: leave-complete
+          label: Leave Packet 20 complete
+          description: Do not add the CUDA execution requirement to the checklist.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly identified Packet 20 as the owning task and requested the existing documents be changed rather than creating another specification.
+    supersedes_revision: 8
+    requirement_ids: [PLAN-APPROVAL-009, OPS-004]
+
+  - id: authorization.plan-execution
+    revision: 6
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/20_windows_validation_and_remediation_gate.md
+      - PLAN-APPROVAL-009
+      - The user said to proceed and then explicitly approved the Packet 20 amendment.
+    prompt_mcp: null
+    question:
+      text: What execution authorization applies after the Windows CUDA Packet 20 amendment?
+      kind: single
+      options:
+        - id: continue-packet-20
+          label: Continue Packet 20
+          description: Implement and verify the CUDA correction, then use the existing scoped commit, non-force push, and exact-SHA CI contract.
+        - id: documentation-only
+          label: Documentation only
+          description: Record the amendment but stop before implementation.
+        - id: do-not-authorize
+          label: Do not authorize
+          description: Keep Packet 20 reopened without further execution.
+    answer:
+      selected_ids: [continue-packet-20]
+      text: ''
+    rationale: The user's Go instruction and subsequent scope correction authorize continuation of the same Packet 20 under the amended contract.
+    supersedes_revision: 5
+    requirement_ids: [EXEC-AUTH-007, OPS-004]
+
+  - id: planning.cpp-ci-contract-owner
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/spec.md#1012-fixed-runner-versions-and-consolidated-workflow-checks
+      - RUN-003
+      - AC-AUT-040
+      - Completion criteria require one reusable owner and prohibit duplicated expensive checks.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [extend-approved-native-remediation-plan]
+      text: ''
+    rationale: The approved specification already requires consolidated setup, caches, and checks without duplicated host-independent work, so this optimization can be planned as new packets without changing the product or verification contract.
+    supersedes_revision: null
+    requirement_ids: [GAT-004, RUN-003, TST-010, AC-AUT-040]
+
+  - id: planning.cpp-ci-optimization-objective
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - Pull Request Checks runs 32473799030, 32464334861, and 32461389584
+      - Median native critical path is approximately 29 minutes; median six-job native runner use is approximately 92 minutes.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-optimization-round-01
+      question_id: planning.cpp-ci-optimization-objective
+      idempotency_key: planning.cpp-ci-optimization-objective:v1
+      last_status: answered
+    question:
+      text: Which performance and runner-cost contract should govern retained C++ CI optimizations?
+      kind: single
+      options:
+        - id: balanced
+          label: Balanced speed and cost (Recommended)
+          description: Require at least 15% lower median native critical path while allowing no more than 25% additional native runner-minutes.
+        - id: wall-clock-first
+          label: Wall-clock first
+          description: Require at least 20% lower median critical path and permit up to 75% additional native runner-minutes.
+        - id: runner-efficiency-first
+          label: Runner efficiency first
+          description: Retain only changes that reduce median native runner-minutes and do not worsen the critical path.
+    answer:
+      selected_ids: [balanced]
+      text: ''
+    rationale: Retained optimizations must reduce the median native critical path by at least 15% while increasing native runner-minutes by no more than 25%.
+    supersedes_revision: null
+    requirement_ids: [GAT-004, RUN-003, AC-AUT-040]
+
+  - id: planning.cpp-compiler-cache-policy
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - Compilation dominates CTest execution in the measured native jobs.
+      - AGENTS.md prohibits adding dependencies without explicit scope.
+      - Ordinary, sanitizer, TSan, analyzer, GCC, MSVC, and CodeQL profiles are not binary-compatible.
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-optimization-round-01
+      question_id: planning.cpp-compiler-cache-policy
+      idempotency_key: planning.cpp-compiler-cache-policy:v1
+      last_status: answered
+    question:
+      text: How should this plan treat ccache or sccache after zero-dependency build deduplication is measured?
+      kind: single
+      options:
+        - id: defer-dependency-authorization
+          label: Defer cache tooling (Recommended)
+          description: Plan a measured experiment but require a later explicit dependency/tooling authorization before retaining ccache or sccache.
+        - id: authorize-pinned-ci-tool
+          label: Authorize pinned CI tool
+          description: Permit this plan to retain one pinned CI-only compiler-cache tool when invalidation and performance gates pass.
+        - id: prohibit-compiler-cache
+          label: No compiler cache
+          description: Exclude ccache and sccache and optimize only command aggregation, setup reuse, and same-profile build ownership.
+    answer:
+      selected_ids: [authorize-pinned-ci-tool]
+      text: ''
+    rationale: One pinned CI-only compiler-cache tool may be retained when supply-chain, invalidation, privacy, correctness, and measured performance gates pass.
+    supersedes_revision: null
+    requirement_ids: [OPS-001, SEC-006, RUN-003, AC-AUT-040]
+
+  - id: approval.plan
+    revision: 10
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/21_native_ci_telemetry_and_command_aggregation.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/22_profile_keyed_native_build_sessions.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/23_verified_native_input_reuse.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/24_conditional_native_cache_and_ci_fanout.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-plan-approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v10
+      last_status: answered
+    question:
+      text: What should happen to the revised C++ CI optimization plan containing Packets 21–24?
+      kind: single
+      options:
+        - id: approve
+          label: Approve plan (Recommended)
+          description: Approve the four measured packets while keeping implementation and execution separately unauthorized.
+        - id: request-changes
+          label: Request changes
+          description: Leave the plan in draft and revise its scope, sequencing, or acceptance gates.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the plan available for review without approving or executing it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user approved Packets 21–24 as the measured C++ CI optimization plan; implementation remains separately unauthorized.
+    supersedes_revision: 9
+    requirement_ids: [PLAN-APPROVAL-010, GAT-004, RUN-003, AC-AUT-040]
+
+  - id: authorization.packet-21-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/21_native_ci_telemetry_and_command_aggregation.md
+      - PLAN-APPROVAL-010
+    prompt_mcp:
+      interview_id: plan:local-whisper-native-review-remediation
+      batch_id: cpp-ci-execution-authorization-round-01
+      question_id: authorization.packet-21-execution
+      idempotency_key: authorization.packet-21-execution:v1
+      last_status: answered
+    question:
+      text: What execution authorization should follow approval of the C++ CI optimization plan?
+      kind: single
+      options:
+        - id: keep-planning-only
+          label: Keep planning only (Recommended)
+          description: Finish this request with the approved plan and leave Packet 21 implementation, commits, pushes, and CI runs unauthorized.
+        - id: authorize-packet-21-local
+          label: Authorize Packet 21 locally
+          description: Permit a later explicit incremental-implementation invocation to implement and verify Packet 21 locally, without commit, push, or CI authority.
+    answer:
+      selected_ids: [authorize-packet-21-local]
+      text: ''
+    rationale: A later explicit incremental-implementation invocation may implement and verify Packet 21 locally; commits, pushes, cache publication, and CI runs remain unauthorized.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-008, GAT-004, RUN-003, AC-AUT-040]

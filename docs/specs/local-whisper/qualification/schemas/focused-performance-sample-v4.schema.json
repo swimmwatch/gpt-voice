@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/focused-performance-sample-v4.schema.json",
+  "title": "Local Whisper revision-7 focused candidate sample",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "focusedPerformanceSampleDigest",
+    "focusedPerformanceRunPlanDigest",
+    "focusedPerformanceManifestDigest",
+    "focusedPerformanceCacheReceiptDigest",
+    "candidateCommit",
+    "platform",
+    "backend",
+    "sampleId",
+    "model",
+    "cacheState",
+    "sampleIndex",
+    "status",
+    "failureReason",
+    "endToEndNanoseconds",
+    "phases",
+    "resources",
+    "processSettlementProof",
+    "unownedProcessAttribution",
+    "unownedGpuAttribution"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 4 },
+    "contractRevision": { "const": 7 },
+    "focusedPerformanceSampleDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceCacheReceiptDigest": { "$ref": "#/$defs/sha256" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "platform": { "const": "linux" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "sampleId": { "$ref": "#/$defs/id" },
+    "model": { "$ref": "#/$defs/model" },
+    "cacheState": { "enum": ["cold", "warm"] },
+    "sampleIndex": { "enum": [1, 2, 3] },
+    "status": { "enum": ["success", "failed"] },
+    "failureReason": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/reason" }] },
+    "endToEndNanoseconds": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 1 }] },
+    "phases": { "type": "array", "maxItems": 19 },
+    "resources": { "type": "array", "maxItems": 4 },
+    "processSettlementProof": { "oneOf": [{ "const": "ownedProcessTreeSettled" }, { "type": "null" }] },
+    "unownedProcessAttribution": { "oneOf": [{ "const": 0 }, { "type": "null" }] },
+    "unownedGpuAttribution": { "oneOf": [{ "const": 0 }, { "const": "notApplicable" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "reason": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant", "sizeBytes", "sha256"],
+      "properties": {
+        "family": { "const": "base" },
+        "variant": { "const": "full" },
+        "sizeBytes": { "const": 147951465 },
+        "sha256": { "const": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe" }
+      }
+    }
+  }
+}

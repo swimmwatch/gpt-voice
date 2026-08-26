@@ -13,12 +13,16 @@ import {
   type MainStreamingTranscriptionServiceDependencies,
 } from '../services/streamingTranscription';
 import { TranscriptionService } from '../services/transcription';
+import { LocalWhisperTranscriptionDispatch } from '../services/localWhisperTranscriptionDispatch';
 import { TranscriptionHistoryIpcController } from '../services/transcriptionHistoryIpcController';
 import { createTranscriptionResultCache } from '../services/transcriptionResultCache';
 import type { DesktopRuntimeController } from '../desktopRuntimeController';
 import type { ShortcutController } from '../shortcuts';
+import type { HotkeyRegistrationService } from '../hotkeys/HotkeyRegistrationService';
+import type { ProviderHomeActionDispatcher } from '../providerHomeActionDispatcher';
 import type { WindowManager } from '../window';
 import type { BackgroundBrowserService } from '../browser';
+import type { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
 import type { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
 import type { TranslationRuntime } from '../services/translation';
@@ -35,6 +39,11 @@ import type { PrettifyProfilePortabilityService } from '../services/prettifyProf
 import type { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
 import { PrettifyProfileChooserIpcRegistrar } from '../prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from '../prettifyProfileChooserWindowController';
+import type { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
+import type { LocalWhisperIpcController } from '../localWhisper/ipc/LocalWhisperIpcController';
+import type { LocalWhisperSnapshotService } from '../localWhisper/ipc/LocalWhisperSnapshotService';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
+import { VoiceProviderSelectionService } from '../localWhisper/ipc/VoiceProviderSelectionService';
 
 type StreamingRuntimeDependencies = Omit<
   MainStreamingTranscriptionServiceDependencies,
@@ -49,11 +58,16 @@ type RuntimeOwnedMainIpcDependencyKeys =
   | 'desktopRuntimeController'
   | 'diagnosticCaptureSettings'
   | 'diagnosticsExport'
+  | 'firstLaunchStartupCoordinator'
+  | 'hotkeyRegistrationService'
   | 'historyController'
+  | 'mainInteractionLock'
   | 'prettifyProfileChooserIpc'
   | 'prettifyProfileChooserWindow'
   | 'prettifyProfilePortability'
+  | 'providerHomeActionDispatcher'
   | 'prettifyRuntime'
+  | 'providerSelection'
   | 'shortcutController'
   | 'streamingTranscriptionService'
   | 'transcriptionService'
@@ -94,9 +108,17 @@ export interface MainProcessRuntimeFactoryControllers {
   readonly diagnosticStorage: DiagnosticCaptureStorage;
   readonly diagnosticsArchive: DiagnosticsArchiveService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly firstLaunchStartupCoordinator: FirstLaunchStartupCoordinator;
   readonly historyRepository: SqliteTranscriptionHistoryRepository;
+  readonly hotkeyRegistrationService: HotkeyRegistrationService;
+  readonly localWhisperCoordinator: LocalWhisperCoordinator;
+  readonly localWhisperEnvironmentDispose: () => Promise<void>;
+  readonly localWhisperIpcController: LocalWhisperIpcController;
+  readonly localWhisperSnapshots: LocalWhisperSnapshotService;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly prettifyProfileChooserWindow: PrettifyProfileChooserWindowController;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
+  readonly providerHomeActionDispatcher: ProviderHomeActionDispatcher;
   readonly shortcutController: ShortcutController;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly translationRuntime: TranslationRuntime;
@@ -112,6 +134,7 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
     private readonly controllers: MainProcessRuntimeFactoryControllers,
   ) {}
 
+  /** Creates one application-owned runtime graph without publishing shared mutable state. */
   public create(): MainProcessOwnedRuntime {
     const { database, diagnosticCaptureSettings, diagnosticStorage, diagnosticsArchive, historyRepository } =
       this.controllers;
@@ -128,6 +151,10 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       backgroundBrowserService: this.controllers.backgroundBrowserService,
       getRequestedAt: this.dependencies.getRequestedAt,
       localization: this.dependencies.localization,
+      localWhisperDispatch: new LocalWhisperTranscriptionDispatch({
+        ...completionDependencies,
+        audit: this.controllers.voiceProviderAudit,
+      }),
     });
     const streamingTranscriptionService = new StreamingTranscriptionService({
       ...completionDependencies,
@@ -154,6 +181,13 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       localization: this.dependencies.ipc.localization,
       logger: this.dependencies.ipc.logger,
     });
+    const providerSelection = new VoiceProviderSelectionService({
+      config: this.dependencies.ipc.config,
+      runtime: this.controllers.backgroundBrowserService,
+      registry: this.controllers.voiceProviderRegistry,
+      getReadinessRevision: () => this.controllers.localWhisperSnapshots.snapshot.snapshotRevision,
+      mainInteractionLock: this.controllers.mainInteractionLock,
+    });
     const ipcController = new MainIpcController({
       ...this.dependencies.ipc,
       backgroundBrowserService: this.controllers.backgroundBrowserService,
@@ -164,11 +198,16 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       desktopRuntimeController: this.controllers.desktopRuntimeController,
       diagnosticCaptureSettings,
       diagnosticsExport: this.controllers.diagnosticsExport,
+      firstLaunchStartupCoordinator: this.controllers.firstLaunchStartupCoordinator,
+      hotkeyRegistrationService: this.controllers.hotkeyRegistrationService,
       historyController,
+      mainInteractionLock: this.controllers.mainInteractionLock,
       prettifyProfileChooserIpc,
       prettifyProfileChooserWindow: this.controllers.prettifyProfileChooserWindow,
       prettifyProfilePortability: this.controllers.prettifyProfilePortability,
+      providerHomeActionDispatcher: this.controllers.providerHomeActionDispatcher,
       prettifyRuntime: this.controllers.prettifyRuntime,
+      providerSelection,
       shortcutController: this.controllers.shortcutController,
       streamingTranscriptionService,
       transcriptionService,
@@ -184,6 +223,10 @@ export class MainProcessRuntimeFactory implements MainProcessRuntimeFactoryContr
       diagnosticStorage,
       diagnosticsArchive,
       ipcController,
+      localWhisperCoordinator: this.controllers.localWhisperCoordinator,
+      localWhisperEnvironmentDispose: this.controllers.localWhisperEnvironmentDispose,
+      localWhisperIpcController: this.controllers.localWhisperIpcController,
+      localWhisperSnapshots: this.controllers.localWhisperSnapshots,
     });
   }
 

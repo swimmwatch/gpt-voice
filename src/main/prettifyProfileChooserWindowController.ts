@@ -1,4 +1,13 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, Point, Rectangle, Screen, WebContents } from 'electron';
+import type {
+  BrowserWindow,
+  BrowserWindowConstructorOptions,
+  Display,
+  Point,
+  Rectangle,
+  Screen,
+  WebContents,
+} from 'electron';
+import type { I18nService, TranslationKey } from './i18n';
 import type { AppLocaleId } from '@shared/appLocale';
 import {
   PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS,
@@ -12,7 +21,7 @@ import { isPrettifyBuiltInProfileId, isPrettifyProfileId, type PrettifyProfileId
 import type { PrettifyProfileChooserPort } from './services/selectedTextPrettify';
 
 export const PRETTIFY_PROFILE_CHOOSER_PATH = 'prettify-profile-chooser.html';
-export const PRETTIFY_PROFILE_CHOOSER_TITLE = 'Choose a Prettify profile';
+export const PRETTIFY_PROFILE_CHOOSER_TITLE_KEY = 'prettify.chooser.title' satisfies TranslationKey;
 export const PRETTIFY_PROFILE_CHOOSER_BACKGROUND_COLOR = '#181a1b';
 export const PRETTIFY_PROFILE_CHOOSER_PREFERRED_WIDTH = 620;
 export const PRETTIFY_PROFILE_CHOOSER_PREFERRED_HEIGHT = 640;
@@ -33,13 +42,17 @@ export interface PrettifyProfileChooserWindowControllerDependencies {
   readonly createBrowserWindow: (options: BrowserWindowConstructorOptions) => BrowserWindow;
   readonly getAppIconPath: () => string;
   readonly getAppUrl: (pathname?: string) => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: {
     warn(...args: unknown[]): void;
   };
   readonly openExternal: (url: string) => Promise<void>;
   readonly preloadPath: string;
   readonly randomUUID: () => string;
-  readonly screen: Pick<Screen, 'getCursorScreenPoint' | 'getDisplayNearestPoint' | 'getPrimaryDisplay'>;
+  readonly screen: Pick<
+    Screen,
+    'getAllDisplays' | 'getCursorScreenPoint' | 'getDisplayNearestPoint' | 'getPrimaryDisplay'
+  >;
 }
 
 interface PrettifyProfileChooserOperation {
@@ -69,27 +82,22 @@ function isValidWorkArea(workArea: Rectangle): boolean {
   );
 }
 
-function calculateAnchoredCoordinate(
-  areaStart: number,
-  areaSize: number,
-  chooserSize: number,
-  inset: number,
-  anchorCoordinate: number | undefined,
-): number {
-  const centeredCoordinate = areaStart + (areaSize - chooserSize) / 2;
-  if (anchorCoordinate === undefined || !Number.isFinite(anchorCoordinate)) return Math.round(centeredCoordinate);
-
-  const availableSpace = Math.max(0, areaSize - chooserSize);
-  const effectiveInset = Math.min(inset, availableSpace / 2);
-  const minimum = areaStart + effectiveInset;
-  const maximum = areaStart + areaSize - chooserSize - effectiveInset;
-  return Math.round(Math.min(maximum, Math.max(minimum, anchorCoordinate - chooserSize / 2)));
+function containsPoint(rectangle: Rectangle, point: Point): boolean {
+  return (
+    isValidWorkArea(rectangle) &&
+    isFinitePoint(point) &&
+    point.x >= rectangle.x &&
+    point.x < rectangle.x + rectangle.width &&
+    point.y >= rectangle.y &&
+    point.y < rectangle.y + rectangle.height
+  );
 }
 
-export function calculatePrettifyProfileChooserBounds(
-  workArea: Rectangle,
-  anchorPoint?: Point,
-): PrettifyProfileChooserBounds | null {
+function hasSameDisplay(first: Display, second: Display): boolean {
+  return Number.isInteger(first.id) && Number.isInteger(second.id) && first.id === second.id;
+}
+
+export function calculatePrettifyProfileChooserBounds(workArea: Rectangle): PrettifyProfileChooserBounds | null {
   if (!isValidWorkArea(workArea)) return null;
 
   const preferredFits =
@@ -106,8 +114,8 @@ export function calculatePrettifyProfileChooserBounds(
   return Object.freeze({
     height,
     width,
-    x: calculateAnchoredCoordinate(workArea.x, workArea.width, width, inset, anchorPoint?.x),
-    y: calculateAnchoredCoordinate(workArea.y, workArea.height, height, inset, anchorPoint?.y),
+    x: Math.round(workArea.x + (workArea.width - width) / 2),
+    y: Math.round(workArea.y + (workArea.height - height) / 2),
   });
 }
 
@@ -153,16 +161,11 @@ function createOperationPayload(
     profileIds.add(profile.id);
     if (profile.isDefault) defaultCount += 1;
   }
-  if (
-    profiles.length === 0 ||
-    defaultCount !== 1 ||
-    (request.initialProfileId !== undefined && !profileIds.has(request.initialProfileId))
-  ) {
+  if (profiles.length === 0 || defaultCount !== 1) {
     throw new Error('Invalid Prettify profile chooser request');
   }
 
   const payload = Object.freeze({
-    ...(request.initialProfileId === undefined ? {} : { initialProfileId: request.initialProfileId }),
     profiles,
     sourceText: request.sourceText,
     token,
@@ -221,7 +224,6 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
       shown: false,
       token: payload.token,
     };
-
     try {
       const chooserUrl = this.getChooserUrl();
       const window = this.dependencies.createBrowserWindow({
@@ -234,7 +236,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
         maximizable: false,
         resizable: false,
         show: false,
-        title: PRETTIFY_PROFILE_CHOOSER_TITLE,
+        title: this.dependencies.localization.translate(PRETTIFY_PROFILE_CHOOSER_TITLE_KEY),
         useContentSize: true,
         webPreferences: {
           contextIsolation: true,
@@ -268,9 +270,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
     if (!window || !operation || window.isDestroyed()) return false;
     if (!operation.shown) return true;
     if (window.isMinimized()) window.restore();
-    this.positionAtCursor(window);
-    window.show();
-    window.focus();
+    this.showAndFocusOnCursorDisplay(window);
     return true;
   }
 
@@ -360,39 +360,97 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
   }
 
   private resolveBounds(): PrettifyProfileChooserBounds | null {
-    let workArea: Rectangle | null = null;
-    let anchorPoint: Point | undefined;
+    let availableDisplays: Display[];
+    try {
+      availableDisplays = this.dependencies.screen
+        .getAllDisplays()
+        .filter((display) => isValidWorkArea(display.workArea));
+    } catch {
+      return this.resolveBoundsWithoutAvailableDisplays();
+    }
+
+    if (availableDisplays.length === 0) return null;
+    if (availableDisplays.length === 1) {
+      return calculatePrettifyProfileChooserBounds(availableDisplays[0].workArea);
+    }
+
+    let cursorPoint: Point | null = null;
+    try {
+      const point = this.dependencies.screen.getCursorScreenPoint();
+      if (isFinitePoint(point)) cursorPoint = point;
+    } catch {
+      cursorPoint = null;
+    }
+    if (cursorPoint) {
+      const containingDisplay = availableDisplays.find((display) => {
+        const target = isValidWorkArea(display.bounds) ? display.bounds : display.workArea;
+        return containsPoint(target, cursorPoint);
+      });
+      if (containingDisplay) {
+        return calculatePrettifyProfileChooserBounds(containingDisplay.workArea);
+      }
+      try {
+        const cursorDisplay = this.dependencies.screen.getDisplayNearestPoint(cursorPoint);
+        const availableCursorDisplay = availableDisplays.find((display) => hasSameDisplay(display, cursorDisplay));
+        if (availableCursorDisplay) {
+          return calculatePrettifyProfileChooserBounds(availableCursorDisplay.workArea);
+        }
+      } catch {
+        // Fall through to the active primary display.
+      }
+    }
+
+    try {
+      const primaryDisplay = this.dependencies.screen.getPrimaryDisplay();
+      const availablePrimaryDisplay = availableDisplays.find((display) => hasSameDisplay(display, primaryDisplay));
+      if (availablePrimaryDisplay) {
+        return calculatePrettifyProfileChooserBounds(availablePrimaryDisplay.workArea);
+      }
+    } catch {
+      // The first valid available display remains the final fallback.
+    }
+    return availableDisplays[0] ? calculatePrettifyProfileChooserBounds(availableDisplays[0].workArea) : null;
+  }
+
+  private resolveBoundsWithoutAvailableDisplays(): PrettifyProfileChooserBounds | null {
     try {
       const cursorPoint = this.dependencies.screen.getCursorScreenPoint();
       if (isFinitePoint(cursorPoint)) {
         const cursorDisplay = this.dependencies.screen.getDisplayNearestPoint(cursorPoint);
         if (isValidWorkArea(cursorDisplay.workArea)) {
-          workArea = cursorDisplay.workArea;
-          anchorPoint = cursorPoint;
+          return calculatePrettifyProfileChooserBounds(cursorDisplay.workArea);
         }
       }
     } catch {
-      workArea = null;
-      anchorPoint = undefined;
+      // Fall through to the primary display fallback.
     }
-    if (!workArea) {
-      try {
-        const primaryDisplay = this.dependencies.screen.getPrimaryDisplay();
-        if (isValidWorkArea(primaryDisplay.workArea)) workArea = primaryDisplay.workArea;
-      } catch {
-        workArea = null;
+
+    try {
+      const primaryDisplay = this.dependencies.screen.getPrimaryDisplay();
+      if (isValidWorkArea(primaryDisplay.workArea)) {
+        return calculatePrettifyProfileChooserBounds(primaryDisplay.workArea);
       }
+    } catch {
+      // No usable native display is available.
     }
-    return workArea ? calculatePrettifyProfileChooserBounds(workArea, anchorPoint) : null;
+    return null;
   }
 
-  private positionAtCursor(window: BrowserWindow): void {
+  private positionOnCursorDisplay(window: BrowserWindow): void {
     try {
       const bounds = this.resolveBounds();
       if (bounds) window.setContentBounds(bounds);
     } catch {
       // Keep the last valid bounds if the native window or display topology changes during focus.
     }
+  }
+
+  /** Reasserts cursor-display placement after native mapping can affect initial window position. */
+  private showAndFocusOnCursorDisplay(window: BrowserWindow): void {
+    this.positionOnCursorDisplay(window);
+    window.show();
+    this.positionOnCursorDisplay(window);
+    window.focus();
   }
 
   private registerWindowLifecycle(window: BrowserWindow): void {
@@ -445,9 +503,7 @@ export class PrettifyProfileChooserWindowController implements PrettifyProfileCh
       return;
     }
     operation.shown = true;
-    this.positionAtCursor(window);
-    window.show();
-    window.focus();
+    this.showAndFocusOnCursorDisplay(window);
   }
 
   private hasToken(token: unknown): boolean {

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/focused-performance-cache-receipt-v4.schema.json",
+  "title": "Local Whisper revision-7 focused cache receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "focusedPerformanceCacheReceiptDigest",
+    "focusedPerformanceRunPlanDigest",
+    "focusedPerformanceManifestDigest",
+    "sampleId",
+    "cacheState",
+    "sampleIndex",
+    "procedure",
+    "inputSetDigest",
+    "status",
+    "reasonCode"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 4 },
+    "contractRevision": { "const": 7 },
+    "focusedPerformanceCacheReceiptDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "sampleId": { "$ref": "#/$defs/id" },
+    "cacheState": { "enum": ["cold", "warm"] },
+    "sampleIndex": { "enum": [1, 2, 3] },
+    "procedure": { "const": "linuxFileAdviceV1" },
+    "inputSetDigest": { "$ref": "#/$defs/sha256" },
+    "status": { "enum": ["prepared", "failed"] },
+    "reasonCode": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/reason" }] }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+    "reason": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" }
+  }
+}

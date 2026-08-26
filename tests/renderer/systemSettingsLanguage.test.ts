@@ -9,6 +9,49 @@ function readProjectFile(relativePath: string): string {
   return readFileSync(path.join(PROJECT_ROOT, relativePath), 'utf8');
 }
 
+const HOTKEY_REGISTRATION_TRANSLATION_KEYS = [
+  'hotkey.notAssigned',
+  'hotkey.remove',
+  'hotkey.test',
+  'hotkey.testing',
+  'hotkey.status.unassigned',
+  'hotkey.status.registered',
+  'hotkey.status.failed',
+  'hotkey.status.suppressed',
+  'hotkey.status.desktopManaged',
+  'hotkey.authority.application',
+  'hotkey.authority.desktopEnvironment',
+  'hotkey.authority.none',
+  'hotkey.recoveryAction',
+  'hotkey.preference',
+  'hotkey.effective',
+  'hotkey.failure.invalidAccelerator',
+  'hotkey.failure.internalConflict',
+  'hotkey.failure.osReserved',
+  'hotkey.failure.registrationRejected',
+  'hotkey.failure.persistenceFailed',
+  'hotkey.failure.reconciliationFailed',
+  'hotkey.failure.unsupportedPlatform',
+  'hotkey.test.detected',
+  'hotkey.test.timedOut',
+  'hotkey.test.unavailable',
+  'hotkey.stateUpdated',
+] as const;
+
+const LOCALE_FILES = [
+  'src/main/i18n/en.ts',
+  'src/main/i18n/ru.ts',
+  'src/main/i18n/be.ts',
+  'src/main/i18n/uk.ts',
+  'src/main/i18n/es.ts',
+  'src/main/i18n/pt-BR.ts',
+  'src/main/i18n/zh.ts',
+  'src/main/i18n/ja.ts',
+  'src/main/i18n/de.ts',
+  'src/main/i18n/fr.ts',
+  'src/main/i18n/hi.ts',
+] as const;
+
 describe('System application-language settings', () => {
   it('renders a dedicated section with named supported locales', () => {
     const appSettings = readProjectFile('src/renderer/AppSettingsWindow.tsx');
@@ -38,5 +81,14 @@ describe('System application-language settings', () => {
     assert.match(section, /setError\(t\('appSettings\.languageSaveFailed'\)\)/u);
     assert.match(section, /disabled=\{isSaving\}/u);
     assert.doesNotMatch(section, /error instanceof Error|String\(error\)|error\.message/u);
+  });
+
+  it('requires every locale map to include the bounded hotkey registration copy', () => {
+    for (const localeFile of LOCALE_FILES) {
+      const locale = readProjectFile(localeFile);
+      for (const key of HOTKEY_REGISTRATION_TRANSLATION_KEYS) {
+        assert.ok(locale.includes(`'${key}':`), `${localeFile} must include ${key}`);
+      }
+    }
   });
 });

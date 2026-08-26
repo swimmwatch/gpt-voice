@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { AppProtocolController } from '@main/appProtocol';
 
@@ -49,9 +50,10 @@ describe('AppProtocolController', () => {
   it('serves only normalized files inside the app root', async () => {
     const protocol = new RecordingProtocol();
     const readPaths: string[] = [];
+    const appRoot = path.resolve('app', 'dist');
     const controller = new AppProtocolController({
-      appIconPath: '/resources/icon.png',
-      appRoot: '/app/dist',
+      appIconPath: path.resolve('resources', 'icon.png'),
+      appRoot: `${appRoot}${path.sep}`,
       logger: { warn: () => undefined },
       protocol,
       readFile: async (filePath) => {
@@ -67,7 +69,7 @@ describe('AppProtocolController', () => {
 
     assert.equal(success?.status, 200);
     assert.equal(success?.headers.get('content-type'), 'text/javascript; charset=utf-8');
-    assert.deepEqual(readPaths, ['/app/dist/renderer/main.js']);
+    assert.deepEqual(readPaths, [path.join(appRoot, 'renderer', 'main.js')]);
     assert.equal(traversal?.status, 403);
     assert.equal(wrongHost?.status, 404);
   });

@@ -1,0 +1,66 @@
+{
+  "$schema": "urn:gpt-voice:watch-process:scenario:1",
+  "schemaVersion": "1.1.0",
+  "id": "generic-ci-run",
+  "description": "Watch one provider run through a strict JSON CLI.",
+  "adapter": "generic-ci-cli",
+  "target": {
+    "selectorKinds": ["provider-id"],
+    "identityFields": ["providerId", "targetId", "attempt", "sourceSha"],
+    "requireExactSourceRevision": true
+  },
+  "success": {
+    "requiredChecksMode": "listed",
+    "requiredChecks": ["build", "test"],
+    "requiredOutputs": [],
+    "allowedSkippedChecks": []
+  },
+  "timing": {
+    "expectedDurationSeconds": 1200,
+    "minTimeoutSeconds": 300,
+    "maxTimeoutSeconds": 7200,
+    "poll": { "initialSeconds": 10, "maxSeconds": 90, "multiplier": 2 }
+  },
+  "evidence": { "maxBytesPerAttempt": 524288, "maxFailures": 10, "ttlSeconds": 43200 },
+  "repair": {
+    "includeGlobs": ["src/**", "tests/**", "ci/**"],
+    "excludeGlobs": ["dist/**"],
+    "allowCreate": true,
+    "allowDelete": false,
+    "maxFiles": 30,
+    "maxBytesChanged": 524288
+  },
+  "verification": [{ "executable": "npm", "args": ["test"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
+  "delivery": { "strategy": "provider-dispatch", "pushCurrentUpstream": false },
+  "authority": { "kind": "standard" },
+  "forbiddenActions": ["force-push", "release", "publish", "deploy"],
+  "adapterConfig": {
+    "providerId": "acme-ci",
+    "commands": {
+      "start": {
+        "executable": "acme-ci",
+        "args": ["run", "start", "--source", "{{target.source_sha}}", "--request-id", "{{watch.id}}"],
+        "cwd": ".",
+        "env": ["PATH", "SYSTEMROOT"]
+      },
+      "observe": {
+        "executable": "acme-ci",
+        "args": ["run", "show", "{{target.id}}", "--json"],
+        "cwd": ".",
+        "env": ["PATH", "SYSTEMROOT"]
+      },
+      "evidence": {
+        "executable": "acme-ci",
+        "args": ["run", "logs", "{{target.id}}", "--failed-only"],
+        "cwd": ".",
+        "env": ["PATH", "SYSTEMROOT"]
+      }
+    },
+    "statusMap": {
+      "running": ["queued", "running"],
+      "succeeded": ["passed"],
+      "failed": ["failed"],
+      "cancelled": ["cancelled"]
+    }
+  }
+}

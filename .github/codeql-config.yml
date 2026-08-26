@@ -1,0 +1,11 @@
+name: GPT-Voice CodeQL scope
+
+paths:
+  - build
+  - eslint.config.mjs
+  - postcss.config.js
+  - src/main
+  - src/renderer
+  - src/shared
+  - scripts
+  - webpack.config.js

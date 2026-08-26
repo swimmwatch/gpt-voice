@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM fedora:44
+FROM fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898
 
 ENV CI=true \
     CLOAKBROWSER_AUTO_UPDATE=false \
@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
       atk \
       ca-certificates \
       cairo \
+      clang \
+      cmake \
       cpio \
       cups-libs \
       desktop-file-utils \
@@ -34,6 +36,7 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
       mesa-libgbm \
       nodejs24 \
       nodejs24-npm \
+      ninja-build \
       nss \
       pango \
       rpm \
@@ -47,6 +50,8 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
 
 COPY fedora-release-entrypoint.mjs /usr/local/bin/gpt-voice-fedora-release-build
 RUN chmod 0755 /usr/local/bin/gpt-voice-fedora-release-build
+
+RUN install -d -m 1777 /workspace/node_modules
 
 WORKDIR /workspace
 ENTRYPOINT ["gpt-voice-fedora-release-build"]

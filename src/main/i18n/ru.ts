@@ -1,9 +1,17 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/ru';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('ru'),
   'translate.provider': 'Провайдер перевода',
   'translate.saving': 'Сохранение...',
+  'providerHotkeyDemo.fixtureControls': 'Элементы управления демонстрацией',
+  'providerHotkeyDemo.fixture': 'Сценарий',
+  'providerHotkeyDemo.advanceClock': 'Переместить часы демонстрации',
+  'providerHotkeyDemo.clearLock': 'Снять блокировку демонстрации',
+  'providerHotkeyDemo.ownerlessLock': 'Блокировка без владельца',
+  'providerHotkeyDemo.statusDetailPriority': 'Приоритет детали статуса',
   'translate.settingsSaveFailed': 'Не удалось сохранить настройки перевода',
 
   // Status messages
@@ -58,6 +66,7 @@ export default {
   'error.translationConsentOrChallenge': 'Сервис перевода требует согласия или проверки. Повторите попытку позже.',
   'error.translationPageChanged': 'Страница сервиса перевода изменилась. Повторите попытку позже.',
   'error.translationResultUnavailable': 'Результат перевода не был получен до истечения времени ожидания.',
+  'error.translationTimedOut': 'Время ожидания перевода истекло. Повторите попытку.',
   'error.translationCleanupFailed': 'Не удалось очистить данные перевода. Результат не скопирован.',
   'error.translationSettingsInvalid': 'Выберите поддерживаемый сервис и язык перевода.',
   'error.translationSettingsSaveFailed': 'Не удалось сохранить настройки перевода. Предыдущий выбор остаётся активным.',
@@ -133,6 +142,11 @@ export default {
 
   // App settings
   'appSettings.open': 'Настройки приложения',
+  'settings.blockedWhileOpen': 'Закройте настройки, чтобы продолжить работу с GPT-Voice.',
+  'settings.opening': 'Открываем настройки…',
+  'settings.show': 'Показать настройки',
+  'settings.blockedWhileRecording': 'Остановите запись перед открытием настроек.',
+  'settings.blockedWhileOperationActive': 'Дождитесь завершения текущей операции перед открытием настроек.',
   'appSettings.title': 'Настройки',
   'appSettings.system': 'Система',
   'appSettings.language': 'Язык приложения',
@@ -217,10 +231,12 @@ export default {
   'recording.pause': 'Приостановить запись',
   'recording.resume': 'Продолжить запись',
   'recording.cancel': 'Отменить запись',
+  'recording.capturedAudioDuration': 'Записанное аудио: {duration}',
 
   // Model memory
   'modelMemory.title': 'Память модели',
   'modelMemory.ollamaGpu': 'Модель улучшения текста',
+  'modelMemory.ram': 'ОЗУ',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Загружена',
   'modelMemory.notLoaded': 'Не загружена',
@@ -361,6 +377,35 @@ export default {
   'hotkey.pressKeyCombination': 'Нажмите сочетание клавиш',
   'hotkey.waitingForInput': 'Ожидание ввода...',
   'hotkey.apply': 'Применить',
+  'hotkey.notAssigned': 'Не назначено',
+  'hotkey.remove': 'Удалить',
+  'hotkey.test': 'Проверить сочетание',
+  'hotkey.testing':
+    'Ожидается {accelerator}. Нажмите его в течение пяти секунд; действие «{target}» не будет выполнено.',
+  'hotkey.status.unassigned': 'Не назначено',
+  'hotkey.status.registered': 'Зарегистрировано',
+  'hotkey.status.failed': 'Ошибка',
+  'hotkey.status.suppressed': 'Подавлено',
+  'hotkey.status.desktopManaged': 'Зарегистрировано — управляется рабочим столом',
+  'hotkey.authority.application': 'Сочетание управляется приложением',
+  'hotkey.authority.desktopEnvironment': 'Сочетание управляется средой рабочего стола',
+  'hotkey.authority.none': 'Нет активного сочетания',
+  'hotkey.recoveryAction': 'Измените сочетание в настройках.',
+  'hotkey.preference': 'Настроенное сочетание: {accelerator}',
+  'hotkey.effective': 'Точный триггер: {accelerator}',
+  'hotkey.failure.invalidAccelerator': 'Введите допустимое сочетание клавиш.',
+  'hotkey.failure.internalConflict': 'Это сочетание конфликтует с другим настроенным сочетанием.',
+  'hotkey.failure.osReserved': 'Это сочетание зарезервировано Windows, включая F12 и сочетания с клавишей Windows.',
+  'hotkey.failure.registrationRejected': 'Это сочетание недоступно или используется системой либо другим приложением.',
+  'hotkey.failure.persistenceFailed': 'Не удалось сохранить сочетание. Предыдущее сочетание остаётся активным.',
+  'hotkey.failure.reconciliationFailed':
+    'Состояние сочетания не удалось безопасно согласовать. Перезапустите приложение или явно восстановите сочетание перед использованием.',
+  'hotkey.failure.unsupportedPlatform': 'Регистрация сочетаний не поддерживается на этой платформе.',
+  'hotkey.test.detected': 'Сочетание {accelerator} обнаружено. Сочетание работает.',
+  'hotkey.test.timedOut':
+    'Сочетание {accelerator} не обнаружено за пять секунд. Возможно, его использует другая программа или система.',
+  'hotkey.test.unavailable': 'Сочетание больше нельзя проверить. Назначьте его заново и попробуйте ещё раз.',
+  'hotkey.stateUpdated': 'Состояние регистрации сочетания обновлено.',
 
   // Translate
   'translate.label': 'Перевод',
@@ -491,6 +536,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не авторизован. Пожалуйста, войдите.',
+  'error.selectedProviderNotReady': 'Выбранный провайдер не готов.',
   'error.noAccessToken': 'Нет токена доступа или API key. Настройте провайдера и повторите попытку.',
   'error.chatGptAsrFailure': 'ChatGPT не смог обработать записанный звук ({mimeType}). Попробуйте записать снова.',
   'error.chatGptConnectionInterrupted': 'Распознавание через ChatGPT было прервано. Повторите попытку.',
@@ -655,7 +701,47 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Seed цифрового отпечатка должен содержать только цифры.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Загрузить модель',
+  'localWhisper.main.freeModel': 'Выгрузить модель',
+  'localWhisper.main.loadingStatus': 'Загрузка статуса Local Whisper',
+  'localWhisper.main.loadingModel': 'Загрузка модели',
+  'localWhisper.main.freeingModel': 'Выгрузка модели',
+  'localWhisper.main.modelInUse': 'Модель используется для транскрипции.',
+  'localWhisper.main.actionInProgress': 'Выполняется другая операция Local Whisper.',
+  'localWhisper.main.setupRequired': 'Установите выбранную среду и модель в настройках Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Выбранная модель недоступна. Откройте настройки Local Whisper.',
+  'localWhisper.main.modelUnavailableCode': 'Выбранная модель недоступна ({code}). Откройте настройки Local Whisper.',
+  'localWhisper.main.operationFailed': 'Не удалось выполнить операцию с моделью Local Whisper. Повторите попытку.',
+  'localWhisper.main.operationFailedCode':
+    'Не удалось выполнить операцию с моделью Local Whisper ({code}). Повторите попытку.',
+
+  'startup.preparing': 'Подготовка запуска',
+  'startup.preparingJobs': 'Подготавливаем: {jobs}',
+  'startup.preparingJobsWithMore': 'Подготавливаем: {jobs} и ещё {count}',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Голосовой провайдер',
+  'startup.job.translation': 'Перевод',
+  'startup.job.prettify': 'Улучшение текста',
+  'startup.progress': 'Ход подготовки',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Не удалось подготовить запуск. Повторите попытку.',
+  'startup.retryFailed': 'Не удалось повторить подготовку запуска. Повторите попытку.',
+  'startup.retry': 'Повторить',
+  'startup.selectProvider': 'Выберите провайдера, чтобы начать запись.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показать',
   'tray.quit': 'Выход',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Независимое настольное приложение для голосовой транскрибации через веб-сессии GPT.',
+  'nativeMenu.file': 'Файл',
+  'nativeMenu.edit': 'Правка',
+  'nativeMenu.view': 'Вид',
+  'nativeMenu.help': 'Справка',
+  'nativeMenu.projectOnGitHub': 'Проект на GitHub',
+  'nativeMenu.aboutApp': 'О приложении {app}',
+  'prettify.providerUnavailable': 'Провайдер Prettify недоступен.',
+  'prettify.modelLoadUnavailable': 'Загрузка модели недоступна для этого провайдера.',
+  'prettify.modelUnloadUnavailable': 'Выгрузка модели недоступна для этого провайдера.',
+  'prettify.instructionInvalid': 'Запрос Prettify некорректен.',
 } as const;

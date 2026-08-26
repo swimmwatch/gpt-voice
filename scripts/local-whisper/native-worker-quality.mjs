@@ -1,0 +1,213 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import process from 'node:process';
+import { spawnSync } from 'node:child_process';
+
+import { listNativeSourceFiles, resolveClangFormat, resolveClangTidy } from './native-quality-tools.mjs';
+import { runNativeFileToolInParallel } from './native-build/native-file-tool-parallelism.mjs';
+import { resolveNativeBuildJobs } from './native-build/native-build-parallelism.mjs';
+import { sanitizerRuntimeEnvironment } from './native-build/sanitizer-runtime-policy.mjs';
+
+const allowedActions = new Set(['all', 'authority', 'codec', 'format', 'lint', 'proof']);
+const action = process.argv[2] ?? 'all';
+if (!allowedActions.has(action)) {
+  process.stderr.write('Expected all, authority, codec, format, lint, or proof\n');
+  process.exit(2);
+}
+const isLinux = process.platform === 'linux';
+const isWindows = process.platform === 'win32';
+if (!isLinux && !isWindows) {
+  process.stderr.write('Local Whisper common native execution supports Linux and Windows only\n');
+  process.exit(2);
+}
+const configurationArgument = process.argv[3] ?? 'default';
+const configuration = configurationArgument === '--configuration=windows-asan' ? 'windows-asan' : configurationArgument;
+if (!['default', 'windows-asan'].includes(configuration)) {
+  process.stderr.write('Expected no configuration or --configuration=windows-asan\n');
+  process.exit(2);
+}
+if (!isWindows && configuration !== 'default') {
+  process.stderr.write('The Windows ASan configuration is available only on Windows\n');
+  process.exit(2);
+}
+
+const workspaceRoot = resolve(import.meta.dirname, '..', '..');
+const sourceDirectory = resolve(workspaceRoot, 'runtime', 'local-whisper', 'common');
+const fixtureRoot = resolve(workspaceRoot, 'tests', 'fixtures', 'local-whisper', 'protocol', 'v1');
+const contentStore = resolve(workspaceRoot, '.cache', 'local-whisper', 'native-sources', 'sha256');
+const nlohmannSource = resolve(contentStore, '1bd7718fe4b5a7e2aebe60abc6f5f94c313d8f472542e715766158a738e8ea47');
+const googleTestSource = resolve(contentStore, '9150f03cee9cb222456fcd0945d5285a1742b080c7ad7c47ed88b95c518afe7c');
+const toolchainRoot = resolve(workspaceRoot, '.cache', 'local-whisper', 'toolchains');
+const cmake = process.env.CMAKE_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'cmake');
+const ctest = process.env.CTEST_COMMAND || resolve(toolchainRoot, 'cmake-3.31.8', 'bin', 'ctest');
+const ninja = process.env.NINJA_COMMAND || resolve(toolchainRoot, 'ninja-1.12.1', 'ninja');
+const clangRoot = resolve(toolchainRoot, 'clang-18.1.3', 'usr', 'lib', 'llvm-18', 'bin');
+const isLinuxCompatibility = process.env.LOCAL_WHISPER_PREPARED_LINUX_COMPATIBILITY === 'true';
+
+const windowsProfiles = [
+  {
+    buildType: 'Debug',
+    cCompiler: process.env.LOCAL_WHISPER_MSVC_C_COMPILER || process.env.CXX || '',
+    cxxCompiler: process.env.LOCAL_WHISPER_MSVC_CXX_COMPILER || process.env.CXX || '',
+    id: 'windows-x64-msvc-19.51-v1',
+    linker: null,
+    sanitizers: false,
+  },
+  {
+    buildType: 'Debug',
+    cCompiler: process.env.LOCAL_WHISPER_MSVC_C_COMPILER || process.env.CXX || '',
+    cxxCompiler: process.env.LOCAL_WHISPER_MSVC_CXX_COMPILER || process.env.CXX || '',
+    id: 'windows-x64-msvc-19.51-asan-v1',
+    linker: null,
+    sanitizers: true,
+  },
+];
+const linuxProfiles = [
+  {
+    buildType: 'Release',
+    cCompiler: process.env.LOCAL_WHISPER_GCC_C_COMPILER || '/usr/bin/x86_64-linux-gnu-gcc-13',
+    cxxCompiler: process.env.LOCAL_WHISPER_GCC_CXX_COMPILER || '/usr/bin/x86_64-linux-gnu-g++-13',
+    id: 'linux-x64-cpu-baseline-v1',
+    linker: process.env.LOCAL_WHISPER_GCC_LINKER || '/usr/bin/x86_64-linux-gnu-ld.bfd',
+    sanitizers: false,
+  },
+  {
+    buildType: 'Debug',
+    cCompiler: process.env.LOCAL_WHISPER_CLANG_C_COMPILER || resolve(clangRoot, 'clang'),
+    cxxCompiler: process.env.LOCAL_WHISPER_CLANG_CXX_COMPILER || resolve(clangRoot, 'clang++'),
+    id: 'linux-x64-clang-18.1.3-asan-ubsan-v1',
+    linker: process.env.LOCAL_WHISPER_CLANG_LINKER || resolve(clangRoot, 'ld.lld'),
+    sanitizers: true,
+  },
+];
+
+const linuxCompatibilityProfiles = [
+  {
+    buildType: 'Release',
+    cCompiler: process.env.LOCAL_WHISPER_COMPATIBILITY_C_COMPILER || '',
+    cxxCompiler: process.env.LOCAL_WHISPER_COMPATIBILITY_CXX_COMPILER || '',
+    id: 'linux-x64-clang-18.1.3-compatibility-v1',
+    linker: null,
+    sanitizers: false,
+  },
+];
+
+const profiles = isWindows
+  ? windowsProfiles.filter((profile) => (configuration === 'windows-asan' ? profile.sanitizers : !profile.sanitizers))
+  : isLinuxCompatibility
+    ? linuxCompatibilityProfiles
+    : linuxProfiles;
+
+function run(command, arguments_, options = {}) {
+  const result = spawnSync(command, arguments_, {
+    cwd: options.cwd ?? workspaceRoot,
+    env: options.env ?? process.env,
+    shell: false,
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+function requireInputs() {
+  for (const path of [
+    cmake,
+    ctest,
+    ninja,
+    resolve(nlohmannSource, 'single_include', 'nlohmann', 'json.hpp'),
+    resolve(googleTestSource, 'CMakeLists.txt'),
+    ...profiles.flatMap((profile) => [profile.cCompiler, profile.cxxCompiler, profile.linker].filter(Boolean)),
+  ]) {
+    if (!existsSync(path)) throw new Error(`Required verified native input is unavailable: ${path}`);
+  }
+}
+
+function assertDisconnectedGraph(buildDirectory) {
+  const ownedCmake = [
+    resolve(sourceDirectory, 'CMakeLists.txt'),
+    resolve(workspaceRoot, 'runtime', 'local-whisper', 'fs-guard', 'CMakeLists.txt'),
+    resolve(workspaceRoot, 'runtime', 'local-whisper', 'launcher', 'CMakeLists.txt'),
+  ];
+  const generated = [resolve(buildDirectory, 'CMakeCache.txt'), resolve(buildDirectory, 'build.ninja')];
+  const forbidden = /FetchContent|find_package|https?:\/\/|git(?:\.exe)?\s+(?:clone|fetch)|DOWNLOAD_COMMAND/u;
+  for (const path of [...ownedCmake, ...generated]) {
+    if (forbidden.test(readFileSync(path, 'utf8'))) {
+      throw new Error(`Network-capable or ambient package discovery found in ${path}`);
+    }
+  }
+}
+
+function testRegex() {
+  if (action === 'authority') return '^ModelAuthority\\.';
+  if (action === 'proof') return '^DeviceProof\\.';
+  if (action === 'codec') return '^(BoundedJson|CanonicalWav|FrameCodec|Sha256)\\.';
+  return null;
+}
+
+function buildAndTest(profile) {
+  const buildDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'worker-common', profile.id);
+  const configureArguments = [
+    '-S',
+    sourceDirectory,
+    '-B',
+    buildDirectory,
+    '-G',
+    'Ninja',
+    `-DCMAKE_MAKE_PROGRAM=${ninja}`,
+    `-DCMAKE_BUILD_TYPE=${profile.buildType}`,
+    `-DCMAKE_C_COMPILER=${profile.cCompiler}`,
+    `-DCMAKE_CXX_COMPILER=${profile.cxxCompiler}`,
+    '-DCMAKE_SKIP_BUILD_RPATH=ON',
+    '-DFETCHCONTENT_FULLY_DISCONNECTED=ON',
+    `-DLOCAL_WHISPER_COMMON_ENABLE_SANITIZERS=${profile.sanitizers ? 'ON' : 'OFF'}`,
+    `-DLOCAL_WHISPER_NLOHMANN_SOURCE=${nlohmannSource}`,
+    `-DLOCAL_WHISPER_GOOGLETEST_SOURCE=${googleTestSource}`,
+    `-DLOCAL_WHISPER_PROTOCOL_FIXTURE_ROOT=${fixtureRoot}`,
+  ];
+  if (isWindows && process.env.LOCAL_WHISPER_MSVC_ANALYZE === 'true') {
+    configureArguments.push('-DLOCAL_WHISPER_MSVC_ANALYZE=ON');
+  }
+  if (profile.linker) configureArguments.push(`-DCMAKE_LINKER=${profile.linker}`);
+  run(cmake, configureArguments);
+  assertDisconnectedGraph(buildDirectory);
+  run(cmake, ['--build', buildDirectory, '--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' }))]);
+  const arguments_ = ['--test-dir', buildDirectory, '--output-on-failure'];
+  arguments_.push('--parallel', String(resolveNativeBuildJobs({ backend: 'cpu' })));
+  const regex = testRegex();
+  if (regex) arguments_.push('-R', regex);
+  const environment = sanitizerRuntimeEnvironment(process.env, isWindows ? 'windows' : 'linux', profile.sanitizers);
+  process.stdout.write(`Local Whisper common ${profile.sanitizers ? 'sanitized' : 'ordinary'} coverage\n`);
+  run(ctest, arguments_, { env: environment });
+}
+
+requireInputs();
+if (action === 'format') {
+  if (!isLinux) throw new Error('Local Whisper common formatting is qualified on Linux only');
+  await runNativeFileToolInParallel({
+    arguments_: ['--dry-run', '--Werror'],
+    command: resolveClangFormat(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files: listNativeSourceFiles(sourceDirectory),
+    label: 'worker common clang-format',
+  });
+} else if (action === 'lint') {
+  if (!isLinux) throw new Error('Local Whisper common clang-tidy is qualified on Linux only');
+  const profile = profiles[1];
+  buildAndTest(profile);
+  const buildDirectory = resolve(workspaceRoot, '.cache', 'local-whisper', 'worker-common', profile.id);
+  await runNativeFileToolInParallel({
+    arguments_: ['-p', buildDirectory],
+    command: resolveClangTidy(workspaceRoot, clangRoot),
+    cwd: workspaceRoot,
+    env: process.env,
+    files: listNativeSourceFiles(resolve(sourceDirectory, 'src')).filter((path) => path.endsWith('.cpp')),
+    label: 'worker common clang-tidy',
+  });
+} else {
+  for (const profile of profiles) buildAndTest(profile);
+  run(process.env.PYTHON || 'python3', [
+    '-m',
+    'unittest',
+    resolve(sourceDirectory, 'python', 'test_reference_codec.py'),
+  ]);
+}

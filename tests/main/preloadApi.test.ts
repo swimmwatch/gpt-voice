@@ -9,10 +9,61 @@ import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
 } from '@shared/translationProvider';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  FIRST_LAUNCH_STARTUP_JOB_STATES,
+  FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES,
+  createFirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
+import { LOCAL_WHISPER_IPC_CHANNELS, type LocalWhisperSettingsCommand } from '@shared/localWhisper';
+import { HOTKEY_IPC_CHANNELS } from '@shared/hotkeyIpc';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS } from '@shared/settingsPresentation';
+import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
+import { PROVIDER_HOME_ACTION_IPC_CHANNELS } from '@shared/providerHomeAction';
+import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
+import { VOICE_RECORDING_IPC_CHANNELS } from '@shared/recordingLifecycle';
+import { FakeCoordinator, createSnapshotService } from './localWhisper/ipc/localWhisperIpcTestUtils';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 type IpcListener = (event: IpcRendererEvent, ...args: unknown[]) => void;
+
+function createHotkeyRuntimeState(revision = 1): Record<string, unknown> {
+  return {
+    revision,
+    settings: {
+      cancelHotkey: null,
+      hotkey: 'F9',
+      prettifyHotkey: null,
+      prettifyQuickHotkey: null,
+      retryTranscriptionHotkey: null,
+      stopHotkey: null,
+      translateHotkey: null,
+    },
+    snapshot: {
+      entries: [
+        {
+          bindingAuthority: 'application',
+          configuredAccelerator: 'F9',
+          dispatchStatus: 'enabled',
+          effectiveAccelerator: 'F9',
+          registrationStatus: 'registered',
+          target: 'record',
+        },
+        ...['stop', 'cancel', 'translate', 'prettify', 'prettifyQuick', 'retryTranscription'].map((target) => ({
+          bindingAuthority: 'none',
+          configuredAccelerator: null,
+          dispatchStatus: 'enabled',
+          effectiveAccelerator: null,
+          registrationStatus: 'unassigned',
+          target,
+        })),
+      ],
+    },
+  };
+}
 
 class RecordingIpcRenderer implements ElectronApiIpcRenderer {
   public readonly invocations: { args: unknown[]; channel: string }[] = [];
@@ -46,22 +97,195 @@ class RecordingIpcRenderer implements ElectronApiIpcRenderer {
 }
 
 describe('preload API factory', () => {
+  it('decodes recording-start results and drops malformed rejection events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(VOICE_RECORDING_IPC_CHANNELS.requestStart, {
+      accepted: false,
+      reason: 'provider-not-connected',
+    });
+    const api = createElectronApi(renderer);
+    const rejections: string[] = [];
+    const unsubscribe = api.onRecordingStartRejected((reason) => rejections.push(reason));
+
+    assert.deepEqual(await api.requestRecordingStart(), { accepted: false, reason: 'provider-not-connected' });
+    renderer.emit(VOICE_RECORDING_IPC_CHANNELS.startRejected, 'provider-not-connected');
+    renderer.emit(VOICE_RECORDING_IPC_CHANNELS.startRejected, 'forged-reason');
+    unsubscribe();
+    renderer.emit(VOICE_RECORDING_IPC_CHANNELS.startRejected, 'provider-not-connected');
+
+    assert.deepEqual(rejections, ['provider-not-connected']);
+    assert.deepEqual(renderer.invocations, [{ args: [], channel: VOICE_RECORDING_IPC_CHANNELS.requestStart }]);
+
+    renderer.respond(VOICE_RECORDING_IPC_CHANNELS.requestStart, { accepted: true, reason: 'forged-reason' });
+    await assert.rejects(api.requestRecordingStart(), /Invalid recording start result/u);
+  });
+
+  it('exposes only decoded bounded provider-home action commands and state events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery, {
+      activeAction: null,
+      activeActionCancellable: false,
+      settings: { prettifyEnabled: true, prettifyQuickEnabled: true, translateEnabled: true },
+    });
+    renderer.respond(PROVIDER_HOME_ACTION_IPC_CHANNELS.command, { accepted: true });
+    const api = createElectronApi(renderer);
+    const states: string[] = [];
+    const unsubscribe = api.onProviderHomeActionStateChanged((state) => states.push(String(state.activeAction)));
+
+    assert.equal((await api.getProviderHomeActionState()).activeAction, null);
+    assert.deepEqual(await api.runProviderHomeAction({ action: 'start', provider: 'prettify' }), { accepted: true });
+    renderer.emit(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, {
+      activeAction: 'translation',
+      activeActionCancellable: true,
+      settings: { prettifyEnabled: true, prettifyQuickEnabled: true, translateEnabled: true },
+    });
+    renderer.emit(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, { activeAction: 'translation' });
+    unsubscribe();
+
+    assert.deepEqual(states, ['translation']);
+    assert.deepEqual(renderer.invocations.slice(-2), [
+      { args: [], channel: PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery },
+      { args: [{ action: 'start', provider: 'prettify' }], channel: PROVIDER_HOME_ACTION_IPC_CHANNELS.command },
+    ]);
+    await assert.rejects(api.runProviderHomeAction({ action: 'start', provider: 'voice' } as never));
+  });
+
   it('routes typed invocations through an injected renderer without Electron globals', async () => {
     const renderer = new RecordingIpcRenderer();
-    renderer.respond('get-active-provider', 'chatgpt');
+    renderer.respond('get-active-provider', null);
+    renderer.respond('set-active-provider', {
+      success: true,
+      committedProviderId: 'claude-web',
+      readinessRevision: 1,
+    });
+    renderer.respond(HOTKEY_IPC_CHANNELS.set, { state: createHotkeyRuntimeState(), status: 'success' });
     const api = createElectronApi(renderer);
 
-    assert.equal(await api.getActiveProvider(), 'chatgpt');
+    assert.equal(await api.getActiveProvider(), null);
     await api.setActiveProvider('claude-web');
-    await api.setHotkey('prettifyQuick', 'Ctrl+F12');
+    await api.setHotkey({ accelerator: 'Ctrl+F12', target: 'prettifyQuick' });
     await api.translateText('private-source-canary', 'ru');
 
     assert.deepEqual(renderer.invocations, [
       { args: [], channel: 'get-active-provider' },
       { args: ['claude-web'], channel: 'set-active-provider' },
-      { args: ['prettifyQuick', 'Ctrl+F12'], channel: 'set-hotkey' },
+      { args: [{ accelerator: 'Ctrl+F12', target: 'prettifyQuick' }], channel: HOTKEY_IPC_CHANNELS.set },
       { args: ['private-source-canary', 'ru'], channel: 'translate-text' },
     ]);
+  });
+
+  it('validates hotkey requests, responses, and runtime-state events at the preload boundary', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const state = createHotkeyRuntimeState();
+    renderer.respond(HOTKEY_IPC_CHANNELS.snapshotQuery, state);
+    renderer.respond(HOTKEY_IPC_CHANNELS.set, { state, status: 'success' });
+    renderer.respond(HOTKEY_IPC_CHANNELS.clear, {
+      failureCode: 'registration-rejected',
+      state,
+      status: 'failure',
+    });
+    renderer.respond(HOTKEY_IPC_CHANNELS.test, { result: 'unavailable', state });
+    const api = createElectronApi(renderer);
+    const revisions: number[] = [];
+    const unsubscribe = api.onHotkeyRuntimeStateChanged((nextState) => revisions.push(nextState.revision));
+
+    assert.equal((await api.getHotkeyRuntimeState()).revision, 1);
+    assert.equal((await api.setHotkey({ accelerator: 'F10', target: 'stop' })).status, 'success');
+    assert.equal((await api.clearHotkey({ target: 'stop' })).status, 'failure');
+    assert.equal((await api.testHotkey({ target: 'record' })).result, 'unavailable');
+    renderer.emit(HOTKEY_IPC_CHANNELS.snapshotChanged, createHotkeyRuntimeState(2));
+    renderer.emit(HOTKEY_IPC_CHANNELS.snapshotChanged, { ...createHotkeyRuntimeState(3), extra: true });
+    unsubscribe();
+
+    assert.deepEqual(revisions, [2]);
+    assert.deepEqual(renderer.invocations, [
+      { args: [], channel: HOTKEY_IPC_CHANNELS.snapshotQuery },
+      { args: [{ accelerator: 'F10', target: 'stop' }], channel: HOTKEY_IPC_CHANNELS.set },
+      { args: [{ target: 'stop' }], channel: HOTKEY_IPC_CHANNELS.clear },
+      { args: [{ target: 'record' }], channel: HOTKEY_IPC_CHANNELS.test },
+    ]);
+    await assert.rejects(api.setHotkey({ accelerator: '', target: 'record' } as never), /Invalid hotkey set request/u);
+    await assert.rejects(api.clearHotkey({ target: 'forged' } as never), /Invalid hotkey clear request/u);
+    await assert.rejects(api.testHotkey({ target: 'forged' } as never), /Invalid hotkey test request/u);
+
+    renderer.respond(HOTKEY_IPC_CHANNELS.snapshotQuery, { ...createHotkeyRuntimeState(), revision: -1 });
+    await assert.rejects(api.getHotkeyRuntimeState(), /Invalid hotkey runtime state/u);
+    renderer.respond(HOTKEY_IPC_CHANNELS.set, { state, status: 'success', untrusted: true });
+    await assert.rejects(api.setHotkey({ accelerator: 'F10', target: 'stop' }), /Invalid hotkey mutation response/u);
+  });
+
+  it('decodes Local Whisper queries/results and drops malformed renderer events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const snapshots = createSnapshotService(new FakeCoordinator());
+    const snapshot = snapshots.snapshot;
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery, snapshot);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe, snapshot);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsUnsubscribe, { success: true });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.settingsCommand, {
+      success: true,
+      command: 'load',
+      snapshot,
+    });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusQuery, snapshots.mainStatus);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusSubscribe, snapshots.mainStatus);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainStatusUnsubscribe, { success: true });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, {
+      success: true,
+      command: 'unload',
+      snapshot: snapshots.mainStatus,
+      failure: null,
+    });
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, { success: true });
+    const api = createElectronApi(renderer);
+    const events: number[] = [];
+    const unsubscribe = api.onLocalWhisperSettingsSnapshot((value) => events.push(value.snapshotRevision));
+
+    assert.equal((await api.getLocalWhisperSettingsSnapshot()).snapshotRevision, snapshot.snapshotRevision);
+    const command: LocalWhisperSettingsCommand = {
+      kind: 'load',
+      expectedSnapshotRevision: snapshot.snapshotRevision,
+      expectedConfigurationEpoch: snapshot.configurationEpoch,
+      expectedInventoryEpoch: snapshot.inventoryEpoch,
+    };
+    assert.equal((await api.runLocalWhisperSettingsCommand(command)).success, true);
+    assert.deepEqual(await api.unsubscribeLocalWhisperSettings(), { success: true });
+    assert.deepEqual(await api.unsubscribeLocalWhisperMainStatus(), { success: true });
+    assert.equal(
+      (
+        await api.runLocalWhisperMainResidencyCommand({
+          kind: 'unload',
+          expectedSnapshotRevision: snapshots.mainStatus.snapshotRevision,
+        })
+      ).success,
+      true,
+    );
+    assert.deepEqual(await api.openLocalWhisperSettings(), { success: true });
+    renderer.emit(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, snapshot);
+    renderer.emit(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, { ...snapshot, path: '/private/model' });
+    unsubscribe();
+    assert.deepEqual(events, [snapshot.snapshotRevision]);
+
+    await assert.rejects(
+      api.runLocalWhisperSettingsCommand({ ...command, path: '/forged' } as LocalWhisperSettingsCommand),
+      /Invalid Local Whisper settings command/u,
+    );
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings, { success: true, path: '/private' });
+    await assert.rejects(api.openLocalWhisperSettings(), /Invalid Local Whisper open-settings response/u);
+    renderer.respond(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, {
+      success: true,
+      command: 'load',
+      snapshot: snapshots.mainStatus,
+      failure: null,
+      stderr: 'private',
+    });
+    await assert.rejects(
+      api.runLocalWhisperMainResidencyCommand({
+        kind: 'load',
+        expectedSnapshotRevision: snapshots.mainStatus.snapshotRevision,
+      }),
+      /Invalid Local Whisper main command response/u,
+    );
+    snapshots.dispose();
   });
 
   it('owns event listeners and unsubscribe state per factory input', () => {
@@ -81,6 +305,88 @@ describe('preload API factory', () => {
 
     assert.deepEqual(firstEvents, [true]);
     assert.deepEqual(secondEvents, [false]);
+  });
+
+  it('owns the payload-free provider settings close-request subscription', () => {
+    const renderer = new RecordingIpcRenderer();
+    const api = createElectronApi(renderer);
+    let requests = 0;
+    const unsubscribe = api.onProviderSettingsCloseRequested(() => {
+      requests += 1;
+    });
+
+    renderer.emit(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested);
+    unsubscribe();
+    renderer.emit(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested);
+
+    assert.equal(requests, 1);
+  });
+
+  it('decodes main-interaction lock state and cleans up its direct event listener', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, true);
+    const api = createElectronApi(renderer);
+    const events: boolean[] = [];
+    const unsubscribe = api.onMainInteractionLockChanged((locked) => events.push(locked));
+
+    assert.equal(await api.getMainInteractionLocked(), true);
+    renderer.emit(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, true);
+    renderer.emit(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, 'forged');
+    unsubscribe();
+    renderer.emit(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, false);
+
+    assert.deepEqual(events, [true]);
+    assert.deepEqual(renderer.invocations.slice(-1), [{ args: [], channel: MAIN_INTERACTION_LOCK_IPC_CHANNELS.query }]);
+
+    renderer.respond(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, 'forged');
+    assert.equal(await api.getMainInteractionLocked(), false);
+  });
+
+  it('decodes settings presentation state and exposes only the focus request', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.query, 'opening');
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.focus, true);
+    const api = createElectronApi(renderer);
+    const states: string[] = [];
+    const unsubscribe = api.onSettingsPresentationChanged((state) => states.push(state));
+
+    assert.equal(await api.getSettingsPresentation(), 'opening');
+    assert.equal(await api.focusSettingsWindow(), true);
+    renderer.emit(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, 'open');
+    renderer.emit(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, 'forged');
+    unsubscribe();
+    renderer.emit(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, 'idle');
+
+    assert.deepEqual(states, ['open']);
+    assert.deepEqual(renderer.invocations.slice(-2), [
+      { args: [], channel: SETTINGS_PRESENTATION_IPC_CHANNELS.query },
+      { args: [], channel: SETTINGS_PRESENTATION_IPC_CHANNELS.focus },
+    ]);
+
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.query, 'forged');
+    renderer.respond(SETTINGS_PRESENTATION_IPC_CHANNELS.focus, 'forged');
+    assert.equal(await api.getSettingsPresentation(), 'idle');
+    assert.equal(await api.focusSettingsWindow(), false);
+  });
+
+  it('decodes selected-text activity and ignores malformed activity events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    renderer.respond(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query, false);
+    const api = createElectronApi(renderer);
+    const activity: boolean[] = [];
+    const unsubscribe = api.onTextActionActivityChanged((active) => activity.push(active));
+
+    assert.equal(await api.getTextActionActivity(), false);
+    renderer.emit(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, true);
+    renderer.emit(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, 'forged');
+    unsubscribe();
+    renderer.emit(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, false);
+
+    assert.deepEqual(activity, [true]);
+    assert.deepEqual(renderer.invocations.slice(-1), [{ args: [], channel: TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query }]);
+
+    renderer.respond(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query, 'forged');
+    assert.equal(await api.getTextActionActivity(), true);
   });
 
   it('sanitizes Translation connection queries and ignores malformed events', async () => {
@@ -126,6 +432,50 @@ describe('preload API factory', () => {
         targetLanguage: 'en',
       },
     ]);
+  });
+
+  it('decodes safe first-launch startup snapshots and drops malformed events', async () => {
+    const renderer = new RecordingIpcRenderer();
+    const snapshot = createFirstLaunchStartupSnapshot({
+      generation: 0,
+      jobs: [
+        {
+          completedUnits: 0,
+          failureCode: null,
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          state: FIRST_LAUNCH_STARTUP_JOB_STATES.Pending,
+          totalUnits: 1,
+        },
+      ],
+      retryable: false,
+      state: FIRST_LAUNCH_STARTUP_SNAPSHOT_STATES.Pending,
+    });
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, snapshot);
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, snapshot);
+    const api = createElectronApi(renderer);
+    const events: number[] = [];
+    const unsubscribe = api.onFirstLaunchStartupSnapshot((value) => events.push(value.generation));
+
+    assert.deepEqual(await api.getFirstLaunchStartupSnapshot(), snapshot);
+    assert.deepEqual(await api.retryFirstLaunchStartup(), snapshot);
+    renderer.emit(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, snapshot);
+    renderer.emit(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, {
+      ...snapshot,
+      privateInstallerPath: '/private/cache/chrome',
+    });
+    unsubscribe();
+    renderer.emit(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, snapshot);
+
+    assert.deepEqual(events, [0]);
+    assert.deepEqual(renderer.invocations.slice(-2), [
+      { args: [], channel: FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery },
+      { args: [], channel: FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry },
+    ]);
+
+    renderer.respond(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, {
+      privateInstallerPath: '/private/cache/chrome',
+    });
+    await assert.rejects(api.getFirstLaunchStartupSnapshot(), /Invalid first-launch startup snapshot/u);
   });
 
   it('exposes exactly one factory result through the preload bridge', () => {

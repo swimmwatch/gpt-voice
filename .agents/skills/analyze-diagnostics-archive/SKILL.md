@@ -52,7 +52,8 @@ Before reading any member, the tool must establish all of these facts:
 2. The complete reported member inventory is exactly:
    - `manifest.json`;
    - `provider-audit/events.jsonl`;
-   - optional `diagnostics/text-actions.jsonl`.
+   - optional `diagnostics/text-actions.jsonl`;
+   - optional schema-v2 `local-whisper/snapshot.json` (at most `65,536` bytes).
 3. Every member is a relative regular file. There are no duplicate,
    unexpected, encrypted, linked, absolute, parent-traversal, or unreportable
    names or types.
@@ -76,7 +77,7 @@ conditions only: stop when the active tool reports or encounters an excess,
 but do not claim that unseen records or lines were counted or validated.
 
 GPT-Voice applies these envelope and JSONL ceilings while creating schema-v1
-ZIP or tar.gz exports. They are an app-owned producer contract, not validation
+or schema-v2 ZIP or tar.gz exports. They are an app-owned producer contract, not validation
 performed by this instruction-only workflow. Agent analysis remains selective,
 best-effort, and tool-dependent; it does not establish complete schema
 validation, stable-file handling, resource containment, or absence of
@@ -92,6 +93,11 @@ problem prove neither archive authenticity nor malicious-input safety.
 Read `manifest.json` first. Then select only the records needed for the
 supplied occurrence window, operation ID, cause, or narrow transformation
 question.
+
+For schema v2, classify the optional Local Whisper snapshot only as `absent`,
+`valid`, or `invalid` using the exact manifest length/hash/schema-map and closed
+snapshot rules in the reference. Never echo rejected snapshot values or infer
+readiness from absence.
 
 - Keep the working reasoning set at or below `1 MiB` of evidence text and
   `10,000` metadata records. Use less whenever possible.
@@ -199,6 +205,10 @@ limitations, diagnostic gaps, cache-only actions, redaction limitations, a
 private-data warning, and prompt-injection residual risk. State that the
 result is not exhaustive and proves neither archive authenticity nor
 malicious-input safety.
+
+Under `## Environment and Providers`, report Local Whisper snapshot state only
+as `absent`, `valid`, or `invalid`. Do not copy device/version labels or logical
+identifiers into the report.
 
 Recommendations are read-only. They do not authorize code changes, fixes,
 provider calls, application-data changes, uploads, issue creation, commits,

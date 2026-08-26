@@ -10,7 +10,21 @@ import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@share
 import type { AppInfo } from '@shared/appInfo';
 import type { AppSettingsSectionId } from '@shared/appSettings';
 import type { AppLocaleId } from '@shared/appLocale';
-import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import {
+  HOTKEY_IPC_CHANNELS,
+  isHotkeyClearRequest,
+  isHotkeyMutationResponse,
+  isHotkeyRuntimeState,
+  isHotkeySetRequest,
+  isHotkeyTestRequest,
+  isHotkeyTestResponse,
+  type HotkeyClearRequest,
+  type HotkeyMutationResponse,
+  type HotkeyRuntimeState,
+  type HotkeySetRequest,
+  type HotkeyTestRequest,
+  type HotkeyTestResponse,
+} from '@shared/hotkeyIpc';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type {
   PrettifyModelListResult,
@@ -23,7 +37,14 @@ import type {
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
-import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import {
+  isVoiceRecordingStartRejectionReason,
+  isVoiceRecordingStartResult,
+  VOICE_RECORDING_IPC_CHANNELS,
+  type RecordingLifecycleState,
+  type VoiceRecordingStartRejectionReason,
+  type VoiceRecordingStartResult,
+} from '@shared/recordingLifecycle';
 import type {
   TranscriptionHistoryClearResult,
   TranscriptionHistoryCopyResult,
@@ -74,6 +95,43 @@ import {
   type PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  sanitizeFirstLaunchStartupSnapshot,
+  type FirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, isMainInteractionLockState } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS, isSettingsPresentationState } from '@shared/settingsPresentation';
+import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS, isTextActionActivityState } from '@shared/textActionStatus';
+import {
+  isProviderHomeActionCommand,
+  isProviderHomeActionResult,
+  isProviderHomeActionState,
+  PROVIDER_HOME_ACTION_IPC_CHANNELS,
+  type ProviderHomeActionCommand,
+  type ProviderHomeActionResult,
+  type ProviderHomeActionState,
+} from '@shared/providerHomeAction';
+import {
+  LOCAL_WHISPER_IPC_CHANNELS,
+  isLocalWhisperMainStatusSnapshot,
+  isLocalWhisperMainResidencyCommand,
+  isLocalWhisperMainResidencyCommandResult,
+  isLocalWhisperIpcAcknowledgement,
+  isLocalWhisperProviderSelectionResult,
+  isLocalWhisperRendererSnapshot,
+  isLocalWhisperSettingsCommand,
+  isLocalWhisperSettingsCommandResult,
+  type LocalWhisperIpcAcknowledgement,
+  type LocalWhisperMainStatusSnapshot,
+  type LocalWhisperMainResidencyCommand,
+  type LocalWhisperMainResidencyCommandResult,
+  type LocalWhisperProviderSelectionResult,
+  type LocalWhisperRendererSnapshot,
+  type LocalWhisperSettingsCommand,
+  type LocalWhisperSettingsCommandResult,
+} from '@shared/localWhisper';
+import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 
 type Unsubscribe = () => void;
 export interface ElectronApiIpcRenderer {
@@ -91,6 +149,16 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
 
     ipcRenderer.on(channel, listener);
     return () => ipcRenderer.removeListener(channel, listener);
+  };
+
+  const onDecodedEvent = <Value>(
+    channel: string,
+    decoder: (value: unknown) => value is Value,
+    callback: (value: Value) => void,
+  ): Unsubscribe => {
+    return onMainEvent<[unknown]>(channel, (value) => {
+      if (decoder(value)) callback(value);
+    });
   };
 
   return {
@@ -120,8 +188,36 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
         if (isTranslationProviderConnectionState(state)) callback(state);
       });
     },
+    getFirstLaunchStartupSnapshot: async (): Promise<FirstLaunchStartupSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+      const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+      if (!safeSnapshot) throw new Error('Invalid first-launch startup snapshot');
+      return safeSnapshot;
+    },
+    retryFirstLaunchStartup: async (): Promise<FirstLaunchStartupSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry);
+      const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+      if (!safeSnapshot) throw new Error('Invalid first-launch startup snapshot');
+      return safeSnapshot;
+    },
+    onFirstLaunchStartupSnapshot: (callback: (snapshot: FirstLaunchStartupSnapshot) => void): (() => void) => {
+      return onMainEvent<[unknown]>(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, (snapshot) => {
+        const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+        if (safeSnapshot) callback(safeSnapshot);
+      });
+    },
     recordingStartFailed: (): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('recording-start-failed');
+    },
+    requestRecordingStart: async (): Promise<VoiceRecordingStartResult> => {
+      const result = await ipcRenderer.invoke<unknown>(VOICE_RECORDING_IPC_CHANNELS.requestStart);
+      if (!isVoiceRecordingStartResult(result)) throw new Error('Invalid recording start result');
+      return result;
+    },
+    onRecordingStartRejected: (callback: (reason: VoiceRecordingStartRejectionReason) => void): (() => void) => {
+      return onMainEvent<[unknown]>(VOICE_RECORDING_IPC_CHANNELS.startRejected, (reason) => {
+        if (isVoiceRecordingStartRejectionReason(reason)) callback(reason);
+      });
     },
     setRecordingLifecycleState: (state: RecordingLifecycleState): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('set-recording-lifecycle-state', state);
@@ -131,6 +227,37 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getRecordingStatus: (): Promise<boolean> => {
       return ipcRenderer.invoke('get-recording-status');
+    },
+    getMainInteractionLocked: async (): Promise<boolean> => {
+      const value = await ipcRenderer.invoke<unknown>(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query);
+      return isMainInteractionLockState(value) ? value : false;
+    },
+    onMainInteractionLockChanged: (callback: (locked: boolean) => void): (() => void) => {
+      return onMainEvent<[unknown]>(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, (value) => {
+        if (isMainInteractionLockState(value)) callback(value);
+      });
+    },
+    getSettingsPresentation: async () => {
+      const value = await ipcRenderer.invoke<unknown>(SETTINGS_PRESENTATION_IPC_CHANNELS.query);
+      return isSettingsPresentationState(value) ? value : 'idle';
+    },
+    onSettingsPresentationChanged: (callback) => {
+      return onMainEvent<[unknown]>(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, (value) => {
+        if (isSettingsPresentationState(value)) callback(value);
+      });
+    },
+    focusSettingsWindow: async () => {
+      const value = await ipcRenderer.invoke<unknown>(SETTINGS_PRESENTATION_IPC_CHANNELS.focus);
+      return value === true;
+    },
+    getTextActionActivity: async (): Promise<boolean> => {
+      const value = await ipcRenderer.invoke<unknown>(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query);
+      return isTextActionActivityState(value) ? value : true;
+    },
+    onTextActionActivityChanged: (callback: (active: boolean) => void): (() => void) => {
+      return onMainEvent<[unknown]>(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, (value) => {
+        if (isTextActionActivityState(value)) callback(value);
+      });
     },
     providerLogin: (providerId: string): Promise<{ success: boolean; settings?: ProviderSettings; error?: string }> => {
       return ipcRenderer.invoke('provider-login', providerId);
@@ -146,6 +273,9 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     closeProviderSettings: (): Promise<{ success: boolean }> => {
       return ipcRenderer.invoke('close-provider-settings');
+    },
+    onProviderSettingsCloseRequested: (callback: () => void): (() => void) => {
+      return onMainEvent(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested, callback);
     },
     onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void): (() => void) => {
       return onMainEvent<[ProviderSettings]>('provider-settings-changed', callback);
@@ -228,8 +358,69 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     getActiveProvider: (): Promise<string> => {
       return ipcRenderer.invoke('get-active-provider');
     },
-    setActiveProvider: (providerId: string): Promise<{ success: boolean; error?: string }> => {
-      return ipcRenderer.invoke('set-active-provider', providerId);
+    setActiveProvider: async (providerId: string): Promise<LocalWhisperProviderSelectionResult> => {
+      const result = await ipcRenderer.invoke<unknown>('set-active-provider', providerId);
+      if (!isLocalWhisperProviderSelectionResult(result)) throw new Error('Invalid provider-selection response');
+      return result;
+    },
+    getLocalWhisperSettingsSnapshot: async (): Promise<LocalWhisperRendererSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsQuery);
+      if (!isLocalWhisperRendererSnapshot(snapshot)) throw new Error('Invalid Local Whisper settings snapshot');
+      return snapshot;
+    },
+    subscribeLocalWhisperSettings: async (): Promise<LocalWhisperRendererSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsSubscribe);
+      if (!isLocalWhisperRendererSnapshot(snapshot)) throw new Error('Invalid Local Whisper settings subscription');
+      return snapshot;
+    },
+    unsubscribeLocalWhisperSettings: async (): Promise<LocalWhisperIpcAcknowledgement> => {
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsUnsubscribe);
+      if (!isLocalWhisperIpcAcknowledgement(result)) throw new Error('Invalid Local Whisper unsubscribe response');
+      return result;
+    },
+    onLocalWhisperSettingsSnapshot: (callback: (snapshot: LocalWhisperRendererSnapshot) => void): (() => void) => {
+      return onDecodedEvent(LOCAL_WHISPER_IPC_CHANNELS.settingsChanged, isLocalWhisperRendererSnapshot, callback);
+    },
+    runLocalWhisperSettingsCommand: async (
+      command: LocalWhisperSettingsCommand,
+    ): Promise<LocalWhisperSettingsCommandResult> => {
+      if (!isLocalWhisperSettingsCommand(command)) throw new Error('Invalid Local Whisper settings command');
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.settingsCommand, command);
+      if (!isLocalWhisperSettingsCommandResult(result)) throw new Error('Invalid Local Whisper command response');
+      return result;
+    },
+    getLocalWhisperMainStatus: async (): Promise<LocalWhisperMainStatusSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainStatusQuery);
+      if (!isLocalWhisperMainStatusSnapshot(snapshot)) throw new Error('Invalid Local Whisper main status');
+      return snapshot;
+    },
+    subscribeLocalWhisperMainStatus: async (): Promise<LocalWhisperMainStatusSnapshot> => {
+      const snapshot = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainStatusSubscribe);
+      if (!isLocalWhisperMainStatusSnapshot(snapshot)) throw new Error('Invalid Local Whisper main subscription');
+      return snapshot;
+    },
+    unsubscribeLocalWhisperMainStatus: async (): Promise<LocalWhisperIpcAcknowledgement> => {
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainStatusUnsubscribe);
+      if (!isLocalWhisperIpcAcknowledgement(result)) throw new Error('Invalid Local Whisper unsubscribe response');
+      return result;
+    },
+    onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void): (() => void) => {
+      return onDecodedEvent(LOCAL_WHISPER_IPC_CHANNELS.mainStatusChanged, isLocalWhisperMainStatusSnapshot, callback);
+    },
+    runLocalWhisperMainResidencyCommand: async (
+      command: LocalWhisperMainResidencyCommand,
+    ): Promise<LocalWhisperMainResidencyCommandResult> => {
+      if (!isLocalWhisperMainResidencyCommand(command)) throw new Error('Invalid Local Whisper main command');
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainResidencyCommand, command);
+      if (!isLocalWhisperMainResidencyCommandResult(result)) {
+        throw new Error('Invalid Local Whisper main command response');
+      }
+      return result;
+    },
+    openLocalWhisperSettings: async (): Promise<LocalWhisperIpcAcknowledgement> => {
+      const result = await ipcRenderer.invoke<unknown>(LOCAL_WHISPER_IPC_CHANNELS.mainOpenSettings);
+      if (!isLocalWhisperIpcAcknowledgement(result)) throw new Error('Invalid Local Whisper open-settings response');
+      return result;
     },
     checkSession: (): Promise<boolean> => {
       return ipcRenderer.invoke('check-session');
@@ -298,8 +489,8 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
         callback(String(providerId), String(error), Boolean(authExpired)),
       );
     },
-    onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => {
-      return onMainEvent<[HotkeySettings]>('hotkey-settings-changed', callback);
+    onHotkeyRuntimeStateChanged: (callback: (state: HotkeyRuntimeState) => void) => {
+      return onDecodedEvent(HOTKEY_IPC_CHANNELS.snapshotChanged, isHotkeyRuntimeState, callback);
     },
     onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => {
       return onMainEvent<[PrettifySettings]>('prettify-settings-changed', callback);
@@ -307,22 +498,28 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     onLocaleChanged: (callback: (locale: AppLocaleId) => void): (() => void) => {
       return onMainEvent<[AppLocaleId]>('locale-changed', callback);
     },
-    getHotkey: (): Promise<HotkeySettings> => {
-      return ipcRenderer.invoke('get-hotkey');
+    getHotkeyRuntimeState: async (): Promise<HotkeyRuntimeState> => {
+      const state = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.snapshotQuery);
+      if (!isHotkeyRuntimeState(state)) throw new Error('Invalid hotkey runtime state');
+      return state;
     },
-    setHotkeyCaptureActive: (active: boolean): Promise<{ success: boolean }> => {
-      return ipcRenderer.invoke('set-hotkey-capture-active', active);
+    setHotkey: async (request: HotkeySetRequest): Promise<HotkeyMutationResponse> => {
+      if (!isHotkeySetRequest(request)) throw new Error('Invalid hotkey set request');
+      const response = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.set, request);
+      if (!isHotkeyMutationResponse(response)) throw new Error('Invalid hotkey mutation response');
+      return response;
     },
-    setHotkey: (
-      key: HotkeyTarget,
-      hotkey: string,
-    ): Promise<
-      {
-        success: boolean;
-        error?: string;
-      } & HotkeySettings
-    > => {
-      return ipcRenderer.invoke('set-hotkey', key, hotkey);
+    clearHotkey: async (request: HotkeyClearRequest): Promise<HotkeyMutationResponse> => {
+      if (!isHotkeyClearRequest(request)) throw new Error('Invalid hotkey clear request');
+      const response = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.clear, request);
+      if (!isHotkeyMutationResponse(response)) throw new Error('Invalid hotkey mutation response');
+      return response;
+    },
+    testHotkey: async (request: HotkeyTestRequest): Promise<HotkeyTestResponse> => {
+      if (!isHotkeyTestRequest(request)) throw new Error('Invalid hotkey test request');
+      const response = await ipcRenderer.invoke<unknown>(HOTKEY_IPC_CHANNELS.test, request);
+      if (!isHotkeyTestResponse(response)) throw new Error('Invalid hotkey test response');
+      return response;
     },
     getTranslateSettings: (): Promise<TranslationSettings> => {
       return ipcRenderer.invoke('get-translate-settings');
@@ -333,6 +530,20 @@ export function createElectronApi(ipcRenderer: ElectronApiIpcRenderer): Electron
     },
     getTextActionSettings: (): Promise<TextActionSettings> => {
       return ipcRenderer.invoke('get-text-action-settings');
+    },
+    getProviderHomeActionState: async (): Promise<ProviderHomeActionState> => {
+      const state = await ipcRenderer.invoke<unknown>(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery);
+      if (!isProviderHomeActionState(state)) throw new Error('Invalid provider home action state');
+      return state;
+    },
+    runProviderHomeAction: async (command: ProviderHomeActionCommand): Promise<ProviderHomeActionResult> => {
+      if (!isProviderHomeActionCommand(command)) throw new Error('Invalid provider home action command');
+      const result = await ipcRenderer.invoke<unknown>(PROVIDER_HOME_ACTION_IPC_CHANNELS.command, command);
+      if (!isProviderHomeActionResult(result)) throw new Error('Invalid provider home action result');
+      return result;
+    },
+    onProviderHomeActionStateChanged: (callback: (state: ProviderHomeActionState) => void): (() => void) => {
+      return onDecodedEvent(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, isProviderHomeActionState, callback);
     },
     getDiagnosticCaptureSettings: (): Promise<DiagnosticCaptureSettings> => {
       return ipcRenderer.invoke(DIAGNOSTIC_CAPTURE_SETTINGS_IPC_CHANNELS.get);

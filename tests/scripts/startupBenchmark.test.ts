@@ -126,20 +126,20 @@ describe('startup benchmark helpers', () => {
     assert.throws(() => importedModule.normalizeRunCount('invalid'), /between 1 and 50/i);
   });
 
-  it('resolves packaged executable candidates for the active platform layouts', async () => {
+  it('resolves packaged executable candidates with host-native filesystem separators', async () => {
     const importedModule: unknown = await import(pathToFileURL(modulePath).href);
     assert.ok(isStartupBenchmarkModule(importedModule));
 
     assert.deepEqual(importedModule.getPackagedStartupExecutableCandidates('/project', 'linux', 'x64'), [
-      '/project/release/linux-unpacked/gpt-voice',
+      path.join('/project', 'release', 'linux-unpacked', 'gpt-voice'),
     ]);
     assert.deepEqual(importedModule.getPackagedStartupExecutableCandidates('/project', 'win32', 'x64'), [
-      '/project/release/win-unpacked/gpt-voice.exe',
-      '/project/release/win-unpacked/GPT-Voice.exe',
+      path.join('/project', 'release', 'win-unpacked', 'gpt-voice.exe'),
+      path.join('/project', 'release', 'win-unpacked', 'GPT-Voice.exe'),
     ]);
     assert.deepEqual(importedModule.getPackagedStartupExecutableCandidates('/project', 'darwin', 'arm64'), [
-      '/project/release/mac-arm64/GPT-Voice.app/Contents/MacOS/GPT-Voice',
-      '/project/release/mac-universal/GPT-Voice.app/Contents/MacOS/GPT-Voice',
+      path.join('/project', 'release', 'mac-arm64', 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
+      path.join('/project', 'release', 'mac-universal', 'GPT-Voice.app', 'Contents', 'MacOS', 'GPT-Voice'),
     ]);
     assert.throws(
       () => importedModule.getPackagedStartupExecutableCandidates('/project', 'freebsd', 'x64'),

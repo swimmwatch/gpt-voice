@@ -18,14 +18,15 @@ import {
 } from '@main/services/prettifyHttpProviders';
 import {
   BasePrettifyProvider,
-  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+  PRETTIFY_MODEL_LOAD_UNAVAILABLE_ERROR_KEY,
+  PRETTIFY_MODEL_UNLOAD_UNAVAILABLE_ERROR_KEY,
+  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY,
   type PreparePrettifyExecutionResult,
   type PrettifyFetch,
   type PrettifyProviderDependencies,
   type TextProcessingResult,
 } from '@main/services/prettifyProviderBase';
 import {
-  PRETTIFY_EXECUTION_INSTRUCTION_INVALID_ERROR,
   normalizePrettifyExecutionInstruction,
   type PrettifyExecutionInstruction,
 } from '@main/services/prettifyProfileInstruction';
@@ -50,7 +51,6 @@ export {
   ClaudeCliPrettifyProvider,
   CodexCliPrettifyProvider,
   OllamaPrettifyProvider,
-  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
   VllmPrettifyProvider,
 };
 export type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
@@ -134,7 +134,7 @@ export class PrettifyProviderRegistry {
   public getOllama(): OllamaPrettifyProvider {
     const provider = this.get('ollama');
     if (!(provider instanceof OllamaPrettifyProvider)) {
-      throw new Error(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR);
+      throw new Error('Invalid Ollama Prettify provider definition');
     }
     return provider;
   }
@@ -142,7 +142,7 @@ export class PrettifyProviderRegistry {
   public getVllm(): VllmPrettifyProvider {
     const provider = this.get('vllm');
     if (!(provider instanceof VllmPrettifyProvider)) {
-      throw new Error(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR);
+      throw new Error('Invalid vLLM Prettify provider definition');
     }
     return provider;
   }
@@ -175,7 +175,7 @@ export class PrettifyRuntime {
   ): Promise<PrettifyCliConnectionResult> {
     if (!isPrettifyCliProviderId(providerId)) {
       this.dependencies.audit.recordUnknownProvider(providerId, 'availability');
-      throw new Error('Unsupported Prettify CLI provider');
+      throw new Error(this.providerUnavailableError());
     }
     const connectionRevision = this.beginProviderConnectionCheck(providerId);
     const auditContext = this.dependencies.audit.startAvailability(providerId);
@@ -214,7 +214,7 @@ export class PrettifyRuntime {
       audit.recordUnknownProvider(providerId, 'model-list');
       return {
         availability: { status: 'unavailable' },
-        error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+        error: this.providerUnavailableError(),
         models: [],
         providerId: 'ollama',
         source: 'http',
@@ -255,7 +255,7 @@ export class PrettifyRuntime {
       if (!isHttpPrettifyProviderId(providerId)) throw error;
       return {
         availability: { status: 'unavailable' },
-        error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+        error: this.providerUnavailableError(),
         models: [],
         providerId,
         source: provider.capabilities.modelSource,
@@ -271,13 +271,17 @@ export class PrettifyRuntime {
     const audit = this.dependencies.audit;
     if (!isKnownPrettifyProviderId(providerId)) {
       audit.recordUnknownProvider(providerId, 'model-load');
-      return { success: false, providerId: 'ollama', error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+      return { success: false, providerId: 'ollama', error: this.providerUnavailableError() };
     }
     const provider = this.dependencies.registry.get(providerId);
     const auditContext = isHttpPrettifyProviderId(providerId) ? audit.startModelLoad(providerId) : undefined;
     if (!provider.capabilities.modelLifecycle) {
       if (auditContext) audit.terminalFailure(auditContext, 'validation', 'model-lifecycle-failed');
-      return { success: false, providerId, error: 'Model loading is available only for Ollama' };
+      return {
+        success: false,
+        providerId,
+        error: this.dependencies.localization.translate(PRETTIFY_MODEL_LOAD_UNAVAILABLE_ERROR_KEY),
+      };
     }
     const settings = this.resolveSettingsForAuditedOperation(providerId, draftSettings, auditContext);
     try {
@@ -295,13 +299,17 @@ export class PrettifyRuntime {
     const audit = this.dependencies.audit;
     if (!isKnownPrettifyProviderId(providerId)) {
       audit.recordUnknownProvider(providerId, 'model-unload');
-      return { success: false, providerId: 'ollama', error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+      return { success: false, providerId: 'ollama', error: this.providerUnavailableError() };
     }
     const provider = this.dependencies.registry.get(providerId);
     const auditContext = isHttpPrettifyProviderId(providerId) ? audit.startModelUnload(providerId) : undefined;
     if (!provider.capabilities.modelLifecycle) {
       if (auditContext) audit.terminalFailure(auditContext, 'validation', 'model-lifecycle-failed');
-      return { success: false, providerId, error: 'Model unloading is available only for Ollama' };
+      return {
+        success: false,
+        providerId,
+        error: this.dependencies.localization.translate(PRETTIFY_MODEL_UNLOAD_UNAVAILABLE_ERROR_KEY),
+      };
     }
     const settings = this.resolveSettingsForAuditedOperation(providerId, draftSettings, auditContext);
     try {
@@ -359,13 +367,13 @@ export class PrettifyRuntime {
     try {
       normalizedInstruction = normalizePrettifyExecutionInstruction(instruction);
     } catch {
-      return { success: false, error: PRETTIFY_EXECUTION_INSTRUCTION_INVALID_ERROR };
+      return { success: false, error: this.dependencies.localization.translate('prettify.instructionInvalid') };
     }
     const audit = this.dependencies.audit;
     const requestedProvider = draftSettings.providerId;
     if (requestedProvider !== undefined && !isKnownPrettifyProviderId(requestedProvider)) {
       audit.recordUnknownProvider(requestedProvider, 'prepare');
-      return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+      return { success: false, error: this.providerUnavailableError() };
     }
 
     let settings: PrettifySettingsWithSecret;
@@ -383,7 +391,7 @@ export class PrettifyRuntime {
     const providerId = isKnownPrettifyProviderId(requestedProvider) ? requestedProvider : settings.providerId;
     if (!isKnownPrettifyProviderId(providerId)) {
       audit.recordUnknownProvider(providerId, 'prepare');
-      return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+      return { success: false, error: this.providerUnavailableError() };
     }
     const provider = this.dependencies.registry.get(providerId);
     const modelMetadata = provider.getModelMetadata(settings);
@@ -406,12 +414,12 @@ export class PrettifyRuntime {
       }
       if (!isHttpPrettifyProviderId(providerId)) {
         audit.terminalException(auditContext, 'process', error);
-        return { success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR };
+        return { success: false, error: this.providerUnavailableError() };
       }
       audit.terminalException(auditContext, 'readiness', error);
       return {
         success: false,
-        error: createConnectionError(getHttpPrettifyProviderName(providerId)),
+        error: createConnectionError(getHttpPrettifyProviderName(providerId), this.dependencies.localization),
       };
     }
   }
@@ -472,7 +480,11 @@ export class PrettifyRuntime {
     if (providerId === 'codex-cli' && errorCode) {
       return createCliFailure(providerId, errorCode as CodexCliPrettifyErrorCode, this.dependencies.localization).error;
     }
-    return PRETTIFY_PROVIDER_UNAVAILABLE_ERROR;
+    return this.providerUnavailableError();
+  }
+
+  private providerUnavailableError(): string {
+    return this.dependencies.localization.translate(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY);
   }
 
   private resolveSettingsForAuditedOperation(

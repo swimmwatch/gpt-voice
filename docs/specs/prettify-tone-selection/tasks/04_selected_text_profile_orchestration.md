@@ -20,9 +20,9 @@ change the meaning of an in-flight Apply.
 - Inspect `SelectedTextPrettifyService`, `SelectedTextActionGate`,
   selected-text Translation, `ShortcutController`, text automation/cache,
   composition-root wiring, and their direct tests.
-- Use planning decision `workflow.chooser-selection-memory:v1`: remember the
-  last applied one-off profile only in main-process memory for the current app
-  session.
+- Use planning decision `workflow.chooser-selection-memory:v2`: every chooser
+  opening selects the configured default profile; one-off selections are not
+  remembered.
 - Use planning decision `workflow.chooser-concurrent-catalog:v1`: an open
   chooser applies its immutable opening snapshot.
 - Use planning decision `planning.packet-03-default-resolution-bridge:v1`:
@@ -47,8 +47,7 @@ change the meaning of an in-flight Apply.
 - Extension of packet 03's explicit-default resolver to chooser selection and
   the final quick-apply coordinator.
 - Immutable operation-scoped full-profile snapshots for chooser execution.
-- Shared provider/cache/result delivery, cancellation, shutdown, reentry, and
-  session-only one-off memory.
+- Shared provider/cache/result delivery, cancellation, shutdown, and reentry.
 - Fakes/interfaces for the concrete chooser controller implemented in packet 05.
 
 ## Out Of Scope
@@ -217,8 +216,8 @@ change the meaning of an in-flight Apply.
 - Reentry focuses the existing chooser and retains its source; generation
   reentry does not duplicate a request.
 - A late result after cancellation/shutdown cannot overwrite clipboard.
-- Last applied chooser profile is remembered only in process memory and never
-  changes default/quick behavior.
+- Every chooser request carries the current default marker; no previous one-off
+  selection changes a later chooser opening or quick behavior.
 - All prohibited voice/Translation/main-window behavior remains unchanged.
 
 ## Verification

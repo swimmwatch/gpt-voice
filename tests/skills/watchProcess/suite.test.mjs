@@ -1,0 +1,11 @@
+import './generated-watcher.test.mjs';
+import './generic-ci-adapter.test.mjs';
+import './github-actions-adapter.test.mjs';
+import './local-docker-adapters.test.mjs';
+import './orchestrator.test.mjs';
+import './operator.test.mjs';
+import './repair-delivery.test.mjs';
+import './runtime-core.test.mjs';
+import './scenario-contract.test.mjs';
+import './state-and-audit.test.mjs';
+import './stop-hook.test.mjs';

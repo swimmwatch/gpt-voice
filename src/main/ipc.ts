@@ -2,9 +2,10 @@
 import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
 import type { BrowserContext } from 'playwright-core';
 import type { BackgroundBrowserService } from './browser';
+import type { FirstLaunchStartupCoordinator } from './firstLaunchStartupCoordinator';
 import type { VoiceProviderAudit } from './providers/voiceProviderAudit';
 import type { VoiceProviderRegistry } from './providers/voiceProviderRegistry';
-import { type WindowManager } from './window';
+import { type SettingsWindowOpenResult, type WindowManager } from './window';
 import type { DesktopRuntimeController } from './desktopRuntimeController';
 import type { ShortcutController } from './shortcuts';
 import type { TranscriptionService } from './services/transcription';
@@ -16,13 +17,17 @@ import {
   type OpenAIApiSettingsInput,
 } from './providers/openaiApiSettingsUtils';
 import { assertValidClaudeWebSettingsUpdateInput, CLAUDE_WEB_PROVIDER_ID } from '@shared/claudeWebSettings';
+import { HotkeyRegistrationFailureCode, HotkeyTestResult } from '@shared/hotkeys';
 import {
-  getHotkeyConflict,
-  isHotkeyTarget,
-  normalizeHotkey,
-  type HotkeySettings,
-  type HotkeyTarget,
-} from '@shared/hotkeys';
+  HOTKEY_IPC_CHANNELS,
+  isHotkeyClearRequest,
+  isHotkeySetRequest,
+  isHotkeyTestRequest,
+  type HotkeyMutationResponse,
+  type HotkeyRuntimeState,
+  type HotkeyTestResponse,
+} from '@shared/hotkeyIpc';
+import type { HotkeyRegistrationMutationResult, HotkeyRegistrationService } from './hotkeys/HotkeyRegistrationService';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import {
   assertValidKnownPrettifySettingsInput,
@@ -37,7 +42,7 @@ import {
   type PrettifyModelUnloadResult,
   type PrettifyProviderSettingsInput,
 } from '@shared/prettifySettings';
-import { isRecordingLifecycleState } from '@shared/recordingLifecycle';
+import { isRecordingLifecycleState, VOICE_RECORDING_IPC_CHANNELS } from '@shared/recordingLifecycle';
 import type { TranscriptionHistoryQuery } from '@shared/transcriptionHistory';
 import { assertValidTextActionSettingsInput, normalizeTextActionSettings } from '@shared/textActionSettings';
 import { TranscriptionHistoryIpcController } from './services/transcriptionHistoryIpcController';
@@ -52,6 +57,7 @@ import {
   type StreamingTranscriptionIpcHandler,
 } from './streamingTranscriptionIpcController';
 import type { MainStreamingTranscriptionService } from './services/streamingTranscription';
+import type { VoiceProviderSelectionService } from './localWhisper/ipc/VoiceProviderSelectionService';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import { isAppLocaleId } from '@shared/appLocale';
 import { TranslationSettingsValidationError } from './translationSettings';
@@ -68,6 +74,7 @@ import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import type { PrettifyProfileChooserIpcRegistrar } from './prettifyProfileChooserIpcRegistrar';
 import type { PrettifyProfileChooserWindowController } from './prettifyProfileChooserWindowController';
+import type { ProviderHomeActionDispatcher } from './providerHomeActionDispatcher';
 import {
   PRETTIFY_PROFILE_CATALOG_IPC_CHANNELS,
   type PrettifyCustomProfileIdAllocationResult,
@@ -75,6 +82,11 @@ import {
   type PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import { PrettifyProfileValidationError } from '@shared/prettifyProfiles';
+import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
+import { MAIN_INTERACTION_LOCK_IPC_CHANNELS, MainInteractionLock } from '@shared/mainInteractionLock';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS } from '@shared/settingsPresentation';
+import { TEXT_ACTION_ACTIVITY_IPC_CHANNELS } from '@shared/textActionStatus';
+import { isProviderHomeActionCommand, PROVIDER_HOME_ACTION_IPC_CHANNELS } from '@shared/providerHomeAction';
 import {
   PRETTIFY_BUILT_IN_PROFILES,
   type PrettifyBuiltInProfileDefinition,
@@ -105,6 +117,7 @@ export type MainIpcConfigRepository = Pick<
   | 'saveTranslationSettings'
   | 'setHotkeys'
   | 'setLocalePreference'
+  | 'setProvider'
   | 'setTextActionSettings'
   | 'allocatePrettifyCustomProfileId'
 >;
@@ -146,11 +159,17 @@ export interface MainIpcControllerDependencies {
   readonly desktopRuntimeController: DesktopRuntimeController;
   readonly diagnosticCaptureSettings: DiagnosticCaptureSettingsService;
   readonly diagnosticsExport: DiagnosticsExportService;
+  readonly firstLaunchStartupCoordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot' | 'retry'>;
+  readonly hotkeyRegistrationService: Pick<
+    HotkeyRegistrationService,
+    'cancelTest' | 'clear' | 'set' | 'snapshot' | 'subscribe' | 'test'
+  >;
   readonly prettifyProfilePortability: PrettifyProfilePortabilityService;
   readonly historyController: TranscriptionHistoryIpcController;
   readonly ipc: MainIpcTransport;
   readonly localization: MainIpcLocalization;
   readonly logger: MainIpcLogger;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly notification: {
     show(title: string, body: string, options?: SystemNotificationOptions): void;
   };
@@ -159,16 +178,18 @@ export interface MainIpcControllerDependencies {
   readonly prettifyProfileChooserWindow: Pick<PrettifyProfileChooserWindowController, 'publishLocaleChanged'>;
   readonly prettifyRuntime: PrettifyRuntime;
   readonly prettifySettings: MainIpcPrettifySettingsRepository;
+  readonly providerHomeActionDispatcher: Pick<ProviderHomeActionDispatcher, 'dispatch' | 'getState' | 'publishState'>;
   readonly shortcutController: ShortcutController;
   readonly streamingTranscriptionService: MainStreamingTranscriptionService;
   readonly transcriptionService: Pick<TranscriptionService, 'transcribe'>;
   readonly translationRuntime: Pick<
     TranslationRuntime,
-    'getConnectionState' | 'initializeSelectedProvider' | 'translateText'
+    'getConnectionState' | 'initializeSelectedProvider' | 'settleInitializationUnexpectedFailure' | 'translateText'
   >;
   readonly trustedIpc: TrustedIpcRegistrar;
   readonly voiceAudit: VoiceProviderAudit;
   readonly voiceProviderRegistry: VoiceProviderRegistry;
+  readonly providerSelection: Pick<VoiceProviderSelectionService, 'getCommittedProviderId' | 'select'>;
   readonly voiceSettings: MainIpcVoiceSettingsRepository;
   readonly windowManager: WindowManager;
 }
@@ -214,6 +235,16 @@ function readForbiddenCustomProfileIdsRequest(value: unknown): unknown {
   return descriptor.value;
 }
 
+function assertEmptyIpcArguments(args: readonly unknown[]): void {
+  if (args.length !== 0) throw new TypeError('Unexpected IPC arguments');
+}
+
+function getSafeFirstLaunchStartupSnapshot(coordinator: Pick<FirstLaunchStartupCoordinator, 'getSnapshot'>) {
+  const snapshot = sanitizeFirstLaunchStartupSnapshot(coordinator.getSnapshot());
+  if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
+  return snapshot;
+}
+
 /** Owns trusted-sender validation and the channels registered directly by one controller. */
 export class TrustedIpcRegistrar {
   private readonly channels = new Set<string>();
@@ -250,6 +281,18 @@ export class TrustedIpcRegistrar {
         throw new Error('Rejected Settings-only IPC sender');
       }
       return listener(event, settingsWindow, ...(args as Args));
+    });
+  }
+
+  /** Registers a command only the current main-window primary frame may invoke. */
+  public handleMainWindow<Args extends unknown[]>(channel: string, listener: TrustedIpcListener<Args>): void {
+    this.handle(channel, (event, ...args) => {
+      const frame = event.senderFrame;
+      if (!frame || !this.windowManager.isTrustedMainFrame(event.sender, frame)) {
+        this.logger.warn('Rejected main-window-only IPC sender');
+        throw new Error('Rejected main-window-only IPC sender');
+      }
+      return listener(event, ...(args as Args));
     });
   }
 
@@ -333,11 +376,19 @@ export class MainIpcController {
   private prettifyConnectionCoordinator: PrettifyConnectionCheckCoordinator<WebContents> | null = null;
   private prettifySettingsMutation: Promise<void> = Promise.resolve();
   private registered = false;
+  private hotkeyIpcRegistered = false;
+  private hotkeyRuntimeRevision = 0;
+  private hotkeyRuntimeState: HotkeyRuntimeState;
+  private hotkeyRuntimeUnsubscribe: (() => void) | null = null;
+  private hotkeyTestOwner: WebContents | null = null;
+  private hotkeyTestOwnerCleanup: (() => void) | null = null;
   private streamingTranscriptionController: StreamingTranscriptionIpcController<WebContents> | null = null;
+  private translationSettingsMutation: Promise<void> = Promise.resolve();
   private readonly trustedIpc: TrustedIpcRegistrar;
 
   public constructor(private readonly dependencies: MainIpcControllerDependencies) {
     this.trustedIpc = dependencies.trustedIpc;
+    this.hotkeyRuntimeState = this.createHotkeyRuntimeState(dependencies.hotkeyRegistrationService.snapshot, 0);
   }
 
   /** Registers every main-process handler once for this controller. */
@@ -347,6 +398,7 @@ export class MainIpcController {
     this.registered = true;
 
     const dependencies = this.dependencies;
+    this.registerFirstLaunchStartupIpc();
     const historyController = dependencies.historyController;
     const log = dependencies.logger;
     const prettifyConnectionCoordinator = dependencies.createPrettifyConnectionCoordinator(
@@ -370,10 +422,16 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('transcribe-audio', async (_event, buffer: ArrayBuffer, mimeType: string) => {
+      if (dependencies.mainInteractionLock.locked) {
+        return { error: dependencies.localization.translate('settings.blockedWhileOpen'), success: false };
+      }
       return dependencies.transcriptionService.transcribe(buffer, mimeType);
     });
 
     this.trustedIpc.handle('translate-text', async (_event, text: string, targetLang: string) => {
+      if (dependencies.mainInteractionLock.locked) {
+        return { error: dependencies.localization.translate('settings.blockedWhileOpen'), success: false };
+      }
       return dependencies.translationRuntime.translateText(text, targetLang);
     });
 
@@ -407,10 +465,7 @@ export class MainIpcController {
       return dependencies.shortcutController.getRecordingState().isRecording;
     });
 
-    this.trustedIpc.handle('recording-start-failed', () => {
-      dependencies.shortcutController.resetRecordingState();
-      return { success: true };
-    });
+    this.registerRecordingIpc();
 
     this.trustedIpc.handle('set-recording-lifecycle-state', (_event, state: unknown) => {
       if (!isRecordingLifecycleState(state)) {
@@ -426,17 +481,23 @@ export class MainIpcController {
     });
 
     this.trustedIpc.handle('provider-login', async (event, providerId: unknown) => {
+      if (this.isMainInteractionActionBlocked(event)) {
+        return { error: this.getMainInteractionActionBlockedError(), success: false };
+      }
       let provider;
       try {
         if (typeof providerId !== 'string') {
-          return { success: false, error: 'Unsupported provider' };
+          return {
+            success: false,
+            error: dependencies.localization.translate('appSettings.validation.providerInvalid'),
+          };
         }
         provider = dependencies.voiceProviderRegistry.createProvider(providerId);
       } catch (error: unknown) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
       }
       if (!provider.requiresBrowserSession()) {
-        return { success: false, error: 'Provider does not support browser login' };
+        return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
       }
 
       let context: BrowserContext | null = null;
@@ -481,17 +542,17 @@ export class MainIpcController {
         });
 
         if (!sessionSaved) {
-          return { success: false, error: 'Login window closed before session was saved' };
+          return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
         }
 
         const status = await this.refreshActiveProvider(provider.info.id);
         const settings = this.getProviderSettingsSnapshot(provider.info.id);
         dependencies.windowManager.publishProviderSettingsChanged(settings, event.sender);
         if (status?.error) {
-          return { success: false, error: status.error };
+          return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
         }
         if (status && !status.ready) {
-          return { success: false, error: 'Login did not produce a valid provider session' };
+          return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
         }
 
         return { success: true, settings };
@@ -503,15 +564,17 @@ export class MainIpcController {
             /* ignore */
           }
         }
-        return { success: false, error: error instanceof Error ? error.message : String(error) };
+        return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
       }
     });
 
     this.trustedIpc.handle('check-session', () => {
       try {
+        const configuredProviderId = dependencies.config.getSnapshot().provider;
+        if (configuredProviderId === null) return false;
         const provider =
           dependencies.backgroundBrowserService.getActiveProvider() ??
-          dependencies.voiceProviderRegistry.createProvider(dependencies.config.getSnapshot().provider);
+          dependencies.voiceProviderRegistry.createProvider(configuredProviderId);
         const audit = dependencies.voiceAudit.startOperation(provider.info.id, 'settings-readiness', 'configuration');
         try {
           const hasSession = provider.hasSession();
@@ -543,6 +606,9 @@ export class MainIpcController {
       return dependencies.backgroundBrowserService.getStatus();
     });
 
+    this.registerMainInteractionLockIpc();
+    this.registerSettingsPresentationIpc();
+
     this.trustedIpc.handle('get-providers', () => {
       return dependencies.voiceProviderRegistry.getAvailableProviders();
     });
@@ -553,19 +619,23 @@ export class MainIpcController {
 
     this.trustedIpc.handle('open-provider-settings', (_event, providerId: unknown) => {
       if (typeof providerId !== 'string') {
-        return { success: false, error: 'Unsupported provider' };
+        return { success: false, error: dependencies.localization.translate('appSettings.validation.providerInvalid') };
       }
       const provider = dependencies.voiceProviderRegistry
         .getAvailableProviders()
         .find((candidate) => candidate.id === providerId);
       if (!provider?.hasSettings) {
-        return { success: false, error: 'Provider settings are not available' };
+        return { success: false, error: dependencies.localization.translate('providerSettings.loadFailed') };
       }
-      dependencies.windowManager.showProviderSettingsWindow(
+      const result = dependencies.windowManager.showProviderSettingsWindow(
         provider.id,
         dependencies.localization.translate('providerSettings.title', { provider: provider.name }),
       );
-      return { success: true };
+      if (result.success) return result;
+      return {
+        success: false,
+        error: this.getSettingsWindowBlockedError(result),
+      };
     });
 
     this.trustedIpc.handle('close-provider-settings', (event) => {
@@ -579,10 +649,14 @@ export class MainIpcController {
 
     this.trustedIpc.handle('open-app-settings', (_event, section: unknown) => {
       if (section !== undefined && !isAppSettingsSectionId(section)) {
-        return { success: false, error: 'Unsupported settings section' };
+        return { success: false, error: dependencies.localization.translate('error.notificationUnknown') };
       }
-      dependencies.windowManager.showSettingsWindow(section);
-      return { success: true };
+      const result = dependencies.windowManager.showSettingsWindow(section);
+      if (result.success) return result;
+      return {
+        success: false,
+        error: this.getSettingsWindowBlockedError(result),
+      };
     });
 
     this.trustedIpc.handle('open-transcription-history', () => {
@@ -681,7 +755,10 @@ export class MainIpcController {
             'failure',
             dependencies.voiceAudit.createMetadata({ causeCode: 'not-configured' }),
           );
-          return { success: false, error: 'Unsupported provider' };
+          return {
+            success: false,
+            error: dependencies.localization.translate('appSettings.validation.providerInvalid'),
+          };
         }
         if (providerId === CLAUDE_WEB_PROVIDER_ID) {
           const audit = dependencies.voiceAudit.startOperation(providerId, 'settings-readiness', 'validation');
@@ -772,7 +849,7 @@ export class MainIpcController {
         return { success: true, settings: nextSettings };
       } catch (error: unknown) {
         log.error('Provider settings save error:', getErrorMessage(error));
-        return { success: false, error: getErrorMessage(error) };
+        return { success: false, error: dependencies.localization.translate('providerSettings.saveFailed') };
       }
     });
 
@@ -802,135 +879,28 @@ export class MainIpcController {
         dependencies.voiceAudit.terminalException(audit, 'session', error, {
           causeCode: 'cleanup-failed',
         });
-        return { success: false, error: getErrorMessage(error) };
+        return { success: false, error: dependencies.localization.translate('providerSettings.saveFailed') };
       }
     });
 
     this.trustedIpc.handle('get-active-provider', () => {
-      return dependencies.config.getSnapshot().provider;
+      return dependencies.providerSelection.getCommittedProviderId();
     });
 
-    this.trustedIpc.handle('set-active-provider', async (_event, providerId: string) => {
+    this.trustedIpc.handle('set-active-provider', async (_event, providerId: unknown) => {
+      const result = await dependencies.providerSelection.select(providerId);
       try {
-        const status = await dependencies.backgroundBrowserService.switchProvider(providerId);
-        dependencies.config.save();
-        dependencies.windowManager.publishBackgroundStatus(status, dependencies.config.getSnapshot().provider);
-        return { success: !status.error, error: status.error };
-      } catch (error: unknown) {
-        return { success: false, error: getErrorMessage(error) };
+        dependencies.windowManager.publishBackgroundStatus(
+          dependencies.backgroundBrowserService.getStatus(),
+          result.committedProviderId,
+        );
+      } catch {
+        dependencies.logger.warn('Failed to publish provider status after provider selection');
       }
+      return result;
     });
 
-    this.trustedIpc.handle('get-hotkey', (): HotkeySettings => {
-      return dependencies.config.getHotkeySettings();
-    });
-
-    this.trustedIpc.handle('set-hotkey-capture-active', (_event, active: unknown) => {
-      if (typeof active !== 'boolean') {
-        return { success: false };
-      }
-
-      dependencies.shortcutController.setSuspended(active);
-      return { success: true };
-    });
-
-    this.trustedIpc.handle('set-hotkey', (_event, key: unknown, hotkey: unknown) => {
-      if (typeof key !== 'string' || !isHotkeyTarget(key)) {
-        return {
-          success: false,
-          error: 'Unsupported hotkey target',
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-      const target: HotkeyTarget = key;
-      if (typeof hotkey !== 'string') {
-        return {
-          success: false,
-          error: 'Hotkey must be a string',
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-      const normalizedHotkey = normalizeHotkey(hotkey);
-      if (!normalizedHotkey) {
-        return {
-          success: false,
-          error: 'Choose a key or key combination',
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-
-      const conflict = getHotkeyConflict(
-        target,
-        normalizedHotkey,
-        dependencies.config.getHotkeySettings(),
-        dependencies.platform,
-      );
-      if (conflict) {
-        return {
-          success: false,
-          error: `This hotkey conflicts with the ${conflict} shortcut`,
-          ...dependencies.config.getHotkeySettings(),
-        };
-      }
-
-      if (key === 'cancel') {
-        log.info(
-          'Changing cancel hotkey from',
-          dependencies.config.getHotkeySettings().cancelHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ cancelHotkey: normalizedHotkey });
-      } else if (key === 'stop') {
-        log.info(
-          'Changing stop hotkey from',
-          dependencies.config.getHotkeySettings().stopHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ stopHotkey: normalizedHotkey });
-      } else if (target === 'translate') {
-        log.info(
-          'Changing translate hotkey from',
-          dependencies.config.getHotkeySettings().translateHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ translateHotkey: normalizedHotkey });
-      } else if (target === 'prettify') {
-        log.info(
-          'Changing prettify hotkey from',
-          dependencies.config.getHotkeySettings().prettifyHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ prettifyHotkey: normalizedHotkey });
-      } else if (target === 'prettifyQuick') {
-        log.info(
-          'Changing quick prettify hotkey from',
-          dependencies.config.getHotkeySettings().prettifyQuickHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ prettifyQuickHotkey: normalizedHotkey });
-      } else if (target === 'retryTranscription') {
-        log.info(
-          'Changing retry transcription hotkey from',
-          dependencies.config.getHotkeySettings().retryTranscriptionHotkey,
-          'to',
-          normalizedHotkey,
-        );
-        dependencies.config.setHotkeys({ retryTranscriptionHotkey: normalizedHotkey });
-      } else {
-        log.info('Changing hotkey from', dependencies.config.getHotkeySettings().hotkey, 'to', normalizedHotkey);
-        dependencies.config.setHotkeys({ hotkey: normalizedHotkey });
-      }
-      dependencies.config.save();
-      dependencies.shortcutController.register();
-      const hotkeySettings = dependencies.config.getHotkeySettings();
-      dependencies.windowManager.getMainWindow()?.webContents.send('hotkey-settings-changed', hotkeySettings);
-      return { success: true, ...hotkeySettings };
-    });
+    this.registerHotkeyIpc();
 
     this.trustedIpc.handle('get-translate-settings', () => {
       return dependencies.config.getTranslationSettings();
@@ -944,7 +914,27 @@ export class MainIpcController {
       return dependencies.config.getTextActionSettings();
     });
 
-    this.trustedIpc.handle('set-text-action-settings', (_event, settings: unknown) => {
+    this.trustedIpc.handleMainWindow(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return dependencies.providerHomeActionDispatcher.getState();
+    });
+    this.trustedIpc.handleMainWindow(
+      PROVIDER_HOME_ACTION_IPC_CHANNELS.command,
+      (_event, command: unknown, ...args: unknown[]) => {
+        assertEmptyIpcArguments(args);
+        if (!isProviderHomeActionCommand(command)) throw new TypeError('Invalid provider home action command');
+        return dependencies.providerHomeActionDispatcher.dispatch(command, 'provider-home');
+      },
+    );
+
+    this.trustedIpc.handle('set-text-action-settings', (event, settings: unknown) => {
+      if (this.isMainInteractionActionBlocked(event)) {
+        return {
+          success: false,
+          settings: dependencies.config.getTextActionSettings(),
+          error: this.getMainInteractionActionBlockedError(),
+        };
+      }
       try {
         assertValidTextActionSettingsInput(settings);
         const normalized = normalizeTextActionSettings(settings);
@@ -959,6 +949,7 @@ export class MainIpcController {
         });
         dependencies.config.setTextActionSettings(normalized);
         dependencies.config.save();
+        dependencies.providerHomeActionDispatcher.publishState();
         if (previous.translateEnabled !== normalized.translateEnabled) {
           void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
             log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
@@ -968,33 +959,15 @@ export class MainIpcController {
         return { success: true, settings: normalized };
       } catch (error: unknown) {
         log.error('Text action settings save error:', getErrorMessage(error));
-        return { success: false, settings: dependencies.config.getTextActionSettings(), error: getErrorMessage(error) };
-      }
-    });
-
-    this.trustedIpc.handle('set-translate-settings', (_event, candidate: unknown) => {
-      try {
-        const settings = dependencies.config.saveTranslationSettings(candidate);
-        log.info('Translation settings saved', { providerId: settings.providerId });
-        void dependencies.translationRuntime.initializeSelectedProvider().catch(() => {
-          log.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
-        });
-        return { success: true, settings };
-      } catch (error: unknown) {
-        const validationFailure = error instanceof TranslationSettingsValidationError;
-        log.warn('Translation settings update rejected', {
-          errorName: error instanceof Error ? error.name : 'unknown',
-          validationFailure,
-        });
         return {
           success: false,
-          settings: dependencies.config.getTranslationSettings(),
-          error: dependencies.localization.translate(
-            validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
-          ),
+          settings: dependencies.config.getTextActionSettings(),
+          error: dependencies.localization.translate('appSettings.saveFailed'),
         };
       }
     });
+
+    this.registerTranslationSettingsSaveIpc();
 
     this.trustedIpc.handle('get-prettify-settings', () => {
       return dependencies.prettifySettings.getView();
@@ -1010,8 +983,15 @@ export class MainIpcController {
       },
     );
 
-    this.trustedIpc.handle('set-prettify-settings', (_event, settings: unknown = {}) =>
+    this.trustedIpc.handle('set-prettify-settings', (event, settings: unknown = {}) =>
       this.enqueuePrettifySettingsMutation(async () => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            settings: dependencies.prettifySettings.getView(),
+            error: this.getMainInteractionActionBlockedError(),
+          };
+        }
         try {
           assertValidPrettifyProviderSettingsInput(settings);
           const previous = dependencies.prettifySettings.getView();
@@ -1047,7 +1027,11 @@ export class MainIpcController {
           return { success: true, settings: savedSettings };
         } catch (error: unknown) {
           log.error('Prettify settings save error:', getErrorMessage(error));
-          return { success: false, settings: dependencies.prettifySettings.getView(), error: getErrorMessage(error) };
+          return {
+            success: false,
+            settings: dependencies.prettifySettings.getView(),
+            error: dependencies.localization.translate('appSettings.saveFailed'),
+          };
         }
       }),
     );
@@ -1063,7 +1047,7 @@ export class MainIpcController {
           const rejected = await dependencies.prettifyRuntime.listModels(providerId, {});
           return {
             ...rejected,
-            error: 'Unsupported prettify provider',
+            error: dependencies.localization.translate('status.prettifyFailed'),
           };
         }
 
@@ -1086,13 +1070,20 @@ export class MainIpcController {
     this.trustedIpc.handle(
       'load-prettify-model',
       async (
-        _event,
+        event,
         providerId: KnownPrettifyProviderId,
         draftSettings: unknown = {},
       ): Promise<PrettifyModelLoadResult> => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            providerId,
+            error: this.getMainInteractionActionBlockedError(),
+          };
+        }
         if (!isKnownPrettifyProviderId(providerId)) {
           const rejected = await dependencies.prettifyRuntime.loadModel(providerId, {});
-          return { ...rejected, error: 'Unsupported prettify provider' };
+          return { ...rejected, error: dependencies.localization.translate('status.prettifyFailed') };
         }
 
         try {
@@ -1107,13 +1098,20 @@ export class MainIpcController {
     this.trustedIpc.handle(
       'unload-prettify-model',
       async (
-        _event,
+        event,
         providerId: KnownPrettifyProviderId,
         draftSettings: unknown = {},
       ): Promise<PrettifyModelUnloadResult> => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            providerId,
+            error: this.getMainInteractionActionBlockedError(),
+          };
+        }
         if (!isKnownPrettifyProviderId(providerId)) {
           const rejected = await dependencies.prettifyRuntime.unloadModel(providerId, {});
-          return { ...rejected, error: 'Unsupported prettify provider' };
+          return { ...rejected, error: dependencies.localization.translate('status.prettifyFailed') };
         }
 
         try {
@@ -1147,7 +1145,10 @@ export class MainIpcController {
     this.trustedIpc.handle('set-locale', (_event, locale: unknown) => {
       try {
         if (!isAppLocaleId(locale)) {
-          return { success: false, error: 'Select a supported locale' };
+          return {
+            success: false,
+            error: dependencies.localization.translate('appSettings.validation.localeUnsupported'),
+          };
         }
         log.info('Saving locale:', { from: dependencies.localization.getLocale(), to: locale });
         dependencies.localization.setLocale(locale);
@@ -1159,7 +1160,7 @@ export class MainIpcController {
         return { success: true };
       } catch (error: unknown) {
         log.error('Locale save error:', getErrorMessage(error));
-        return { success: false, error: getErrorMessage(error) };
+        return { success: false, error: dependencies.localization.translate('appSettings.languageSaveFailed') };
       }
     });
 
@@ -1171,12 +1172,245 @@ export class MainIpcController {
   public dispose(): Promise<void> {
     if (this.disposalPromise) return this.disposalPromise;
     this.disposed = true;
+    this.hotkeyRuntimeUnsubscribe?.();
+    this.hotkeyRuntimeUnsubscribe = null;
+    this.cancelHotkeyTest();
     this.dependencies.prettifyProfileChooserIpc.dispose();
     this.trustedIpc.dispose();
     this.prettifyConnectionCoordinator?.dispose();
     const streamingDisposal = this.streamingTranscriptionController?.dispose() ?? Promise.resolve();
-    this.disposalPromise = Promise.all([streamingDisposal, this.prettifySettingsMutation]).then(() => undefined);
+    this.disposalPromise = Promise.all([
+      streamingDisposal,
+      this.prettifySettingsMutation,
+      this.translationSettingsMutation,
+    ]).then(() => undefined);
     return this.disposalPromise;
+  }
+
+  private registerHotkeyIpc(): void {
+    if (this.hotkeyIpcRegistered) return;
+    this.hotkeyIpcRegistered = true;
+    const { hotkeyRegistrationService } = this.dependencies;
+    this.hotkeyRuntimeUnsubscribe = hotkeyRegistrationService.subscribe(this.publishHotkeyRuntimeState);
+
+    this.trustedIpc.handle(HOTKEY_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.hotkeyRuntimeState;
+    });
+
+    this.trustedIpc.handleSettingsWindow(HOTKEY_IPC_CHANNELS.set, (_event, _settingsWindow, ...args: unknown[]) => {
+      const request = args.length === 1 ? args[0] : null;
+      if (!isHotkeySetRequest(request))
+        return this.createHotkeyMutationFailure(HotkeyRegistrationFailureCode.InvalidAccelerator);
+      return this.toHotkeyMutationResponse(hotkeyRegistrationService.set(request.target, request.accelerator));
+    });
+
+    this.trustedIpc.handleSettingsWindow(HOTKEY_IPC_CHANNELS.clear, (_event, _settingsWindow, ...args: unknown[]) => {
+      const request = args.length === 1 ? args[0] : null;
+      if (!isHotkeyClearRequest(request))
+        return this.createHotkeyMutationFailure(HotkeyRegistrationFailureCode.InvalidAccelerator);
+      return this.toHotkeyMutationResponse(hotkeyRegistrationService.clear(request.target));
+    });
+
+    this.trustedIpc.handleSettingsWindow(
+      HOTKEY_IPC_CHANNELS.test,
+      async (event, settingsWindow, ...args: unknown[]): Promise<HotkeyTestResponse> => {
+        const request = args.length === 1 ? args[0] : null;
+        if (!isHotkeyTestRequest(request) || !this.beginHotkeyTest(event.sender, settingsWindow)) {
+          return Object.freeze({ result: HotkeyTestResult.Unavailable, state: this.hotkeyRuntimeState });
+        }
+        try {
+          return Object.freeze({
+            result: await hotkeyRegistrationService.test(request.target),
+            state: this.hotkeyRuntimeState,
+          });
+        } finally {
+          this.clearHotkeyTestOwner();
+        }
+      },
+    );
+  }
+
+  private createHotkeyRuntimeState(snapshot: HotkeyRuntimeState['snapshot'], revision: number): HotkeyRuntimeState {
+    return Object.freeze({
+      revision,
+      settings: this.dependencies.config.getHotkeySettings(),
+      snapshot,
+    });
+  }
+
+  private readonly publishHotkeyRuntimeState = (snapshot: HotkeyRuntimeState['snapshot']): void => {
+    if (this.disposed) return;
+    this.hotkeyRuntimeRevision += 1;
+    this.hotkeyRuntimeState = this.createHotkeyRuntimeState(snapshot, this.hotkeyRuntimeRevision);
+    for (const window of [
+      this.dependencies.windowManager.getMainWindow(),
+      this.dependencies.windowManager.getSettingsWindow(),
+    ]) {
+      if (!window || window.isDestroyed() || window.webContents.isDestroyed()) continue;
+      window.webContents.send(HOTKEY_IPC_CHANNELS.snapshotChanged, this.hotkeyRuntimeState);
+    }
+  };
+
+  private toHotkeyMutationResponse(result: HotkeyRegistrationMutationResult): HotkeyMutationResponse {
+    if (result.success) return Object.freeze({ state: this.hotkeyRuntimeState, status: 'success' });
+    return this.createHotkeyMutationFailure(result.failureCode ?? HotkeyRegistrationFailureCode.RegistrationRejected);
+  }
+
+  private createHotkeyMutationFailure(failureCode: HotkeyRegistrationFailureCode): HotkeyMutationResponse {
+    return Object.freeze({ failureCode, state: this.hotkeyRuntimeState, status: 'failure' });
+  }
+
+  private beginHotkeyTest(sender: WebContents, settingsWindow: BrowserWindow): boolean {
+    if (this.hotkeyTestOwner !== null || sender.isDestroyed() || settingsWindow.isDestroyed()) return false;
+    const cancel = (): void => this.cancelHotkeyTest(sender);
+    this.hotkeyTestOwner = sender;
+    this.hotkeyTestOwnerCleanup = (): void => {
+      sender.removeListener('destroyed', cancel);
+      settingsWindow.removeListener('closed', cancel);
+    };
+    sender.once('destroyed', cancel);
+    settingsWindow.once('closed', cancel);
+    return true;
+  }
+
+  private cancelHotkeyTest(sender?: WebContents): void {
+    if (this.hotkeyTestOwner === null || (sender !== undefined && this.hotkeyTestOwner !== sender)) return;
+    this.dependencies.hotkeyRegistrationService.cancelTest();
+    this.clearHotkeyTestOwner();
+  }
+
+  private clearHotkeyTestOwner(): void {
+    this.hotkeyTestOwnerCleanup?.();
+    this.hotkeyTestOwnerCleanup = null;
+    this.hotkeyTestOwner = null;
+  }
+
+  private isMainInteractionActionBlocked(event: Pick<IpcMainInvokeEvent, 'sender'>): boolean {
+    if (this.dependencies.mainInteractionLock.operationActive) return true;
+    return (
+      this.dependencies.mainInteractionLock.locked &&
+      !this.dependencies.windowManager.isMainInteractionLockOwner(event.sender)
+    );
+  }
+
+  private getSettingsWindowBlockedError(result: SettingsWindowOpenResult): string {
+    if (result.reason === 'recording-active') {
+      return this.dependencies.localization.translate('settings.blockedWhileRecording');
+    }
+    if (result.reason === 'operation-active') {
+      return this.dependencies.localization.translate('settings.blockedWhileOperationActive');
+    }
+    return this.dependencies.localization.translate('settings.blockedWhileOpen');
+  }
+
+  private getMainInteractionActionBlockedError(): string {
+    return this.dependencies.mainInteractionLock.operationActive
+      ? this.dependencies.localization.translate('settings.blockedWhileOperationActive')
+      : this.dependencies.localization.translate('settings.blockedWhileOpen');
+  }
+
+  private registerFirstLaunchStartupIpc(): void {
+    const coordinator = this.dependencies.firstLaunchStartupCoordinator;
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return getSafeFirstLaunchStartupSnapshot(coordinator);
+    });
+    this.trustedIpc.handle(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.retry, async (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      const snapshot = sanitizeFirstLaunchStartupSnapshot(await coordinator.retry());
+      if (!snapshot) throw new Error('Invalid first-launch startup snapshot');
+      return snapshot;
+    });
+  }
+
+  private registerRecordingIpc(): void {
+    this.trustedIpc.handle('recording-start-failed', () => {
+      this.dependencies.shortcutController.resetRecordingState();
+      return { success: true };
+    });
+
+    this.trustedIpc.handle(VOICE_RECORDING_IPC_CHANNELS.requestStart, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.shortcutController.requestRecordingStart();
+    });
+  }
+
+  private registerMainInteractionLockIpc(): void {
+    this.trustedIpc.handle(MAIN_INTERACTION_LOCK_IPC_CHANNELS.query, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.mainInteractionLock.locked;
+    });
+    this.trustedIpc.handle(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.query, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.mainInteractionLock.operationActive;
+    });
+  }
+
+  private registerSettingsPresentationIpc(): void {
+    this.trustedIpc.handle(SETTINGS_PRESENTATION_IPC_CHANNELS.query, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.windowManager.settingsPresentation;
+    });
+    this.trustedIpc.handle(SETTINGS_PRESENTATION_IPC_CHANNELS.focus, (_event, ...args: unknown[]) => {
+      assertEmptyIpcArguments(args);
+      return this.dependencies.windowManager.focusSettingsWindow();
+    });
+  }
+
+  private registerTranslationSettingsSaveIpc(): void {
+    const { config, localization, logger, translationRuntime } = this.dependencies;
+    this.trustedIpc.handle('set-translate-settings', async (event, candidate: unknown) => {
+      if (this.isMainInteractionActionBlocked(event)) {
+        return {
+          success: false,
+          settings: config.getTranslationSettings(),
+          error: this.getMainInteractionActionBlockedError(),
+        };
+      }
+      return this.enqueueTranslationSettingsMutation(async () => {
+        if (this.isMainInteractionActionBlocked(event)) {
+          return {
+            success: false,
+            settings: config.getTranslationSettings(),
+            error: this.getMainInteractionActionBlockedError(),
+          };
+        }
+        try {
+          const settings = config.saveTranslationSettings(candidate);
+          logger.info('Translation settings saved', { providerId: settings.providerId });
+          try {
+            await translationRuntime.initializeSelectedProvider();
+          } catch {
+            logger.warn(TRANSLATION_CONNECTION_REFRESH_FAILURE_LOG);
+            translationRuntime.settleInitializationUnexpectedFailure();
+          }
+          return { success: true, settings };
+        } catch (error: unknown) {
+          const validationFailure = error instanceof TranslationSettingsValidationError;
+          logger.warn('Translation settings update rejected', {
+            errorName: error instanceof Error ? error.name : 'unknown',
+            validationFailure,
+          });
+          return {
+            success: false,
+            settings: config.getTranslationSettings(),
+            error: localization.translate(
+              validationFailure ? 'error.translationSettingsInvalid' : 'error.translationSettingsSaveFailed',
+            ),
+          };
+        }
+      });
+    });
+  }
+
+  private enqueueTranslationSettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {
+    const result = this.translationSettingsMutation.then(operation, operation);
+    this.translationSettingsMutation = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private enqueuePrettifySettingsMutation<Result>(operation: () => Promise<Result>): Promise<Result> {
@@ -1248,7 +1482,7 @@ export class MainIpcController {
 
   private async refreshActiveProvider(providerId: string) {
     const currentProvider = this.dependencies.config.getSnapshot().provider;
-    if (!shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
+    if (currentProvider === null || !shouldRefreshProviderAfterMutation(providerId, currentProvider)) return null;
     const status = await this.dependencies.backgroundBrowserService.restart();
     this.dependencies.windowManager.publishBackgroundStatus(status, currentProvider);
     return status;

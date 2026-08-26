@@ -1,0 +1,936 @@
+schema_version: 1
+spec_slug: local-whisper-desktop-review-remediation
+interview_id: spec:local-whisper-desktop-review-remediation
+decisions:
+  - id: outcome.specification-only
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested a specification and stated that planning will happen later.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [specification-only]
+      text: Create the authoritative remediation specification and stop before planning or implementation.
+    rationale: The current request authorizes specification work only.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCP-003]
+
+  - id: outcome.cross-cutting-quality
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly required cross-platform compatibility, thread safety, security, and similar quality aspects.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - cross-platform-compatibility
+        - concurrency-safety
+        - security
+        - privacy
+        - deterministic-cleanup
+        - maintainability
+      text: ''
+    rationale: These qualities define the required specification coverage.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CON-001, SEC-001, PRV-001, RES-001, MNT-001]
+
+  - id: scope.selected-review-comments
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+      - The specification request immediately follows creation of the curated comments-to-address document.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - f1-transport-disposal
+        - f3-renderer-post-disposal-state
+        - f4-safe-path-signature
+        - f5-safe-url-assertion
+        - f6-navigation-capability-contract
+      text: ''
+    rationale: The current workstream is the remediation specification for the selected desktop review comments.
+    supersedes_revision: null
+    requirement_ids: [RES-001, REN-001, URL-001, NAV-001]
+
+  - id: scope.callback-performance-f2
+    revision: 1
+    category: scope
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+      - src/renderer/localWhisper/useLocalWhisperSettings.ts
+      - src/renderer/localWhisper/LocalWhisperSettingsPage.tsx
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [exclude-standalone-f2]
+      text: ''
+    rationale: Stabilizing only performArtifactAction does not stabilize the downstream controller-dependent callback or avoid required snapshot progress renders.
+    supersedes_revision: null
+    requirement_ids: [SCP-001]
+
+  - id: architecture.existing-process-boundaries
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/agent-guides/project-conventions.md
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.ts
+      - src/renderer/localWhisper/useLocalWhisperSettings.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - main-owns-network-and-ipc-authority
+        - renderer-owns-ui-state
+        - typed-preload-boundary
+        - process-owned-composition
+      text: ''
+    rationale: The remediation strengthens existing owners and does not authorize a new process, thread, worker, or privilege boundary.
+    supersedes_revision: null
+    requirement_ids: [ARC-001, ARC-002]
+
+  - id: architecture.transport-ownership-gap
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/localWhisper/artifacts/ArtifactLifecycleTypes.ts
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/artifacts/LocalWhisperArtifactService.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - open-stream-has-no-explicit-disposal
+        - pre-iteration-abandonment-is-reachable
+        - generator-finally-requires-iteration
+      text: ''
+    rationale: The production service awaits journal persistence after opening and before consuming the body, so that failure path can abandon the open transport.
+    supersedes_revision: null
+    requirement_ids: [RES-001, RES-002, CON-001]
+
+  - id: architecture.redirect-response-ownership-gap
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/localWhisper/artifacts/ArtifactLifecycleTypes.ts
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/artifacts/NodeArtifactHttpClient.ts
+      - tests/main/localWhisper/artifacts/ArtifactInfrastructure.test.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - redirect-response-body-not-consumed
+        - no-per-response-close-contract
+        - followup-request-opens-before-prior-response-teardown
+      text: ''
+    rationale: Each allowlisted redirect is an opened HTTPS response, but the current loop proceeds without consuming or explicitly closing its body; this is the same ownership class as F1 and must be remediated with it.
+    supersedes_revision: null
+    requirement_ids: [RES-003, CON-001, SEC-001]
+
+  - id: architecture.concurrency-model
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/artifacts/ArtifactTransferQueue.ts
+      - src/renderer/localWhisper/useLocalWhisperSettings.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - asynchronous-races
+        - abort-signal-cancellation
+        - no-new-native-threading
+        - idempotent-exactly-once-teardown
+      text: ''
+    rationale: Thread safety for this scope is async lifecycle and cancellation safety across interleavings, not shared-memory native threading.
+    supersedes_revision: null
+    requirement_ids: [CON-001, CON-002]
+
+  - id: renderer.post-disposal-gap
+    revision: 1
+    category: failure
+    state: observed
+    provenance: repository
+    evidence:
+      - src/renderer/localWhisper/useLocalWhisperSettings.ts
+      - src/renderer/localWhisper/LocalWhisperRendererService.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - late-hook-state-writes-possible
+        - service-rejects-late-publication
+        - react-state-write-is-currently-noop
+      text: ''
+    rationale: The hook has an explicit disposed ref but guards only part of its asynchronous command paths.
+    supersedes_revision: null
+    requirement_ids: [REN-001, REN-002]
+
+  - id: failure.transport-teardown-semantics
+    revision: 1
+    category: failure
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/tasks/05_streaming_artifact_lifecycle.md
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/artifacts/ArtifactLifecycleTypes.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - bounded-by-existing-helper-timeout
+        - fail-closed-before-next-redirect
+        - no-promotion-after-incomplete-transfer
+        - teardown-does-not-replace-primary-result
+        - safe-sanitized-failure-only
+      text: ''
+    rationale: Existing transport cleanup is bounded and deliberately does not replace the primary outcome; the fail-closed project contract prohibits opening the next redirect while the prior response remains unowned.
+    supersedes_revision: null
+    requirement_ids: [RES-004, FAIL-001, SEC-003]
+
+  - id: security.url-validation-baseline
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper/tasks/05_streaming_artifact_lifecycle.md
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/artifacts/NodeArtifactHttpClient.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - https-only
+        - no-credentials-or-fragments
+        - exact-origin-host-port-prefix-policy
+        - bounded-redirects
+        - safe-path-validation
+        - no-sensitive-header-forwarding
+      text: ''
+    rationale: F4/F5 are clarity changes and must not weaken or broaden the authenticated transport policy.
+    supersedes_revision: null
+    requirement_ids: [URL-001, URL-002, SEC-001]
+
+  - id: security.sender-capability-baseline
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/tasks/15_protected_ipc_composition_and_provider_selection.md
+      - src/main/window.ts
+      - src/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.ts
+      - src/main/localWhisper/ipc/LocalWhisperIpcController.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - exact-live-webcontents
+        - exact-top-level-frame
+        - exact-approved-url
+        - revalidate-before-send
+        - remove-invalidated-subscriber
+      text: ''
+    rationale: Existing capabilities fail closed and do not grant ambient authority to a process or once-trusted window.
+    supersedes_revision: null
+    requirement_ids: [NAV-001, NAV-002, SEC-002]
+
+  - id: compatibility.supported-platforms
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-x64
+        - windows-x64
+        - macos-remains-unavailable
+      text: ''
+    rationale: This remediation preserves the approved Local Whisper support matrix and makes no new platform claim.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CMP-002]
+
+  - id: interfaces.public-contract
+    revision: 1
+    category: interfaces
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+      - src/main/localWhisper/artifacts/ArtifactLifecycleTypes.ts
+      - src/shared/localWhisper/ipc.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - internal-artifact-contract-only
+        - no-public-ipc-change
+        - no-preload-change
+        - no-renderer-dto-change
+        - no-provider-or-settings-schema-change
+      text: ''
+    rationale: ArtifactTransportStream is an internal main/qualification contract; the selected remediation requires no public surface change.
+    supersedes_revision: null
+    requirement_ids: [CMP-003, SCP-002]
+
+  - id: privacy.data-handling
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper/tasks/05_streaming_artifact_lifecycle.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-new-sensitive-data
+        - no-raw-url-or-header-logs
+        - no-audio-transcript-or-path-logs
+        - renderer-safe-errors-only
+      text: ''
+    rationale: Teardown and validation diagnostics must remain metadata-only and sanitized.
+    supersedes_revision: null
+    requirement_ids: [PRV-001, SEC-003]
+
+  - id: compatibility.migration
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+      - src/shared/localWhisper/settings.ts
+      - src/shared/localWhisper/ipc.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-migration]
+      text: ''
+    rationale: No persisted schema, public IPC schema, artifact format, or provider identity changes.
+    supersedes_revision: null
+    requirement_ids: [CMP-003]
+
+  - id: operations.packaging-release
+    revision: 1
+    category: operations
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/agent-guides/project-conventions.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-new-dependency
+        - no-package-target-change
+        - no-signing-or-release-change
+        - no-generated-artifacts
+      text: ''
+    rationale: The selected internal lifecycle and validator remediation does not require packaging or release contract changes.
+    supersedes_revision: null
+    requirement_ids: [OPS-001, SCP-002]
+
+  - id: operations.rollback
+    revision: 1
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - src/main/localWhisper/artifacts/ArtifactLifecycleTypes.ts
+      - src/shared/localWhisper/settings.ts
+      - src/shared/localWhisper/ipc.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - coherent-source-rollback
+        - preserve-journals-and-installed-artifacts
+        - no-data-migration
+        - no-mixed-internal-interface
+      text: ''
+    rationale: The remediation changes an internal compile-time interface only; rollback requires a coherent application build but no user-data conversion or destructive cleanup.
+    supersedes_revision: null
+    requirement_ids: [OPS-002, CMP-003]
+
+  - id: acceptance.current-coverage-gaps
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - tests/main/localWhisper/artifacts/ArtifactInfrastructure.test.ts
+      - tests/main/localWhisper/artifacts/ArtifactLifecycle.test.ts
+      - tests/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.test.ts
+      - tests/renderer/localWhisper/LocalWhisperUiContracts.test.ts
+      - tests/renderer/localWhisper/LocalWhisperRendererService.test.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - no-pre-iteration-transport-disposal-test
+        - no-hook-unmount-command-settlement-test
+        - no-url-validation-matrix
+        - no-explicit-same-document-navigation-test
+      text: ''
+    rationale: Focused deterministic regression coverage is required for each selected remediation.
+    supersedes_revision: null
+    requirement_ids: [TST-001, TST-002, TST-003, TST-004]
+
+  - id: scope.remediation-gates
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-review.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-desktop-review-remediation
+      batch_id: policy-round-01
+      question_id: scope.remediation-gates
+      idempotency_key: scope.remediation-gates:v1
+      last_status: answered
+    question:
+      text: Which completion gates should this specification assign to the selected review items?
+      kind: single
+      options:
+        - id: split-risk-gates
+          label: Split by risk
+          description: Require F1 before merge and F3/F4/F5/F6 before release-candidate freeze or qualification.
+        - id: all-before-merge
+          label: All before merge
+          description: Treat every selected item as required before the reviewed branch may merge.
+        - id: f1-only-current
+          label: F1 only now
+          description: Specify only F1 in this workstream and defer the other selected comments to a future specification.
+    answer:
+      selected_ids: [all-before-merge]
+      text: ''
+    rationale: The user chose to require every selected review item before the reviewed branch may merge.
+    supersedes_revision: null
+    requirement_ids: [GAT-001]
+
+  - id: security.navigation-policy
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+      - src/main/window.ts
+      - src/main/localWhisper/ipc/ElectronLocalWhisperSenderAuthority.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-desktop-review-remediation
+      batch_id: policy-round-01
+      question_id: security.navigation-policy
+      idempotency_key: security.navigation-policy:v1
+      last_status: answered
+    question:
+      text: Which navigation policy should privileged main and Local Whisper settings surfaces guarantee?
+      kind: single
+      options:
+        - id: exact-url-no-routing
+          label: Exact URL, no routing
+          description: Keep all same-document navigation fail-closed and explicitly prohibit hash or History API routing on privileged surfaces.
+        - id: approved-route-set
+          label: Approved route set
+          description: Permit only an explicit same-document route set and coordinate WindowManager trust, capability lifetime, and renderer resubscription.
+        - id: general-same-origin-routing
+          label: Same-origin routing
+          description: Permit arbitrary same-origin same-document routing while retaining frame and window ownership checks.
+    answer:
+      selected_ids: [exact-url-no-routing]
+      text: ''
+    rationale: The user chose the existing fail-closed exact-URL trust model and explicitly excluded client-side routing on privileged surfaces.
+    supersedes_revision: null
+    requirement_ids: [NAV-001, NAV-002, SEC-002]
+
+  - id: acceptance.automated-platform-gate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested cross-platform compatibility.
+      - docs/specs/local-whisper/spec.md
+      - package.json
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+    prompt_mcp:
+      interview_id: spec:local-whisper-desktop-review-remediation
+      batch_id: policy-round-01
+      question_id: acceptance.automated-platform-gate
+      idempotency_key: acceptance.automated-platform-gate:v1
+      last_status: answered
+    question:
+      text: What automated platform evidence must gate completion of this remediation?
+      kind: single
+      options:
+        - id: linux-windows-focused-matrix
+          label: Linux and Windows matrix
+          description: Run focused artifact, renderer, IPC, type, lint, and production-build checks on both supported operating systems.
+        - id: linux-tests-windows-build
+          label: Linux tests, Windows build
+          description: Run focused behavior tests on Linux and require only type and production-build compatibility on Windows.
+        - id: existing-ci-only
+          label: Existing CI only
+          description: Add focused tests but rely on the repository's current workflow operating-system coverage without a new cross-platform gate.
+    answer:
+      selected_ids: [linux-windows-focused-matrix]
+      text: ''
+    rationale: The user requires focused artifact, renderer, IPC, type, lint, and production-build evidence on both supported operating systems.
+    supersedes_revision: null
+    requirement_ids: [CMP-002, TST-005]
+
+  - id: acceptance.manual-platform-smoke
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested cross-platform compatibility.
+      - docs/specs/local-whisper/spec.md
+      - docs/reviews/2026-08-08-local-whisper-desktop-app-comments-to-address.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-desktop-review-remediation
+      batch_id: policy-round-01
+      question_id: acceptance.manual-platform-smoke
+      idempotency_key: acceptance.manual-platform-smoke:v1
+      last_status: answered
+    question:
+      text: Which manual desktop evidence should be required before the final remediation gate closes?
+      kind: single
+      options:
+        - id: linux-windows-targeted-smoke
+          label: Smoke both platforms
+          description: Exercise download cancellation/cleanup, settings-window close during a pending command, and capability invalidation on Linux and Windows.
+        - id: one-platform-plus-automation
+          label: One platform plus automation
+          description: Run the targeted desktop smoke on one supported OS and rely on the automated matrix for the other.
+        - id: no-manual-smoke
+          label: Automated evidence only
+          description: Require deterministic automated checks without a manual desktop gate for this internal remediation.
+    answer:
+      selected_ids: [linux-windows-targeted-smoke]
+      text: ''
+    rationale: The user requires targeted desktop smoke evidence on both Linux and Windows before the final remediation gate closes.
+    supersedes_revision: null
+    requirement_ids: [AC-MAN-001, AC-MAN-002]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/spec.md
+      - All active material decisions are resolved and mapped to requirements and acceptance criteria.
+    prompt_mcp:
+      interview_id: spec:local-whisper-desktop-review-remediation
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: Do you approve the draft Local Whisper desktop review remediation specification as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark the specification Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and reopen the affected decisions for revision.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the current specification Draft and stop without further changes.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the draft as the implementation contract and retained the requirement to stop before planning or implementation.
+    supersedes_revision: null
+    requirement_ids: [APPROVAL-001]
+
+  - id: planning.execution-model
+    revision: 1
+    category: planning
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - .agents/references/task-packets.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - one-packet-per-invocation
+        - packet-local-verification
+        - update-todo-and-handoff
+        - stop-before-next-packet
+        - no-automatic-commit
+      text: ''
+    rationale: The repository execution contract fixes packet isolation and review boundaries independently of this plan.
+    supersedes_revision: null
+    requirement_ids: [PLAN-001]
+
+  - id: planning.transport-ownership-abstraction
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/artifacts/ArtifactLifecycleTypes.ts
+      - src/main/localWhisper/artifacts/CatalogHttpTransport.ts
+      - src/main/localWhisper/artifacts/NodeArtifactHttpClient.ts
+      - AGENTS.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: architecture-round-01
+      question_id: planning.transport-ownership-abstraction
+      idempotency_key: planning.transport-ownership-abstraction:v1
+      last_status: answered
+    question:
+      text: Which internal abstraction should own idempotent HTTP-response and final-stream teardown state?
+      kind: single
+      options:
+        - id: shared-owned-lease-classes
+          label: Shared owned lease classes
+          description: Centralize terminal state, bounded disposal, listener removal, and concurrent callers in state-owning classes used behind the internal interfaces.
+        - id: interface-methods-per-adapter
+          label: Per-adapter interface methods
+          description: Add dispose methods to the interfaces but let each HTTP and transport adapter implement its own terminal-state arbitration.
+        - id: language-async-dispose
+          label: Async-dispose protocol
+          description: Use Symbol.asyncDispose and await-using semantics as the primary ownership API throughout the internal call chain.
+    answer:
+      selected_ids: [shared-owned-lease-classes]
+      text: ''
+    rationale: The user chose state-owning shared lease classes to centralize teardown invariants behind the internal response and stream interfaces.
+    supersedes_revision: null
+    requirement_ids: [RES-001, RES-002, RES-004, CON-001, MNT-001]
+
+  - id: planning.renderer-test-seam
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - src/renderer/localWhisper/useLocalWhisperSettings.ts
+      - src/renderer/localWhisper/LocalWhisperRendererService.ts
+      - tests/renderer/localWhisper/
+      - package.json
+      - AGENTS.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: architecture-round-01
+      question_id: planning.renderer-test-seam
+      idempotency_key: planning.renderer-test-seam:v1
+      last_status: answered
+    question:
+      text: How should the plan make post-unmount command settlement deterministic under node:test without adding a React test dependency?
+      kind: single
+      options:
+        - id: extracted-lifecycle-owner
+          label: Extract lifecycle owner
+          description: Move pending/disposed arbitration and guarded publications into a state-owning class used by the hook and exercised with deferred promises.
+        - id: narrow-lifecycle-gate
+          label: Add a narrow gate
+          description: Keep command orchestration in the hook and extract only a small disposed-generation guard with source-contract tests for its integration.
+        - id: electron-runtime-harness
+          label: Electron runtime harness
+          description: Keep the hook unchanged structurally and add an automated hidden-window Electron integration harness to mount and unmount it.
+    answer:
+      selected_ids: [extracted-lifecycle-owner]
+      text: ''
+    rationale: The user chose a state-owning lifecycle class used by the hook and tested with deferred promises under node:test.
+    supersedes_revision: null
+    requirement_ids: [REN-001, REN-002, CON-002, TST-003]
+
+  - id: planning.cross-platform-ci-location
+    revision: 1
+    category: operations
+    state: answered
+    provenance: user
+    evidence:
+      - .github/workflows/pr-checks.yml
+      - .github/workflows/release-builds.yml
+      - package.json
+      - docs/specs/local-whisper-desktop-review-remediation/spec.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: architecture-round-01
+      question_id: planning.cross-platform-ci-location
+      idempotency_key: planning.cross-platform-ci-location:v1
+      last_status: answered
+    question:
+      text: Where should the focused Linux/Windows remediation quality matrix be integrated?
+      kind: single
+      options:
+        - id: focused-pr-checks-matrix-job
+          label: Focused PR matrix job
+          description: Add one dedicated matrix job to the existing PR Checks workflow using Linux and Windows runners and the approved focused commands.
+        - id: extend-native-quality-jobs
+          label: Extend native jobs
+          description: Add the desktop commands to the existing Linux and Windows Local Whisper native-quality jobs.
+        - id: dedicated-workflow
+          label: Dedicated workflow
+          description: Create a separate Local Whisper desktop-remediation workflow with its own triggers and Linux/Windows matrix.
+    answer:
+      selected_ids: [focused-pr-checks-matrix-job]
+      text: ''
+    rationale: The user chose a dedicated Linux/Windows matrix job in the existing PR Checks workflow.
+    supersedes_revision: null
+    requirement_ids: [CMP-002, TST-005, GAT-001]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/01_artifact_transport_ownership.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/02_renderer_command_lifecycle.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/03_exact_url_capability_lifecycle.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/04_cross_platform_remediation_gate.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: Do you approve the Local Whisper desktop review remediation plan and four task packets as the authoritative implementation plan?
+      kind: single
+      options:
+        - id: approve
+          label: Approve plan (Recommended)
+          description: Approve the audited packet sequence and stop at the separate execution-authorization gate.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan unapproved and revise the affected packet scope, order, or verification contract.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep the current draft plan without authorizing it or requesting revisions.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the four-packet authoritative plan; this approval does not authorize packet execution.
+    supersedes_revision: null
+    requirement_ids: [PLAN-APPROVAL-001]
+
+  - id: authorization.execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/plan.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/01_artifact_transport_ownership.md
+      - AGENTS.md
+      - .agents/references/task-packets.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: authorization-round-01
+      question_id: authorization.execution
+      idempotency_key: authorization.execution:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize a future incremental-implementation invocation to execute packet 01?
+      kind: single
+      options:
+        - id: leave-unauthorized
+          label: Leave unauthorized (Recommended)
+          description: Finish planning and require a later explicit authorization before packet 01 may execute.
+        - id: authorize-packet-01
+          label: Authorize packet 01 later
+          description: Permit a future incremental-implementation invocation to execute only packet 01; this planning turn still stops.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Keep execution unauthorized and revise the approved plan before any packet begins.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user separately authorized packet 01 for a future incremental-implementation invocation; the planning turn remains implementation-free.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-001]
+
+  - id: authorization.commit-packet-01
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - Packet 01 is complete, verified, and remains uncommitted before packet 02 starts.
+      - The user authorized its atomic commit through the persistent implementation interview on 2026-08-08.
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: authorization-round-02
+      question_id: authorization.commit-packet-01
+      idempotency_key: authorization.commit-packet-01:v1
+      last_status: answered
+    question:
+      text: Do you authorize creating one atomic commit containing only completed packet 01 Artifact Transport Ownership changes, including its checklist and handoff, before packet 02 starts?
+      kind: single
+      options:
+        - id: authorize-commit-packet-01
+          label: Authorize packet 01 commit
+          description: Commit only verified packet 01 files, excluding all unrelated dirty-worktree edits, then stop before packet 02.
+        - id: hold-uncommitted
+          label: Hold for review
+          description: Leave packet 01 uncommitted and do not start packet 02.
+    answer:
+      selected_ids: [authorize-commit-packet-01]
+      text: ''
+    rationale: The atomic commit preserves the reviewed packet boundary before another packet modifies the repository.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/02_renderer_command_lifecycle.md
+      - The user authorized packet 02 through the persistent implementation interview on 2026-08-08.
+    prompt_mcp:
+      interview_id: plan:local-whisper-desktop-review-remediation
+      batch_id: authorization-round-03
+      question_id: authorization.execution-packet-02
+      idempotency_key: authorization.execution-packet-02:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize an incremental-implementation invocation to execute only packet 02 Renderer Command Lifecycle?
+      kind: single
+      options:
+        - id: authorize-packet-02
+          label: Authorize packet 02
+          description: Execute only the verified renderer lifecycle packet, then update its checklist and handoff without committing or starting packet 03.
+        - id: hold-for-review
+          label: Hold for review
+          description: Keep packet 02 unexecuted until a later authorization.
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: ''
+    rationale: The user separately authorized only packet 02; packet 03 remains outside this invocation.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-002]
+
+  - id: authorization.execution-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/03_exact_url_capability_lifecycle.md
+      - The user explicitly requested implementation of the Packet 03 plan on 2026-08-08.
+    prompt_mcp: null
+    question:
+      text: Do you authorize an incremental-implementation invocation to execute only Packet 03 Exact-URL Capability Lifecycle?
+      kind: single
+      options:
+        - id: authorize-packet-03
+          label: Authorize packet 03
+          description: Implement and verify only Packet 03, then update its checklist and handoff without committing or starting Packet 04.
+        - id: hold-for-review
+          label: Hold for review
+          description: Leave Packet 03 unexecuted until a later authorization.
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: The user's implementation request explicitly authorizes only Packet 03; Packet 04 remains out of scope.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-003]
+
+  - id: authorization.execution-packet-04
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-desktop-review-remediation/tasks/04_cross_platform_remediation_gate.md
+      - The user explicitly approved the Packet 04 preparation and cross-platform gate plan on 2026-08-08.
+    prompt_mcp: null
+    question:
+      text: Do you authorize an incremental-implementation invocation to execute only Packet 04 Cross-Platform Remediation Gate?
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize packet 04
+          description: Implement and locally verify the Packet 04 workflow gate, record unavailable external evidence as pending, and do not commit or start another packet.
+        - id: hold-for-review
+          label: Hold for review
+          description: Leave Packet 04 unexecuted until a later authorization.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: The user explicitly authorized Packet 04 implementation while requiring GitHub Actions and desktop smoke evidence to remain pending.
+    supersedes_revision: null
+    requirement_ids: [EXEC-AUTH-004]
+
+  - id: scope.packet-04-remediation-ci
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - The user clarified that "these jobs" means the newly added Local Whisper Remediation matrix on 2026-08-08.
+    prompt_mcp: null
+    question:
+      text: Should the newly added Local Whisper Remediation GitHub Actions matrix remain after its CI result is observed?
+      kind: single
+      options:
+        - id: retain-matrix
+          label: Retain matrix
+          description: Keep the dedicated Ubuntu and Windows remediation workflow job.
+        - id: remove-matrix
+          label: Remove matrix
+          description: Remove the dedicated remediation workflow job and leave the Packet 04 gate rolled back.
+    answer:
+      selected_ids: [remove-matrix]
+      text: ''
+    rationale: The user selected the newly added remediation matrix for deletion.
+    supersedes_revision: null
+    requirement_ids: [GAT-001]

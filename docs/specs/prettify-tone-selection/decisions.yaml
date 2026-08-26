@@ -1822,38 +1822,32 @@ decisions:
     requirement_ids: [PROF-003, PORT-001, PORT-002, PORT-005]
 
   - id: workflow.chooser-selection-memory
-    revision: 1
+    revision: 2
     category: workflow
     state: answered
     provenance: user
     evidence:
-      - 'UI-007 permits remembering the last chooser selection without changing the explicit default.'
-      - 'Operation-scoped and process-owned state avoids adding another persisted catalog field.'
-    prompt_mcp:
-      interview_id: plan:prettify-tone-selection
-      batch_id: plan-local-contracts-01
-      question_id: workflow.chooser-selection-memory
-      idempotency_key: workflow.chooser-selection-memory:v1
-      last_status: answered
+      - 'User-approved F12 Prettify Chooser Focus and Monitor Placement plan.'
+      - 'The configured default is valid and already marked in every operation-scoped chooser summary.'
     question:
-      text: 'Should the chooser remember the last one-off profile selection?'
+      text: 'Which profile should the F12 chooser select and focus when it opens?'
       kind: single
       options:
-        - id: session_only
-          label: 'Current app session (Recommended)'
-          description: 'Remember only in main-process memory until quit; it never changes the explicit default or persisted catalog.'
-        - id: do_not_remember
-          label: 'Do not remember'
-          description: 'Every chooser opens with no selection and Apply disabled.'
-        - id: persist_locally
-          label: 'Persist across restarts'
-          description: 'Store a separate convenience selection ID in local settings without changing the default.'
+        - id: configured_default
+          label: 'Configured default profile'
+          description: 'Select and focus the catalog default on every opening so Enter can apply it immediately.'
+        - id: session_last_applied
+          label: 'Last applied this session'
+          description: 'Preselect the most recent one-off chooser choice when it remains valid.'
+        - id: no_initial_selection
+          label: 'No initial selection'
+          description: 'Focus another control and require a profile choice before Apply is enabled.'
     answer:
-      selected_ids: [session_only]
+      selected_ids: [configured_default]
       text: ''
-    rationale: 'This provides chooser convenience without expanding persistence, migration, cache identity, or default semantics.'
-    supersedes_revision: null
-    requirement_ids: [PROF-004, UI-002, UI-007]
+    rationale: 'A predictable focused default speeds the F12 path without adding session memory or changing Ctrl+F12 semantics.'
+    supersedes_revision: 1
+    requirement_ids: [PROF-004, UI-002, UI-007, UI-008]
 
   - id: portability.import-dual-conflict
     revision: 1

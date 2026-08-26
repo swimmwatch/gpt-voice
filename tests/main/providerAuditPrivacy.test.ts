@@ -91,7 +91,7 @@ const ENVIRONMENT = Object.freeze({
       configured: true,
       readinessKnown: true,
       ready: true,
-      registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web'] as const,
+      registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'] as const,
       selectedProviderId: 'chatgpt',
     },
     prettify: {
@@ -254,6 +254,7 @@ class DiagnosticsPrivacyHarness {
           },
         ],
       }),
+      localWhisperSnapshot: { capture: () => null },
       manifest: new DiagnosticsManifestBuilder({
         databaseSchemaVersion: 2,
         diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
@@ -410,7 +411,9 @@ describe('provider audit privacy integration', () => {
       ['translation', 'prettify'],
     );
     assert.equal(
-      diagnosticRows.some(({ providerId }) => ['chatgpt', 'openai-api', 'claude-web'].includes(String(providerId))),
+      diagnosticRows.some(({ providerId }) =>
+        ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'].includes(String(providerId)),
+      ),
       false,
     );
   });

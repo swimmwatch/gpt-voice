@@ -103,25 +103,29 @@ Make the packet self-contained:
 Do not copy unrelated specification prose, history, completed discovery, or
 requirements assigned to other packets.
 
-## Prompt MCP Decisions And Approval
+## Prompt MCP Decisions And Finalization
 
 - Use the globally configured Prompt MCP for unresolved material planning
   choices. Return contract-changing questions to `/spec`.
 - Reuse the specification interview and stable decision identifiers when
   possible; persist new planning decisions in the repository decision ledger.
-- Obtain explicit plan approval through Prompt MCP when the workflow requires
-  that gate. Treat execution authorization as a separate decision.
-- A cancellation, timeout, conflict, failure, pause, or pending answer is not an
-  approval.
+- When coverage and executability checks pass with no unresolved material
+  choice, mark the plan revision Approved without a separate final-approval
+  question. Later change requests start a new iteration.
+- Plan approval alone performs no implementation. An explicit
+  incremental-implementation invocation authorizes its selected current packet.
+- A cancellation, timeout, conflict, failure, pause, or pending answer to a
+  material planning question remains unresolved and blocks finalization.
 
 ## Review And Commit Boundary
 
 Implement one packet per explicit incremental-implementation invocation. After
 verification, update `todo.md` and `handoff.md`, present the completed packet
 for review or preview, and stop. Do not commit that packet or start another one.
-Only a later explicit incremental-implementation request may resume work; at
-its start, commit the previously approved packet before opening the next
-unchecked packet.
+Only a later explicit incremental-implementation request may resume work. That
+invocation itself authorizes verifying and committing the completed packet,
+excluding unrelated changes, and then opening the next executable packet; do
+not ask for separate commit or packet-execution approval.
 
 ## Execution Context
 

@@ -76,12 +76,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function createHttpError(providerName: string, status: number): string {
-  return `${providerName} request failed (${status})`;
+function createHttpError(
+  providerName: string,
+  status: number,
+  localization: PrettifyProviderDependencies['localization'],
+): string {
+  return localization.translate('error.notificationProviderRequestFailed', {
+    service: providerName,
+    status: String(status),
+  });
 }
 
-export function createConnectionError(providerName: string): string {
-  return `Failed to connect to ${providerName}`;
+export function createConnectionError(
+  providerName: string,
+  localization: PrettifyProviderDependencies['localization'],
+): string {
+  return localization.translate('error.notificationConnectionFailed', { service: providerName });
 }
 
 function createMessages(
@@ -235,7 +245,9 @@ async function setOllamaModelKeepAlive(
     }),
   });
   await response.text();
-  if (response.status !== Number(StatusCodes.OK)) throw new Error(createHttpError('Ollama', response.status));
+  if (response.status !== Number(StatusCodes.OK)) {
+    throw new Error(createHttpError('Ollama', response.status, dependencies.localization));
+  }
 }
 
 function createHttpCacheContext(settings: PrettifySettingsWithSecret, providerId: HttpPrettifyProviderId): string[] {
@@ -267,7 +279,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
   private loadedModel: LoadedOllamaPrettifyModel | null = null;
 
   public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
-    super(OLLAMA_PRETTIFY_PROVIDER_ID, dependencies.audit);
+    super(OLLAMA_PRETTIFY_PROVIDER_ID, dependencies.audit, dependencies.localization);
   }
 
   public async checkAvailability(
@@ -326,6 +338,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
       prepared: new OneShotPrettifyExecution('ollama', createHttpCacheContext(settings, 'ollama'), instruction, {
         audit,
         diagnosticCapture: this.dependencies.diagnosticCapture,
+        localization: this.dependencies.localization,
         execute: async (text, auditContext) => {
           try {
             return await this.prettify({ auditContext, instruction, text, signal, settings });
@@ -334,7 +347,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
               success: false,
               error: signal.aborted
                 ? this.dependencies.localization.translate('status.prettifyCancelled')
-                : createConnectionError('Ollama'),
+                : createConnectionError('Ollama', this.dependencies.localization),
             };
           }
         },
@@ -395,7 +408,10 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         httpStatus: response.status,
         sourceLength: text.length,
       });
-      return { success: false, error: createHttpError('Ollama', response.status) };
+      return {
+        success: false,
+        error: createHttpError('Ollama', response.status, this.dependencies.localization),
+      };
     }
     const result = extractOllamaText(body);
     if (!result.contractValid) {
@@ -511,7 +527,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         success: false,
         providerId: this.id,
         model: nextModel.model,
-        error: createConnectionError('Ollama'),
+        error: createConnectionError('Ollama', this.dependencies.localization),
       };
     }
   }
@@ -554,7 +570,7 @@ export class OllamaPrettifyProvider extends BasePrettifyProvider {
         success: false,
         providerId: this.id,
         model: model.model,
-        error: createConnectionError('Ollama'),
+        error: createConnectionError('Ollama', this.dependencies.localization),
       };
     }
   }
@@ -626,7 +642,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
   private sleepingBaseUrl: string | null = null;
 
   public constructor(private readonly dependencies: HttpPrettifyProviderDependencies) {
-    super(VLLM_PRETTIFY_PROVIDER_ID, dependencies.audit);
+    super(VLLM_PRETTIFY_PROVIDER_ID, dependencies.audit, dependencies.localization);
   }
 
   public async checkAvailability(
@@ -689,6 +705,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
       prepared: new OneShotPrettifyExecution('vllm', createHttpCacheContext(settings, 'vllm'), instruction, {
         audit,
         diagnosticCapture: this.dependencies.diagnosticCapture,
+        localization: this.dependencies.localization,
         execute: async (text, auditContext) => {
           try {
             return await this.prettify({ auditContext, instruction, text, signal, settings });
@@ -697,7 +714,7 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
               success: false,
               error: signal.aborted
                 ? this.dependencies.localization.translate('status.prettifyCancelled')
-                : createConnectionError('vLLM'),
+                : createConnectionError('vLLM', this.dependencies.localization),
             };
           }
         },
@@ -753,7 +770,10 @@ export class VllmPrettifyProvider extends BasePrettifyProvider {
         httpStatus: response.status,
         sourceLength: text.length,
       });
-      return { success: false, error: createHttpError('vLLM', response.status) };
+      return {
+        success: false,
+        error: createHttpError('vLLM', response.status, this.dependencies.localization),
+      };
     }
     const result = extractVllmText(body);
     if (!result.contractValid) {

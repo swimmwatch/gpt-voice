@@ -13,13 +13,22 @@ interface DesktopApiProviderProps {
   children: ReactNode;
 }
 
-/** Owns renderer API and mutable UI coordinator state for one window root. */
-export function DesktopApiProvider({ api, children }: DesktopApiProviderProps): React.JSX.Element {
+interface SelectOpenCoordinatorProviderProps {
+  children: ReactNode;
+}
+
+/** Provides the renderer-local select coordinator without exposing desktop capabilities. */
+export function SelectOpenCoordinatorProvider({ children }: SelectOpenCoordinatorProviderProps): React.JSX.Element {
   const selectOpenCoordinator = useMemo(() => createSelectOpenCoordinator(), []);
 
+  return <SelectOpenCoordinatorContext value={selectOpenCoordinator}>{children}</SelectOpenCoordinatorContext>;
+}
+
+/** Owns renderer API and mutable UI coordinator state for one window root. */
+export function DesktopApiProvider({ api, children }: DesktopApiProviderProps): React.JSX.Element {
   return (
     <DesktopApiContext value={api}>
-      <SelectOpenCoordinatorContext value={selectOpenCoordinator}>{children}</SelectOpenCoordinatorContext>
+      <SelectOpenCoordinatorProvider>{children}</SelectOpenCoordinatorProvider>
     </DesktopApiContext>
   );
 }

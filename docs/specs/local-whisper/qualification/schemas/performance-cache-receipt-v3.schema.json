@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-cache-receipt-v3.schema.json",
+  "title": "Local Whisper private performance cache receipt v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceCacheReceiptDigest",
+    "performanceRunPlanDigest",
+    "performanceManifestDigest",
+    "sampleId",
+    "cacheState",
+    "procedure",
+    "inputSetDigest",
+    "status",
+    "reasonCode"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "contractRevision": { "const": 3 },
+    "performanceCacheReceiptDigest": { "$ref": "#/$defs/sha256" },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "sampleId": { "$ref": "#/$defs/identifier" },
+    "cacheState": { "enum": ["cold", "warm"] },
+    "procedure": { "enum": ["linuxFileAdviceV1", "windowsFileCacheV1"] },
+    "inputSetDigest": { "$ref": "#/$defs/sha256" },
+    "status": { "enum": ["prepared", "failed"] },
+    "reasonCode": { "oneOf": [{ "$ref": "#/$defs/reasonCode" }, { "type": "null" }] }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": { "status": { "const": "prepared" }, "reasonCode": { "type": "null" } }
+    },
+    {
+      "type": "object",
+      "properties": { "status": { "const": "failed" }, "reasonCode": { "$ref": "#/$defs/reasonCode" } }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "reasonCode": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    }
+  }
+}

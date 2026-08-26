@@ -1,0 +1,19 @@
+{
+  "description": "Project-local continuation for one declared process watch.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.agents/skills/watch-process/scripts/process-watch-stop-hook.mjs\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"$root = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & node (Join-Path $root '.agents\\skills\\watch-process\\scripts\\process-watch-stop-hook.mjs')\"",
+            "async": false,
+            "timeout": 604920,
+            "statusMessage": "Waiting for process watch"
+          }
+        ]
+      }
+    ]
+  }
+}

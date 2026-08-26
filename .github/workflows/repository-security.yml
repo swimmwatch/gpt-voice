@@ -1,0 +1,69 @@
+name: Repository Security
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+jobs:
+  repository-security:
+    name: Repository Security Controls
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
+
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+      - name: Prove dependency-review result policy
+        run: npm run test:security:dependency-policy
+
+      - name: Verify script-disabled npm registry signatures
+        run: npm run test:security:npm-signatures
+
+      - name: Scan repository text for high-confidence secrets
+        run: npm run test:security:secret-policy
+
+      - name: Verify immutable Dockerfile and builder-image scan policy
+        run: npm run test:security:docker-policy
+
+      - name: Prove repository-gate failure propagation
+        run: npm run test:security:repository-gates
+
+      - name: Prove security evidence and aggregate gate failure propagation
+        run: |
+          npm run test:security:evidence-policy
+          npm run test:security:aggregate-gates
+
+      - name: Upload builder scan identity evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: repository-security-builder-evidence
+          path: release-artifacts/repository-security-builder-evidence.json
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}

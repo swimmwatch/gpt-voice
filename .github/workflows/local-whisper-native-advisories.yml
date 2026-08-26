@@ -1,0 +1,44 @@
+name: Local Whisper Native Advisory Monitoring
+
+on:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-whisper-native-advisories-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ADVISORY_EVIDENCE_DIRECTORY: native-advisory-evidence
+  CI: true
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+jobs:
+  advisory-scan:
+    name: Locked Native Source Advisories
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: ${{ fromJSON(vars.CI_ADVISORY_SCAN_TIMEOUT_MINUTES || '15') }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+          package-manager-cache: 'true'
+
+      - name: Scan locked source advisories
+        run: npm run scan:local-whisper:native-advisory -- --locks=all --output-directory=${ADVISORY_EVIDENCE_DIRECTORY}
+
+      - name: Emit sanitized advisory report
+        run: cat ${ADVISORY_EVIDENCE_DIRECTORY}/report-*.json
+
+      - name: Require fresh unaffected evidence
+        run: npm run verify:local-whisper:native-advisory:evidence -- --advisory-evidence-dir=${ADVISORY_EVIDENCE_DIRECTORY}

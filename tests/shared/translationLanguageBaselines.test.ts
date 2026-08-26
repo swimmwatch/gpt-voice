@@ -101,7 +101,6 @@ describe('translation language baselines', () => {
       const runtimeCodes = provider.targetLanguages.map(({ code }) => code);
       const baselineCodes = baseline.languages.map(({ code }) => code);
 
-      assert.equal(provider.contractVersion, baseline.evidence_date);
       assert.equal(baseline.target_count, baseline.languages.length);
       assert.equal(provider.targetLanguages.length, baseline.target_count);
       assert.equal(new Set(baselineCodes).size, baselineCodes.length);

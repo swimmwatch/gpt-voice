@@ -1,5 +1,5 @@
 import { CheckCircle2, KeyRound, LogIn, Save, Trash2 } from 'lucide-react';
-import { useMemo, useRef, useState, type JSX, type KeyboardEvent } from 'react';
+import { useMemo, useRef, useState, type JSX } from 'react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import SearchableSelectInput from '@renderer/components/SearchableSelectInput';
 import { useI18n } from '@renderer/hooks/useI18n';
@@ -12,16 +12,7 @@ import {
   type ClaudeWebLanguageFormState,
 } from '@renderer/providerSettingsViewState';
 import type { OpenAIApiProviderSettings, ProviderInfo, ProviderSettings } from '@renderer/types';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
 import { Badge } from '@renderer/components/ui/badge';
 import { Button } from '@renderer/components/ui/button';
@@ -221,7 +212,8 @@ function ProviderSettingsForm({
     }
   };
 
-  const clearAuth = async (): Promise<void> => {
+  const clearAuth = async (): Promise<boolean> => {
+    if (isSaving) return false;
     setIsSaving(true);
     setError('');
     try {
@@ -232,7 +224,7 @@ function ProviderSettingsForm({
         if (result.settings.providerId === CLAUDE_WEB_PROVIDER_ID) {
           setClaudeWebLanguage(result.settings.language);
         }
-        return;
+        return true;
       }
       showError(result.error, t('providerSettings.clearFailed'));
     } catch (clearError: unknown) {
@@ -240,6 +232,7 @@ function ProviderSettingsForm({
     } finally {
       setIsSaving(false);
     }
+    return false;
   };
 
   const login = async (): Promise<void> => {
@@ -266,13 +259,6 @@ function ProviderSettingsForm({
     setIsClearConfirmationOpen(open);
     if (!open) {
       restoreFocus(clearAuthButtonRef.current);
-    }
-  };
-
-  const handleClearDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      handleClearConfirmationOpenChange(false);
     }
   };
 
@@ -453,25 +439,17 @@ function ProviderSettingsForm({
         )}
       </div>
 
-      <AlertDialog open={isClearConfirmationOpen} onOpenChange={handleClearConfirmationOpenChange}>
-        <AlertDialogContent onKeyDown={handleClearDialogKeyDown}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{clearTitle}</AlertDialogTitle>
-            <AlertDialogDescription>{t('providerSettings.clearConfirmDescription')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel asChild>
-              <Button variant="outline">{t('common.keepEditing')}</Button>
-            </AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button onClick={() => void clearAuth()} variant="destructive">
-                <Trash2 aria-hidden="true" />
-                {t('providerSettings.clear')}
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        actionIcon={<Trash2 aria-hidden="true" />}
+        cancelLabel={t('common.keepEditing')}
+        confirmLabel={t('providerSettings.clear')}
+        description={t('providerSettings.clearConfirmDescription')}
+        onConfirm={clearAuth}
+        onOpenChange={handleClearConfirmationOpenChange}
+        open={isClearConfirmationOpen}
+        title={clearTitle}
+        tone="destructive"
+      />
     </>
   );
 }

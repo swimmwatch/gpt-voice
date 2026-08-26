@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { isTextActionStatus, sanitizeTextActionStatus } from '@shared/textActionStatus';
+import { isTextActionActivityState, isTextActionStatus, sanitizeTextActionStatus } from '@shared/textActionStatus';
 
 describe('text-action status contract', () => {
   it('accepts only finite action and phase combinations', () => {
@@ -23,5 +23,12 @@ describe('text-action status contract', () => {
     assert.deepEqual(sanitizeTextActionStatus(valid), valid);
     assert.equal(sanitizeTextActionStatus('https://provider.example HTTP 503'), null);
     assert.equal(sanitizeTextActionStatus({ action: 'prettify', phase: 'failed', output: 'raw output' }), null);
+  });
+
+  it('accepts only boolean selected-text activity payloads', () => {
+    assert.equal(isTextActionActivityState(true), true);
+    assert.equal(isTextActionActivityState(false), true);
+    assert.equal(isTextActionActivityState('true'), false);
+    assert.equal(isTextActionActivityState({ active: true }), false);
   });
 });

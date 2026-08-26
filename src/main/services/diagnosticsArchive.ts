@@ -8,6 +8,8 @@ import {
   type ProviderAuditRecord,
 } from '../providerAudit';
 import type { DiagnosticCaptureStorage } from './diagnosticCaptureStorage';
+import { type NativeRuntimeLogArchiveExtractor } from './nativeRuntimeLogArchive';
+import type { LocalWhisperDiagnosticsSnapshotPort } from '../localWhisper/diagnostics/LocalWhisperDiagnosticsSnapshotProvider';
 import { type DiagnosticsArchiveMember, type DiagnosticsArchiveFormatAdapter } from './diagnosticsArchiveFormat';
 import {
   type DiagnosticsEnvironmentSnapshotProvider,
@@ -25,6 +27,7 @@ import {
   type DiagnosticsArchiveFormat,
   type DiagnosticsArchivePayloadMemberName,
 } from '@shared/diagnosticsArchive';
+import { serializeCanonicalNativeRuntimeArchiveRecord, type NativeRuntimeArchiveRecord } from '@shared/localWhisper';
 import { isDiagnosticCaptureSettings, type DiagnosticCaptureSettings } from '@shared/diagnosticCaptureSettings';
 
 const CANONICAL_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -96,6 +99,10 @@ export class DiagnosticsArchiveJsonlSerializer {
     });
   }
 
+  public serializeNativeRuntime(records: readonly NativeRuntimeArchiveRecord[]): Buffer {
+    return this.serialize(records, (record) => serializeCanonicalNativeRuntimeArchiveRecord(record));
+  }
+
   private serialize<Value>(values: readonly Value[], serializeValue: (value: Value) => string | null): Buffer {
     if (values.length > DIAGNOSTICS_ARCHIVE_LIMITS.MaxRecordsPerJsonlMember) {
       throw new TypeError('Diagnostics JSONL record limit exceeded');
@@ -130,8 +137,13 @@ export interface DiagnosticsArchiveServiceDependencies {
   readonly environment: Pick<DiagnosticsEnvironmentSnapshotProvider, 'getSnapshot'>;
   readonly fileSystem: DiagnosticsArchiveFileSystem;
   readonly formatAdapter: Pick<DiagnosticsArchiveFormatAdapter, 'writeAndVerify'>;
-  readonly jsonl: Pick<DiagnosticsArchiveJsonlSerializer, 'serializeAuditEvents' | 'serializeDiagnosticRows'>;
+  readonly jsonl: Pick<
+    DiagnosticsArchiveJsonlSerializer,
+    'serializeAuditEvents' | 'serializeDiagnosticRows' | 'serializeNativeRuntime'
+  >;
   readonly logs: Pick<ProviderAuditLogExtractor, 'extract'>;
+  readonly nativeLogs?: Pick<NativeRuntimeLogArchiveExtractor, 'extract'>;
+  readonly localWhisperSnapshot: LocalWhisperDiagnosticsSnapshotPort;
   readonly manifest: Pick<DiagnosticsManifestBuilder, 'build' | 'serialize'>;
   readonly now: () => Date;
   readonly platform: NodeJS.Platform;
@@ -170,6 +182,7 @@ export class DiagnosticsArchiveService {
     await Promise.all([...this.temporaryFiles].map((filePath) => this.removeTemporaryFile(filePath)));
   }
 
+  /** Builds and publishes one validated archive without exposing dependency failures. */
   private async createArchiveNow(destinationPath: string): Promise<DiagnosticsArchiveCreationResult> {
     if (!this.isValidDestinationPath(destinationPath)) return ARCHIVE_CREATION_FAILURE;
 
@@ -198,6 +211,7 @@ export class DiagnosticsArchiveService {
     }
 
     const auditExtraction = this.dependencies.logs.extract();
+    const nativeRuntimeExtraction = this.dependencies.nativeLogs?.extract();
     const auditPayload = this.dependencies.jsonl.serializeAuditEvents(auditExtraction.records);
     const payloads = new Map<DiagnosticsArchivePayloadMemberName, Buffer>([
       [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents, auditPayload],
@@ -208,6 +222,16 @@ export class DiagnosticsArchiveService {
         this.dependencies.jsonl.serializeDiagnosticRows(diagnosticRows),
       );
     }
+    const nativeRuntimePayload = nativeRuntimeExtraction
+      ? this.dependencies.jsonl.serializeNativeRuntime(nativeRuntimeExtraction.records)
+      : null;
+    if (nativeRuntimePayload && nativeRuntimePayload.byteLength > 0) {
+      payloads.set(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime, nativeRuntimePayload);
+    }
+    const localWhisperSnapshotPayload = this.dependencies.localWhisperSnapshot.capture();
+    if (localWhisperSnapshotPayload !== null) {
+      payloads.set(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot, localWhisperSnapshotPayload);
+    }
 
     const manifest = this.dependencies.manifest.build({
       archiveId,
@@ -216,6 +240,7 @@ export class DiagnosticsArchiveService {
       createdAt: createdAt.toISOString(),
       diagnosticRows,
       environment: this.dependencies.environment.getSnapshot(),
+      ...(nativeRuntimeExtraction ? { nativeRuntime: nativeRuntimeExtraction.summary } : {}),
       payloads,
     });
     const members: DiagnosticsArchiveMember[] = [
@@ -233,6 +258,18 @@ export class DiagnosticsArchiveService {
       members.push({
         name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
         payload: diagnosticPayload,
+      });
+    }
+    if (nativeRuntimePayload && nativeRuntimePayload.byteLength > 0) {
+      members.push({
+        name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime,
+        payload: nativeRuntimePayload,
+      });
+    }
+    if (localWhisperSnapshotPayload !== null) {
+      members.push({
+        name: DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
+        payload: localWhisperSnapshotPayload,
       });
     }
 

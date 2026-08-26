@@ -1,0 +1,137 @@
+name: Local Whisper Fixture Packaging
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      windows_qualification_authorized:
+        description: Enables the deferred Windows fixture consumer for an authorized qualification invocation.
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
+jobs:
+  fixture_producer:
+    name: Generate public Local Whisper fixture once
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
+    timeout-minutes: 15
+    outputs:
+      bundle_digest: ${{ steps.fixture.outputs.bundle_digest }}
+      catalog_digest: ${{ steps.fixture.outputs.catalog_digest }}
+      consumer_matrix: ${{ steps.consumer_matrix.outputs.consumer_matrix }}
+      key_id: ${{ steps.fixture.outputs.key_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Generate and sign one synthetic public fixture bundle
+        id: fixture
+        run: npm run generate:local-whisper:packaging:fixture -- --output=.cache/local-whisper/public-fixture
+
+      - name: Select fixture consumer platforms
+        id: consumer_matrix
+        env:
+          CI_ARCHITECTURE: ${{ vars.CI_ARCHITECTURE }}
+          CI_LINUX_RUNNER: ${{ vars.CI_LINUX_RUNNER }}
+          CI_WINDOWS_RUNNER: ${{ vars.CI_WINDOWS_RUNNER }}
+          WINDOWS_QUALIFICATION_AUTHORIZED: ${{ inputs.windows_qualification_authorized }}
+        run: node scripts/local-whisper/ci/emit-fixture-consumer-matrix.mjs
+
+      - name: Upload public fixture bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ vars.CI_LOCAL_WHISPER_FIXTURE_ARTIFACT }}
+          path: .cache/local-whisper/public-fixture
+          if-no-files-found: error
+          retention-days: ${{ vars.CI_FIXTURE_RETENTION_DAYS }}
+
+  fixture_consumer:
+    name: Consume exact Local Whisper fixture on ${{ matrix.checkName }}
+    needs: fixture_producer
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.fixture_producer.outputs.consumer_matrix) }}
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Install Linux native helper toolchain
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build clang-${{ vars.CI_LLVM_VERSION }}
+
+      - name: Configure Linux native helper environment
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          {
+            echo "CXX=$(command -v clang++-${{ vars.CI_LLVM_VERSION }})"
+            echo "CMAKE_COMMAND=$(command -v cmake)"
+            echo "NINJA_COMMAND=$(command -v ninja)"
+          } >> "$GITHUB_ENV"
+
+      - name: Download producer fixture without regeneration
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ vars.CI_LOCAL_WHISPER_FIXTURE_ARTIFACT }}
+          path: .cache/local-whisper/public-fixture
+
+      - name: Build application bundles
+        run: npm run build:prod
+
+      - name: Prepare bundled CloakBrowser
+        run: npm run prepare:cloakbrowser -- --target=${{ matrix.target }}
+
+      - name: Generate package metadata
+        run: npm run generate:package-metadata -- --release-date=${{ vars.CI_FIXTURE_RELEASE_DATE }}
+
+      - name: Stage digest-bound fixture resources
+        shell: bash
+        env:
+          BUNDLE_DIGEST: ${{ needs.fixture_producer.outputs.bundle_digest }}
+        run: npm run prepare:local-whisper:packaging -- --mode=fixture --platform=${{ matrix.target }} --bundle=.cache/local-whisper/public-fixture --bundle-digest="$BUNDLE_DIGEST"
+
+      - name: Inspect base-package policy
+        run: node --import tsx scripts/local-whisper/packaging/verify-package-policy.ts --directory=build/generated/local-whisper --mode=fixture --platform=${{ matrix.target }}
+
+      - name: Package unpacked application
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --${{ matrix.target }} dir
+
+      - name: Verify packaged runtime
+        run: npm run verify:packaged

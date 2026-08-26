@@ -1,0 +1,48 @@
+.command-dock-contextual-action {
+  display: inline-flex;
+  min-width: 0;
+  height: 28px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--dock-control-border);
+  border-radius: 4px;
+  background: var(--dock-surface);
+  color: var(--dock-foreground);
+  cursor: pointer;
+}
+
+.command-dock-contextual-action:not(:disabled):hover {
+  background: var(--surface-raised);
+}
+
+.command-dock-contextual-action:not(:disabled):active {
+  background: var(--dock-input);
+}
+
+.command-dock-contextual-action:focus-visible {
+  outline: 2px solid var(--dock-primary-top);
+  outline-offset: 2px;
+}
+
+.command-dock-contextual-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.command-dock-contextual-action.is-destructive {
+  color: var(--destructive);
+}
+
+.command-dock-contextual-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.command-dock-contextual-action kbd {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}

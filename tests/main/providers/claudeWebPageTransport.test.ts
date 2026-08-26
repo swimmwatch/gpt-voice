@@ -779,6 +779,23 @@ describe('Claude Web page transport', () => {
     assert.equal(clock.activeTimerCount, 0);
   });
 
+  it('returns a typed connection failure when finalization follows asynchronous cleanup', async () => {
+    const { boundary, clock, transport } = createHarness();
+    boundary.onStart = (operationId) => boundary.fail(operationId, ClaudeWebPageTransportErrorCode.UpgradeOrAuth);
+    const operationId = await startTransport(transport);
+
+    await advanceClock(clock, 5);
+    const error = await expectTransportFailure(
+      Promise.resolve().then(() => transport.finish(operationId)),
+      clock,
+      ClaudeWebPageTransportErrorCode.ConnectionLoss,
+    );
+
+    assert.equal(error.diagnostics.bytesSent, 0);
+    assert.equal(boundary.closedOperationIds.has(operationId), true);
+    assert.equal(clock.activeTimerCount, 0);
+  });
+
   it('does not let a stalled page-side close block cancellation', async () => {
     const { boundary, clock, transport } = createHarness();
     boundary.closeNeverSettles = true;

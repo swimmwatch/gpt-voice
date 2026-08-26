@@ -1,0 +1,35 @@
+[
+  {
+    "id": 401,
+    "runAttempt": 1,
+    "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "event": "pull_request",
+    "path": ".github/workflows/pr-checks.yml@refs/heads/main",
+    "status": "completed",
+    "conclusion": "success",
+    "htmlUrl": "https://github.com/owner/repository/actions/runs/401",
+    "displayTitle": "PR checks"
+  },
+  {
+    "id": 402,
+    "runAttempt": 1,
+    "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "event": "workflow_dispatch",
+    "path": ".github/workflows/local-whisper-packaging.yml@refs/heads/main",
+    "status": "completed",
+    "conclusion": "success",
+    "htmlUrl": "https://github.com/owner/repository/actions/runs/402",
+    "displayTitle": "Local Whisper packaging"
+  },
+  {
+    "id": 403,
+    "runAttempt": 1,
+    "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "event": "workflow_dispatch",
+    "path": ".github/workflows/release-builds.yml@refs/heads/main",
+    "status": "completed",
+    "conclusion": "success",
+    "htmlUrl": "https://github.com/owner/repository/actions/runs/403",
+    "displayTitle": "Release builds"
+  }
+]

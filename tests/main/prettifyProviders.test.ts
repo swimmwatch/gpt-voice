@@ -6,7 +6,6 @@ import {
   ClaudeCliPrettifyProvider,
   CodexCliPrettifyProvider,
   OllamaPrettifyProvider,
-  PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
   VllmPrettifyProvider,
 } from '@main/services/prettifyProviders';
 import { PrettifyProviderAudit } from '@main/services/prettifyProviderAudit';
@@ -118,7 +117,7 @@ describe('prettifyProviders', () => {
 
     for (const instruction of invalidInstructions) {
       assert.deepEqual(await fixture.runtime.prepare(instruction, { providerId: 'claude-cli' }), {
-        error: 'Invalid Prettify execution instruction',
+        error: 'Prettify request is invalid.',
         success: false,
       });
     }
@@ -166,7 +165,7 @@ describe('prettifyProviders', () => {
     assert.deepEqual(await fixture.registry.get('claude-cli').loadModel(settings), {
       success: false,
       providerId: 'claude-cli',
-      error: 'Model loading is available only for Ollama',
+      error: 'Model loading is not available for this provider.',
     });
     assert.equal(fetchCalls, 0);
 
@@ -182,12 +181,12 @@ describe('prettifyProviders', () => {
     assert.deepEqual(await fixture.runtime.loadModel('claude-cli', { providerId: 'claude-cli' }), {
       success: false,
       providerId: 'claude-cli',
-      error: 'Model loading is available only for Ollama',
+      error: 'Model loading is not available for this provider.',
     });
     assert.deepEqual(await fixture.runtime.unloadModel('codex-cli', { providerId: 'codex-cli' }), {
       success: false,
       providerId: 'codex-cli',
-      error: 'Model unloading is available only for Ollama',
+      error: 'Model unloading is not available for this provider.',
     });
     assert.deepEqual(PRETTIFY_PROVIDER_IDS, ['ollama', 'vllm', 'claude-cli', 'codex-cli']);
     assert.equal(fetchCalls, 0);
@@ -384,7 +383,7 @@ describe('prettifyProviders', () => {
     assert.deepEqual(await prepared.prepared.execute('source'), { success: true, text: 'source edited' });
     assert.deepEqual(await prepared.prepared.execute('second source'), {
       success: false,
-      error: 'Prettify provider is unavailable',
+      error: 'Prettify provider is unavailable.',
     });
     assert.equal(generationCalls, 1);
     assert.equal(fetchCalls, 0);
@@ -1122,7 +1121,10 @@ describe('prettifyProviders', () => {
       providerId: 'ollama',
       ollama: { baseUrl: 'http://localhost:11434', model: 'llama3.2' },
     });
-    assert.deepEqual(nonOk, { success: false, error: 'Ollama request failed (500)' });
+    assert.deepEqual(nonOk, {
+      success: false,
+      error: 'Ollama returned an error (500). Try again or check provider settings.',
+    });
 
     const invalidJson = await new PrettifyRuntimeFixture({
       fetch: async () => response(200, '{'),
@@ -1164,7 +1166,7 @@ describe('prettifyProviders', () => {
     });
     assert.deepEqual(networkFailure, {
       success: false,
-      error: 'Failed to connect to vLLM',
+      error: 'Could not connect to vLLM. Make sure it is running and the URL is correct.',
     });
   });
 });
@@ -1231,7 +1233,7 @@ describe('Prettify CLI audit lifecycle', () => {
     const operationCount = audit.operations.length;
     assert.deepEqual(await prepared.prepared.execute('late-private-source-canary'), {
       success: false,
-      error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR,
+      error: 'Prettify provider is unavailable.',
     });
     assert.equal(audit.operations.length, operationCount);
     assert.equal(generationCalls, 1);
@@ -1468,7 +1470,7 @@ describe('Prettify HTTP audit lifecycle', () => {
     const operationCountAfterExecution = audit.operations.length;
     assert.deepEqual(await prepared.prepared.execute('late-private-source-canary'), {
       success: false,
-      error: 'Prettify provider is unavailable',
+      error: 'Prettify provider is unavailable.',
     });
     assert.equal(audit.operations.length, operationCountAfterExecution);
 
@@ -1668,7 +1670,7 @@ describe('Prettify HTTP audit lifecycle', () => {
       await unknownRuntime.prepare(TEST_EXECUTION_INSTRUCTION, { providerId: canary }, new AbortController().signal),
       {
         success: false,
-        error: 'Prettify provider is unavailable',
+        error: 'Prettify provider is unavailable.',
       },
     );
     await unknownRuntime.listModels(canary, {});

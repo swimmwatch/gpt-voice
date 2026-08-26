@@ -2,7 +2,7 @@ import type { PrettifyAuditOperationContext, PrettifyProviderAudit } from '@main
 import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture';
 import type { PrettifyExecutionInstruction } from '@main/services/prettifyProfileInstruction';
 import type { PrettifySettingsWithSecret } from '@main/services/prettifySettingsStorage';
-import type { I18nService } from '@main/i18n';
+import type { I18nService, TranslationKey } from '@main/i18n';
 import {
   getPrettifyProviderCapabilities,
   type KnownPrettifyProviderId,
@@ -16,7 +16,9 @@ import {
   type PrettifyProviderAvailability,
 } from '@shared/prettifySettings';
 
-export const PRETTIFY_PROVIDER_UNAVAILABLE_ERROR = 'Prettify provider is unavailable';
+export const PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY = 'prettify.providerUnavailable' satisfies TranslationKey;
+export const PRETTIFY_MODEL_LOAD_UNAVAILABLE_ERROR_KEY = 'prettify.modelLoadUnavailable' satisfies TranslationKey;
+export const PRETTIFY_MODEL_UNLOAD_UNAVAILABLE_ERROR_KEY = 'prettify.modelUnloadUnavailable' satisfies TranslationKey;
 
 export interface TextProcessingResult {
   success: boolean;
@@ -76,6 +78,7 @@ export abstract class BasePrettifyProvider {
   protected constructor(
     public readonly id: KnownPrettifyProviderId,
     protected readonly audit: PrettifyProviderAudit,
+    protected readonly localization: Pick<I18nService, 'translate'>,
   ) {
     this.capabilities = getPrettifyProviderCapabilities(id);
   }
@@ -114,11 +117,11 @@ export abstract class BasePrettifyProvider {
     _signal: AbortSignal,
     _auditContext?: PrettifyAuditOperationContext,
   ): Promise<PreparePrettifyExecutionResult> {
-    return Promise.resolve({ success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
+    return Promise.resolve({ success: false, error: this.providerUnavailableError() });
   }
 
   public prettify(_request: PrettifyProviderRequest): Promise<TextProcessingResult> {
-    return Promise.resolve({ success: false, error: PRETTIFY_PROVIDER_UNAVAILABLE_ERROR });
+    return Promise.resolve({ success: false, error: this.providerUnavailableError() });
   }
 
   public loadModel(
@@ -128,7 +131,7 @@ export abstract class BasePrettifyProvider {
     return Promise.resolve({
       success: false,
       providerId: this.id,
-      error: 'Model loading is available only for Ollama',
+      error: this.localization.translate(PRETTIFY_MODEL_LOAD_UNAVAILABLE_ERROR_KEY),
     });
   }
 
@@ -139,8 +142,12 @@ export abstract class BasePrettifyProvider {
     return Promise.resolve({
       success: false,
       providerId: this.id,
-      error: 'Model unloading is available only for Ollama',
+      error: this.localization.translate(PRETTIFY_MODEL_UNLOAD_UNAVAILABLE_ERROR_KEY),
     });
+  }
+
+  protected providerUnavailableError(): string {
+    return this.localization.translate(PRETTIFY_PROVIDER_UNAVAILABLE_ERROR_KEY);
   }
 
   protected abstract getConfiguredModel(settings: PrettifySettingsWithSecret): string;

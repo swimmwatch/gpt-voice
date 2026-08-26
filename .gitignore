@@ -110,3 +110,9 @@ build
 
 # Private provider research captures (never commit)
 /docs/specs/claude-web-voice-provider/claude.ai.har
+
+# Temporary local documentation translations
+docs/specs/**/temp-ru-*
+
+# Private per-watch state, evidence, receipts, locks, and generated watchers
+.codex/runtime/process-watch/

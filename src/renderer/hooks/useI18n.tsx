@@ -5,6 +5,19 @@ import { DEFAULT_APP_LOCALE, type AppLocaleId } from '@shared/appLocale';
 
 const DEFAULT_TRANSLATIONS: Readonly<Record<string, string>> = defaultTranslations;
 
+function translate(
+  translations: Readonly<Record<string, string>>,
+  key: string,
+  params?: Record<string, string>,
+): string {
+  let text = translations[key] || DEFAULT_TRANSLATIONS[key] || key;
+  if (!params) return text;
+  for (const [name, value] of Object.entries(params)) {
+    text = text.replace(`{${name}}`, value);
+  }
+  return text;
+}
+
 interface I18nContextValue {
   t: (key: string, params?: Record<string, string>) => string;
   locale: AppLocaleId;
@@ -14,7 +27,7 @@ interface I18nContextValue {
 }
 
 const I18nContext = createContext<I18nContextValue>({
-  t: (key) => DEFAULT_TRANSLATIONS[key] || key,
+  t: (key, params) => translate(DEFAULT_TRANSLATIONS, key, params),
   locale: DEFAULT_APP_LOCALE,
   setLocale: async () => {},
   supportedLocales: ['en'],
@@ -84,15 +97,7 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentLocale]);
 
   const t = useCallback(
-    (key: string, params?: Record<string, string>): string => {
-      let text = translations[key] || DEFAULT_TRANSLATIONS[key] || key;
-      if (params) {
-        for (const [k, v] of Object.entries(params)) {
-          text = text.replace(`{${k}}`, v);
-        }
-      }
-      return text;
-    },
+    (key: string, params?: Record<string, string>): string => translate(translations, key, params),
     [translations],
   );
 

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-native-patch-lock-v1.json",
+  "title": "Local Whisper ordered native patch lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaId",
+    "lockId",
+    "sourceLockId",
+    "originalManifestSha256",
+    "patches",
+    "application",
+    "expectedRejectCount",
+    "finalManifestSha256",
+    "reviewStatus"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaId": { "const": "local-whisper-native-patch-lock-v1" },
+    "lockId": { "$ref": "#/$defs/safeId" },
+    "sourceLockId": { "$ref": "#/$defs/safeId" },
+    "originalManifestSha256": { "$ref": "#/$defs/sha256" },
+    "intermediateManifests": {
+      "type": "array",
+      "maxItems": 127,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["afterPatchId", "manifestSha256"],
+        "properties": {
+          "afterPatchId": { "$ref": "#/$defs/safeId" },
+          "manifestSha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "licenseProvenance": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component", "license", "evidence"],
+        "properties": {
+          "component": { "$ref": "#/$defs/safeId" },
+          "license": { "$ref": "#/$defs/safeId" },
+          "evidence": { "$ref": "#/$defs/path" }
+        }
+      }
+    },
+    "patches": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["patchId", "relativePath", "sizeBytes", "sha256", "allowedTouchedPaths"],
+        "properties": {
+          "patchId": { "$ref": "#/$defs/safeId" },
+          "relativePath": { "$ref": "#/$defs/path" },
+          "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "allowedTouchedPaths": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "$ref": "#/$defs/path" }
+          }
+        }
+      }
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stripLevel", "command", "allowFuzz", "allowThreeWay", "allowOffsets"],
+      "properties": {
+        "stripLevel": { "const": 1 },
+        "command": { "const": "git apply --index --whitespace=error-all -p1" },
+        "allowFuzz": { "const": false },
+        "allowThreeWay": { "const": false },
+        "allowOffsets": { "const": false }
+      }
+    },
+    "expectedRejectCount": { "const": 0 },
+    "finalManifestSha256": { "$ref": "#/$defs/sha256" },
+    "reviewStatus": { "enum": ["mechanism-only", "approved"] }
+  },
+  "$defs": {
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    }
+  }
+}

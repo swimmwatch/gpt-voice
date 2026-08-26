@@ -11,6 +11,7 @@ import {
 } from './BaseTranslateProvider';
 import { BingTranslateProvider, type BingTranslatePageAdapterFactory } from './BingTranslateProvider';
 import { GoogleTranslateProvider, type GoogleTranslatePageAdapterFactory } from './GoogleTranslateProvider';
+import type { TranslationBrowserResourceCoordinator } from './TranslationBrowserResourceCoordinator';
 import { YandexTranslateProvider, type YandexTranslatePageAdapterFactory } from './YandexTranslateProvider';
 import {
   TRANSLATION_PROVIDER_INFO,
@@ -19,6 +20,7 @@ import {
 } from '@shared/translationProvider';
 
 export interface TranslationProviderFactoryDependencies {
+  readonly browserResources: TranslationBrowserResourceCoordinator;
   readonly cloakBrowserSettings: Pick<CloakBrowserSettingsRepository, 'getWithSecret'>;
   readonly createBingPageAdapter: BingTranslatePageAdapterFactory;
   readonly createContext: (options: LaunchContextOptions) => Promise<BrowserContext>;
@@ -31,7 +33,11 @@ export interface TranslationProviderFactoryDependencies {
 
 /** Explicit exhaustive construction boundary for Translation providers. */
 export class TranslationProviderFactory {
-  public constructor(private readonly dependencies: TranslationProviderFactoryDependencies) {}
+  private readonly browserResources: TranslationBrowserResourceCoordinator;
+
+  public constructor(private readonly dependencies: TranslationProviderFactoryDependencies) {
+    this.browserResources = dependencies.browserResources;
+  }
 
   public create(providerId: TranslationProviderId): BaseTranslateProvider {
     const baseDependencies = this.createBaseDependencies();
@@ -60,6 +66,7 @@ export class TranslationProviderFactory {
 
   private createBaseDependencies(): BaseTranslateProviderDependencies {
     return {
+      browserResources: this.browserResources,
       cloakBrowserSettings: this.dependencies.cloakBrowserSettings,
       createContext: this.dependencies.createContext,
       createContextOptions: this.dependencies.createContextOptions,

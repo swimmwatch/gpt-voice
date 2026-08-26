@@ -1,0 +1,56 @@
+export const SOURCE_LOCK_DEFINITIONS = Object.freeze({
+  'whisper-cpp-v1.9.1-f049fff': Object.freeze({
+    repository: 'https://github.com/ggml-org/whisper.cpp.git',
+    commit: 'f049fff95a089aa9969deb009cdd4892b3e74916',
+    gitTree: 'f49541eaed447bce9b5e3598cc7a487ce5e54678',
+    materializationKind: 'completeTree',
+    subsetPaths: null,
+    expectedPathCount: 1_882,
+    expectedRegularBytes: 36_382_209,
+    expectedExecutableCount: 39,
+    regularBytesCeiling: 36_382_209,
+    allowedEntryTypes: Object.freeze(['regular']),
+    licensePath: 'LICENSE',
+    licenseGitBlob: 'e7dca554bcb802f98408383a864404e3aa4eacca',
+    licenseSha256: null,
+    sbomComponent: 'whisper-cpp-v1.9.1',
+  }),
+  'nlohmann-json-v3.12.0-subset': Object.freeze({
+    repository: 'https://github.com/nlohmann/json.git',
+    commit: '55f93686c01528224f448c19128836e7df245f72',
+    gitTree: '1eb780542e829bf1615828ed0d5f407497bbce7b',
+    materializationKind: 'explicitSubset',
+    subsetPaths: Object.freeze(['LICENSE.MIT', 'single_include/nlohmann/json.hpp']),
+    expectedPathCount: 2,
+    expectedRegularBytes: 954_512,
+    expectedExecutableCount: 0,
+    regularBytesCeiling: 954_512,
+    allowedEntryTypes: Object.freeze(['regular']),
+    licensePath: 'LICENSE.MIT',
+    licenseGitBlob: 'a1dacc8dbbd907c4b622ff1f08e279c27465dcbc',
+    licenseSha256: '46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603',
+    sbomComponent: 'nlohmann-json-v3.12.0',
+  }),
+  'googletest-v1.17.0-52eb810': Object.freeze({
+    repository: 'https://github.com/google/googletest.git',
+    commit: '52eb8108c5bdec04579160ae17225d66034bd723',
+    gitTree: 'ad23b2ceac4a6eef2278c48545b62ffc1f0c134a',
+    materializationKind: 'completeTree',
+    subsetPaths: null,
+    expectedPathCount: 250,
+    expectedRegularBytes: 4_095_045,
+    expectedExecutableCount: 24,
+    regularBytesCeiling: 4_095_045,
+    allowedEntryTypes: Object.freeze(['regular']),
+    licensePath: 'LICENSE',
+    licenseGitBlob: '1941a11f8ce94389160b458927a29ba217542818',
+    licenseSha256: '9702de7e4117a8e2b20dafab11ffda58c198aede066406496bef670d40a22138',
+    sbomComponent: 'googletest-v1.17.0',
+  }),
+});
+
+export function getSourceDefinition(lockId) {
+  const definition = SOURCE_LOCK_DEFINITIONS[lockId];
+  if (!definition) throw new Error(`Unknown Local Whisper source lock: ${lockId}`);
+  return definition;
+}

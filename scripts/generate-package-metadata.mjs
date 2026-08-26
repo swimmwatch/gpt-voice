@@ -15,6 +15,13 @@ function optionValue(name) {
   return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
 }
 
+function releaseVersion(value) {
+  if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(value)) {
+    throw new Error(`Invalid package metadata version: ${value}`);
+  }
+  return value;
+}
+
 function xmlEscape(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -74,6 +81,7 @@ function nsisText(value) {
 }
 
 const releaseDate = formatDate(optionValue('release-date') || process.env.PACKAGE_RELEASE_DATE);
+const packageVersion = releaseVersion(optionValue('version') || packageJson.version);
 const releaseYear = releaseDate.slice(0, 4);
 const appId = packageJson.build?.appId;
 const productName = packageJson.build?.productName || packageJson.name;
@@ -103,7 +111,7 @@ await Promise.all([
 ]);
 
 const generatedLicenseText = `${productName}
-Version: ${packageJson.version}
+Version: ${packageVersion}
 Release date: ${releaseDate}
 Homepage: ${packageJson.homepage || repoUrl}
 License: ${packageJson.license}
@@ -160,9 +168,9 @@ ${
   <content_rating type="oars-1.1" />
 
   <releases>
-    <release version="${xmlEscape(packageJson.version)}" date="${xmlEscape(releaseDate)}">
+    <release version="${xmlEscape(packageVersion)}" date="${xmlEscape(releaseDate)}">
       <description>
-        <p>Packaged release of ${xmlEscape(productName)} ${xmlEscape(packageJson.version)}.</p>
+        <p>Packaged release of ${xmlEscape(productName)} ${xmlEscape(packageVersion)}.</p>
       </description>
     </release>
   </releases>
@@ -204,4 +212,4 @@ await Promise.all([
 ]);
 
 console.log(`Generated package metadata in ${path.relative(rootDir, generatedDir)}`);
-console.log(`Package metadata release: version ${packageJson.version}, date ${releaseDate}`);
+console.log(`Package metadata release: version ${packageVersion}, date ${releaseDate}`);

@@ -6,14 +6,36 @@ import {
   LinuxDesktopIntegrationController,
   type LinuxDesktopIntegrationControllerDependencies,
 } from '../linuxDesktopIntegration';
-import { ShortcutController, type ShortcutControllerDependencies } from '../shortcuts';
+import { ShortcutController } from '../shortcuts';
+import { ElectronGlobalShortcutAdapter } from '../hotkeys/ElectronGlobalShortcutAdapter';
+import { LinuxHotkeyPlatformPolicy } from '../hotkeys/LinuxHotkeyPlatformPolicy';
+import { HotkeyPlatformPolicyFactory } from '../hotkeys/HotkeyPlatformPolicyFactory';
+import { HotkeyRegistrationService } from '../hotkeys/HotkeyRegistrationService';
+import { WindowsHotkeyPlatformPolicy } from '../hotkeys/WindowsHotkeyPlatformPolicy';
 import { TrayController, type TrayControllerDependencies } from '../tray';
 import { WindowManager, type WindowManagerDependencies } from '../window';
 import { ProviderSettingsWindowController } from '../providerSettingsWindowController';
+import { ProviderHomeActionDispatcher } from '../providerHomeActionDispatcher';
 import { BackgroundBrowserService, type BackgroundBrowserServiceDependencies } from '../browser';
 import { VoiceProviderAudit } from '../providers/voiceProviderAudit';
 import { VoiceProviderFactory, type VoiceProviderFactoryDependencies } from '../providers/voiceProviderFactory';
 import { VoiceProviderRegistry } from '../providers/voiceProviderRegistry';
+import { LocalWhisperCoordinator } from '../localWhisper/coordinator/LocalWhisperCoordinator';
+import type { LocalWhisperCoordinatorDependencies } from '../localWhisper/coordinator/LocalWhisperCoordinatorTypes';
+import { LocalWhisperCommandAudit } from '../localWhisper/audit/LocalWhisperCommandAudit';
+import { LocalWhisperDiagnosticsSnapshotProvider } from '../localWhisper/diagnostics/LocalWhisperDiagnosticsSnapshotProvider';
+import {
+  LocalWhisperSnapshotService,
+  type LocalWhisperSnapshotFactsPort,
+} from '../localWhisper/ipc/LocalWhisperSnapshotService';
+import {
+  LocalWhisperIpcController,
+  type LocalWhisperArtifactCommandPort,
+  type LocalWhisperArtifactReferencePort,
+  type LocalWhisperManagedFolderPort,
+} from '../localWhisper/ipc/LocalWhisperIpcController';
+import { LocalWhisperModelLoadFailureNotifier } from '../localWhisper/ipc/LocalWhisperModelLoadFailureNotifier';
+import { ElectronLocalWhisperSenderAuthority } from '../localWhisper/ipc/ElectronLocalWhisperSenderAuthority';
 import { ClaudeWebNavigationService } from '../providers/claudeWebNavigationService';
 import { PROVIDER_AUDIT_SCHEMA_VERSION, type ProviderAuditDependencies } from '../providerAudit';
 import { FileChatGPTSessionStore, type FileChatGPTSessionStoreDependencies } from '../providers/chatgptSessionStore';
@@ -23,6 +45,11 @@ import {
   TranslationProviderRegistry,
   type TranslationProviderFactoryDependencies,
 } from '../translateProviders';
+import { TranslationBrowserResourceCoordinator } from '../translateProviders/TranslationBrowserResourceCoordinator';
+import {
+  TranslationOperationLifecycleFactory,
+  type TranslationOperationLifecycleDependencies,
+} from '../translateProviders/translationOperationLifecycle';
 import { TranslationProviderAudit } from '../translateProviders/translationProviderAudit';
 import { TranslationRuntime } from '../services/translation';
 import { CloakBrowserSettingsResetService } from '../services/cloakBrowserSettingsReset';
@@ -36,6 +63,7 @@ import {
   ProviderAuditLogExtractor,
   type DiagnosticsArchiveFileSystem,
 } from '../services/diagnosticsArchive';
+import { NativeRuntimeLogArchiveExtractor } from '../services/nativeRuntimeLogArchive';
 import {
   ArchiverDiagnosticsArchiveWriterFactory,
   DiagnosticsArchiveFormatAdapter,
@@ -79,14 +107,19 @@ import { CliProcessRunner, type CliProcessRunnerDependencies } from '../services
 import { TextAutomationService, type TextAutomationServiceDependencies } from '../services/textAutomation';
 import { AppConfigStore, type AppConfigStoreDependencies } from '../config';
 import { I18nService } from '../i18n';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
+import { DesktopPlatform, LinuxSessionType, type HotkeyTarget } from '@shared/hotkeys';
 import {
   CloakBrowserSettingsRepository,
   type CloakBrowserSettingsRepositoryDependencies,
 } from '../cloakBrowserSettings';
 import { PrettifySettingsStorage, type PrettifySettingsStorageDependencies } from '../services/prettifySettingsStorage';
 import { LoggerFactory, type LoggerFactoryDependencies } from '../logger';
+import { NativeRuntimeLogForwarder } from '../localWhisper/supervisor/NativeRuntimeLogStreamDecoder';
 import { ElectronRuntimeLoader, type ElectronRuntimeLoaderDependencies } from '../electronRuntime';
 import { CloakBrowserRuntimeLoader, type CloakBrowserRuntimeLoaderDependencies } from '../cloakbrowser';
+import { FirstLaunchStartupCoordinator } from '../firstLaunchStartupCoordinator';
+import { FIRST_LAUNCH_STARTUP_JOB_IDS } from '@shared/firstLaunchStartup';
 import {
   OpenAIApiSettingsRepository,
   type OpenAIApiSettingsRepositoryDependencies,
@@ -116,7 +149,7 @@ import {
 
 export type MainProcessVoiceProviderEnvironment = Omit<
   VoiceProviderFactoryDependencies,
-  'audit' | 'chatGPT' | 'claudeWeb' | 'localization' | 'openAIApi'
+  'audit' | 'chatGPT' | 'claudeWeb' | 'localWhisper' | 'localization' | 'openAIApi'
 > & {
   readonly chatGPT: Omit<
     ChatGPTVoiceProviderDependencies,
@@ -161,10 +194,25 @@ export interface MainProcessVoiceEnvironment {
   readonly providers: MainProcessVoiceProviderEnvironment;
 }
 
+export interface MainProcessLocalWhisperEnvironment {
+  readonly coordinator: LocalWhisperCoordinatorDependencies;
+  readonly facts: LocalWhisperSnapshotFactsPort;
+  readonly artifacts: LocalWhisperArtifactCommandPort;
+  readonly managedFolder: LocalWhisperManagedFolderPort;
+  readonly nativeRuntimeLogRelay?: import('../localWhisper/supervisor/NativeRuntimeLogStreamDecoder').NativeRuntimeLogRelay;
+  readonly references: LocalWhisperArtifactReferencePort;
+  readonly refreshDevices: (configurationEpoch: number) => Promise<void>;
+  readonly dispose: () => Promise<void>;
+}
+
 export interface MainProcessTranslationEnvironment {
   readonly audit: Omit<ProviderAuditDependencies, 'getSink'>;
+  readonly lifecycle: TranslationOperationLifecycleDependencies;
   readonly now: () => number;
-  readonly providers: Omit<TranslationProviderFactoryDependencies, 'cloakBrowserSettings' | 'createContext' | 'now'>;
+  readonly providers: Omit<
+    TranslationProviderFactoryDependencies,
+    'browserResources' | 'cloakBrowserSettings' | 'createContext' | 'now'
+  >;
   readonly selectedText: Omit<
     SelectedTextTranslationDependencies,
     | 'actionGate'
@@ -230,6 +278,7 @@ type RootOwnedRuntimeDependencyKeys =
   | 'diagnosticLogger'
   | 'historyLogger'
   | 'ipc'
+  | 'mainInteractionLock'
   | 'localization'
   | 'transcriptionLogger'
   | 'writeClipboardText';
@@ -259,12 +308,14 @@ export type MainProcessCompositionEnvironment = Omit<
     | 'config'
     | 'localization'
     | 'logger'
+    | 'mainInteractionLock'
     | 'notification'
     | 'prettifySettings'
     | 'voiceSettings'
   >;
   readonly initialProviderReadiness: InitialProviderReadinessDeadlineDependencies;
   readonly logger: LoggerFactoryDependencies;
+  readonly localWhisper: MainProcessLocalWhisperEnvironment;
   readonly prettify: MainProcessPrettifyEnvironment;
   readonly textAutomation: TextAutomationServiceDependencies;
   readonly translation: MainProcessTranslationEnvironment;
@@ -275,33 +326,36 @@ export interface MainProcessDesktopControllerEnvironment {
   readonly appProtocol: Omit<AppProtocolControllerDependencies, 'appIconPath' | 'appRoot' | 'logger'>;
   readonly desktopRuntime: Omit<
     DesktopRuntimeControllerDependencies,
-    'getAppIconPath' | 'openExternal' | 'windowManager'
+    'getAppIconPath' | 'localization' | 'openExternal' | 'windowManager'
   >;
   readonly linuxDesktopIntegration: Omit<
     LinuxDesktopIntegrationControllerDependencies,
     'getAppIconPath' | 'getAssetPath' | 'logger'
   >;
   readonly prettifyProfileChooser: Pick<PrettifyProfileChooserWindowControllerDependencies, 'preloadPath' | 'screen'>;
-  readonly shortcuts: Omit<
-    ShortcutControllerDependencies,
-    | 'selectedTextActionGate'
-    | 'selectedTextPrettifyService'
-    | 'selectedTextTranslationService'
-    | 'trayController'
-    | 'windowManager'
-    | 'config'
-    | 'localization'
-    | 'logger'
-    | 'notification'
-    | 'prettifyRuntime'
+  readonly hotkeys: {
+    readonly desktopPlatform: DesktopPlatform;
+    readonly globalShortcut: {
+      isRegistered(accelerator: string): boolean;
+      register(accelerator: string, callback: () => void): boolean;
+      unregister(accelerator: string): void;
+      unregisterAll(): void;
+    };
+    readonly linuxSessionType: LinuxSessionType;
+    readonly platform: NodeJS.Platform;
+  };
+  readonly tray: Omit<
+    TrayControllerDependencies,
+    'getAssetPath' | 'localization' | 'mainInteractionLock' | 'windowManager'
   >;
-  readonly tray: Omit<TrayControllerDependencies, 'getAssetPath' | 'localization' | 'windowManager'>;
   readonly window: Omit<
     WindowManagerDependencies,
     | 'createAboutWindowController'
     | 'getAppIcon'
     | 'getAppIconPath'
+    | 'localization'
     | 'logger'
+    | 'mainInteractionLock'
     | 'openExternal'
     | 'providerSettingsWindowController'
   >;
@@ -311,8 +365,10 @@ type ConstructedDesktopDependencyKeys =
   | 'appProtocolController'
   | 'backgroundBrowserService'
   | 'desktopRuntimeController'
+  | 'firstLaunchStartupCoordinator'
   | 'linuxDesktopIntegrationController'
   | 'prettifyProfileChooserWindow'
+  | 'providerHomeActionDispatcher'
   | 'runtimeFactory'
   | 'selectedTextPrettifyService'
   | 'shortcutController'
@@ -335,6 +391,7 @@ interface ConstructedControllers extends MainProcessRuntimeFactoryControllers {
   readonly appProtocolController: AppProtocolController;
   readonly linuxDesktopIntegrationController: LinuxDesktopIntegrationController;
   readonly selectedTextPrettifyService: SelectedTextPrettifyService;
+  readonly providerHomeActionDispatcher: ProviderHomeActionDispatcher;
   readonly trayController: TrayController;
 }
 
@@ -350,6 +407,12 @@ export class MainProcessCompositionRoot {
     const { desktopControllers: desktopEnvironment, ...applicationEnvironment } = environment;
     const assetPaths = new AssetPathResolver(this.environment.assetPaths);
     const loggerFactory = new LoggerFactory(this.environment.logger);
+    this.environment.localWhisper.nativeRuntimeLogRelay?.attach(
+      new NativeRuntimeLogForwarder({
+        logger: loggerFactory.getLogger('local-whisper-native-runtime'),
+        now: this.environment.now,
+      }),
+    );
     const electronRuntime = new ElectronRuntimeLoader({
       ...this.environment.electronRuntime,
       logger: loggerFactory.getLogger('electron-runtime'),
@@ -420,6 +483,11 @@ export class MainProcessCompositionRoot {
       ...this.environment.voice.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
+    const localWhisperCoordinator = new LocalWhisperCoordinator(this.environment.localWhisper.coordinator);
+    const localWhisperSnapshots = new LocalWhisperSnapshotService(
+      localWhisperCoordinator,
+      this.environment.localWhisper.facts,
+    );
     const claudeWebNavigationService = new ClaudeWebNavigationService(loggerFactory.getLogger('claude-web-provider'));
     const { chatGPT, claudeWeb, openAIApi, ...otherVoiceProviders } = this.environment.voice.providers;
     const voiceProviderFactory = new VoiceProviderFactory({
@@ -448,6 +516,9 @@ export class MainProcessCompositionRoot {
         writeClipboardText: electronRuntime.writeClipboardText,
       },
       localization,
+      localWhisper: {
+        coordinator: localWhisperCoordinator,
+      },
       openAIApi: {
         ...openAIApi,
         getSettings: openAIApiSettings.getSettingsWithSecret,
@@ -488,6 +559,11 @@ export class MainProcessCompositionRoot {
       }),
       jsonl: new DiagnosticsArchiveJsonlSerializer(),
       logs: new ProviderAuditLogExtractor(loggerFactory.getMainLogFileAccessor()),
+      nativeLogs: new NativeRuntimeLogArchiveExtractor(loggerFactory.getMainLogFileAccessor()),
+      localWhisperSnapshot: new LocalWhisperDiagnosticsSnapshotProvider({
+        now: this.environment.now,
+        snapshots: localWhisperSnapshots,
+      }),
       manifest: new DiagnosticsManifestBuilder({
         databaseSchemaVersion: APP_DATABASE_SCHEMA_VERSION,
         diagnosticRowSchemaVersion: DIAGNOSTIC_ARCHIVE_ROW_SCHEMA_VERSION,
@@ -505,10 +581,19 @@ export class MainProcessCompositionRoot {
       ...this.environment.translation.audit,
       getSink: () => loggerFactory.getLogger('provider-audit'),
     });
+    const translationOperationLifecycleFactory = new TranslationOperationLifecycleFactory(
+      this.environment.translation.lifecycle,
+    );
     const selectedTextActionGate = new SelectedTextActionGate();
     const textAutomation = new TextAutomationService(this.environment.textAutomation);
+    const translationBrowserResources = new TranslationBrowserResourceCoordinator({
+      cloakBrowserSettings,
+      createContext: cloakBrowserRuntime.launchContext,
+      createContextOptions: this.environment.translation.providers.createContextOptions,
+    });
     const translationProviderFactory = new TranslationProviderFactory({
       ...this.environment.translation.providers,
+      browserResources: translationBrowserResources,
       cloakBrowserSettings,
       createContext: cloakBrowserRuntime.launchContext,
       now: this.environment.translation.now,
@@ -524,6 +609,7 @@ export class MainProcessCompositionRoot {
       diagnosticCapture,
       localization,
       now: this.environment.translation.now,
+      operationLifecycleFactory: translationOperationLifecycleFactory,
       readinessDeadline: this.environment.initialProviderReadiness,
       registry: translationProviderRegistry,
     });
@@ -580,20 +666,80 @@ export class MainProcessCompositionRoot {
       registry: prettifyProviderRegistry,
       settings: prettifySettingsStorage,
     });
+    const mainInteractionLock = new MainInteractionLock(() => selectedTextActionGate.getActive() !== null);
+    const shortcutControllerReference: { current: ShortcutController | null } = { current: null };
+    const dispatchHotkey = (target: HotkeyTarget): void => {
+      const shortcutController = shortcutControllerReference.current;
+      if (shortcutController === null) {
+        throw new Error('Hotkey dispatch occurred before shortcut controller initialization');
+      }
+      shortcutController.dispatchHotkey(target);
+    };
+    const hotkeyRegistrationService = new HotkeyRegistrationService({
+      adapter: new ElectronGlobalShortcutAdapter(desktopEnvironment.hotkeys.globalShortcut),
+      callbacks: Object.freeze({
+        cancel: () => dispatchHotkey('cancel'),
+        prettify: () => dispatchHotkey('prettify'),
+        prettifyQuick: () => dispatchHotkey('prettifyQuick'),
+        record: () => dispatchHotkey('record'),
+        retryTranscription: () => dispatchHotkey('retryTranscription'),
+        stop: () => dispatchHotkey('stop'),
+        translate: () => dispatchHotkey('translate'),
+      }),
+      clock: {
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        now: Date.now,
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+      },
+      config: configStore,
+      logger: loggerFactory.getLogger('hotkeys'),
+      platform: desktopEnvironment.hotkeys.platform,
+      policy: new HotkeyPlatformPolicyFactory({
+        createLinuxPolicy: (session) => new LinuxHotkeyPlatformPolicy(session),
+        createWindowsPolicy: () => new WindowsHotkeyPlatformPolicy(),
+      }).create(desktopEnvironment.hotkeys.desktopPlatform, desktopEnvironment.hotkeys.linuxSessionType),
+    });
+    hotkeyRegistrationService.connectMainInteractionLock(mainInteractionLock);
     const windowManager = new WindowManager({
       ...desktopEnvironment.window,
       createAboutWindowController: (createWindow) => new AboutWindowController(createWindow),
       getAppIcon: () => desktopEnvironment.tray.createNativeImage(assetPaths.getAppIconPath()),
       getAppIconPath: assetPaths.getAppIconPath,
+      localization,
       logger: loggerFactory.getLogger('window'),
+      mainInteractionLock,
       openExternal: electronRuntime.openExternal,
       providerSettingsWindowController: new ProviderSettingsWindowController(),
+    });
+    const localWhisperIpcController = new LocalWhisperIpcController({
+      audit: new LocalWhisperCommandAudit(voiceProviderAudit),
+      transport: this.environment.ipc.ipc,
+      authority: new ElectronLocalWhisperSenderAuthority(windowManager),
+      coordinator: localWhisperCoordinator,
+      artifacts: this.environment.localWhisper.artifacts,
+      mainInteractionLock,
+      modelLoadFailureNotifier: new LocalWhisperModelLoadFailureNotifier({
+        localization,
+        logger: loggerFactory.getLogger('local-whisper-notification'),
+        notification: { show: electronRuntime.showSystemNotification },
+      }),
+      managedFolder: this.environment.localWhisper.managedFolder,
+      references: this.environment.localWhisper.references,
+      refreshSettingsFacts: this.environment.localWhisper.refreshDevices,
+      snapshots: localWhisperSnapshots,
+      getActiveProviderId: () => configStore.getSnapshot().provider,
+      openSettings: () =>
+        windowManager.showProviderSettingsWindow(
+          'local-whisper',
+          localization.translate('providerSettings.title', { provider: 'Local Whisper' }),
+        ),
     });
     const prettifyProfileChooserWindow = new PrettifyProfileChooserWindowController({
       ...desktopEnvironment.prettifyProfileChooser,
       createBrowserWindow: desktopEnvironment.window.createBrowserWindow,
       getAppIconPath: assetPaths.getAppIconPath,
       getAppUrl: desktopEnvironment.window.getAppUrl,
+      localization,
       logger: loggerFactory.getLogger('prettify-profile-chooser'),
       openExternal: electronRuntime.openExternal,
       randomUUID: this.environment.randomUUID,
@@ -655,12 +801,16 @@ export class MainProcessCompositionRoot {
       ...desktopEnvironment.tray,
       getAssetPath: assetPaths.getAssetPath,
       localization,
+      mainInteractionLock,
       windowManager,
     });
-    const shortcutController = new ShortcutController({
-      ...desktopEnvironment.shortcuts,
+    const providerHomeActionDispatcher = new ProviderHomeActionDispatcher({
       config: configStore,
+      getRecordingLifecycleState: () =>
+        shortcutControllerReference.current?.getRecordingState().lifecycleState ?? 'idle',
       localization,
+      logger: loggerFactory.getLogger('provider-home-actions'),
+      mainInteractionLock,
       notification: {
         show: electronRuntime.showSystemNotification,
       },
@@ -670,7 +820,53 @@ export class MainProcessCompositionRoot {
       selectedTextTranslationService,
       trayController,
       windowManager,
+    });
+    const shortcutController = new ShortcutController({
+      config: configStore,
+      hotkeyRegistrationService,
+      localization,
+      notification: {
+        show: electronRuntime.showSystemNotification,
+      },
+      prettifyRuntime,
+      providerHomeActionDispatcher,
+      selectedTextActionGate,
+      selectedTextPrettifyService,
+      selectedTextTranslationService,
+      trayController,
+      voiceRecordingProviderReadiness: backgroundBrowserService,
+      windowManager,
       logger: loggerFactory.getLogger('shortcuts'),
+      mainInteractionLock,
+    });
+    shortcutControllerReference.current = shortcutController;
+    const firstLaunchStartupCoordinator = new FirstLaunchStartupCoordinator({
+      jobRunners: [
+        {
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+          run: cloakBrowserRuntime.prepare,
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+          isRequired: () => configStore.getSnapshot().provider !== null,
+          run: async () => {
+            const providerId = configStore.getSnapshot().provider;
+            if (providerId === null) return { failureCode: null, success: true };
+            const status = await backgroundBrowserService.initialize();
+            windowManager.publishBackgroundStatus(status, providerId);
+            return { failureCode: null, success: true };
+          },
+        },
+        {
+          dependsOn: [FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser],
+          id: FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+          run: async () => {
+            await translationRuntime.initializeSelectedProvider();
+            return { failureCode: null, success: true };
+          },
+        },
+      ],
     });
     const controllers: ConstructedControllers = {
       appProtocolController: new AppProtocolController({
@@ -685,6 +881,7 @@ export class MainProcessCompositionRoot {
       desktopRuntimeController: new DesktopRuntimeController({
         ...desktopEnvironment.desktopRuntime,
         getAppIconPath: assetPaths.getAppIconPath,
+        localization,
         openExternal: electronRuntime.openExternal,
         windowManager,
       }),
@@ -698,10 +895,18 @@ export class MainProcessCompositionRoot {
       diagnosticStorage,
       diagnosticsArchive,
       diagnosticsExport,
+      firstLaunchStartupCoordinator,
       historyRepository,
+      hotkeyRegistrationService,
+      localWhisperCoordinator,
+      localWhisperEnvironmentDispose: this.environment.localWhisper.dispose,
+      localWhisperIpcController,
+      localWhisperSnapshots,
+      mainInteractionLock,
       prettifyProfileChooserWindow,
       prettifyProfilePortability,
       prettifyRuntime,
+      providerHomeActionDispatcher,
       selectedTextPrettifyService,
       shortcutController,
       translationRuntime,

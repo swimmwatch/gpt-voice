@@ -1,5 +1,6 @@
 import type { AboutPanelOptionsOptions, Menu, MenuItemConstructorOptions, Session } from 'electron';
 import { APP_COPYRIGHT, APP_ID, APP_NAME, APP_WEBSITE, createAppInfo } from './appMetadata';
+import type { I18nService } from './i18n';
 import type { WindowManager } from './window';
 import type { AppInfo } from '@shared/appInfo';
 
@@ -10,10 +11,12 @@ const STARTUP_BENCHMARK_ARGUMENT = '--startup-benchmark';
 const STARTUP_BENCHMARK_RENDERER_MOUNT_QUERY = "document.getElementById('window-startup-content') !== null";
 const REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT = '--remove-linux-appimage-desktop-integration';
 const ELECTRON_DISABLE_SANDBOX_ENVIRONMENT_KEY = 'ELECTRON_DISABLE_SANDBOX';
+const GLOBAL_SHORTCUTS_PORTAL_FEATURE = 'GlobalShortcutsPortal';
 
 export interface DesktopRuntimeApplication {
   readonly commandLine: {
     appendSwitch(name: string, value?: string): void;
+    getSwitchValue(name: string): string;
   };
   readonly dock?: {
     setIcon(image: string): void;
@@ -25,6 +28,7 @@ export interface DesktopRuntimeApplication {
   requestSingleInstanceLock(): boolean;
   setAboutPanelOptions(options: AboutPanelOptionsOptions): void;
   setAppUserModelId(id: string): void;
+  setDesktopName(name: string): void;
   setName(name: string): void;
   showAboutPanel(): void;
 }
@@ -37,8 +41,10 @@ export interface DesktopRuntimeControllerDependencies {
   readonly environment: NodeJS.ProcessEnv;
   readonly exit: (code: number) => void;
   readonly getAppIconPath: () => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly openExternal: (url: string) => Promise<void>;
   readonly platform: NodeJS.Platform;
+  readonly preReadyConfigurationComplete?: boolean;
   readonly schedule: (callback: () => void, delayMs: number) => unknown;
   readonly session: {
     readonly defaultSession: Pick<Session, 'setPermissionCheckHandler' | 'setPermissionRequestHandler'>;
@@ -46,6 +52,29 @@ export interface DesktopRuntimeControllerDependencies {
   readonly setApplicationMenu: (menu: Menu) => void;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
   readonly writeStandardOutput: (value: string) => void;
+}
+
+/** Performs Electron operations that must run synchronously before the ready event. */
+export function configureDesktopApplicationBeforeReady(
+  app: DesktopRuntimeApplication,
+  platform: NodeJS.Platform,
+): void {
+  app.setName(APP_NAME);
+  app.setAppUserModelId(APP_ID);
+  app.disableHardwareAcceleration();
+  if (platform !== 'linux') return;
+
+  app.commandLine.appendSwitch('class', APP_ID);
+  app.setDesktopName(APP_ID);
+  const enabledFeatures = app.commandLine
+    .getSwitchValue('enable-features')
+    .split(',')
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0 && feature !== GLOBAL_SHORTCUTS_PORTAL_FEATURE);
+  const configuredFeatures = [...enabledFeatures, GLOBAL_SHORTCUTS_PORTAL_FEATURE].join(',');
+  if (configuredFeatures !== app.commandLine.getSwitchValue('enable-features')) {
+    app.commandLine.appendSwitch('enable-features', configuredFeatures);
+  }
 }
 
 /**
@@ -60,6 +89,7 @@ export class DesktopRuntimeController {
   private singleInstanceAccepted = false;
 
   public constructor(private readonly dependencies: DesktopRuntimeControllerDependencies) {
+    this.beforeReadyConfigured = dependencies.preReadyConfigurationComplete ?? false;
     this.isStartupBenchmark = dependencies.arguments.includes(STARTUP_BENCHMARK_ARGUMENT);
     this.isRemovingLinuxDesktopIntegration =
       dependencies.platform === 'linux' && dependencies.arguments.includes(REMOVE_LINUX_DESKTOP_INTEGRATION_ARGUMENT);
@@ -69,10 +99,7 @@ export class DesktopRuntimeController {
     if (this.beforeReadyConfigured) return;
     this.beforeReadyConfigured = true;
 
-    const { app } = this.dependencies;
-    app.setName(APP_NAME);
-    app.setAppUserModelId(APP_ID);
-    app.disableHardwareAcceleration();
+    configureDesktopApplicationBeforeReady(this.dependencies.app, this.dependencies.platform);
   }
 
   public acquireSingleInstanceLock(): boolean {
@@ -92,13 +119,13 @@ export class DesktopRuntimeController {
 
   /** Configures the OS-native About panel and application menu. */
   public configureNativeMetadata(): void {
-    const { app } = this.dependencies;
+    const { app, localization } = this.dependencies;
     app.setAboutPanelOptions({
       applicationName: APP_NAME,
       applicationVersion: app.getVersion(),
       version: `Electron ${this.dependencies.electronVersion}`,
       copyright: APP_COPYRIGHT,
-      credits: 'Independent desktop voice transcription app powered by GPT web sessions.',
+      credits: localization.translate('about.panelCredits'),
       authors: ['Dmitry Vasiliev'],
       website: APP_WEBSITE,
       iconPath: this.dependencies.getAppIconPath(),
@@ -106,7 +133,7 @@ export class DesktopRuntimeController {
 
     const helpSubmenu: MenuItemConstructorOptions[] = [
       {
-        label: 'Project on GitHub',
+        label: localization.translate('nativeMenu.projectOnGitHub'),
         click: () => {
           void this.dependencies.openExternal(APP_WEBSITE);
         },
@@ -116,7 +143,7 @@ export class DesktopRuntimeController {
       helpSubmenu.push(
         { type: 'separator' },
         {
-          label: `About ${APP_NAME}`,
+          label: localization.translate('nativeMenu.aboutApp', { app: APP_NAME }),
           click: () => app.showAboutPanel(),
         },
       );
@@ -142,7 +169,7 @@ export class DesktopRuntimeController {
           ]
         : [
             {
-              label: 'File',
+              label: localization.translate('nativeMenu.file'),
               submenu: [{ role: 'quit' }],
             },
           ];
@@ -151,7 +178,7 @@ export class DesktopRuntimeController {
       this.dependencies.buildMenu([
         ...appMenu,
         {
-          label: 'Edit',
+          label: localization.translate('nativeMenu.edit'),
           submenu: [
             { role: 'undo' },
             { role: 'redo' },
@@ -163,7 +190,7 @@ export class DesktopRuntimeController {
           ],
         },
         {
-          label: 'View',
+          label: localization.translate('nativeMenu.view'),
           submenu: [
             { role: 'reload' },
             { role: 'forceReload' },
@@ -178,7 +205,7 @@ export class DesktopRuntimeController {
         },
         { role: 'windowMenu' },
         {
-          label: 'Help',
+          label: localization.translate('nativeMenu.help'),
           submenu: helpSubmenu,
         },
       ]),
@@ -236,7 +263,6 @@ export class DesktopRuntimeController {
     if (this.dependencies.platform !== 'linux') return;
 
     const { app } = this.dependencies;
-    app.commandLine.appendSwitch('class', 'gpt-voice');
     app.commandLine.appendSwitch('disable-gpu');
     app.commandLine.appendSwitch('disable-dev-shm-usage');
     app.commandLine.appendSwitch('log-level', CHROMIUM_FATAL_LOG_LEVEL);

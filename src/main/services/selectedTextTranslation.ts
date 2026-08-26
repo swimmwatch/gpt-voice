@@ -5,8 +5,11 @@ import type { DiagnosticCaptureService } from '@main/services/diagnosticCapture'
 import type { SelectedTextActionGate } from '@main/services/selectedTextActionState';
 import { createTextActionCacheKey, type TextActionResultCache } from '@main/services/textActionCache';
 import type { TextAutomationService } from '@main/services/textAutomation';
+import { SelectedTextTranslationOperation } from '@main/services/selectedTextTranslationOperation';
+import type { TranslationProviderOutcome } from '@main/translateProviders/translationProviderContracts';
 import {
   formatNotificationBody,
+  NotificationErrorCode,
   presentNotificationError,
   type PresentedNotificationError,
   type SystemNotificationOptions,
@@ -16,10 +19,15 @@ export const COPY_SETTLE_DELAY_MS = 120;
 export const SELECTED_TEXT_TRANSLATION_CACHE_MAX_ENTRIES = 20;
 
 export interface SelectedTextTranslationResult {
+  cancelled?: true;
   success: boolean;
   status: string;
   error?: string;
   skipped?: true;
+}
+
+export interface SelectedTextTranslationRunObserver {
+  readonly onTranslationStarted: () => void;
 }
 
 export interface SelectedTextTranslationClipboard {
@@ -59,21 +67,41 @@ function createSkippedResult(): SelectedTextTranslationResult {
   return { success: false, status: '', skipped: true };
 }
 
+function createCancelledResult(status: string): SelectedTextTranslationResult {
+  return { cancelled: true, success: false, status };
+}
+
 function createSuccessResult(status: string): SelectedTextTranslationResult {
   return { success: true, status };
 }
 
 /** Owns one serialized selected-text Translation workflow and its cache. */
 export class SelectedTextTranslationService {
+  private activeOperation: SelectedTextTranslationOperation | null = null;
+
   public constructor(private readonly dependencies: SelectedTextTranslationDependencies) {}
 
+  /** Cancels the currently owned selected-text workflow without affecting direct Translation IPC. */
+  public cancel(): boolean {
+    return this.activeOperation?.cancel() ?? false;
+  }
+
+  /** Reports whether the currently owned run can still accept one Cancel request. */
+  public canCancel(): boolean {
+    return Boolean(this.activeOperation && !this.activeOperation.cancelled);
+  }
+
   /** Translates the current desktop selection and writes the accepted result to the clipboard. */
-  public readonly translateSelectedTextToClipboard = async (): Promise<SelectedTextTranslationResult> => {
+  public readonly translateSelectedTextToClipboard = async (
+    observer?: SelectedTextTranslationRunObserver,
+  ): Promise<SelectedTextTranslationResult> => {
     if (!this.dependencies.actionGate.tryBegin('translate')) {
       this.dependencies.logger.info('Selected-text translation skipped because another selected-text action is active');
       return createSkippedResult();
     }
 
+    const operation = new SelectedTextTranslationOperation();
+    this.activeOperation = operation;
     let previousClipboardText: string | null = null;
     let snapshot: TranslationExecutionSnapshot | null = null;
     try {
@@ -88,6 +116,11 @@ export class SelectedTextTranslationService {
       previousClipboardText = this.dependencies.clipboard.readText();
       this.dependencies.clipboard.writeText('');
       const { selectedText, copyError } = await this.readSelectedText();
+      if (operation.cancelled) {
+        if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+        this.restoreClipboard(previousClipboardText);
+        return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+      }
 
       const validationFailure = this.dependencies.runtime.validateInput(selectedText, snapshot);
       if (validationFailure) {
@@ -115,6 +148,11 @@ export class SelectedTextTranslationService {
       ]);
       const cachedTranslation = this.dependencies.cache.get(cacheKey);
       if (cachedTranslation) {
+        if (operation.cancelled) {
+          if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+          this.restoreClipboard(previousClipboardText);
+          return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+        }
         if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
         this.captureCacheHit(selectedText, cachedTranslation, snapshot);
         this.dependencies.clipboard.writeText(cachedTranslation);
@@ -129,29 +167,54 @@ export class SelectedTextTranslationService {
         return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
       }
 
-      const outcome = await this.dependencies.runtime.translateWithSnapshot(selectedText, snapshot);
+      this.notifyTranslationStarted(operation, snapshot, observer);
+      const operationSnapshot = snapshot;
+      let resultCopiedBeforeCleanup = false;
+      const outcome = await this.dependencies.runtime.translateWithSnapshot(
+        selectedText,
+        operationSnapshot,
+        operation.controller.signal,
+        (resultText) => {
+          const delivered = this.copyVerifiedResultToClipboard(operation, operationSnapshot, resultText);
+          resultCopiedBeforeCleanup = delivered || resultCopiedBeforeCleanup;
+          return delivered;
+        },
+      );
+      if (this.isCallerCancelledOutcome(outcome)) {
+        this.restoreClipboard(previousClipboardText);
+        return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+      }
       if (!outcome.success) {
         if (outcome.discard || !this.dependencies.runtime.isCurrent(snapshot)) {
           return createSkippedResult();
         }
         this.restoreClipboard(previousClipboardText);
         const message = this.dependencies.runtime.getFailureMessage(outcome);
-        const presented = this.notifyTranslationFailure(message);
+        const presented = this.notifyTranslationFailure(
+          message,
+          undefined,
+          outcome.code === 'timed-out' ? message : undefined,
+        );
         return createFailureResult(presented.userMessage);
       }
       if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
 
       this.dependencies.cache.set(cacheKey, outcome.text);
-      this.dependencies.clipboard.writeText(outcome.text);
+      if (!resultCopiedBeforeCleanup) this.dependencies.clipboard.writeText(outcome.text);
       this.notifyTranslationCopied(outcome.text);
       return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
     } catch (error: unknown) {
+      if (operation.cancelled && (!snapshot || this.dependencies.runtime.isCurrent(snapshot))) {
+        this.restoreClipboard(previousClipboardText);
+        return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+      }
       if (snapshot && !this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
       this.restoreClipboard(previousClipboardText);
       const presented = this.notifyTranslationFailure(error);
       this.dependencies.logger.warn('Selected-text translation failed:', presented.safeLogMetadata);
       return createFailureResult(presented.userMessage);
     } finally {
+      if (this.activeOperation === operation) this.activeOperation = null;
       this.dependencies.actionGate.finish('translate');
     }
   };
@@ -170,6 +233,36 @@ export class SelectedTextTranslationService {
     }
   }
 
+  private copyVerifiedResultToClipboard(
+    operation: SelectedTextTranslationOperation,
+    snapshot: TranslationExecutionSnapshot,
+    resultText: string,
+  ): boolean {
+    if (operation.cancelled || !this.dependencies.runtime.isCurrent(snapshot)) return false;
+    this.dependencies.clipboard.writeText(resultText);
+    return true;
+  }
+
+  private isCallerCancelledOutcome(outcome: TranslationProviderOutcome): boolean {
+    return !outcome.success && outcome.cancelledByCaller === true;
+  }
+
+  private notifyTranslationStarted(
+    operation: SelectedTextTranslationOperation,
+    snapshot: TranslationExecutionSnapshot,
+    observer?: SelectedTextTranslationRunObserver,
+  ): void {
+    if (!this.dependencies.runtime.isCurrent(snapshot) || !operation.markProviderRunStarted() || !observer) return;
+    try {
+      observer.onTranslationStarted();
+    } catch (error: unknown) {
+      this.dependencies.logger.warn(
+        'Could not present Translation provider start:',
+        this.presentTranslationError(error).safeLogMetadata,
+      );
+    }
+  }
+
   private presentTranslationError(
     error: unknown,
     fallback = this.dependencies.localization.translate('status.translationFailed'),
@@ -179,6 +272,23 @@ export class SelectedTextTranslationService {
       fallback,
       t: this.dependencies.localization.translate,
     });
+  }
+
+  private presentKnownSafeTranslationFailure(message: string): PresentedNotificationError {
+    return {
+      code: NotificationErrorCode.HumanReadable,
+      safeLogMetadata: {
+        code: NotificationErrorCode.HumanReadable,
+        context: 'translation',
+        hasFilePath: false,
+        hasMessage: false,
+        hasStackTrace: false,
+        hasUrl: false,
+        messageLength: 0,
+        wasSanitized: false,
+      },
+      userMessage: message,
+    };
   }
 
   private restoreClipboard(previousClipboardText: string | null): void {
@@ -215,8 +325,12 @@ export class SelectedTextTranslationService {
   private notifyTranslationFailure(
     error: unknown,
     fallback = this.dependencies.localization.translate('status.translationFailed'),
+    knownSafeMessage?: string,
   ): PresentedNotificationError {
-    const presented = this.presentTranslationError(error, fallback);
+    const presented =
+      knownSafeMessage === undefined
+        ? this.presentTranslationError(error, fallback)
+        : this.presentKnownSafeTranslationFailure(knownSafeMessage);
     try {
       this.dependencies.notify(
         this.dependencies.localization.translate('notification.translationFailed'),

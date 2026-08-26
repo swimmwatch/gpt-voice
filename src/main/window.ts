@@ -1,15 +1,32 @@
-import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents } from 'electron';
+import type { BrowserWindow, BrowserWindowConstructorOptions, NativeImage, WebContents, WebFrameMain } from 'electron';
 import { AboutWindowController } from './aboutWindowController';
+import type { I18nService } from './i18n';
 import { ProviderSettingsWindowController } from './providerSettingsWindowController';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { AppSettingsSectionId } from '@shared/appSettings';
+import { FIRST_LAUNCH_STARTUP_IPC_CHANNELS, sanitizeFirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
+import {
+  MAIN_INTERACTION_LOCK_IPC_CHANNELS,
+  type MainInteractionLockLease,
+  MainInteractionLock,
+} from '@shared/mainInteractionLock';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
+import { SETTINGS_PRESENTATION_IPC_CHANNELS, type SettingsPresentationState } from '@shared/settingsPresentation';
+import { PROVIDER_SETTINGS_IPC_CHANNELS } from '@shared/voiceProvider';
 import {
   TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS,
   type TranslationProviderConnectionState,
 } from '@shared/translationProvider';
+import { PROVIDER_HOME_ACTION_IPC_CHANNELS, type ProviderHomeActionState } from '@shared/providerHomeAction';
 
-const MAIN_WINDOW_CONTENT_WIDTH = 520;
-const MAIN_WINDOW_CONTENT_HEIGHT = 420;
+const MAIN_WINDOW_CONTENT_WIDTH = 620;
+const MAIN_WINDOW_CONTENT_HEIGHT = 292;
+const PROVIDER_SETTINGS_CONTENT_WIDTH = 560;
+const PROVIDER_SETTINGS_CONTENT_HEIGHT = 680;
+const LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH = 912;
+const LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT = 820;
+const PROVIDER_SETTINGS_MIN_WIDTH = 440;
+const PROVIDER_SETTINGS_MIN_HEIGHT = 520;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
 const APP_PROTOCOL = 'app:';
 const APP_HOST = 'gpt-voice';
@@ -25,11 +42,18 @@ export interface WindowManagerDependencies {
   readonly getAppIcon: () => NativeImage;
   readonly getAppIconPath: () => string;
   readonly getAppUrl: (pathname?: string) => string;
+  readonly localization: Pick<I18nService, 'translate'>;
   readonly logger: WindowManagerLogger;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly openExternal: (url: string) => Promise<void>;
   readonly platform: NodeJS.Platform;
   readonly preloadPath: string;
   readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
+}
+
+export interface SettingsWindowOpenResult {
+  readonly reason?: 'locked' | 'operation-active' | 'recording-active';
+  readonly success: boolean;
 }
 
 export interface BackgroundBrowserStatus {
@@ -43,15 +67,23 @@ export interface BackgroundBrowserStatus {
 export class WindowManager {
   private readonly aboutWindowController: AboutWindowController<BrowserWindow>;
   private historyWindow: BrowserWindow | null = null;
+  private readonly interactionLockedWindowIds = new Set<number>();
+  private readonly mainInteractionLock: MainInteractionLock;
+  private mainInteractionLockUnsubscribe: (() => void) | null = null;
   private mainWindow: BrowserWindow | null = null;
   private readonly providerSettingsWindowController: ProviderSettingsWindowController<BrowserWindow>;
   private quitting = false;
   private settingsCloseConfirmed = false;
+  private settingsPresentationState: SettingsPresentationState = 'idle';
+  private settingsPresentationWindow: BrowserWindow | null = null;
+  private readonly settingsPresentationListeners = new Set<(state: SettingsPresentationState) => void>();
   private settingsWindow: BrowserWindow | null = null;
 
   public constructor(private readonly dependencies: WindowManagerDependencies) {
     this.aboutWindowController = dependencies.createAboutWindowController(this.createAboutWindow);
+    this.mainInteractionLock = dependencies.mainInteractionLock;
     this.providerSettingsWindowController = dependencies.providerSettingsWindowController;
+    this.mainInteractionLockUnsubscribe = this.mainInteractionLock.subscribe(this.applyMainInteractionLock);
   }
 
   public getMainWindow(): BrowserWindow | null {
@@ -66,12 +98,30 @@ export class WindowManager {
     return this.historyWindow;
   }
 
+  public get mainInteractionLocked(): boolean {
+    return this.mainInteractionLock.locked;
+  }
+
+  public get settingsPresentation(): SettingsPresentationState {
+    return this.settingsPresentationState;
+  }
+
+  public isMainInteractionLockOwner(webContents: Pick<WebContents, 'id' | 'isDestroyed'>): boolean {
+    return !webContents.isDestroyed() && this.interactionLockedWindowIds.has(webContents.id);
+  }
+
+  public subscribeSettingsPresentation(listener: (state: SettingsPresentationState) => void): () => void {
+    this.settingsPresentationListeners.add(listener);
+    return () => this.settingsPresentationListeners.delete(listener);
+  }
+
   public setQuitting(value: boolean): void {
     this.quitting = value;
   }
 
-  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string): void {
+  public publishBackgroundStatus(status: BackgroundBrowserStatus, fallbackProviderId: string | null): void {
     const providerId = status.providerId || fallbackProviderId;
+    if (!providerId) return;
     if (status.ready) {
       this.mainWindow?.webContents.send('bg-browser-ready', providerId);
     } else if (status.error) {
@@ -79,9 +129,24 @@ export class WindowManager {
     }
   }
 
+  /** Delivers only the shared renderer-safe startup snapshot to the live main window. */
+  public publishFirstLaunchStartupSnapshot(snapshot: unknown): void {
+    const safeSnapshot = sanitizeFirstLaunchStartupSnapshot(snapshot);
+    const window = this.mainWindow;
+    if (!safeSnapshot || !window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+    window.webContents.send(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.changed, safeSnapshot);
+  }
+
   public readonly publishTranslationProviderConnectionState = (state: TranslationProviderConnectionState): void => {
     this.mainWindow?.webContents.send(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.changed, state);
   };
+
+  /** Delivers only sanitized text-provider action state to the live main window. */
+  public publishProviderHomeActionState(state: ProviderHomeActionState): void {
+    const window = this.mainWindow;
+    if (!window || window.isDestroyed() || window.webContents.isDestroyed()) return;
+    window.webContents.send(PROVIDER_HOME_ACTION_IPC_CHANNELS.snapshotChanged, state);
+  }
 
   public publishProviderSettingsChanged(settings: unknown, source: Pick<WebContents, 'id'>): void {
     if (!this.mainWindow || this.mainWindow.webContents.id === source.id) return;
@@ -120,6 +185,32 @@ export class WindowManager {
     return settingsWindow;
   }
 
+  public isTrustedMainFrame(webContents: WebContents, frame: WebFrameMain): boolean {
+    const window = this.mainWindow;
+    return Boolean(
+      window &&
+      !window.isDestroyed() &&
+      !webContents.isDestroyed() &&
+      window.webContents.id === webContents.id &&
+      webContents.mainFrame === frame &&
+      frame.url === this.dependencies.getAppUrl() &&
+      webContents.getURL() === frame.url,
+    );
+  }
+
+  public isTrustedLocalWhisperSettingsFrame(webContents: WebContents, frame: WebFrameMain): boolean {
+    const window = this.providerSettingsWindowController.get(LOCAL_WHISPER_PROVIDER_ID);
+    if (!window || window.isDestroyed() || webContents.isDestroyed()) return false;
+    const expectedUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
+    expectedUrl.searchParams.set('providerId', LOCAL_WHISPER_PROVIDER_ID);
+    return (
+      window.webContents.id === webContents.id &&
+      webContents.mainFrame === frame &&
+      frame.url === expectedUrl.toString() &&
+      webContents.getURL() === frame.url
+    );
+  }
+
   public createMainWindow(): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) return;
 
@@ -145,6 +236,8 @@ export class WindowManager {
       icon: appIconPath,
     });
     this.mainWindow = window;
+    this.applyMainInteractionLock(this.mainInteractionLock.locked);
+    this.publishSettingsPresentation();
 
     const applyWindowIcon = (): void => {
       if (this.mainWindow !== window || window.isDestroyed() || this.dependencies.platform === 'darwin') return;
@@ -171,6 +264,7 @@ export class WindowManager {
   }
 
   public showMainWindow(): void {
+    if (this.focusSettingsWindow()) return;
     const window = this.mainWindow;
     if (!window || window.isDestroyed()) {
       this.createMainWindow();
@@ -179,32 +273,49 @@ export class WindowManager {
     this.showAndFocus(window);
   }
 
-  public showSettingsWindow(section?: AppSettingsSectionId): void {
+  public showSettingsWindow(section?: AppSettingsSectionId): SettingsWindowOpenResult {
     const existing = this.settingsWindow;
     if (existing && !existing.isDestroyed()) {
       this.showAndFocus(existing);
+      this.updateSettingsPresentation('open', existing);
       if (section) existing.webContents.send('app-settings-section-requested', section);
-      return;
+      return Object.freeze({ success: true });
     }
 
-    const window = this.dependencies.createBrowserWindow({
-      width: 760,
-      height: 720,
-      minWidth: 440,
-      minHeight: 520,
-      autoHideMenuBar: true,
-      backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-      show: true,
-      title: 'Settings',
-      webPreferences: this.createWebPreferences(),
-      icon: this.dependencies.getAppIconPath(),
-    });
+    const acquisition = this.mainInteractionLock.acquire();
+    const lease = acquisition.lease;
+    if (!lease) return this.createBlockedSettingsWindowResult(acquisition.result);
+    this.beginSettingsPresentation();
+
+    let window: BrowserWindow;
+    try {
+      window = this.dependencies.createBrowserWindow({
+        width: 760,
+        height: 720,
+        minWidth: 440,
+        minHeight: 520,
+        autoHideMenuBar: true,
+        backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+        show: true,
+        title: this.dependencies.localization.translate('appSettings.title'),
+        webPreferences: this.createWebPreferences(),
+        icon: this.dependencies.getAppIconPath(),
+      });
+    } catch (error: unknown) {
+      this.clearSettingsPresentation();
+      lease.release();
+      throw error;
+    }
     this.settingsWindow = window;
+    this.attachSettingsPresentationWindow(window);
+    const webContentsId = window.webContents.id;
+    this.registerInteractionLockedWindow(webContentsId);
     window.setMenuBarVisibility(false);
     this.applyNavigationGuards(window);
     const settingsUrl = new URL(this.dependencies.getAppUrl('settings.html'));
     if (section) settingsUrl.searchParams.set('section', section);
-    void window.loadURL(settingsUrl.toString());
+    void window.loadURL(settingsUrl.toString()).catch(() => this.closeSettingsWindowAfterLoadFailure(window));
+    window.once('ready-to-show', () => this.updateSettingsPresentation('open', window));
 
     window.on('close', (event) => {
       if (this.quitting || this.settingsCloseConfirmed) return;
@@ -214,7 +325,10 @@ export class WindowManager {
     window.on('closed', () => {
       if (this.settingsWindow === window) this.settingsWindow = null;
       this.settingsCloseConfirmed = false;
+      this.clearSettingsPresentation(window);
+      this.releaseInteractionLockedWindow(webContentsId, lease);
     });
+    return Object.freeze({ success: true });
   }
 
   public closeSettingsWindow(): void {
@@ -239,7 +353,7 @@ export class WindowManager {
       autoHideMenuBar: true,
       backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
       show: true,
-      title: 'History',
+      title: this.dependencies.localization.translate('history.title'),
       webPreferences: this.createWebPreferences(),
       icon: this.dependencies.getAppIconPath(),
     });
@@ -260,44 +374,108 @@ export class WindowManager {
     this.aboutWindowController.close();
   }
 
-  public showProviderSettingsWindow(providerId: string, title: string): void {
-    this.providerSettingsWindowController.show(providerId, () => {
-      const providerSettingsUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
-      providerSettingsUrl.searchParams.set('providerId', providerId);
-      const window = this.dependencies.createBrowserWindow({
-        width: 560,
-        height: 680,
-        minWidth: 440,
-        minHeight: 520,
-        useContentSize: true,
-        autoHideMenuBar: true,
-        backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
-        resizable: true,
-        show: true,
-        title,
-        webPreferences: this.createWebPreferences(),
-        icon: this.dependencies.getAppIconPath(),
-      });
-      window.setMenuBarVisibility(false);
-      this.applyNavigationGuards(window);
-      void window.loadURL(providerSettingsUrl.toString());
-      return window;
-    });
+  public showProviderSettingsWindow(providerId: string, title: string): SettingsWindowOpenResult {
+    const existing = this.providerSettingsWindowController.get(providerId);
+    if (existing) {
+      if (existing.isMinimized()) existing.restore();
+      existing.show();
+      existing.focus();
+      this.updateSettingsPresentation('open', existing);
+      return Object.freeze({ success: true });
+    }
+
+    const acquisition = this.mainInteractionLock.acquire();
+    const lease = acquisition.lease;
+    if (!lease) return this.createBlockedSettingsWindowResult(acquisition.result);
+    this.beginSettingsPresentation();
+    const isLocalWhisperSettings = providerId === LOCAL_WHISPER_PROVIDER_ID;
+    let webContentsId: number | null = null;
+    try {
+      const shown = this.providerSettingsWindowController.show(
+        providerId,
+        () => {
+          const providerSettingsUrl = new URL(this.dependencies.getAppUrl('provider-settings.html'));
+          providerSettingsUrl.searchParams.set('providerId', providerId);
+          const window = this.dependencies.createBrowserWindow({
+            width: isLocalWhisperSettings ? LOCAL_WHISPER_SETTINGS_CONTENT_WIDTH : PROVIDER_SETTINGS_CONTENT_WIDTH,
+            height: isLocalWhisperSettings ? LOCAL_WHISPER_SETTINGS_CONTENT_HEIGHT : PROVIDER_SETTINGS_CONTENT_HEIGHT,
+            minWidth: PROVIDER_SETTINGS_MIN_WIDTH,
+            minHeight: PROVIDER_SETTINGS_MIN_HEIGHT,
+            useContentSize: true,
+            autoHideMenuBar: true,
+            backgroundColor: INITIAL_WINDOW_BACKGROUND_COLOR,
+            resizable: true,
+            show: true,
+            title,
+            webPreferences: this.createWebPreferences(),
+            icon: this.dependencies.getAppIconPath(),
+          });
+          window.setMenuBarVisibility(false);
+          this.applyNavigationGuards(window);
+          void window
+            .loadURL(providerSettingsUrl.toString())
+            .catch(() => this.closeProviderSettingsWindowAfterLoadFailure(window));
+          return window;
+        },
+        {
+          ...(isLocalWhisperSettings
+            ? {
+                guardedClose: true,
+                onCloseRequested: (window: BrowserWindow) => {
+                  if (!window.webContents.isDestroyed()) {
+                    window.webContents.send(PROVIDER_SETTINGS_IPC_CHANNELS.closeRequested);
+                  }
+                },
+              }
+            : {}),
+          onClosed: (closedWindow) => {
+            this.clearSettingsPresentation(closedWindow);
+            if (webContentsId !== null) this.releaseInteractionLockedWindow(webContentsId, lease);
+          },
+        },
+      );
+      if (!shown.created) {
+        this.clearSettingsPresentation();
+        lease.release();
+        return Object.freeze({ success: true });
+      }
+      webContentsId = shown.window.webContents.id;
+      this.registerInteractionLockedWindow(webContentsId);
+      this.attachSettingsPresentationWindow(shown.window);
+      shown.window.once('ready-to-show', () => this.updateSettingsPresentation('open', shown.window));
+      return Object.freeze({ success: true });
+    } catch (error: unknown) {
+      this.clearSettingsPresentation();
+      lease.release();
+      throw error;
+    }
   }
 
   public closeProviderSettingsWindow(webContents: WebContents): boolean {
     return this.providerSettingsWindowController.closeForWebContents(webContents);
   }
 
+  public focusSettingsWindow(): boolean {
+    const window = this.settingsPresentationWindow;
+    if (!window || window.isDestroyed()) return false;
+    this.showAndFocus(window);
+    return true;
+  }
+
   public dispose(): void {
     this.quitting = true;
     this.settingsCloseConfirmed = true;
+    this.mainInteractionLockUnsubscribe?.();
+    this.mainInteractionLockUnsubscribe = null;
     for (const window of new Set([this.mainWindow, this.settingsWindow, this.historyWindow])) {
       if (window && !window.isDestroyed()) window.close();
     }
     this.mainWindow = null;
     this.settingsWindow = null;
     this.historyWindow = null;
+    this.interactionLockedWindowIds.clear();
+    this.clearSettingsPresentation();
+    this.settingsPresentationListeners.clear();
     this.aboutWindowController.dispose();
     this.providerSettingsWindowController.dispose();
   }
@@ -312,6 +490,76 @@ export class WindowManager {
     ];
   }
 
+  private readonly applyMainInteractionLock = (locked: boolean): void => {
+    const mainWindow = this.mainWindow;
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+    mainWindow.webContents.send(MAIN_INTERACTION_LOCK_IPC_CHANNELS.changed, locked);
+  };
+
+  private createBlockedSettingsWindowResult(reason: string): SettingsWindowOpenResult {
+    return Object.freeze({
+      reason: reason === 'recording-active' || reason === 'operation-active' ? reason : 'locked',
+      success: false,
+    });
+  }
+
+  private registerInteractionLockedWindow(webContentsId: number): void {
+    this.interactionLockedWindowIds.add(webContentsId);
+    this.applyMainInteractionLock(true);
+  }
+
+  private releaseInteractionLockedWindow(webContentsId: number, lease: MainInteractionLockLease): void {
+    this.interactionLockedWindowIds.delete(webContentsId);
+    lease.release();
+  }
+
+  private closeSettingsWindowAfterLoadFailure(window: BrowserWindow): void {
+    if (window.isDestroyed() || this.settingsWindow !== window) return;
+    this.settingsCloseConfirmed = true;
+    window.close();
+  }
+
+  private closeProviderSettingsWindowAfterLoadFailure(window: BrowserWindow): void {
+    if (window.isDestroyed()) return;
+    this.providerSettingsWindowController.closeForWebContents(window.webContents);
+  }
+
+  private beginSettingsPresentation(): void {
+    this.settingsPresentationWindow = null;
+    if (this.settingsPresentationState === 'opening') return;
+    this.settingsPresentationState = 'opening';
+    this.publishSettingsPresentation();
+  }
+
+  private attachSettingsPresentationWindow(window: BrowserWindow): void {
+    this.settingsPresentationWindow = window;
+  }
+
+  private updateSettingsPresentation(state: Exclude<SettingsPresentationState, 'idle'>, window: BrowserWindow): void {
+    if (this.settingsPresentationWindow && this.settingsPresentationWindow !== window) return;
+    this.settingsPresentationWindow = window;
+    if (this.settingsPresentationState === state) return;
+    this.settingsPresentationState = state;
+    this.publishSettingsPresentation();
+  }
+
+  private clearSettingsPresentation(window?: BrowserWindow): void {
+    if (window && this.settingsPresentationWindow !== window) return;
+    this.settingsPresentationWindow = null;
+    if (this.settingsPresentationState === 'idle') return;
+    this.settingsPresentationState = 'idle';
+    this.publishSettingsPresentation();
+  }
+
+  private publishSettingsPresentation(): void {
+    const state = this.settingsPresentationState;
+    const mainWindow = this.mainWindow;
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.send(SETTINGS_PRESENTATION_IPC_CHANNELS.changed, state);
+    }
+    for (const listener of [...this.settingsPresentationListeners]) listener(state);
+  }
+
   private readonly createAboutWindow = (): BrowserWindow => {
     const window = this.dependencies.createBrowserWindow({
       width: 420,
@@ -324,7 +572,7 @@ export class WindowManager {
       show: true,
       maximizable: false,
       resizable: false,
-      title: 'About GPT-Voice',
+      title: this.dependencies.localization.translate('about.open'),
       webPreferences: this.createWebPreferences(),
       icon: this.dependencies.getAppIconPath(),
     });

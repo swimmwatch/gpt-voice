@@ -1135,17 +1135,8 @@ describe('selectedTextPrettify', () => {
     assert.equal(run.notifications[0]?.body.includes(SECOND_TEST_PROFILE_ID), false);
   });
 
-  it('remembers an applied chooser profile only while it exists in a later session snapshot', async () => {
-    const outcomes: PrettifyProfileChooserOutcome[] = [
-      { profileId: TEST_PROFILE_ID, type: 'apply' },
-      { type: 'close' },
-      { type: 'close' },
-    ];
-    let currentCatalog = createTestProfileCatalog({
-      id: TEST_PROFILE_ID,
-      instruction: 'remembered instruction',
-      name: 'Remembered profile',
-    });
+  it('keeps the configured default in later chooser requests after a non-default one-off apply', async () => {
+    const outcomes: PrettifyProfileChooserOutcome[] = [{ profileId: 'natural', type: 'apply' }, { type: 'close' }];
     const run = createTestService({
       chooser: {
         cancel: () => undefined,
@@ -1156,24 +1147,19 @@ describe('selectedTextPrettify', () => {
           return Promise.resolve(outcome);
         },
       },
-      profileCatalog: {
-        getPrettifyProfileCatalog: () => currentCatalog,
-      },
       selectionText: 'selected source',
     });
 
     assert.equal((await run.service.chooseProfileForSelectedText()).success, true);
     assert.equal((await run.service.chooseProfileForSelectedText()).cancelled, true);
-    assert.equal(run.chooserRequests[1]?.initialProfileId, TEST_PROFILE_ID);
-
-    currentCatalog = normalizePrettifyProfileCatalog({
-      chooserOrder: ['prompt-ready', 'polish', 'professional', 'natural'],
-      customProfiles: [],
-      defaultProfileId: 'prompt-ready',
-      schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
-    });
-    assert.equal((await run.service.chooseProfileForSelectedText()).cancelled, true);
-    assert.equal(Object.prototype.hasOwnProperty.call(run.chooserRequests[2] ?? {}, 'initialProfileId'), false);
+    assert.deepEqual(
+      run.chooserRequests.map((request) => request.profiles.find((profile) => profile.isDefault)?.id),
+      [TEST_PROFILE_ID, TEST_PROFILE_ID],
+    );
+    assert.equal(
+      run.chooserRequests.every((request) => !Object.prototype.hasOwnProperty.call(request, 'initialProfileId')),
+      true,
+    );
   });
 
   it('silently skips duplicate concurrent hotkey presses', async () => {

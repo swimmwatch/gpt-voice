@@ -1,0 +1,10 @@
+{
+  "success": [
+    { "id": 1001, "name": "Typecheck", "status": "completed", "conclusion": "success" },
+    { "id": 1002, "name": "Unit tests", "status": "completed", "conclusion": "success" }
+  ],
+  "failure": [
+    { "id": 1001, "name": "Typecheck", "status": "completed", "conclusion": "success" },
+    { "id": 1002, "name": "Unit tests", "status": "completed", "conclusion": "failure" }
+  ]
+}

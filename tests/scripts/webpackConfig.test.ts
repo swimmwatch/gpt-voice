@@ -59,6 +59,18 @@ test('emits the isolated chooser preload, renderer entry, and exact HTML chunk',
   assert.deepEqual(chooserPlugin.userOptions?.chunks, ['prettifyProfileChooser']);
 });
 
+test('keeps the provider hotkey demo development-only and outside production navigation', async () => {
+  const webpackConfig = await readFile(path.join(rootDirectory, 'webpack.config.js'), 'utf8');
+
+  assert.match(
+    webpackConfig,
+    /\.\.\.\(!isProd \? \{ providerHotkeyDemo: '\.\/src\/renderer\/entries\/providerHotkeyDemo\.tsx' \} : \{\}\),/u,
+  );
+  assert.match(webpackConfig, /\.\.\.\(!isProd\s*\? \[\s*new HtmlWebpackPlugin\(/u);
+  assert.match(webpackConfig, /filename: 'provider-hotkey-demo\.html'/u);
+  assert.match(webpackConfig, /chunks: \['providerHotkeyDemo'\]/u);
+});
+
 test('emits the live PCM worklet as one local renderer asset under the strict startup CSP', async () => {
   const webpackConfigs = require(path.join(rootDirectory, 'webpack.config.js')) as Array<Record<string, unknown>>;
   const rendererWebpackConfig = webpackConfigs[2];

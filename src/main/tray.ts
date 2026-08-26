@@ -3,6 +3,8 @@ import type { TrayIconState } from './trayIconState';
 import { getTrayIconFilename } from './trayIconState';
 import type { WindowManager } from './window';
 import type { I18nService } from './i18n';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 
 const TRAY_ICON_SIZE = 22;
 
@@ -15,12 +17,15 @@ export interface TrayControllerDependencies {
   readonly createTray: (icon: NativeImage) => Tray;
   readonly getAssetPath: (filename: string) => string;
   readonly localization: Pick<I18nService, 'translate'>;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly platform: NodeJS.Platform;
   readonly windowManager: WindowManager;
 }
 
 /** Owns the native tray resource, its menu, and current icon state. */
 export class TrayController {
+  private mainInteractionLockUnsubscribe: (() => void) | null = null;
+  private settingsPresentationUnsubscribe: (() => void) | null = null;
   private tray: Tray | null = null;
 
   public constructor(private readonly dependencies: TrayControllerDependencies) {}
@@ -31,34 +36,13 @@ export class TrayController {
     const tray = this.dependencies.createTray(this.createIcon('idle'));
     this.tray = tray;
     tray.setToolTip(this.dependencies.localization.translate('tray.tooltip'));
-    tray.setContextMenu(
-      this.dependencies.buildMenu([
-        {
-          label: this.dependencies.localization.translate('tray.show'),
-          click: () => this.showFromMenu(),
-        },
-        {
-          label: this.dependencies.localization.translate('appSettings.open'),
-          click: () => this.dependencies.windowManager.showSettingsWindow(),
-        },
-        {
-          label: this.dependencies.localization.translate('history.open'),
-          click: () => this.dependencies.windowManager.showHistoryWindow(),
-        },
-        {
-          label: this.dependencies.localization.translate('about.open'),
-          click: () => this.dependencies.windowManager.showAboutWindow(),
-        },
-        { type: 'separator' },
-        {
-          label: this.dependencies.localization.translate('tray.quit'),
-          click: () => {
-            this.dependencies.windowManager.setQuitting(true);
-            this.dependencies.application.quit();
-          },
-        },
-      ]),
-    );
+    this.mainInteractionLockUnsubscribe = this.dependencies.mainInteractionLock.subscribe(() => {
+      this.updateContextMenu();
+    });
+    this.settingsPresentationUnsubscribe = this.dependencies.windowManager.subscribeSettingsPresentation(() => {
+      this.updateContextMenu();
+    });
+    this.updateContextMenu();
     tray.on('click', () => this.handleTrayClick());
   }
 
@@ -69,6 +53,10 @@ export class TrayController {
   }
 
   public dispose(): void {
+    this.mainInteractionLockUnsubscribe?.();
+    this.mainInteractionLockUnsubscribe = null;
+    this.settingsPresentationUnsubscribe?.();
+    this.settingsPresentationUnsubscribe = null;
     const tray = this.tray;
     this.tray = null;
     if (tray && !tray.isDestroyed()) tray.destroy();
@@ -89,22 +77,72 @@ export class TrayController {
   }
 
   private showFromMenu(): void {
-    const window = this.dependencies.windowManager.getMainWindow();
-    if (!window) {
-      this.dependencies.windowManager.createMainWindow();
-      return;
-    }
-    window.show();
-    window.focus();
+    this.dependencies.windowManager.showMainWindow();
   }
 
   private handleTrayClick(): void {
-    const window = this.dependencies.windowManager.getMainWindow();
-    if (!window) {
-      this.dependencies.windowManager.createMainWindow();
-      return;
+    this.dependencies.windowManager.showMainWindow();
+  }
+
+  private updateContextMenu(): void {
+    const tray = this.tray;
+    if (!tray || tray.isDestroyed()) return;
+    const presentation = this.dependencies.windowManager.settingsPresentation;
+    const opening = presentation === 'opening';
+    const primaryItem = this.createPrimaryMenuItem(presentation);
+    tray.setContextMenu(
+      this.dependencies.buildMenu([
+        primaryItem,
+        {
+          label: this.dependencies.localization.translate('appSettings.open'),
+          click: () => {
+            if (!this.dependencies.windowManager.focusSettingsWindow()) {
+              this.dependencies.windowManager.showSettingsWindow();
+            }
+          },
+          enabled: !opening,
+        },
+        {
+          label: this.dependencies.localization.translate('history.open'),
+          click: () => this.dependencies.windowManager.showHistoryWindow(),
+          enabled: true,
+        },
+        {
+          label: this.dependencies.localization.translate('about.open'),
+          click: () => this.dependencies.windowManager.showAboutWindow(),
+          enabled: true,
+        },
+        { type: 'separator' },
+        {
+          label: this.dependencies.localization.translate('tray.quit'),
+          enabled: true,
+          click: () => {
+            this.dependencies.windowManager.setQuitting(true);
+            this.dependencies.application.quit();
+          },
+        },
+      ]),
+    );
+  }
+
+  private createPrimaryMenuItem(presentation: SettingsPresentationState): MenuItemConstructorOptions {
+    if (presentation === 'opening') {
+      return {
+        label: this.dependencies.localization.translate('settings.opening'),
+        enabled: false,
+      };
     }
-    if (!window.isVisible()) window.show();
-    window.focus();
+    if (presentation === 'open') {
+      return {
+        label: this.dependencies.localization.translate('settings.show'),
+        click: () => this.dependencies.windowManager.focusSettingsWindow(),
+        enabled: true,
+      };
+    }
+    return {
+      label: this.dependencies.localization.translate('tray.show'),
+      click: () => this.showFromMenu(),
+      enabled: true,
+    };
   }
 }

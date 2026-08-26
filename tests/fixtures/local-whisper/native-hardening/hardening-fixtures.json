@@ -1,0 +1,20 @@
+{
+  "elf64LittleEndian": [
+    "positive",
+    "missing-pie",
+    "missing-relro",
+    "executable-stack",
+    "missing-immediate-binding",
+    "text-relocation"
+  ],
+  "pe32PlusX64": [
+    "positive",
+    "missing-aslr",
+    "missing-nx",
+    "missing-high-entropy-va",
+    "missing-stack-cookie",
+    "missing-cfg-dll-characteristic",
+    "missing-cfg-function-table-flag",
+    "missing-cfg"
+  ]
+}

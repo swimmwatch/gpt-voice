@@ -81,6 +81,7 @@ module.exports = [
       about: './src/renderer/entries/about.tsx',
       history: './src/renderer/entries/history.tsx',
       main: './src/renderer/entries/main.tsx',
+      ...(!isProd ? { providerHotkeyDemo: './src/renderer/entries/providerHotkeyDemo.tsx' } : {}),
       prettifyProfileChooser: './src/renderer/entries/prettifyProfileChooser.tsx',
       providerSettings: './src/renderer/entries/providerSettings.tsx',
       settings: './src/renderer/entries/settings.tsx',
@@ -161,6 +162,16 @@ module.exports = [
         title: 'Provider settings',
         chunks: ['providerSettings'],
       }),
+      ...(!isProd
+        ? [
+            new HtmlWebpackPlugin({
+              template: './src/renderer/index.html',
+              filename: 'provider-hotkey-demo.html',
+              title: 'GPT-Voice Hotkey Demo',
+              chunks: ['providerHotkeyDemo'],
+            }),
+          ]
+        : []),
       new HtmlWebpackPlugin({
         template: './src/renderer/index.html',
         filename: 'prettify-profile-chooser.html',

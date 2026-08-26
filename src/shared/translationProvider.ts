@@ -83,7 +83,7 @@ export const TRANSLATION_PROVIDER_INFO = Object.freeze({
   google: {
     id: 'google',
     name: 'Google',
-    contractVersion: '2026-07-25',
+    contractVersion: '2026-08-09',
     defaultTargetLanguage: 'en',
     maxInputCharacters: 5_000,
     targetLanguages: GOOGLE_TRANSLATION_LANGUAGES,
@@ -91,7 +91,7 @@ export const TRANSLATION_PROVIDER_INFO = Object.freeze({
   bing: {
     id: 'bing',
     name: 'Bing',
-    contractVersion: '2026-07-25',
+    contractVersion: '2026-08-09',
     defaultTargetLanguage: 'en',
     maxInputCharacters: 1_000,
     targetLanguages: BING_TRANSLATION_LANGUAGES,
@@ -99,7 +99,7 @@ export const TRANSLATION_PROVIDER_INFO = Object.freeze({
   yandex: {
     id: 'yandex',
     name: 'Yandex',
-    contractVersion: '2026-07-25',
+    contractVersion: '2026-08-09',
     defaultTargetLanguage: 'en',
     maxInputCharacters: 10_000,
     targetLanguages: YANDEX_TRANSLATION_LANGUAGES,

@@ -24,12 +24,28 @@ import { createPlaywrightYandexTranslatePageAdapter } from '@main/translateProvi
 import { TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS } from '@shared/translationProvider';
 import { PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS } from '@shared/prettifyProfileChooser';
 import { PRETTIFY_PROFILE_PORTABILITY_IPC_CHANNELS } from '@shared/prettifyProfilePortability';
+import {
+  FIRST_LAUNCH_STARTUP_IPC_CHANNELS,
+  FIRST_LAUNCH_STARTUP_JOB_IDS,
+  type FirstLaunchStartupSnapshot,
+} from '@shared/firstLaunchStartup';
+import {
+  DesktopPlatform,
+  HotkeyBindingAuthority,
+  HotkeyDispatchStatus,
+  HotkeyRegistrationFailureCode,
+  HotkeyRegistrationStatus,
+  LinuxSessionType,
+} from '@shared/hotkeys';
+import { HOTKEY_IPC_CHANNELS, type HotkeyRuntimeState } from '@shared/hotkeyIpc';
+import { createDeferredLocalWhisperEnvironment } from '@main/localWhisper/ipc/createDeferredLocalWhisperEnvironment';
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 class RecordingElectronApplication implements MainProcessElectronApplication {
   public readonly commandLine = {
     appendSwitch: () => undefined,
+    getSwitchValue: () => '',
   };
   public readonly isPackaged = false;
   public quitCount = 0;
@@ -53,6 +69,8 @@ class RecordingElectronApplication implements MainProcessElectronApplication {
   public setAboutPanelOptions(): void {}
 
   public setAppUserModelId(): void {}
+
+  public setDesktopName(): void {}
 
   public setName(): void {}
 
@@ -115,6 +133,7 @@ class TestDesktopWindow {
   public on(): void {}
   public once(): void {}
   public restore(): void {}
+  public setEnabled(): void {}
   public setIcon(): void {}
   public setMenuBarVisibility(): void {}
   public show(): void {}
@@ -149,6 +168,7 @@ type MainIpcListener = Parameters<MainIpcTransport['handle']>[1];
 interface CompositionHarnessState {
   closeCount: number;
   createCount: number;
+  readonly hotkeyRegistrationCalls: string[];
   readonly ipcHandlers: Map<string, MainIpcListener>;
   readonly removedIpcChannels: string[];
   readonly prettifyAuditRecords: string[];
@@ -156,30 +176,45 @@ interface CompositionHarnessState {
   window: TestDesktopWindow | null;
 }
 
+interface HotkeyHost {
+  readonly desktopPlatform: DesktopPlatform;
+  readonly platform: NodeJS.Platform;
+}
+
+const LINUX_HOTKEY_HOST: HotkeyHost = Object.freeze({
+  desktopPlatform: DesktopPlatform.Linux,
+  platform: 'linux',
+});
+
 class MainProcessCompositionHarness {
   public readonly app = new RecordingElectronApplication();
   public readonly state: CompositionHarnessState = {
     closeCount: 0,
     createCount: 0,
+    hotkeyRegistrationCalls: [],
     ipcHandlers: new Map(),
     removedIpcChannels: [],
     prettifyAuditRecords: [],
     translationAuditRecords: [],
     window: null,
   };
+  public readonly configFile: string;
   public readonly temporaryDirectory: string;
   public readonly databasePath: string;
   public readonly compositionEnvironment: MainProcessCompositionEnvironment;
   public readonly applicationEnvironment: MainProcessApplicationEnvironment;
 
-  public constructor(isRemovingLinuxDesktopIntegration = false) {
+  public constructor(isRemovingLinuxDesktopIntegration = false, hotkeyHost: HotkeyHost = LINUX_HOTKEY_HOST) {
     this.temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'gpt-voice-main-composition-'));
     const configPaths = resolveAppConfigPaths({
       environment: { XDG_CONFIG_HOME: this.temporaryDirectory },
       homeDirectory: () => this.temporaryDirectory,
       platform: 'linux',
     });
+    this.configFile = configPaths.configFile;
     this.databasePath = configPaths.databaseFile;
+    const cloakBrowserBinaryPath = path.join(this.temporaryDirectory, 'cloakbrowser');
+    fs.writeFileSync(cloakBrowserBinaryPath, 'test-binary', 'utf8');
     this.compositionEnvironment = {
       assetPaths: {
         isPackaged: false,
@@ -191,6 +226,8 @@ class MainProcessCompositionHarness {
         environment: {},
         fileSystem: fs,
         importModule: async () => ({
+          binaryInfo: () => ({ binaryPath: cloakBrowserBinaryPath, installed: true }),
+          ensureBinary: async () => cloakBrowserBinaryPath,
           launchContext: async () => ({ close: async () => undefined }) as BrowserContext,
           launchPersistentContext: async () => ({ close: async () => undefined }) as BrowserContext,
         }),
@@ -336,6 +373,12 @@ class MainProcessCompositionHarness {
           };
         },
       },
+      localWhisper: createDeferredLocalWhisperEnvironment({
+        platform: 'linux',
+        architecture: 'x64',
+        logicalProcessorCount: 4,
+        nextRequestId: () => '00000000-0000-4000-8000-000000000099',
+      }),
       now: () => new Date('2026-07-27T12:00:00.000Z'),
       randomUUID: () => '00000000-0000-4000-8000-000000000001',
       reportStreamingDiagnostic: () => undefined,
@@ -402,6 +445,14 @@ class MainProcessCompositionHarness {
           elapsedNow: () => 0,
           now: () => new Date('2026-07-27T12:00:00.000Z'),
           randomUUID: () => '00000000-0000-4000-8000-000000000003',
+        },
+        lifecycle: {
+          activeNow: () => 0,
+          clearTimeout: () => undefined,
+          createAbortController: () => new AbortController(),
+          setTimeout: () => 0,
+          subscribeResume: () => () => undefined,
+          wallNow: () => 0,
         },
         now: () => 0,
         providers: {
@@ -487,6 +538,7 @@ class MainProcessCompositionHarness {
           environment: {},
           fileSystem: {
             copyFileSync: () => undefined,
+            existsSync: () => false,
             mkdirSync: () => undefined,
             rmSync: () => undefined,
             writeFileSync: () => undefined,
@@ -501,18 +553,30 @@ class MainProcessCompositionHarness {
         prettifyProfileChooser: {
           preloadPath: '/app/prettify-profile-chooser-preload.js',
           screen: {
+            getAllDisplays: () => [
+              {
+                bounds: { height: 800, width: 1000, x: 0, y: 0 },
+                workArea: { height: 800, width: 1000, x: 0, y: 0 },
+              } as never,
+            ],
             getCursorScreenPoint: () => ({ x: 0, y: 0 }),
             getDisplayNearestPoint: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
             getPrimaryDisplay: () => ({ workArea: { height: 800, width: 1000, x: 0, y: 0 } }) as never,
           },
         },
-        shortcuts: {
+        hotkeys: {
+          desktopPlatform: hotkeyHost.desktopPlatform,
           globalShortcut: {
-            register: () => true,
+            isRegistered: () => false,
+            register: (accelerator) => {
+              this.state.hotkeyRegistrationCalls.push(accelerator);
+              return true;
+            },
             unregister: () => undefined,
             unregisterAll: () => undefined,
           },
-          platform: 'linux',
+          linuxSessionType: LinuxSessionType.X11,
+          platform: hotkeyHost.platform,
         },
         tray: {
           application: this.app,
@@ -535,20 +599,30 @@ class MainProcessCompositionHarness {
     };
   }
 
-  public cleanup(): void {
-    fs.rmSync(this.temporaryDirectory, { force: true, recursive: true });
+  public setPersistedProvider(providerId: string): void {
+    fs.mkdirSync(path.dirname(this.configFile), { recursive: true });
+    fs.writeFileSync(this.configFile, JSON.stringify({ provider: providerId }), 'utf8');
+  }
+
+  public async cleanup(): Promise<void> {
+    this.app.emitWillQuit({ preventDefault: () => undefined });
+    await flushAsyncWork();
+    fs.rmSync(this.temporaryDirectory, { force: true, maxRetries: 100, recursive: true, retryDelay: 25 });
   }
 }
 
 const harnesses: MainProcessCompositionHarness[] = [];
 
-afterEach(() => {
-  for (const harness of harnesses) harness.cleanup();
+afterEach(async () => {
+  for (const harness of harnesses) await harness.cleanup();
   harnesses.length = 0;
 });
 
-function createHarness(isRemovingLinuxDesktopIntegration = false): MainProcessCompositionHarness {
-  const harness = new MainProcessCompositionHarness(isRemovingLinuxDesktopIntegration);
+function createHarness(
+  isRemovingLinuxDesktopIntegration = false,
+  hotkeyHost: HotkeyHost = LINUX_HOTKEY_HOST,
+): MainProcessCompositionHarness {
+  const harness = new MainProcessCompositionHarness(isRemovingLinuxDesktopIntegration, hotkeyHost);
   harnesses.push(harness);
   return harness;
 }
@@ -558,6 +632,48 @@ function flushAsyncWork(): Promise<void> {
 }
 
 describe('main process composition root', () => {
+  it('selects the Windows policy in the production graph before Electron registration', async () => {
+    const harness = createHarness(false, {
+      desktopPlatform: DesktopPlatform.Windows,
+      platform: 'win32',
+    });
+    fs.mkdirSync(path.dirname(harness.configFile), { recursive: true });
+    fs.writeFileSync(harness.configFile, JSON.stringify({ hotkey: 'F12', stopHotkey: 'Super+F9' }), 'utf8');
+    new MainProcessCompositionRoot(harness.compositionEnvironment)
+      .createApplication(harness.applicationEnvironment)
+      .bootstrap();
+
+    harness.app.emitReady();
+    await flushAsyncWork();
+
+    const query = harness.state.ipcHandlers.get(HOTKEY_IPC_CHANNELS.snapshotQuery);
+    assert.ok(query);
+    assert.ok(harness.state.window);
+    const runtimeState = query({
+      sender: harness.state.window.webContents,
+      senderFrame: { url: harness.state.window.webContents.getURL() },
+    } as never) as HotkeyRuntimeState;
+
+    assert.deepEqual(harness.state.hotkeyRegistrationCalls, []);
+    for (const [target, configuredAccelerator] of [
+      ['record', 'F12'],
+      ['stop', 'Super+F9'],
+    ] as const) {
+      assert.deepEqual(
+        runtimeState.snapshot.entries.find((entry) => entry.target === target),
+        {
+          bindingAuthority: HotkeyBindingAuthority.None,
+          configuredAccelerator,
+          dispatchStatus: HotkeyDispatchStatus.Enabled,
+          effectiveAccelerator: null,
+          failureCode: HotkeyRegistrationFailureCode.OsReserved,
+          registrationStatus: HotkeyRegistrationStatus.Failed,
+          target,
+        },
+      );
+    }
+  });
+
   it('removes the Task 07 globals and default construction seams', () => {
     const main = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/main.ts'), 'utf8');
     const ipc = fs.readFileSync(path.join(PROJECT_ROOT, 'src/main/ipc.ts'), 'utf8');
@@ -792,6 +908,21 @@ describe('main process composition root', () => {
 
     assert.equal(harness.state.createCount, 1);
     assert.equal(harness.state.ipcHandlers.size > 0, true);
+    const startupSnapshotQuery = harness.state.ipcHandlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+    assert.ok(startupSnapshotQuery);
+    assert.ok(harness.state.window);
+    const startupSnapshot = startupSnapshotQuery({
+      sender: harness.state.window.webContents,
+      senderFrame: { url: harness.state.window.webContents.getURL() },
+    } as unknown as IpcMainInvokeEvent) as FirstLaunchStartupSnapshot;
+    assert.deepEqual(
+      startupSnapshot.jobs.map((job) => job.id),
+      [
+        FIRST_LAUNCH_STARTUP_JOB_IDS.CloakBrowser,
+        FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider,
+        FIRST_LAUNCH_STARTUP_JOB_IDS.Translation,
+      ],
+    );
     for (const channel of Object.values(PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS)) {
       if (channel !== PRETTIFY_PROFILE_CHOOSER_IPC_CHANNELS.localeChanged) {
         assert.equal(harness.state.ipcHandlers.has(channel), true);
@@ -805,6 +936,36 @@ describe('main process composition root', () => {
     await flushAsyncWork();
     assert.equal(harness.state.ipcHandlers.size, 0);
     assert.equal(harness.state.closeCount, 1);
+  });
+
+  it('keeps disconnected selected providers out of the production startup failure path', async () => {
+    const providerIds = ['chatgpt', 'openai-api', 'local-whisper'];
+
+    for (const providerId of providerIds) {
+      const harness = createHarness();
+      harness.setPersistedProvider(providerId);
+      new MainProcessCompositionRoot(harness.compositionEnvironment)
+        .createApplication(harness.applicationEnvironment)
+        .bootstrap();
+      harness.app.emitReady();
+      const startupSnapshotQuery = harness.state.ipcHandlers.get(FIRST_LAUNCH_STARTUP_IPC_CHANNELS.snapshotQuery);
+      assert.ok(startupSnapshotQuery);
+      assert.ok(harness.state.window);
+      const event = {
+        sender: harness.state.window.webContents,
+        senderFrame: { url: harness.state.window.webContents.getURL() },
+      } as unknown as IpcMainInvokeEvent;
+      let snapshot = startupSnapshotQuery(event) as FirstLaunchStartupSnapshot;
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const voiceProviderJob = snapshot.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+        if (voiceProviderJob?.state === 'succeeded' || snapshot.state === 'failed') break;
+        await flushAsyncWork();
+        snapshot = startupSnapshotQuery(event) as FirstLaunchStartupSnapshot;
+      }
+      const voiceProviderJob = snapshot.jobs.find((job) => job.id === FIRST_LAUNCH_STARTUP_JOB_IDS.VoiceProvider);
+
+      assert.equal(voiceProviderJob?.state, 'succeeded', providerId);
+    }
   });
 
   it('keeps the single Translation connection subscription across repeated real CloakBrowser save handlers', async () => {

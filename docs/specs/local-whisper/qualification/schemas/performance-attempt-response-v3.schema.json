@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-attempt-response-v3.schema.json",
+  "title": "Local Whisper phase-only performance attempt response v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "status", "failureReason", "endToEndNanoseconds", "phases"],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "status": { "enum": ["success", "failed"] },
+    "failureReason": { "oneOf": [{ "$ref": "#/$defs/reasonCode" }, { "type": "null" }] },
+    "endToEndNanoseconds": {
+      "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, { "type": "null" }]
+    },
+    "phases": {
+      "type": "array",
+      "maxItems": 19,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sequence", "durationNanoseconds"],
+        "properties": {
+          "id": { "$ref": "#/$defs/phaseId" },
+          "sequence": { "type": "integer", "minimum": 0, "maximum": 18 },
+          "durationNanoseconds": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": { "const": "success" },
+        "failureReason": { "type": "null" },
+        "endToEndNanoseconds": { "type": "integer", "minimum": 1 },
+        "phases": { "type": "array", "minItems": 1 }
+      }
+    },
+    {
+      "properties": {
+        "status": { "const": "failed" },
+        "failureReason": { "$ref": "#/$defs/reasonCode" },
+        "endToEndNanoseconds": { "type": "null" },
+        "phases": { "type": "array", "maxItems": 0 }
+      }
+    }
+  ],
+  "$defs": {
+    "reasonCode": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "phaseId": {
+      "enum": [
+        "directoryProofRuntimeAcquisition",
+        "directoryProofModelAcquisition",
+        "directoryProofRuntimePreSpawn",
+        "directoryProofModelPreSpawn",
+        "directoryProofModelPreLoad",
+        "nativeModelGuardDigest",
+        "nativeAuthorityDigest",
+        "workerPreflightDigest",
+        "workerLoaderDigest",
+        "guardedProcessCreation",
+        "authorityTransfer",
+        "modelPreflight",
+        "whisperLoad",
+        "inferenceWarmup",
+        "gpuUploadAllocation",
+        "installationEncode",
+        "installationPipeWait",
+        "installationDecode",
+        "installationWrite"
+      ]
+    }
+  }
+}

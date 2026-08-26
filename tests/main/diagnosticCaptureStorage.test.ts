@@ -22,7 +22,7 @@ import {
 import { DiagnosticTextRedactor } from '@main/services/diagnosticTextRedactor';
 
 const FIXED_NOW = new Date('2026-07-27T12:00:00.000Z');
-const TRANSLATION_CONTRACT_VERSION = '2026-07-25';
+const TRANSLATION_CONTRACT_VERSION = '2026-08-09';
 const PROVIDER_OPERATION_ID = '10000000-0000-4000-8000-000000000001';
 const MAIN_APPLICATION_SOURCE_PATH = path.resolve(__dirname, '../../src/main/mainProcessApplication.ts');
 const DIAGNOSTIC_SERVICE_SOURCE_PATH = path.resolve(__dirname, '../../src/main/services/diagnosticCaptureStorage.ts');
@@ -352,7 +352,7 @@ describe('diagnostic capture storage service', () => {
   it('keeps startup prune before IPC and closes the database after draining diagnostics', () => {
     const source = fs.readFileSync(MAIN_APPLICATION_SOURCE_PATH, 'utf8');
     const configIndex = source.indexOf('dependencies.config.load();');
-    const pruneIndex = source.indexOf('await runtime.pruneDiagnostics();');
+    const pruneIndex = source.indexOf('const diagnosticsPruning = runtime.pruneDiagnostics();');
     const ipcIndex = source.indexOf('runtime.registerIpc();');
     const browserShutdownIndex = source.indexOf('await this.dependencies.backgroundBrowserService.shutdown();');
     const diagnosticShutdownIndex = source.indexOf('await runtime.shutdownDiagnostics();');

@@ -1,6 +1,15 @@
+import localWhisperSettingsTranslations from './localWhisperSettings/en';
+
 export default {
+  ...localWhisperSettingsTranslations,
   'translate.provider': 'Translation provider',
   'translate.saving': 'Saving...',
+  'providerHotkeyDemo.fixtureControls': 'Demo fixture controls',
+  'providerHotkeyDemo.fixture': 'Fixture',
+  'providerHotkeyDemo.advanceClock': 'Advance demo clock',
+  'providerHotkeyDemo.clearLock': 'Clear demo lock',
+  'providerHotkeyDemo.ownerlessLock': 'Ownerless lock',
+  'providerHotkeyDemo.statusDetailPriority': 'Status detail priority',
   'translate.settingsSaveFailed': 'Failed to save translation settings',
 
   // Status messages
@@ -54,6 +63,7 @@ export default {
   'error.translationConsentOrChallenge': 'The translation provider requires consent or verification. Try again later.',
   'error.translationPageChanged': 'The translation provider page has changed. Try again later.',
   'error.translationResultUnavailable': 'No translation result was available before the operation timed out.',
+  'error.translationTimedOut': 'Translation timed out. Try again.',
   'error.translationCleanupFailed': 'Translation cleanup failed. No result was copied.',
   'error.translationSettingsInvalid': 'Select a supported translation provider and language.',
   'error.translationSettingsSaveFailed':
@@ -128,6 +138,11 @@ export default {
 
   // App settings
   'appSettings.open': 'App settings',
+  'settings.blockedWhileOpen': 'Close Settings to continue.',
+  'settings.opening': 'Opening Settings…',
+  'settings.show': 'Show Settings',
+  'settings.blockedWhileRecording': 'Stop recording before opening Settings.',
+  'settings.blockedWhileOperationActive': 'Wait for the current operation to finish before opening Settings.',
   'appSettings.title': 'Settings',
   'appSettings.system': 'System',
   'appSettings.language': 'Application language',
@@ -212,10 +227,12 @@ export default {
   'recording.pause': 'Pause recording',
   'recording.resume': 'Resume recording',
   'recording.cancel': 'Cancel recording',
+  'recording.capturedAudioDuration': 'Captured audio: {duration}',
 
   // Model memory
   'modelMemory.title': 'Model memory',
   'modelMemory.ollamaGpu': 'Prettify model',
+  'modelMemory.ram': 'RAM',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Loaded',
   'modelMemory.notLoaded': 'Not loaded',
@@ -454,6 +471,35 @@ export default {
   'hotkey.pressKeyCombination': 'Press a key combination',
   'hotkey.waitingForInput': 'Waiting for input...',
   'hotkey.apply': 'Apply',
+  'hotkey.notAssigned': 'Not assigned',
+  'hotkey.remove': 'Remove',
+  'hotkey.test': 'Test shortcut',
+  'hotkey.testing': 'Listening for {accelerator}. Press it within five seconds; this will not run {target}.',
+  'hotkey.status.unassigned': 'Unassigned',
+  'hotkey.status.registered': 'Registered',
+  'hotkey.status.failed': 'Failed',
+  'hotkey.status.suppressed': 'Suppressed',
+  'hotkey.status.desktopManaged': 'Registered — desktop-managed',
+  'hotkey.authority.application': 'Application-managed binding',
+  'hotkey.authority.desktopEnvironment': 'Desktop-environment-managed binding',
+  'hotkey.authority.none': 'No active binding',
+  'hotkey.recoveryAction': 'Change the shortcut in Settings.',
+  'hotkey.preference': 'Configured preference: {accelerator}',
+  'hotkey.effective': 'Exact trigger: {accelerator}',
+  'hotkey.failure.invalidAccelerator': 'Enter a valid key combination.',
+  'hotkey.failure.internalConflict': 'This shortcut conflicts with another configured shortcut.',
+  'hotkey.failure.osReserved': 'This shortcut is reserved by Windows, including F12 and Windows-key combinations.',
+  'hotkey.failure.registrationRejected':
+    'This combination is unavailable or used by the system or another application.',
+  'hotkey.failure.persistenceFailed': 'The shortcut could not be saved. Your previous shortcut remains active.',
+  'hotkey.failure.reconciliationFailed':
+    'The shortcut state could not be safely reconciled. Restart the app or explicitly repair the shortcut before relying on it.',
+  'hotkey.failure.unsupportedPlatform': 'Shortcut registration is not supported on this platform.',
+  'hotkey.test.detected': '{accelerator} was detected. The shortcut is working.',
+  'hotkey.test.timedOut':
+    '{accelerator} was not detected within five seconds. It may be in use by another app or the system.',
+  'hotkey.test.unavailable': 'Shortcut testing is no longer available. Reassign it and try again.',
+  'hotkey.stateUpdated': 'Shortcut registration state updated.',
 
   // Translate
   'translate.label': 'Translate',
@@ -582,6 +628,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Not logged in. Please login first.',
+  'error.selectedProviderNotReady': 'Selected provider is not ready.',
   'error.noAccessToken': 'No access token or API key. Configure the provider and try again.',
   'error.chatGptAsrFailure': 'ChatGPT could not process the recorded audio ({mimeType}). Try recording again.',
   'error.chatGptConnectionInterrupted': 'ChatGPT transcription was interrupted. Try again.',
@@ -740,7 +787,47 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Fingerprint seed must contain digits only.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Load model',
+  'localWhisper.main.freeModel': 'Free model',
+  'localWhisper.main.loadingStatus': 'Loading Local Whisper status',
+  'localWhisper.main.loadingModel': 'Loading model',
+  'localWhisper.main.freeingModel': 'Freeing model',
+  'localWhisper.main.modelInUse': 'The model is in use by transcription.',
+  'localWhisper.main.actionInProgress': 'Another Local Whisper action is in progress.',
+  'localWhisper.main.setupRequired': 'Install the selected runtime and model in Local Whisper settings.',
+  'localWhisper.main.modelUnavailable': 'The selected model is unavailable. Open Local Whisper settings.',
+  'localWhisper.main.modelUnavailableCode': 'The selected model is unavailable ({code}). Open Local Whisper settings.',
+  'localWhisper.main.operationFailed': 'The Local Whisper model operation failed. Try again.',
+  'localWhisper.main.operationFailedCode': 'The Local Whisper model operation failed ({code}). Try again.',
+
+  // Startup preparation
+  'startup.preparing': 'Preparing startup',
+  'startup.preparingJobs': 'Preparing {jobs}',
+  'startup.preparingJobsWithMore': 'Preparing {jobs} and {count} more',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Voice provider',
+  'startup.job.translation': 'Translation',
+  'startup.job.prettify': 'Prettify',
+  'startup.progress': 'Startup progress',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Startup preparation failed. Try again.',
+  'startup.retryFailed': 'Could not retry startup preparation. Try again.',
+  'startup.retry': 'Retry',
+  'startup.selectProvider': 'Select a provider to start recording.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',
   'tray.quit': 'Quit',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Independent desktop voice transcription app powered by GPT web sessions.',
+  'nativeMenu.file': 'File',
+  'nativeMenu.edit': 'Edit',
+  'nativeMenu.view': 'View',
+  'nativeMenu.help': 'Help',
+  'nativeMenu.projectOnGitHub': 'Project on GitHub',
+  'nativeMenu.aboutApp': 'About {app}',
+  'prettify.providerUnavailable': 'Prettify provider is unavailable.',
+  'prettify.modelLoadUnavailable': 'Model loading is not available for this provider.',
+  'prettify.modelUnloadUnavailable': 'Model unloading is not available for this provider.',
+  'prettify.instructionInvalid': 'Prettify request is invalid.',
 } as const;

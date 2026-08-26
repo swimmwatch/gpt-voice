@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-native-toolchain-lock-v1.json",
+  "title": "Local Whisper native toolchain lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaId",
+    "profileId",
+    "target",
+    "tools",
+    "runtime",
+    "architectureTargets",
+    "environmentAllowlist",
+    "sourceLockIds",
+    "patchLockIds",
+    "qualificationFixture",
+    "cmakeCache",
+    "expectedBuildGraph",
+    "outputs",
+    "dynamicDependencies",
+    "licenses",
+    "sbomComponents",
+    "qualificationState",
+    "evidenceDigest"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaId": { "const": "local-whisper-native-toolchain-lock-v1" },
+    "profileId": { "$ref": "#/$defs/safeId" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "abi"],
+      "properties": {
+        "os": { "enum": ["linux", "windows"] },
+        "architecture": { "const": "x64" },
+        "abi": { "type": "string", "minLength": 1, "maxLength": 128 }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "pathKind", "path", "version", "sha256"],
+        "properties": {
+          "role": { "$ref": "#/$defs/safeId" },
+          "pathKind": { "enum": ["systemAbsolute", "toolchainRootRelative"] },
+          "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "version": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
+        }
+      }
+    },
+    "runtime": { "type": "array", "items": { "$ref": "#/$defs/component" } },
+    "architectureTargets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "environmentAllowlist": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" }
+    },
+    "sourceLockIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+    "patchLockIds": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+    "qualificationFixture": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fixtureId", "manifestSha256"],
+          "properties": {
+            "fixtureId": { "$ref": "#/$defs/safeId" },
+            "manifestSha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      ]
+    },
+    "cmakeCache": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "string" } },
+    "expectedBuildGraph": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "outputs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/component" } },
+    "dynamicDependencies": { "type": "array", "items": { "$ref": "#/$defs/component" } },
+    "licenses": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/component" } },
+    "sbomComponents": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+    "qualificationState": { "enum": ["candidate-unqualified", "pending-windows-qualification", "qualified"] },
+    "evidenceDigest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "minimumDriver": { "type": ["string", "null"], "maxLength": 128 }
+  },
+  "$defs": {
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "pathKind", "path", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeId" },
+        "pathKind": { "enum": ["systemAbsolute", "toolchainRootRelative", "outputRelative"] },
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "soname": { "type": "string", "pattern": "^[A-Za-z0-9_.+-]{1,255}$" }
+      }
+    }
+  }
+}

@@ -1,8 +1,10 @@
 import type {
+  TranslationProviderConnectionState,
   TranslationProviderId,
   TranslationSettings,
   TranslationSettingsSaveResult,
 } from '@shared/translationProvider';
+import { TRANSLATION_PROVIDER_CONNECTION_STATUSES } from '@shared/translationProvider';
 
 export interface TranslationSettingsViewState {
   readonly confirmedSettings: TranslationSettings;
@@ -35,6 +37,29 @@ export type TranslationSettingsViewAction =
 
 export function getSelectedTranslationTarget(settings: TranslationSettings): string {
   return settings.targetLanguageByProvider[settings.providerId];
+}
+
+/** Accepts only connection state that belongs to the current Translation selection. */
+export function doesTranslationConnectionMatchSettings(
+  connectionState: TranslationProviderConnectionState,
+  settings: TranslationSettings,
+): boolean {
+  return (
+    connectionState.providerId === null ||
+    (connectionState.providerId === settings.providerId &&
+      connectionState.targetLanguage === settings.targetLanguageByProvider[settings.providerId])
+  );
+}
+
+/** Accepts only a ready connection result for the Translation settings currently shown to the user. */
+export function isTranslationProviderConnected(
+  connectionState: TranslationProviderConnectionState | null,
+  settings: TranslationSettings,
+): boolean {
+  return (
+    connectionState?.status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected &&
+    doesTranslationConnectionMatchSettings(connectionState, settings)
+  );
 }
 
 export function createTranslationSettingsCandidate(

@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+env:
+  CI: true
+  NPM_CONFIG_CACHE: ${{ github.workspace }}/.cache/npm
+
 concurrency:
   group: actionlint-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -18,18 +22,40 @@ concurrency:
 jobs:
   actionlint:
     name: Actionlint
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_LINUX_RUNNER }}
     timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
-      - name: Download actionlint
-        id: get-actionlint
+      - name: Set up project
+        uses: ./.github/actions/setup-ci-project
+        with:
+          node-version: ${{ vars.CI_NODE_VERSION }}
+
+      - name: Run immutable actionlint
         shell: bash
-        run: bash <(curl --fail --show-error --silent --location https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+        run: >-
+          docker run --rm --volume "${{ github.workspace }}:/workspace:ro" --workdir /workspace
+          rhysd/actionlint:1.7.9@sha256:a0383f60d92601e2694e24b24d37df7b6a40bed7cedbc447611c50009bf02d94
+          -color
 
       - name: Check workflow files
         shell: bash
-        run: ${{ steps.get-actionlint.outputs.executable }} -color
+        run: npm run validate:workflows
+
+      - name: Checkout reviewed zizmor source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          path: .cache/zizmor
+          persist-credentials: false
+          ref: f203b457f66d9cd0d372d6c6ba0afe63d46f1b5b
+          repository: woodruffw/zizmor
+
+      - name: Block high-severity zizmor findings
+        shell: bash
+        run: cargo run --manifest-path .cache/zizmor/Cargo.toml --locked -- --min-severity high .github/workflows .github/actions

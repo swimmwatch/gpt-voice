@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useEffectEvent, useReducer, useRef, useState, type KeyboardEvent } from 'react';
+import React, { useCallback, useEffect, useEffectEvent, useReducer, useRef, useState } from 'react';
 import { useDesktopApi } from '@renderer/DesktopApiProvider';
 import { useRendererLogger } from '@renderer/RendererLoggerProvider';
 import HotkeyModal from '@renderer/components/HotkeyModal';
@@ -13,17 +13,7 @@ import ShortcutsSection from '@renderer/components/settings/ShortcutsSection';
 import SystemSection from '@renderer/components/settings/SystemSection';
 import type { TranslationFunction } from '@renderer/components/settings/types';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@renderer/components/ui/alert-dialog';
-import { Button } from '@renderer/components/ui/button';
+import { ConfirmationDialog } from '@renderer/components/ui/confirmation-dialog';
 import { Spinner } from '@renderer/components/ui/spinner';
 import { Separator } from '@renderer/components/ui/separator';
 import { Tabs, TabsContent } from '@renderer/components/ui/tabs';
@@ -45,10 +35,16 @@ import {
 } from '@renderer/appSettingsUtils';
 import { prettifyProfilesDraftControllerReducer } from '@renderer/prettifyProfilesDraft';
 import { presentAppSettingsFieldErrors } from '@renderer/appSettingsValidationPresentation';
+import {
+  getHotkeyAssignedAccelerator,
+  getHotkeyFailureTranslationKey,
+  getHotkeyRuntimeSnapshotEntry,
+} from '@renderer/hotkeySettingsPresentation';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { usePrettifySettingsController } from '@renderer/hooks/usePrettifySettingsController';
 import { getSettingsCloseDisposition } from '@renderer/settingsCloseViewState';
-import { type HotkeySettings, type HotkeyTarget } from '@shared/hotkeys';
+import type { HotkeyRuntimeState } from '@shared/hotkeyIpc';
+import { HotkeyTestResult, type HotkeyTarget } from '@shared/hotkeys';
 import type { TextActionSettings } from '@shared/textActionSettings';
 import { isAppSettingsSectionId } from '@shared/appSettings';
 import {
@@ -74,10 +70,6 @@ type DiagnosticCaptureConfirmation =
 function getInitialSettingsSection(): SettingsSectionId {
   const section = new URLSearchParams(window.location.search).get('section');
   return isAppSettingsSectionId(section) ? section : 'shortcuts';
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function generateFingerprintSeed(): string {
@@ -167,48 +159,83 @@ function isAppSettingsSaveDisabled(
 
 interface DiagnosticCaptureConfirmationDialogProps {
   readonly confirmation: DiagnosticCaptureConfirmation | null;
-  readonly isPending: boolean;
-  readonly onConfirm: () => void;
+  readonly onConfirm: () => Promise<boolean>;
   readonly onOpenChange: (open: boolean) => void;
+  readonly onPendingChange: (pending: boolean) => void;
   readonly t: TranslationFunction;
 }
 
 function DiagnosticCaptureConfirmationDialog({
   confirmation,
-  isPending,
   onConfirm,
   onOpenChange,
+  onPendingChange,
   t,
 }: DiagnosticCaptureConfirmationDialogProps): React.ReactNode {
   return (
-    <AlertDialog open={confirmation !== null} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {confirmation?.kind === 'disable'
-              ? t('auditLog.disableConfirm.title')
-              : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.title`)}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {confirmation?.kind === 'disable'
-              ? t(`auditLog.disableConfirm.${getDisableConfirmationScope(confirmation.categories)}`)
-              : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.description`)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel asChild>
-            <Button disabled={isPending} variant="outline">
-              {t('auditLog.cancel')}
-            </Button>
-          </AlertDialogCancel>
-          <Button aria-busy={isPending || undefined} disabled={isPending} onClick={onConfirm} variant="destructive">
-            {isPending && <Spinner label={t('auditLog.processing')} size="sm" />}
-            {confirmation?.kind === 'disable' ? t('auditLog.disableConfirm.action') : t('auditLog.clearConfirm.action')}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmationDialog
+      cancelLabel={t('auditLog.cancel')}
+      confirmLabel={
+        confirmation?.kind === 'disable' ? t('auditLog.disableConfirm.action') : t('auditLog.clearConfirm.action')
+      }
+      description={
+        confirmation?.kind === 'disable'
+          ? t(`auditLog.disableConfirm.${getDisableConfirmationScope(confirmation.categories)}`)
+          : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.description`)
+      }
+      onConfirm={onConfirm}
+      onOpenChange={onOpenChange}
+      onPendingChange={onPendingChange}
+      open={confirmation !== null}
+      pendingLabel={t('auditLog.processing')}
+      title={
+        confirmation?.kind === 'disable'
+          ? t('auditLog.disableConfirm.title')
+          : t(`auditLog.clearConfirm.${confirmation?.target ?? 'all'}.title`)
+      }
+      tone="destructive"
+    />
   );
+}
+
+interface AuthoritativeHotkeyRuntimeState {
+  readonly reconcile: (nextState: HotkeyRuntimeState) => void;
+  readonly runtimeState: HotkeyRuntimeState | null;
+}
+
+function useAuthoritativeHotkeyRuntimeState(
+  desktopApi: ReturnType<typeof useDesktopApi>,
+  setError: React.Dispatch<React.SetStateAction<string>>,
+  t: TranslationFunction,
+): AuthoritativeHotkeyRuntimeState {
+  const [runtimeState, setRuntimeState] = useState<HotkeyRuntimeState | null>(null);
+  const reconcile = useCallback((nextState: HotkeyRuntimeState): void => {
+    setRuntimeState((currentState) =>
+      currentState === null || nextState.revision >= currentState.revision ? nextState : currentState,
+    );
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    const acceptRuntimeState = (state: HotkeyRuntimeState): void => {
+      if (!disposed) reconcile(state);
+    };
+    const unsubscribe = desktopApi.onHotkeyRuntimeStateChanged(acceptRuntimeState);
+
+    void desktopApi
+      .getHotkeyRuntimeState()
+      .then(acceptRuntimeState)
+      .catch(() => {
+        if (!disposed) setError(t('appSettings.saveFailed'));
+      });
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [desktopApi, reconcile, setError, t]);
+
+  return { reconcile, runtimeState };
 }
 
 /** Coordinates the transactional CloakBrowser, prettify, text-action, and shortcut settings form. */
@@ -223,11 +250,17 @@ const AppSettingsWindow: React.FC = () => {
   const [diagnosticCaptureSettings, setDiagnosticCaptureSettings] = useState<DiagnosticCaptureSettings | null>(null);
   const [initialDiagnosticCaptureSettings, setInitialDiagnosticCaptureSettings] =
     useState<DiagnosticCaptureSettings | null>(null);
-  const [hotkeySettings, setHotkeySettings] = useState<HotkeySettings | null>(null);
+  const [hotkeyMutationTarget, setHotkeyMutationTarget] = useState<HotkeyTarget | null>(null);
+  const [hotkeyTestState, setHotkeyTestState] = useState<{
+    readonly result: HotkeyTestResult | 'waiting';
+    readonly target: HotkeyTarget;
+  } | null>(null);
   const [prettifyProfilesState, dispatchPrettifyProfiles] = useReducer(prettifyProfilesDraftControllerReducer, null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(getInitialSettingsSection);
   const [hotkeyTarget, setHotkeyTarget] = useState<HotkeyTarget>('record');
   const [showHotkeyModal, setShowHotkeyModal] = useState(false);
+  const [hotkeyModalError, setHotkeyModalError] = useState<string | null>(null);
+  const [hotkeyAnnouncement, setHotkeyAnnouncement] = useState('');
   const [platform, setPlatform] = useState<NodeJS.Platform>('linux');
   const [isSaving, setIsSaving] = useState(false);
   const [isDiagnosticActionPending, setIsDiagnosticActionPending] = useState(false);
@@ -238,8 +271,12 @@ const AppSettingsWindow: React.FC = () => {
   const [isDiscardConfirmationOpen, setIsDiscardConfirmationOpen] = useState(false);
   const closeRequestFocusRef = useRef<HTMLElement | null>(null);
   const diagnosticConfirmationFocusRef = useRef<HTMLElement | null>(null);
+  const diagnosticConfirmationSucceededRef = useRef(false);
   const diagnosticsExportPendingRef = useRef(false);
   const settingsWindowMountedRef = useRef(true);
+  const announcedHotkeyRevisionRef = useRef<number | null>(null);
+  const { reconcile: reconcileHotkeyRuntimeState, runtimeState: hotkeyRuntimeState } =
+    useAuthoritativeHotkeyRuntimeState(desktopApi, setError, t);
   const {
     applySavedSnapshot: applySavedPrettifySnapshot,
     changeProvider: changePrettifyProvider,
@@ -268,7 +305,6 @@ const AppSettingsWindow: React.FC = () => {
     updateVllmApiKey,
   } = usePrettifySettingsController({ setFieldErrors, t });
   const initializePrettifySettingsEvent = useEffectEvent(initializePrettifySettings);
-
   useEffect(() => {
     let disposed = false;
     /** Loads transactional settings and performs the existing HTTP-only model inspection. */
@@ -280,7 +316,6 @@ const AppSettingsWindow: React.FC = () => {
           nextPrettifyProfiles,
           nextTextActionSettings,
           nextDiagnosticCaptureSettings,
-          nextHotkeySettings,
           nextPlatform,
         ] = await Promise.all([
           desktopApi.getCloakBrowserSettings(),
@@ -288,7 +323,6 @@ const AppSettingsWindow: React.FC = () => {
           desktopApi.getPrettifyProfileCatalog(),
           desktopApi.getTextActionSettings(),
           desktopApi.getDiagnosticCaptureSettings(),
-          desktopApi.getHotkey(),
           desktopApi.getPlatform(),
         ]);
         if (disposed) return;
@@ -302,11 +336,10 @@ const AppSettingsWindow: React.FC = () => {
         setInitialTextActionSettings(nextTextActionSettings);
         setDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
         setInitialDiagnosticCaptureSettings(nextDiagnosticCaptureSettings);
-        setHotkeySettings(nextHotkeySettings);
         setPlatform(nextPlatform);
-      } catch (loadError: unknown) {
+      } catch {
         if (!disposed) {
-          setError(getErrorMessage(loadError));
+          setError(t('appSettings.saveFailed'));
         }
       }
     };
@@ -316,13 +349,16 @@ const AppSettingsWindow: React.FC = () => {
     return () => {
       disposed = true;
     };
-  }, [desktopApi]);
+  }, [desktopApi, t]);
 
   useEffect(() => {
-    return () => {
-      void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
-    };
-  }, [desktopApi]);
+    if (!hotkeyRuntimeState) return;
+    const previousRevision = announcedHotkeyRevisionRef.current;
+    announcedHotkeyRevisionRef.current = hotkeyRuntimeState.revision;
+    if (previousRevision !== null && previousRevision !== hotkeyRuntimeState.revision) {
+      setHotkeyAnnouncement(t('hotkey.stateUpdated'));
+    }
+  }, [hotkeyRuntimeState, t]);
 
   useEffect(() => {
     settingsWindowMountedRef.current = true;
@@ -390,59 +426,76 @@ const AppSettingsWindow: React.FC = () => {
     });
   }
 
-  const getHotkeyValue = (target: HotkeyTarget): string => {
-    if (!hotkeySettings) return '';
-    switch (target) {
-      case 'record':
-        return hotkeySettings.hotkey;
-      case 'stop':
-        return hotkeySettings.stopHotkey;
-      case 'cancel':
-        return hotkeySettings.cancelHotkey;
-      case 'translate':
-        return hotkeySettings.translateHotkey;
-      case 'prettify':
-        return hotkeySettings.prettifyHotkey;
-      case 'prettifyQuick':
-        return hotkeySettings.prettifyQuickHotkey;
-      case 'retryTranscription':
-        return hotkeySettings.retryTranscriptionHotkey;
-    }
-  };
-
-  const openHotkeyModal = async (target: HotkeyTarget): Promise<void> => {
-    setError('');
-    try {
-      const result = await desktopApi.setHotkeyCaptureActive(true);
-      if (!result.success) {
-        setError(t('appSettings.saveFailed'));
-        return;
-      }
-      setHotkeyTarget(target);
-      setShowHotkeyModal(true);
-    } catch (hotkeyError: unknown) {
-      setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
-    }
+  const openHotkeyModal = (target: HotkeyTarget): void => {
+    setHotkeyModalError(null);
+    setHotkeyTarget(target);
+    setShowHotkeyModal(true);
   };
 
   const closeHotkeyModal = (): void => {
     setShowHotkeyModal(false);
-    void desktopApi.setHotkeyCaptureActive(false).catch(() => undefined);
+    setHotkeyModalError(null);
   };
 
-  const applyHotkey = async (newHotkey: string): Promise<void> => {
-    setError('');
+  const applyHotkey = async (newHotkey: string): Promise<boolean> => {
+    if (hotkeyMutationTarget !== null) return false;
+    setHotkeyMutationTarget(hotkeyTarget);
+    setHotkeyModalError(null);
     try {
-      const result = await desktopApi.setHotkey(hotkeyTarget, newHotkey);
-      if (result.success) {
-        setHotkeySettings(result);
-      } else {
-        setError(result.error || t('appSettings.saveFailed'));
+      const result = await desktopApi.setHotkey({ accelerator: newHotkey, target: hotkeyTarget });
+      reconcileHotkeyRuntimeState(result.state);
+      if (result.status === 'success') {
+        const assignedAccelerator = getHotkeyAssignedAccelerator(
+          getHotkeyRuntimeSnapshotEntry(result.state, hotkeyTarget),
+        );
+        setHotkeyTestState((current) => (current?.target === hotkeyTarget ? null : current));
+        setHotkeyAnnouncement(assignedAccelerator ?? t('hotkey.notAssigned'));
+        setShowHotkeyModal(false);
+        return true;
       }
-    } catch (hotkeyError: unknown) {
-      setError(hotkeyError instanceof Error ? hotkeyError.message : String(hotkeyError));
+      const message = t(getHotkeyFailureTranslationKey(result.failureCode));
+      setHotkeyModalError(message);
+      setHotkeyAnnouncement(message);
+    } catch {
+      const message = t('hotkey.failure.registrationRejected');
+      setHotkeyModalError(message);
+      setHotkeyAnnouncement(message);
     } finally {
-      closeHotkeyModal();
+      setHotkeyMutationTarget(null);
+    }
+    return false;
+  };
+
+  const removeHotkey = async (target: HotkeyTarget): Promise<boolean> => {
+    if (hotkeyMutationTarget !== null || hotkeyTestState?.result === 'waiting') return false;
+    setHotkeyMutationTarget(target);
+    try {
+      const result = await desktopApi.clearHotkey({ target });
+      reconcileHotkeyRuntimeState(result.state);
+      if (result.status === 'success') {
+        setHotkeyTestState((current) => (current?.target === target ? null : current));
+        setHotkeyAnnouncement(t('hotkey.status.unassigned'));
+        return true;
+      }
+      setHotkeyAnnouncement(t(getHotkeyFailureTranslationKey(result.failureCode)));
+    } catch {
+      setHotkeyAnnouncement(t('hotkey.failure.registrationRejected'));
+    } finally {
+      setHotkeyMutationTarget(null);
+    }
+    return false;
+  };
+
+  const testHotkey = async (target: HotkeyTarget): Promise<void> => {
+    if (hotkeyMutationTarget !== null || hotkeyTestState?.result === 'waiting') return;
+    setHotkeyTestState({ result: 'waiting', target });
+    setHotkeyAnnouncement('');
+    try {
+      const result = await desktopApi.testHotkey({ target });
+      reconcileHotkeyRuntimeState(result.state);
+      setHotkeyTestState({ result: result.result, target });
+    } catch {
+      setHotkeyTestState({ result: HotkeyTestResult.Unavailable, target });
     }
   };
 
@@ -604,6 +657,7 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const closeDiagnosticConfirmation = (): void => {
+    diagnosticConfirmationSucceededRef.current = false;
     setDiagnosticConfirmation(null);
     restoreDiagnosticConfirmationFocus();
   };
@@ -657,7 +711,7 @@ const AppSettingsWindow: React.FC = () => {
   };
 
   const cancelDiagnosticConfirmation = (): void => {
-    if (isDiagnosticActionPending || !diagnosticConfirmation) return;
+    if (!diagnosticConfirmation) return;
     if (diagnosticConfirmation.kind === 'disable' && initialDiagnosticCaptureSettings) {
       const cancelledCategories = diagnosticConfirmation.categories;
       setDiagnosticCaptureSettings((current) => {
@@ -672,16 +726,16 @@ const AppSettingsWindow: React.FC = () => {
     closeDiagnosticConfirmation();
   };
 
-  const confirmDiagnosticAction = async (): Promise<void> => {
-    if (isDiagnosticActionPending || !diagnosticConfirmation) return;
+  const confirmDiagnosticAction = async (): Promise<boolean> => {
+    if (!diagnosticConfirmation) return false;
     const confirmation = diagnosticConfirmation;
-    setIsDiagnosticActionPending(true);
     setError('');
     try {
       if (confirmation.kind === 'disable') {
         const result = await saveSettings(confirmation.categories);
-        if (result?.diagnosticCaptureSettingsSaved) closeDiagnosticConfirmation();
-        return;
+        if (!result?.diagnosticCaptureSettingsSaved) return false;
+        diagnosticConfirmationSucceededRef.current = true;
+        return true;
       }
 
       const result = await desktopApi.clearDiagnosticCapture({
@@ -689,20 +743,24 @@ const AppSettingsWindow: React.FC = () => {
         target: confirmation.target,
       });
       if (result.success) {
-        closeDiagnosticConfirmation();
-      } else {
-        setError(t(getDiagnosticCaptureErrorTranslationKey(result.errorCode)));
+        diagnosticConfirmationSucceededRef.current = true;
+        return true;
       }
+      setError(t(getDiagnosticCaptureErrorTranslationKey(result.errorCode)));
     } catch {
       log.error('Diagnostic capture destructive action IPC error');
       setError(t('auditLog.error.storage-failed'));
-    } finally {
-      setIsDiagnosticActionPending(false);
     }
+    return false;
   };
 
   const handleDiagnosticConfirmationOpenChange = (open: boolean): void => {
-    if (!open) cancelDiagnosticConfirmation();
+    if (open) return;
+    if (diagnosticConfirmationSucceededRef.current) {
+      closeDiagnosticConfirmation();
+      return;
+    }
+    cancelDiagnosticConfirmation();
   };
 
   const proxyGeoipActive = Boolean(settings?.proxy.enabled && settings.proxy.geoip);
@@ -725,7 +783,7 @@ const AppSettingsWindow: React.FC = () => {
   const formState = loadedFormInput ? getAppSettingsFormState(loadedFormInput) : null;
   const visibleFieldErrors = formState?.isDirty ? { ...formState.validationErrors, ...fieldErrors } : fieldErrors;
   const visibleFieldErrorMessages = presentAppSettingsFieldErrors(visibleFieldErrors, t);
-  const isSettingsReady = Boolean(formState && hotkeySettings);
+  const isSettingsReady = Boolean(formState && hotkeyRuntimeState);
   useWindowStartupReady(isI18nReady && (isSettingsReady || Boolean(error)));
   const renderFieldError = (fieldKey: AppSettingsFieldKey): React.ReactNode => {
     const message = visibleFieldErrorMessages[fieldKey];
@@ -780,19 +838,10 @@ const AppSettingsWindow: React.FC = () => {
     isDiscardConfirmationOpen,
     isSaving,
   ]);
-  const discardChanges = useCallback((): void => {
-    setIsDiscardConfirmationOpen(false);
+  const discardChanges = useCallback((): boolean => {
     forceCloseWindow();
+    return true;
   }, [forceCloseWindow]);
-  const handleDiscardConfirmationKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        handleDiscardConfirmationOpenChange(false);
-      }
-    },
-    [handleDiscardConfirmationOpenChange],
-  );
 
   useEffect(() => desktopApi.onAppSettingsCloseRequested(requestCloseWindow), [desktopApi, requestCloseWindow]);
   useEffect(() => desktopApi.onAppSettingsSectionRequested(setActiveSection), [desktopApi]);
@@ -819,7 +868,7 @@ const AppSettingsWindow: React.FC = () => {
           initialTextActionSettings &&
           diagnosticCaptureSettings &&
           initialDiagnosticCaptureSettings &&
-          hotkeySettings && (
+          hotkeyRuntimeState && (
             <>
               <Tabs
                 className="flex min-h-0 flex-1 flex-col"
@@ -843,8 +892,12 @@ const AppSettingsWindow: React.FC = () => {
                     </TabsContent>
                     <TabsContent className="mt-0" value="shortcuts">
                       <ShortcutsSection
-                        getHotkeyValue={getHotkeyValue}
-                        onHotkeyChange={(target) => void openHotkeyModal(target)}
+                        hotkeyMutationTarget={hotkeyMutationTarget}
+                        hotkeyRuntimeState={hotkeyRuntimeState}
+                        hotkeyTestState={hotkeyTestState}
+                        onHotkeyChange={openHotkeyModal}
+                        onHotkeyRemove={removeHotkey}
+                        onHotkeyTest={testHotkey}
                         onTextActionEnabledChange={updateTextActionSetting}
                         t={t}
                         textActionSettings={textActionSettings}
@@ -986,40 +1039,37 @@ const AppSettingsWindow: React.FC = () => {
           )}
 
         {!isSettingsReady && error && <p className="text-sm text-destructive">{error}</p>}
+        <p aria-live="polite" className="sr-only">
+          {hotkeyAnnouncement}
+        </p>
         {showHotkeyModal && (
           <HotkeyModal
-            target={hotkeyTarget}
-            platform={platform}
-            onApply={(newHotkey) => void applyHotkey(newHotkey)}
+            errorMessage={hotkeyModalError}
+            isApplying={hotkeyMutationTarget === hotkeyTarget}
+            onApply={applyHotkey}
             onClose={closeHotkeyModal}
+            platform={platform}
+            target={hotkeyTarget}
           />
         )}
       </main>
 
-      <AlertDialog open={isDiscardConfirmationOpen} onOpenChange={handleDiscardConfirmationOpenChange}>
-        <AlertDialogContent onKeyDown={handleDiscardConfirmationKeyDown}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('common.discardChangesConfirm')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('appSettings.discardChangesDescription')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel asChild>
-              <Button variant="outline">{t('common.keepEditing')}</Button>
-            </AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button onClick={discardChanges} variant="destructive">
-                {t('common.discardChanges')}
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        cancelLabel={t('common.keepEditing')}
+        confirmLabel={t('common.discardChanges')}
+        description={t('appSettings.discardChangesDescription')}
+        onConfirm={discardChanges}
+        onOpenChange={handleDiscardConfirmationOpenChange}
+        open={isDiscardConfirmationOpen}
+        title={t('common.discardChangesConfirm')}
+        tone="destructive"
+      />
 
       <DiagnosticCaptureConfirmationDialog
         confirmation={diagnosticConfirmation}
-        isPending={isDiagnosticActionPending}
-        onConfirm={() => void confirmDiagnosticAction()}
+        onConfirm={confirmDiagnosticAction}
         onOpenChange={handleDiagnosticConfirmationOpenChange}
+        onPendingChange={setIsDiagnosticActionPending}
         t={t}
       />
     </>

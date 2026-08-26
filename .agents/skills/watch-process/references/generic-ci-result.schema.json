@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gpt-voice:watch-process:generic-ci-result:1",
+  "title": "GPT-Voice generic CI CLI result",
+  "description": "Closed, provider-neutral JSON emitted as exactly one stdout document by a declared generic CI CLI command.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "providerId",
+    "authentication",
+    "target",
+    "operationKey",
+    "providerStatus",
+    "members"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "kind": { "enum": ["start", "dispatch", "observation", "evidence"] },
+    "providerId": { "$ref": "#/$defs/providerId" },
+    "authentication": { "enum": ["authenticated", "failed"] },
+    "target": { "$ref": "#/$defs/target" },
+    "operationKey": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "providerStatus": { "$ref": "#/$defs/providerStatus" },
+    "members": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/member" }
+    },
+    "failureEntries": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/failureEntry" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "enum": ["start", "dispatch"] } } },
+      "then": {
+        "properties": { "operationKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "evidence" } } },
+      "then": { "required": ["failureEntries"] },
+      "else": { "not": { "required": ["failureEntries"] } }
+    }
+  ],
+  "$defs": {
+    "providerId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$"
+    },
+    "sourceSha": {
+      "type": ["string", "null"],
+      "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["targetId", "attempt", "sourceSha"],
+      "properties": {
+        "targetId": { "type": "string", "pattern": "^\\w[\\w.:@#=/-]{0,511}$" },
+        "attempt": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "sourceSha": { "$ref": "#/$defs/sourceSha" }
+      }
+    },
+    "providerStatus": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[^\\u0000-\\u001F\\u007F-\\u009F]+$"
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["memberId", "sourceSha", "status"],
+      "properties": {
+        "memberId": { "type": "string", "pattern": "^\\w[\\w.:@#=/-]{0,511}$" },
+        "sourceSha": { "$ref": "#/$defs/sourceSha" },
+        "status": { "$ref": "#/$defs/providerStatus" }
+      }
+    },
+    "failureEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["memberId", "classification"],
+      "properties": {
+        "memberId": { "type": "string", "pattern": "^\\w[\\w.:@#=/-]{0,511}$" },
+        "classification": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }
+      }
+    }
+  }
+}

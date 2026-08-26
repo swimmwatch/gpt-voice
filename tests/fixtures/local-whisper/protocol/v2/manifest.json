@@ -1,0 +1,820 @@
+{
+  "schemaVersion": 2,
+  "protocolVersion": 2,
+  "limits": { "maxControlBytes": 1048576, "maxAudioChunkBytes": 1048576, "maxWavBytes": 57600044 },
+  "control": [
+    {
+      "name": "hello",
+      "message": { "type": "hello", "protocolVersion": 2 },
+      "binaryFile": "control/hello.bin",
+      "sha256": "3ed2ca95c4de59feae36629d26b4d28385d6dd2ccc52f233cb231e9048f0f11d"
+    },
+    {
+      "name": "helloAck",
+      "message": {
+        "type": "helloAck",
+        "protocolVersion": 2,
+        "engine": "whisperCpp",
+        "runtimeRevision": "runtime-pack-v1",
+        "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "backend": "cuda",
+        "capabilities": ["cuda-sm-75", "cuda-sm-86"],
+        "maxControlFrameBytes": 1048576,
+        "maxAudioChunkBytes": 1048576
+      },
+      "binaryFile": "control/helloAck.bin",
+      "sha256": "a98f8cca5463f2eb239f179b0c46b7d460c99225e24322e0608c936cbbc44433"
+    },
+    {
+      "name": "probe",
+      "message": {
+        "type": "probe",
+        "protocolVersion": 2,
+        "requestId": "probe-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "probeChallenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
+      },
+      "binaryFile": "control/probe.bin",
+      "sha256": "7cb34f91d29e33a08514240a65d30b36678e8d51adc760482d305bebd329be9a"
+    },
+    {
+      "name": "probed",
+      "message": {
+        "type": "probed",
+        "protocolVersion": 2,
+        "requestId": "probe-1",
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "probeProof": "c014f127f6da0b011f6178a7224827191deb2071c234b6797375fe766d498214",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
+      },
+      "binaryFile": "control/probed.bin",
+      "sha256": "72dbf42bd6da210a251669750a006ed36637ba5bb369f17031bbf75b1985483d"
+    },
+    {
+      "name": "probe-cpu",
+      "message": {
+        "type": "probe",
+        "protocolVersion": 2,
+        "requestId": "probe-cpu-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "cpu" }
+      },
+      "binaryFile": "control/probe-cpu.bin",
+      "sha256": "6c050454d87da126aa49f3e6520d0e14f89f5568712d76c56730d84e31512948"
+    },
+    {
+      "name": "probed-cpu",
+      "message": {
+        "type": "probed",
+        "protocolVersion": 2,
+        "requestId": "probe-cpu-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "cpu" }
+      },
+      "binaryFile": "control/probed-cpu.bin",
+      "sha256": "07e1383b2f2bf90a605b0ca0281f54ab06468d92626f3525615136d5be7bdbed"
+    },
+    {
+      "name": "probe-gpu-max",
+      "message": {
+        "type": "probe",
+        "protocolVersion": 2,
+        "requestId": "probe-gpu-max-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 255 },
+        "probeChallenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
+      },
+      "binaryFile": "control/probe-gpu-max.bin",
+      "sha256": "4c827cad1330c91b589e90c3f18667c830830fbce5cda025b1872c6016617d06"
+    },
+    {
+      "name": "load",
+      "message": {
+        "type": "load",
+        "protocolVersion": 2,
+        "requestId": "load-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "expectedModelBytes": 1048576,
+        "loadChallenge": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+        "modelPath": "/managed/models/model.bin",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+        "residency": {
+          "engine": "whisperCpp",
+          "runtimePackRevision": "runtime-pack-v1",
+          "target": "gpu",
+          "backend": "cuda",
+          "deviceId": "fixture-gpu",
+          "model": {
+            "engine": "whisperCpp",
+            "logicalModel": "tiny",
+            "sourceCheckpointRevision": "checkpoint-v1",
+            "artifactRevision": "artifact-v1",
+            "nativeFormat": "ggml",
+            "variant": "full"
+          },
+          "configuredGpuCpuThreads": "auto",
+          "resolvedCpuThreads": 4,
+          "logicalProcessorTopologyGeneration": 3,
+          "configurationEpoch": 7
+        }
+      },
+      "binaryFile": "control/load.bin",
+      "sha256": "3200921df6a6ff63022a0f82a922f3ef6977cf7343482e79a156758f98389289"
+    },
+    {
+      "name": "loaded",
+      "message": {
+        "type": "loaded",
+        "protocolVersion": 2,
+        "requestId": "load-1",
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "gpuIndex", "index": 0 },
+        "effectiveBackend": "cuda",
+        "metadataOnly": true,
+        "model": {
+          "engine": "whisperCpp",
+          "logicalModel": "tiny",
+          "sourceCheckpointRevision": "checkpoint-v1",
+          "artifactRevision": "artifact-v1",
+          "nativeFormat": "ggml",
+          "variant": "full"
+        },
+        "modelFileSizeBytes": 1048576,
+        "primaryStateOwnership": "worker",
+        "loadProof": "afbdd8326d04e2bb69f97b4844e9674e301dbcc397b828a770db6be5b78d0115",
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+        "residency": {
+          "engine": "whisperCpp",
+          "runtimePackRevision": "runtime-pack-v1",
+          "target": "gpu",
+          "backend": "cuda",
+          "deviceId": "fixture-gpu",
+          "model": {
+            "engine": "whisperCpp",
+            "logicalModel": "tiny",
+            "sourceCheckpointRevision": "checkpoint-v1",
+            "artifactRevision": "artifact-v1",
+            "nativeFormat": "ggml",
+            "variant": "full"
+          },
+          "configuredGpuCpuThreads": "auto",
+          "resolvedCpuThreads": 4,
+          "logicalProcessorTopologyGeneration": 3,
+          "configurationEpoch": 7
+        },
+        "selectedDeviceModelWeightBytes": 1048576
+      },
+      "binaryFile": "control/loaded.bin",
+      "sha256": "6d8b84c5a6ffb3693a5e502aac39f6e7d25e805db310de4ac3589088ed3d656a"
+    },
+    {
+      "name": "loaded-cpu",
+      "message": {
+        "type": "loaded",
+        "protocolVersion": 2,
+        "requestId": "load-cpu-1",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "deviceBinding": { "kind": "cpu" },
+        "effectiveBackend": "cpu",
+        "metadataOnly": true,
+        "model": {
+          "engine": "whisperCpp",
+          "logicalModel": "tiny",
+          "sourceCheckpointRevision": "checkpoint-v1",
+          "artifactRevision": "artifact-v1",
+          "nativeFormat": "ggml",
+          "variant": "full"
+        },
+        "modelFileSizeBytes": 1048576,
+        "primaryStateOwnership": "worker",
+        "residency": {
+          "engine": "whisperCpp",
+          "runtimePackRevision": "runtime-pack-v1",
+          "target": "cpu",
+          "backend": "cpu",
+          "deviceId": null,
+          "model": {
+            "engine": "whisperCpp",
+            "logicalModel": "tiny",
+            "sourceCheckpointRevision": "checkpoint-v1",
+            "artifactRevision": "artifact-v1",
+            "nativeFormat": "ggml",
+            "variant": "full"
+          },
+          "configuredGpuCpuThreads": null,
+          "resolvedCpuThreads": 4,
+          "logicalProcessorTopologyGeneration": 3,
+          "configurationEpoch": 7
+        }
+      },
+      "binaryFile": "control/loaded-cpu.bin",
+      "sha256": "caeaf6ef5249bf89f7ff3577ae338cc5351a761c06a2a80f75eb1f50c2682512"
+    },
+    {
+      "name": "warmup",
+      "message": { "type": "warmup", "protocolVersion": 2, "requestId": "warm-1" },
+      "binaryFile": "control/warmup.bin",
+      "sha256": "2394a4b0208f841314c8de681ffc6df04dbf8458cc668f0c20af59a299459d87"
+    },
+    {
+      "name": "warmed",
+      "message": { "type": "warmed", "protocolVersion": 2, "requestId": "warm-1" },
+      "binaryFile": "control/warmed.bin",
+      "sha256": "ee9d681c2bb362a73b51d3d9fe85721939e6d1fada3c6fb18488b55dfe365cb8"
+    },
+    {
+      "name": "transcribe",
+      "message": {
+        "type": "transcribe",
+        "protocolVersion": 2,
+        "requestId": "tx-1",
+        "settingsEpoch": 9,
+        "audioByteLength": 46,
+        "options": {
+          "language": null,
+          "initialPrompt": "",
+          "temperatureHundredths": 0,
+          "strategy": "greedy",
+          "candidateCount": null
+        }
+      },
+      "binaryFile": "control/transcribe.bin",
+      "sha256": "c78b336e6e8e5b6f520e177d54623d6fb87596eb666428cf07342eb754613fb5"
+    },
+    {
+      "name": "transcript",
+      "message": { "type": "transcript", "protocolVersion": 2, "requestId": "tx-1", "text": "synthetic result" },
+      "binaryFile": "control/transcript.bin",
+      "sha256": "7d770e3ddce92bbd2c742e7ef81dea817a98774b232a726ce4b51c541918ef9f"
+    },
+    {
+      "name": "cancel",
+      "message": { "type": "cancel", "protocolVersion": 2, "requestId": "cancel-1", "targetRequestId": "tx-1" },
+      "binaryFile": "control/cancel.bin",
+      "sha256": "28d09e735271f7e648bb3438edde4273b825aa110e470b9f10941dde0b928487"
+    },
+    {
+      "name": "cancelled",
+      "message": { "type": "cancelled", "protocolVersion": 2, "requestId": "cancel-1", "targetRequestId": "tx-1" },
+      "binaryFile": "control/cancelled.bin",
+      "sha256": "3e015e4ed4fe9d96872972f9d75226db583c230c7ee2a724ab0f97b7e0c0ab88"
+    },
+    {
+      "name": "cancel-too-late",
+      "message": { "type": "cancelTooLate", "protocolVersion": 2, "requestId": "cancel-1", "targetRequestId": "tx-1" },
+      "binaryFile": "control/cancel-too-late.bin",
+      "sha256": "039207fdb56583a8d88c4a75736589b85c431dd96c2b00da734fd725f1223ab3"
+    },
+    {
+      "name": "unload",
+      "message": { "type": "unload", "protocolVersion": 2, "requestId": "free-1" },
+      "binaryFile": "control/unload.bin",
+      "sha256": "9f91049cd891b49aa5e9e2c9dd507e6ebaf8e6ccb0af83aaca19bcd9d982567d"
+    },
+    {
+      "name": "unloaded",
+      "message": { "type": "unloaded", "protocolVersion": 2, "requestId": "free-1" },
+      "binaryFile": "control/unloaded.bin",
+      "sha256": "bf66eaf1c0c127a3ce97c261ce68870a9a218619e8588b5828540e46468603c7"
+    },
+    {
+      "name": "shutdown",
+      "message": { "type": "shutdown", "protocolVersion": 2, "requestId": "stop-1" },
+      "binaryFile": "control/shutdown.bin",
+      "sha256": "a7d8cbb173b119e6f4cfdf9dca1ea0dba7086a31dc6d40d90cd0903f31712c8c"
+    },
+    {
+      "name": "shutdownAck",
+      "message": { "type": "shutdownAck", "protocolVersion": 2, "requestId": "stop-1" },
+      "binaryFile": "control/shutdownAck.bin",
+      "sha256": "4e75b8e4616cfc51c7e8a074518500440a5340c5b421ce646b1666786684e1bb"
+    },
+    {
+      "name": "failure",
+      "message": { "type": "failure", "protocolVersion": 2, "requestId": "load-1", "code": "MODEL_LOAD_FAILED" },
+      "binaryFile": "control/failure.bin",
+      "sha256": "b8a0bc965451ac0c315aa89011d7bbba1d19f9bb4d5fa51b7413b1d865fbcb75"
+    }
+  ],
+  "audio": [
+    {
+      "name": "first",
+      "requestId": "tx-1",
+      "sequence": 0,
+      "final": false,
+      "bytesHex": "0102",
+      "binaryFile": "audio/first.bin",
+      "sha256": "3d938a79ea68fd746370ea263e52d42052f1e0dcf1b680b5377bd02ab6e37800"
+    },
+    {
+      "name": "middle",
+      "requestId": "tx-1",
+      "sequence": 1,
+      "final": false,
+      "bytesHex": "0304",
+      "binaryFile": "audio/middle.bin",
+      "sha256": "2a7b4a1a4d52ddf3cc893e85d9aa3c087edf8380761cf87aad65ec396e5cf04f"
+    },
+    {
+      "name": "final",
+      "requestId": "tx-1",
+      "sequence": 2,
+      "final": true,
+      "bytesHex": "0506",
+      "binaryFile": "audio/final.bin",
+      "sha256": "fd0715d292143894471466c8e71a020f1ad40126584216a733478043c01622f9"
+    },
+    {
+      "name": "empty-final",
+      "requestId": "empty-1",
+      "sequence": 0,
+      "final": true,
+      "bytesHex": "",
+      "binaryFile": "audio/empty-final.bin",
+      "sha256": "727ae7b822e7265aab70f51856cc62c3fe0b4fa054c4d3e653409caa4a4615bb"
+    }
+  ],
+  "malformed": [
+    {
+      "name": "truncated-control",
+      "binaryFile": "malformed/truncated-control.bin",
+      "sha256": "74df1e2ea7066c53b1afc09fe0e9f1667eaaf24b404d2d992ef2e5e4547d9a45"
+    },
+    {
+      "name": "unknown-kind",
+      "binaryFile": "malformed/unknown-kind.bin",
+      "sha256": "cc5166464b839b6eb7d428f6cc278f8bf3a66466e69120e06c942e05b16cdfb2"
+    },
+    {
+      "name": "oversized-control-prefix",
+      "binaryFile": "malformed/oversized-control-prefix.bin",
+      "sha256": "c358dd63953bfced0d3f5c880fad5fdd9d6f49d463a786baff143f892ceb46a5"
+    },
+    {
+      "name": "oversized-audio-prefix",
+      "binaryFile": "malformed/oversized-audio-prefix.bin",
+      "sha256": "0d8107810dc5680573a9bb8b5eaf6488469f46bfc72f9e52111ec78694328817"
+    },
+    {
+      "name": "invalid-control-utf8",
+      "binaryFile": "malformed/invalid-control-utf8.bin",
+      "sha256": "17d940bf0d5800f8536d1fb6a1ac6f5d8a819226e738d6871f9dff3b946f87ed"
+    },
+    {
+      "name": "duplicate-control-key",
+      "binaryFile": "malformed/duplicate-control-key.bin",
+      "sha256": "f22b0b0a6920dc02cab25eea14cd76c371c86630233ada9cdb3fb185535e4934"
+    },
+    {
+      "name": "unknown-control-key",
+      "binaryFile": "malformed/unknown-control-key.bin",
+      "sha256": "f5b31ebcee37cd30c36111eb1bc0952170dcfe5caeca53c9d07f770eac5514c4"
+    },
+    {
+      "name": "negative-device-index",
+      "binaryFile": "malformed/negative-device-index.bin",
+      "sha256": "39c387ba0737f69d88fa844ac2abcc37ccd1d91e401b07a3558b274dc41c6cb9"
+    },
+    {
+      "name": "fractional-device-index",
+      "binaryFile": "malformed/fractional-device-index.bin",
+      "sha256": "6d5aa9d496d8688202cccbfad108644f3a70dcfce1a1a3997cca5a6a3628e741"
+    },
+    {
+      "name": "oversized-device-index",
+      "binaryFile": "malformed/oversized-device-index.bin",
+      "sha256": "737216b8e2ceb47e042ca12d86ec50b53da20b4b61a2d803afc71aa53149bf0b"
+    },
+    {
+      "name": "cpu-gpu-residency-mismatch",
+      "binaryFile": "malformed/cpu-gpu-residency-mismatch.bin",
+      "sha256": "6e3ec679c0b2460aa85f16975c13b70baef83e9f0b6d809be4516371bbdb7cb7"
+    },
+    {
+      "name": "trailing-control-byte",
+      "binaryFile": "malformed/trailing-control-byte.bin",
+      "sha256": "440ba1623c90e4805980c0c41e8228d2f4b53389cbbb828125785fe156623959"
+    },
+    {
+      "name": "invalid-audio-version",
+      "binaryFile": "malformed/invalid-audio-version.bin",
+      "sha256": "cf1458109ff74c8bbd2c93c76603f2e706ba6894caedaf13796ee4538dc92489"
+    },
+    {
+      "name": "invalid-audio-final-flag",
+      "binaryFile": "malformed/invalid-audio-final-flag.bin",
+      "sha256": "2264f8c2bd63e9e630e53ebd29646962ea2bae1b5175f2f8abefa155cd992ef4"
+    },
+    {
+      "name": "empty-audio-request-id",
+      "binaryFile": "malformed/empty-audio-request-id.bin",
+      "sha256": "3ceb3832fdac8fd118958f7441b2e9b1d853b29677504090681a51b20b88fc49"
+    },
+    {
+      "name": "nonterminal-empty-audio",
+      "binaryFile": "malformed/nonterminal-empty-audio.bin",
+      "sha256": "6b001d5c6522646e92f95fc8c7b97889fc7d03ab1a9721470dde267a93d366f8"
+    }
+  ],
+  "streams": [
+    { "name": "duplicate-audio-sequence", "frameNames": ["first", "first"] },
+    { "name": "audio-after-terminal", "frameNames": ["empty-final", "first"] }
+  ],
+  "lexical": [
+    {
+      "name": "safe-integer-min",
+      "valid": true,
+      "binaryFile": "json/safe-integer-min.bin",
+      "sha256": "4c933a456bb8f2e9894b2d0b26480439cd72d52fb8a27cbf8fd7f323f22c7815"
+    },
+    {
+      "name": "safe-integer-max",
+      "valid": true,
+      "binaryFile": "json/safe-integer-max.bin",
+      "sha256": "f40b423c2dd95ff2b2f027e22208f438cf7242862e5e746860e697308c9add26"
+    },
+    {
+      "name": "safe-integer-underflow",
+      "valid": false,
+      "binaryFile": "json/safe-integer-underflow.bin",
+      "sha256": "83e109bfd7fb4984b47a46f363627c18dbbd7e57e36b05a04cd162d304df72e9"
+    },
+    {
+      "name": "safe-integer-overflow",
+      "valid": false,
+      "binaryFile": "json/safe-integer-overflow.bin",
+      "sha256": "c681da39d7273a6a24c15c9cac3a75526ff2ecf8ba4ee60346a0c70c8163bdb2"
+    },
+    {
+      "name": "negative-zero",
+      "valid": false,
+      "binaryFile": "json/negative-zero.bin",
+      "sha256": "ed79f26d03f412bde3db206601a698e0bb451bea9e3cc25289636ac17ea74b0a"
+    },
+    {
+      "name": "leading-zero",
+      "valid": false,
+      "binaryFile": "json/leading-zero.bin",
+      "sha256": "938db8c9f82c8cb58d3f3ef4fd250036a48d26a712753d2fde5abd03a85cabf4"
+    },
+    {
+      "name": "decimal",
+      "valid": false,
+      "binaryFile": "json/decimal.bin",
+      "sha256": "d0ff5974b6aa52cf562bea5921840c032a860a91a3512f7fe8f768f6bbe005f6"
+    },
+    {
+      "name": "exponent",
+      "valid": false,
+      "binaryFile": "json/exponent.bin",
+      "sha256": "704a2369ce2da4371b814bc79e5d28ed1d43effb1f168655bd297eda01f1c315"
+    },
+    {
+      "name": "plus",
+      "valid": false,
+      "binaryFile": "json/plus.bin",
+      "sha256": "c59dc4e44ff99288156d4dff2168f6ac7ddee6b1fc7ccc0754656ffaa6d351ea"
+    },
+    {
+      "name": "duplicate-root-key",
+      "valid": false,
+      "binaryFile": "json/duplicate-root-key.bin",
+      "sha256": "1c53ee0df7b12fd4d65b976120c7fa6b847dc41dffd7f0331c3237a1ceab1756"
+    },
+    {
+      "name": "duplicate-nested-key",
+      "valid": false,
+      "binaryFile": "json/duplicate-nested-key.bin",
+      "sha256": "193179e03522e6a46c057edc9ffe5a9945bbb25d9f02e657256936640d92ec52"
+    },
+    {
+      "name": "depth-16",
+      "valid": true,
+      "binaryFile": "json/depth-16.bin",
+      "sha256": "f955de38ce972b6a49fa8fae45dd8e2eede435f0d684f7eddec46135e473d6c2"
+    },
+    {
+      "name": "depth-17",
+      "valid": false,
+      "binaryFile": "json/depth-17.bin",
+      "sha256": "9141f69529e96caa8db6218b357f341abff4e6b56a7ba2405ff3a9ec457405f9"
+    },
+    {
+      "name": "members-128",
+      "valid": true,
+      "binaryFile": "json/members-128.bin",
+      "sha256": "e155a63b9aa9251f3916fb382f135121f008ea4308cd75dba1f0c9a2aeeff6b8"
+    },
+    {
+      "name": "members-129",
+      "valid": false,
+      "binaryFile": "json/members-129.bin",
+      "sha256": "c773e6fcaa06aa973241455adc27f26357f9eb6e6efab483c63f4c2a32fdd017"
+    },
+    {
+      "name": "elements-256",
+      "valid": true,
+      "binaryFile": "json/elements-256.bin",
+      "sha256": "2d673de942048a8b5ede075bd8fc7c56c7d9cce7335d5be36ef4b87dbb16cb82"
+    },
+    {
+      "name": "elements-257",
+      "valid": false,
+      "binaryFile": "json/elements-257.bin",
+      "sha256": "c03edf94542c06d1ce116d3f0cf964b1c19e2571c07c42a52b3a2b07e3682a18"
+    },
+    {
+      "name": "events-4096",
+      "valid": true,
+      "binaryFile": "json/events-4096.bin",
+      "sha256": "ce91a193fe4bfe9777cae43fc40dc7a4abafdd58b62736ab394e5af5a6ac8f0d"
+    },
+    {
+      "name": "events-4097",
+      "valid": false,
+      "binaryFile": "json/events-4097.bin",
+      "sha256": "3053c02ee3d32b668d99c97d53c2b3e99071976cf3ddd5ca58b940e089743228"
+    },
+    {
+      "name": "key-bytes-128",
+      "valid": true,
+      "binaryFile": "json/key-bytes-128.bin",
+      "sha256": "8737df020cc77bc93e1e274838f110d9914284c608d014118f706690aaede1d2"
+    },
+    {
+      "name": "key-bytes-129",
+      "valid": false,
+      "binaryFile": "json/key-bytes-129.bin",
+      "sha256": "3445f9108b2ec46f2534fe8520a6f2c27601a19b19e1b335807e3bb6d5623513"
+    },
+    {
+      "name": "string-bytes-262144",
+      "valid": true,
+      "binaryFile": "json/string-bytes-262144.bin",
+      "sha256": "460ce9950246701bde4787d8543af0254d991857c867fb50063ea787628381f0"
+    },
+    {
+      "name": "string-bytes-262145",
+      "valid": false,
+      "binaryFile": "json/string-bytes-262145.bin",
+      "sha256": "bd9b91b3ffeded705bdc4fb723792e6f8a8a8073c0419ec07a0583737f039cfd"
+    },
+    {
+      "name": "invalid-utf8",
+      "valid": false,
+      "binaryFile": "json/invalid-utf8.bin",
+      "sha256": "a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89"
+    },
+    {
+      "name": "invalid-escape",
+      "valid": false,
+      "binaryFile": "json/invalid-escape.bin",
+      "sha256": "6802bc99fec62d9b41926005c78eb80fdba95a69b64f757fa04f4d07d781cef7"
+    },
+    {
+      "name": "lone-high-surrogate",
+      "valid": false,
+      "binaryFile": "json/lone-high-surrogate.bin",
+      "sha256": "8c0c59dd0d275aadcd462a5fe12eb352cbdfeaf961eae4f85a4660521df7d2f5"
+    },
+    {
+      "name": "lone-low-surrogate",
+      "valid": false,
+      "binaryFile": "json/lone-low-surrogate.bin",
+      "sha256": "353c7370beca95e64c258c908edac60c2ab30d355ca1b5b7fc31c5bce4a4c65a"
+    },
+    {
+      "name": "paired-surrogate",
+      "valid": true,
+      "binaryFile": "json/paired-surrogate.bin",
+      "sha256": "e30439cb87e140c0b998ad3095285abfec0294e2a8916f9a8f30d85734e6f82b"
+    },
+    {
+      "name": "trailing-value",
+      "valid": false,
+      "binaryFile": "json/trailing-value.bin",
+      "sha256": "b59cb3ab90a5eb365be1031e097300769912fb8272639b58139fca863ae23cb1"
+    }
+  ],
+  "proofs": {
+    "registry": {
+      "backendId": "cuda",
+      "engineId": "whisperCpp",
+      "entries": [
+        { "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" },
+        { "backendId": "cuda", "nativeIdentity": "0000:02:00.0", "ordinal": 255, "type": "igpu" }
+      ],
+      "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+    "registries": [
+      {
+        "name": "empty",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "28db4d870011be3d6f962d6580fa0ea74097ada8bd778350899f403d95fc5849"
+      },
+      {
+        "name": "single",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [{ "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" }],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "f3cecd332bd49e1a6f7dbc1e4dbf4590e5afe6cd924ca833c05d5ea47f2141a8"
+      },
+      {
+        "name": "multiple",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [
+            { "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" },
+            { "backendId": "cuda", "nativeIdentity": "0000:02:00.0", "ordinal": 255, "type": "igpu" }
+          ],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b"
+      },
+      {
+        "name": "changed-order",
+        "input": {
+          "backendId": "cuda",
+          "engineId": "whisperCpp",
+          "entries": [
+            { "backendId": "cuda", "nativeIdentity": "0000:02:00.0", "ordinal": 255, "type": "igpu" },
+            { "backendId": "cuda", "nativeIdentity": "0000:01:00.0", "ordinal": 0, "type": "gpu" }
+          ],
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "expectedFingerprint": "3b23365b1652ce1285a6b52cbcc9bd074945120429c3d785ae718efce8a4b167"
+      }
+    ],
+    "probe": {
+      "input": {
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "backendId": "cuda",
+        "challenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+        "configurationEpoch": "7",
+        "engineId": "whisperCpp",
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+        "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selectedDeviceModelWeightBytes": "0",
+        "selectedOrdinal": 0,
+        "topologyGeneration": "11"
+      },
+      "expectedProof": "c014f127f6da0b011f6178a7224827191deb2071c234b6797375fe766d498214"
+    },
+    "load": {
+      "input": {
+        "activatedOrdinal": 0,
+        "actualNativeIdentity": "0000:01:00.0",
+        "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+        "backendId": "cuda",
+        "challenge": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+        "configurationEpoch": "7",
+        "engineId": "whisperCpp",
+        "primaryExecutionNativeIdentity": "0000:01:00.0",
+        "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+        "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selectedDeviceModelWeightBytes": "1048576",
+        "selectedOrdinal": 0,
+        "topologyGeneration": "11"
+      },
+      "expectedProof": "afbdd8326d04e2bb69f97b4844e9674e301dbcc397b828a770db6be5b78d0115"
+    },
+    "boundaries": [
+      {
+        "name": "probe-u64-boundaries-ordinal-255",
+        "domain": "probe",
+        "input": {
+          "activatedOrdinal": 255,
+          "actualNativeIdentity": "0000:01:00.0",
+          "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+          "backendId": "cuda",
+          "challenge": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+          "configurationEpoch": "0",
+          "engineId": "whisperCpp",
+          "primaryExecutionNativeIdentity": "0000:01:00.0",
+          "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selectedDeviceModelWeightBytes": "0",
+          "selectedOrdinal": 255,
+          "topologyGeneration": "18446744073709551615"
+        },
+        "expectedProof": "82f7c1d81fa131fdf1c3150aa057579e97d61b4983f279e2ee5525a5d53e9fe9"
+      },
+      {
+        "name": "load-u64-boundaries-ordinal-255",
+        "domain": "load",
+        "input": {
+          "activatedOrdinal": 255,
+          "actualNativeIdentity": "0000:01:00.0",
+          "authorityId": "AAECAwQFBgcICQoLDA0ODw",
+          "backendId": "cuda",
+          "challenge": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+          "configurationEpoch": "18446744073709551615",
+          "engineId": "whisperCpp",
+          "primaryExecutionNativeIdentity": "0000:01:00.0",
+          "registryFingerprint": "e7564b0d84f1549f3dda83ff70978080b35fe7b536b0a44bd5337c8a4638541b",
+          "runtimeBuildDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selectedDeviceModelWeightBytes": "18446744073709551615",
+          "selectedOrdinal": 255,
+          "topologyGeneration": "0"
+        },
+        "expectedProof": "b0f16bbb6ce9bbf41896d33fb35048f09ef69f09c5474823248c63633d5decfb"
+      }
+    ]
+  },
+  "authority": [
+    {
+      "name": "request",
+      "binaryFile": "authority/request.bin",
+      "sha256": "d2cf56e9be647e8aeb9fbe9e94edaa81d5175fda63b1f8929ed07e6e5730dd91"
+    },
+    {
+      "name": "directory-request-u64-max",
+      "binaryFile": "authority/directory-request-u64-max.bin",
+      "sha256": "110d0d395c4677278e7bfc46e65ac9aadc5305a9f9283188a1bb576972fcab7f"
+    },
+    {
+      "name": "linux-hop-1",
+      "binaryFile": "authority/linux-hop-1.bin",
+      "sha256": "3b0bd391ea2f83b0fbbdc14a7a73d5200bb2179a31d5482ede1cd64615b2c94f"
+    },
+    {
+      "name": "linux-directory-hop-1",
+      "binaryFile": "authority/linux-directory-hop-1.bin",
+      "sha256": "9756a8c49147380acda440741d321ca9178215cd7d9c7231943e5d79003135fc"
+    },
+    {
+      "name": "windows-hop-1",
+      "binaryFile": "authority/windows-hop-1.bin",
+      "sha256": "b9e141b32deb3194060f1a8b9cf27dc84fd66481bef73d42bbebfce53f0bbcfb"
+    },
+    {
+      "name": "linux-hop-2",
+      "binaryFile": "authority/linux-hop-2.bin",
+      "sha256": "408179507d288b5086611f4673abacacb096f7fb924a1acbec497765306c6a56"
+    },
+    {
+      "name": "windows-hop-2",
+      "binaryFile": "authority/windows-hop-2.bin",
+      "sha256": "a2cb6f1b5e1c934084d8a7b725b1d5f9223d6c991a8d1a2d686c22b0a7ae1eb6"
+    },
+    {
+      "name": "windows-hop-2-u64-max",
+      "binaryFile": "authority/windows-hop-2-u64-max.bin",
+      "sha256": "cf2040b67f3bdbbcba9709fabe7ba7e1821eff91e1de301fc9f8520b4a5d3c06"
+    },
+    {
+      "name": "linux-ack",
+      "binaryFile": "authority/linux-ack.bin",
+      "sha256": "a390cacb0251dd0c3c77a1e246827293e2a6064fc92f9664093f7d5c5827f710"
+    },
+    {
+      "name": "windows-ack",
+      "binaryFile": "authority/windows-ack.bin",
+      "sha256": "41f45bf6aee306d288e5d96a464326a4b81059c16da3d92af1b1f14902608eda"
+    }
+  ],
+  "wav": [
+    {
+      "name": "minimum",
+      "valid": true,
+      "binaryFile": "wav/minimum.bin",
+      "sha256": "156075e2635b9b2c186258f4db987ed9fbdfb727f49e5eac4b9a126aefbdf727"
+    },
+    {
+      "name": "invalid-rate",
+      "valid": false,
+      "binaryFile": "wav/invalid-rate.bin",
+      "sha256": "486853611f8ae54adc7d1e3af6ad7f01ef6b1b2abbc1b8e595aa726eb4bb0b68"
+    },
+    {
+      "name": "trailing-byte",
+      "valid": false,
+      "binaryFile": "wav/trailing-byte.bin",
+      "sha256": "d3a86eec4e2089ca850498e49aa365313096254e70967a722e823f1c50dff9e0"
+    }
+  ]
+}

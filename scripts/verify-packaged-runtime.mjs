@@ -1,4 +1,5 @@
-import { access, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getCurrentFuseWire, FuseV1Options } from '@electron/fuses';
@@ -232,6 +233,62 @@ async function verifyExternalRuntimeResources(resourcesPath, localesPath) {
   ]);
   assertNoPolicyViolations('Packaged runtime asset policy', getRuntimeAssetViolations(assetPaths));
   assertNoPolicyViolations('Electron locale policy', getElectronLocaleViolations(localePaths));
+  await verifyLocalWhisperResources(resourcesPath);
+}
+
+async function verifyLocalWhisperResources(resourcesPath) {
+  const localWhisperRoot = path.join(resourcesPath, 'local-whisper');
+  const state = JSON.parse(await readFile(path.join(localWhisperRoot, 'catalog-state.json'), 'utf8'));
+  const keyring = JSON.parse(await readFile(path.join(localWhisperRoot, 'keyring.json'), 'utf8'));
+  const actual = (await listRelativeFiles(localWhisperRoot)).sort();
+  const expected = ['catalog-state.json', 'keyring.json'];
+  if (state.mode === 'fixture' || state.mode === 'production') {
+    expected.push('bundle-manifest.json', 'catalog.json', 'catalog.sha256');
+  }
+  if (process.platform !== 'darwin') {
+    const extension = process.platform === 'win32' ? '.exe' : '';
+    expected.push(
+      'native/LICENSE.txt',
+      `native/fs-guard${extension}`,
+      'native/helpers.manifest.json',
+      `native/local-whisper-launcher${extension}`,
+    );
+  }
+  expected.sort();
+  if (actual.length !== expected.length || actual.some((fileName, index) => fileName !== expected[index])) {
+    throw new Error(`Packaged Local Whisper resource policy failed: ${actual.join(', ')}`);
+  }
+  if (
+    !['disabled', 'fixture', 'production'].includes(state.mode) ||
+    state.purpose !== state.mode ||
+    state.platform !== process.platform ||
+    keyring.purpose !== state.mode ||
+    !Array.isArray(keyring.publicKeys) ||
+    !Array.isArray(keyring.origins)
+  ) {
+    throw new Error('Packaged Local Whisper trust state is invalid');
+  }
+  if (
+    (state.mode === 'disabled' &&
+      (state.executableActionsEnabled !== false || keyring.publicKeys.length !== 0 || keyring.origins.length !== 0)) ||
+    (state.mode !== 'disabled' &&
+      (state.executableActionsEnabled !== true || keyring.publicKeys.length === 0 || keyring.origins.length === 0))
+  ) {
+    throw new Error('Packaged Local Whisper mode authority is invalid');
+  }
+  if (process.platform === 'darwin') return;
+  const nativeRoot = path.join(localWhisperRoot, 'native');
+  const manifest = JSON.parse(await readFile(path.join(nativeRoot, 'helpers.manifest.json'), 'utf8'));
+  if (!Array.isArray(manifest.helpers) || manifest.helpers.length !== 2) {
+    throw new Error('Packaged Local Whisper helper manifest is invalid');
+  }
+  for (const helper of manifest.helpers) {
+    const bytes = await readFile(path.join(nativeRoot, helper.name));
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    if (bytes.byteLength !== helper.sizeBytes || digest !== helper.sha256) {
+      throw new Error(`Packaged Local Whisper helper identity mismatch: ${helper.role}`);
+    }
+  }
 }
 
 const layout = layouts[process.platform];

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-derived-source-receipt-v3.schema.json",
+  "title": "Local Whisper private derived-source receipt v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceDerivedSourceReceiptDigest",
+    "side",
+    "parentCommit",
+    "sourceProofDigest",
+    "instrumentationOverlaySha256",
+    "derivedTreeManifestSha256",
+    "executableArtifactIdentity"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "contractRevision": { "const": 3 },
+    "performanceDerivedSourceReceiptDigest": { "$ref": "#/$defs/sha256" },
+    "side": { "enum": ["before", "after"] },
+    "parentCommit": { "$ref": "#/$defs/commit" },
+    "sourceProofDigest": { "$ref": "#/$defs/sha256" },
+    "instrumentationOverlaySha256": { "$ref": "#/$defs/sha256" },
+    "derivedTreeManifestSha256": { "$ref": "#/$defs/sha256" },
+    "executableArtifactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sizeBytes", "sha256"],
+      "properties": {
+        "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+  }
+}

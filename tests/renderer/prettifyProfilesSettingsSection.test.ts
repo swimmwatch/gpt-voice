@@ -21,7 +21,8 @@ describe('Prettify profile Settings exact surface contract', () => {
     assert.match(source, /Badge variant="success"/u);
     assert.match(source, /ScrollAreaViewport/u);
     assert.match(source, /DropdownMenuContent/u);
-    assert.match(source, /AlertDialogContent/u);
+    assert.match(source, /<ConfirmationDialog/u);
+    assert.doesNotMatch(source, /AlertDialog(?:Action|Cancel|Content|Footer|Header|Title)/u);
     assert.doesNotMatch(source, /role="listbox"|role="option"/u);
     assert.doesNotMatch(source, /CheckCircle|CircleCheck|RadioGroup/u);
     assert.doesNotMatch(source, /<img|\.svg|\.png/u);

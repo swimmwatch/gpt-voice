@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-result-v3.schema.json",
+  "title": "Local Whisper aggregate-only performance qualification result v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceResultDigest",
+    "performanceRunPlanDigest",
+    "performanceManifestDigest",
+    "performanceBundleDigest",
+    "baselineCommit",
+    "candidateCommit",
+    "sourceProofDigest",
+    "instrumentationOverlaySha256",
+    "platform",
+    "architecture",
+    "backend",
+    "executionMode",
+    "evidenceClaim",
+    "attemptCounts",
+    "candidateResults",
+    "selectedInFlightWindow",
+    "selectionStatus",
+    "sourceHashBaseline"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "contractRevision": { "const": 3 },
+    "performanceResultDigest": { "$ref": "#/$defs/sha256" },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "performanceBundleDigest": { "$ref": "#/$defs/sha256" },
+    "baselineCommit": { "$ref": "#/$defs/commit" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "sourceProofDigest": { "$ref": "#/$defs/sha256" },
+    "instrumentationOverlaySha256": { "$ref": "#/$defs/sha256" },
+    "platform": { "enum": ["linux", "win32"] },
+    "architecture": { "const": "x64" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "executionMode": { "enum": ["hostedFixture", "representativeHost"] },
+    "evidenceClaim": { "enum": ["contractOnly", "representativePerformance"] },
+    "attemptCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planned", "successful", "failed"],
+      "properties": {
+        "planned": { "const": 288 },
+        "successful": { "type": "integer", "minimum": 0, "maximum": 288 },
+        "failed": { "type": "integer", "minimum": 0, "maximum": 288 }
+      }
+    },
+    "candidateResults": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/candidateResult" }
+    },
+    "selectedInFlightWindow": { "type": "null" },
+    "selectionStatus": { "enum": ["fixtureOnly", "awaitingCrossPlatform"] },
+    "sourceHashBaseline": { "$ref": "#/$defs/sourceHashBaseline" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "reasonCode": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant"],
+      "properties": {
+        "family": { "enum": ["base", "medium", "large-v3"] },
+        "variant": { "enum": ["full", "q5_0"] }
+      }
+    },
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointEstimatePercent", "uncertaintyPercent", "conservativePercent", "status"],
+      "properties": {
+        "pointEstimatePercent": { "type": "number" },
+        "uncertaintyPercent": { "type": "number", "minimum": 0 },
+        "conservativePercent": { "type": "number" },
+        "status": { "enum": ["Pass", "Fail"] }
+      }
+    },
+    "guardrail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "pointEstimatePercent", "uncertaintyPercent", "upperBoundPercent", "status"],
+      "properties": {
+        "id": {
+          "enum": ["endToEnd", "mainProcessPeakRss", "guardProcessPeakRss", "workerProcessPeakRss", "gpuPeakVram"]
+        },
+        "pointEstimatePercent": { "type": "number" },
+        "uncertaintyPercent": { "type": "number", "minimum": 0 },
+        "upperBoundPercent": { "type": "number" },
+        "status": { "enum": ["Pass", "Fail"] }
+      }
+    },
+    "cacheResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cacheState",
+        "plannedPairs",
+        "successfulPairs",
+        "failedAttempts",
+        "targetedComponent",
+        "guardrails",
+        "status",
+        "reasonCodes"
+      ],
+      "properties": {
+        "cacheState": { "enum": ["cold", "warm"] },
+        "plannedPairs": { "const": 6 },
+        "successfulPairs": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "failedAttempts": { "type": "integer", "minimum": 0, "maximum": 12 },
+        "targetedComponent": { "oneOf": [{ "$ref": "#/$defs/estimate" }, { "type": "null" }] },
+        "guardrails": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/guardrail" }
+        },
+        "status": { "enum": ["Pass", "Fail"] },
+        "reasonCodes": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/reasonCode" }
+        }
+      }
+    },
+    "candidateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "candidateWindow", "cacheResults", "status", "reasonCodes"],
+      "properties": {
+        "model": { "$ref": "#/$defs/model" },
+        "candidateWindow": { "enum": [1, 2, 4, 8] },
+        "cacheResults": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/cacheResult" }
+        },
+        "status": { "enum": ["Pass", "Fail"] },
+        "reasonCodes": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/reasonCode" }
+        }
+      }
+    },
+    "sourceHashBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beforeOptimization", "afterDirectoryReuse", "standardPathLoader"],
+      "properties": {
+        "beforeOptimization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 8 }, "win32": { "const": 7 } }
+        },
+        "afterDirectoryReuse": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 7 }, "win32": { "const": 6 } }
+        },
+        "standardPathLoader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 0 }, "win32": { "const": 0 } }
+        }
+      }
+    }
+  }
+}

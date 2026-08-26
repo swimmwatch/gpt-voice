@@ -1,4 +1,5 @@
 import type { BackgroundBrowserStatus, ProviderAuthType, ProviderInfo } from '@renderer/types';
+import type { LocalWhisperProviderSelectionResult } from '@shared/localWhisper';
 
 export interface ProviderSelectionRuntimeState {
   backgroundStatus: BackgroundBrowserStatus;
@@ -8,8 +9,8 @@ export interface ProviderSelectionRuntimeState {
 export type ProviderSelectionEvent =
   | {
       type: 'bootstrap-completed';
-      authType: ProviderAuthType;
-      providerId: string;
+      authType: ProviderAuthType | null;
+      providerId: string | null;
       providers: ProviderInfo[];
       runtime: ProviderSelectionRuntimeState;
     }
@@ -26,14 +27,16 @@ export type ProviderSelectionEvent =
       type: 'switch-completed';
       authType: ProviderAuthType;
       providerId: string;
-      result: { success: boolean; error?: string };
+      result: LocalWhisperProviderSelectionResult;
       runtime: ProviderSelectionRuntimeState;
     }
   | {
       type: 'switch-failed';
       authType: ProviderAuthType;
+      committedProviderId: string | null;
       error: unknown;
       providerId: string;
+      runtime: ProviderSelectionRuntimeState | null;
     }
   | {
       type: 'switch-settled';
@@ -42,10 +45,10 @@ export type ProviderSelectionEvent =
 
 export interface ProviderSelectionCoordinatorDependencies {
   emit(event: ProviderSelectionEvent): void;
-  getActiveProvider(): Promise<string>;
+  getActiveProvider(): Promise<string | null>;
   getProviders(): Promise<ProviderInfo[]>;
   getRuntimeState(): Promise<ProviderSelectionRuntimeState>;
-  setActiveProvider(providerId: string): Promise<{ success: boolean; error?: string }>;
+  setActiveProvider(providerId: string): Promise<LocalWhisperProviderSelectionResult>;
 }
 
 export interface ProviderSelectionCoordinator {
@@ -54,8 +57,9 @@ export interface ProviderSelectionCoordinator {
   switchProvider(providerId: string, authType: ProviderAuthType): Promise<void>;
 }
 
-function findProviderAuthType(providers: ProviderInfo[], providerId: string): ProviderAuthType {
-  return providers.find((provider) => provider.id === providerId)?.authType ?? 'browserSession';
+function findProviderAuthType(providers: ProviderInfo[], providerId: string | null): ProviderAuthType | null {
+  if (providerId === null) return null;
+  return providers.find((provider) => provider.id === providerId)?.authType ?? null;
 }
 
 /** Owns latest-request semantics for provider bootstrap and switching without depending on React. */
@@ -109,7 +113,26 @@ export function createProviderSelectionCoordinator(
         dependencies.emit({ type: 'switch-completed', authType, providerId, result, runtime });
       } catch (error: unknown) {
         if (isCurrent(switchRequestId)) {
-          dependencies.emit({ type: 'switch-failed', authType, error, providerId });
+          let committedProviderId: string | null = null;
+          let runtime: ProviderSelectionRuntimeState | null = null;
+          try {
+            [committedProviderId, runtime] = await Promise.all([
+              dependencies.getActiveProvider(),
+              dependencies.getRuntimeState(),
+            ]);
+          } catch {
+            // The renderer still preserves its prior committed identity when recovery state cannot be queried.
+          }
+          if (isCurrent(switchRequestId)) {
+            dependencies.emit({
+              type: 'switch-failed',
+              authType,
+              committedProviderId,
+              error,
+              providerId,
+              runtime,
+            });
+          }
         }
       } finally {
         if (isCurrent(switchRequestId)) {

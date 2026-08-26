@@ -1,0 +1,370 @@
+{
+  "$schema": "../schema/native-toolchain-lock.schema.json",
+  "schemaId": "local-whisper-native-toolchain-lock-v1",
+  "profileId": "linux-x64-cuda-12.8.1-sm120a-v1",
+  "target": {
+    "os": "linux",
+    "architecture": "x64",
+    "abi": "ubuntu-24.04-glibc-2.39"
+  },
+  "tools": [
+    {
+      "role": "c-compiler",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/x86_64-linux-gnu-gcc-13",
+      "version": "x86_64-linux-gnu-gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "sha256": "1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26"
+    },
+    {
+      "role": "cxx-compiler",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/x86_64-linux-gnu-g++-13",
+      "version": "x86_64-linux-gnu-g++-13 (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769"
+    },
+    {
+      "role": "linker",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+      "version": "GNU ld (GNU Binutils for Ubuntu) 2.42",
+      "sha256": "e9ceb054c12207970f2726dfc07e9a66b411602748628baf27399f02a9bbb31b"
+    },
+    {
+      "role": "archiver",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/x86_64-linux-gnu-ar",
+      "version": "GNU ar (GNU Binutils for Ubuntu) 2.42",
+      "sha256": "6452af2eea333b8c65e1adb92964fc8f97863ab003fa13f9d12bff5345cd7dbe"
+    },
+    {
+      "role": "ranlib",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/x86_64-linux-gnu-ranlib",
+      "version": "GNU ranlib (GNU Binutils for Ubuntu) 2.42",
+      "sha256": "60254978b8ee2c1b21b41d16a18a621dbbcc72e43eb2fa9f916818256c77e9ee"
+    },
+    {
+      "role": "cuda-compiler",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/bin/nvcc",
+      "version": "Cuda compilation tools, release 12.8, V12.8.93",
+      "sha256": "59e4e55f9a38b78c590df1e28a69dad91052958f18a03868ca4a547c043fbba7"
+    },
+    {
+      "role": "cmake",
+      "pathKind": "toolchainRootRelative",
+      "path": "cmake-3.31.8/bin/cmake",
+      "version": "cmake version 3.31.8",
+      "sha256": "8df68e8be95c6e8f7c329b24f38fd209dc6f57f2f22433d0f81bd43a31a8744d"
+    },
+    {
+      "role": "ninja",
+      "pathKind": "toolchainRootRelative",
+      "path": "ninja-1.12.1/ninja",
+      "version": "1.12.1",
+      "sha256": "cf10a35d13a384fed866bcd4989c7761e8556209d195cc6d2a7c0f11cc73804c"
+    },
+    {
+      "role": "elf-inspector",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/x86_64-linux-gnu-readelf",
+      "version": "GNU readelf (GNU Binutils for Ubuntu) 2.42",
+      "sha256": "64c58e15274bbbb5153f31078e455e9e77ee5f51489e709bba5bb788ce9df2b0"
+    },
+    {
+      "role": "network-harness",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/unshare",
+      "version": "unshare from util-linux 2.39.3",
+      "sha256": "51bcc77ba5db162c80028f861f0a2770d728c1de80773816d863f28d7a817adb"
+    },
+    {
+      "role": "network-probe-runtime",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/bin/python3.12",
+      "version": "Python 3.12.3",
+      "sha256": "1643dacd9feaedc58f3cc581e4d22577dfe25c09b10282936186ccf0f2e61118"
+    }
+  ],
+  "runtime": [
+    {
+      "id": "cuda-runtime-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcudart.so.12",
+      "sha256": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920",
+      "soname": "libcudart.so.12"
+    },
+    {
+      "id": "cublas-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcublas.so.12",
+      "sha256": "031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21",
+      "soname": "libcublas.so.12"
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcublasLt.so.12",
+      "sha256": "10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c",
+      "soname": "libcublasLt.so.12"
+    },
+    {
+      "id": "libstdcxx-gcc-13",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11"
+    },
+    {
+      "id": "libgcc-s-gcc-13",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb"
+    },
+    {
+      "id": "glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161"
+    },
+    {
+      "id": "libm-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+      "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91"
+    },
+    {
+      "id": "ld-linux-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81"
+    },
+    {
+      "id": "libdl-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+      "sha256": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80"
+    },
+    {
+      "id": "libpthread-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+      "sha256": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a"
+    },
+    {
+      "id": "librt-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/librt.so.1",
+      "sha256": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5"
+    },
+    {
+      "id": "nvidia-libcuda-595.84",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+      "sha256": "c147185c80a0270d635db626537fc9223b2ad1764f86cb12fd116d26e08b175d"
+    }
+  ],
+  "architectureTargets": ["120a-real"],
+  "environmentAllowlist": ["LANG", "LC_ALL", "PATH"],
+  "sourceLockIds": ["whisper-cpp-v1.9.1-f049fff"],
+  "patchLockIds": [],
+  "qualificationFixture": {
+    "fixtureId": "local-whisper-link-smoke-v1",
+    "manifestSha256": "264d52ff5fd9e79115a9977b5cf58411e312fc9b5b68796da3687f256e0c8d66"
+  },
+  "cmakeCache": {
+    "BUILD_SHARED_LIBS": "OFF",
+    "CMAKE_AR": "/usr/bin/x86_64-linux-gnu-ar",
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CUDA_ARCHITECTURES": "120a-real",
+    "CMAKE_CUDA_HOST_COMPILER": "/usr/bin/x86_64-linux-gnu-g++-13",
+    "CMAKE_CUDA_RUNTIME_LIBRARY": "Shared",
+    "CMAKE_CXX_SCAN_FOR_MODULES": "OFF",
+    "CMAKE_CXX_STANDARD": "20",
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+    "CMAKE_LINKER": "/usr/bin/x86_64-linux-gnu-ld.bfd",
+    "CMAKE_RANLIB": "/usr/bin/x86_64-linux-gnu-ranlib",
+    "CMAKE_SKIP_BUILD_RPATH": "ON",
+    "FETCHCONTENT_FULLY_DISCONNECTED": "ON",
+    "GGML_ACCELERATE": "OFF",
+    "GGML_AMX_BF16": "OFF",
+    "GGML_AMX_INT8": "OFF",
+    "GGML_AVX": "OFF",
+    "GGML_AVX2": "OFF",
+    "GGML_AVX512": "OFF",
+    "GGML_AVX512_BF16": "OFF",
+    "GGML_AVX512_VBMI": "OFF",
+    "GGML_AVX512_VNNI": "OFF",
+    "GGML_BACKEND_DL": "OFF",
+    "GGML_BLAS": "OFF",
+    "GGML_BMI2": "OFF",
+    "GGML_CANN": "OFF",
+    "GGML_CPU_KLEIDIAI": "OFF",
+    "GGML_CPU": "ON",
+    "GGML_CPU_REPACK": "OFF",
+    "GGML_CCACHE": "OFF",
+    "GGML_CUDA": "ON",
+    "GGML_CUDA_FA": "OFF",
+    "GGML_CUDA_CUB_3DOT2": "OFF",
+    "GGML_CUDA_NCCL": "OFF",
+    "GGML_F16C": "OFF",
+    "GGML_FMA": "OFF",
+    "GGML_HIP": "OFF",
+    "GGML_HIP_GRAPHS": "OFF",
+    "GGML_HIP_MMQ_MFMA": "OFF",
+    "GGML_HIP_NO_VMM": "OFF",
+    "GGML_LASX": "OFF",
+    "GGML_LSX": "OFF",
+    "GGML_METAL": "OFF",
+    "GGML_MUSA": "OFF",
+    "GGML_NATIVE": "OFF",
+    "GGML_OPENCL": "OFF",
+    "GGML_OPENCL_EMBED_KERNELS": "OFF",
+    "GGML_OPENCL_USE_ADRENO_KERNELS": "OFF",
+    "GGML_OPENMP": "OFF",
+    "GGML_RPC": "OFF",
+    "GGML_RVV": "OFF",
+    "GGML_RV_ZFH": "OFF",
+    "GGML_RV_ZICBOP": "OFF",
+    "GGML_RV_ZIHINTPAUSE": "OFF",
+    "GGML_RV_ZVFH": "OFF",
+    "GGML_SSE42": "OFF",
+    "GGML_STATIC": "OFF",
+    "GGML_SYCL": "OFF",
+    "GGML_SYCL_DNN": "OFF",
+    "GGML_SYCL_GRAPH": "OFF",
+    "GGML_SYCL_HOST_MEM_FALLBACK": "OFF",
+    "GGML_SYCL_SUPPORT_LEVEL_ZERO": "OFF",
+    "GGML_VULKAN": "OFF",
+    "GGML_WEBGPU_JSPI": "OFF",
+    "GGML_ZDNN": "OFF",
+    "LOCAL_WHISPER_SOURCE_ROOT": "sourceLock:whisper-cpp-v1.9.1-f049fff",
+    "WHISPER_BUILD_EXAMPLES": "OFF",
+    "WHISPER_BUILD_TESTS": "OFF",
+    "WHISPER_CURL": "OFF"
+  },
+  "expectedBuildGraph": ["ggml-base", "ggml-cpu", "ggml-cuda", "whisper", "local-whisper-build-smoke"],
+  "outputs": [
+    {
+      "id": "build-smoke",
+      "pathKind": "outputRelative",
+      "path": "bin/local-whisper-build-smoke",
+      "sha256": null
+    }
+  ],
+  "dynamicDependencies": [
+    {
+      "id": "cuda-runtime-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcudart.so.12",
+      "sha256": "c3a75b33af334a3486d197dbd1584a2985183ba4688d237a2be5f2f679329920",
+      "soname": "libcudart.so.12"
+    },
+    {
+      "id": "cublas-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcublas.so.12",
+      "sha256": "031ce6c2cbfbb9468f040527cab5c599069ce5609e73e28f87503881063eac21",
+      "soname": "libcublas.so.12"
+    },
+    {
+      "id": "cublas-lt-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/targets/x86_64-linux/lib/libcublasLt.so.12",
+      "sha256": "10b5e6631cf8115c661eb895ed1533826308b58f7956466f53d236a40c9b622c",
+      "soname": "libcublasLt.so.12"
+    },
+    {
+      "id": "libstdcxx-gcc-13",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.33",
+      "sha256": "1fd75fe70354a416d75aef22bcae68c47bd25d20e2d0568c30b1a9838cf62f11",
+      "soname": "libstdc++.so.6"
+    },
+    {
+      "id": "libgcc-s-gcc-13",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libgcc_s.so.1",
+      "sha256": "d93224d2b0dab4247598be683adca02f5cf00586f99c187579cd7e92058fb7cb",
+      "soname": "libgcc_s.so.1"
+    },
+    {
+      "id": "glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+      "sha256": "8db37cf3f2169f59a0f07ef1fea308c35656668c64c8ff294e1860f4121eb161",
+      "soname": "libc.so.6"
+    },
+    {
+      "id": "libm-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libm.so.6",
+      "sha256": "e9c4b28d340e415b8137480ec442662f981e1399386c5931dae0e886e3639e91",
+      "soname": "libm.so.6"
+    },
+    {
+      "id": "ld-linux-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "cd4df4f3c7b83673d61189bf2eaebd33ca4f2853ab9772b8a25e025ef99b1e81",
+      "soname": "ld-linux-x86-64.so.2"
+    },
+    {
+      "id": "libdl-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libdl.so.2",
+      "sha256": "292d5f5af2e7360b3e18c56591a4960115373ecf40627660f9149b6c68a33f80",
+      "soname": "libdl.so.2"
+    },
+    {
+      "id": "libpthread-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libpthread.so.0",
+      "sha256": "a27ffa9bf233d61a5f02ddb0cf770dd6579021afc1aa8aec0fb58ee4a965281a",
+      "soname": "libpthread.so.0"
+    },
+    {
+      "id": "librt-glibc-2.39",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/librt.so.1",
+      "sha256": "c6e6288545e24b0b3cfbf33320bda9236521625d8c3d628f3444f1ed40e5c7c5",
+      "soname": "librt.so.1"
+    },
+    {
+      "id": "nvidia-libcuda-595.84",
+      "pathKind": "systemAbsolute",
+      "path": "/usr/lib/x86_64-linux-gnu/libcuda.so.1",
+      "sha256": "c147185c80a0270d635db626537fc9223b2ad1764f86cb12fd116d26e08b175d",
+      "soname": "libcuda.so.1"
+    }
+  ],
+  "licenses": [
+    {
+      "id": "cmake-bsd-3.31.8",
+      "pathKind": "toolchainRootRelative",
+      "path": "cmake-3.31.8/doc/cmake/Copyright.txt",
+      "sha256": "0676e30827684487aa0ea8f72f01e9460a6320fa34a2888df0ad1dd3e8a06eb8"
+    },
+    {
+      "id": "ninja-apache-2.0-1.12.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "ninja-1.12.1/COPYING",
+      "sha256": "eb7e9ab9690124c5c9f42bdc81383d886a3dede26345b6ed15bbad7caf81f7ea"
+    },
+    {
+      "id": "cuda-eula-12.8.1",
+      "pathKind": "toolchainRootRelative",
+      "path": "cuda-12.8.1/EULA.txt",
+      "sha256": "e2c71babfd18a8e69542dd7e9ca018f9caa438094001a58e6bc4d8c999bf0d07"
+    },
+    {
+      "id": "whisper-cpp-mit",
+      "pathKind": "outputRelative",
+      "path": "licenses/whisper-cpp.LICENSE",
+      "sha256": null
+    }
+  ],
+  "sbomComponents": ["gcc-13.3.0", "cuda-12.8.1", "cmake-3.31.8", "ninja-1.12.1", "whisper-cpp-v1.9.1"],
+  "qualificationState": "qualified",
+  "evidenceDigest": "2ce2940342e1e888b5868c8a03cfdf3dfe1c0abaff893d3810bf1778641a7c57",
+  "minimumDriver": "570.26"
+}

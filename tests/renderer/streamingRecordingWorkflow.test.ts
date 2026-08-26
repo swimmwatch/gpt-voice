@@ -39,7 +39,7 @@ describe('streaming recording workflow', () => {
     assert.match(streaming, /await queue\.finish\(finished\.finalChunk, finished\.recordingWav\)/u);
     assert.match(streaming, /if \(!ownsRecording\(\)\) return;/u);
     assert.match(streaming, /void queue\.cancel\(\)/u);
-    assert.match(hook, /await submitTranscriptionAudio\(retry\.audio, true\)/u);
+    assert.match(hook, /await submitTranscriptionAudio\(retry\.audio, true, generation\)/u);
     assert.match(hook, /desktopApi\.transcribeAudio\(audio\.buffer, audio\.mimeType\)/u);
     assert.doesNotMatch(streaming, /transcribeAudio/u);
   });
@@ -67,7 +67,7 @@ describe('streaming recording workflow', () => {
     const app = readProjectFile('src/renderer/App.tsx');
     const switchStarted = app.indexOf("case 'switch-started'");
     const rendererCancel = app.indexOf('cancelStreamingForProviderChange();', switchStarted);
-    const providerMutation = app.indexOf('setActiveProviderId(event.providerId);', switchStarted);
+    const providerMutation = app.indexOf('setActiveProviderId(event.result.committedProviderId);', switchStarted);
 
     assert.match(streaming, /if \(recordingModeRef\.current === 'streaming'\) cancel\(false\);/u);
     assert.ok(rendererCancel > switchStarted && rendererCancel < providerMutation);
@@ -82,6 +82,6 @@ describe('streaming recording workflow', () => {
     assert.match(hook, /new MediaRecorder\(stream, \{ mimeType: selectedMimeType \}\)/u);
     assert.match(hook, /mediaRecorder\.ondataavailable/u);
     assert.match(hook, /const audio = await prepareTranscriptionAudio\(blob\)/u);
-    assert.match(hook, /await submitTranscriptionAudio\(audio, false\)/u);
+    assert.match(hook, /await submitTranscriptionAudio\(audio, false, generation\)/u);
   });
 });

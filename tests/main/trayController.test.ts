@@ -5,6 +5,8 @@ import type { BrowserWindow, Menu, MenuItemConstructorOptions, NativeImage, Tray
 import { TrayController } from '@main/tray';
 import type { WindowManager } from '@main/window';
 import type { TranslationKey } from '@main/i18n';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 
 class PrefixLocalization {
   public translate(key: TranslationKey): string {
@@ -53,7 +55,10 @@ class RecordingTray {
 
 class RecordingWindowManager {
   public createCount = 0;
+  public focusSettingsCount = 0;
   public quitting = false;
+  public settingsPresentation: SettingsPresentationState = 'idle';
+  private readonly settingsPresentationListeners = new Set<(state: SettingsPresentationState) => void>();
   public readonly mainWindow = {
     focusCount: 0,
     showCount: 0,
@@ -62,6 +67,12 @@ class RecordingWindowManager {
 
   public createMainWindow(): void {
     this.createCount += 1;
+  }
+
+  public focusSettingsWindow(): boolean {
+    if (this.settingsPresentation === 'idle') return false;
+    this.focusSettingsCount += 1;
+    return true;
   }
 
   public getMainWindow(): BrowserWindow {
@@ -81,6 +92,23 @@ class RecordingWindowManager {
     this.quitting = value;
   }
 
+  public showMainWindow(): void {
+    if (this.focusSettingsWindow()) return;
+    this.mainWindow.showCount += 1;
+    this.mainWindow.focusCount += 1;
+    this.mainWindow.visible = true;
+  }
+
+  public setSettingsPresentation(state: SettingsPresentationState): void {
+    this.settingsPresentation = state;
+    for (const listener of this.settingsPresentationListeners) listener(state);
+  }
+
+  public subscribeSettingsPresentation(listener: (state: SettingsPresentationState) => void): () => void {
+    this.settingsPresentationListeners.add(listener);
+    return () => this.settingsPresentationListeners.delete(listener);
+  }
+
   public showAboutWindow(): void {}
   public showHistoryWindow(): void {}
   public showSettingsWindow(): void {}
@@ -89,6 +117,7 @@ class RecordingWindowManager {
 class TrayControllerHarness {
   public readonly menus: MenuItemConstructorOptions[][] = [];
   public quitCount = 0;
+  public readonly mainInteractionLock = new MainInteractionLock(() => false);
   public readonly trays: RecordingTray[] = [];
   public readonly windowManager = new RecordingWindowManager();
   public readonly controller = new TrayController({
@@ -114,6 +143,7 @@ class TrayControllerHarness {
     },
     getAssetPath: (filename) => `/assets/${filename}`,
     localization: new PrefixLocalization(),
+    mainInteractionLock: this.mainInteractionLock,
     platform: 'linux',
     windowManager: this.windowManager as unknown as WindowManager,
   });
@@ -139,6 +169,30 @@ describe('TrayController', () => {
     (quitItem?.click as (() => void) | undefined)?.();
     assert.equal(harness.windowManager.quitting, true);
     assert.equal(harness.quitCount, 1);
+  });
+
+  it('uses the active settings window as the tray primary destination', () => {
+    const harness = new TrayControllerHarness();
+    harness.controller.create();
+    harness.windowManager.setSettingsPresentation('opening');
+    const openingMenu = harness.menus[harness.menus.length - 1];
+    assert.deepEqual(
+      openingMenu?.slice(0, 4).map((item) => item.enabled),
+      [false, false, true, true],
+    );
+    assert.equal(openingMenu?.[0]?.label, 'translated:settings.opening');
+
+    harness.windowManager.setSettingsPresentation('open');
+    const openMenu = harness.menus[harness.menus.length - 1];
+    assert.equal(openMenu?.[0]?.label, 'translated:settings.show');
+    (openMenu?.[0]?.click as (() => void) | undefined)?.();
+    assert.equal(harness.windowManager.focusSettingsCount, 1);
+    (openMenu?.[1]?.click as (() => void) | undefined)?.();
+    assert.equal(harness.windowManager.focusSettingsCount, 2);
+
+    harness.windowManager.setSettingsPresentation('idle');
+    const idleMenu = harness.menus[harness.menus.length - 1];
+    assert.equal(idleMenu?.[0]?.label, 'translated:tray.show');
   });
 
   it('updates icons and disposes independently and idempotently', () => {

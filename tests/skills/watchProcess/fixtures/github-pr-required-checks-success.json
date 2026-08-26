@@ -1,0 +1,64 @@
+{
+  "pullRequest": {
+    "number": 42,
+    "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "baseRef": "main"
+  },
+  "branchRequiredChecks": {
+    "contexts": ["external/security"],
+    "checks": [{ "context": "Quality / Tests and Production Build", "appId": 1 }]
+  },
+  "ruleRequiredChecks": [{ "context": "Windows", "appId": 1 }],
+  "checkRuns": [
+    {
+      "id": 2001,
+      "name": "Quality / Tests and Production Build",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "detailsUrl": "https://github.com/owner/repository/actions/runs/301/job/2001",
+      "appId": 1
+    },
+    {
+      "id": 2002,
+      "name": "Windows",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "detailsUrl": "https://github.com/owner/repository/actions/runs/302/job/2002",
+      "appId": 1
+    }
+  ],
+  "statuses": [
+    {
+      "id": 3001,
+      "context": "external/security",
+      "state": "success",
+      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "workflowRuns": [
+    {
+      "id": 301,
+      "runAttempt": 1,
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event": "pull_request",
+      "path": ".github/workflows/pr-checks.yml@refs/heads/main",
+      "status": "completed",
+      "conclusion": "success",
+      "htmlUrl": "https://github.com/owner/repository/actions/runs/301",
+      "displayTitle": "Quality checks"
+    },
+    {
+      "id": 302,
+      "runAttempt": 1,
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "event": "pull_request",
+      "path": ".github/workflows/pr-checks.yml@refs/heads/main",
+      "status": "completed",
+      "conclusion": "success",
+      "htmlUrl": "https://github.com/owner/repository/actions/runs/302",
+      "displayTitle": "Windows checks"
+    }
+  ]
+}

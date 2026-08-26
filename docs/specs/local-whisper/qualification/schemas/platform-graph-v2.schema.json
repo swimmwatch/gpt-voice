@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/platform-graph-v2.schema.json",
+  "title": "Local Whisper immutable platform qualification graph v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "specificationRevision",
+    "platformGraphDigest",
+    "candidateInputDigest",
+    "platformInputDigest",
+    "platform",
+    "architecture",
+    "profileDigests"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "specificationRevision": { "const": 10 },
+    "platformGraphDigest": { "$ref": "#/$defs/sha256" },
+    "candidateInputDigest": { "$ref": "#/$defs/sha256" },
+    "platformInputDigest": { "$ref": "#/$defs/sha256" },
+    "platform": { "enum": ["linux", "win32"] },
+    "architecture": { "const": "x64" },
+    "profileDigests": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

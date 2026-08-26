@@ -1,7 +1,10 @@
 import { AudioLines, CircleHelp, History, LogIn, Mic, Settings } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
+import LocalWhisperMainStatusIndicator from '@renderer/localWhisper/components/LocalWhisperMainStatusIndicator';
+import LocalWhisperMainResidencyControl from '@renderer/localWhisper/components/LocalWhisperMainResidencyControl';
+import type { LocalWhisperMainResidencyFailure } from '@renderer/localWhisper/LocalWhisperRendererService';
 import { Button } from '@renderer/components/ui/button';
 import {
   Select,
@@ -18,18 +21,31 @@ import { groupProvidersByCategory } from '@renderer/providerGrouping';
 import { PROVIDER_CONNECTION_REASONS, type ProviderConnectionReason } from '@renderer/providerState';
 import type { ProviderAuthType, ProviderInfo } from '@renderer/types';
 import type { TranslationKey } from '@main/i18n';
+import {
+  LOCAL_WHISPER_PROVIDER_ID,
+  type LocalWhisperMainResidencyAction,
+  type LocalWhisperMainStatusSnapshot,
+} from '@shared/localWhisper';
 
 interface MainToolbarProps {
-  activeProviderAuthType: ProviderAuthType;
+  actionControl?: ReactNode;
+  activeProviderAuthType: ProviderAuthType | null;
   activeProviderHasSettings: boolean;
-  activeProviderId: string;
+  activeProviderId: string | null;
   activeProviderName: string;
   isLoggedIn: boolean;
   isLoggingIn: boolean;
+  isProviderChangesLocked: boolean;
+  isVoiceProviderSwitching: boolean;
+  localWhisperStatus: LocalWhisperMainStatusSnapshot | null;
+  localWhisperPendingAction: LocalWhisperMainResidencyAction | null;
+  localWhisperResidencyFailure: LocalWhisperMainResidencyFailure | null;
+  localWhisperResidencyFailureSequence: number;
   onOpenAbout: () => void;
   onOpenAppSettings: () => void;
   onOpenHistory: () => void;
   onOpenProviderSettings: () => void;
+  onLocalWhisperResidencyAction: (action: LocalWhisperMainResidencyAction) => void;
   onProviderChange: (providerId: string) => void;
   onProviderLogin: () => void;
   providerConnectionFailureTooltip: string;
@@ -40,6 +56,8 @@ interface MainToolbarProps {
 export const VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS = {
   [PROVIDER_CONNECTION_REASONS.ApiConfigured]: 'status.providerConfigured',
   [PROVIDER_CONNECTION_REASONS.ApiNotConfigured]: 'status.providerNotConfigured',
+  [PROVIDER_CONNECTION_REASONS.LocalRuntimeNotReady]: 'status.providerNotConfigured',
+  [PROVIDER_CONNECTION_REASONS.LocalRuntimeReady]: 'status.providerConfigured',
   [PROVIDER_CONNECTION_REASONS.BrowserReady]: 'provider.connectionReadyTooltip',
   [PROVIDER_CONNECTION_REASONS.BrowserUnavailable]: 'provider.browserUnavailableTooltip',
   [PROVIDER_CONNECTION_REASONS.Checking]: 'provider.connectionCheckingTooltip',
@@ -47,18 +65,37 @@ export const VOICE_PROVIDER_CONNECTION_TOOLTIP_KEYS = {
   [PROVIDER_CONNECTION_REASONS.SessionMissing]: 'provider.sessionMissingTooltip',
 } as const satisfies Record<ProviderConnectionReason, TranslationKey>;
 
+/** Names the available recovery action without exposing a provider error payload. */
+export function getProviderActionLabelKey(
+  activeProviderAuthType: ProviderAuthType | null,
+  providerConnectionReason: ProviderConnectionReason,
+): TranslationKey {
+  if (activeProviderAuthType === 'apiKey') return 'provider.configure';
+  return providerConnectionReason === PROVIDER_CONNECTION_REASONS.SessionExpired
+    ? 'providerSettings.relogin'
+    : 'provider.connect';
+}
+
 /** Coordinates main-window provider controls, session actions, and status affordances. */
 function MainToolbar({
+  actionControl,
   activeProviderAuthType,
   activeProviderHasSettings,
   activeProviderId,
   activeProviderName,
   isLoggedIn,
   isLoggingIn,
+  isProviderChangesLocked,
+  isVoiceProviderSwitching,
+  localWhisperStatus,
+  localWhisperPendingAction,
+  localWhisperResidencyFailure,
+  localWhisperResidencyFailureSequence,
   onOpenAbout,
   onOpenAppSettings,
   onOpenHistory,
   onOpenProviderSettings,
+  onLocalWhisperResidencyAction,
   onProviderChange,
   onProviderLogin,
   providerConnectionFailureTooltip,
@@ -66,8 +103,8 @@ function MainToolbar({
   providers,
 }: MainToolbarProps): React.JSX.Element {
   const { t } = useI18n();
-  const isBrowserSessionProvider = activeProviderAuthType === 'browserSession';
-  const providerActionLabel = t(activeProviderAuthType === 'apiKey' ? 'provider.configure' : 'provider.connect');
+  const isLocalWhisperProvider = activeProviderId === LOCAL_WHISPER_PROVIDER_ID;
+  const providerActionLabel = t(getProviderActionLabelKey(activeProviderAuthType, providerConnectionReason));
   const providerSettingsLabel = t('navigation.openProviderSettings', { provider: activeProviderName });
   const providerStatusTooltip =
     providerConnectionFailureTooltip ||
@@ -120,7 +157,11 @@ function MainToolbar({
               <Button
                 aria-label={t('navigation.openAppSettings')}
                 className="command-dock-icon-button command-dock-settings-shortcut"
-                onClick={onOpenAppSettings}
+                disabled={isProviderChangesLocked}
+                onClick={() => {
+                  if (isProviderChangesLocked) return;
+                  onOpenAppSettings();
+                }}
                 size="icon"
                 title={t('navigation.openAppSettings')}
                 variant="outline"
@@ -137,9 +178,16 @@ function MainToolbar({
         <Mic aria-hidden="true" className="command-dock-section-icon" strokeWidth={1.75} />
         <div className="command-dock-provider-field">
           <span className="command-dock-field-label">{t('mainDock.providerLabel')}</span>
-          <Select onValueChange={onProviderChange} value={activeProviderId}>
+          <Select
+            disabled={isProviderChangesLocked}
+            onValueChange={(providerId) => {
+              if (isProviderChangesLocked) return;
+              onProviderChange(providerId);
+            }}
+            value={activeProviderId ?? undefined}
+          >
             <SelectTrigger aria-label={t('provider.label')} className="command-dock-provider-trigger">
-              <SelectValue placeholder={t('provider.label')} />
+              <SelectValue placeholder={t(activeProviderId === null ? 'startup.selectProvider' : 'provider.label')} />
             </SelectTrigger>
             <SelectContent>
               {providerGroups.map((group, groupIndex) => (
@@ -158,18 +206,81 @@ function MainToolbar({
           </Select>
         </div>
 
+        {actionControl}
+
         <div
           className="command-dock-provider-controls"
           data-has-settings={activeProviderHasSettings}
+          data-local-whisper={isLocalWhisperProvider}
           data-slot="provider-controls"
         >
-          {activeProviderHasSettings && (
+          {activeProviderId !== null &&
+            (isVoiceProviderSwitching ? (
+              <ProviderStatusIndicator
+                className="command-dock-provider-state"
+                dataSlot="voice-provider-connection"
+                label={t('provider.connectionChecking')}
+                loading
+                tone="neutral"
+                tooltip={t('provider.connectionCheckingTooltip')}
+              />
+            ) : isLocalWhisperProvider ? (
+              <>
+                <LocalWhisperMainStatusIndicator
+                  connectedLabel={t('provider.connected')}
+                  notConnectedLabel={t('provider.notConnected')}
+                  snapshot={localWhisperStatus}
+                />
+                <LocalWhisperMainResidencyControl
+                  disabled={isProviderChangesLocked}
+                  failure={localWhisperResidencyFailure}
+                  failureSequence={localWhisperResidencyFailureSequence}
+                  onAction={onLocalWhisperResidencyAction}
+                  pendingAction={localWhisperPendingAction}
+                  snapshot={localWhisperStatus}
+                />
+              </>
+            ) : isLoggedIn ? (
+              <ProviderStatusIndicator
+                className="command-dock-provider-state command-dock-provider-state-success"
+                dataSlot="voice-provider-connection"
+                label={t('provider.connected')}
+                tone="success"
+                tooltip={providerStatusTooltip}
+              />
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    aria-label={providerActionLabel}
+                    className="command-dock-provider-action"
+                    data-icon-only
+                    disabled={isLoggingIn || isProviderChangesLocked}
+                    onClick={() => {
+                      if (isLoggingIn || isProviderChangesLocked) return;
+                      onProviderLogin();
+                    }}
+                    size="icon"
+                    variant="outline"
+                  >
+                    {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{providerStatusTooltip}</TooltipContent>
+              </Tooltip>
+            ))}
+
+          {activeProviderId !== null && activeProviderHasSettings && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   aria-label={providerSettingsLabel}
                   className="command-dock-provider-settings-shortcut command-dock-settings-shortcut"
-                  onClick={onOpenProviderSettings}
+                  disabled={isProviderChangesLocked}
+                  onClick={() => {
+                    if (isProviderChangesLocked) return;
+                    onOpenProviderSettings();
+                  }}
                   size="icon"
                   title={providerSettingsLabel}
                   variant="outline"
@@ -178,34 +289,6 @@ function MainToolbar({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{providerSettingsLabel}</TooltipContent>
-            </Tooltip>
-          )}
-
-          {isLoggedIn ? (
-            <ProviderStatusIndicator
-              className="command-dock-provider-state command-dock-provider-state-success"
-              dataSlot="voice-provider-connection"
-              label={t('provider.connected')}
-              tone="success"
-              tooltip={providerStatusTooltip}
-            />
-          ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label={providerActionLabel}
-                  className="command-dock-provider-action"
-                  data-icon-only={isBrowserSessionProvider}
-                  disabled={isLoggingIn}
-                  onClick={onProviderLogin}
-                  size={isBrowserSessionProvider ? 'icon' : 'default'}
-                  variant="outline"
-                >
-                  {isLoggingIn ? <Spinner label={t('login.loggingIn')} /> : <LogIn aria-hidden="true" />}
-                  {!isBrowserSessionProvider && <span>{isLoggingIn ? t('login.loggingIn') : providerActionLabel}</span>}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{providerStatusTooltip}</TooltipContent>
             </Tooltip>
           )}
         </div>

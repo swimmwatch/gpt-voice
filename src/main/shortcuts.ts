@@ -1,8 +1,6 @@
 import {
   canRunRetryTranscriptionHotkey,
   canRunTextActionHotkey,
-  getConflictingHotkeyTargets,
-  normalizeHotkeyForPlatform,
   type HotkeySettings,
   type HotkeyTarget,
 } from '@shared/hotkeys';
@@ -14,21 +12,33 @@ import {
   canStopRecording,
   isRecordingLifecycleBusy,
   type RecordingLifecycleState,
+  type VoiceRecordingStartResult,
+  type VoiceRecordingStartRejectionReason,
+  VOICE_RECORDING_IPC_CHANNELS,
 } from '@shared/recordingLifecycle';
 import { presentNotificationError, type NotificationErrorLogMetadata } from '@shared/notifications';
-import type { TextActionStatus, TextActionStatusAction } from '@shared/textActionStatus';
+import {
+  TEXT_ACTION_ACTIVITY_IPC_CHANNELS,
+  type TextActionStatus,
+  type TextActionStatusAction,
+} from '@shared/textActionStatus';
 import type { I18nService } from './i18n';
+import type { HotkeyRegistrationService } from './hotkeys/HotkeyRegistrationService';
+import { MainInteractionLock } from '@shared/mainInteractionLock';
 import type { SelectedTextActionGate } from './services/selectedTextActionState';
 import type { SelectedTextPrettifyService } from './services/selectedTextPrettify';
+import type { SelectedTextTranslationRunObserver } from './services/selectedTextTranslation';
 import type { PrettifyRuntime } from './services/prettifyProviders';
 import { getTrayIconStateForRecordingLifecycle } from './trayIconState';
 import type { TrayController } from './tray';
 import type { WindowManager } from './window';
 import type { AppConfigStore } from './config';
+import type { ProviderHomeActionDispatcher } from './providerHomeActionDispatcher';
 
 interface CancelShortcutActions {
   cancelPrettify: () => boolean;
   cancelRecording: () => void;
+  cancelTranslation: () => boolean;
 }
 
 export interface TextActionResultForStatus {
@@ -38,7 +48,8 @@ export interface TextActionResultForStatus {
 }
 
 export interface SelectedTextTranslationShortcutService {
-  translateSelectedTextToClipboard(): Promise<TextActionResultForStatus>;
+  cancel(): boolean;
+  translateSelectedTextToClipboard(observer?: SelectedTextTranslationRunObserver): Promise<TextActionResultForStatus>;
 }
 
 export interface TextActionStatusResolution {
@@ -52,43 +63,54 @@ export interface ShortcutSettingsSnapshot extends HotkeySettings {
   readonly translateEnabled: boolean;
 }
 
+export interface VoiceRecordingProviderReadiness {
+  isReady(): boolean;
+}
+
+const RECORDING_START_ACCEPTED = Object.freeze({ accepted: true }) satisfies VoiceRecordingStartResult;
+const RECORDING_START_REJECTED = Object.freeze({ accepted: false }) satisfies VoiceRecordingStartResult;
+const PROVIDER_NOT_CONNECTED_REJECTION = Object.freeze({
+  accepted: false,
+  reason: 'provider-not-connected',
+}) satisfies VoiceRecordingStartResult;
+
 export interface ShortcutControllerDependencies {
   readonly config: Pick<AppConfigStore, 'getSnapshot'>;
-  readonly globalShortcut: {
-    register(accelerator: string, callback: () => void): boolean;
-    unregister(accelerator: string): void;
-    unregisterAll(): void;
-  };
+  readonly hotkeyRegistrationService: Pick<HotkeyRegistrationService, 'dispose' | 'start'>;
   readonly logger: {
     info(...args: unknown[]): void;
     warn(...args: unknown[]): void;
   };
   readonly localization: Pick<I18nService, 'translate'>;
+  readonly mainInteractionLock: MainInteractionLock;
   readonly notification: {
     show(title: string, body: string): void;
   };
-  readonly platform: NodeJS.Platform;
   readonly prettifyRuntime: Pick<PrettifyRuntime, 'isProviderConnected'>;
-  readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive'>;
+  readonly providerHomeActionDispatcher: Pick<ProviderHomeActionDispatcher, 'dispatch'>;
+  readonly selectedTextActionGate: Pick<SelectedTextActionGate, 'getActive' | 'subscribe'>;
   readonly selectedTextPrettifyService: Pick<
     SelectedTextPrettifyService,
     'applyDefaultProfileToSelectedText' | 'cancel' | 'chooseProfileForSelectedText' | 'focusExistingChooser'
   >;
   readonly selectedTextTranslationService: SelectedTextTranslationShortcutService;
   readonly trayController: Pick<TrayController, 'updateIcon'>;
+  readonly voiceRecordingProviderReadiness: VoiceRecordingProviderReadiness;
   readonly windowManager: Pick<WindowManager, 'getMainWindow'>;
 }
 
-/** Owns global hotkeys and the recording lifecycle state that gates them. */
+/** Owns product hotkey callbacks and the recording lifecycle state that gates them. */
 export class ShortcutController {
-  private conflictingHotkeyTargets = new Set<HotkeyTarget>();
   private disposed = false;
+  private readonly selectedTextActionGateUnsubscribe: () => void;
   private recordingLifecycleState: RecordingLifecycleState = 'idle';
-  private registeredRetryTranscriptionHotkey: string | null = null;
   private retryTranscriptionAvailable = false;
-  private shortcutsSuspended = false;
 
-  public constructor(private readonly dependencies: ShortcutControllerDependencies) {}
+  public constructor(private readonly dependencies: ShortcutControllerDependencies) {
+    this.selectedTextActionGateUnsubscribe = dependencies.selectedTextActionGate.subscribe((action) => {
+      this.sendTextActionActivity(action !== null);
+    });
+  }
 
   public getRecordingState(): {
     readonly isPaused: boolean;
@@ -104,8 +126,8 @@ export class ShortcutController {
 
   public setRecordingLifecycleState(state: RecordingLifecycleState): void {
     this.recordingLifecycleState = state;
+    this.dependencies.mainInteractionLock.setRecordingLifecycleState(state);
     this.updateTrayIconForRecordingLifecycle();
-    this.syncRetryTranscriptionShortcut();
   }
 
   public resetRecordingState(): void {
@@ -114,170 +136,166 @@ export class ShortcutController {
 
   public setRetryTranscriptionAvailable(available: boolean): void {
     this.retryTranscriptionAvailable = available;
-    this.syncRetryTranscriptionShortcut();
   }
 
+  /** Retained until Packet 04 removes the legacy capture API; capture no longer controls OS bindings. */
   public setSuspended(suspended: boolean): void {
-    if (this.shortcutsSuspended === suspended || this.disposed) return;
-    this.shortcutsSuspended = suspended;
-    if (suspended) {
-      this.dependencies.globalShortcut.unregisterAll();
-      this.registeredRetryTranscriptionHotkey = null;
-      this.dependencies.logger.info('Global shortcuts suspended for hotkey capture');
-      return;
+    void suspended;
+  }
+
+  /** Authoritatively starts recording only when the active Voice Provider can transcribe. */
+  public requestRecordingStart(): VoiceRecordingStartResult {
+    if (
+      this.dependencies.mainInteractionLock.locked ||
+      !canStartRecording(this.recordingLifecycleState) ||
+      this.dependencies.selectedTextActionGate.getActive()
+    ) {
+      return RECORDING_START_REJECTED;
+    }
+    if (!this.dependencies.voiceRecordingProviderReadiness.isReady()) {
+      this.dependencies.logger.info('Recording start rejected because Voice Provider is not connected');
+      this.sendRecordingStartRejected('provider-not-connected');
+      this.showVoiceProviderNotReadyNotification();
+      return PROVIDER_NOT_CONNECTED_REJECTION;
     }
 
-    this.dependencies.logger.info('Global shortcuts resumed after hotkey capture');
-    this.register();
+    this.setRecordingLifecycleState('starting');
+    this.dependencies.windowManager.getMainWindow()?.webContents.send('toggle-recording', true);
+    return RECORDING_START_ACCEPTED;
   }
 
-  /** Registers every configured shortcut while preserving lifecycle gates. */
-  /** Registers the current non-conflicting global shortcut set. */
+  /** Starts the process-owned registration service after Electron becomes ready. */
   public register(): void {
     if (this.disposed) return;
-    const settings = this.dependencies.config.getSnapshot();
-    this.dependencies.globalShortcut.unregisterAll();
-    this.registeredRetryTranscriptionHotkey = null;
-    this.conflictingHotkeyTargets = new Set(getConflictingHotkeyTargets(settings, this.dependencies.platform));
-
-    if (this.shortcutsSuspended) {
-      this.dependencies.logger.info('Skipped global shortcut registration while hotkey capture is active');
-      return;
-    }
-
-    const recordHotkey = this.normalizeHotkeyForPlatform(settings.hotkey);
-    const stopHotkey = this.normalizeHotkeyForPlatform(settings.stopHotkey);
-    const cancelHotkey = this.normalizeHotkeyForPlatform(settings.cancelHotkey);
-    const translateHotkey = this.normalizeHotkeyForPlatform(settings.translateHotkey);
-    const prettifyHotkey = this.normalizeHotkeyForPlatform(settings.prettifyHotkey);
-    const prettifyQuickHotkey = this.normalizeHotkeyForPlatform(settings.prettifyQuickHotkey);
-
-    const recordRegistered = this.registerConfiguredShortcut('record', recordHotkey, () => {
-      const window = this.dependencies.windowManager.getMainWindow();
-      if (canStartRecording(this.recordingLifecycleState)) {
-        this.dependencies.logger.info(`${recordHotkey} pressed, starting recording`);
-        this.setRecordingLifecycleState('starting');
-        window?.webContents.send('toggle-recording', true);
-      } else if (canPauseRecording(this.recordingLifecycleState)) {
-        this.dependencies.logger.info(`${recordHotkey} pressed, pausing recording`);
-        this.setRecordingLifecycleState('paused');
-        window?.webContents.send('pause-recording');
-      } else if (canResumeRecording(this.recordingLifecycleState)) {
-        this.dependencies.logger.info(`${recordHotkey} pressed, resuming recording`);
-        this.setRecordingLifecycleState('recording');
-        window?.webContents.send('resume-recording');
-      } else {
-        this.dependencies.logger.info(
-          `${recordHotkey} pressed while recording lifecycle is busy:`,
-          this.recordingLifecycleState,
-        );
-      }
-    });
-    this.dependencies.logger.info(`${recordHotkey} shortcut registered:`, recordRegistered);
-
-    const stopRegistered = this.registerConfiguredShortcut('stop', stopHotkey, () => {
-      if (canStopRecording(this.recordingLifecycleState)) {
-        this.dependencies.logger.info(`${stopHotkey} pressed, stopping recording`);
-        this.setRecordingLifecycleState('stopping');
-        this.dependencies.windowManager.getMainWindow()?.webContents.send('stop-recording');
-      } else {
-        this.dependencies.logger.info(
-          `${stopHotkey} pressed while recording cannot stop:`,
-          this.recordingLifecycleState,
-        );
-      }
-    });
-    this.dependencies.logger.info(`${stopHotkey} stop shortcut registered:`, stopRegistered);
-
-    const cancelRegistered = this.registerConfiguredShortcut('cancel', cancelHotkey, () => {
-      const window = this.dependencies.windowManager.getMainWindow();
-      handleCancelShortcut(canCancelRecording(this.recordingLifecycleState), {
-        cancelPrettify: () => {
-          const result = this.dependencies.selectedTextPrettifyService.cancel();
-          if (result) {
-            this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling prettify`);
-            this.updateTrayIconForRecordingLifecycle();
-          }
-          return Boolean(result);
-        },
-        cancelRecording: () => {
-          this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling recording`);
-          this.setRecordingLifecycleState('idle');
-          window?.webContents.send('cancel-recording');
-        },
-      });
-    });
-    this.dependencies.logger.info(`${cancelHotkey} cancel shortcut registered:`, cancelRegistered);
-
-    const translateRegistered = this.registerConfiguredShortcut('translate', translateHotkey, () => {
-      const selectedTextBusy = Boolean(this.dependencies.selectedTextActionGate.getActive());
-      const currentSettings = this.dependencies.config.getSnapshot();
-      if (!canRunTranslateShortcut(this.recordingLifecycleState, currentSettings.translateEnabled, selectedTextBusy)) {
-        if (currentSettings.translateEnabled) {
-          this.dependencies.logger.info(`${translateHotkey} pressed while translation cannot run`, {
-            recordingLifecycleState: this.recordingLifecycleState,
-            selectedTextBusy,
-          });
-        } else {
-          this.dependencies.logger.info(`${translateHotkey} pressed while translation is disabled`);
-        }
-        return;
-      }
-
-      this.dependencies.logger.info(`${translateHotkey} pressed, translating selected text`);
-      const resultPromise = this.dependencies.selectedTextTranslationService.translateSelectedTextToClipboard();
-      this.sendTextActionStatus({ action: 'translation', phase: 'working' });
-      void resolveTextActionStatus('translation', resultPromise).then((resolution) => {
-        this.reportTextActionFailure(resolution.failureLogMetadata);
-        this.sendTextActionStatus(resolution.status);
-      });
-    });
-    this.dependencies.logger.info(`${translateHotkey} translate shortcut registered:`, translateRegistered);
-
-    const prettifyRegistered = this.registerConfiguredShortcut('prettify', prettifyHotkey, () => {
-      this.runPrettifyShortcut('prettify', prettifyHotkey);
-    });
-    this.dependencies.logger.info(`${prettifyHotkey} prettify shortcut registered:`, prettifyRegistered);
-
-    const prettifyQuickRegistered = this.registerConfiguredShortcut('prettifyQuick', prettifyQuickHotkey, () => {
-      this.runPrettifyShortcut('prettifyQuick', prettifyQuickHotkey);
-    });
-    this.dependencies.logger.info(
-      `${prettifyQuickHotkey} quick prettify shortcut registered:`,
-      prettifyQuickRegistered,
-    );
-
-    this.syncRetryTranscriptionShortcut();
+    this.dependencies.hotkeyRegistrationService.start();
   }
 
   public dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.dependencies.globalShortcut.unregisterAll();
-    this.registeredRetryTranscriptionHotkey = null;
-    this.conflictingHotkeyTargets.clear();
+    this.selectedTextActionGateUnsubscribe();
+    this.dependencies.hotkeyRegistrationService.dispose();
   }
 
-  private normalizeHotkeyForPlatform(hotkey: string): string {
-    return normalizeHotkeyForPlatform(hotkey, this.dependencies.platform) ?? hotkey;
-  }
-
-  private registerConfiguredShortcut(target: HotkeyTarget, hotkey: string, callback: () => void): boolean {
-    if (this.conflictingHotkeyTargets.has(target)) {
-      this.dependencies.logger.warn(
-        `Skipped ${target} shortcut because its key conflicts with another configured shortcut:`,
-        hotkey,
-      );
-      return false;
+  /** Receives a validated, registered target from the process-owned registration service. */
+  public dispatchHotkey(target: HotkeyTarget): void {
+    if (this.disposed) return;
+    switch (target) {
+      case 'record':
+        this.runRecordShortcut();
+        return;
+      case 'stop':
+        this.runStopShortcut();
+        return;
+      case 'cancel':
+        this.runCancelShortcut();
+        return;
+      case 'translate':
+        this.runTranslateShortcut();
+        return;
+      case 'prettify':
+        this.runPrettifyShortcut('prettify', this.dependencies.config.getSnapshot().prettifyHotkey);
+        return;
+      case 'prettifyQuick':
+        this.runPrettifyShortcut('prettifyQuick', this.dependencies.config.getSnapshot().prettifyQuickHotkey);
+        return;
+      case 'retryTranscription':
+        this.runRetryTranscriptionShortcut();
+        return;
     }
-    return this.dependencies.globalShortcut.register(hotkey, callback);
   }
 
-  private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string): void {
+  private runRecordShortcut(): void {
+    const recordHotkey = this.dependencies.config.getSnapshot().hotkey;
+    const window = this.dependencies.windowManager.getMainWindow();
+    if (canStartRecording(this.recordingLifecycleState) && !this.dependencies.selectedTextActionGate.getActive()) {
+      const result = this.requestRecordingStart();
+      if (result.accepted) this.dependencies.logger.info(`${recordHotkey} pressed, starting recording`);
+    } else if (canPauseRecording(this.recordingLifecycleState)) {
+      this.dependencies.logger.info(`${recordHotkey} pressed, pausing recording`);
+      this.setRecordingLifecycleState('paused');
+      window?.webContents.send('pause-recording');
+    } else if (canResumeRecording(this.recordingLifecycleState)) {
+      this.dependencies.logger.info(`${recordHotkey} pressed, resuming recording`);
+      this.setRecordingLifecycleState('recording');
+      window?.webContents.send('resume-recording');
+    } else {
+      this.dependencies.logger.info(
+        `${recordHotkey} pressed while recording lifecycle is busy:`,
+        this.recordingLifecycleState,
+      );
+    }
+  }
+
+  private runStopShortcut(): void {
+    const stopHotkey = this.dependencies.config.getSnapshot().stopHotkey;
+    if (canStopRecording(this.recordingLifecycleState)) {
+      this.dependencies.logger.info(`${stopHotkey} pressed, stopping recording`);
+      this.setRecordingLifecycleState('stopping');
+      this.dependencies.windowManager.getMainWindow()?.webContents.send('stop-recording');
+      return;
+    }
+    this.dependencies.logger.info(`${stopHotkey} pressed while recording cannot stop:`, this.recordingLifecycleState);
+  }
+
+  private runCancelShortcut(): void {
+    const cancelHotkey = this.dependencies.config.getSnapshot().cancelHotkey;
+    const window = this.dependencies.windowManager.getMainWindow();
+    handleCancelShortcut(canCancelRecording(this.recordingLifecycleState), {
+      cancelPrettify: () => {
+        const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+          { action: 'cancel', provider: 'prettify' },
+          'escape',
+        ).accepted;
+        if (result) {
+          this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling prettify`);
+          this.updateTrayIconForRecordingLifecycle();
+        }
+        return result;
+      },
+      cancelRecording: () => {
+        this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling recording`);
+        this.setRecordingLifecycleState('idle');
+        window?.webContents.send('cancel-recording');
+      },
+      cancelTranslation: () => {
+        const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+          { action: 'cancel', provider: 'translation' },
+          'escape',
+        ).accepted;
+        if (result) this.dependencies.logger.info(`${cancelHotkey} pressed, cancelling translation`);
+        return result;
+      },
+    });
+  }
+
+  private runTranslateShortcut(): void {
+    const translateHotkey = this.dependencies.config.getSnapshot().translateHotkey;
+    const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+      { action: 'start', provider: 'translation' },
+      'global-shortcut',
+    );
+    if (!result.accepted) this.dependencies.logger.info(`${translateHotkey} pressed while translation cannot run`);
+  }
+
+  private runPrettifyShortcut(target: 'prettify' | 'prettifyQuick', hotkey: string | null): void {
+    if (this.dependencies.mainInteractionLock.locked) {
+      this.dependencies.logger.info(`${hotkey} pressed while settings lock is active`, { target });
+      return;
+    }
+
+    if (target === 'prettify') {
+      const result = this.dependencies.providerHomeActionDispatcher.dispatch(
+        { action: 'start', provider: 'prettify' },
+        'global-shortcut',
+      );
+      if (!result.accepted) this.dependencies.logger.info(`${hotkey} pressed while Prettify cannot run`);
+      return;
+    }
+
     const currentSettings = this.dependencies.config.getSnapshot();
-    const targetEnabled =
-      target === 'prettify' ? currentSettings.prettifyEnabled : currentSettings.prettifyQuickEnabled;
-    if (target === 'prettifyQuick' && !targetEnabled) {
+    const targetEnabled = currentSettings.prettifyQuickEnabled;
+    if (!targetEnabled) {
       this.dependencies.logger.info(`${hotkey} pressed while prettify is disabled`, { target });
       return;
     }
@@ -312,11 +330,7 @@ export class ShortcutController {
       return;
     }
 
-    this.dependencies.logger.info(
-      target === 'prettify'
-        ? `${hotkey} pressed, starting Prettify chooser action`
-        : `${hotkey} pressed, starting quick Prettify action`,
-    );
+    this.dependencies.logger.info(`${hotkey} pressed, starting quick Prettify action`);
     let generationPresentationStarted = false;
     const observer = {
       onGenerationStarted: (): void => {
@@ -326,10 +340,7 @@ export class ShortcutController {
         this.sendTextActionStatus({ action: 'prettify', phase: 'working' });
       },
     };
-    const resultPromise =
-      target === 'prettify'
-        ? this.dependencies.selectedTextPrettifyService.chooseProfileForSelectedText(observer)
-        : this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText(observer);
+    const resultPromise = this.dependencies.selectedTextPrettifyService.applyDefaultProfileToSelectedText(observer);
     void resolveTextActionStatus('prettify', resultPromise).then((resolution) => {
       this.reportTextActionFailure(resolution.failureLogMetadata);
       this.sendTextActionStatus(resolution.status);
@@ -337,55 +348,39 @@ export class ShortcutController {
     });
   }
 
-  private unregisterRetryTranscriptionShortcut(): void {
-    if (!this.registeredRetryTranscriptionHotkey) return;
-    this.dependencies.globalShortcut.unregister(this.registeredRetryTranscriptionHotkey);
-    this.dependencies.logger.info(
-      `${this.registeredRetryTranscriptionHotkey} resend transcription shortcut unregistered`,
-    );
-    this.registeredRetryTranscriptionHotkey = null;
-  }
-
-  private syncRetryTranscriptionShortcut(): void {
-    if (this.disposed || this.shortcutsSuspended || this.conflictingHotkeyTargets.has('retryTranscription')) {
-      this.unregisterRetryTranscriptionShortcut();
-      return;
-    }
-
-    const retryHotkey = this.normalizeHotkeyForPlatform(
-      this.dependencies.config.getSnapshot().retryTranscriptionHotkey,
-    );
+  private runRetryTranscriptionShortcut(): void {
+    const retryHotkey = this.dependencies.config.getSnapshot().retryTranscriptionHotkey;
     if (!canRunRetryTranscriptionShortcut(this.recordingLifecycleState, this.retryTranscriptionAvailable)) {
-      this.unregisterRetryTranscriptionShortcut();
+      this.dependencies.logger.info(`${retryHotkey} pressed while resend transcription is unavailable`);
       return;
     }
-    if (this.registeredRetryTranscriptionHotkey === retryHotkey) return;
 
-    this.unregisterRetryTranscriptionShortcut();
-    const registered = this.registerConfiguredShortcut('retryTranscription', retryHotkey, () => {
-      if (!canRunRetryTranscriptionShortcut(this.recordingLifecycleState, this.retryTranscriptionAvailable)) {
-        this.dependencies.logger.info(`${retryHotkey} pressed while resend transcription is unavailable`);
-        return;
-      }
+    const window = this.dependencies.windowManager.getMainWindow();
+    if (!window) {
+      this.dependencies.logger.info(`${retryHotkey} pressed without an available main window`);
+      return;
+    }
 
-      const window = this.dependencies.windowManager.getMainWindow();
-      if (!window) {
-        this.dependencies.logger.info(`${retryHotkey} pressed without an available main window`);
-        return;
-      }
-
-      this.dependencies.logger.info(`${retryHotkey} pressed, resending transcription audio`);
-      this.retryTranscriptionAvailable = false;
-      this.setRecordingLifecycleState('retrying');
-      this.unregisterRetryTranscriptionShortcut();
-      window.webContents.send('retry-transcription');
-    });
-    this.registeredRetryTranscriptionHotkey = registered ? retryHotkey : null;
-    this.dependencies.logger.info(`${retryHotkey} resend transcription shortcut registered:`, registered);
+    this.dependencies.logger.info(`${retryHotkey} pressed, resending transcription audio`);
+    this.retryTranscriptionAvailable = false;
+    this.setRecordingLifecycleState('retrying');
+    window.webContents.send('retry-transcription');
   }
 
   private sendTextActionStatus(status: TextActionStatus): void {
     this.dependencies.windowManager.getMainWindow()?.webContents.send('translation-status', status);
+  }
+
+  private sendRecordingStartRejected(reason: VoiceRecordingStartRejectionReason): void {
+    this.dependencies.windowManager
+      .getMainWindow()
+      ?.webContents.send(VOICE_RECORDING_IPC_CHANNELS.startRejected, reason);
+  }
+
+  private sendTextActionActivity(active: boolean): void {
+    this.dependencies.windowManager
+      .getMainWindow()
+      ?.webContents.send(TEXT_ACTION_ACTIVITY_IPC_CHANNELS.changed, active);
   }
 
   private reportTextActionFailure(failureLogMetadata: TextActionStatusResolution['failureLogMetadata']): void {
@@ -404,6 +399,17 @@ export class ShortcutController {
     }
   }
 
+  private showVoiceProviderNotReadyNotification(): void {
+    try {
+      this.dependencies.notification.show(
+        'GPT-Voice',
+        this.dependencies.localization.translate('error.selectedProviderNotReady'),
+      );
+    } catch {
+      this.dependencies.logger.warn('Failed to show Voice Provider readiness notification');
+    }
+  }
+
   private updateTrayIconForRecordingLifecycle(): void {
     this.dependencies.trayController.updateIcon(getTrayIconStateForRecordingLifecycle(this.recordingLifecycleState));
   }
@@ -418,7 +424,7 @@ export function handleCancelShortcut(isCurrentlyRecording: boolean, actions: Can
     actions.cancelRecording();
     return true;
   }
-  return actions.cancelPrettify();
+  return actions.cancelPrettify() || actions.cancelTranslation();
 }
 
 export function getTextActionStatus(

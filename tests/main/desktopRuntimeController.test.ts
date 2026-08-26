@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { BrowserWindow, Menu, MenuItemConstructorOptions, Session, WebContents } from 'electron';
 import { DesktopRuntimeController, type DesktopRuntimeApplication } from '@main/desktopRuntimeController';
+import { I18nService } from '@main/i18n';
 
 type PermissionCheckHandler = NonNullable<Parameters<Session['setPermissionCheckHandler']>[0]>;
 type PermissionRequestHandler = NonNullable<Parameters<Session['setPermissionRequestHandler']>[0]>;
@@ -10,7 +11,9 @@ type PermissionRequestHandler = NonNullable<Parameters<Session['setPermissionReq
 class RecordingDesktopApplication implements DesktopRuntimeApplication {
   public aboutOptions: unknown = null;
   public readonly commandLineSwitches: Array<readonly [string, string | undefined]> = [];
+  private readonly commandLineValues = new Map<string, string>();
   public disableHardwareCount = 0;
+  public desktopName = '';
   public dockIcon = '';
   public modelId = '';
   public name = '';
@@ -21,7 +24,9 @@ class RecordingDesktopApplication implements DesktopRuntimeApplication {
   public readonly commandLine = {
     appendSwitch: (name: string, value?: string) => {
       this.commandLineSwitches.push([name, value]);
+      this.commandLineValues.set(name, value ?? '');
     },
+    getSwitchValue: (name: string) => this.commandLineValues.get(name) ?? '',
   };
   public readonly dock = {
     setIcon: (image: string) => {
@@ -53,6 +58,10 @@ class RecordingDesktopApplication implements DesktopRuntimeApplication {
     this.modelId = id;
   }
 
+  public setDesktopName(name: string): void {
+    this.desktopName = name;
+  }
+
   public setName(name: string): void {
     this.name = name;
   }
@@ -76,6 +85,7 @@ class DesktopRuntimeHarness {
   public createController(
     options: {
       readonly arguments?: readonly string[];
+      readonly locale?: 'en' | 'ru';
       readonly platform?: NodeJS.Platform;
     } = {},
   ): DesktopRuntimeController {
@@ -92,6 +102,7 @@ class DesktopRuntimeHarness {
         this.exitCode = code;
       },
       getAppIconPath: () => '/assets/icon.png',
+      localization: new I18nService(options.locale),
       openExternal: async () => undefined,
       platform: options.platform ?? 'linux',
       schedule: (callback) => {
@@ -139,15 +150,38 @@ describe('DesktopRuntimeController', () => {
 
     assert.equal(harness.app.name, 'GPT-Voice');
     assert.equal(harness.app.modelId, 'com.swimmwatch.gptvoice');
+    assert.equal(harness.app.desktopName, 'com.swimmwatch.gptvoice');
     assert.equal(harness.app.disableHardwareCount, 1);
     assert.deepEqual(harness.app.commandLineSwitches, [
-      ['class', 'gpt-voice'],
+      ['class', 'com.swimmwatch.gptvoice'],
+      ['enable-features', 'GlobalShortcutsPortal'],
       ['disable-gpu', undefined],
       ['disable-dev-shm-usage', undefined],
       ['log-level', '3'],
       ['no-sandbox', undefined],
     ]);
     assert.equal(harness.environment.ELECTRON_DISABLE_SANDBOX, '1');
+  });
+
+  it('merges the Linux portal feature once without changing non-Linux startup behavior', () => {
+    const linuxHarness = new DesktopRuntimeHarness();
+    linuxHarness.app.commandLine.appendSwitch('enable-features', 'Existing, GlobalShortcutsPortal,Other');
+    const linuxController = linuxHarness.createController();
+
+    linuxController.configureBeforeReady();
+    linuxController.configureBeforeReady();
+
+    assert.equal(
+      linuxHarness.app.commandLine.getSwitchValue('enable-features'),
+      'Existing,Other,GlobalShortcutsPortal',
+    );
+    assert.equal(linuxHarness.app.commandLineSwitches.filter(([name]) => name === 'enable-features').length, 2);
+
+    const macHarness = new DesktopRuntimeHarness();
+    macHarness.createController({ platform: 'darwin' }).configureBeforeReady();
+    assert.equal(macHarness.app.desktopName, '');
+    assert.equal(macHarness.app.commandLine.getSwitchValue('enable-features'), '');
+    assert.deepEqual(macHarness.app.commandLineSwitches, []);
   });
 
   it('rejects a second instance without configuring later Linux switches', () => {
@@ -160,7 +194,10 @@ describe('DesktopRuntimeController', () => {
 
     assert.equal(harness.app.quitCount, 1);
     assert.equal(harness.exitCode, 0);
-    assert.deepEqual(harness.app.commandLineSwitches, []);
+    assert.deepEqual(harness.app.commandLineSwitches, [
+      ['class', 'com.swimmwatch.gptvoice'],
+      ['enable-features', 'GlobalShortcutsPortal'],
+    ]);
   });
 
   it('owns startup flags, native metadata, permissions, and safe app info', () => {
@@ -197,6 +234,20 @@ describe('DesktopRuntimeController', () => {
     );
     assert.equal(microphoneGranted, true);
     assert.equal(controller.getAppInfo().version, '1.4.0');
+  });
+
+  it('uses the selected locale for native menu and About-panel text', () => {
+    const harness = new DesktopRuntimeHarness();
+    const controller = harness.createController({ locale: 'ru' });
+
+    controller.configureNativeMetadata();
+
+    assert.equal(harness.menuTemplate[0]?.label, 'Файл');
+    assert.equal(harness.menuTemplate[harness.menuTemplate.length - 1]?.label, 'Справка');
+    assert.equal(
+      (harness.app.aboutOptions as { credits?: string }).credits,
+      'Независимое настольное приложение для голосовой транскрибации через веб-сессии GPT.',
+    );
   });
 
   it('reports the startup benchmark marker after the renderer shell mounts', async () => {

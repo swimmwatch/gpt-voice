@@ -34,7 +34,7 @@ describe('translation provider contracts', () => {
       }),
       [
         {
-          contractVersion: '2026-07-25',
+          contractVersion: '2026-08-09',
           defaultTargetLanguage: 'en',
           id: 'google',
           maxInputCharacters: 5_000,
@@ -42,7 +42,7 @@ describe('translation provider contracts', () => {
           targetCount: 249,
         },
         {
-          contractVersion: '2026-07-25',
+          contractVersion: '2026-08-09',
           defaultTargetLanguage: 'en',
           id: 'bing',
           maxInputCharacters: 1_000,
@@ -50,7 +50,7 @@ describe('translation provider contracts', () => {
           targetCount: 179,
         },
         {
-          contractVersion: '2026-07-25',
+          contractVersion: '2026-08-09',
           defaultTargetLanguage: 'en',
           id: 'yandex',
           maxInputCharacters: 10_000,

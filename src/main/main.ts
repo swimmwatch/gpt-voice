@@ -18,6 +18,7 @@ import {
   nativeImage,
   Notification,
   protocol,
+  powerMonitor,
   safeStorage,
   screen,
   session,
@@ -26,11 +27,26 @@ import {
 } from 'electron';
 import { resolveAppConfigPaths } from './config';
 import type { CloakBrowserApi } from './cloakbrowser';
-import { getAppUrl } from './appProtocol';
+import { getAppUrl, registerAppProtocolScheme } from './appProtocol';
+import { configureDesktopApplicationBeforeReady } from './desktopRuntimeController';
 import { resolveCodexCliOutputSchemaPath } from './services/prettifyCodexCli';
 import { writeTextFileAtomically } from './translationSettings';
 import { resolveStreamingVoiceProviderCapability } from './providers/streamingVoiceProviderCapability';
 import { MainProcessCompositionRoot } from './di/mainProcessCompositionRoot';
+import { DesktopPlatform } from '@shared/hotkeys';
+import { classifyLinuxSessionType } from './hotkeys/LinuxSessionTypeClassifier';
+import { createDeferredLocalWhisperEnvironment } from './localWhisper/ipc/createDeferredLocalWhisperEnvironment';
+import { LocalWhisperCatalogRepository } from './localWhisper/catalog/LocalWhisperCatalogRepository';
+import { HostResourceProbeFactory } from './localWhisper/capability/HostResourceProbeFactory';
+import {
+  ProductionLocalWhisperEnvironmentFactory,
+  createProductionLocalWhisperEnvironment,
+  type LocalWhisperProductionEnvironmentDependencies,
+} from './localWhisper/composition/createProductionLocalWhisperEnvironment';
+import {
+  LocalWhisperDevelopmentActivationLoader,
+  openLocalWhisperActivationFile,
+} from './localWhisper/development/LocalWhisperDevelopmentActivation';
 import { createCloakBrowserTranslationContextOptions } from './cloakBrowserLaunchOptions';
 import { createClaudeWebPageTransport } from './providers/claudeWebPageTransport';
 import { inspectClaudeWebReadiness } from './providers/ClaudeWebVoiceProvider';
@@ -44,6 +60,7 @@ const CLOAK_BROWSER_PACKAGE_NAME = 'cloakbrowser';
 const PLAYWRIGHT_PACKAGE_NAME = 'playwright-core';
 const UNKNOWN_RUNTIME_VERSION = 'unknown';
 const MAX_PACKAGE_DIRECTORY_ASCENTS = 6;
+const TRANSLATION_PROVIDER_VISIBLE_FOR_TESTING_ENVIRONMENT_KEY = 'GPT_VOICE_TRANSLATION_PROVIDER_VISIBLE';
 // CloakBrowser is ESM while the Electron main bundle is CommonJS.
 // eslint-disable-next-line @typescript-eslint/no-implied-eval -- the importer is injected into the graph-owned loader.
 const importCloakBrowserModule = new Function('specifier', 'return import(specifier)') as (
@@ -60,6 +77,19 @@ function getRequestedAt(): string {
 
 function getMonotonicTimeMs(): number {
   return performance.now();
+}
+
+function classifyDesktopPlatform(platform: NodeJS.Platform): DesktopPlatform {
+  switch (platform) {
+    case 'win32':
+      return DesktopPlatform.Windows;
+    case 'linux':
+      return DesktopPlatform.Linux;
+    case 'darwin':
+      return DesktopPlatform.Macos;
+    default:
+      return DesktopPlatform.Unsupported;
+  }
 }
 
 function ignoreStreamingDiagnostic(): void {
@@ -146,12 +176,87 @@ function runTextAutomationCommand(command: string, args: string[]): Promise<void
 /**
  * Constructs and starts the process-owned application graph.
  */
-function bootstrapMainProcess(): void {
+async function bootstrapMainProcess(): Promise<void> {
+  const activation = await new LocalWhisperDevelopmentActivationLoader({
+    appRevision: app.getVersion(),
+    arguments: process.argv,
+    authenticateCatalog: (document, trustPolicy) => {
+      const loaded = new LocalWhisperCatalogRepository({
+        readDocument: () => document,
+        trustPolicy,
+      }).load();
+      return loaded.success && loaded.catalog.payload.purpose === 'qualification';
+    },
+    isPackaged: app.isPackaged,
+    openFile: openLocalWhisperActivationFile,
+    platform: process.platform,
+    userId: process.getuid?.(),
+  }).load();
+  const developmentUserDataPath = activation.status === 'active' ? app.getPath('userData') : null;
   const appConfigPaths = resolveAppConfigPaths({
-    environment: process.env,
+    environment:
+      developmentUserDataPath !== null
+        ? Object.freeze({ ...process.env, XDG_CONFIG_HOME: path.dirname(developmentUserDataPath) })
+        : process.env,
     homeDirectory: os.homedir,
     platform: process.platform,
   });
+  const localWhisperResourceProbes = new HostResourceProbeFactory({
+    platform: process.platform,
+    environment: process.env,
+    pathExists: fs.existsSync,
+    readFile: fs.readFileSync,
+    fallbackMemoryBytes: os.freemem,
+    execFile,
+  }).create();
+  const localWhisperDependencies: LocalWhisperProductionEnvironmentDependencies = {
+    appRevision: app.getVersion(),
+    architecture: process.arch,
+    availableMemoryBytes: () => localWhisperResourceProbes.memory.availableBytes(),
+    availableVramBytes: (nativeIdentity) => localWhisperResourceProbes.vram.availableBytes(nativeIdentity),
+    configurationRoot: appConfigPaths.appDirectory,
+    environment: process.env,
+    fileSystem: fs,
+    homeDirectory: os.homedir,
+    logicalProcessorCount: os.cpus().length,
+    nextRequestId: randomUUID,
+    now: Date.now,
+    openPath: (managedPath) => shell.openPath(managedPath),
+    pid: process.pid,
+    platform: process.platform,
+    randomBytes,
+    randomNonce: randomUUID,
+    readNvidiaInventory: () => localWhisperResourceProbes.nvidiaInventory.read(),
+    readFile,
+    resourcesPath: activation.status === 'active' ? activation.resourcesPath : process.resourcesPath,
+    spawnProcess: spawn,
+    ...(activation.status === 'active'
+      ? {
+          qualificationHooks: {
+            trustedCertificateAuthorities: activation.trustedCertificateAuthorities,
+          },
+        }
+      : {}),
+  };
+  const localWhisper =
+    process.platform === 'darwin'
+      ? createDeferredLocalWhisperEnvironment({
+          platform: process.platform,
+          architecture: process.arch,
+          logicalProcessorCount: os.cpus().length,
+          nextRequestId: randomUUID,
+        })
+      : activation.status === 'active'
+        ? await new ProductionLocalWhisperEnvironmentFactory(localWhisperDependencies, activation.catalogInput).create()
+        : activation.status === 'unavailable'
+          ? createDeferredLocalWhisperEnvironment({
+              platform: process.platform,
+              architecture: process.arch,
+              logicalProcessorCount: os.cpus().length,
+              nextRequestId: randomUUID,
+              unavailableReason: 'CATALOG_UNAVAILABLE',
+            })
+          : await createProductionLocalWhisperEnvironment(localWhisperDependencies);
 
   const application = new MainProcessCompositionRoot({
     assetPaths: {
@@ -270,6 +375,7 @@ function bootstrapMainProcess(): void {
         return moduleValue;
       },
     },
+    localWhisper,
     now: getCurrentDate,
     randomUUID,
     reportStreamingDiagnostic: ignoreStreamingDiagnostic,
@@ -340,10 +446,24 @@ function bootstrapMainProcess(): void {
         now: getCurrentDate,
         randomUUID,
       },
+      lifecycle: {
+        activeNow: getMonotonicTimeMs,
+        clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        createAbortController: () => new AbortController(),
+        setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+        subscribeResume: (listener) => {
+          powerMonitor.on('resume', listener);
+          return () => powerMonitor.removeListener('resume', listener);
+        },
+        wallNow: Date.now,
+      },
       now: Date.now,
       providers: {
         createBingPageAdapter: createPlaywrightBingTranslatePageAdapter,
-        createContextOptions: createCloakBrowserTranslationContextOptions,
+        createContextOptions: (settings) =>
+          createCloakBrowserTranslationContextOptions(settings, {
+            forceVisible: process.env[TRANSLATION_PROVIDER_VISIBLE_FOR_TESTING_ENVIRONMENT_KEY] === '1',
+          }),
         createGooglePageAdapter: createPlaywrightGoogleTranslatePageAdapter,
         createYandexPageAdapter: createPlaywrightYandexTranslatePageAdapter,
         sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
@@ -388,6 +508,7 @@ function bootstrapMainProcess(): void {
       appProtocol: {
         protocol,
         readFile,
+        schemePreRegistered: true,
       },
       desktopRuntime: {
         app,
@@ -397,6 +518,7 @@ function bootstrapMainProcess(): void {
         environment: process.env,
         exit: (code) => process.exit(code),
         platform: process.platform,
+        preReadyConfigurationComplete: true,
         schedule: (callback, delayMs) => setTimeout(callback, delayMs),
         session,
         setApplicationMenu: (menu) => Menu.setApplicationMenu(menu),
@@ -414,8 +536,10 @@ function bootstrapMainProcess(): void {
         preloadPath: path.join(__dirname, 'prettify-profile-chooser-preload.js'),
         screen,
       },
-      shortcuts: {
+      hotkeys: {
+        desktopPlatform: classifyDesktopPlatform(process.platform),
         globalShortcut,
+        linuxSessionType: classifyLinuxSessionType(process.platform, process.env.XDG_SESSION_TYPE),
         platform: process.platform,
       },
       tray: {
@@ -437,4 +561,10 @@ function bootstrapMainProcess(): void {
   application.bootstrap();
 }
 
-bootstrapMainProcess();
+configureDesktopApplicationBeforeReady(app, process.platform);
+registerAppProtocolScheme(protocol);
+void bootstrapMainProcess().catch((error: unknown) => {
+  setImmediate(() => {
+    throw error;
+  });
+});

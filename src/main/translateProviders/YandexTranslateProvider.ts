@@ -11,9 +11,12 @@ import {
   type BaseTranslateProviderDependencies,
 } from '@main/translateProviders/BaseTranslateProvider';
 import {
+  classifyTranslationProviderCompletionControl,
   translationHookFailure,
   translationHookSuccess,
+  type TranslationProviderCompletionControlSnapshot,
   type TranslationProviderHookResult,
+  type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
 import { normalizeTranslationResultText } from '@main/translateProviders/translationResultText';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
@@ -37,6 +40,7 @@ const YANDEX_FORBIDDEN_TEXTAREA_SELECTOR = 'textarea#textarea';
 const YANDEX_DESTINATION_PANEL_SELECTOR = '[data-tracking-data*="box-dst"]';
 const YANDEX_DESTINATION_PRIMARY_SELECTOR = '[data-lexical-editor="true"][role="textbox"]';
 const YANDEX_DESTINATION_FALLBACK_SELECTOR = '#translation';
+const YANDEX_COPY_TRANSLATION_SELECTOR = 'button#copyButtonDst[aria-label="Copy"]';
 const YANDEX_TARGET_OPENER_SELECTOR = 'button[aria-label^="Choose target language"]';
 const YANDEX_TARGET_SEARCH_SELECTOR = 'input[placeholder="Search languages"]';
 const YANDEX_TARGET_OPTION_SELECTOR = '[data-lang-element="true"][data-value][role="checkbox"][aria-label]:visible';
@@ -101,6 +105,13 @@ export interface YandexClearSnapshot {
   readonly visibleClearControls: number;
 }
 
+export interface YandexResultObservationSnapshot {
+  readonly completionControl: TranslationProviderCompletionControlSnapshot;
+  readonly editors: YandexEditorSnapshot;
+  readonly route: YandexRouteSnapshot;
+  readonly target: YandexTargetSnapshot;
+}
+
 export interface YandexTranslatePageAdapter {
   clickClear(): Promise<boolean>;
   clickEssentialConsent(): Promise<boolean>;
@@ -115,6 +126,7 @@ export interface YandexTranslatePageAdapter {
   readConsentSnapshot(): Promise<YandexConsentSnapshot>;
   readEditorSnapshot(): Promise<YandexEditorSnapshot>;
   readReadinessSnapshot(): Promise<YandexReadinessSnapshot>;
+  readResultObservationSnapshot?(): Promise<YandexResultObservationSnapshot>;
   readRouteSnapshot(): Promise<YandexRouteSnapshot>;
   readTargetSnapshot(): Promise<YandexTargetSnapshot>;
   selectTargetLanguage(targetLanguage: string): Promise<boolean>;
@@ -409,6 +421,102 @@ class PlaywrightYandexTranslatePageAdapter implements YandexTranslatePageAdapter
       sourceTextLength: sourceText?.length ?? null,
       visibleDestinationPanels: destination.visiblePanels,
       visibleForbiddenTextareas: forbiddenTextareas.length,
+    };
+  }
+
+  /** Reads result and target state from one public-page evaluation. */
+  async readResultObservationSnapshot(): Promise<YandexResultObservationSnapshot> {
+    const snapshot = await this.page.evaluate(
+      ({
+        copySelector,
+        destinationFallbackSelector,
+        destinationPanelSelector,
+        destinationPrimarySelector,
+        forbiddenTextareaSelector,
+        sourceCandidateSelector,
+        sourcePrimarySelector,
+        targetOpenerSelector,
+      }) => {
+        const isVisible = (element: Element): boolean => {
+          const style = window.getComputedStyle(element);
+          return style.display !== 'none' && style.visibility !== 'hidden' && element.getClientRects().length > 0;
+        };
+        const sourceEditors = Array.from(document.querySelectorAll<HTMLElement>(sourceCandidateSelector)).filter(
+          isVisible,
+        );
+        const primarySourceEditors = Array.from(document.querySelectorAll<HTMLElement>(sourcePrimarySelector)).filter(
+          isVisible,
+        );
+        const forbiddenTextareas = Array.from(document.querySelectorAll(forbiddenTextareaSelector)).filter(isVisible);
+        const copyControls = Array.from(document.querySelectorAll<HTMLButtonElement>(copySelector)).filter(isVisible);
+        const panels = Array.from(document.querySelectorAll<HTMLElement>(destinationPanelSelector));
+        const primaryDestinations = panels.flatMap((panel) =>
+          Array.from(panel.querySelectorAll<HTMLElement>(destinationPrimarySelector)),
+        );
+        const fallbackDestinations = panels.flatMap((panel) =>
+          Array.from(panel.querySelectorAll<HTMLElement>(destinationFallbackSelector)),
+        );
+        const destinations = primaryDestinations.length > 0 ? primaryDestinations : fallbackDestinations;
+        const destination = destinations.length === 1 ? destinations[0] : null;
+        const destinationResolution =
+          primaryDestinations.length === 1
+            ? ('primary' as const)
+            : primaryDestinations.length === 0 && fallbackDestinations.length === 1
+              ? ('fallback' as const)
+              : ('invalid' as const);
+        const sourceResolution =
+          sourceEditors.length !== 1
+            ? ('invalid' as const)
+            : primarySourceEditors.length === 1
+              ? ('primary' as const)
+              : primarySourceEditors.length === 0
+                ? ('fallback' as const)
+                : ('invalid' as const);
+        return {
+          completionControl: {
+            visible: copyControls.length,
+            visibleEnabled: copyControls.filter((control) => !control.disabled).length,
+          },
+          editors: {
+            destinationEditors: destinations.length,
+            destinationResolution,
+            destinationText: destination?.innerText ?? '',
+            destinationVisible: destination ? isVisible(destination) : false,
+            editableSourceEditors: sourceEditors.filter(
+              (editor) => editor.isContentEditable && !editor.matches(':disabled'),
+            ).length,
+            sourceEditors: sourceEditors.length,
+            sourceResolution,
+            sourceTextLength: sourceEditors.length === 1 ? (sourceEditors[0]?.innerText.length ?? null) : null,
+            visibleDestinationPanels: panels.filter(isVisible).length,
+            visibleForbiddenTextareas: forbiddenTextareas.length,
+          },
+          rawUrl: window.location.href,
+          target: {
+            visibleOpeners: Array.from(document.querySelectorAll(targetOpenerSelector)).filter(isVisible).length,
+          },
+        };
+      },
+      {
+        copySelector: YANDEX_COPY_TRANSLATION_SELECTOR,
+        destinationFallbackSelector: YANDEX_DESTINATION_FALLBACK_SELECTOR,
+        destinationPanelSelector: YANDEX_DESTINATION_PANEL_SELECTOR,
+        destinationPrimarySelector: YANDEX_DESTINATION_PRIMARY_SELECTOR,
+        forbiddenTextareaSelector: YANDEX_FORBIDDEN_TEXTAREA_SELECTOR,
+        sourceCandidateSelector: YANDEX_SOURCE_CANDIDATE_SELECTOR,
+        sourcePrimarySelector: YANDEX_SOURCE_PRIMARY_SELECTOR,
+        targetOpenerSelector: YANDEX_TARGET_OPENER_SELECTOR,
+      },
+    );
+    const route = createYandexRouteSnapshot(snapshot.rawUrl);
+    return {
+      completionControl: snapshot.completionControl,
+      editors: snapshot.editors,
+      route,
+      target: {
+        selectedTargetCode: route.targetLanguage,
+        visibleOpeners: snapshot.target.visibleOpeners,
+      },
     };
   }
 
@@ -708,6 +816,30 @@ export class YandexTranslateProvider extends BaseTranslateProvider {
       return translationHookFailure('consentOrChallenge');
     }
     return classifyYandexResult(await this.getAdapter(page).readEditorSnapshot());
+  }
+
+  protected override async observeResult(
+    page: Page,
+    targetLanguage: string,
+  ): Promise<TranslationProviderHookResult<TranslationProviderResultObservation>> {
+    const adapter = this.getAdapter(page);
+    if (!adapter.readResultObservationSnapshot) return super.observeResult(page, targetLanguage);
+    const snapshot = await adapter.readResultObservationSnapshot();
+    if (snapshot.route.route !== 'translator') return translationHookFailure('consentOrChallenge');
+    const result = classifyYandexResult(snapshot.editors);
+    if (!result.success) return result;
+    if (
+      snapshot.route.targetLanguage !== targetLanguage ||
+      snapshot.target.selectedTargetCode !== targetLanguage ||
+      snapshot.target.visibleOpeners !== 1
+    ) {
+      return translationHookFailure('pageContractFailure');
+    }
+    return translationHookSuccess({
+      completion: classifyTranslationProviderCompletionControl(snapshot.completionControl),
+      targetVerified: true,
+      text: result.value,
+    });
   }
 
   protected async verifySelectedTarget(page: Page, targetLanguage: string): Promise<TranslationProviderHookResult> {

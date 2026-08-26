@@ -1,6 +1,6 @@
 ---
 name: planning-and-task-breakdown
-description: Use only to author or revise the authoritative /plan artifacts for substantial GPT-Voice work when the user explicitly requests planning, decomposition, milestones, or task packets. Require an approved specification, use Prompt MCP for unresolved material choices, create self-contained packets, obtain explicit plan or execution authorization, and stop before implementation.
+description: Use only to author or revise the authoritative /plan artifacts for substantial GPT-Voice work when the user explicitly requests planning, decomposition, milestones, or task packets. Require an approved specification, use Prompt MCP for unresolved material choices, create self-contained packets, approve the completed revision without a separate final-approval prompt, and stop before implementation.
 ---
 
 # Planning And Task Breakdown
@@ -34,10 +34,13 @@ respect to production implementation.
    behavior, trust boundaries, expected files or components, acceptance,
    verification, rollback, manual gates, and handoff instructions. Never write
    only “implement as described in spec.md.”
-7. Run a coverage and executability audit. Then ask a separate Prompt MCP
-   `single` question with stable options to approve the plan, request changes,
-   or leave it unapproved. Ask for execution authorization separately; approval
-   of the plan is not authorization to implement a packet.
+7. Run a coverage and executability audit. When it passes and no material
+   planning decision remains unresolved, mark the completed plan revision
+   Approved without asking a separate final-approval question. The planning
+   request authorizes approval of the completed revision; later requested
+   changes are a new iteration. Plan approval alone does not implement a
+   packet; an explicit incremental-implementation invocation supplies packet
+   execution authority.
 
 Stop before code changes, commits, pushes, pull requests, releases, or packet
 execution.

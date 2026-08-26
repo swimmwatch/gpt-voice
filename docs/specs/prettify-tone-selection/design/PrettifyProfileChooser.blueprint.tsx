@@ -20,7 +20,6 @@ export interface PrettifyProfileChoice {
 }
 
 export interface PrettifyProfileChooserBlueprintProps {
-  readonly initialSelectedProfileId?: string;
   readonly onApply: (profileId: string) => void;
   readonly onCancel: () => void;
   readonly onManageProfiles: () => void;
@@ -146,6 +145,7 @@ function ProfileOption({
 
   return (
     <button
+      autoFocus={selected}
       aria-describedby={profile.description ? descriptionId : undefined}
       aria-selected={selected}
       className={cn(
@@ -184,7 +184,6 @@ function ProfileOption({
  * wiring production IPC or changing runtime behavior.
  */
 export function PrettifyProfileChooserBlueprint({
-  initialSelectedProfileId,
   onApply,
   onCancel,
   onManageProfiles,
@@ -194,7 +193,9 @@ export function PrettifyProfileChooserBlueprint({
   const listboxId = useId();
   const optionRefs = useRef(new Map<string, HTMLButtonElement>());
   const [query, setQuery] = useState('');
-  const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(initialSelectedProfileId);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | undefined>(
+    () => profiles.find((profile) => profile.isDefault)?.id,
+  );
 
   const visibleProfiles = useMemo(
     () => profiles.filter((profile) => profileMatchesQuery(profile, query)),
@@ -308,7 +309,6 @@ export function PrettifyProfileChooserBlueprint({
             <Input
               aria-controls={listboxId}
               aria-label="Search profiles"
-              autoFocus
               className="pl-9"
               id="prettify-profile-search"
               name="prettifyProfileSearch"
@@ -394,7 +394,6 @@ export function PrettifyProfileChooserBlueprint({
 export function PrettifyProfileChooserBlueprintPreview(): JSX.Element {
   return (
     <PrettifyProfileChooserBlueprint
-      initialSelectedProfileId="prompt-ready"
       onApply={() => undefined}
       onCancel={() => undefined}
       onManageProfiles={() => undefined}

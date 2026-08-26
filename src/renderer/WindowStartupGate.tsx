@@ -17,6 +17,7 @@ function WindowStartupGate({ children }: WindowStartupGateProps): React.JSX.Elem
   useEffect(() => {
     const loader = document.getElementById('window-startup-loader');
     loader?.setAttribute('data-state', startupState);
+    loader?.setAttribute('aria-hidden', String(startupState === WindowStartupState.Ready));
     document.body.dataset.windowStartup = startupState;
   }, [startupState]);
 

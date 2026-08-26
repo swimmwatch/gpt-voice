@@ -143,6 +143,7 @@ describe('packaged runtime policy', () => {
         ...archiveRuntimeModules.map((moduleName) => `node_modules/${moduleName}/index.js`),
         'node_modules/cloakbrowser/dist/index.js',
         'node_modules/playwright-core/lib/server/browserType.js',
+        'node_modules/react-icons/pi/index.mjs',
       ]),
       [],
     );

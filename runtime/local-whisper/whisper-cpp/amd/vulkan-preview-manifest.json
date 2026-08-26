@@ -1,0 +1,44 @@
+{
+  "schemaId": "local-whisper-amd-vulkan-preview-manifest-v1",
+  "supportTier": "preview-untested",
+  "hardwareEvidence": false,
+  "sourceLockId": "whisper-cpp-v1.9.1-f049fff",
+  "patchLockId": "local-whisper-whisper-cpp-amd-preview-v1",
+  "patchedManifestSha256": "85e3a5687b75b6524b50681a0efe9293381c43accec9b91882deed610daed21f",
+  "buildInputs": {
+    "vulkanHeaders": "1.3.275.0",
+    "vulkanLoader": "1.3.275.0",
+    "shaderCompiler": "shaderc-2023.8",
+    "generatedShaderTarget": "vulkan1.3",
+    "spirvTarget": "spirv1.6"
+  },
+  "runtime": {
+    "minimumApi": "vulkan1.3",
+    "vendorId": "0x1002",
+    "physicalDeviceRequired": true,
+    "softwareIcdAllowed": false,
+    "manifestOwnedLoaderRequired": true,
+    "systemOwnedVendorDriver": true,
+    "requiredFeatures": ["storageBuffer16BitAccess"],
+    "requiredExtensions": ["VK_KHR_16bit_storage"]
+  },
+  "buildPolicy": {
+    "disconnected": true,
+    "dynamicBackendLoading": false,
+    "selectedAcceleratorCount": 1,
+    "selectedBackend": "vulkan",
+    "networkFetch": false,
+    "nativeArchitectureDetection": false
+  },
+  "excludedRuntimeContent": [
+    "vendor-driver",
+    "vendor-icd",
+    "vulkan-sdk",
+    "headers",
+    "glslc",
+    "shader-development-tools",
+    "source-tree",
+    "build-tree",
+    "model"
+  ]
+}

@@ -45,6 +45,7 @@ Voice providers transcribe your microphone input and copy the result to the clip
 | **ChatGPT Web** | Transcribes recorded audio through your saved ChatGPT browser session.      |
 | **Claude Web**  | Transcribes live speech through your saved Claude browser session.          |
 | **OpenAI API**  | Sends recorded audio to OpenAI's official transcription API using your key. |
+| **Local Whisper** | Optional buffered local transcription through verified Whisper.cpp runtime and model artifacts. |
 
 **Example**
 
@@ -138,7 +139,7 @@ Shortcuts are configurable under **App settings → Shortcuts and Actions**.
 - Separate provider settings and connection status for Voice, Prettify, and Translation.
 - A short-lived in-memory result cache that avoids duplicate provider requests.
 - Metadata-only provider audit events and optional diagnostic export for troubleshooting.
-- Bundled CloakBrowser runtime in packaged builds—no local Whisper model, CUDA setup, or GPU required.
+- Bundled CloakBrowser runtime in packaged builds. Base installation and remote providers require no local Whisper model, CUDA setup, or GPU; Local Whisper is an optional explicit setup.
 
 ## Provider Setup
 
@@ -147,6 +148,7 @@ Shortcuts are configurable under **App settings → Shortcuts and Actions**.
 - **ChatGPT Web:** open provider settings, sign in through the visible browser, and close the login window when ChatGPT is ready.
 - **Claude Web:** sign in through its separate browser session and choose a recognition language. Claude speech recognition uses a private web integration that can change when Claude changes its site.
 - **OpenAI API:** enter your own API key, then choose a transcription model, language, optional prompt, and temperature. API usage consumes your account's quota.
+- **Local Whisper:** review the [platform matrix, approximate requirements, settings, lifecycle, privacy, and qualification gates](docs/local-whisper.md). It is optional and does not change remote-provider setup.
 
 ### Prettify
 
@@ -195,10 +197,11 @@ Repository contributors can use `$analyze-diagnostics-archive` for selective, in
 
 ## Run From Source
 
-Requires Node.js 24+ and npm 11+.
+Requires Node.js 24.15+ and Corepack with the repository-pinned npm 12.0.2.
 
 ```bash
-npm ci
+node scripts/security/verify-npm-signatures-preinstall.mjs
+corepack npm@12.0.2 ci
 npm run prepare:cloakbrowser
 npm run start
 ```

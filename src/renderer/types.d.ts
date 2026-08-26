@@ -3,9 +3,17 @@ import type { AppSettingsSectionId } from '@shared/appSettings';
 import type { AppLocaleId } from '@shared/appLocale';
 import type { ClaudeWebSettings, ClaudeWebSettingsUpdateInput } from '@shared/claudeWebSettings';
 import type { CloakBrowserSettingsInput, CloakBrowserSettingsView } from '@shared/cloakBrowserSettings';
-import type { HotkeySettings, HotkeyTarget } from '@shared/hotkeys';
+import type {
+  HotkeyClearRequest,
+  HotkeyMutationResponse,
+  HotkeyRuntimeState,
+  HotkeySetRequest,
+  HotkeyTestRequest,
+  HotkeyTestResponse,
+} from '@shared/hotkeyIpc';
 import type { SystemNotificationOptions } from '@shared/notifications';
 import type { OpenAIApiTranscriptionLanguage, OpenAIApiTranscriptionModel } from '@shared/openaiApiTranscription';
+import type { SettingsPresentationState } from '@shared/settingsPresentation';
 import type {
   PrettifyModelListResult,
   PrettifyModelLoadResult,
@@ -17,7 +25,11 @@ import type {
   PrettifySettings,
   PrettifySettingsInput,
 } from '@shared/prettifySettings';
-import type { RecordingLifecycleState } from '@shared/recordingLifecycle';
+import type {
+  RecordingLifecycleState,
+  VoiceRecordingStartRejectionReason,
+  VoiceRecordingStartResult,
+} from '@shared/recordingLifecycle';
 import type {
   TranscriptionHistoryClearResult,
   TranscriptionHistoryCopyResult,
@@ -25,6 +37,11 @@ import type {
   TranscriptionHistoryQuery,
 } from '@shared/transcriptionHistory';
 import type { TextActionSettings, TextActionSettingsInput } from '@shared/textActionSettings';
+import type {
+  ProviderHomeActionCommand,
+  ProviderHomeActionResult,
+  ProviderHomeActionState,
+} from '@shared/providerHomeAction';
 import type { TextActionStatus } from '@shared/textActionStatus';
 import type {
   TranslationProviderConnectionState,
@@ -61,11 +78,22 @@ import type {
   PrettifyProfileCatalogSettingsSnapshot,
 } from '@shared/prettifyProfileCatalogIpc';
 import type { PrettifyProfileCatalog } from '@shared/prettifyProfiles';
+import type { FirstLaunchStartupSnapshot } from '@shared/firstLaunchStartup';
 import type {
   RendererSafeVoiceProviderInfo,
   VoiceProviderAuthType,
   VoiceProviderCategory,
 } from '@shared/voiceProvider';
+import type {
+  LocalWhisperMainStatusSnapshot,
+  LocalWhisperMainResidencyCommand,
+  LocalWhisperMainResidencyCommandResult,
+  LocalWhisperIpcAcknowledgement,
+  LocalWhisperProviderSelectionResult,
+  LocalWhisperRendererSnapshot,
+  LocalWhisperSettingsCommand,
+  LocalWhisperSettingsCommandResult,
+} from '@shared/localWhisper';
 
 export type ProviderAuthType = VoiceProviderAuthType;
 export type ProviderCategory = VoiceProviderCategory;
@@ -75,6 +103,7 @@ export interface BackgroundBrowserStatus {
   ready: boolean;
   error?: string;
   authExpired?: boolean;
+  unselected?: boolean;
 }
 
 export type ProviderInfo = RendererSafeVoiceProviderInfo;
@@ -115,15 +144,28 @@ export interface ElectronAPI {
   onRetryTranscription: (callback: () => void) => () => void;
   onTranslationStatus: (callback: (status: TextActionStatus | null) => void) => () => void;
   onTranslationProviderConnectionChanged: (callback: (state: TranslationProviderConnectionState) => void) => () => void;
+  getFirstLaunchStartupSnapshot: () => Promise<FirstLaunchStartupSnapshot>;
+  retryFirstLaunchStartup: () => Promise<FirstLaunchStartupSnapshot>;
+  onFirstLaunchStartupSnapshot: (callback: (snapshot: FirstLaunchStartupSnapshot) => void) => () => void;
   recordingStartFailed: () => Promise<{ success: boolean }>;
+  requestRecordingStart: () => Promise<VoiceRecordingStartResult>;
+  onRecordingStartRejected: (callback: (reason: VoiceRecordingStartRejectionReason) => void) => () => void;
   setRecordingLifecycleState: (state: RecordingLifecycleState) => Promise<{ success: boolean }>;
   setRetryTranscriptionAvailable: (available: boolean) => Promise<{ success: boolean }>;
   getRecordingStatus: () => Promise<boolean>;
+  getMainInteractionLocked: () => Promise<boolean>;
+  onMainInteractionLockChanged: (callback: (locked: boolean) => void) => () => void;
+  getSettingsPresentation: () => Promise<SettingsPresentationState>;
+  onSettingsPresentationChanged: (callback: (state: SettingsPresentationState) => void) => () => void;
+  focusSettingsWindow: () => Promise<boolean>;
+  getTextActionActivity: () => Promise<boolean>;
+  onTextActionActivityChanged: (callback: (active: boolean) => void) => () => void;
   providerLogin: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   getProviders: () => Promise<ProviderInfo[]>;
   getProviderSettings: (providerId: string) => Promise<ProviderSettings>;
   openProviderSettings: (providerId: string) => Promise<{ success: boolean; error?: string }>;
   closeProviderSettings: () => Promise<{ success: boolean }>;
+  onProviderSettingsCloseRequested: (callback: () => void) => () => void;
   onProviderSettingsChanged: (callback: (settings: ProviderSettings) => void) => () => void;
   closeAppSettings: () => Promise<{ success: boolean }>;
   onAppSettingsCloseRequested: (callback: () => void) => () => void;
@@ -154,8 +196,21 @@ export interface ElectronAPI {
     settings: ProviderSettingsSaveInput,
   ) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
   clearProviderAuth: (providerId: string) => Promise<{ success: boolean; settings?: ProviderSettings; error?: string }>;
-  getActiveProvider: () => Promise<string>;
-  setActiveProvider: (providerId: string) => Promise<{ success: boolean; error?: string }>;
+  getActiveProvider: () => Promise<string | null>;
+  setActiveProvider: (providerId: string) => Promise<LocalWhisperProviderSelectionResult>;
+  getLocalWhisperSettingsSnapshot: () => Promise<LocalWhisperRendererSnapshot>;
+  subscribeLocalWhisperSettings: () => Promise<LocalWhisperRendererSnapshot>;
+  unsubscribeLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
+  onLocalWhisperSettingsSnapshot: (callback: (snapshot: LocalWhisperRendererSnapshot) => void) => () => void;
+  runLocalWhisperSettingsCommand: (command: LocalWhisperSettingsCommand) => Promise<LocalWhisperSettingsCommandResult>;
+  getLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
+  subscribeLocalWhisperMainStatus: () => Promise<LocalWhisperMainStatusSnapshot>;
+  unsubscribeLocalWhisperMainStatus: () => Promise<LocalWhisperIpcAcknowledgement>;
+  onLocalWhisperMainStatus: (callback: (snapshot: LocalWhisperMainStatusSnapshot) => void) => () => void;
+  runLocalWhisperMainResidencyCommand: (
+    command: LocalWhisperMainResidencyCommand,
+  ) => Promise<LocalWhisperMainResidencyCommandResult>;
+  openLocalWhisperSettings: () => Promise<LocalWhisperIpcAcknowledgement>;
   checkSession: () => Promise<boolean>;
   transcribeAudio: (
     buffer: ArrayBuffer,
@@ -185,15 +240,19 @@ export interface ElectronAPI {
   getBgBrowserStatus: () => Promise<BackgroundBrowserStatus>;
   onBgBrowserReady: (callback: (providerId: string) => void) => () => void;
   onBgBrowserError: (callback: (providerId: string, error: string, authExpired: boolean) => void) => () => void;
-  onHotkeySettingsChanged: (callback: (settings: HotkeySettings) => void) => () => void;
+  onHotkeyRuntimeStateChanged: (callback: (state: HotkeyRuntimeState) => void) => () => void;
   onPrettifySettingsChanged: (callback: (settings: PrettifySettings) => void) => () => void;
   onLocaleChanged: (callback: (locale: AppLocaleId) => void) => () => void;
-  getHotkey: () => Promise<HotkeySettings>;
-  setHotkeyCaptureActive: (active: boolean) => Promise<{ success: boolean }>;
-  setHotkey: (key: HotkeyTarget, hotkey: string) => Promise<{ success: boolean; error?: string } & HotkeySettings>;
+  getHotkeyRuntimeState: () => Promise<HotkeyRuntimeState>;
+  setHotkey: (request: HotkeySetRequest) => Promise<HotkeyMutationResponse>;
+  clearHotkey: (request: HotkeyClearRequest) => Promise<HotkeyMutationResponse>;
+  testHotkey: (request: HotkeyTestRequest) => Promise<HotkeyTestResponse>;
   getTranslateSettings: () => Promise<TranslationSettings>;
   getTranslationProviderConnection: () => Promise<TranslationProviderConnectionState>;
   getTextActionSettings: () => Promise<TextActionSettings>;
+  getProviderHomeActionState: () => Promise<ProviderHomeActionState>;
+  runProviderHomeAction: (command: ProviderHomeActionCommand) => Promise<ProviderHomeActionResult>;
+  onProviderHomeActionStateChanged: (callback: (state: ProviderHomeActionState) => void) => () => void;
   getDiagnosticCaptureSettings: () => Promise<DiagnosticCaptureSettings>;
   setDiagnosticCaptureSettings: (
     request: DiagnosticCaptureSettingsMutationRequest,

@@ -73,7 +73,8 @@ suppression.
    - both first ask packet 04 to focus an already-open chooser; if focused,
      retain its original source and perform no second copy/provider operation;
    - while generation is active, both are skipped without duplicate request;
-   - quick never uses remembered chooser selection.
+   - F12 opens with the configured default selected, and quick applies that
+     configured default windowlessly.
 7. Existing `prettifyEnabled` gates registration/dispatch semantics for both.
    Preserve shortcut registration failure reporting and suspension during
    hotkey capture.

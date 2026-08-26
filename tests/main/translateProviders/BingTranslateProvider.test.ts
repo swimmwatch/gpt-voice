@@ -26,6 +26,7 @@ import {
 import { TRANSLATION_RESULT_TIMEOUT_MS } from '@main/translateProviders/BaseTranslateProvider';
 import { TRANSLATION_PROVIDER_INFO } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 
 function createControl(visible = 1, visibleEnabled = visible): BingControlCountSnapshot {
   return { visible, visibleEnabled };
@@ -226,27 +227,29 @@ function createHarness(
   const contexts: FakeContext[] = [];
   let adapterIndex = 0;
   const fallbackAdapter = adapters[0] ?? new FixtureBingPageAdapter();
-  const provider = new BingTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    catalogStabilityDelayMs: 1,
-    clearPollIntervalMs: 1,
-    clearTimeoutMs: 2,
-    createContext: async (_options: LaunchContextOptions) => {
-      const context = new FakeContext();
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({ headless: true }),
-    createPageAdapter: () => adapters[Math.min(adapterIndex++, adapters.length - 1)] ?? fallbackAdapter,
-    now: () => 1_000,
-    readinessTimeoutMs: 2,
-    resultPollIntervalMs: 1,
-    resultStabilityDelayMs: 0,
-    resultTimeoutMs: resultTimeoutMs ?? TRANSLATION_RESULT_TIMEOUT_MS,
-    sleep: async () => {},
-    waitForCatalogStability: async () => {},
-    waitForClearPoll: async () => {},
-  });
+  const provider = new BingTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      catalogStabilityDelayMs: 1,
+      clearPollIntervalMs: 1,
+      clearTimeoutMs: 2,
+      createContext: async (_options: LaunchContextOptions) => {
+        const context = new FakeContext();
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({ headless: true }),
+      createPageAdapter: () => adapters[Math.min(adapterIndex++, adapters.length - 1)] ?? fallbackAdapter,
+      now: () => 1_000,
+      readinessTimeoutMs: 2,
+      resultPollIntervalMs: 1,
+      resultStabilityDelayMs: 0,
+      resultTimeoutMs: resultTimeoutMs ?? TRANSLATION_RESULT_TIMEOUT_MS,
+      sleep: async () => {},
+      waitForCatalogStability: async () => {},
+      waitForClearPoll: async () => {},
+    }),
+  );
   return { adapters, contexts, provider };
 }
 

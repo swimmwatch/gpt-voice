@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-permission-denied",
+  "stage": "runtime",
+  "expectedCode": "GPU_PERMISSION_DENIED",
+  "mutations": [{ "path": "kfdAccessible", "value": false }]
+}

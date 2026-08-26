@@ -1,0 +1,1890 @@
+schema_version: 1
+spec_slug: provider-hotkey-action-buttons
+interview_id: spec:provider-hotkey-action-buttons
+created_at: '2026-08-13'
+updated_at: '2026-08-13'
+
+decisions:
+  - id: outcome.provider-shortcut-visibility
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requested that the main screen immediately communicate which provider action is connected to which hotkey.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Each provider row exposes its configured action hotkey as an immediately recognizable, clickable keyboard-style control.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001]
+
+  - id: visual.selected-reference
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected the second target-button version and subsequently refined its layout.'
+      - '/home/dmitry-vasiliev/.codex/generated_images/019ff7a0-14c2-7a82-b9fa-86e6861bfa7b/exec-43bb95c8-55d9-434d-b0eb-b0614390b339.png (1516 by 1037 pixels).'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The cited widened current-homepage mock is the visual source of truth; the implementation preserves the existing dark command-dock design and makes only the requested hotkey and primary-recording-control changes.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-001, UI-002]
+
+  - id: visual.hotkey-button-format
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires one button per provider, with a multi-key combination rendered as text inside that single button.'
+      - 'User requires the controls to look like real three-dimensional keyboard keys and be visibly pressable.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Render one low-profile three-dimensional keyboard-key button per provider. The whole accelerator string is one button label, never a group of individual keycaps.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-003, UI-004]
+
+  - id: visual.hotkey-button-layout
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires the buttons to be left aligned and the same width.'
+      - 'User requires the existing grid, row-level provider status, settings controls, and relative positioning to remain intact.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The three action keys have identical width and height, share the same left and right edges in one action column, and do not displace the status or settings controls from their existing provider-row level.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-005, UI-006]
+
+  - id: visual.remove-idle-recording-cta
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User explicitly requested removal of the Start Recording button.'
+      - 'The selected visual reference contains no large blue Start Recording button.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The idle homepage does not render the large Start Recording primary CTA; the recording status/footer follows the provider rows as shown by the selected reference.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-007]
+
+  - id: interaction.click-and-hotkey-parity
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires each displayed hotkey button to be interactive and call the same provider action as its hotkey.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'A pointer click or keyboard activation on a provider action key enters the same guarded action path as activating the shortcut represented by that key.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-001, A11Y-001]
+
+  - id: interaction.keyboard-key-motion
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'User explicitly requires a click animation that mimics a real keyboard hotkey.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Activation visibly depresses and releases the key using depth, position, and shadow changes; hover, focus-visible, pressed, disabled, and busy states remain distinguishable.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [MOTION-001, A11Y-002]
+
+  - id: examples.displayed-shortcuts
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The approved visual direction shows Voice F9, Prettify Ctrl + Shift + F12, and Translation Ctrl + F11.'
+      - 'User clarified that a multi-key combination is one hotkey, not several hotkeys for one provider.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The reference/demo scenario displays F9, Ctrl + Shift + F12, and Ctrl + F11 as single labels. Production labels reflect the corresponding effective configured accelerators rather than hardcoded example text.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-008, COMP-001]
+
+  - id: current.main-window-size
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/main/window.ts defines MAIN_WINDOW_CONTENT_WIDTH as 520 and MAIN_WINDOW_CONTENT_HEIGHT as 420.'
+      - 'src/main/window.ts creates the main BrowserWindow with useContentSize true and resizable false.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The production main window currently has a fixed 520 by 420 content area; widening it requires an explicit content-width contract and corresponding window/layout tests.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CUR-001]
+
+  - id: current.homepage-composition
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/renderer/App.tsx composes MainToolbar, MainPrettifyProviderBand, TranslateSection, and RecordingControls.'
+      - 'src/renderer/components/RecordingControls.tsx owns the current primary Record/Stop action together with status and Pause/Resume/Cancel controls.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The requested change must extend the existing homepage composition. Removing only the idle recording CTA requires preserving the still-required recording lifecycle status and active controls.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [CUR-002, COMP-002]
+
+  - id: current.action-paths
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/main/shortcuts.ts: ShortcutController owns recording, Translation, chooser-based Prettify, and quick-Prettify shortcut gates and presentation.'
+      - 'src/renderer/App.tsx and the recording hook already expose the renderer recording-action path.'
+      - 'src/main/services/selectedTextTranslation.ts and src/main/services/selectedTextPrettify.ts own serialized selected-text operations and cancellation.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Voice already has a renderer action path. Clickable Prettify and Translation controls require typed renderer-to-preload-to-main commands which reuse, rather than duplicate, ShortcutController eligibility gates, status/tray presentation, and action services.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002]
+
+  - id: architecture.electron-boundary
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - 'AGENTS.md requires renderer code to use only window.electronAPI and main to own clipboard, selected-text automation, provider, browser, and lifecycle operations.'
+      - 'src/preload.ts exposes a typed renderer-safe API; src/main/window.ts validates trusted main frames.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The renderer remains unprivileged. New action commands are typed and decoded, accepted only from the trusted main frame, and do not expose clipboard text, provider sessions, or privileged services to the renderer.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-001, PRIV-001]
+
+  - id: demo.safe-browser-fixture
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - 'A normal web browser cannot and should not invoke Electron microphone, clipboard, selected-text automation, provider sessions, or network-backed provider actions.'
+      - 'Product Design image-to-code guidance requires a working, visually verified prototype using the production design target.'
+      - 'Prompt MCP answer to workflow.prettify-action on 2026-08-13 explicitly limits the current demo to interface interaction with no performed actions.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The browser demonstration reuses production homepage components in deterministic state. Buttons expose hover, focus, press, and release behavior but do not start recording, invoke providers, access clipboard or selected text, change operational status, use sessions or processes, or perform network operations.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DEMO-001, PRIV-002]
+
+  - id: scope.delivery-target
+    revision: 1
+    category: scope
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The request asks to build from the homepage code and then show a browser demo, but does not explicitly say whether the production Electron homepage itself must change.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: product-contract-round-01
+      question_id: scope.delivery-target
+      idempotency_key: scope.delivery-target:v1
+      last_status: answered
+    question:
+      text: 'What should the implementation deliver beyond the browser demonstration?'
+      kind: single
+      options:
+        - id: production-plus-demo
+          label: 'Production homepage plus demo (Recommended)'
+          description: 'Change the real Electron homepage and add a development-only browser fixture that reuses the production components for review.'
+        - id: demo-only
+          label: 'Standalone demo only'
+          description: 'Build a local prototype without changing the production Electron homepage or privileged action paths.'
+    answer:
+      selected_ids: [demo-only]
+      text: 'Build the browser demo first, while the approved contract also defines the subsequent production homepage behavior.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SCOPE-001, DEMO-002]
+
+  - id: scope.delivery-target
+    revision: 2
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'The initial batch selection requested the standalone demo first.'
+      - 'The later custom answer in the same interview explicitly requires moving the design to the production main screen and making the production buttons run the existing hotkey actions.'
+      - 'User clarification on 2026-08-13: the demo must be built as a required part of implementing this specification.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: product-contract-round-01
+      question_id: workflow.prettify-action
+      idempotency_key: workflow.prettify-action:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids: [production-plus-demo]
+      text: 'Implement both the production Electron homepage change and an interaction-only browser demo that reuses the resulting production homepage components. The demo is a required implementation deliverable, not an optional validation artifact.'
+    rationale: 'The later, more specific instruction supersedes the earlier demo-only selection while preserving the request to demonstrate before invoking real actions.'
+    supersedes_revision: 1
+    requirement_ids: [SCOPE-001, DEMO-002]
+
+  - id: workflow.voice-active-controls
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user removed Start Recording, but RecordingControls currently changes the same primary control into Stop while recording.'
+      - 'F9 currently starts, pauses, or resumes recording; stopping is a separately configured action.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: product-contract-round-01
+      question_id: workflow.voice-active-controls
+      idempotency_key: workflow.voice-active-controls:v1
+      last_status: answered
+    question:
+      text: 'After the idle Start Recording CTA is removed, what should happen to the existing large primary area during an active recording?'
+      kind: single
+      options:
+        - id: keep-active-stop-only
+          label: 'Keep active Stop only (Recommended)'
+          description: 'Hide the large primary CTA while idle, but preserve the current Stop control and Pause/Resume/Cancel lifecycle controls when recording is active.'
+        - id: remove-primary-entirely
+          label: 'Remove primary control entirely'
+          description: 'Never show the large primary Record/Stop control; stopping remains available through its configured global hotkey and any existing secondary action that applies.'
+    answer:
+      selected_ids: [remove-primary-entirely]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, UI-009]
+
+  - id: workflow.prettify-action
+    revision: 1
+    category: workflow
+    state: superseded
+    provenance: user
+    evidence:
+      - 'src/main/shortcuts.ts defines separate chooser-based Prettify and quick default-profile Prettify actions.'
+      - 'The selected visual has one Prettify action key, so it must map to exactly one of those workflows.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: product-contract-round-01
+      question_id: workflow.prettify-action
+      idempotency_key: workflow.prettify-action:v1
+      last_status: answered
+    question:
+      text: 'Which existing Prettify workflow should the single provider-row key invoke?'
+      kind: single
+      options:
+        - id: chooser
+          label: 'Profile chooser (Recommended)'
+          description: 'Display the configured normal Prettify shortcut and open the existing profile chooser, matching the deliberate main Prettify action.'
+        - id: quick-default
+          label: 'Quick default profile'
+          description: 'Display the configured quick-Prettify shortcut and immediately apply the default profile without opening the chooser.'
+    answer:
+      selected_ids: []
+      text: 'The current browser demo performs no Prettify action. In production, the single Prettify key performs the same action as the configured shortcut displayed on that button.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-003, COMP-003]
+
+  - id: workflow.prettify-action
+    revision: 2
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Revision 1 established that the browser demo must not execute the Prettify operation and that production must preserve hotkey/action parity.'
+      - 'The application exposes both a configured chooser-based Prettify shortcut and a separately configured quick default-profile shortcut.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: production-action-round-02
+      question_id: workflow.prettify-action
+      idempotency_key: workflow.prettify-action:v2
+      last_status: answered
+    question:
+      text: 'For the production homepage, which configured Prettify hotkey and matching action should the single Prettify button represent?'
+      kind: single
+      options:
+        - id: chooser
+          label: 'Normal Prettify chooser (Recommended)'
+          description: 'Show the normal configured Prettify shortcut and open the existing profile chooser, which is the main deliberate Prettify workflow.'
+        - id: quick-default
+          label: 'Quick default profile'
+          description: 'Show the configured quick-Prettify shortcut and immediately apply the default profile without the chooser.'
+    answer:
+      selected_ids: [chooser]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [FLOW-003, COMP-003]
+
+  - id: visual.production-content-size
+    revision: 1
+    category: interface
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Current production content size is 520 by 420.'
+      - 'The selected visual reference is 1516 by 1037, whose aspect ratio applied to the existing 420-pixel content height yields approximately 614 pixels of content width.'
+      - 'The user explicitly requires the slightly widened design width to be maintained.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: product-contract-round-01
+      question_id: visual.production-content-size
+      idempotency_key: visual.production-content-size:v1
+      last_status: answered
+    question:
+      text: 'Which fixed content size should define the widened production homepage and its browser demo viewport?'
+      kind: single
+      options:
+        - id: proportional-614x420
+          label: '614 by 420 (Recommended)'
+          description: 'Preserve the existing height and use the selected reference image aspect ratio to derive the exact widened content width.'
+        - id: rounded-620x420
+          label: '620 by 420'
+          description: 'Preserve the existing height and use a clean rounded width, accepting a small aspect-ratio difference from the selected image.'
+        - id: reference-resolution
+          label: '1516 by 1037'
+          description: 'Treat the generated image pixel dimensions as the logical viewport, producing a much larger desktop window rather than a slightly wider one.'
+    answer:
+      selected_ids: [rounded-620x420]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-010, DEMO-003]
+
+  - id: acceptance.visual-browser-proof
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - 'User explicitly requested that the completed page be opened and shown in a browser at the homepage proportions.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'After implementation, open the deterministic demo in an available browser at the agreed fixed viewport, exercise the provider action keys, and compare a captured idle view against the selected source image before handoff.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [AC-MAN-001, AC-MAN-002]
+
+  - id: scope.dependencies-data-migration
+    revision: 1
+    category: compatibility
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - 'The requested UI and typed command additions require no new package, settings schema, persisted data, or migration.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'No dependency addition, persisted-data migration, provider contract change, packaging-target change, or release action belongs to this scope.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [NON-001]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-hotkey-action-buttons/spec.md is an inspectable Draft incorporating the selected visual target and all committed decisions.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: 'Do you approve the Provider Hotkey Action Buttons draft as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve specification'
+          description: 'Freeze this contract for a separate planning and implementation invocation, including the required browser demo.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the draft open and revise specific behavior or acceptance requirements before implementation.'
+        - id: leave-draft
+          label: 'Leave as draft'
+          description: 'Stop without authorizing planning or implementation.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The revised plan inserts self-contained Packet 09 before final qualification and maps every visual-parity requirement to the shared component/style owner.'
+      - 'The packet preserves Hotkey behavior, public interfaces, Electron boundaries, fixed 620 × 292 geometry, and the prohibition on demo-only key visual CSS.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: visual-parity-plan-approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+      sequence: 19
+      revision: 3
+    question:
+      text: 'Do you approve the revised Provider Hotkey Action Buttons plan, which adds Packet 09 to transfer the approved demo key treatment through the one shared HotkeyActionButton visual owner before final qualification?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve plan (Recommended)'
+          description: 'Approve the focused visual-parity packet with no behavior, IPC, layout, or demo-CSS fork.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan unapproved and revise the packet scope, visual baseline, or verification.'
+        - id: leave-unapproved
+          label: 'Leave unapproved'
+          description: 'Keep the draft plan available without authorizing its execution.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The user approved the focused visual-parity plan through the persistent planning interview. This approval does not authorize Packet 09 execution.'
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: authorization.execution-packet-09
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The approved Packet 09 is a self-contained, shared-style-only visual-parity increment with focused automated and deterministic browser verification.'
+      - 'The user explicitly authorized the next incremental-implementation invocation to execute only Packet 09 and stop before Packet 08 or a commit.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: visual-parity-execution-authorization-round-01
+      question_id: authorization.execution-packet-09
+      idempotency_key: authorization.execution-packet-09:v1
+      last_status: answered
+      sequence: 20
+      revision: 1
+    question:
+      text: 'Do you authorize the next incremental-implementation invocation to execute exactly Packet 09, Hotkey Visual Parity? It will change only the shared provider-key visual owner and focused tests as needed to match the approved 620 × 292 demo, verify the deterministic browser demo, update the packet checklist/handoff, and stop before Packet 08 or any commit.'
+      kind: single
+      options:
+        - id: authorize-packet-09
+          label: 'Authorize Packet 09 (Recommended)'
+          description: 'Allow only the shared visual-parity implementation and its focused verification; no behavior or Electron boundary changes.'
+        - id: leave-unauthorized
+          label: 'Leave unauthorized'
+          description: 'Keep the approved packet ready without changing implementation files.'
+        - id: request-plan-changes
+          label: 'Revise the plan'
+          description: 'Return the approved packet to planning before any visual-parity implementation.'
+    answer:
+      selected_ids: [authorize-packet-09]
+      text: ''
+    rationale: 'The user authorized only the next dedicated visual-parity implementation packet. The authorization excludes Packet 08, commits, pushes, pull requests, packaging, publishing, and release actions.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: visual.production-content-size
+    revision: 2
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected the compact fixed-footer option and explicitly requested that the demo height be reduced while its 620-pixel width remains unchanged.'
+      - 'The verified compact demo measures 620 by 292 CSS pixels with a 54-pixel status footer and no document overflow.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [compact-620x292]
+      text: 'The production main-window content area and deterministic browser demo are fixed at 620 by 292 CSS pixels. The provider grid remains unchanged and the status footer occupies the final 54 pixels.'
+    rationale: 'This later explicit height decision supersedes the earlier 620 by 420 contract.'
+    supersedes_revision: 1
+    requirement_ids: [UI-002, UI-010, DEMO-001, COMP-004]
+
+  - id: visual.compact-status-footer
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user chose option 1, the compact fixed-footer treatment, and requested only a reduction in height.'
+      - 'docs/design/status-area-options/01-compact-fixed-footer.png is the selected visual option.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [compact-fixed-footer]
+      text: 'Keep the existing status row and its content, controls, grid, and visual treatment, but constrain it to a fixed 54-pixel footer so the main screen has no unused lower region.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-011, UI-012, UI-013]
+
+  - id: workflow.provider-lock-rules
+    revision: 1
+    category: workflow
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/shared/mainInteractionLock.ts owns the process-wide settings-window lock and refuses acquisition during recording or another selected-text operation.'
+      - 'src/main/shortcuts.ts suspends global shortcuts while the main interaction lock is held and applies recording and selected-text single-flight gates.'
+      - 'src/renderer/App.tsx separately derives provider-configuration and new-recording locks from provider switching, recording lifecycle, model actions, and selected-text activity.'
+      - 'src/shared/recordingLifecycle.ts permits the configured Voice action to start while idle, pause while recording, and resume while paused, while text actions require an idle recording lifecycle.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Provider Lock is a derived per-action eligibility state, not a connection-state replacement or persisted setting. It must preserve the canonical main-process action gates, lock every action during process-wide configuration lock or stale/unknown eligibility, lock cross-provider actions during mutually exclusive work, and keep only lifecycle actions that remain meaningful available.'
+    rationale: 'Reusing the existing authoritative gates prevents renderer and global-shortcut behavior from diverging.'
+    supersedes_revision: null
+    requirement_ids: [LOCK-001, LOCK-002, LOCK-003, LOCK-004, ARCH-006]
+
+  - id: visual.provider-lock-transition
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user requires a lock animation in which a button remains visually clickable initially and then transitions to the Disabled state.'
+      - 'The current reusable demo key uses a 110-millisecond mechanical release interval and separate enabled and disabled keyboard-key treatments.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [mechanical-then-disabled]
+      text: 'When an already enabled hotkey button becomes locked, behavioral and semantic rejection begins immediately, the enabled or pressed key appearance is retained long enough to complete one short mechanical feedback cycle, and the key then transitions into the Disabled appearance without moving adjacent layout.'
+    rationale: 'The visual delay is feedback only and must never delay the authoritative action lock.'
+    supersedes_revision: null
+    requirement_ids: [LOCK-005, LOCK-006, LOCK-007, MOTION-006]
+
+  - id: current.removed-recording-control-dependencies
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/renderer/components/RecordingControls.tsx currently combines the removable primary Record/Stop command with the status live region and Pause, Resume, and Cancel controls.'
+      - 'src/renderer/mainWindowViewState.ts currently models primary Record, Stop, and Busy commands together with status and secondary actions.'
+      - 'src/renderer/App.tsx passes start, stop, disabled state, and the record hotkey into RecordingControls while also retaining global-shortcut subscriptions for toggle, stop, pause, resume, cancel, and retry.'
+      - 'src/renderer/styles/globals.css allocates 93 pixels to the primary command band and 142 pixels minimum to the combined recording workspace.'
+      - 'Renderer tests currently assert the old primary button, 520 by 420 window constants, primary view-state mapping, and command-band CSS.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Removing the large Start/Stop control must decouple presentation from the still-required recording lifecycle. Status, Pause, Resume, Cancel, Stop hotkey handling, retry, IPC subscriptions, audio cleanup, notifications, and lifecycle state remain supported; only the large primary command and its exclusive layout/test assumptions are retired.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DEP-001, DEP-002, DEP-003, DEP-004, DEP-005]
+
+  - id: compatibility.home-screen-spec-precedence
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly removed the Start Recording button and selected the compact 620 by 292 home screen after the earlier UI redesign was completed.'
+      - 'docs/specs/ui-redesign/spec.md still requires a full-width Record/Stop primary control and a taller main-window composition.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [new-home-contract-supersedes]
+      text: 'For the main window only, this specification supersedes the earlier UI redesign requirements for content size, a full-width primary Record/Stop command, and recording as a large visual CTA. Unrelated design-system, supporting-window, accessibility, privacy, and provider requirements remain in force.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-005]
+
+  - id: architecture.main-renderer-action-settings
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - 'The existing get-hotkey contract already returns every configured hotkey and publishes hotkey-settings-changed, although App.tsx currently stores only the Voice hotkey.'
+      - 'The existing get-text-action-settings contract returns Prettify and Translation enablement, but the main renderer does not subscribe to changes after App Settings saves them.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The main renderer must consume all three displayed hotkeys and the current Prettify and Translation enablement through typed validated snapshot/change contracts. Settings changes must update labels and Provider Lock state without reopening the main window.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-005, ARCH-008, FAIL-004]
+
+  - id: quality.compact-status-content
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: agent-default
+    evidence:
+      - 'The selected 54-pixel footer must still render lifecycle status, a localized detail live region, and up to two secondary recording controls.'
+      - 'The current status grid already uses max-content, minmax(0, 1fr), max-content columns and allows detail text to wrap.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bounded-accessible-status]
+      text: 'The compact footer must never increase the fixed window height or introduce scrolling. Visible status text is bounded to the available region while its full localized accessible value remains available to assistive technology and any existing tooltip or status-detail affordance.'
+    rationale: 'This is a low-risk compatibility default required to reconcile a fixed 54-pixel footer with unbounded localized or failure text.'
+    supersedes_revision: null
+    requirement_ids: [UI-013, A11Y-006, AC-AUTO-014]
+
+  - id: workflow.provider-lock-active-action
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Voice has meaningful same-key transitions while recording and paused, but Prettify and Translation are single-flight selected-text actions.'
+      - 'The existing Prettify global shortcut can refocus an open chooser, while the requested Disabled Provider Lock design would reject a repeated homepage-button click.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: provider-lock-round-03
+      question_id: workflow.provider-lock-active-action
+      idempotency_key: workflow.provider-lock-active-action:v1
+      last_status: answered
+    question:
+      text: 'When a provider action is active, which homepage hotkey buttons should Provider Lock disable?'
+      kind: single
+      options:
+        - id: per-action-matrix
+          label: 'Lock unavailable actions (Recommended)'
+          description: 'Lock every incompatible key; keep Voice enabled only when it can Pause or Resume, and lock active Prettify or Translation until that action settles.'
+        - id: keep-active-provider-enabled
+          label: 'Keep active provider enabled'
+          description: 'Lock other providers but leave the active provider key enabled, including allowing Prettify to refocus its chooser.'
+        - id: lock-all-during-work
+          label: 'Lock all during work'
+          description: 'Disable every provider key during any active operation, including Voice while recording or paused.'
+    answer:
+      selected_ids: [per-action-matrix]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, FLOW-006, LOCK-005]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-hotkey-action-buttons/spec.md is an inspectable revised Draft covering the compact home screen, Provider Lock, lock animation, removed recording CTA dependencies, cross-spec precedence, and acceptance criteria.'
+      - 'The active Provider Lock behavior uses the committed per-action matrix answer from workflow.provider-lock-active-action revision 1.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: 'Do you approve the revised compact home-screen and Provider Lock specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve specification'
+          description: 'Approve the revised 620 by 292 home screen, Provider Lock matrix and transition, recording-control dependency contract, and cross-spec amendment.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the specification in Draft and revise one or more requirements before planning.'
+        - id: leave-draft
+          label: 'Leave as draft'
+          description: 'Stop with the current document available for later review without approving implementation planning.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: planning.packet-sequence
+    revision: 1
+    category: planning
+    state: superseded
+    provenance: agent-default
+    evidence:
+      - 'The approved specification separates pure Provider Lock derivation, privileged text-action dispatch, reusable key behavior, production integration, recording CTA removal, fixed layout, browser demo, and cross-platform qualification.'
+      - 'Repository inspection confirms each boundary has focused source/test ownership and a safe dependency order.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [eight-packet-sequence]
+      text: 'Use eight one-packet implementation increments in dependency order: eligibility contracts; canonical main dispatcher and IPC; reusable key; homepage integration; recording CTA removal; compact production layout; deterministic browser demo; integrated desktop qualification.'
+    rationale: 'This order establishes action authority before rendering, preserves recording behavior before shrinking layout, and delays full demo/desktop evidence until production components are complete.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: planning.interaction-test-strategy
+    revision: 1
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'The repository has no React Testing Library, react-test-renderer, jsdom, or happy-dom dependency.'
+      - 'The approved contract forbids a new runtime dependency and requires controlled-time lock-transition evidence plus a real browser demonstration.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [pure-state-plus-browser]
+      text: 'Test Provider Lock eligibility and hotkey transition timing through pure deterministic state modules and existing node:test/render contracts, then prove pointer, keyboard, focus, reduced-motion, and geometry behavior in the existing development browser demo. Do not add a test dependency.'
+    rationale: 'This satisfies deterministic automated coverage and real interaction evidence within the approved dependency boundary.'
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-011, AC-AUTO-003, AC-AUTO-004, AC-AUTO-016]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-hotkey-action-buttons/tasks/plan.md and packets 01 through 08 passed requirement coverage, mandatory-section, link, YAML, and diff-hygiene audits.'
+      - 'All 141 active non-current-state requirement and acceptance IDs map to at least one independently executable packet.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: null
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: 'Do you approve the audited eight-packet Provider Hotkey Action Buttons implementation plan?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve plan (Recommended)'
+          description: 'Approve the authoritative packet sequence and proceed to a separate execution-authorization decision.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan unapproved and revise specific packet scope, order, or verification requirements.'
+        - id: leave-unapproved
+          label: 'Leave unapproved'
+          description: 'Keep the audited draft available without approving implementation planning.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The user approved the audited plan through the persistent planning interview. This approval does not authorize packet execution.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 1
+    category: authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-hotkey-action-buttons/tasks/plan.md is approved and packet 01 is the exact next implementation unit.'
+      - 'AGENTS.md and .agents/references/task-packets.md require a separate explicit incremental-implementation authorization before packet execution.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: null
+      question_id: authorization.execution
+      idempotency_key: authorization.execution:v1
+      last_status: answered
+    question:
+      text: 'Do you separately authorize a future incremental-implementation invocation to execute packet 01 Action Eligibility Contracts?'
+      kind: single
+      options:
+        - id: leave-unauthorized
+          label: 'Leave unauthorized (Recommended)'
+          description: 'Finish planning now and require a later explicit incremental-implementation request before packet 01 begins.'
+        - id: authorize-packet-01
+          label: 'Authorize packet 01 later'
+          description: 'Permit a future incremental-implementation invocation to execute packet 01 only; this planning turn still stops.'
+        - id: request-plan-changes
+          label: 'Request plan changes'
+          description: 'Keep execution unauthorized and revise the approved plan before any packet begins.'
+    answer:
+      selected_ids: [leave-unauthorized]
+      text: ''
+    rationale: 'The approved implementation plan remains ready, but no packet may execute until a later explicit incremental-implementation request authorizes packet 01.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: visual.active-provider-pressed-state
+    revision: 1
+    category: visual
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requires the Voice button to remain pressed during recording and subsequent transcription.'
+      - 'The user explicitly requires the corresponding non-Voice provider button to remain pressed while its Provider Lock is in effect.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [persist-active-press]
+      text: 'The provider button that owns active work uses a persistent pressed presentation for the lifetime of that work instead of transitioning immediately to the ordinary Disabled presentation.'
+    rationale: 'This records the requested outcome; separate workflow decisions define the exact Voice lifecycle boundary and whether unrelated locked peer buttons also appear pressed.'
+    supersedes_revision: null
+    requirement_ids: [OUT-003, MOTION-011, MOTION-012]
+
+  - id: workflow.voice-pressed-lifecycle
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The recording lifecycle is idle, starting, recording, paused, stopping, transcribing, or retrying.'
+      - 'The Voice button can Pause while recording and Resume while paused, while starting, stopping, transcribing, and retrying reject another Voice activation.'
+      - 'The user requires the Voice button to remain pressed during recording and subsequent transcription, but did not explicitly name paused, starting, stopping, or retrying boundaries.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: active-press-round-01
+      question_id: workflow.voice-pressed-lifecycle
+      idempotency_key: workflow.voice-pressed-lifecycle:v1
+      last_status: answered
+    question:
+      text: 'Across which Voice lifecycle states should the hotkey button remain visually pressed?'
+      kind: single
+      options:
+        - id: full-active-session
+          label: 'Full active session (Recommended)'
+          description: 'Keep it pressed from starting through recording, paused, stopping, transcribing, and retrying; release only when the workflow returns to idle or settles terminally.'
+        - id: recording-and-transcribing-only
+          label: 'Recording and transcribing only'
+          description: 'Press it only in the literal recording and transcribing states; use the ordinary locked/available styles for intermediate states.'
+        - id: recording-through-transcription
+          label: 'Recording through transcription'
+          description: 'Press it during recording, paused, stopping, and transcribing, but not while initially starting or retrying.'
+    answer:
+      selected_ids: [full-active-session]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, LOCK-005, MOTION-011, AC-AUTO-005]
+
+  - id: visual.locked-peer-presentation
+    revision: 1
+    category: visual
+    state: answered
+    provenance: user
+    evidence:
+      - 'Provider Lock can affect all three buttons even when only one provider owns the active operation.'
+      - 'Provider Lock also has non-action causes such as settings-window ownership, provider switching, startup uncertainty, and model management.'
+      - 'A persistent pressed state normally communicates which provider action is currently executing, while the existing Disabled state communicates unavailable peers and non-action locks.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: active-press-round-01
+      question_id: visual.locked-peer-presentation
+      idempotency_key: visual.locked-peer-presentation:v1
+      last_status: answered
+    question:
+      text: 'When Prettify or Translation owns active work and Provider Lock affects the screen, which buttons should look pressed?'
+      kind: single
+      options:
+        - id: active-provider-only
+          label: 'Active provider only (Recommended)'
+          description: 'Keep only the provider that owns the operation pressed; show incompatible peers and non-action lock causes with the existing Disabled style.'
+        - id: every-locked-button
+          label: 'Every locked button'
+          description: 'Show every provider button affected by Provider Lock as pressed, even when it does not own the active work.'
+        - id: active-and-voice
+          label: 'Active provider and Voice'
+          description: 'Keep the active text provider and Voice pressed while leaving the remaining locked peer Disabled.'
+    answer:
+      selected_ids: [active-provider-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [LOCK-005, MOTION-012, MOTION-013, AC-AUTO-005]
+
+  - id: current.active-provider-ownership-signals
+    revision: 1
+    category: current-state
+    state: observed
+    provenance: repository
+    evidence:
+      - 'src/renderer/App.tsx owns the canonical renderer RecordingLifecycleState and updates it through useRecording.'
+      - 'src/renderer/App.tsx separately tracks action-specific activeTextAction and process-wide isTextActionActivityActive state.'
+      - 'A process-wide activity boolean can fail closed but cannot by itself identify whether Prettify or Translation owns active work.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [typed-owner-reconciliation-required]
+      text: 'Persistent active presentation must reconcile Voice lifecycle ownership and action-specific selected-text status with process-wide activity; unknown or contradictory ownership remains fail-closed and presses no provider.'
+    rationale: 'The visual owner must also be correct for work started by global shortcuts, so the originating click cannot be authoritative.'
+    supersedes_revision: null
+    requirement_ids: [CUR-013, FLOW-010, LOCK-012, ARCH-007, ARCH-012, FAIL-008]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-hotkey-action-buttons/spec.md is an inspectable Draft that distinguishes momentary press, persistent active ownership, Disabled peers, and ownerless Provider Lock.'
+      - 'The Draft maps the committed full Voice active-session and active-provider-only presentation decisions into lifecycle, lock, motion, accessibility, architecture, demo, failure, and acceptance requirements.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      last_status: answered
+    question:
+      text: 'Do you approve the revised persistent active-provider press specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve specification'
+          description: 'Approve full-session Voice press, active-provider-only Prettify/Translation press, Disabled peers, and ownerless fail-closed behavior.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the specification in Draft and revise one or more active-provider presentation requirements.'
+        - id: leave-draft
+          label: 'Leave as draft'
+          description: 'Stop with the revised document available for later review without updating the implementation plan.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: visual.hotkey-button-design-frozen
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requires the provider hotkey-button design to remain unchanged and limits this revision to the display of additional provider actions.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-existing-hotkey-button]
+      text: 'Do not change HotkeyActionButton structure, dimensions, alignment, color, depth, typography, hover, focus, press, persistent-press, locking, Disabled, busy, or reduced-motion presentation. This revision changes only separate contextual action controls in the footer.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-016, NON-008]
+
+  - id: visual.contextual-action-reference
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user selected option 2, compact shortcut action tiles in the 54-pixel footer.'
+      - 'The user requested removal of the megabyte readout while retaining the selected option.'
+      - 'docs/design/recording-hotkey-options/02-shortcut-action-tiles-no-megabytes.png is the revised visual with the recording timer and no megabyte display.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [compact-shortcut-action-tiles]
+      text: 'Display currently available provider actions as compact icon-and-shortcut tiles in the existing 54-pixel footer. Do not display recording megabytes.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-017, UI-019]
+
+  - id: workflow.prettify-contextual-actions
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requires the Prettify provider to include a Cancel action.'
+      - 'The existing selected-text Prettify service already owns a cancellation path, and global Escape routes to it when applicable.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [cancel]
+      text: 'While Prettify owns cancellable active work, its contextual provider actions include Cancel with the effective configured Cancel shortcut legend.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ACTION-006]
+
+  - id: workflow.translation-contextual-actions
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly requires the Translation provider to include a Cancel action.'
+      - 'The existing selected-text Translation service already owns a cancellation path, and global Escape routes to it when applicable.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [cancel]
+      text: 'While Translation owns cancellable active work, its contextual provider actions include Cancel with the effective configured Cancel shortcut legend.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ACTION-007]
+
+  - id: interaction.contextual-action-tile-activation
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The selected visual presents the additional actions as compact tiles rather than plain text.'
+      - 'Current Pause, Resume, and Cancel footer controls are clickable, while removal of the large primary CTA removes its clickable Stop control.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: contextual-actions-round-01
+      question_id: interaction.contextual-action-tile-activation
+      idempotency_key: interaction.contextual-action-tile-activation:v1
+      last_status: answered
+    question:
+      text: 'Should the compact contextual action tiles be clickable controls or shortcut hints only?'
+      kind: single
+      options:
+        - id: clickable-controls
+          label: 'Clickable controls (Recommended)'
+          description: 'Preserve pointer and keyboard access for Pause, Resume, Stop, and Cancel while showing each configured shortcut in the same tile.'
+        - id: display-only-hints
+          label: 'Display-only hints'
+          description: 'Show the available shortcuts without accepting clicks, leaving those actions available only through global hotkeys.'
+    answer:
+      selected_ids: [clickable-controls]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ACTION-002, ACTION-009, A11Y-010]
+
+  - id: workflow.voice-cancel-boundary
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly called out Escape cancellation during transcription.'
+      - 'The current canCancelRecording contract permits starting, recording, and paused but excludes transcribing and retrying.'
+      - 'The Voice active-session contract spans starting, recording, paused, stopping, transcribing, and retrying.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: contextual-actions-round-01
+      question_id: workflow.voice-cancel-boundary
+      idempotency_key: workflow.voice-cancel-boundary:v1
+      last_status: answered
+    question:
+      text: 'Across which Voice lifecycle states should Cancel be displayed and accepted?'
+      kind: single
+      options:
+        - id: all-cancellable-active-states
+          label: 'All cancellable states (Recommended)'
+          description: 'Allow Cancel during starting, recording, paused, transcribing, and retrying; hide it during idle and the already-settling stopping state.'
+        - id: current-plus-transcribing
+          label: 'Current plus transcribing'
+          description: 'Allow Cancel during starting, recording, paused, and transcribing, but not retrying or stopping.'
+        - id: processing-only
+          label: 'Processing only'
+          description: 'Use Cancel only during transcribing and retrying; rely on Stop for recording and paused states.'
+    answer:
+      selected_ids: [all-cancellable-active-states]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ACTION-004, FLOW-011, COMP-008]
+
+  - id: visual.contextual-action-visibility
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user asked to update the display of additional actions available to providers.'
+      - 'The fixed 54-pixel footer has limited width and different providers expose different action sets.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: contextual-actions-round-01
+      question_id: visual.contextual-action-visibility
+      idempotency_key: visual.contextual-action-visibility:v1
+      last_status: answered
+    question:
+      text: 'How should unavailable contextual provider actions appear in the footer?'
+      kind: single
+      options:
+        - id: available-only
+          label: 'Show available actions only (Recommended)'
+          description: 'Render only actions valid for the active provider and lifecycle, avoiding disabled placeholders and footer clutter.'
+        - id: disabled-placeholders
+          label: 'Keep disabled placeholders'
+          description: 'Reserve stable tiles for the provider action set and dim actions that are not currently valid.'
+        - id: always-show-all
+          label: 'Always show all actions'
+          description: 'Keep every known action visible and rely on Disabled styling to communicate availability.'
+    answer:
+      selected_ids: [available-only]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ACTION-003, UI-020]
+
+  - id: visual.recording-timer-priority
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The selected no-megabytes visual retains a centered recording timer.'
+      - 'The current footer center region can contain localized live status detail, including failures and processing state.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: contextual-actions-round-01
+      question_id: visual.recording-timer-priority
+      idempotency_key: visual.recording-timer-priority:v1
+      last_status: answered
+    question:
+      text: 'How should the selected recording timer coexist with the current center status detail?'
+      kind: single
+      options:
+        - id: status-priority
+          label: 'Status takes priority (Recommended)'
+          description: 'Show elapsed time during recording or pause when no higher-priority message exists; replace it with processing, error, or recovery detail when needed.'
+        - id: timer-through-session
+          label: 'Timer through session'
+          description: 'Keep elapsed time centered for the complete Voice session and move or compact status detail elsewhere in the fixed footer.'
+        - id: timer-visual-only
+          label: 'No production timer'
+          description: 'Treat the timer in the visual as illustrative and preserve the current center status-detail behavior unchanged.'
+    answer:
+      selected_ids: [status-priority]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-021, ACTION-008, A11Y-011]
+
+  - id: workflow.recording-timer-pause
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The selected visual retains a recording timer, and the committed status-priority decision shows it during both recording and pause.'
+      - 'The timer can represent recorded audio duration or total session wall time; those values diverge while paused.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: contextual-actions-round-02
+      question_id: workflow.recording-timer-pause
+      idempotency_key: workflow.recording-timer-pause:v1
+      last_status: answered
+    question:
+      text: 'What should the retained timer do while Voice recording is paused?'
+      kind: single
+      options:
+        - id: freeze-recorded-time
+          label: 'Freeze while paused (Recommended)'
+          description: 'Represent captured audio duration, stop advancing during Pause, and continue from that value after Resume.'
+        - id: continue-session-time
+          label: 'Keep counting'
+          description: 'Represent total session wall time, including the time spent paused.'
+    answer:
+      selected_ids: [freeze-recorded-time]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ACTION-008, FLOW-012]
+
+  - id: quality.compact-status-content
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - 'The selected contextual-action option places as many as three Voice tiles in the fixed 54-pixel footer.'
+      - 'The user selected available-only rendering and status-priority timer behavior.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [three-action-status-priority]
+      text: 'The compact footer must fit lifecycle status, prioritized timer or live detail, and up to three currently available contextual action tiles without height growth, scrolling, overlap, or provider-grid movement.'
+    rationale: 'This supersedes the earlier two-secondary-control assumption after selection of the contextual Voice action strip.'
+    supersedes_revision: 1
+    requirement_ids: [UI-012, UI-013, UI-018, UI-021, AC-AUTO-024]
+
+  - id: approval.spec
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'docs/specs/provider-hotkey-action-buttons/spec.md is an inspectable Draft preserving the provider hotkey-button design and defining provider-neutral contextual action tiles.'
+      - 'The Draft includes the committed Voice, Prettify, and Translation action matrix, clickable controls, available-only visibility, timer/status priority, paused timer behavior, cancellation boundaries, dependencies, security, compatibility, and acceptance coverage.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: approval-round-04
+      question_id: approval.spec
+      idempotency_key: approval.spec:v4
+      last_status: answered
+    question:
+      text: 'Do you approve the revised contextual provider-actions specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve specification'
+          description: 'Approve the unchanged provider hotkey-button design plus contextual Voice, Prettify, and Translation action tiles, cancellation, and timer contracts.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the specification in Draft and revise one or more contextual-action requirements before planning.'
+        - id: leave-draft
+          label: 'Leave as draft'
+          description: 'Stop with the revised specification available for later review without revising the implementation plan.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: planning.packet-sequence
+    revision: 2
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'The approved contextual-action specification adds pure action descriptors, main-owned selected-text cancellation, renderer ownership integration, an atomic Voice cancel/timer/footer change, maximum-density layout, deterministic demo states, and integrated desktop qualification.'
+      - 'The existing eight packet boundaries already match those owners and remain independently verifiable after task-local revision.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [revised-eight-packet-sequence]
+      text: 'Retain eight packets in the established dependency order, expanding packets 01, 02, 04, 05, 06, 07, and 08 for contextual actions while packet 03 freezes the approved provider-key design.'
+    rationale: 'This preserves the approved review cadence and keeps the risky Voice transcription/retry cancellation change atomic with its footer eligibility and lifecycle tests in packet 05.'
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: planning.contextual-action-ownership
+    revision: 1
+    category: planning
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - 'Packet 01 owns pure eligibility/action descriptors; packet 02 owns privileged selected-text start/cancel commands; packet 04 owns renderer snapshot/callback composition; packet 05 owns footer rendering, timer, and Voice cancellation; packets 06 through 08 own fit, demo, and qualification.'
+      - 'The specification forbids contextual-action props or styling in HotkeyActionButton.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [separate-action-tile-owner]
+      text: 'Implement contextual tiles as a separate provider-neutral footer component/style. Keep provider hotkey markup, public interface, production stylesheet, and motion owned and frozen by packet 03.'
+    rationale: 'Separate ownership enforces the explicit no-redesign requirement and lets later providers extend typed descriptors without provider-specific footer JSX.'
+    supersedes_revision: null
+    requirement_ids: [UI-016, ACTION-011, NON-008, AC-AUTO-019]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The revised eight-packet plan maps all 217 active non-current-state requirement and acceptance IDs with no missing coverage.'
+      - 'All eight packets retain the 14 mandatory sections, plan links resolve, decisions.yaml parses, Prettier passes, and scoped diff hygiene passes.'
+      - 'The revised ownership keeps HotkeyActionButton frozen, selected-text Cancel main-owned, and Voice transcription/retry Cancel atomic with footer/timer work.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: approval-round-02
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      last_status: answered
+    question:
+      text: 'Do you approve the revised eight-packet contextual provider-actions implementation plan?'
+      kind: single
+      options:
+        - id: approve
+          label: 'Approve plan (Recommended)'
+          description: 'Approve the audited packet sequence covering unchanged provider keys, contextual actions, provider-specific Cancel, timer/status behavior, demo, and qualification.'
+        - id: request-changes
+          label: 'Request changes'
+          description: 'Keep the plan unapproved and revise packet scope, ownership, ordering, or verification.'
+        - id: leave-unapproved
+          label: 'Leave unapproved'
+          description: 'Keep the audited draft available without authorizing implementation planning.'
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 2
+    category: authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Prompt MCP persisted an earlier authorization for the pre-contextual-actions version of packet 01.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: null
+      question_id: authorization.execution
+      idempotency_key: authorization.execution:v2
+      last_status: answered
+    question:
+      text: 'Do you authorize packet 01 Action Eligibility Contracts for the next execution-capable incremental-implementation turn?'
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: 'Authorize packet 01 (Recommended)'
+          description: 'Authorize only the pure Provider Lock contract and tests; this planning turn still makes no repository implementation changes.'
+        - id: leave-unauthorized
+          label: 'Leave unauthorized'
+          description: 'Keep the approved plan ready but do not permit packet 01 implementation yet.'
+        - id: request-plan-changes
+          label: 'Revise packet first'
+          description: 'Keep execution unauthorized and return packet 01 to planning for contract changes.'
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: 'The authorization applied to the earlier packet 01 contract and is superseded because revised packet 01 now also owns contextual-action identities, availability, and ownership derivation.'
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 3
+    category: authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The revised contextual provider-actions plan is approved, and revised packet 01 Action Eligibility Contracts is the exact next implementation unit.'
+      - 'Revision 2 authorized an earlier materially narrower packet 01 and cannot authorize the newly added contextual-action scope.'
+      - 'Planning approval is not implementation authorization, and the current request asks only to revise the specification and plan.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: authorization-round-03
+      question_id: authorization.execution
+      idempotency_key: authorization.execution:v3
+      last_status: answered
+    question:
+      text: 'Do you separately authorize a future incremental-implementation invocation to execute revised packet 01?'
+      kind: single
+      options:
+        - id: leave-unauthorized
+          label: 'Leave unauthorized (Recommended)'
+          description: 'Finish specification and planning now; require a later explicit incremental-implementation request before revised packet 01 begins.'
+        - id: authorize-packet-01
+          label: 'Authorize revised packet 01 later'
+          description: 'Permit a future incremental-implementation invocation to execute revised packet 01 only; this planning turn still stops.'
+        - id: request-plan-changes
+          label: 'Request plan changes'
+          description: 'Keep execution unauthorized and reopen the approved plan before any packet begins.'
+    answer:
+      selected_ids: [leave-unauthorized]
+      text: ''
+    rationale: ''
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 4
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly invoked incremental-implementation after authorizing the approved provider-hotkey workstream.'
+      - 'The task checklist identifies revised packet 01 Action Eligibility Contracts as the first incomplete packet.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: 'Execute revised packet 01 only during this incremental-implementation invocation.'
+    rationale: 'The current explicit incremental-implementation request supersedes the prior leave-unauthorized decision for the first packet only.'
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: authorization.commit-packet-01
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 01 source, tests, checklist, handoff, and its execution decision remain uncommitted.'
+      - 'The required packet-01 focused tests, formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked planning/design assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: commit-authorization-round-01
+      question_id: authorization.commit-packet-01
+      idempotency_key: authorization.commit-packet-01:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed packet 01 before opening the next packet?'
+      kind: single
+      options:
+        - id: commit-packet-01
+          label: 'Commit packet 01 (Recommended)'
+          description: 'Create one conventional commit containing only packet 01 source/tests plus its decision, checklist, and handoff records; leave all other work untouched.'
+        - id: leave-uncommitted
+          label: 'Leave uncommitted'
+          description: 'Keep packet 01 in the worktree and stop; packet 02 cannot begin yet.'
+    answer:
+      selected_ids: [commit-packet-01]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 5
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly invoked incremental-implementation after packet 01 was committed.'
+      - 'Prompt MCP authorization.execution-packet-02:v1 selected authorize-packet-02.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-02-execution-authorization-round-01
+      question_id: authorization.execution-packet-02
+      idempotency_key: authorization.execution-packet-02:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 02, Main Action Dispatch and IPC, during this incremental-implementation invocation?'
+      kind: single
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: ''
+    rationale: 'Authorization applies only to packet 02 during the current incremental-implementation invocation.'
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: authorization.commit-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 02 source, tests, decision, checklist, and handoff records remain uncommitted.'
+      - 'Packet 02 focused tests, touched-file lint and formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-02-commit-authorization-round-01
+      question_id: authorization.commit-packet-02
+      idempotency_key: authorization.commit-packet-02:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 02 before opening the next packet?'
+      kind: single
+    answer:
+      selected_ids: [commit-packet-02]
+      text: ''
+    rationale: 'Authorization covers only verified Packet 02 files and excludes unrelated worktree changes.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 6
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Prompt MCP authorization.execution-packet-03:v1 selected authorize-packet-03.'
+      - 'Packet 02 was committed as ceb06f7 before packet 03 began.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-03-execution-authorization-round-01
+      question_id: authorization.execution-packet-03
+      idempotency_key: authorization.execution-packet-03:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 03, Hotkey Action Button, during this incremental-implementation invocation?'
+      kind: single
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: 'Authorization applies only to packet 03 during the current incremental-implementation invocation.'
+    supersedes_revision: 5
+    requirement_ids: []
+
+  - id: authorization.commit-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 source, tests, decision, checklist, and handoff records remain uncommitted.'
+      - 'Packet 03 focused tests, touched-file lint and formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-03-commit-authorization-round-01
+      question_id: authorization.commit-packet-03
+      idempotency_key: authorization.commit-packet-03:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 03 before opening the next packet? The commit will include only the reusable HotkeyActionButton component, its state/style contracts, focused tests, and packet decision/checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-03
+          label: Commit Packet 03 (Recommended)
+          description: Create one focused commit for the verified Packet 03 files, then request separate authorization for Packet 04.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or starting Packet 04.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 03 for revision.
+    answer:
+      selected_ids: [commit-packet-03]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 7
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 was committed as 0fde290 before opening the next incomplete packet.'
+      - 'Packet 04 Home Screen Action Integration is the exact next checklist item.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-04-execution-authorization-round-01
+      question_id: authorization.execution-packet-04
+      idempotency_key: authorization.execution-packet-04:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 04, Home Screen Action Integration, during this incremental-implementation invocation?'
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize Packet 04 (Recommended)
+          description: Integrate the approved reusable provider hotkey controls into the production home screen, with bounded renderer-to-main action routing and focused tests.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after recording the completed Packet 03 commit; do not change production home-screen integration.
+        - id: request-plan-changes
+          label: Revise Packet 04
+          description: Stop implementation and return the packet to planning for a contract change.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: ''
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: authorization.commit-packet-04
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 source, focused tests, decision, checklist, and handoff records remain uncommitted.'
+      - 'Packet 04 focused renderer/main tests, touched-file lint and formatting, TypeScript, type tests, and diff hygiene checks pass.'
+      - 'The worktree contains unrelated user-owned modifications and untracked assets that must remain unstaged.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-04-commit-authorization-round-01
+      question_id: authorization.commit-packet-04
+      idempotency_key: authorization.commit-packet-04:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 04 before opening the next packet? The commit will include only the home-screen provider hotkey integration, focused Prettify state extraction, focused tests, and packet decision/checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-04
+          label: Commit Packet 04 (Recommended)
+          description: Create one focused conventional commit for the verified Packet 04 files, then request separate authorization for Packet 05.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or starting Packet 05.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 04 for revision.
+    answer:
+      selected_ids: [commit-packet-04]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 8
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 was committed as ccb2864 before opening the next incomplete packet.'
+      - 'The user invoked incremental-implementation for the exact next checklist item, Packet 05 Recording Footer And CTA Removal.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-05-execution-authorization-round-01
+      question_id: authorization.execution-packet-05
+      idempotency_key: authorization.execution-packet-05:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 05, Recording Footer And CTA Removal, during this incremental-implementation invocation?'
+      kind: single
+      options:
+        - id: authorize-packet-05
+          label: Authorize Packet 05
+          description: Replace the obsolete primary recording CTA with contextual actions, duration status, and race-safe cancellation.
+    answer:
+      selected_ids: [authorize-packet-05]
+      text: ''
+    rationale: ''
+    supersedes_revision: 7
+    requirement_ids: []
+
+  - id: authorization.commit-packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 is complete and verified but intentionally uncommitted.'
+      - 'The user invoked incremental-implementation again, which requires the previous packet be committed under separate authorization before Packet 06 can start.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-05-commit-authorization-round-01
+      question_id: authorization.commit-packet-05
+      idempotency_key: authorization.commit-packet-05:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 05? The commit will include only the recording-footer replacement, contextual action tile/timer/cancellation changes, localized timer label, focused tests, and Packet 05 decision/checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-05
+          label: Commit Packet 05 (Recommended)
+          description: Create one focused commit for verified Packet 05 files, then request separate execution authorization for Packet 06.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or opening Packet 06.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 05 for revision.
+    answer:
+      selected_ids: [commit-packet-05]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 9
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 was committed as eac005e before the next incomplete packet was considered.'
+      - 'Packet 06 Compact Window And Layout is the exact next checklist item and has a self-contained implementation contract.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-06-execution-authorization-round-01
+      question_id: authorization.execution-packet-06
+      idempotency_key: authorization.execution-packet-06:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 06, Compact Window And Layout, during this incremental-implementation invocation?'
+      kind: single
+      options:
+        - id: authorize-packet-06
+          label: Authorize Packet 06 (Recommended)
+          description: Set the exact 620 × 292 main window and fixed Command Dock grid, with focused layout/startup verification.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after Packet 05 commit without changing main-window geometry.
+        - id: request-plan-changes
+          label: Revise Packet 06
+          description: Do not implement; return the packet to planning for a contract change.
+    answer:
+      selected_ids: [authorize-packet-06]
+      text: ''
+    rationale: ''
+    supersedes_revision: 8
+    requirement_ids: []
+
+  - id: authorization.commit-packet-06
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 is complete and its recorded focused checks passed.'
+      - 'The user invoked incremental-implementation again, requiring separate authorization before Packet 07 can begin.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-06-commit-authorization-round-01
+      question_id: authorization.commit-packet-06
+      idempotency_key: authorization.commit-packet-06:v1
+      last_status: answered
+    question:
+      text: 'May I commit completed Packet 06? The commit will include only the verified 620 × 292 compact-window layout, compact startup screen, scoped tests, and Packet 06 checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-06
+          label: Commit Packet 06 (Recommended)
+          description: Create one focused commit for the verified compact layout, then request separate execution authorization for Packet 07.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or opening Packet 07.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 06 for revision.
+    answer:
+      selected_ids: [commit-packet-06]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.execution
+    revision: 10
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 was committed as 8c33a25 before the next incomplete packet was considered.'
+      - 'Packet 07 Deterministic Browser Demo is the exact next checklist item and has a self-contained implementation contract.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-07-execution-authorization-round-01
+      question_id: authorization.execution-packet-07
+      idempotency_key: authorization.execution-packet-07:v1
+      last_status: answered
+    question:
+      text: 'Do you authorize execution of Packet 07, Deterministic Browser Demo, during this incremental-implementation invocation? It will update only the development-only demo fixture/style/tests, run its automated checks, and leave a synthetic 620 × 292 demo open for review; it will not invoke Electron APIs, real providers, recordings, network requests, or persistent state.'
+      kind: single
+      options:
+        - id: authorize-packet-07
+          label: Authorize Packet 07 (Recommended)
+          description: Implement and verify the isolated 620 × 292 browser demo, then stop uncommitted for review.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after committing Packet 06 without changing the demo.
+        - id: request-plan-changes
+          label: Revise Packet 07
+          description: Do not implement; return the packet to planning for a contract change.
+    answer:
+      selected_ids: [authorize-packet-07]
+      text: ''
+    rationale: ''
+    supersedes_revision: 9
+    requirement_ids: []
+
+  - id: authorization.commit-packet-07
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 focused tests, TypeScript checks, scoped lint, formatting, production build, and browser manual gates passed.'
+      - 'The user authorized a commit before the next incremental-implementation invocation can consider new work.'
+    prompt_mcp:
+      interview_id: plan:provider-hotkey-action-buttons
+      batch_id: packet-07-commit-authorization-round-01
+      question_id: authorization.commit-packet-07
+      idempotency_key: authorization.commit-packet-07:v1
+      last_status: answered
+    question:
+      text: 'May I commit the completed Packet 07? The commit will include only the verified deterministic 620 × 292 demo, restored approved Hotkey presentation, scoped tests, and Packet 07 checklist/handoff records; it will exclude all unrelated worktree changes.'
+      kind: single
+      options:
+        - id: commit-packet-07
+          label: Commit Packet 07 (Recommended)
+          description: Create one focused commit for the verified demo, then return the visual transfer request to planning.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Stop without committing or opening the next packet.
+        - id: request-changes
+          label: Request changes
+          description: Keep Packet 07 open for revision instead of committing.
+    answer:
+      selected_ids: [commit-packet-07]
+      text: ''
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: visual.demo-to-production-parity
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly directed that the demo design be transferred to the production Hotkey buttons.'
+      - 'The demo and production both render the shared HotkeyActionButton; demo CSS is limited to fixture and review-surface layout.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'The approved deterministic demo treatment is the visual source of truth for production provider Hotkey buttons. Production and demo must use one shared visual owner; no demo-only key styling or alternate production treatment is permitted.'
+    rationale: 'The request is explicit and preserves the existing 114 × 32 component interface, action behavior, privacy boundaries, and fixed home-screen grid.'
+    supersedes_revision: null
+    requirement_ids: [UI-015, UI-016, UI-022, AC-AUTO-019, AC-AUTO-025, AC-MAN-005]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'The user explicitly selected the demo visual treatment as the source of truth for production Hotkey buttons.'
+      - 'The Draft adds production/demo visual-owner parity without changing Hotkey geometry, behavior, trusted boundaries, or the fixed home-screen grid.'
+    prompt_mcp:
+      interview_id: spec:provider-hotkey-action-buttons
+      batch_id: visual-parity-approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+    question:
+      text: 'Do you approve the revised Hotkey visual-parity specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve specification (Recommended)
+          description: Make the approved demo treatment the exact shared production Hotkey visual baseline.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification in Draft and revise the visual-parity contract.
+        - id: leave-draft
+          label: Leave as draft
+          description: Stop with the revised specification available for later planning.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: ''
+    supersedes_revision: 4
+    requirement_ids: []

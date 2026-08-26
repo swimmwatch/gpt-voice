@@ -19,6 +19,7 @@ describe('provider status indicators', () => {
     assert.match(indicator, /tabIndex=\{0\}/u);
     assert.match(indicator, /role=\{role\}/u);
     assert.match(indicator, /aria-label=\{accessibleName\}/u);
+    assert.match(indicator, /<Spinner[\s\S]*?active=\{loading\}[\s\S]*?announce=\{false\}/u);
     assert.match(indicator, /normalizedLabel === normalizedTooltip/u);
     assert.doesNotMatch(indicator, /<button|onClick/u);
   });
@@ -30,13 +31,11 @@ describe('provider status indicators', () => {
     assert.match(toolbar, /dataSlot="voice-provider-connection"/u);
     assert.match(toolbar, /tooltip=\{providerStatusTooltip\}/u);
     assert.match(toolbar, /providerConnectionFailureTooltip \|\|/u);
-    assert.match(toolbar, /const isBrowserSessionProvider = activeProviderAuthType === 'browserSession';/u);
     assert.match(
       toolbar,
-      /<Button[\s\S]*?aria-label=\{providerActionLabel\}[\s\S]*?data-icon-only=\{isBrowserSessionProvider\}[\s\S]*?onClick=\{onProviderLogin\}/u,
+      /<Button[\s\S]*?aria-label=\{providerActionLabel\}[\s\S]*?data-icon-only[\s\S]*?onClick=\{\(\) => \{[\s\S]*?if \(isLoggingIn \|\| isProviderChangesLocked\) return;[\s\S]*?onProviderLogin\(\);/u,
     );
     assert.match(toolbar, /<LogIn aria-hidden="true" \/>/u);
-    assert.match(toolbar, /\{!isBrowserSessionProvider && <span>/u);
     assert.doesNotMatch(
       toolbar,
       /<LogIn aria-hidden="true" \/>\}\s*<span>\{isLoggingIn \? t\('login\.loggingIn'\) : providerActionLabel\}<\/span>/u,
@@ -80,12 +79,12 @@ describe('provider status indicators', () => {
     const styles = readProjectFile('src/renderer/styles/globals.css');
 
     assert.match(styles, /--dock-provider-controls-width: 125px;/u);
-    assert.match(styles, /--dock-translation-target-width: 175px;/u);
+    assert.match(styles, /--dock-action-key-width: 114px;/u);
     assert.match(styles, /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(styles, /\.command-dock-prettify-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);/u);
     assert.match(
       styles,
-      /\.command-dock-language-band \{[\s\S]*?grid-template-columns:[\s\S]*?var\(--dock-translation-target-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
+      /\.command-dock-language-band \{[\s\S]*?grid-template-columns:[\s\S]*?var\(--dock-action-key-width\)[\s\S]*?var\(--dock-provider-controls-width\);/u,
     );
     assert.match(
       styles,
@@ -95,7 +94,10 @@ describe('provider status indicators', () => {
       styles,
       /\.provider-status-badge\.command-dock-provider-state \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;[\s\S]*?min-width: 37px;[\s\S]*?min-height: 34px;[\s\S]*?max-width: 37px;[\s\S]*?max-height: 34px;/u,
     );
-    assert.match(styles, /\.command-dock-provider-state svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);
+    assert.match(
+      styles,
+      /\.command-dock-provider-state svg,[\s\S]*?\[data-slot='spinner'\] \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u,
+    );
     assert.match(styles, /\.command-dock-prettify-connection \{[\s\S]*?justify-self: start;/u);
     assert.match(styles, /\.command-dock-translation-connection \{[\s\S]*?width: 37px;[\s\S]*?justify-self: start;/u);
     assert.doesNotMatch(

@@ -84,7 +84,7 @@ describe('Audit Log App Settings', () => {
     assert.match(appSettings, /hasDiagnosticConfirmation: diagnosticConfirmation !== null/u);
     assert.match(appSettings, /const saveDisabled = isAppSettingsSaveDisabled\(\{[\s\S]*?\.\.\.actionLockState/u);
     assert.match(appSettings, /const diagnosticControlsDisabled = areDiagnosticControlsDisabled\(actionLockState\)/u);
-    assert.match(appSettings, /disabled=\{isPending\}/u);
+    assert.match(appSettings, /onPendingChange=\{setIsDiagnosticActionPending\}/u);
   });
 
   it('keeps destructive dialogs retryable and restores the prior focus after close', () => {
@@ -103,10 +103,14 @@ describe('Audit Log App Settings', () => {
       appSettings,
       /window\.requestAnimationFrame\(\(\) => diagnosticConfirmationFocusRef\.current\?\.focus\(\)\)/u,
     );
-    assert.match(clearAction, /if \(result\.success\) \{\s*closeDiagnosticConfirmation\(\);/u);
+    assert.match(
+      clearAction,
+      /if \(result\.success\) \{\s*diagnosticConfirmationSucceededRef\.current = true;\s*return true;/u,
+    );
     assert.match(clearAction, /setError\(t\(getDiagnosticCaptureErrorTranslationKey\(result\.errorCode\)\)\)/u);
     assert.doesNotMatch(clearAction, /forceCloseWindow|setDiagnosticCaptureSettings/u);
-    assert.doesNotMatch(diagnosticDialog, /<AlertDialogAction/u);
+    assert.match(diagnosticDialog, /<ConfirmationDialog/u);
+    assert.doesNotMatch(diagnosticDialog, /<AlertDialog/u);
   });
 
   it('cancels disable confirmation without sending destructive IPC and restores only affected drafts', () => {

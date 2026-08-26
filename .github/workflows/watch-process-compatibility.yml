@@ -1,0 +1,161 @@
+name: Watch Process Compatibility
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: watch-process-compatibility-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Classify Watch Process Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      relevant: ${{ steps.classify.outputs.relevant }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - id: classify
+        name: Classify changed paths
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_AFTER_SHA: ${{ github.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+
+          readonly zero_sha='0000000000000000000000000000000000000000'
+          changed_paths_file="$(mktemp)"
+          trap 'rm -f "$changed_paths_file"' EXIT
+
+          is_sha() {
+            [[ "$1" =~ ^[a-fA-F0-9]{40}$ ]]
+          }
+
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              echo 'relevant=true' >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            pull_request)
+              base_sha="$PR_BASE_SHA"
+              head_sha="$PR_HEAD_SHA"
+              ;;
+            push)
+              base_sha="$PUSH_BEFORE_SHA"
+              head_sha="$PUSH_AFTER_SHA"
+              ;;
+            *)
+              echo "Unsupported event for watch-process scope: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          if ! is_sha "$head_sha"; then
+            echo 'Watch-process scope received an invalid head SHA' >&2
+            exit 1
+          fi
+          git cat-file -e "$head_sha^{commit}"
+
+          if [[ "$base_sha" == "$zero_sha" ]]; then
+            empty_tree="$(git hash-object -t tree /dev/null)"
+            git diff --name-only -z "$empty_tree" "$head_sha" -- > "$changed_paths_file"
+          else
+            if ! is_sha "$base_sha"; then
+              echo 'Watch-process scope received an invalid base SHA' >&2
+              exit 1
+            fi
+            git cat-file -e "$base_sha^{commit}"
+            git diff --name-only -z "$base_sha" "$head_sha" -- > "$changed_paths_file"
+          fi
+
+          relevant=false
+          while IFS= read -r -d '' changed_path; do
+            case "$changed_path" in
+              .agents/skills/watch-process/* | .codex/hooks.json | .codex/process-watch/scenarios/* | .github/workflows/watch-process-compatibility.yml | .gitignore | package.json | tests/skills/watchProcess/* | tests/skills/watchProcess*.test.ts)
+                relevant=true
+                break
+                ;;
+            esac
+          done < "$changed_paths_file"
+
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+
+  compatibility:
+    name: Watch Process / ${{ matrix.os }} / Node ${{ matrix.node }}
+    needs: scope
+    if: ${{ needs.scope.outputs.relevant == 'true' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - 22
+          - 24
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run standalone watch-process suite
+        run: node --test tests/skills/watchProcess/suite.test.mjs
+
+  aggregate:
+    name: Watch Process Compatibility
+    if: ${{ always() }}
+    needs:
+      - scope
+      - compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      MATRIX_RESULT: ${{ needs.compatibility.result }}
+      SCOPE_RESULT: ${{ needs.scope.result }}
+      WATCH_PROCESS_RELEVANT: ${{ needs.scope.outputs.relevant }}
+    steps:
+      - name: Require every relevant compatibility lane
+        shell: bash
+        run: |
+          if [[ "$SCOPE_RESULT" != 'success' ]]; then
+            echo 'Watch-process scope classification did not succeed' >&2
+            exit 1
+          fi
+
+          if [[ "$WATCH_PROCESS_RELEVANT" == 'false' ]]; then
+            exit 0
+          fi
+
+          if [[ "$WATCH_PROCESS_RELEVANT" != 'true' || "$MATRIX_RESULT" != 'success' ]]; then
+            echo 'Every relevant watch-process compatibility lane must succeed' >&2
+            exit 1
+          fi

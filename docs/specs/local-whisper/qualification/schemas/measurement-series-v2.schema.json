@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/measurement-series-v2.schema.json",
+  "title": "Local Whisper owned-resource measurement series v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "specificationRevision",
+    "seriesDigest",
+    "candidateInputDigest",
+    "platformGraphDigest",
+    "profileDigest",
+    "rowId",
+    "sampleIntervalMilliseconds",
+    "maximumGapMilliseconds",
+    "samples"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "specificationRevision": { "const": 10 },
+    "seriesDigest": { "$ref": "#/$defs/sha256" },
+    "candidateInputDigest": { "$ref": "#/$defs/sha256" },
+    "platformGraphDigest": { "$ref": "#/$defs/sha256" },
+    "profileDigest": { "$ref": "#/$defs/sha256" },
+    "rowId": { "$ref": "#/$defs/identifier" },
+    "sampleIntervalMilliseconds": { "const": 100 },
+    "maximumGapMilliseconds": { "const": 500 },
+    "samples": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["elapsedNanoseconds", "ownedProcessCount", "ramBytes", "vramBytes"],
+        "properties": {
+          "elapsedNanoseconds": { "type": "integer", "minimum": 0 },
+          "ownedProcessCount": { "type": "integer", "minimum": 0 },
+          "ramBytes": { "type": "integer", "minimum": 0 },
+          "vramBytes": {
+            "oneOf": [{ "type": "integer", "minimum": 0 }, { "const": "notApplicable" }]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

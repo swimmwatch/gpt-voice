@@ -494,6 +494,13 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
         await this.terminate(operation, createStreamingError(StreamingTranscriptionErrorCode.InvalidAudio), false),
       );
     }
+    if (operation.acceptedByteCount === 0 && finalChunk.byteLength === 0) {
+      finalChunk.fill(0);
+      recordingWav.fill(0);
+      return this.toTerminalFailure(
+        await this.terminate(operation, createStreamingError(StreamingTranscriptionErrorCode.InvalidAudio), false),
+      );
+    }
 
     operation.recordingWav = recordingWav;
     operation.acceptedByteCount += finalChunk.byteLength;

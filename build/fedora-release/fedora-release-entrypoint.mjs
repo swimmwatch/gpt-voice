@@ -8,9 +8,18 @@ const workspace = process.env.GPT_VOICE_WORKSPACE || '/workspace';
 const mode = optionValue('mode') || 'release';
 const releaseDate = optionValue('release-date') || process.env.PACKAGE_RELEASE_DATE || '';
 const releaseTag = optionValue('release-tag') || process.env.RELEASE_TAG || process.env.WORKFLOW_DISPATCH_RELEASE_TAG || '';
+const productionBundleDirectory = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY || '';
+const productionBundleDescriptor = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR || '';
+const productionPackaging = Boolean(productionBundleDirectory && productionBundleDescriptor);
 
 if (!['release', 'smoke'].includes(mode)) {
   throw new Error(`Unsupported Fedora build mode: ${mode}`);
+}
+if (Boolean(productionBundleDirectory) !== Boolean(productionBundleDescriptor)) {
+  throw new Error('Linux production Local Whisper bundle inputs must be supplied together');
+}
+if (mode === 'smoke' && productionPackaging) {
+  throw new Error('Fedora smoke mode rejects production Local Whisper bundle inputs');
 }
 
 process.chdir(workspace);
@@ -51,6 +60,19 @@ if (releaseTag) {
 await run('npm', ['run', 'prepare:cloakbrowser', '--', '--target=linux']);
 await run('npm', ['run', 'smoke:cloakbrowser']);
 await run('npm', ['run', 'build:prod']);
+if (productionPackaging) {
+  await run('npm', [
+    'run',
+    'prepare:local-whisper:packaging',
+    '--',
+    '--mode=production',
+    '--platform=linux',
+    `--bundle=${productionBundleDirectory}`,
+    `--bundle-descriptor=${productionBundleDescriptor}`,
+  ]);
+} else {
+  await run('npm', ['run', 'prepare:local-whisper:packaging', '--', '--mode=disabled', '--platform=linux']);
+}
 
 const metadataArgs = ['run', 'generate:package-metadata'];
 if (releaseDate) {
@@ -59,7 +81,7 @@ if (releaseDate) {
 await run('npm', metadataArgs);
 
 if (mode === 'smoke') {
-  await run('npx', ['electron-builder', '--linux', 'dir']);
+  await run('npx', ['electron-builder', '--linux', 'dir', '--publish', 'never']);
   await run('npm', ['run', 'verify:packaged']);
   await measureLinuxBuild();
 } else {
@@ -79,7 +101,18 @@ if (mode === 'smoke') {
     '--report=release-artifacts/size-linux-x64.json',
     '--baseline=build/size-baselines/v1.4.0-linux-x64.json',
   ]);
-  await run('npm', ['run', 'collect:release-artifacts', '--', '--platform=linux']);
+  if (productionPackaging) {
+    await run('npm', [
+      'run',
+      'verify:local-whisper:packaging:release-guard',
+      '--',
+      '--mode=production',
+      '--platform=linux',
+      '--staging=build/generated/local-whisper',
+      `--bundle=${productionBundleDirectory}`,
+    ]);
+    await run('npm', ['run', 'collect:release-artifacts', '--', '--platform=linux']);
+  }
 }
 
 console.log(`Fedora ${mode} build completed`);

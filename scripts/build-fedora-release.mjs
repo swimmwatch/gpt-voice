@@ -7,12 +7,21 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const image = optionValue('image') || 'gpt-voice-fedora-release:local';
 const mode = optionValue('mode') || 'release';
 const releaseDate = optionValue('release-date') || process.env.PACKAGE_RELEASE_DATE || '';
-const releaseTag = optionValue('release-tag') || process.env.RELEASE_TAG || process.env.WORKFLOW_DISPATCH_RELEASE_TAG || '';
+const releaseTag =
+  optionValue('release-tag') || process.env.RELEASE_TAG || process.env.WORKFLOW_DISPATCH_RELEASE_TAG || '';
+const productionBundleDirectory = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY || '';
+const productionBundleDescriptor = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR || '';
 const skipImageBuild = hasFlag('skip-image-build');
 const pullBaseImage = hasFlag('pull');
 
 if (!['release', 'smoke'].includes(mode)) {
   throw new Error(`Unsupported Fedora build mode: ${mode}`);
+}
+if (Boolean(productionBundleDirectory) !== Boolean(productionBundleDescriptor)) {
+  throw new Error('Linux production Local Whisper bundle inputs must be supplied together');
+}
+if (mode === 'smoke' && productionBundleDirectory) {
+  throw new Error('Fedora smoke mode rejects production Local Whisper bundle inputs');
 }
 
 await Promise.all([
@@ -23,13 +32,7 @@ await Promise.all([
 ]);
 
 if (!skipImageBuild) {
-  const buildArgs = [
-    'build',
-    '--file',
-    path.join(rootDir, 'build', 'fedora-release', 'Dockerfile'),
-    '--tag',
-    image,
-  ];
+  const buildArgs = ['build', '--file', path.join(rootDir, 'build', 'fedora-release', 'Dockerfile'), '--tag', image];
 
   if (pullBaseImage) {
     buildArgs.push('--pull');
@@ -47,6 +50,8 @@ const containerArgs = [
   '/workspace',
   '--volume',
   `${rootDir}:/workspace`,
+  '--volume',
+  '/workspace/node_modules',
   '--env',
   'CI=true',
   '--env',
@@ -71,6 +76,15 @@ if (releaseDate) {
 if (releaseTag) {
   containerArgs.push('--env', `RELEASE_TAG=${releaseTag}`);
 }
+if (productionBundleDirectory) {
+  containerArgs.push('--volume', `${productionBundleDirectory}:/local-whisper-production-bundle:ro`);
+  containerArgs.push('--volume', `${productionBundleDescriptor}:/local-whisper-production-bundle-descriptor.json:ro`);
+  containerArgs.push('--env', 'LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY=/local-whisper-production-bundle');
+  containerArgs.push(
+    '--env',
+    'LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR=/local-whisper-production-bundle-descriptor.json',
+  );
+}
 
 containerArgs.push(image, `--mode=${mode}`);
 if (releaseDate) {
@@ -80,6 +94,7 @@ if (releaseTag) {
   containerArgs.push(`--release-tag=${releaseTag}`);
 }
 
+await run('node', ['scripts/security/verify-npm-signatures-preinstall.mjs']);
 await run('docker', containerArgs);
 
 function optionValue(name) {

@@ -5,7 +5,7 @@ Load only the section relevant to the current task. This guide is not an always-
 ## Project And Commands
 
 - GPT-Voice is a private Electron desktop transcription app: renderer records audio, preload exposes typed IPC, and main owns providers, browser automation, clipboard, notifications, and lifecycle.
-- Runtime: Node.js `>=24`, npm `>=11`, TypeScript strict mode, CommonJS package model, Webpack, React 19, SCSS, and Electron.
+- Runtime: Node.js `>=24.15.0`, Corepack with npm `12.0.2`, TypeScript strict mode, CommonJS package model, Webpack, React 19, SCSS, and Electron.
 - Common checks: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test:types`, `npm test`, `npm run validate:dependabot`, `npm run audit:prod`, and `npm run build:prod`.
 - Release or browser-runtime work may additionally require `prepare:cloakbrowser`, `smoke:cloakbrowser`, packaging, installer, or platform-native verification. Run only the checks applicable to the requested surface.
 
@@ -27,8 +27,11 @@ Load only the section relevant to the current task. This guide is not an always-
 
 - Construct main-process business services, repositories, controllers, and
   runtime adapters only in `MainProcessCompositionRoot` or
-  `MainProcessRuntimeFactory`. Dedicated provider and external-adapter
-  factories may construct only their operation-scoped implementations.
+  `MainProcessRuntimeFactory`. The process-owned Local Whisper graph is the one
+  approved exception and is constructed only by
+  `ProductionLocalWhisperEnvironmentFactory` after packaged-input
+  authentication. Dedicated provider and external-adapter factories may
+  construct only their operation-scoped implementations.
 - Keep the preload root functional in `preload.ts`, and keep renderer
   composition functional through `bootstrapWindow`, React providers, and
   hooks. Only these roots may import process runtime values such as Electron

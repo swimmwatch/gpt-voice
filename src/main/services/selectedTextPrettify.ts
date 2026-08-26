@@ -203,7 +203,6 @@ function createOperationSnapshot(
 export class SelectedTextPrettifyService {
   private activeRun: SelectedTextPrettifyRun | null = null;
   private disposed = false;
-  private lastAppliedProfileId: PrettifyProfileId | null = null;
 
   public constructor(private readonly dependencies: SelectedTextPrettifyDependencies) {}
 
@@ -248,6 +247,12 @@ export class SelectedTextPrettifyService {
     this.clearRunSensitiveState(run, run.phase === 'capturing' && !run.clipboardRestored);
     this.dependencies.logger.info('Selected-text prettify cancelled');
     return this.createCancelledResult();
+  }
+
+  /** Reports whether the currently owned run can still accept one Cancel request. */
+  public canCancel(): boolean {
+    const run = this.activeRun;
+    return Boolean(run && !run.cancelled && !run.abortController.signal.aborted);
   }
 
   public dispose(): void {
@@ -374,12 +379,7 @@ export class SelectedTextPrettifyService {
     run.summaries = snapshot.summaries;
     run.phase = 'choosing';
 
-    const initialProfileId =
-      this.lastAppliedProfileId && snapshot.profiles.some(({ id }) => id === this.lastAppliedProfileId)
-        ? this.lastAppliedProfileId
-        : undefined;
     const request = Object.freeze({
-      ...(initialProfileId === undefined ? {} : { initialProfileId }),
       profiles: snapshot.summaries,
       sourceText: selectedText,
     });
@@ -389,13 +389,13 @@ export class SelectedTextPrettifyService {
     if (outcome.type === 'cancel' || outcome.type === 'close') return this.createCancelledResult();
     if (outcome.type === 'manageProfiles') {
       this.clearRunSensitiveState(run);
+      this.finishRun(run);
       this.dependencies.openProfileManagement();
       return this.createCancelledResult();
     }
 
     const profile = snapshot.profiles.find(({ id }) => id === outcome.profileId);
     if (!profile) throw new Error(INVALID_CHOOSER_SELECTION_ERROR);
-    this.lastAppliedProfileId = profile.id;
     return this.executeInstruction(run, selectedText, composePrettifyProfileInstruction(profile.instruction));
   }
 

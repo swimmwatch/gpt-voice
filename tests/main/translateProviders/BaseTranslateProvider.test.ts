@@ -10,12 +10,21 @@ import {
   type BaseTranslateProviderDependencies,
 } from '@main/translateProviders/BaseTranslateProvider';
 import {
+  TRANSLATION_RESULT_TIMEOUT_MS,
+  TRANSLATION_TERMINAL_CLEANUP_TIMEOUT_MS,
+  TranslationOperationLifecycle,
+  type TranslationOperationLifecycleDependencies,
+} from '@main/translateProviders/translationOperationLifecycle';
+import {
+  classifyTranslationProviderCompletionControl,
   translationHookFailure,
   translationHookSuccess,
   type TranslationProviderHookResult,
+  type TranslationProviderResultObservation,
 } from '@main/translateProviders/translationProviderContracts';
 import { TRANSLATION_PROVIDER_INFO, type TranslationProviderId } from '@shared/translationProvider';
 import { RecordingTranslationProviderAudit, TranslationProviderRequestFixture } from './translationAuditTestUtils';
+import { withTestTranslationBrowserResources } from './translationBrowserResourceTestUtils';
 import { TestCloakBrowserSettingsRepository } from '../appConfigTestUtils';
 
 interface Deferred<T> {
@@ -55,6 +64,7 @@ class FakePage {
 
 class FakeContext {
   closeCalls = 0;
+  closeDeferred: Deferred<void> | null = null;
   closeFails = false;
   newPageCalls = 0;
   readonly page = new FakePage();
@@ -62,6 +72,7 @@ class FakeContext {
   async close(): Promise<void> {
     this.closeCalls += 1;
     if (this.closeFails) throw new Error('private context close error');
+    if (this.closeDeferred) await this.closeDeferred.promise;
     this.page.closed = true;
   }
 
@@ -71,11 +82,44 @@ class FakeContext {
   }
 }
 
+class ControlledLifecycleDependencies implements TranslationOperationLifecycleDependencies {
+  private currentMs = 0;
+
+  public activeNow = (): number => this.currentMs;
+  public clearTimeout = (): void => undefined;
+  public createAbortController = (): AbortController => new AbortController();
+  public setTimeout = (): number => 0;
+  public subscribeResume = (): (() => void) => () => undefined;
+  public wallNow = (): number => this.currentMs;
+
+  public advance(milliseconds: number): void {
+    this.currentMs += milliseconds;
+  }
+}
+
+function createLifecycle(dependencies = new ControlledLifecycleDependencies()): {
+  readonly dependencies: ControlledLifecycleDependencies;
+  readonly lifecycle: TranslationOperationLifecycle;
+} {
+  return {
+    dependencies,
+    lifecycle: new TranslationOperationLifecycle(dependencies, {
+      attemptCount: 1,
+      contractVersion: '2026-08-09',
+      generation: 0,
+      providerId: 'google',
+      sourceLength: 'source text'.length,
+      targetLanguage: 'en',
+    }),
+  };
+}
+
 class FakeTranslateProvider extends BaseTranslateProvider {
   readonly calls = {
     clear: 0,
     insert: 0,
     navigate: 0,
+    observe: 0,
     readiness: 0,
     read: 0,
     sourceDetection: 0,
@@ -85,10 +129,13 @@ class FakeTranslateProvider extends BaseTranslateProvider {
   };
 
   clearResult: TranslationProviderHookResult = translationHookSuccess();
+  clearDeferred: Deferred<TranslationProviderHookResult> | null = null;
+  deliverBeforeCleanup = false;
   insertResult: TranslationProviderHookResult = translationHookSuccess();
   navigationError: Error | null = null;
   navigationDeferred: Deferred<TranslationProviderHookResult> | null = null;
   navigationResult: TranslationProviderHookResult = translationHookSuccess();
+  observationResults: TranslationProviderHookResult<TranslationProviderResultObservation>[] | null = null;
   previousResult = '';
   readinessResults: TranslationProviderHookResult[] = [translationHookSuccess()];
   readDeferred: Deferred<TranslationProviderHookResult<string>> | null = null;
@@ -161,9 +208,26 @@ class FakeTranslateProvider extends BaseTranslateProvider {
     return this.targetVerificationResult;
   }
 
+  protected override async observeResult(
+    page: Page,
+    targetLanguage: string,
+  ): Promise<TranslationProviderHookResult<TranslationProviderResultObservation>> {
+    this.calls.observe += 1;
+    return this.observationResults?.shift() ?? super.observeResult(page, targetLanguage);
+  }
+
   protected async clearVisibleState(): Promise<TranslationProviderHookResult> {
     this.calls.clear += 1;
+    if (this.clearDeferred) {
+      const deferred = this.clearDeferred;
+      this.clearDeferred = null;
+      return deferred.promise;
+    }
     return this.clearResult;
+  }
+
+  protected override deliverResultBeforeVisibleCleanup(): boolean {
+    return this.deliverBeforeCleanup;
   }
 }
 
@@ -174,34 +238,36 @@ interface Harness {
   readonly sleeps: number[];
 }
 
-function createHarness(): Harness {
+function createHarness(resultTimeoutMs = 31): Harness {
   const contexts: FakeContext[] = [];
   const options: LaunchContextOptions[] = [];
   const sleeps: number[] = [];
   let now = 1_000;
-  const provider = new FakeTranslateProvider({
-    cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
-    createContext: async (contextOptions) => {
-      options.push(contextOptions);
-      const context = new FakeContext();
-      contexts.push(context);
-      return context as unknown as BrowserContext;
-    },
-    createContextOptions: () => ({
-      headless: true,
-      humanize: true,
-      locale: 'en-US',
-      timezone: 'Europe/Moscow',
+  const provider = new FakeTranslateProvider(
+    withTestTranslationBrowserResources({
+      cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
+      createContext: async (contextOptions) => {
+        options.push(contextOptions);
+        const context = new FakeContext();
+        contexts.push(context);
+        return context as unknown as BrowserContext;
+      },
+      createContextOptions: () => ({
+        headless: true,
+        humanize: true,
+        locale: 'en-US',
+        timezone: 'Europe/Moscow',
+      }),
+      now: () => now,
+      resultPollIntervalMs: 10,
+      resultStabilityDelayMs: 5,
+      resultTimeoutMs,
+      sleep: async (delayMs: number) => {
+        sleeps.push(delayMs);
+        now += delayMs;
+      },
     }),
-    now: () => now,
-    resultPollIntervalMs: 10,
-    resultStabilityDelayMs: 5,
-    resultTimeoutMs: 30,
-    sleep: async (delayMs) => {
-      sleeps.push(delayMs);
-      now += delayMs;
-    },
-  });
+  );
   return { contexts, options, provider, sleeps };
 }
 
@@ -212,7 +278,7 @@ const requestFixture = new TranslationProviderRequestFixture({
 });
 
 async function waitUntil(predicate: () => boolean): Promise<void> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     if (predicate()) return;
     await Promise.resolve();
   }
@@ -220,6 +286,13 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
 }
 
 describe('BaseTranslateProvider', () => {
+  it('classifies provider-owned copy readiness without guessing from result text', () => {
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 0, visibleEnabled: 0 }), 'unavailable');
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 1, visibleEnabled: 0 }), 'incomplete');
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 1, visibleEnabled: 1 }), 'verified-complete');
+    assert.equal(classifyTranslationProviderCompletionControl({ visible: 2, visibleEnabled: 2 }), 'ambiguous');
+  });
+
   it('uses the required production stability window', () => {
     assert.equal(TRANSLATION_RESULT_STABILITY_DELAY_MS, 500);
   });
@@ -277,6 +350,21 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.contexts.length, 1);
     assert.equal(harness.contexts[0]?.newPageCalls, 1);
     assert.equal(harness.provider.calls.insert, 1);
+  });
+
+  it('retains a verified clean page after selected-text lifecycle completion', async () => {
+    const harness = createHarness();
+    const { lifecycle } = createLifecycle();
+    const outcome = await harness.provider.translate(requestFixture.create({ lifecycle, signal: lifecycle.signal }));
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.closeCalls, 0);
+    assert.deepEqual(lifecycle.check(), { kind: 'completed' });
+
+    assert.equal((await harness.provider.translate(requestFixture.create())).success, true);
+    assert.equal(harness.contexts.length, 1);
+    assert.equal(harness.contexts[0]?.newPageCalls, 1);
   });
 
   it('detaches a cancelled initialization queue and preserves retry-owned resources', async () => {
@@ -444,6 +532,66 @@ describe('BaseTranslateProvider', () => {
     assert.equal(harness.contexts[0]?.closeCalls, 1);
   });
 
+  it('accepts a target-verified complete observation without the fallback delay', async () => {
+    const harness = createHarness();
+    harness.provider.observationResults = [
+      translationHookSuccess({
+        completion: 'verified-complete',
+        targetVerified: true,
+        text: 'translated',
+      }),
+    ];
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'translated');
+    assert.equal(harness.provider.calls.observe, 1);
+    assert.equal(harness.provider.calls.targetVerification, 0);
+    assert.deepEqual(harness.sleeps, []);
+  });
+
+  it('does not accept a partial observation before the provider marks the final result copy-ready', async () => {
+    const harness = createHarness();
+    harness.provider.observationResults = [
+      translationHookSuccess({
+        completion: 'incomplete',
+        targetVerified: true,
+        text: 'partial',
+      }),
+      translationHookSuccess({
+        completion: 'verified-complete',
+        targetVerified: true,
+        text: 'complete',
+      }),
+    ];
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, true);
+    assert.equal(outcome.success ? outcome.text : null, 'complete');
+    assert.equal(harness.provider.calls.observe, 2);
+    assert.equal(harness.provider.calls.targetVerification, 0);
+    assert.deepEqual(harness.sleeps, [10]);
+  });
+
+  it('treats the exact result deadline as expired before a delayed fallback confirmation', async () => {
+    const harness = createHarness(15);
+    harness.provider.previousResult = 'stale';
+    harness.provider.readResults = [
+      translationHookSuccess('stale'),
+      translationHookSuccess('candidate'),
+      translationHookSuccess('candidate'),
+    ];
+
+    const outcome = await harness.provider.translate(requestFixture.create());
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'resultTimeoutOrEmpty');
+    assert.deepEqual(harness.sleeps, [10, 5]);
+    assert.equal(harness.provider.calls.targetVerification, 0);
+  });
+
   it('suppresses a late result after shutdown invalidates its generation', async () => {
     const harness = createHarness();
     const deferred = createDeferred<TranslationProviderHookResult<string>>();
@@ -460,6 +608,61 @@ describe('BaseTranslateProvider', () => {
     assert.equal(outcome.success ? null : outcome.discard, true);
     assert.equal('text' in outcome, false);
     assert.equal(harness.contexts[0]?.closeCalls, 1);
+  });
+
+  it('returns the shared result-budget timeout while a Playwright read ignores abort', async () => {
+    const harness = createHarness();
+    const deferred = createDeferred<TranslationProviderHookResult<string>>();
+    const { dependencies, lifecycle } = createLifecycle();
+    harness.provider.readDeferred = deferred;
+
+    const operation = harness.provider.translate(requestFixture.create({ lifecycle, signal: lifecycle.signal }));
+    await waitUntil(() => harness.provider.calls.read === 1);
+
+    dependencies.advance(TRANSLATION_RESULT_TIMEOUT_MS);
+    assert.deepEqual(lifecycle.check(), { deadline: 'result', kind: 'timed-out' });
+    const outcome = await operation;
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'timed-out');
+    assert.equal(harness.contexts[0]?.closeCalls, 1);
+    assert.equal(harness.provider.calls.insert, 1);
+
+    deferred.resolve(translationHookSuccess('late private result'));
+    await Promise.resolve();
+    assert.equal(harness.provider.calls.insert, 1);
+  });
+
+  it('quarantines a hanging cleanup and releases only after its late close confirms', async () => {
+    const harness = createHarness();
+    const read = createDeferred<TranslationProviderHookResult<string>>();
+    const close = createDeferred<void>();
+    const { dependencies, lifecycle } = createLifecycle();
+    harness.provider.readDeferred = read;
+
+    const operation = harness.provider.translate(requestFixture.create({ lifecycle, signal: lifecycle.signal }));
+    await waitUntil(() => harness.provider.calls.read === 1);
+    const context = harness.contexts[0];
+    assert.ok(context);
+    context.closeDeferred = close;
+
+    lifecycle.cancel('caller');
+    dependencies.advance(TRANSLATION_TERMINAL_CLEANUP_TIMEOUT_MS);
+    assert.deepEqual(lifecycle.check(), { kind: 'cleanup-failure' });
+    const outcome = await operation;
+
+    assert.equal(outcome.success, false);
+    assert.equal(outcome.success ? null : outcome.code, 'cleanupFailure');
+    assert.equal(harness.contexts.length, 1);
+
+    close.resolve();
+    read.resolve(translationHookSuccess('late private result'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const retry = await harness.provider.translate(requestFixture.create());
+    assert.equal(retry.success, true);
+    assert.equal(harness.contexts.length, 2);
   });
 
   it('discards an already-cancelled request before browser creation', async () => {
@@ -513,6 +716,79 @@ describe('BaseTranslateProvider', () => {
     failedContext.closeFails = false;
     await failureHarness.provider.shutdown();
     assert.equal(failedContext.closeCalls, 3);
+  });
+
+  it('requires acknowledged result delivery before starting visible cleanup', async () => {
+    const rejected = createHarness();
+    rejected.provider.deliverBeforeCleanup = true;
+    const rejectedOutcome = await rejected.provider.translate(requestFixture.create({ onResultReady: () => false }));
+
+    assert.equal(rejectedOutcome.success, false);
+    assert.equal(rejectedOutcome.success ? null : rejectedOutcome.code, 'resultDeliveryFailure');
+    assert.equal(rejected.provider.calls.clear, 0);
+
+    const throwing = createHarness();
+    throwing.provider.deliverBeforeCleanup = true;
+    const throwingOutcome = await throwing.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          throw new Error('private clipboard failure');
+        },
+      }),
+    );
+
+    assert.equal(throwingOutcome.success, false);
+    assert.equal(throwingOutcome.success ? null : throwingOutcome.code, 'resultDeliveryFailure');
+    assert.equal(throwing.provider.calls.clear, 0);
+  });
+
+  it('keeps pre-cleanup result delivery disabled unless a provider explicitly opts in', async () => {
+    const harness = createHarness();
+    let delivered = false;
+
+    const outcome = await harness.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          delivered = true;
+          return true;
+        },
+      }),
+    );
+
+    assert.equal(outcome.success, true);
+    assert.equal(harness.provider.calls.clear, 1);
+    assert.equal(delivered, false);
+  });
+
+  it('acknowledges delivery before cleanup and holds settlement while cleanup is pending', async () => {
+    const harness = createHarness();
+    harness.provider.deliverBeforeCleanup = true;
+    const clear = createDeferred<TranslationProviderHookResult>();
+    harness.provider.clearDeferred = clear;
+    let delivered = false;
+
+    const operation = harness.provider.translate(
+      requestFixture.create({
+        onResultReady: () => {
+          assert.equal(harness.provider.calls.clear, 0);
+          delivered = true;
+          return true;
+        },
+      }),
+    );
+    await waitUntil(() => harness.provider.calls.clear === 1);
+
+    assert.equal(delivered, true);
+    let settled = false;
+    void operation.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    assert.equal(settled, false);
+
+    clear.resolve(translationHookSuccess());
+    const outcome = await operation;
+    assert.equal(outcome.success, true);
   });
 
   it('maps raw hook errors to sanitized audit metadata and keeps final entrypoints fixed', async () => {

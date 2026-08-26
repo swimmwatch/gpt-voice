@@ -144,6 +144,94 @@
   }
 }
 
+.main-startup-reveal {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-startup-reveal > [data-slot='main-window'] {
+  transition:
+    opacity var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.main-startup-loader-overlay {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  transform-origin: center;
+  transition:
+    opacity var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--duration-standard) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.settings-presentation-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.settings-presentation-overlay-card {
+  display: grid;
+  width: min(100%, 300px);
+  justify-items: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: rgb(32 34 35 / 96%);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 36%);
+  color: var(--foreground);
+  text-align: center;
+}
+
+.settings-presentation-overlay-card h2 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .settings-presentation-overlay {
+    background: rgb(24 26 27 / 94%);
+  }
+}
+
+.main-startup-reveal[data-startup-reveal-state='prepared'] > [data-slot='main-window'] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(5px) scale(0.99);
+}
+
+.main-startup-reveal[data-startup-reveal-state='revealing'] > [data-slot='main-window'],
+.main-startup-reveal[data-startup-reveal-state='revealed'] > [data-slot='main-window'] {
+  opacity: 1;
+  transform: none;
+}
+
+.main-startup-reveal[data-startup-reveal-state='revealing'] > .main-startup-loader-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-startup-reveal > [data-slot='main-window'],
+  .main-startup-loader-overlay {
+    transition: none;
+    transform: none;
+  }
+}
+
 .command-dock {
   --dock-background: var(--background);
   --dock-surface: var(--surface);
@@ -159,19 +247,18 @@
   --dock-success: var(--success);
   --dock-inactive-ring: #5f6263;
   --dock-inactive-dot: #c8c9ca;
+  --dock-action-key-width: 114px;
   --dock-field-value-font-size: 14.37px;
   --dock-provider-controls-width: 125px;
-  --dock-translation-target-width: 175px;
-  display: flex;
+  display: grid;
   width: 100%;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  flex-direction: column;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  border: 1px solid var(--dock-border);
+  grid-template-rows: 117px 60px 60px 54px;
+  overflow: hidden;
+  border: solid var(--dock-border);
+  border-width: 1px 1px 0;
   background: var(--dock-background);
   color: var(--dock-foreground);
   font-family: var(--font-sans-system);
@@ -181,8 +268,9 @@
 
 .command-dock-toolbar {
   display: grid;
+  height: 117px;
   min-width: 0;
-  flex: 0 0 117px;
+  min-height: 0;
   grid-template-rows: 60px 57px;
 }
 
@@ -190,7 +278,6 @@
 .command-dock-provider-band,
 .command-dock-prettify-band,
 .command-dock-language-band,
-.command-dock-record-command-band,
 .command-dock-status-band {
   border-bottom: 1px solid var(--dock-border);
 }
@@ -243,7 +330,8 @@
   gap: 7px;
 }
 
-.command-dock .command-dock-icon-button {
+.command-dock .command-dock-icon-button,
+.command-dock .command-dock-settings-shortcut {
   width: 37px;
   height: 34px;
   padding: 0;
@@ -253,21 +341,26 @@
   color: var(--dock-icon);
 }
 
-.command-dock .command-dock-icon-button:hover {
+.command-dock .command-dock-icon-button:not(:disabled):hover {
   background: var(--dock-surface);
   color: var(--dock-foreground);
 }
 
-.command-dock .command-dock-icon-button svg {
+.command-dock .command-dock-icon-button svg,
+.command-dock .command-dock-settings-shortcut svg {
   width: 22px;
   height: 22px;
 }
 
 .command-dock-provider-band {
-  display: flex;
+  display: grid;
   min-width: 0;
   align-items: center;
   padding: 0 11px 0 16px;
+  column-gap: 8px;
+  grid-template-columns:
+    22px 147px minmax(0, 1fr)
+    var(--dock-action-key-width) var(--dock-provider-controls-width);
 }
 
 .command-dock-section-icon {
@@ -278,11 +371,17 @@
 .command-dock-provider-field {
   display: grid;
   position: relative;
-  width: 139px;
+  width: 147px;
   min-width: 0;
-  margin-left: 16px;
+  padding-left: 8px;
   gap: 2px;
   line-height: 1.2;
+}
+
+.command-dock-provider-band > .command-dock-hotkey-action-tooltip-trigger {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: start;
 }
 
 .command-dock-field-label,
@@ -337,7 +436,8 @@
   grid-row: 1;
 }
 
-.command-dock-provider-state svg {
+.command-dock-provider-state svg,
+.command-dock-provider-state [data-slot='spinner'] {
   width: 22px;
   height: 22px;
   flex: none;
@@ -443,42 +543,67 @@
   display: grid;
   width: var(--dock-provider-controls-width);
   min-width: 0;
-  margin-left: auto;
   align-items: center;
   gap: 7px;
+  grid-column: 5;
+  grid-row: 1;
   grid-template-columns: minmax(0, 1fr) 37px;
+  justify-self: end;
 }
 
 .command-dock-provider-controls[data-has-settings='false'] {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.command-dock-provider-settings-shortcut {
-  display: inline-flex;
+.command-dock-provider-controls[data-local-whisper='true'] {
+  grid-template-columns: repeat(3, 37px);
+}
+
+.command-dock .command-dock-local-whisper-residency {
   width: 37px;
   height: 34px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
+  min-width: 37px;
+  min-height: 34px;
+  max-width: 37px;
+  max-height: 34px;
   padding: 0;
-  border: 1px solid var(--dock-control-border);
+  border-color: var(--dock-control-border);
   border-radius: 3.5px;
   background: var(--dock-surface);
   color: var(--dock-icon);
-  cursor: pointer;
   grid-column: 2;
   grid-row: 1;
 }
 
-.command-dock-provider-settings-shortcut svg {
+.command-dock .command-dock-local-whisper-residency:not([aria-disabled='true']):hover {
+  background: var(--surface-raised);
+  color: var(--dock-foreground);
+}
+
+.command-dock .command-dock-local-whisper-residency[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.command-dock .command-dock-local-whisper-residency svg,
+.command-dock .command-dock-local-whisper-residency [data-slot='spinner'] {
   width: 22px;
   height: 22px;
 }
 
+.command-dock-provider-settings-shortcut {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.command-dock-provider-controls[data-local-whisper='true'] .command-dock-provider-settings-shortcut {
+  grid-column: 3;
+}
+
 .command-dock-prettify-band {
   min-width: 0;
-  min-height: 60px;
-  flex: 0 0 60px;
+  min-height: 0;
+  height: 60px;
 }
 
 .command-dock-prettify-layout {
@@ -488,7 +613,15 @@
   align-items: center;
   padding: 0 11px 0 16px;
   gap: 8px;
-  grid-template-columns: 22px 147px minmax(0, 1fr) var(--dock-provider-controls-width);
+  grid-template-columns:
+    22px 147px minmax(0, 1fr)
+    var(--dock-action-key-width) var(--dock-provider-controls-width);
+}
+
+.command-dock-prettify-layout > .command-dock-hotkey-action-tooltip-trigger {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: start;
 }
 
 .command-dock-prettify-provider-field,
@@ -559,7 +692,10 @@
   min-width: 0;
   align-items: center;
   gap: 7px;
+  grid-column: 5;
+  grid-row: 1;
   grid-template-columns: minmax(0, 1fr) 37px;
+  justify-self: end;
 }
 
 .command-dock-prettify-controls[data-has-model-action='true'] {
@@ -607,7 +743,8 @@
   background: var(--surface-raised);
 }
 
-.command-dock .command-dock-prettify-model-action svg {
+.command-dock .command-dock-prettify-model-action svg,
+.command-dock .command-dock-prettify-model-action [data-slot='spinner'] {
   width: 22px;
   height: 22px;
 }
@@ -617,110 +754,35 @@
 }
 
 .command-dock .command-dock-prettify-settings-shortcut {
-  width: 37px;
-  height: 34px;
-  padding: 0;
-  border-color: var(--dock-control-border);
-  border-radius: 3.5px;
-  background: var(--dock-surface);
-  color: var(--dock-icon);
   grid-column: 2;
   grid-row: 1;
   justify-self: end;
 }
 
-.command-dock .command-dock-settings-shortcut:hover {
+.command-dock .command-dock-settings-shortcut:not(:disabled) {
+  cursor: pointer;
+}
+
+.command-dock .command-dock-settings-shortcut:disabled {
+  cursor: not-allowed;
+}
+
+.command-dock .command-dock-settings-shortcut:not(:disabled):hover {
   background: var(--surface-raised);
   color: var(--dock-foreground);
 }
 
-.command-dock-prettify-settings-shortcut svg {
-  width: 22px;
-  height: 22px;
-}
-
 .command-dock-recording {
-  display: grid;
+  height: 54px;
   min-width: 0;
-  min-height: 142px;
-  flex: 1 0 142px;
-  grid-template-rows: 93px minmax(49px, 1fr);
-}
-
-.command-dock-record-command-band {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  padding: 0 16.5px;
-}
-
-.command-dock .command-dock-record-button {
-  display: grid;
-  width: 100%;
-  height: 57px;
-  min-width: 0;
-  padding: 0;
-  overflow: hidden;
-  border-radius: 3.15px;
-  background-image: linear-gradient(180deg, var(--dock-primary-top), var(--dock-primary-bottom));
-  color: #fff;
-  grid-template-columns: minmax(0, 1fr) 48px;
-}
-
-.command-dock .command-dock-record-button:hover {
-  background-image: linear-gradient(180deg, #326bdc, #2b60cb);
-}
-
-.command-dock .command-dock-record-button:disabled {
-  background-image: linear-gradient(180deg, var(--dock-primary-top), var(--dock-primary-bottom));
-  opacity: 1;
-}
-
-.command-dock .command-dock-record-button.bg-destructive {
-  background-image: none;
-}
-
-.command-dock-record-button-main {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding-left: 13px;
-}
-
-.command-dock .command-dock-record-button-main svg {
-  width: 23px;
-  height: 25px;
-}
-
-.command-dock-record-button-main > span {
-  overflow: hidden;
-  font-size: 15.42px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-dock-record-button kbd {
-  display: inline-flex;
-  height: 38px;
-  align-self: center;
-  align-items: center;
-  justify-content: center;
-  border-left: 1px solid rgb(255 255 255 / 18%);
-  color: #fff;
-  font-family: inherit;
-  font-size: 10.86px;
-  font-weight: 500;
-  line-height: 1.2;
+  min-height: 0;
 }
 
 .command-dock-status-band {
   display: grid;
   min-width: 0;
-  min-height: 49px;
+  height: 54px;
+  min-height: 0;
   align-items: center;
   padding: 6px 16px;
   column-gap: 14px;
@@ -766,15 +828,19 @@
 .command-dock-status-detail {
   min-width: 0;
   margin: 0;
+  overflow: hidden;
   color: var(--dock-muted);
   font-size: 13px;
   font-weight: 600;
   grid-column: 2;
   line-height: 1.2;
-  overflow-wrap: anywhere;
   text-align: center;
-  text-wrap: balance;
-  white-space: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-dock-captured-duration {
+  font-variant-numeric: tabular-nums;
 }
 
 .command-dock-recording-actions {
@@ -785,25 +851,18 @@
   justify-self: end;
 }
 
-.command-dock .command-dock-recording-secondary-action {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 3.5px;
-}
-
 .command-dock-language-band {
   display: grid;
   position: relative;
   min-width: 0;
-  min-height: 60px;
-  flex: 0 0 60px;
+  min-height: 0;
+  height: 60px;
   align-items: center;
   padding: 0 11px 0 16px;
   column-gap: 8px;
   grid-template-columns:
-    22px 147px var(--dock-translation-target-width)
-    var(--dock-provider-controls-width);
+    22px 147px minmax(0, 1fr)
+    var(--dock-action-key-width) var(--dock-provider-controls-width);
   grid-template-rows: minmax(0, 1fr);
 }
 
@@ -822,6 +881,17 @@
 
 .command-dock-language-band > .command-dock-language-field:first-of-type {
   padding-left: 8px;
+  grid-column: 2;
+}
+
+.command-dock-language-band > .command-dock-language-field:nth-of-type(2) {
+  grid-column: 3;
+}
+
+.command-dock-language-band > .command-dock-hotkey-action-tooltip-trigger {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: start;
 }
 
 .command-dock .command-dock-translation-trigger {
@@ -831,7 +901,7 @@
 .command-dock-translation-connection {
   width: 37px;
   color: var(--destructive);
-  grid-column: 4;
+  grid-column: 5;
   grid-row: 1;
   justify-self: start;
 }
@@ -884,65 +954,4 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-}
-
-@media (max-width: 439px) {
-  .command-dock-provider-field {
-    width: 136px;
-  }
-
-  .command-dock .command-dock-provider-trigger {
-    width: 136px;
-  }
-
-  .command-dock-prettify-layout,
-  .command-dock-prettify-layout[data-has-model-action='false'] {
-    grid-template-columns: 22px minmax(0, 1fr) var(--dock-provider-controls-width);
-  }
-
-  .command-dock-prettify-summary,
-  .command-dock .command-dock-prettify-model-action {
-    display: none;
-  }
-
-  .command-dock-prettify-controls[data-has-model-action='true'] {
-    grid-template-columns: minmax(0, 1fr) 37px;
-  }
-
-  .command-dock-prettify-controls[data-has-model-action='true'] .command-dock-prettify-settings-shortcut {
-    grid-column: 2;
-  }
-
-  .command-dock .command-dock-prettify-provider-trigger {
-    width: 100%;
-  }
-
-  .command-dock-language-band {
-    min-height: 91px;
-    flex-basis: 91px;
-    grid-template-columns: 22px minmax(0, 1fr) var(--dock-provider-controls-width);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-  }
-
-  .command-dock-language-band > .command-dock-section-icon {
-    grid-row: 1 / span 2;
-  }
-
-  .command-dock-language-field {
-    grid-column: 2;
-  }
-
-  .command-dock-translation-connection {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-  }
-
-  .command-dock-record-button-main {
-    gap: 12px;
-    padding-left: 28px;
-  }
-
-  .command-dock-record-button-main > span {
-    font-size: 14px;
-  }
 }

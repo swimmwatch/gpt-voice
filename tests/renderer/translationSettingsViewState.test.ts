@@ -4,11 +4,17 @@ import {
   createTranslationProviderCandidate,
   createTranslationSettingsCandidate,
   createTranslationSettingsViewState,
+  doesTranslationConnectionMatchSettings,
   getSelectedTranslationTarget,
+  isTranslationProviderConnected,
   reduceTranslationSettingsViewState,
   resolveTranslationSettingsSave,
 } from '@renderer/translationSettingsViewState';
 import type { TranslationSettings } from '@shared/translationProvider';
+import {
+  TRANSLATION_PROVIDER_CONNECTION_DETAILS,
+  TRANSLATION_PROVIDER_CONNECTION_STATUSES,
+} from '@shared/translationProvider';
 
 function createSettings(): TranslationSettings {
   return {
@@ -45,6 +51,63 @@ describe('translation settings renderer state', () => {
       },
     });
     assert.deepEqual(confirmed, createSettings());
+  });
+
+  it('accepts only connection state for the current provider and target selection', () => {
+    const settings = createSettings();
+
+    assert.equal(
+      doesTranslationConnectionMatchSettings(
+        {
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+          providerId: 'bing',
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+          targetLanguage: 'uk',
+        },
+        settings,
+      ),
+      true,
+    );
+    assert.equal(
+      doesTranslationConnectionMatchSettings(
+        {
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+          providerId: 'google',
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+          targetLanguage: 'ru',
+        },
+        settings,
+      ),
+      false,
+    );
+  });
+
+  it('accepts connected Translation state only for the current settings', () => {
+    const settings = createSettings();
+    assert.equal(
+      isTranslationProviderConnected(
+        {
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+          providerId: 'bing',
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+          targetLanguage: 'uk',
+        },
+        settings,
+      ),
+      true,
+    );
+    assert.equal(
+      isTranslationProviderConnected(
+        {
+          detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.UnexpectedFailure,
+          providerId: 'bing',
+          status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,
+          targetLanguage: 'uk',
+        },
+        settings,
+      ),
+      false,
+    );
   });
 
   it('shows one optimistic candidate and adopts only its authoritative success snapshot', () => {

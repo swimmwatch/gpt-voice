@@ -65,6 +65,13 @@ describe('cloakBrowserLaunchOptions', () => {
     assert.equal('userDataDir' in hidden, false);
   });
 
+  it('allows a one-time visible override for a translation-provider diagnostic', () => {
+    const options = createCloakBrowserTranslationContextOptions(baseSettings, { forceVisible: true });
+
+    assert.equal(options.headless, false);
+    assert.equal('userDataDir' in options, false);
+  });
+
   it('passes proxy credentials separately and lets GeoIP own locale and timezone', () => {
     const options = buildCloakBrowserContextOptions(
       {

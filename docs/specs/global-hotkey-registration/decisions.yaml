@@ -1,0 +1,1360 @@
+schema_version: 1
+spec_slug: global-hotkey-registration
+interview_id: spec:global-hotkey-registration
+planning_interview_id: plan:global-hotkey-registration
+created_at: '2026-08-19'
+updated_at: '2026-08-20'
+
+decisions:
+  - id: outcome.truthful-registration
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires users to understand whether a configured global shortcut was actually registered by the operating system.'
+      - 'User authorized the complete global-hotkey registration plan.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Configured accelerators and operating-system registration are distinct authoritative states; the UI reports both and never presents a rejected candidate as active.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [OUT-001, FLOW-001, UI-001]
+
+  - id: configuration.fresh-install
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - 'User explicitly requires first-run hotkeys to be unset and selected all seven targets.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [all-seven-unassigned]
+      text: 'A clean installation starts with Record, Stop, Cancel, Translation, Prettify, Quick Prettify, and Retry all unassigned.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-001, DATA-002]
+
+  - id: compatibility.existing-settings
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected preservation of existing configured shortcuts.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-existing]
+      text: 'Existing valid non-empty persisted shortcut strings remain configured after upgrade; missing, null, or invalid targets remain unassigned and receive no default.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [COMP-001, COMP-002]
+
+  - id: configuration.clear-assignment
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected support for clearing an assigned shortcut.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [allow-clear]
+      text: 'Settings provides Remove for every target; clearing persists null and leaves the in-app action available.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [DATA-003, FLOW-006, UI-009]
+
+  - id: interface.unassigned-actions
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected clickable in-app buttons while a shortcut is unassigned.'
+      - 'User selected status-only discovery without a first-run banner.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [clickable-no-banner]
+      text: 'Unassigned provider and contextual action controls remain clickable and keyboard-accessible inside the app, display a localized unassigned state, and do not add onboarding or a first-run banner.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [UI-002, UI-003, UI-007]
+
+  - id: architecture.base-abstractions
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires SOLID, YAGNI, DRY, high cognitive clarity, low coupling, and necessary abstract base classes.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'A state-owning registration service composes an abstract global-shortcut adapter and an abstract platform policy selected by a factory; stateless parsing and normalization remain pure functions and no pass-through repository layer is added.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [ARCH-001, ARCH-002, ARCH-003, ARCH-004]
+
+  - id: workflow.transactional-mutation
+    revision: 1
+    category: workflow
+    state: superseded
+    provenance: user
+    evidence:
+      - 'User approved registration validation, rollback, clear, suppression, and persistent registration behavior.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Replacement is candidate-first and commits only after OS registration and persistence succeed; any failure retains the previous configured and registered shortcut. Clearing is persistence-first. Settings suppresses dispatch without releasing OS bindings.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-002, FLOW-003, FLOW-004, FLOW-005, FLOW-006]
+
+  - id: workflow.transactional-mutation
+    revision: 2
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The review identified that persistence-first mutation lacked a contract for old-binding or candidate-cleanup failure.'
+      - 'After receiving the recommended verified-cleanup and compensation model, the user explicitly instructed Codex to update the specification and plan.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [verified-cleanup-compensation]
+      text: 'Replacement and clear verify unregister through the registration query, compensate toward the prior authoritative pair when cleanup fails, invalidate stale callback generations, and suppress an irreconcilable target as ReconciliationFailed.'
+    rationale: 'This closes the post-persistence state gap without releasing a working binding before the durable write succeeds.'
+    supersedes_revision: 1
+    requirement_ids: [ARCH-001, ARCH-003, FLOW-003, FLOW-004, FLOW-005, FLOW-006, FLOW-009, FLOW-010, FAIL-002]
+
+  - id: platform.support-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'User requires every supported platform.'
+      - 'The repository contract supports Windows and Linux while macOS release remains paused.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-linux]
+      text: 'Production qualification covers Windows, Linux X11, and Linux Wayland. The paused macOS release policy is unchanged and code remains fail-closed on unsupported platforms.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PLAT-001, PLAT-002, PLAT-003, COMP-004]
+
+  - id: platform.wayland-integration
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - 'User selected Electron GlobalShortcutsPortal rather than direct D-Bus integration.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [electron-portal]
+      text: 'Wayland uses Electron globalShortcut with GlobalShortcutsPortal enabled before app ready and a package/runtime desktop identity of com.swimmwatch.gptvoice; no direct D-Bus adapter or new dependency is added.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [PLAT-004, PLAT-005, DEP-001]
+
+  - id: platform.wayland-binding-truth
+    revision: 1
+    category: interface
+    state: answered
+    provenance: user
+    evidence:
+      - 'The XDG Global Shortcuts portal treats the requested accelerator as a preferred trigger and returns the effective trigger separately.'
+      - 'Electron globalShortcut does not expose the portal trigger_description required to report the exact effective trigger.'
+      - 'After receiving the recommended desktop-managed representation, the user explicitly instructed Codex to update the specification and plan.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [desktop-managed-unknown-effective]
+      text: 'A successful Wayland binding retains the configured accelerator only as a preference, reports DesktopEnvironment authority, exposes no effective accelerator, and uses physical Test for in-app verification.'
+    rationale: 'This preserves Electron-only portal integration without presenting a preferred trigger as an OS-confirmed effective key.'
+    supersedes_revision: null
+    requirement_ids: [OUT-001, DATA-005, DATA-008, UI-001, UI-004, UI-006, UI-010, PLAT-006, QUAL-005, QUAL-010]
+
+  - id: compatibility.appimage-desktop-migration
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'Repository inspection found a runtime AppImage launcher generator that still writes gpt-voice.desktop with StartupWMClass=gpt-voice.'
+      - 'After receiving the recommended canonical migration, the user explicitly instructed Codex to update the specification and plan.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [canonical-exact-legacy-migration]
+      text: 'AppImage runtime integration writes com.swimmwatch.gptvoice.desktop before shortcut registration, removes only the exact legacy gpt-voice.desktop entry after success, and the removal action cleans both exact names without logging paths.'
+    rationale: 'electron-builder metadata alone cannot repair the application-owned launcher used by existing AppImage installations.'
+    supersedes_revision: null
+    requirement_ids: [PLAT-005, PLAT-007, SEC-002, COMP-005, QUAL-007]
+
+  - id: platform.windows-reservations
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - 'Microsoft RegisterHotKey documentation reserves F12 and shortcuts involving the Windows modifier for operating-system use.'
+      - 'After receiving the recommended policy correction, the user explicitly instructed Codex to update the specification and plan.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [f12-and-super-reserved]
+      text: 'Windows policy rejects a primary F12 key and every normalized accelerator containing the Super modifier as OsReserved before Electron registration.'
+    rationale: 'The pure platform policy should classify documented reservations consistently instead of relying on a generic adapter rejection.'
+    supersedes_revision: null
+    requirement_ids: [PLAT-001, PLAT-002, QUAL-002, QUAL-008]
+
+  - id: failure.classification
+    revision: 1
+    category: failure
+    state: superseded
+    provenance: user
+    evidence:
+      - 'User approved bounded registration statuses and platform-aware failures.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Failure reporting distinguishes invalid input, internal conflict, OS-reserved F12 on Windows, generic OS or portal rejection, persistence failure, and unsupported platform; it never claims to identify the external owner of a conflict.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, FAIL-002, FAIL-003]
+
+  - id: failure.classification
+    revision: 2
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - 'The reviewed contract adds verified cleanup and a bounded terminal state for irreconcilable registration ownership.'
+      - 'The reviewed Windows policy adds the documented Windows/Super reservation.'
+      - 'The user explicitly instructed Codex to update the specification and plan with the recommended corrections.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [bounded-reconciliation-and-reservations]
+      text: 'Failure reporting adds ReconciliationFailed, classifies F12 and Windows/Super accelerators as OsReserved on Windows, and otherwise preserves bounded invalid-input, conflict, registration, persistence, and unsupported-platform failures.'
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: [DATA-007, FAIL-001, FAIL-002, FAIL-003, PLAT-001, PLAT-002]
+
+  - id: workflow.physical-test
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'User approved the earlier proposed five-second physical shortcut test.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Settings can start one bounded five-second test for an already registered target; activation is detected without executing the product action and settles as detected, timed out, or unavailable.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [FLOW-008, UI-010, QUAL-006]
+
+  - id: security.privacy
+    revision: 1
+    category: security
+    state: observed
+    provenance: repository
+    evidence:
+      - 'Hotkey state contains only action identifiers, normalized accelerator strings, bounded status codes, and platform classifications.'
+      - 'Main already owns Electron globalShortcut and trusted IPC sender validation.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: 'Main remains the sole privileged owner; renderer receives validated bounded snapshots. Logs and diagnostics exclude environment contents, user paths, selected text, audio, transcripts, and external-process identity.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002, SEC-003]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'The normalized draft was created from the user-authorized implementation plan and recorded decisions.'
+    prompt_mcp: null
+    question:
+      text: 'Approve the global-hotkey-registration draft as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve the draft for subsequent planning.
+        - id: request-changes
+          label: Request changes
+          description: Revise the contract before planning.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the draft without approving implementation planning.
+    answer:
+      selected_ids: [approve]
+      text: 'The user explicitly approved the global-hotkey-registration specification for implementation planning.'
+    rationale: ''
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'Revision 2 incorporates the reviewed Wayland binding-authority model, verified cleanup and compensation, AppImage runtime launcher migration, and expanded Windows reservations.'
+    prompt_mcp:
+      interview_id: spec:global-hotkey-registration
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Approve revision 2 of the global-hotkey-registration specification as the implementation contract?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve revision 2 for a subsequent plan revision.
+        - id: request-changes
+          label: Request changes
+          description: Revise the specification before planning.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 2 as an unapproved draft.
+    answer:
+      selected_ids: [approve]
+      text: 'Revision 2 is approved as the implementation contract for subsequent planning.'
+    rationale: ''
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: null
+    evidence:
+      - 'The approved specification has been decomposed into ten independently executable task packets with Linux X11 and Linux Wayland execution before a separate later Windows packet, plus complete requirement coverage.'
+    prompt_mcp: null
+    question:
+      text: 'Approve revision v1 of the global-hotkey-registration implementation plan?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve the packet sequence while keeping execution separately unauthorized.
+        - id: request-changes
+          label: Request changes
+          description: Revise packet boundaries or execution detail before approval.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep the plan draft without authorizing packet execution.
+    answer: null
+    rationale: 'Specification revision 2 invalidates plan revision v1 before it can be approved.'
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: workflow.platform-readiness-gate
+    revision: 1
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'The external review identified that host qualification needs native X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows access rather than static or cross-platform substitutes.'
+      - 'The user instructed Codex to update the specification and plan taking those reviewed constraints into account.'
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preflight-digest-separate-transport]
+      text: 'Before Packet 07, confirm all required native hosts, bind Packets 07 through 09 evidence to one Git revision and working-source digest, and require separate authorization for commits or source transport between hosts.'
+    rationale: 'This prevents evidence from different source states or platforms from being combined while keeping plan approval distinct from external mutations.'
+    supersedes_revision: null
+    requirement_ids: [QUAL-007, QUAL-008, QUAL-009, QUAL-010, QUAL-011]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Plan revision 2 maps specification revision 2 into ten independently executable packets and adds the platform execution readiness gate.'
+      - 'All 97 active requirement and acceptance IDs are covered; all ten packets contain the 14 mandatory sections; links, YAML, Prettier, and diff-hygiene audits pass.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: approval-round-02
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Approve revision 2 of the global-hotkey-registration implementation plan?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve plan (Recommended)
+          description: Approve the packet sequence while keeping execution and transport separately unauthorized.
+        - id: request-changes
+          label: Request changes
+          description: Revise packet boundaries or execution detail before approval.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 2 as a draft without authorizing packet execution.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'Plan revision 3 changes Packet 01 scope to add the minimal null-compatibility bridges required for self-containment; revision 2 approval therefore cannot authorize the revised packet.'
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: authorization.packet-01-execution
+    revision: 1
+    category: authorization
+    state: superseded
+    provenance: user
+    evidence:
+      - 'Plan revision 2 is approved and Packet 01 is the exact next unchecked packet.'
+      - 'The user explicitly invoked incremental implementation for this workstream.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: packet-01-execution-round-01
+      question_id: authorization.packet-01-execution
+      idempotency_key: authorization.packet-01-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 01: Nullable Persistence And Shared Contracts?'
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: Authorize Packet 01 (Recommended)
+          description: Authorize only Packet 01 for this turn; no commit, Packet 02 work, transport, or release is authorized.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep the approved plan ready without implementing Packet 01.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Stop execution and return Packet 01 to planning.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: 'Plan revision 3 materially changes Packet 01 scope, so this authorization is superseded. A new authorization is required only after revision 3 plan approval.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        SCOPE-001,
+        DATA-001,
+        DATA-002,
+        DATA-003,
+        DATA-004,
+        DATA-005,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-005,
+        COMP-001,
+        COMP-002,
+        ROLL-001,
+        QUAL-001,
+        AC-AUTO-001,
+      ]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - 'Plan revision 3 preserves ten packets and all existing requirement ownership while making Packet 01 self-contained.'
+      - 'Packet 01 now owns exactly two temporary compatibility bridges: null-skipping in the legacy controller registration path (including Retry) and no-fallback Settings value rendering.'
+      - 'Packet 02 remains the registration-service owner, Packet 03 replaces the controller bridge, Packet 04 replaces the temporary Settings projection with authoritative runtime state, and Packet 05 owns final UX.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: approval-round-03
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      revision: 2
+      last_status: answered
+    question:
+      text: 'Approve revision 3 of the global-hotkey-registration implementation plan?'
+      kind: single
+      options:
+        - id: approve
+          label: Approve plan (Recommended)
+          description: Approve the self-contained packet sequence while keeping execution and transport separately unauthorized.
+        - id: request-changes
+          label: Request changes
+          description: Revise the packet boundary or execution detail before approval.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 3 as a draft without authorizing any packet.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: 'The user approved the audited revision-3 plan. This approval does not authorize Packet 01 execution, commits, pushes, cross-host source transport, or any other packet.'
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: plan.packet-01-null-compatibility-boundary
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - 'Changing AppConfigSnapshot and HotkeySettings to string | null makes the current ShortcutController pass null to Electron registration and makes AppSettingsWindow promise a string return value.'
+      - 'Packet 01 owns nullable persistence/shared contracts, while Packets 03 and 04 currently own the respective controller and Settings migrations.'
+      - 'A minimal null guard in the existing controller and a null-preserving temporary Settings projection make Packet 01 strict-type-safe without introducing the registration service, IPC migration, or final UX.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: scope-round-03
+      question_id: plan.packet-01-null-compatibility-boundary
+      idempotency_key: plan.packet-01-null-compatibility-boundary:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: "How should the plan resolve Packet 01's nullable-type boundary with existing registration and Settings consumers?"
+      kind: single
+      options:
+        - id: move-minimal-compatibility-to-packet-01
+          label: Move minimal compatibility to Packet 01 (Recommended)
+          description: Guard current controller registration against null (including Retry) and render no fallback accelerator for null in Settings; retain the new service, IPC, and final UX work in Packets 03–05.
+        - id: merge-with-later-migrations
+          label: Merge with later migrations
+          description: Move nullable persistence later so Packet 01 stays data-only, enlarging a later packet with persistence and compatibility work.
+        - id: split-compatibility-packet
+          label: Add a compatibility packet
+          description: Insert a dedicated packet between persistence and registration-service work for temporary controller and Settings compatibility.
+    answer:
+      selected_ids: [move-minimal-compatibility-to-packet-01]
+      text: ''
+    rationale: 'The user selected the minimal Packet 01 compatibility adjustment: null guards in the legacy controller and a null-preserving temporary Settings projection. The registration service, trusted IPC migration, and final Settings UX remain owned by later packets.'
+    supersedes_revision: null
+    requirement_ids: [DATA-001, DATA-002, DATA-003, ARCH-005, COMP-001, COMP-002, QUAL-001, AC-AUTO-001]
+
+  - id: authorization.packet-01-execution
+    revision: 2
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Plan revision 3 is approved and Packet 01 is the exact next unchecked packet.'
+      - 'Packet 01 scope is limited to nullable persistence/shared contracts and the approved minimal legacy controller/Settings null-compatibility bridges.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: packet-01-execution-round-02
+      question_id: authorization.packet-01-execution
+      idempotency_key: authorization.packet-01-execution:v2
+      revision: 2
+      last_status: answered
+    question:
+      text: 'Authorize incremental implementation of revised Packet 01: Nullable Persistence And Shared Contracts?'
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: Authorize Packet 01 (Recommended)
+          description: Authorize only revised Packet 01; no commit, Packet 02 work, source transport, or release is authorized.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep the approved plan ready without implementing Packet 01.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Stop execution and return the revised Packet 01 to planning.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: 'The user authorized only revised Packet 01 for this incremental-implementation turn. The turn must stop after task-local verification and handoff; no commit, Packet 02 work, source transport, or release is authorized.'
+    supersedes_revision: 1
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        SCOPE-001,
+        DATA-001,
+        DATA-002,
+        DATA-003,
+        DATA-004,
+        DATA-005,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-005,
+        COMP-001,
+        COMP-002,
+        ROLL-001,
+        QUAL-001,
+        AC-AUTO-001,
+      ]
+
+  - id: authorization.packet-01-verification-continuation
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 01 implementation and focused checks passed, but its required full test:types command was blocked by unrelated Local Whisper qualification errors.'
+      - 'No Packet 01 source file appears in the recorded full test:types failures; the checklist remains unchecked.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: packet-01-verification-round-01
+      question_id: authorization.packet-01-verification-continuation
+      idempotency_key: authorization.packet-01-verification-continuation:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize a Packet 01 verification-only continuation to rerun the blocked full test:types check and update its handoff?'
+      kind: single
+      options:
+        - id: authorize-verification
+          label: Authorize verification (Recommended)
+          description: Rerun only Packet 01 verification and update its checklist/handoff if all required checks pass; no code changes, commit, Packet 02, transport, or release is authorized.
+        - id: leave-blocked
+          label: Leave blocked
+          description: Keep Packet 01 unchecked until the unrelated test-type failures are resolved separately.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return the unfinished packet to planning without rerunning verification.
+    answer:
+      selected_ids: [authorize-verification]
+      text: ''
+    rationale: 'The user authorized a verification-only continuation for Packet 01. It may rerun the required full test:types command and update the checklist/handoff only if all required checks pass; no source changes, commit, Packet 02, transport, or release is authorized.'
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, AC-AUTO-001]
+
+  - id: authorization.commit-packet-01
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 01 is checked complete with all packet verification and repository-wide test:types checks passing.'
+      - 'The worktree also contains unrelated Local Whisper type-repair changes that must remain outside the Packet 01 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      question_id: authorization.commit-packet-01
+      idempotency_key: authorization.commit-packet-01:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 01 implementation and its approved global-hotkey specification/plan artifacts before any Packet 02 work begins?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-01
+          label: Authorize commit (Recommended)
+          description: Allow one scoped commit for the approved spec/plan bundle and completed Packet 01; unrelated Local Whisper type-repair changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep completed work uncommitted and do not begin Packet 02.
+        - id: request-changes
+          label: Request changes
+          description: Stop before committing so the Packet 01 increment can be revised.
+    answer:
+      selected_ids: [authorize-commit-packet-01]
+      text: ''
+    rationale: 'The user authorized one scoped commit for the approved global-hotkey specification/plan bundle and completed Packet 01. Unrelated Local Whisper type-repair changes remain uncommitted.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        OUT-004,
+        SCOPE-001,
+        DATA-001,
+        DATA-002,
+        DATA-003,
+        DATA-004,
+        DATA-005,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-005,
+        COMP-001,
+        COMP-002,
+        ROLL-001,
+        QUAL-001,
+        AC-AUTO-001,
+      ]
+
+  - id: authorization.packet-02-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 01 was committed after its authorized verification, and Packet 02 is the exact next unchecked packet in approved plan revision 3.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      question_id: authorization.packet-02-execution
+      idempotency_key: authorization.packet-02-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'After the approved Packet 01 commit, authorize this incremental-implementation turn to execute Packet 02: Platform Policy And Registration Service?'
+      kind: single
+      options:
+        - id: authorize-packet-02
+          label: Authorize Packet 02 (Recommended)
+          description: Authorize only Packet 02; no Packet 03, source transport, release, or publication work is authorized.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Stop after the Packet 01 commit without implementing Packet 02.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 02 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-02]
+      text: ''
+    rationale: 'The user authorized only Packet 02. This increment must stop after task-local verification and handoff; it does not authorize a commit, production composition, Packet 03, transport, or release.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        SCOPE-005,
+        SCOPE-006,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-001,
+        ARCH-002,
+        ARCH-003,
+        ARCH-005,
+        FLOW-001,
+        FLOW-002,
+        FLOW-003,
+        FLOW-004,
+        FLOW-005,
+        FLOW-006,
+        FLOW-008,
+        FLOW-009,
+        FLOW-010,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        SEC-002,
+        SEC-004,
+        QUAL-003,
+        QUAL-006,
+        AC-AUTO-003,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.commit-packet-02
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 02 is checked complete with all packet verification and repository-wide test:types checks passing.'
+      - 'The worktree also contains unrelated Local Whisper type-repair changes that must remain outside the Packet 02 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-01
+      question_id: authorization.commit-packet-02
+      idempotency_key: authorization.commit-packet-02:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 02 platform-policy and registration-service increment before beginning Packet 03?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-02
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 02 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 02 uncommitted and do not begin Packet 03.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 02 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-02]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 02 only. Unrelated Local Whisper changes remain uncommitted; Packet 03 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-002,
+        SCOPE-005,
+        SCOPE-006,
+        DATA-006,
+        DATA-007,
+        DATA-008,
+        ARCH-001,
+        ARCH-002,
+        ARCH-003,
+        ARCH-005,
+        FLOW-001,
+        FLOW-002,
+        FLOW-003,
+        FLOW-004,
+        FLOW-005,
+        FLOW-006,
+        FLOW-008,
+        FLOW-009,
+        FLOW-010,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        SEC-002,
+        SEC-004,
+        QUAL-003,
+        QUAL-006,
+        AC-AUTO-003,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.packet-03-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 02 is committed, and Packet 03 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 03 is limited to main-process registration-service composition, controller delegation, and focused tests; no IPC, renderer, platform-native, or release work is in scope.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-02
+      question_id: authorization.packet-03-execution
+      idempotency_key: authorization.packet-03-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 03: Shortcut Controller And Composition?'
+      kind: single
+      options:
+        - id: authorize-packet-03
+          label: Authorize Packet 03 (Recommended)
+          description: Authorize only Packet 03; no commit, Packet 04 work, source transport, release, or publication work is authorized.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 03 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 03 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-03]
+      text: ''
+    rationale: 'The user authorized only Packet 03. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 04, source transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [SCOPE-004, ARCH-004, ARCH-006, ARCH-007, FLOW-001, FLOW-007, FLOW-009, SEC-001, SEC-003, COMP-003, COMP-004]
+
+  - id: authorization.commit-packet-03
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 is checked complete with all packet verification and repository-wide type checks passing.'
+      - 'The worktree also contains unrelated Local Whisper changes that must remain outside the Packet 03 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-03
+      question_id: authorization.commit-packet-03
+      idempotency_key: authorization.commit-packet-03:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 03 shortcut-controller and composition increment before beginning Packet 04?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-03
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 03 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 03 uncommitted and do not begin Packet 04.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 03 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-03]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 03 only. Unrelated Local Whisper changes remain uncommitted; Packet 04 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [SCOPE-004, ARCH-004, ARCH-006, ARCH-007, FLOW-001, FLOW-007, FLOW-009, SEC-001, SEC-003, COMP-003, COMP-004]
+
+  - id: authorization.packet-04-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 03 is committed, and Packet 04 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 04 is limited to trusted hotkey IPC, preload and renderer capability migration, and focused tests; it excludes final visual design, platform-native registration, release, and publication work.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-04
+      question_id: authorization.packet-04-execution
+      idempotency_key: authorization.packet-04-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 04: Trusted Hotkey IPC?'
+      kind: single
+      options:
+        - id: authorize-packet-04
+          label: Authorize Packet 04 (Recommended)
+          description: Authorize only trusted hotkey IPC, preload and consumer migration; no commit, Packet 05, platform transport, release, or publication.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 04 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 04 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-04]
+      text: ''
+    rationale: 'The user authorized only Packet 04. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 05, platform transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        DATA-008,
+        FLOW-008,
+        FLOW-009,
+        IPC-001,
+        IPC-002,
+        IPC-003,
+        FAIL-002,
+        SEC-001,
+        SEC-002,
+        SEC-003,
+        SEC-004,
+        QUAL-004,
+        QUAL-006,
+        AC-AUTO-004,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.commit-packet-04
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 is checked complete with focused IPC, service, renderer, type, formatting, and diff-hygiene checks passing.'
+      - 'The worktree also contains unrelated Local Whisper changes that must remain outside the Packet 04 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-05
+      question_id: authorization.commit-packet-04
+      idempotency_key: authorization.commit-packet-04:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 04 trusted hotkey IPC increment before beginning Packet 05?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-04
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 04 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 04 uncommitted and do not begin Packet 05.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 04 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-04]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 04 only. Unrelated Local Whisper changes remain uncommitted; Packet 05 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        DATA-008,
+        FLOW-008,
+        FLOW-009,
+        IPC-001,
+        IPC-002,
+        IPC-003,
+        FAIL-002,
+        SEC-001,
+        SEC-002,
+        SEC-003,
+        SEC-004,
+        QUAL-004,
+        QUAL-006,
+        AC-AUTO-004,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.packet-05-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 04 is committed, and Packet 05 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 05 is limited to Settings registration presentation, localization, accessibility, and focused tests; it excludes main-window visuals, platform-native registration, release, and publication work.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-06
+      question_id: authorization.packet-05-execution
+      idempotency_key: authorization.packet-05-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 05: Settings Registration Experience?'
+      kind: single
+      options:
+        - id: authorize-packet-05
+          label: Authorize Packet 05 (Recommended)
+          description: Authorize only the Settings registration UI, localization, accessibility, and focused tests; no Packet 06, platform, release, or publication work.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 05 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 05 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-05]
+      text: ''
+    rationale: 'The user authorized only Packet 05. This increment must stop after task-local verification and handoff; it does not authorize a commit, Packet 06, platform transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-004,
+        SCOPE-002,
+        UI-001,
+        UI-006,
+        UI-007,
+        UI-008,
+        UI-009,
+        UI-010,
+        UI-011,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        QUAL-005,
+        QUAL-006,
+        AC-AUTO-005,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.commit-packet-05
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 is complete in the task checklist and handoff, with its focused renderer and IPC tests, type checks, scoped lint/format checks, and diff hygiene recorded as passed.'
+      - 'The user selected the scoped Packet 05 commit option through the persistent Prompt MCP interview.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-07
+      question_id: authorization.commit-packet-05
+      idempotency_key: authorization.commit-packet-05:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 05 Settings registration experience increment before beginning Packet 06?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-05
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 05 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 05 uncommitted and do not begin Packet 06.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 05 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-05]
+      text: ''
+    rationale: 'The user authorized one scoped commit for completed Packet 05 only. Unrelated Local Whisper changes remain uncommitted; Packet 06 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-004,
+        SCOPE-002,
+        UI-001,
+        UI-006,
+        UI-007,
+        UI-008,
+        UI-009,
+        UI-010,
+        UI-011,
+        FAIL-001,
+        FAIL-002,
+        FAIL-003,
+        FAIL-004,
+        QUAL-005,
+        QUAL-006,
+        AC-AUTO-005,
+        AC-AUTO-006,
+      ]
+
+  - id: authorization.packet-06-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 05 is committed, and Packet 06 is the exact next unchecked packet in approved plan revision 3.'
+      - 'Packet 06 is limited to main-window registration presentation, deterministic demo fixtures, focused checks, and its browser gate; it excludes platform-native work, release, and publication.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-08
+      question_id: authorization.packet-06-execution
+      idempotency_key: authorization.packet-06-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize this incremental-implementation turn to execute Packet 06: Main Window Status And Demo?'
+      kind: single
+      options:
+        - id: authorize-packet-06
+          label: Authorize Packet 06 (Recommended)
+          description: Authorize only main-window registration presentation, deterministic demo fixtures, focused tests, and the required browser gate; no Packet 07, platform work, release, or publication.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 06 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 06 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-06]
+      text: ''
+    rationale: 'The user authorized only Packet 06. This increment must stop after task-local verification, browser gate recording, and handoff; it does not authorize a commit, Packet 07, platform transport, release, or publication.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-005,
+        SCOPE-004,
+        UI-002,
+        UI-003,
+        UI-004,
+        UI-005,
+        UI-006,
+        UI-007,
+        UI-011,
+        UI-012,
+        COMP-003,
+        QUAL-005,
+        AC-AUTO-005,
+      ]
+
+  - id: workflow.platform-readiness-packet-07
+    revision: 1
+    category: workflow
+    state: needs_user
+    provenance: null
+    evidence:
+      - 'Packet 07 requires native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64 host access before host-bound qualification can start.'
+      - 'Preflight source identity: Git revision 8b988dc38368f114d340c3c435523935fc348d9e; SHA-256 of the current working diff 1f3dbd0e7e232190b323a7cc9aa7a9d647f11c5f46debc95f2dff6d87195eabf; no untracked files.'
+      - 'The current working diff contains unrelated Local Whisper changes; any affected host evidence must be rerun if platform-owned source changes.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: workflow-round-01
+      question_id: workflow.platform-readiness-packet-07
+      idempotency_key: workflow.platform-readiness-packet-07:v1
+      revision: 1
+      last_status: timed_out
+    question:
+      text: 'Confirm Packet 07 platform readiness: access to native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64; the recorded revision/diff identity; and whether source transport is needed and separately authorized.'
+      kind: single
+      options:
+        - id: ready-no-transport
+          label: Ready; no transport needed
+          description: All required native hosts are accessible, the stated source identity is accepted, and Packet 07 will run without copying or synchronizing source.
+        - id: ready-transport-authorized
+          label: Ready; authorize transport
+          description: All required native hosts are accessible, the stated source identity is accepted, and necessary source copying or synchronization is explicitly authorized.
+        - id: not-ready
+          label: Not ready
+          description: Leave Packet 07 blocked until host access, source identity, or separate transport authority is available.
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: 'The readiness prompt timed out without a committed answer; Packet 07 remains blocked before execution authorization is requested.'
+    supersedes_revision: null
+    requirement_ids: [QUAL-007, QUAL-008, QUAL-009, QUAL-010, QUAL-011]
+
+  - id: workflow.platform-readiness-packet-07
+    revision: 2
+    category: workflow
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 requires native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64 host access before host-bound qualification can start.'
+      - 'Preflight source identity: Git revision 8b988dc38368f114d340c3c435523935fc348d9e; SHA-256 of the current working diff 5c2e943cc521c2b4e517c70c8cc117b01c2f1e83c5348176d96043d7aa037330; no untracked files.'
+      - 'The current working diff contains unrelated Local Whisper changes; any affected host evidence must be rerun if platform-owned source changes.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: workflow-round-02
+      question_id: workflow.platform-readiness-packet-07
+      idempotency_key: workflow.platform-readiness-packet-07:v2
+      revision: 2
+      last_status: answered
+    question:
+      text: 'Confirm Packet 07 platform readiness: access to native Linux X11, GNOME Wayland, KDE Wayland, Linux packaging, and Windows x64; the recorded revision/diff identity; and whether source transport is needed and separately authorized.'
+      kind: single
+      options:
+        - id: ready-no-transport
+          label: Ready; no transport needed
+          description: All required native hosts are accessible, the stated source identity is accepted, and Packet 07 will run without copying or synchronizing source.
+        - id: ready-transport-authorized
+          label: Ready; authorize transport
+          description: All required native hosts are accessible, the stated source identity is accepted, and necessary source copying or synchronization is explicitly authorized.
+        - id: not-ready
+          label: Not ready
+          description: Leave Packet 07 blocked until host access, source identity, or separate transport authority is available.
+    answer:
+      selected_ids: [ready-no-transport]
+      text: ''
+    rationale: 'The user confirmed the required host access and recorded source identity. No source copying or synchronization is authorized or needed.'
+    supersedes_revision: 1
+    requirement_ids: [QUAL-007, QUAL-008, QUAL-009, QUAL-010, QUAL-011]
+
+  - id: authorization.packet-07-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 07 is self-contained and owns only Linux X11 policy/factory/session classification, focused qualification support, verification, and the AC-MAN-002 X11 gate.'
+      - 'Platform readiness is answered by workflow.platform-readiness-packet-07 revision 2 with ready-no-transport.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-10
+      question_id: authorization.packet-07-execution
+      idempotency_key: authorization.packet-07-execution:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize only Packet 07 Linux X11 Registration And Qualification after its platform-readiness gate?'
+      kind: single
+      options:
+        - id: authorize-packet-07
+          label: Authorize Packet 07 (Recommended)
+          description: Authorize only the X11 policy/factory/session branch, focused tests and bounded X11 qualification; no Wayland, Windows, release, publication, transport, or commit.
+        - id: leave-unauthorized
+          label: Leave unauthorized
+          description: Keep Packet 07 ready without implementation.
+        - id: request-plan-changes
+          label: Request plan changes
+          description: Return Packet 07 to planning without implementation.
+    answer:
+      selected_ids: [authorize-packet-07]
+      text: ''
+    rationale: 'The user authorized only Packet 07. This increment must stop after packet-local implementation, verification, and recorded X11 manual-gate evidence; it does not authorize a commit, Packet 08, release, publication, or source transport.'
+    supersedes_revision: null
+    requirement_ids: [SCOPE-003, PLAT-003, COMP-004, QUAL-002, QUAL-009, AC-AUTO-002, AC-MAN-002]
+
+  - id: authorization.commit-packet-06
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - 'Packet 06 is checked complete with its focused renderer suite, type checks, production build, scoped lint/format checks, diff hygiene, and CloakBrowser manual gate recorded as passed.'
+      - 'The worktree also contains unrelated Local Whisper qualification changes that must remain outside the Packet 06 commit.'
+    prompt_mcp:
+      interview_id: plan:global-hotkey-registration
+      batch_id: authorization-round-09
+      question_id: authorization.commit-packet-06
+      idempotency_key: authorization.commit-packet-06:v1
+      revision: 1
+      last_status: answered
+    question:
+      text: 'Authorize committing the completed Packet 06 Main Window Status And Demo increment before beginning Packet 07?'
+      kind: single
+      options:
+        - id: authorize-commit-packet-06
+          label: Authorize commit (Recommended)
+          description: Create one scoped Packet 06 commit; unrelated Local Whisper changes remain uncommitted.
+        - id: leave-uncommitted
+          label: Leave uncommitted
+          description: Keep Packet 06 uncommitted and do not begin Packet 07.
+        - id: request-changes
+          label: Request changes
+          description: Do not commit; return Packet 06 for revision.
+    answer:
+      selected_ids: [authorize-commit-packet-06]
+      text: ''
+    rationale: 'The user authorized one scoped Packet 06 commit. Unrelated Local Whisper changes remain uncommitted; Packet 07 needs separate execution authorization after this commit.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-001,
+        OUT-005,
+        SCOPE-004,
+        UI-002,
+        UI-003,
+        UI-004,
+        UI-005,
+        UI-006,
+        UI-007,
+        UI-011,
+        UI-012,
+        COMP-003,
+        QUAL-005,
+        AC-AUTO-005,
+      ]
+
+  - id: authorization.packet-08-execution
+    revision: 1
+    category: authorization
+    state: answered
+    provenance: user
+    evidence:
+      - "The user explicitly named the incremental-implementation skill for the global-hotkey-registration workstream and then replied 'ok' to authorize execution."
+      - 'Authorization is limited to Packet 08 Linux Wayland Portal, Package, And Qualification; it excludes Packet 09, commits, source transport, publishing, releases, and pull requests.'
+    answer:
+      selected_ids: [authorize-packet-08]
+      text: 'ok'
+    rationale: 'Prompt MCP was unavailable. The direct user authorization permits only Packet 08 implementation, automated verification, task-state recording, and the separately recorded manual gates.'
+    supersedes_revision: null
+    requirement_ids:
+      [
+        OUT-003,
+        SCOPE-003,
+        PLAT-004,
+        PLAT-005,
+        PLAT-006,
+        PLAT-007,
+        COMP-004,
+        COMP-005,
+        DEP-001,
+        DEP-002,
+        QUAL-002,
+        QUAL-007,
+        QUAL-010,
+        AC-AUTO-002,
+        AC-AUTO-007,
+        AC-MAN-003,
+      ]

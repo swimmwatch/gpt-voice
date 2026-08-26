@@ -7,6 +7,7 @@ import { TarArchive, ZipArchive, type Archiver } from 'archiver';
 import {
   DIAGNOSTICS_ARCHIVE_LIMITS,
   DIAGNOSTICS_ARCHIVE_MEMBER_NAMES,
+  LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES,
   isDiagnosticsArchiveOuterByteLengthWithinLimit,
   isDiagnosticsArchiveStructureByteLengthWithinLimit,
   type DiagnosticsArchiveFormat,
@@ -137,6 +138,9 @@ export class DiagnosticsArchiveFormatAdapter {
   ): void {
     const actualMembers = inspectDiagnosticsArchiveForVerification(format, archiveBytes);
     if (actualMembers.size !== expectedMembers.length) throw new Error('Unexpected diagnostics member count');
+    if (![...actualMembers.keys()].every((name, index) => name === expectedMembers[index]?.name)) {
+      throw new Error('Unexpected diagnostics member order');
+    }
     for (const expected of expectedMembers) {
       const actual = actualMembers.get(expected.name);
       if (!actual || !actual.equals(expected.payload)) throw new Error('Diagnostics member verification failed');
@@ -147,11 +151,19 @@ export class DiagnosticsArchiveFormatAdapter {
     const expectedNames = [
       DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest,
       DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,
-      ...(members.length === 3 ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions] : []),
+      ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions)
+        ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions]
+        : []),
+      ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime)
+        ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime]
+        : []),
+      ...(members.some(({ name }) => name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot)
+        ? [DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot]
+        : []),
     ];
     if (
       members.length < 2 ||
-      members.length > 3 ||
+      members.length > 5 ||
       !members.every((member, index) => member.name === expectedNames[index]) ||
       new Set(members.map((member) => member.name)).size !== members.length
     ) {
@@ -162,6 +174,12 @@ export class DiagnosticsArchiveFormatAdapter {
     for (const member of members) {
       if (member.payload.byteLength > DIAGNOSTICS_ARCHIVE_LIMITS.MaxMemberBytes) {
         throw new TypeError('Diagnostics archive member is too large');
+      }
+      if (
+        member.name === DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot &&
+        member.payload.byteLength > LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES
+      ) {
+        throw new TypeError('Local Whisper diagnostics snapshot is too large');
       }
       if (member.payload.byteLength >= DIAGNOSTICS_ARCHIVE_LIMITS.MinCompressionRatioMemberBytes) {
         let compressedBytes = compressedPayloadSizes.get(member.payload);
@@ -213,7 +231,7 @@ function readZipMembers(archiveBytes: Buffer): DiagnosticsArchiveInspection {
     diskNumber !== 0 ||
     centralDisk !== 0 ||
     diskEntries !== totalEntries ||
-    totalEntries > 3 ||
+    totalEntries > 5 ||
     centralOffset + centralSize !== endOffset ||
     endOffset + ZIP_MINIMUM_END_RECORD_BYTES + commentLength !== archiveBytes.length
   ) {
@@ -345,15 +363,21 @@ export function inspectDiagnosticsArchiveForVerification(
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents,
     DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.DiagnosticTextActions,
+    DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.NativeRuntime,
+    DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot,
   ]);
   if (
     members.size < 2 ||
-    members.size > 3 ||
+    members.size > 5 ||
     !members.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.Manifest) ||
     !members.has(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.AuditEvents) ||
     [...members.keys()].some((name) => !allowedNames.has(name))
   ) {
     throw new Error('Unexpected diagnostics archive members');
+  }
+  const localWhisperSnapshot = members.get(DIAGNOSTICS_ARCHIVE_MEMBER_NAMES.LocalWhisperSnapshot);
+  if (localWhisperSnapshot && localWhisperSnapshot.byteLength > LOCAL_WHISPER_DIAGNOSTICS_SNAPSHOT_MAX_BYTES) {
+    throw new Error('Local Whisper diagnostics snapshot is too large');
   }
   return members;
 }

@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-manifest-v3.schema.json",
+  "title": "Local Whisper performance qualification manifest v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceManifestDigest",
+    "performanceRunPlanDigest",
+    "sourceRevision",
+    "sourceProofDigest",
+    "baselineCommit",
+    "candidateCommit",
+    "instrumentationOverlaySha256",
+    "derivedSourceReceipts",
+    "platform",
+    "architecture",
+    "backend",
+    "executionMode",
+    "evidenceClaim",
+    "inputFixtureDigest",
+    "modelArtifacts",
+    "cachePreparationProcedure",
+    "cacheStates",
+    "candidateWindows",
+    "minimumSuccessfulPairs",
+    "plannedPairsPerCandidateCacheState",
+    "runOrdering",
+    "statistic",
+    "uncertaintyMethod",
+    "samplingIntervalMilliseconds",
+    "units",
+    "requiredPhaseIds",
+    "requiredResourceIds",
+    "sourceHashBaseline"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "contractRevision": { "const": 3 },
+    "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "sourceRevision": { "$ref": "#/$defs/commit" },
+    "sourceProofDigest": { "$ref": "#/$defs/sha256" },
+    "baselineCommit": { "$ref": "#/$defs/commit" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "instrumentationOverlaySha256": { "$ref": "#/$defs/sha256" },
+    "derivedSourceReceipts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "after"],
+      "properties": {
+        "before": { "$ref": "#/$defs/derivedSourceReceipt" },
+        "after": { "$ref": "#/$defs/derivedSourceReceipt" }
+      }
+    },
+    "platform": { "enum": ["linux", "win32"] },
+    "architecture": { "const": "x64" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "executionMode": { "enum": ["hostedFixture", "representativeHost"] },
+    "evidenceClaim": { "enum": ["contractOnly", "representativePerformance"] },
+    "inputFixtureDigest": { "$ref": "#/$defs/sha256" },
+    "modelArtifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/model" }
+    },
+    "cachePreparationProcedure": { "enum": ["linuxFileAdviceV1", "windowsFileCacheV1"] },
+    "cacheStates": {
+      "type": "array",
+      "prefixItems": [{ "const": "cold" }, { "const": "warm" }],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "candidateWindows": {
+      "type": "array",
+      "prefixItems": [{ "const": 1 }, { "const": 2 }, { "const": 4 }, { "const": 8 }],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "minimumSuccessfulPairs": { "const": 5 },
+    "plannedPairsPerCandidateCacheState": { "const": 6 },
+    "runOrdering": { "const": "alternatingBeforeAfter" },
+    "statistic": { "const": "medianOfPairedPercentages" },
+    "uncertaintyMethod": { "const": "medianAbsoluteDeviation" },
+    "samplingIntervalMilliseconds": { "const": 100 },
+    "units": { "$ref": "#/$defs/units" },
+    "requiredPhaseIds": { "$ref": "#/$defs/phases" },
+    "requiredResourceIds": { "$ref": "#/$defs/resources" },
+    "sourceHashBaseline": { "$ref": "#/$defs/sourceHashBaseline" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "executableIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sizeBytes", "sha256"],
+      "properties": {
+        "sizeBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "derivedSourceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "contractRevision",
+        "performanceDerivedSourceReceiptDigest",
+        "side",
+        "parentCommit",
+        "sourceProofDigest",
+        "instrumentationOverlaySha256",
+        "derivedTreeManifestSha256",
+        "executableArtifactIdentity"
+      ],
+      "properties": {
+        "schemaVersion": { "const": 3 },
+        "contractRevision": { "const": 3 },
+        "performanceDerivedSourceReceiptDigest": { "$ref": "#/$defs/sha256" },
+        "side": { "enum": ["before", "after"] },
+        "parentCommit": { "$ref": "#/$defs/commit" },
+        "sourceProofDigest": { "$ref": "#/$defs/sha256" },
+        "instrumentationOverlaySha256": { "$ref": "#/$defs/sha256" },
+        "derivedTreeManifestSha256": { "$ref": "#/$defs/sha256" },
+        "executableArtifactIdentity": { "$ref": "#/$defs/executableIdentity" }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant", "sha256"],
+      "properties": {
+        "family": { "enum": ["base", "medium", "large-v3"] },
+        "variant": { "enum": ["full", "q5_0"] },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phaseDuration", "resourcePeak", "change"],
+      "properties": {
+        "phaseDuration": { "const": "nanoseconds" },
+        "resourcePeak": { "const": "bytes" },
+        "change": { "const": "percent" }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 19,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/phaseId" }
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/resourceId" }
+    },
+    "phaseId": {
+      "enum": [
+        "directoryProofRuntimeAcquisition",
+        "directoryProofModelAcquisition",
+        "directoryProofRuntimePreSpawn",
+        "directoryProofModelPreSpawn",
+        "directoryProofModelPreLoad",
+        "nativeModelGuardDigest",
+        "nativeAuthorityDigest",
+        "workerPreflightDigest",
+        "workerLoaderDigest",
+        "guardedProcessCreation",
+        "authorityTransfer",
+        "modelPreflight",
+        "whisperLoad",
+        "inferenceWarmup",
+        "gpuUploadAllocation",
+        "installationEncode",
+        "installationPipeWait",
+        "installationDecode",
+        "installationWrite"
+      ]
+    },
+    "resourceId": {
+      "enum": ["mainProcessPeakRss", "guardProcessPeakRss", "workerProcessPeakRss", "gpuPeakVram"]
+    },
+    "sourceHashBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beforeOptimization", "afterDirectoryReuse", "standardPathLoader"],
+      "properties": {
+        "beforeOptimization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 8 }, "win32": { "const": 7 } }
+        },
+        "afterDirectoryReuse": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 7 }, "win32": { "const": 6 } }
+        },
+        "standardPathLoader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["linux", "win32"],
+          "properties": { "linux": { "const": 0 }, "win32": { "const": 0 } }
+        }
+      }
+    }
+  }
+}

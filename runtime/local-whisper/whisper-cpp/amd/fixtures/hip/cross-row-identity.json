@@ -1,0 +1,6 @@
+{
+  "fixtureId": "hip-cross-row-identity",
+  "stage": "pre-signing",
+  "expectedCode": "DEVICE_NOT_ALLOWLISTED",
+  "mutations": [{ "path": "catalogRow.id", "value": "different-synthetic-row" }]
+}

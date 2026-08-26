@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/candidate-v1.schema.json",
+  "title": "Local Whisper frozen candidate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "candidateDigest",
+    "sourceCommit",
+    "applicationVersion",
+    "packageSha256",
+    "catalogDigest",
+    "catalogRevision",
+    "fixtureDigest",
+    "runtimeArtifacts",
+    "modelArtifacts",
+    "profileDigests",
+    "toolIdentities"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "candidateDigest": { "$ref": "#/$defs/sha256" },
+    "sourceCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "applicationVersion": { "$ref": "#/$defs/identifier" },
+    "packageSha256": { "$ref": "#/$defs/sha256" },
+    "catalogDigest": { "$ref": "#/$defs/sha256" },
+    "catalogRevision": { "$ref": "#/$defs/identifier" },
+    "fixtureDigest": {
+      "const": "de8603f4c96a793ed3a3d3a03941f44d67592ae945d17d3b19ae0ed56e039226"
+    },
+    "runtimeArtifacts": { "$ref": "#/$defs/artifacts" },
+    "modelArtifacts": { "$ref": "#/$defs/artifacts" },
+    "profileDigests": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "toolIdentities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version"],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "version": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifactId", "revision", "sha256", "licenseApproval", "redistributionApproval"],
+        "properties": {
+          "artifactId": { "$ref": "#/$defs/identifier" },
+          "revision": { "$ref": "#/$defs/identifier" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "licenseApproval": { "const": "Approved" },
+          "redistributionApproval": { "const": "Approved" }
+        }
+      }
+    }
+  }
+}

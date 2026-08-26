@@ -1,5 +1,5 @@
-import { BrainCircuit, HardDriveDownload, LoaderCircle, PowerOff, Settings } from 'lucide-react';
-import { Fragment } from 'react';
+import { BrainCircuit, HardDriveDownload, PowerOff, Settings } from 'lucide-react';
+import { Fragment, type ReactNode } from 'react';
 import { useI18n } from '@renderer/hooks/useI18n';
 import type { MainPrettifyCliConnectionState } from '@renderer/mainPrettifyCliConnection';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@renderer/mainPrettifyProvider';
 import { ProviderStatusIndicator } from '@renderer/components/ProviderStatusIndicator';
 import { Button } from '@renderer/components/ui/button';
+import { Spinner } from '@renderer/components/ui/spinner';
 import {
   Select,
   SelectContent,
@@ -27,11 +28,13 @@ import {
 } from '@shared/prettifySettings';
 
 interface MainPrettifyProviderBandProps {
+  actionControl?: ReactNode;
   cliConnection: MainPrettifyCliConnectionState | null;
   connectionError: string;
   error: string;
   httpConnection: MainPrettifyHttpConnectionState | null;
   isModelActionRunning: boolean;
+  isProviderChangesLocked: boolean;
   isProviderChangeSaving: boolean;
   ollamaModels: readonly PrettifyModelOption[];
   onModelAction: () => void;
@@ -47,11 +50,13 @@ const PRETTIFY_PROVIDER_GROUPS = [
 
 /** Renders the permanent, provider-specific Prettify controls in the main command dock. */
 function MainPrettifyProviderBand({
+  actionControl,
   cliConnection,
   connectionError,
   error,
   httpConnection,
   isModelActionRunning,
+  isProviderChangesLocked,
   isProviderChangeSaving,
   ollamaModels,
   onModelAction,
@@ -60,18 +65,25 @@ function MainPrettifyProviderBand({
   settings,
 }: MainPrettifyProviderBandProps): React.JSX.Element {
   const { t } = useI18n();
-  const viewState = getMainPrettifyProviderViewState(settings, ollamaModels, cliConnection, httpConnection);
+  const viewState = getMainPrettifyProviderViewState(
+    settings,
+    ollamaModels,
+    cliConnection,
+    httpConnection,
+    isProviderChangeSaving,
+  );
   const hasModelAction = Boolean(viewState.ollamaControl);
   const model = viewState.model || t(viewState.modelFallbackKey);
   const providerSettingsLabel = t('mainDock.openPrettifySettings');
   const modelActionTitle = t(viewState.ollamaControl?.isLoaded ? 'prettify.freeModelTitle' : 'prettify.loadModelTitle');
-  const providerConnectionTooltip =
-    error ||
-    connectionError ||
-    (viewState.connection
-      ? t(viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey)
-      : '');
-  const providerConnectionHasError = Boolean(error);
+  const providerConnectionTooltip = isProviderChangeSaving
+    ? t('provider.connectionCheckingTooltip')
+    : error ||
+      connectionError ||
+      (viewState.connection
+        ? t(viewState.connection.tooltipKey ?? viewState.connection.valueKey ?? viewState.connection.labelKey)
+        : '');
+  const providerConnectionHasError = !isProviderChangeSaving && Boolean(error);
 
   return (
     <section className="command-dock-prettify-band" data-slot="prettify-provider-band">
@@ -81,8 +93,9 @@ function MainPrettifyProviderBand({
         <div className="command-dock-prettify-provider-field">
           <span className="command-dock-field-label">{t('mainDock.prettifyProviderLabel')}</span>
           <Select
-            disabled={isProviderChangeSaving}
+            disabled={isProviderChangesLocked}
             onValueChange={(providerId) => {
+              if (isProviderChangesLocked) return;
               if (isPrettifyProviderId(providerId)) onProviderChange(providerId);
             }}
             value={viewState.providerId}
@@ -90,7 +103,7 @@ function MainPrettifyProviderBand({
             <SelectTrigger aria-label={t('prettify.provider')} className="command-dock-prettify-provider-trigger">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent avoidCollisions={false} showScrollButtons={false} side="bottom">
               {PRETTIFY_PROVIDER_GROUPS.map((group, groupIndex) => (
                 <Fragment key={group[0]}>
                   {groupIndex > 0 && <SelectSeparator />}
@@ -112,26 +125,36 @@ function MainPrettifyProviderBand({
           <strong title={model}>{model}</strong>
         </div>
 
+        {actionControl}
+
         <div className="command-dock-prettify-controls" data-has-model-action={hasModelAction}>
           {viewState.ollamaControl && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  aria-busy={isModelActionRunning || undefined}
                   aria-label={modelActionTitle}
                   className="command-dock-prettify-model-action"
-                  disabled={isModelActionRunning}
-                  onClick={onModelAction}
+                  disabled={isModelActionRunning || isProviderChangesLocked}
+                  onClick={() => {
+                    if (isModelActionRunning || isProviderChangesLocked) return;
+                    onModelAction();
+                  }}
                   size="icon"
                   title={modelActionTitle}
                   variant="outline"
                 >
-                  {isModelActionRunning ? (
-                    <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
-                  ) : viewState.ollamaControl.isLoaded ? (
-                    <PowerOff aria-hidden="true" strokeWidth={1.75} />
-                  ) : (
-                    <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
-                  )}
+                  <Spinner
+                    active={isModelActionRunning}
+                    fallback={
+                      viewState.ollamaControl.isLoaded ? (
+                        <PowerOff aria-hidden="true" strokeWidth={1.75} />
+                      ) : (
+                        <HardDriveDownload aria-hidden="true" strokeWidth={1.75} />
+                      )
+                    }
+                    label={modelActionTitle}
+                  />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{modelActionTitle}</TooltipContent>
@@ -155,7 +178,11 @@ function MainPrettifyProviderBand({
               <Button
                 aria-label={providerSettingsLabel}
                 className="command-dock-prettify-settings-shortcut command-dock-settings-shortcut"
-                onClick={onOpenSettings}
+                disabled={isProviderChangesLocked}
+                onClick={() => {
+                  if (isProviderChangesLocked) return;
+                  onOpenSettings();
+                }}
                 size="icon"
                 title={providerSettingsLabel}
                 variant="outline"

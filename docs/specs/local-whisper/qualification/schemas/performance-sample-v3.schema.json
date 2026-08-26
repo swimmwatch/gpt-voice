@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/performance-sample-v3.schema.json",
+  "title": "Local Whisper private performance qualification sample v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "performanceSampleDigest",
+    "performanceRunPlanDigest",
+    "performanceManifestDigest",
+    "cacheReceiptDigest",
+    "baselineCommit",
+    "candidateCommit",
+    "platform",
+    "backend",
+    "sampleId",
+    "model",
+    "candidateWindow",
+    "cacheState",
+    "pairIndex",
+    "runOrder",
+    "side",
+    "status",
+    "failureReason",
+    "endToEndNanoseconds",
+    "phases",
+    "resources",
+    "processSettlementProof",
+    "unownedProcessAttribution",
+    "unownedGpuAttribution"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 3 },
+    "contractRevision": { "const": 3 },
+    "performanceSampleDigest": { "$ref": "#/$defs/sha256" },
+    "performanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "performanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "cacheReceiptDigest": { "$ref": "#/$defs/sha256" },
+    "baselineCommit": { "$ref": "#/$defs/commit" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "platform": { "enum": ["linux", "win32"] },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "sampleId": { "$ref": "#/$defs/identifier" },
+    "model": { "$ref": "#/$defs/model" },
+    "candidateWindow": { "enum": [1, 2, 4, 8] },
+    "cacheState": { "enum": ["cold", "warm"] },
+    "pairIndex": { "type": "integer", "minimum": 1, "maximum": 6 },
+    "runOrder": { "enum": ["beforeThenAfter", "afterThenBefore"] },
+    "side": { "enum": ["before", "after"] },
+    "status": { "enum": ["success", "failed"] },
+    "failureReason": { "oneOf": [{ "$ref": "#/$defs/reasonCode" }, { "type": "null" }] },
+    "endToEndNanoseconds": {
+      "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 9007199254740991 }, { "type": "null" }]
+    },
+    "phases": {
+      "type": "array",
+      "maxItems": 19,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sequence", "durationNanoseconds"],
+        "properties": {
+          "id": { "$ref": "#/$defs/phaseId" },
+          "sequence": { "type": "integer", "minimum": 0, "maximum": 18 },
+          "durationNanoseconds": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+        }
+      }
+    },
+    "resources": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "peakBytes"],
+        "properties": {
+          "id": { "$ref": "#/$defs/resourceId" },
+          "peakBytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        }
+      }
+    },
+    "processSettlementProof": { "oneOf": [{ "const": "ownedProcessTreeSettled" }, { "type": "null" }] },
+    "unownedProcessAttribution": { "oneOf": [{ "const": 0 }, { "type": "null" }] },
+    "unownedGpuAttribution": { "oneOf": [{ "const": 0 }, { "const": "notApplicable" }, { "type": "null" }] }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "status": { "const": "success" },
+        "failureReason": { "type": "null" },
+        "endToEndNanoseconds": { "type": "integer", "minimum": 1 },
+        "phases": { "type": "array", "minItems": 1 },
+        "resources": { "type": "array", "minItems": 1 },
+        "processSettlementProof": { "const": "ownedProcessTreeSettled" },
+        "unownedProcessAttribution": { "const": 0 },
+        "unownedGpuAttribution": { "enum": [0, "notApplicable"] }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "status": { "const": "failed" },
+        "failureReason": { "$ref": "#/$defs/reasonCode" },
+        "endToEndNanoseconds": { "type": "null" },
+        "phases": { "type": "array", "maxItems": 0 },
+        "resources": { "type": "array", "maxItems": 0 },
+        "processSettlementProof": { "type": "null" },
+        "unownedProcessAttribution": { "type": "null" },
+        "unownedGpuAttribution": { "type": "null" }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "reasonCode": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 64,
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant", "sha256"],
+      "properties": {
+        "family": { "enum": ["base", "medium", "large-v3"] },
+        "variant": { "enum": ["full", "q5_0"] },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "phaseId": {
+      "enum": [
+        "directoryProofRuntimeAcquisition",
+        "directoryProofModelAcquisition",
+        "directoryProofRuntimePreSpawn",
+        "directoryProofModelPreSpawn",
+        "directoryProofModelPreLoad",
+        "nativeModelGuardDigest",
+        "nativeAuthorityDigest",
+        "workerPreflightDigest",
+        "workerLoaderDigest",
+        "guardedProcessCreation",
+        "authorityTransfer",
+        "modelPreflight",
+        "whisperLoad",
+        "inferenceWarmup",
+        "gpuUploadAllocation",
+        "installationEncode",
+        "installationPipeWait",
+        "installationDecode",
+        "installationWrite"
+      ]
+    },
+    "resourceId": {
+      "enum": ["mainProcessPeakRss", "guardProcessPeakRss", "workerProcessPeakRss", "gpuPeakVram"]
+    }
+  }
+}

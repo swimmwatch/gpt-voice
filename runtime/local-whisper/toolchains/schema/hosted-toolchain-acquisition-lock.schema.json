@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-hosted-toolchain-acquisition-lock-v1.json",
+  "title": "Local Whisper hosted toolchain acquisition lock v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaId", "manifestId", "manifestMode", "target", "records"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaId": { "const": "local-whisper-hosted-toolchain-acquisition-lock-v1" },
+    "manifestId": { "$ref": "#/$defs/safeId" },
+    "manifestMode": { "enum": ["fixture", "production"] },
+    "target": { "$ref": "#/$defs/target" },
+    "records": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/record" } }
+  },
+  "$defs": {
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture"],
+      "properties": { "os": { "enum": ["linux", "windows"] }, "architecture": { "const": "x64" } }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "entryType", "byteLength", "sha256", "mode", "linkTarget"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "entryType": { "enum": ["regular", "symbolic-link"] },
+        "byteLength": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "enum": ["100644", "100755", "120777"] },
+        "linkTarget": { "type": ["string", "null"], "maxLength": 4096 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "entryType": { "const": "regular" } } },
+          "then": { "properties": { "mode": { "enum": ["100644", "100755"] }, "linkTarget": { "const": null } } },
+          "else": {
+            "properties": { "mode": { "const": "120777" }, "linkTarget": { "type": "string", "minLength": 1 } }
+          }
+        }
+      ]
+    },
+    "xzDecoder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recordId", "modulePath", "exportName"],
+      "properties": {
+        "recordId": { "$ref": "#/$defs/safeId" },
+        "modulePath": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "exportName": { "const": "XzReadableStream" }
+      }
+    },
+    "materialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "expandedRegularBytes", "expandedRegularBytesCeiling", "entries", "xzDecoder"],
+      "properties": {
+        "format": { "enum": ["raw-file", "zip", "tar-gzip", "tar-xz"] },
+        "expandedRegularBytes": { "type": "integer", "minimum": 1 },
+        "expandedRegularBytesCeiling": { "type": "integer", "minimum": 1 },
+        "entries": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/entry" } },
+        "xzDecoder": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/xzDecoder" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "format": { "const": "tar-xz" } } },
+          "then": { "properties": { "xzDecoder": { "$ref": "#/$defs/xzDecoder" } } },
+          "else": { "properties": { "xzDecoder": { "const": null } } }
+        }
+      ]
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "target",
+        "component",
+        "roles",
+        "origin",
+        "transport",
+        "provenance",
+        "materialization",
+        "license"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeId" },
+        "target": { "$ref": "#/$defs/target" },
+        "component": { "$ref": "#/$defs/safeId" },
+        "roles": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uri", "authority"],
+          "properties": {
+            "uri": { "type": "string", "minLength": 1 },
+            "authority": { "type": "string", "minLength": 1 }
+          }
+        },
+        "transport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["byteLength", "sha256"],
+          "properties": { "byteLength": { "type": "integer", "minimum": 1 }, "sha256": { "$ref": "#/$defs/sha256" } }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "identity", "sha256"],
+          "properties": {
+            "kind": { "enum": ["fixture-signature", "repository-provenance", "vendor-signature"] },
+            "identity": { "type": "string", "minLength": 1 },
+            "sha256": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "materialization": { "$ref": "#/$defs/materialization" },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["recordId", "path", "sha256", "spdxId"],
+          "properties": {
+            "recordId": { "$ref": "#/$defs/safeId" },
+            "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "spdxId": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

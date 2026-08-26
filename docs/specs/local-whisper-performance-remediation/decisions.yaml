@@ -1,0 +1,3124 @@
+schema_version: 1
+spec_slug: local-whisper-performance-remediation
+interview_id: spec:local-whisper-performance-remediation
+decisions:
+  - id: outcome.performance-remediation
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - User requested an authoritative specification and explicitly deferred planning.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [author-specification]
+      text: Create the Local Whisper performance-remediation specification without planning or implementation.
+    rationale: The current request explicitly authorizes specification work only.
+    supersedes_revision: null
+    requirement_ids: [OUT-001, SCP-003]
+
+  - id: scope.selected-review-comments
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - The request follows creation of the curated comments-to-address report in the same thread.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - corrected-phase-baseline
+        - safety-prerequisites
+        - launch-directory-result-reuse
+        - linux-native-digest-decision
+        - single-layer-install-codec
+        - bounded-chunk-and-write-pipeline
+        - runtime-dispatched-sha256
+        - wav-lifetime-measurement
+        - explicit-backend-options
+        - gpu-cpu-thread-measurement
+      text: ''
+    rationale: The curated report is the narrow source selection; its explicit non-recommendations are not silently promoted into scope.
+    supersedes_revision: null
+    requirement_ids: [SCP-001]
+
+  - id: compatibility.supported-platforms
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested cross-platform compatibility.
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [linux-x64, windows-x64, macos-unavailable]
+      text: ''
+    rationale: Linux x64 and Windows x64 are the existing production native targets; the managed filesystem remains unavailable on macOS.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CMP-002]
+
+  - id: architecture.existing-boundaries
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - src/main/localWhisper/filesystem/
+      - runtime/local-whisper/fs-guard/
+      - runtime/local-whisper/whisper-cpp/
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - main-owns-privileged-work
+        - native-platform-backends
+        - cpp20-raii
+        - typed-private-protocols
+        - no-mutable-global-runtime-state
+      text: ''
+    rationale: Performance work must remain inside the approved Electron, native helper, worker, and platform ownership boundaries.
+    supersedes_revision: null
+    requirement_ids: [ARC-001, ARC-002]
+
+  - id: security.exact-load-contract
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-preflight-digest
+        - preserve-loader-consumption-digest
+        - fail-closed-identity-change
+        - no-model-mmap
+      text: ''
+    rationale: The two worker digest passes authenticate different byte streams and are not optimization candidates.
+    supersedes_revision: null
+    requirement_ids: [SEC-001, SEC-002]
+
+  - id: security.privacy-and-observability
+    revision: 1
+    category: security
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - scripts/local-whisper/qualification/
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - qualification-owned-measurements
+        - no-routine-production-telemetry
+        - redact-paths-and-device-identities
+        - no-audio-or-transcript-capture
+      text: ''
+    rationale: Phase evidence may contain durations and bounded resource counts only; sensitive provider data remains private.
+    supersedes_revision: null
+    requirement_ids: [PRIV-001, OBS-001]
+
+  - id: concurrency.bounded-work
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - single-threaded-fs-guard
+        - transport-owned-backpressure
+        - bounded-in-flight-window
+        - deterministic-settlement
+        - total-transfer-buffer-cap-32-mib
+      text: ''
+    rationale: Pipelining may overlap requests but may not thread the guard or create unbounded pending requests, stream buffers, or cleanup races.
+    supersedes_revision: null
+    requirement_ids: [THR-001, RES-001]
+
+  - id: interfaces.public-desktop-surface
+    revision: 1
+    category: interfaces
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - src/main/localWhisper/filesystem/
+      - runtime/local-whisper/
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: The selected work changes private qualification, filesystem-guard, worker, and build contracts but adds no renderer, preload, public IPC, provider, settings, or persisted user-data surface.
+    supersedes_revision: null
+    requirement_ids: [SCP-002]
+
+  - id: dependencies.external-libraries
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-new-runtime-dependency, retain-windows-cng, scalar-sha-fallback]
+      text: ''
+    rationale: The selected performance work has dependency-free designs and does not authorize OpenSSL, a new codec library, or another packaged runtime dependency.
+    supersedes_revision: null
+    requirement_ids: [DEP-001, CRY-001]
+
+  - id: compatibility.data-migration
+    revision: 1
+    category: compatibility
+    state: superseded
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: No settings, history, artifact catalog, managed-root layout, model bytes, or user-data schema changes are selected.
+    supersedes_revision: null
+    requirement_ids: [CMP-003]
+
+  - id: scope.native-remediation-dependency
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/02_fs_guard_resource_ownership.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/03_fs_guard_input_and_typed_commands.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/05_common_crypto_and_frame_contracts.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: scope-round-01
+      question_id: scope.native-remediation-dependency
+      idempotency_key: scope.native-remediation-dependency:v1
+      last_status: answered
+    question:
+      text: How should this specification depend on the approved native remediation work that owns resource safety, exact LIST behavior, and common SHA-256 consolidation?
+      kind: single
+      options:
+        - id: require-prerequisites
+          label: Require prerequisites (Recommended)
+          description: Performance changes may start only after the overlapping native remediation acceptance criteria pass.
+        - id: allow-co-development
+          label: Allow co-development
+          description: Work may proceed together, but performance completion remains blocked on the shared safety gates.
+        - id: independent-workstream
+          label: Keep independent
+          description: Performance work may modify the same native areas without waiting for the approved remediation packets.
+    answer:
+      selected_ids: [require-prerequisites]
+      text: ''
+    rationale: Performance work must build on the accepted resource, LIST, and common-SHA safety properties instead of competing with unfinished remediation in the same native boundaries.
+    supersedes_revision: null
+    requirement_ids: [GAT-001]
+
+  - id: scope.digest-cache-policy
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: scope-round-01
+      question_id: scope.digest-cache-policy
+      idempotency_key: scope.digest-cache-policy:v1
+      last_status: answered
+    question:
+      text: Should this performance specification preserve or revise the existing prohibition on metadata-keyed file-digest caching?
+      kind: single
+      options:
+        - id: preserve-no-cache
+          label: Preserve no-cache policy (Recommended)
+          description: Optimize proof count and hashing throughput without authorizing a metadata-keyed digest cache or metadata-only startup proof.
+        - id: allow-process-cache
+          label: Allow process-local cache
+          description: Revise the contract to allow an identity-anchored cache within one app process with strict invalidation and no persistence.
+        - id: allow-persistent-cache
+          label: Allow persistent cache
+          description: Permit digest reuse across launches using platform identity and metadata with an explicit migration and invalidation contract.
+    answer:
+      selected_ids: [preserve-no-cache]
+      text: ''
+    rationale: The performance contract will optimize repeated work and digest throughput without weakening startup integrity or adding mutable metadata cache authority.
+    supersedes_revision: null
+    requirement_ids: [SCP-004, SEC-003]
+
+  - id: security.hash-proof-policy
+    revision: 1
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - runtime/local-whisper/fs-guard/src/platform/linux/model_launch_application.cpp
+      - runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: scope-round-01
+      question_id: security.hash-proof-policy
+      idempotency_key: security.hash-proof-policy:v1
+      last_status: answered
+    question:
+      text: Which repeated model-content proofs may this specification authorize removing?
+      kind: single
+      options:
+        - id: immediate-list-only
+          label: Immediate LIST duplicate only (Recommended)
+          description: Reuse the acquisition result but retain pre-spawn, pre-load, native authority, preflight, and loader-consumption proofs; accelerate remaining hashes.
+        - id: include-linux-native-duplicate
+          label: Include Linux native duplicate
+          description: Also remove the second Linux guard hash after a formal equivalence and external-writer threat analysis preserves SEC-011.
+        - id: broader-proof-deduplication
+          label: Broader proof deduplication
+          description: Permit removal of additional pre-spawn or pre-load content proofs when they refer to the same held lease.
+    answer:
+      selected_ids: [immediate-list-only]
+      text: ''
+    rationale: Only the immediately discarded acquisition result is reusable; freshness proofs at later trust-boundary transitions and both worker reads remain mandatory.
+    supersedes_revision: null
+    requirement_ids: [SEC-004, PERF-002]
+
+  - id: compatibility.install-protocol-migration
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemAdapter.ts
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+      - runtime/local-whisper/fs-guard/src/common/protocol.cpp
+      - runtime/local-whisper/fs-guard/src/common/command.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: scope-round-01
+      question_id: compatibility.install-protocol-migration
+      idempotency_key: compatibility.install-protocol-migration:v1
+      last_status: answered
+    question:
+      text: How should the private filesystem-guard protocol migrate from nested to single-layer base64url chunk encoding?
+      kind: single
+      options:
+        - id: bump-protocol-version
+          label: Bump protocol version (Recommended)
+          description: Change app and bundled guard atomically and make every mixed old/new pair fail closed on the version field.
+        - id: additive-command
+          label: Add a new command
+          description: Keep protocol version 1 and introduce a distinct single-layer write command while retaining the old command temporarily.
+        - id: revise-command-in-place
+          label: Revise in place
+          description: Change WRITE_FILE semantics without a version or command change and rely on exact app/helper pairing.
+    answer:
+      selected_ids: [bump-protocol-version]
+      text: ''
+    rationale: A version bump makes mixed nested/single-layer peers reject before a chunk can be misinterpreted or written.
+    supersedes_revision: null
+    requirement_ids: [CMP-004, IPC-001]
+
+  - id: acceptance.performance-target-policy
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-review.md
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - scripts/local-whisper/qualification/
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: scope-round-01
+      question_id: acceptance.performance-target-policy
+      idempotency_key: acceptance.performance-target-policy:v1
+      last_status: answered
+    question:
+      text: What form should the specification use for performance acceptance thresholds across heterogeneous Linux and Windows hardware?
+      kind: single
+      options:
+        - id: component-relative
+          label: Component-relative gates (Recommended)
+          description: Require measured improvement for each changed phase plus no material end-to-end or resource regression, without one hardware-independent absolute time.
+        - id: end-to-end-relative
+          label: End-to-end percentage gates
+          description: Require fixed percentage reductions in complete load and installation time on named reference profiles.
+        - id: absolute-time-budgets
+          label: Absolute time budgets
+          description: Define maximum seconds for load and installation on named hardware and artifacts.
+    answer:
+      selected_ids: [component-relative]
+      text: ''
+    rationale: Relative component gates remain meaningful across heterogeneous hardware while still requiring end-to-end and resource non-regression evidence.
+    supersedes_revision: null
+    requirement_ids: [PERF-001, AC-AUT-001, AC-MAN-001]
+
+  - id: scope.measured-followup-policy
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/toolchains/profiles/
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: acceptance-round-01
+      question_id: scope.measured-followup-policy
+      idempotency_key: scope.measured-followup-policy:v1
+      last_status: answered
+    question:
+      text: How should the specification treat the WAV lifetime, GPU CPU-thread ceiling, warm-up, and backend-tuning findings that lack end-to-end measurements?
+      kind: single
+      options:
+        - id: measurement-gated
+          label: Measurement-gated changes (Recommended)
+          description: Require experiments and change behavior only when the named phase or resource regression crosses the accepted materiality threshold.
+        - id: require-all-changes
+          label: Require all changes
+          description: Require implementation of every selected follow-up even when its end-to-end impact is not yet demonstrated.
+        - id: measurement-only
+          label: Measurements only
+          description: Add evidence for these findings but leave any behavior change to a later specification.
+    answer:
+      selected_ids: [require-all-changes]
+      text: ''
+    rationale: All selected follow-up findings remain required outcomes; baseline evidence determines the safe implementation and verifies the result rather than deciding whether the item is in scope.
+    supersedes_revision: null
+    requirement_ids: [SCP-005, PERF-003]
+
+  - id: acceptance.relative-materiality
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-review.md
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - scripts/local-whisper/qualification/QualificationMetrics.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: acceptance-round-01
+      question_id: acceptance.relative-materiality
+      idempotency_key: acceptance.relative-materiality:v1
+      last_status: answered
+    question:
+      text: What component-relative materiality gate should determine whether an optimization is accepted?
+      kind: single
+      options:
+        - id: balanced-ten-five
+          label: 10% gain / 5% guardrail (Recommended)
+          description: Require at least a 10% median improvement in the targeted measured component and reject more than a 5% end-to-end or peak-resource regression outside uncertainty.
+        - id: strong-twenty-five-three
+          label: 25% gain / 3% guardrail
+          description: Require at least a 25% component improvement and reject more than a 3% end-to-end or peak-resource regression outside uncertainty.
+        - id: significance-only
+          label: Significance only
+          description: Require a statistically distinguishable component improvement and no distinguishable regression, without fixed percentages.
+    answer:
+      selected_ids: [strong-twenty-five-three]
+      text: ''
+    rationale: Each targeted component must improve by at least 25% while end-to-end time and peak resources remain within a 3% non-regression guardrail outside measurement uncertainty.
+    supersedes_revision: null
+    requirement_ids: [PERF-004, AC-AUT-002]
+
+  - id: acceptance.reference-artifacts
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - scripts/local-whisper/qualification/
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: acceptance-round-01
+      question_id: acceptance.reference-artifacts
+      idempotency_key: acceptance.reference-artifacts:v1
+      last_status: answered
+    question:
+      text: Which release-1 model set should provide end-to-end performance regression evidence on representative Linux and Windows CPU/CUDA hosts?
+      kind: single
+      options:
+        - id: representative-three
+          label: Representative three (Recommended)
+          description: Measure base/full for the ordinary flow, medium/full for maximum file bytes, and large-v3/q5_0 for the large-model GPU shape.
+        - id: all-six
+          label: All six models
+          description: Require the complete release-1 model matrix for every performance qualification run.
+        - id: largest-only
+          label: Largest file only
+          description: Use medium/full as the sole end-to-end performance sentinel and keep other models on correctness-only gates.
+    answer:
+      selected_ids: [representative-three]
+      text: ''
+    rationale: The selected set covers the ordinary desktop flow, maximum release-1 file size, and the large-model quantized GPU shape without repeating the complete qualification matrix for every performance iteration.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, AC-MAN-002]
+
+  - id: performance.gpu-cpu-thread-policy
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/whisper-cpp/core/cpu_probe.cpp
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: behavior-round-01
+      question_id: performance.gpu-cpu-thread-policy
+      idempotency_key: performance.gpu-cpu-thread-policy:v1
+      last_status: answered
+    question:
+      text: What should replace the GPU path's hardcoded four-thread ceiling?
+      kind: single
+      options:
+        - id: topology-derived-all
+          label: Use detected topology (Recommended)
+          description: Resolve the GPU worker's CPU thread count from logical processor topology through the existing bounded probe, with no new user setting.
+        - id: profile-pinned-cap
+          label: Pin per runtime profile
+          description: Add an authenticated runtime-profile CPU thread cap selected by qualification for each platform/backend pack.
+        - id: expose-user-setting
+          label: Add a GPU thread setting
+          description: Extend settings and UI so users can select GPU-path CPU threads explicitly.
+    answer:
+      selected_ids: [expose-user-setting]
+      text: ''
+    rationale: GPU-path CPU threads become an explicit user-controlled setting rather than an internal topology policy or runtime-profile constant.
+    supersedes_revision: null
+    requirement_ids: [THR-002, CMP-005]
+
+  - id: performance.warmup-phase-policy
+    revision: 1
+    category: behavior
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/composition/LocalWhisperProductionWorkerPort.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: behavior-round-01
+      question_id: performance.warmup-phase-policy
+      idempotency_key: performance.warmup-phase-policy:v1
+      last_status: answered
+    question:
+      text: Where should the required one-second inference warm-up execute after phase instrumentation is added?
+      kind: single
+      options:
+        - id: explicit-warmup-command
+          label: Explicit warm-up phase (Recommended)
+          description: Model load returns loaded, then the existing warmup request performs the real inference and returns warmed; residency is committed only afterward.
+        - id: keep-inside-load
+          label: Keep inside model load
+          description: Retain the fused native load/warm-up operation and report nested phase timings while the later warmup request remains an acknowledgement.
+        - id: lazy-first-transcription
+          label: Warm on first transcription
+          description: Remove eager warm-up and let the first user transcription pay first-run allocation and kernel-selection cost.
+    answer:
+      selected_ids: [explicit-warmup-command]
+      text: ''
+    rationale: The existing warmup request will own the real one-second inference, while residency remains uncommitted until it succeeds.
+    supersedes_revision: null
+    requirement_ids: [WRM-001, IPC-002]
+
+  - id: performance.backend-option-policy
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/toolchains/profiles/
+      - docs/specs/local-whisper/spec.md
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: behavior-round-01
+      question_id: performance.backend-option-policy
+      idempotency_key: performance.backend-option-policy:v1
+      last_status: answered
+    question:
+      text: Should this specification only pin current effective ggml/CUDA options, or also tune their values?
+      kind: single
+      options:
+        - id: pin-current-values
+          label: Pin current values (Recommended)
+          description: Make every applicable option explicit and cross-platform-reviewable without changing backend behavior; tuning remains separately measured work.
+        - id: tune-selected-options
+          label: Tune selected options
+          description: Benchmark and change selected CUDA performance values in this workstream when they pass the same 25%/3% acceptance gate.
+        - id: enable-flash-attention
+          label: Require flash attention
+          description: Enable flash attention in build and runtime parameters and make it a required CUDA outcome.
+    answer:
+      selected_ids: [pin-current-values]
+      text: ''
+    rationale: This work makes build behavior explicit and drift-resistant without changing flash attention or other CUDA kernel-selection values.
+    supersedes_revision: null
+    requirement_ids: [BLD-001, PERF-005]
+
+  - id: configuration.gpu-thread-field
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - src/shared/localWhisper/settings.ts
+      - src/renderer/localWhisper/LocalWhisperSettingsState.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-02
+      question_id: configuration.gpu-thread-field
+      idempotency_key: configuration.gpu-thread-field:v1
+      last_status: answered
+    question:
+      text: How should GPU-path CPU threads be represented in the public settings contract?
+      kind: single
+      options:
+        - id: shared-cpu-threads
+          label: Shared cpuThreads field (Recommended)
+          description: Put cpuThreads on both CPU and GPU execution variants because it always controls CPU-side worker threads.
+        - id: gpu-specific-field
+          label: GPU-specific field
+          description: Keep cpuThreads on CPU settings and add a separate gpuCpuThreads field to GPU settings.
+        - id: scheduling-object
+          label: Shared scheduling object
+          description: Replace the flat field with a nested scheduling contract shared by CPU and GPU execution variants.
+    answer:
+      selected_ids: [gpu-specific-field]
+      text: ''
+    rationale: GPU execution keeps a distinct gpuCpuThreads field while CPU execution retains cpuThreads.
+    supersedes_revision: null
+    requirement_ids: [CFG-001]
+
+  - id: configuration.gpu-thread-domain
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - src/shared/localWhisper/settings.ts
+      - src/renderer/localWhisper/LocalWhisperSettingsState.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-02
+      question_id: configuration.gpu-thread-domain
+      idempotency_key: configuration.gpu-thread-domain:v1
+      last_status: answered
+    question:
+      text: Which values should the GPU-path CPU-thread setting accept?
+      kind: single
+      options:
+        - id: match-cpu-domain
+          label: Match CPU values (Recommended)
+          description: Accept auto or an integer from 1 through the detected logical processor count, using the existing validation semantics.
+        - id: explicit-only
+          label: Explicit counts only
+          description: Require an integer from 1 through the detected logical processor count and provide no automatic choice.
+        - id: bounded-presets
+          label: Bounded presets
+          description: Offer auto plus a small application-issued list of thread-count presets instead of every valid integer.
+    answer:
+      selected_ids: [match-cpu-domain]
+      text: ''
+    rationale: GPU-path CPU threads use the existing auto-or-bounded-integer value domain and logical-processor validation.
+    supersedes_revision: null
+    requirement_ids: [CFG-002, THR-003]
+
+  - id: compatibility.gpu-thread-default-migration
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/settings/LocalWhisperSettingsRepository.ts
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-02
+      question_id: compatibility.gpu-thread-default-migration
+      idempotency_key: compatibility.gpu-thread-default-migration:v1
+      last_status: answered
+    question:
+      text: What value should migration and first-time configuration use for GPU-path CPU threads?
+      kind: single
+      options:
+        - id: preserve-four-new-auto
+          label: Preserve four; new auto (Recommended)
+          description: Migrate existing GPU configurations to 4 to preserve behavior, while new or reset configurations default to auto.
+        - id: auto-for-all
+          label: Auto for all
+          description: Migrate existing GPU configurations and initialize new configurations with auto.
+        - id: four-for-all
+          label: Four for all
+          description: Migrate existing GPU configurations and initialize new configurations with the legacy value 4.
+    answer:
+      selected_ids: [preserve-four-new-auto]
+      text: ''
+    rationale: Existing GPU configurations retain the legacy four-thread behavior, while new and reset configurations use auto.
+    supersedes_revision: null
+    requirement_ids: [MIG-001, CFG-003]
+
+  - id: compatibility.gpu-thread-schema-rollback
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/settings/LocalWhisperSettingsRepository.ts
+      - src/shared/localWhisper/settings.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-02
+      question_id: compatibility.gpu-thread-schema-rollback
+      idempotency_key: compatibility.gpu-thread-schema-rollback:v1
+      last_status: answered
+    question:
+      text: What schema and rollback contract should accompany the new GPU thread setting?
+      kind: single
+      options:
+        - id: forward-version-fail-closed
+          label: Version and fail closed (Recommended)
+          description: Bump document and nested settings schemas atomically; older builds refuse the newer file without overwriting it, and rollback requires an explicit reset or compatible backup restore.
+        - id: backward-readable-storage
+          label: Preserve old-build reads
+          description: Introduce an additional compatibility representation so older builds can still open the file while newer builds own the GPU thread value.
+        - id: unversioned-addition
+          label: Add without versioning
+          description: Add the field under the existing schema and accept that older strict validators may report invalid settings.
+    answer:
+      selected_ids: [forward-version-fail-closed]
+      text: ''
+    rationale: Both schema layers advance atomically; older builds fail closed and cannot overwrite newer settings, and rollback is explicit.
+    supersedes_revision: null
+    requirement_ids: [MIG-002, CMP-006]
+
+  - id: architecture.gpu-thread-runtime-identity
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - src/shared/localWhisper/catalog.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - scripts/local-whisper/generate-worker-protocol-vectors.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-02
+      question_id: architecture.gpu-thread-runtime-identity
+      idempotency_key: architecture.gpu-thread-runtime-identity:v1
+      last_status: answered
+    question:
+      text: How should the resolved GPU-path CPU-thread count affect runtime identity?
+      kind: single
+      options:
+        - id: full-configuration-identity
+          label: Full configuration identity (Recommended)
+          description: Include the resolved count in worker residency and every configuration or cache identity that can otherwise reuse stale execution state.
+        - id: residency-only
+          label: Residency identity only
+          description: Include the resolved count only in the worker residency key and leave other cache identities unchanged.
+        - id: request-only
+          label: Request parameter only
+          description: Send the count with work requests but do not make it part of residency or cache equality.
+    answer:
+      selected_ids: [full-configuration-identity]
+      text: ''
+    rationale: The resolved GPU-path CPU-thread count must invalidate residency and any other reusable execution configuration that could otherwise become stale.
+    supersedes_revision: null
+    requirement_ids: [ARC-003, THR-004]
+
+  - id: configuration.thread-selection-memory
+    revision: 1
+    category: configuration
+    state: answered
+    provenance: user
+    evidence:
+      - src/shared/localWhisper/settings.ts
+      - src/main/localWhisper/settings/LocalWhisperSettingsRepository.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-03
+      question_id: configuration.thread-selection-memory
+      idempotency_key: configuration.thread-selection-memory:v1
+      last_status: answered
+    question:
+      text: When users switch between CPU and GPU targets, how should thread choices be remembered?
+      kind: single
+      options:
+        - id: remember-per-target
+          label: Remember per target (Recommended)
+          description: Store independent CPU and GPU thread selections so switching targets restores the last valid value for each target.
+        - id: share-last-value
+          label: Share the last value
+          description: Use one remembered thread value across CPU and GPU and repair it when a target or host makes it invalid.
+        - id: remember-cpu-only
+          label: Remember CPU only
+          description: Preserve the existing CPU selection memory and reset the GPU selection to its default whenever GPU is selected.
+    answer:
+      selected_ids: [remember-per-target]
+      text: ''
+    rationale: CPU and GPU selections are independent and switching targets restores the last valid value for that target.
+    supersedes_revision: null
+    requirement_ids: [CFG-004, MIG-003]
+
+  - id: interfaces.gpu-thread-ui
+    revision: 1
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - src/renderer/localWhisper/components/LocalWhisperInferenceSections.tsx
+      - src/renderer/localWhisper/LocalWhisperSettingsState.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-03
+      question_id: interfaces.gpu-thread-ui
+      idempotency_key: interfaces.gpu-thread-ui:v1
+      last_status: answered
+    question:
+      text: How should the GPU thread setting appear in the advanced settings UI?
+      kind: single
+      options:
+        - id: contextual-labels
+          label: Contextual labels (Recommended)
+          description: Reuse the existing control location and interaction, labeled CPU threads for CPU and GPU CPU threads for GPU, with target-specific help text.
+        - id: one-cpu-label
+          label: One CPU threads label
+          description: Show the same CPU threads label and help text for both targets even though the persisted fields are distinct.
+        - id: dedicated-gpu-control
+          label: Dedicated GPU control
+          description: Add a visibly separate GPU CPU-thread control and retain the existing CPU-only control unchanged.
+    answer:
+      selected_ids: [contextual-labels]
+      text: ''
+    rationale: The existing advanced control is reused with target-specific labels and help text while preserving distinct persisted fields.
+    supersedes_revision: null
+    requirement_ids: [UI-001, A11Y-001]
+
+  - id: interfaces.public-desktop-surface
+    revision: 2
+    category: interfaces
+    state: answered
+    provenance: user
+    evidence:
+      - performance.gpu-cpu-thread-policy revision 1
+      - configuration.gpu-thread-field revision 1
+      - interfaces.gpu-thread-ui revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-03
+      question_id: interfaces.gpu-thread-ui
+      idempotency_key: interfaces.gpu-thread-ui:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids: [gpu-thread-setting-and-ui]
+      text: ''
+    rationale: The later GPU-thread decisions intentionally add a settings and renderer surface while leaving preload and external IPC authority boundaries unchanged.
+    supersedes_revision: 1
+    requirement_ids: [SCP-002, CFG-001, UI-001]
+
+  - id: compatibility.data-migration
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - compatibility.gpu-thread-default-migration revision 1
+      - compatibility.gpu-thread-schema-rollback revision 1
+      - configuration.thread-selection-memory revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: configuration-round-02
+      question_id: compatibility.gpu-thread-schema-rollback
+      idempotency_key: compatibility.gpu-thread-schema-rollback:v1
+      last_status: answered
+    question: null
+    answer:
+      selected_ids: [versioned-gpu-thread-migration]
+      text: ''
+    rationale: The GPU setting requires a versioned settings migration, target-specific selection memory, and explicit fail-closed rollback behavior.
+    supersedes_revision: 1
+    requirement_ids: [MIG-001, MIG-002, MIG-003, CMP-006]
+
+  - id: behavior.provider-flow
+    revision: 1
+    category: behavior
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-provider-flow
+        - preserve-explicit-warmup-state
+        - commit-residency-after-warmup
+      text: ''
+    rationale: The selected work preserves the desktop provider flow while moving real warm-up work into the already-defined warmup transition.
+    supersedes_revision: null
+    requirement_ids: [FLOW-001, WRM-001, WRM-002]
+
+  - id: failure.fail-closed-recovery
+    revision: 1
+    category: failure
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - docs/specs/local-whisper/spec.md
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - stable-content-free-errors
+        - deterministic-cleanup
+        - no-partial-install-or-residency
+        - retry-only-after-safe-state
+      text: ''
+    rationale: Performance changes inherit the established failure and cleanup contract and may not convert uncertain work into success.
+    supersedes_revision: null
+    requirement_ids: [FAIL-001, FAIL-002, FAIL-003]
+
+  - id: operations.rollout-and-rollback
+    revision: 1
+    category: operations
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - AGENTS.md
+      - docs/specs/local-whisper/spec.md
+      - compatibility.gpu-thread-schema-rollback revision 1
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - atomic-private-peer-rollout
+        - no-automatic-settings-downgrade
+        - no-package-target-change
+      text: ''
+    rationale: Private peers and settings schemas advance as coherent sets; release, packaging-target, and publication actions remain outside this specification.
+    supersedes_revision: null
+    requirement_ids: [OPS-001, OPS-002, CMP-004, CMP-006]
+
+  - id: scope.external-actions
+    revision: 1
+    category: security
+    state: not_applicable
+    provenance: repository
+    evidence:
+      - docs/reviews/2026-08-08-local-whisper-performance-comments-to-address.md
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: ''
+    rationale: The remediation adds no provider network request, browser/session behavior, clipboard action, microphone capture, transcript retention, or external publication action.
+    supersedes_revision: null
+    requirement_ids: [SCP-006]
+
+  - id: acceptance.measurement-method
+    revision: 1
+    category: acceptance
+    state: assumed
+    provenance: agent-default
+    evidence:
+      - acceptance.performance-target-policy revision 1
+      - acceptance.relative-materiality revision 1
+      - scripts/local-whisper/qualification/
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [locked-paired-minimum-five]
+      text: ''
+    rationale: A predeclared paired manifest with at least five successful samples makes the selected uncertainty-aware 25 percent and 3 percent gates testable without imposing a hardware-independent time budget.
+    supersedes_revision: null
+    requirement_ids: [OBS-002, PERF-001, PERF-004]
+
+  - id: approval.spec
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-01
+      question_id: approval.spec
+      idempotency_key: approval.spec:v1
+      last_status: answered
+    question:
+      text: Do you approve the Local Whisper performance remediation draft as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Mark the specification Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and revise the affected decisions before another approval request.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the current specification Draft and stop without approving it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the draft as the implementation contract and planning remains deferred.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: outcome.current-cpp-reconciliation
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User requested revision of the current specification against the updated C++ code on 2026-08-14.
+      - Repository revision e49b5790c6b0b1a6fe417b920da8f45df365fe2f.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [reconcile-current-cpp]
+      text: Update relevant sections and correct or remove stale requirements without planning or implementation.
+    rationale: The request explicitly reopens the specification for repository-evidence-based reconciliation.
+    supersedes_revision: null
+    requirement_ids: [SCP-007]
+
+  - id: revision.current-cpp-baseline
+    revision: 1
+    category: scope
+    state: observed
+    provenance: repository
+    evidence:
+      - Repository revision e49b5790c6b0b1a6fe417b920da8f45df365fe2f.
+      - Native source revision 2304c16e6f4251e0bbf77afa96ea83a12558ff6b.
+      - docs/specs/local-whisper-native-review-remediation/tasks/todo.md
+      - docs/specs/local-whisper-native-review-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - native-packets-01-through-19-complete
+        - packet-20-manual-windows-pending
+        - preserve-current-native-foundations
+        - refresh-on-relevant-source-drift
+      text: ''
+    rationale: Resource ownership, typed guard commands, common scalar SHA, hardening, diagnostics, and native quality infrastructure are current baseline facts rather than remaining performance deliverables.
+    supersedes_revision: null
+    requirement_ids: [BASE-001, GAT-001, GAT-004]
+
+  - id: compatibility.guard-payload-limit
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/protocol.hpp
+      - runtime/local-whisper/fs-guard/src/common/bounded_line_reader.cpp
+      - runtime/local-whisper/fs-guard/src/common/guard_application.cpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - payload-excludes-newline
+        - exact-262144-byte-payload
+        - overflow-fail-stop
+      text: ''
+    rationale: The native bounded reader counts payload bytes before the newline, accepts the exact limit, and terminates the guard on the first over-limit non-newline byte.
+    supersedes_revision: null
+    requirement_ids: [INST-001, IPC-004]
+
+  - id: architecture.typed-write-boundary
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/command.hpp
+      - runtime/local-whisper/fs-guard/src/common/command.cpp
+      - runtime/local-whisper/fs-guard/src/common/guard_application.cpp
+      - runtime/local-whisper/fs-guard/src/platform/linux/linux_backend.cpp
+      - runtime/local-whisper/fs-guard/src/platform/windows/windows_backend.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - typed-write-command-exists
+        - platform-backends-already-write-raw-bytes
+        - remove-only-extra-codec-layer
+      text: ''
+    rationale: Packet 03 moved validation and decoding ahead of the platform backends; performance work must not redesign the already-correct typed backend contract.
+    supersedes_revision: null
+    requirement_ids: [CODEC-001, ARC-004]
+
+  - id: operations.native-logging-baseline
+    revision: 1
+    category: operations
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/common/include/local_whisper/common/native_logger.hpp
+      - runtime/local-whisper/common/src/native_logger.cpp
+      - src/shared/localWhisper/nativeRuntimeLog.ts
+      - src/main/localWhisper/supervisor/NativeRuntimeLogStreamDecoder.ts
+      - src/main/services/nativeRuntimeLogArchive.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - preserve-log-schema-version-1
+        - reposition-existing-warmup-events
+        - keep-performance-evidence-qualification-owned
+      text: ''
+    rationale: The existing closed event vocabulary and optional elapsedMs field can represent the split load/warm-up sequence without a new production telemetry channel or diagnostics migration.
+    supersedes_revision: null
+    requirement_ids: [OBS-003, LOG-001, PRIV-002]
+
+  - id: compatibility.worker-warmup-protocol
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - docs/specs/local-whisper-native-review-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [preserve-worker-protocol-v1]
+      text: ''
+    rationale: Both peers already exchange load/loaded followed by warmup/warmed; moving the real work between those existing states needs no wire-shape or worker-protocol version change.
+    supersedes_revision: null
+    requirement_ids: [WRM-001, IPC-002, OPS-001]
+
+  - id: configuration.backend-profile-current-state
+    revision: 1
+    category: configuration
+    state: observed
+    provenance: repository
+    evidence:
+      - runtime/local-whisper/toolchains/profiles/linux-x64-cpu-baseline-v1.json
+      - runtime/local-whisper/toolchains/profiles/linux-x64-cuda-12.8.1-sm120a-v1.json
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.39-v1.json
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1.json
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - linux-broad-explicit-options
+        - windows-partial-explicit-options
+        - preserve-values-complete-parity
+      text: ''
+    rationale: The original blanket statement that performance options are absent is stale; current Linux profiles are broad, while Windows still needs applicable current-value declarations and explicit platform-difference classification.
+    supersedes_revision: null
+    requirement_ids: [BLD-001, PERF-005]
+
+  - id: approval.spec
+    revision: 2
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - Repository revision e49b5790c6b0b1a6fe417b920da8f45df365fe2f.
+      - Native source revision 2304c16e6f4251e0bbf77afa96ea83a12558ff6b.
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-02
+      question_id: approval.spec
+      idempotency_key: approval.spec:v2
+      last_status: answered
+    question:
+      text: Do you approve the revised Local Whisper performance remediation draft, reconciled with the current C++ implementation, as the implementation contract?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Mark the revised specification Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep the specification Draft and revise the affected decisions before another approval request.
+        - id: leave-draft
+          label: Leave as draft
+          description: Keep the revised specification Draft and stop without approving it.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the C++-reconciled revision as the implementation contract; planning and implementation remain separate workflows.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: planning.protocol-payload-safety-margin
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#72-request-payload-budget
+      - runtime/local-whisper/fs-guard/include/local_whisper/fs_guard/protocol.hpp
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: transport-round-01
+      question_id: planning.protocol-payload-safety-margin
+      idempotency_key: planning.protocol-payload-safety-margin:v1
+      last_status: answered
+    question:
+      text: Which fixed future-headroom margin should the protocol-v2 chunk formula reserve inside the 262,144-byte request-payload limit after accounting for worst-case metadata?
+      kind: single
+      options:
+        - id: margin-4096
+          label: 4 KiB margin
+          description: Reserve 4,096 payload bytes as a named protocol constant, leaving ample metadata evolution room with negligible chunk-throughput cost.
+        - id: margin-1024
+          label: 1 KiB margin
+          description: Reserve 1,024 bytes, maximizing each chunk while leaving less future protocol headroom.
+        - id: margin-8192
+          label: 8 KiB margin
+          description: Reserve 8,192 bytes, favoring extra protocol headroom at a slightly larger chunk-count cost.
+    answer:
+      selected_ids: [margin-4096]
+      text: ''
+    rationale: The protocol-v2 formula reserves a fixed 4,096-byte future-headroom margin after accounting for worst-case metadata; the small throughput cost buys deterministic cross-platform headroom.
+    supersedes_revision: null
+    requirement_ids: [INST-001, SEC-005]
+
+  - id: planning.pipeline-window-selection
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#73-bounded-pipelining-and-backpressure
+      - src/main/localWhisper/filesystem/NativeManagedFilesystemGuardTransport.ts
+      - scripts/local-whisper/qualification/QualificationContracts.ts
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: transport-round-01
+      question_id: planning.pipeline-window-selection
+      idempotency_key: planning.pipeline-window-selection:v1
+      last_status: answered
+    question:
+      text: How should the bounded filesystem-guard in-flight request limit be selected?
+      kind: single
+      options:
+        - id: benchmark-and-freeze
+          label: Benchmark and freeze
+          description: Measure fixed candidates 1, 2, 4, and 8, select the smallest qualifying value, and freeze it as a named constant before pipeline implementation.
+        - id: fixed-four
+          label: Fix at four
+          description: Use four requests without a selection experiment, reducing planning overhead but weakening the measurement-selected contract.
+        - id: runtime-adaptive
+          label: Runtime adaptive
+          description: Adapt the window during installation under the 32 MiB cap, adding runtime state and platform variability.
+    answer:
+      selected_ids: [benchmark-and-freeze]
+      text: ''
+    rationale: Qualification measures fixed candidate windows 1, 2, 4, and 8, selects the smallest value that satisfies the targeted gain and resource guardrails, and freezes it as a named constant before pipeline implementation.
+    supersedes_revision: null
+    requirement_ids: [THR-001, RES-001, PERF-001, RES-002]
+
+  - id: approval.plan
+    revision: 1
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_representative_linux_host_qualification.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-01
+      question_id: approval.plan
+      idempotency_key: approval.plan:v1
+      last_status: answered
+    question:
+      text: Do you approve the 13-packet Local Whisper performance remediation plan as the authoritative execution breakdown?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark the plan Approved while keeping implementation separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan Draft and revise the affected packet contracts before another approval request.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep the plan Draft and stop without authorizing it as the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved the 13-packet execution breakdown; implementation remains separately gated.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.packet-01
+    revision: 1
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-01
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize Packet 01 for a future incremental-implementation invocation?
+      kind: single
+      options:
+        - id: defer-execution
+          label: Defer execution
+          description: Finish planning with no production changes authorized.
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Authorize only Packet 01 for a later explicit incremental-implementation invocation.
+    answer:
+      selected_ids: [defer-execution]
+      text: ''
+    rationale: The user explicitly deferred execution; the approved plan remains ready, but no implementation packet is authorized.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: planning.per-packet-ci-gate
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User requested task-specific checks in every packet, execution in CI, and a wait for a positive result.
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [task-specific-ci-success]
+      text: Every packet must name its task-specific CI checks, run them after push, and remain incomplete until every required check reports success.
+    rationale: Local verification alone is insufficient for packet completion; skipped, cancelled, failed, or timed-out CI checks are non-passing.
+    supersedes_revision: null
+    requirement_ids: [GAT-004, AC-AUT-015]
+
+  - id: planning.separate-ci-fix-commits
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - User requested a separate commit for every fix after a CI failure.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [separate-authorized-fix-commit]
+      text: An actionable CI failure must be corrected in a separately authorized fix commit; the packet implementation commit must not be amended or squashed, and the same checks must be rerun until green.
+    rationale: Separate fix commits preserve reviewable CI failure and remediation history.
+    supersedes_revision: null
+    requirement_ids: [AC-AUT-015]
+
+  - id: planning.windows-ci-ownership
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - User stated that development is performed on Linux and required Windows checks to run through CI.
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-checks-in-ci]
+      text: Windows-specific automated checks must execute on the configured Windows CI runner rather than being treated as Linux-development-host checks.
+    rationale: The plan must obtain real MSVC and Windows process, filesystem, packaging, and compatibility evidence from CI.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CMP-005, BLD-001, AC-AUT-015]
+
+  - id: planning.windows-e2e-and-final-remediation
+    revision: 1
+    category: sequencing
+    state: answered
+    provenance: user
+    evidence:
+      - User requested end-to-end checks on Windows and all subsequent Windows fixes and improvements in a separate final task.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-e2e-then-final-remediation]
+      text: Windows end-to-end qualification must be its own late packet, followed by a separate final conditional packet that owns only Windows failures, fixes, improvements, and reruns discovered by that qualification.
+    rationale: Windows qualification remains independently reviewable, and platform-specific remediation cannot leak back into earlier cross-platform packets.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006]
+
+  - id: planning.windows-e2e-runner-policy
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#51-evidence-matrix
+      - docs/specs/local-whisper-performance-remediation/spec.md#142-manual-and-representative-host-acceptance
+      - .github/workflows/pr-checks.yml
+      - The configured hosted Windows runner supports MSVC, native CPU, packaging, and deterministic fixture checks but does not provide representative CUDA hardware.
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: compatibility-round-02
+      question_id: planning.windows-e2e-runner-policy
+      idempotency_key: planning.windows-e2e-runner-policy:v1
+      last_status: answered
+    question:
+      text: Which Windows end-to-end runner policy should the revised plan use while preserving the approved representative-host acceptance contract?
+      kind: single
+      options:
+        - id: hosted-cpu-manual-cuda
+          label: Hosted CPU plus manual CUDA
+          description: Run automated and CPU end-to-end checks on the hosted Windows CI runner, while retaining representative Windows CUDA as a direct supported-host manual gate.
+        - id: hosted-plus-self-hosted-gpu
+          label: Add self-hosted GPU diagnostics
+          description: Add protected self-hosted Windows GPU CI diagnostics while still retaining the specification's direct representative-host CUDA acceptance gate.
+        - id: replace-manual-with-self-hosted
+          label: Replace manual CUDA gate
+          description: Replace the approved direct representative-host gate with self-hosted GPU CI, which requires returning to specification revision before planning can continue.
+    answer:
+      selected_ids: []
+      text: "This isn't a CI runner, it's a regular computer. We'll run all the necessary checks on it. If anything breaks, make the necessary fixes."
+    rationale: Task-specific automated Windows checks remain on hosted CI as explicitly requested. The complete representative Windows CPU/CUDA end-to-end matrix runs directly on the regular supported Windows computer, and failures discovered there flow to the separate final Windows remediation packet.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, AC-MAN-002, AC-MAN-004, AC-AUT-015]
+
+  - id: approval.plan
+    revision: 2
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-02
+      question_id: approval.plan
+      idempotency_key: approval.plan:v2
+      last_status: answered
+    question:
+      text: Do you approve revision 2 of the 15-packet Local Whisper performance remediation plan with per-packet CI gates, direct Windows end-to-end qualification, and conditional final Windows remediation?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 2 Approved while keeping implementation, commits, and pushes separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 2 Draft and revise affected packet contracts before another approval request.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 2 Draft and stop without authorizing it as the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 2 as the authoritative 15-packet execution breakdown; implementation, commits, and pushes remain separately gated.
+    supersedes_revision: 1
+    requirement_ids: []
+
+  - id: authorization.packet-01
+    revision: 2
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-02
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v2
+      last_status: answered
+    question:
+      text: Do you separately authorize Packet 01 for a future incremental-implementation invocation under approved plan revision 2?
+      kind: single
+      options:
+        - id: defer-execution
+          label: Defer execution
+          description: Finish planning with no production changes, commits, or pushes authorized.
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Authorize only Packet 01 implementation for a later incremental-implementation invocation; commit and push still require later review authorization.
+    answer:
+      selected_ids: [defer-execution]
+      text: ''
+    rationale: The user explicitly deferred execution after approving revision 2; no packet, production change, commit, or push is authorized.
+    supersedes_revision: 1
+    requirement_ids: [SCP-003]
+
+  - id: authorization.packet-01
+    revision: 3
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - User explicitly invoked the incremental-implementation skill on 2026-08-15.
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-03
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v3
+      last_status: answered
+    question:
+      text: Do you authorize implementation and local verification of Local Whisper performance-remediation Packet 01 now?
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Implement only Packet 01 and run its non-manual local checks; commit, push, CI waiting, and representative-host benchmarks remain separately gated.
+        - id: defer-execution
+          label: Defer execution
+          description: Keep the approved plan unchanged and make no Packet 01 implementation changes.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user explicitly authorized implementation and non-manual local verification of Packet 01; commit, push, CI execution, and representative-host benchmarks remain separately gated.
+    supersedes_revision: 2
+    requirement_ids: [SCP-003]
+
+  - id: planning.source-basis-refresh
+    revision: 1
+    category: implementation
+    state: observed
+    provenance: repository
+    evidence:
+      - Repository revision 1f6ce9c988a275f1ef9faa295b1bb04879943e89.
+      - Repository comparison e49b5790c6b0b1a6fe417b920da8f45df365fe2f..1f6ce9c988a275f1ef9faa295b1bb04879943e89.
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - src/main/localWhisper/supervisor/NativeLauncherProcessOwner.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+      - runtime/local-whisper/fs-guard/src/common/protocol.cpp
+      - runtime/local-whisper/whisper-cpp/platform/windows/worker_protocol_windows.cpp
+      - runtime/local-whisper/toolchains/profiles/windows-x64-cpu-msvc-19.51-v1.json
+      - scripts/local-whisper/qualification/QualificationCatalogProducer.ts
+      - .github/workflows/pr-checks.yml
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - refresh-execution-basis
+        - retain-eight-seven-source-counts
+        - inherit-completed-windows-validation
+        - preserve-hosted-cpu-direct-cuda-split
+      text: The execution basis advances to 1f6ce9c988a275f1ef9faa295b1bb04879943e89. The selected performance work remains unmet, the pre-change full-hash counts remain eight on Linux and seven on Windows, the Windows CPU profile is MSVC 19.51, and representative Windows CUDA remains a direct-host gate.
+    rationale: GAT-004 requires a refreshed baseline after Windows validation and native changes. Current source inspection shows those changes do not satisfy or invalidate the approved performance requirements, but they do change exact implementation inputs and CI/profile contracts.
+    supersedes_revision: null
+    requirement_ids: [BASE-001, GAT-004, QUAL-001, AC-AUT-003, AC-AUT-014, AC-AUT-015]
+
+  - id: approval.plan
+    revision: 3
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/11_windows_backend_profile_parity.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-03
+      question_id: approval.plan
+      idempotency_key: approval.plan:v3
+      last_status: answered
+    question:
+      text: Do you approve revision 3 of the Local Whisper performance-remediation plan with the refreshed 1f6ce9c9 source basis and current Windows validation/profile contracts?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 3 Approved while keeping Packet 01 execution, commits, pushes, CI, and manual benchmarks separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 3 Draft and revise the source-basis repair before another approval request.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 3 Draft and stop without authorizing it as the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 3 after the source-basis refresh; Packet 01 execution, commits, pushes, CI, and representative-host benchmarks remain separately gated.
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: authorization.packet-01
+    revision: 4
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-04
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v4
+      last_status: answered
+    question:
+      text: Do you authorize implementation and local verification of revised Local Whisper performance-remediation Packet 01 now?
+      kind: single
+      options:
+        - id: authorize-packet-01
+          label: Authorize Packet 01
+          description: Implement only revised Packet 01 and run its non-manual local checks; commits, pushes, CI execution, and representative-host benchmarks remain separately gated.
+        - id: defer-execution
+          label: Defer execution
+          description: Keep approved plan revision 3 unchanged and make no Packet 01 implementation changes.
+    answer:
+      selected_ids: [authorize-packet-01]
+      text: ''
+    rationale: The user explicitly authorized implementation and non-manual local verification of revised Packet 01; commits, pushes, CI execution, and representative-host benchmarks remain separately gated.
+    supersedes_revision: 3
+    requirement_ids: [SCP-003]
+
+  - id: authorization.packet-01
+    revision: 5
+    category: execution
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-05
+      question_id: authorization.packet-01
+      idempotency_key: authorization.packet-01:v5
+      last_status: answered
+    question:
+      text: Do you authorize committing the reviewed Packet 01 implementation, pushing the current branch, and waiting for all required GitHub CI checks now?
+      kind: single
+      options:
+        - id: authorize-packet-01-commit-push-ci
+          label: Authorize commit and CI (Recommended)
+          description: Commit only Packet 01 changes, push the current branch, and wait for all five required checks; do not start Packet 02 or run representative-host benchmarks.
+        - id: defer-commit-push-ci
+          label: Defer commit and CI
+          description: Leave Packet 01 uncommitted and stop without pushing or running GitHub CI.
+    answer:
+      selected_ids: [authorize-packet-01-commit-push-ci]
+      text: ''
+    rationale: The user explicitly authorized the reviewed Packet 01 implementation commit, branch push, and waiting for all five required CI checks; Packet 02 and representative-host benchmarks remain outside this authorization.
+    supersedes_revision: 4
+    requirement_ids: [SCP-003, AC-AUT-015]
+
+  - id: authorization.packet-01
+    revision: 6
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User instructed "Fix this in parallel" after the implementation SHA produced an actionable GitHub Advanced Security failure.
+      - Commit d243899f640cee3785110a5b47002d51f46b5e53.
+      - GitHub Actions run 31875841093.
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Fix this in parallel.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [authorize-separate-ci-fix]
+      text: Create, commit, and push the isolated CI remediation, then wait for the exact-SHA Linux and Windows checks.
+    rationale: The user explicitly authorized the actionable CI remediation as the separate fix commit required by Packet 01; Packet 02 and representative-host benchmarks remained out of scope.
+    supersedes_revision: 5
+    requirement_ids: [SCP-003, AC-AUT-015]
+
+  - id: workflow.incremental-invocation-authority
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User instructed that invoking incremental-implementation authorizes the work without another permission prompt.
+      - .agents/skills/incremental-implementation/SKILL.md
+    prompt_mcp: null
+    question:
+      text: When I invoke this skill, do not ask for my permission. Do the work.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [treat-invocation-as-execution-authorization]
+      text: Execute exactly one approved packet per explicit invocation without an additional execution-authorization prompt.
+    rationale: An explicit incremental-implementation invocation is a committed user decision to execute the next approved packet; manual gates and the skill's no-push, no-publish, and one-packet boundaries remain unchanged.
+    supersedes_revision: null
+    requirement_ids: []
+
+  - id: authorization.packet-02
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly invoked incremental-implementation after Packet 01 completion.
+      - docs/specs/local-whisper-performance-remediation/tasks/02_launch_lease_directory_result_reuse.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Execute the next approved incremental implementation packet without asking again.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [execute-packet-02]
+      text: Implement and locally verify Packet 02 only, update its checklist and handoff, and stop before Packet 03.
+    rationale: The explicit skill invocation authorized Packet 02 under the standing invocation-authority decision.
+    supersedes_revision: null
+    requirement_ids: [SCP-004, PERF-002, PERF-006, PERF-007, AC-AUT-003, AC-AUT-004]
+
+  - id: planning.windows-checks-final-phase
+    revision: 1
+    category: sequencing
+    state: answered
+    provenance: user
+    evidence:
+      - User instructed that all Windows checks be moved to the end of the plan.
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp: null
+    question:
+      text: Move all Windows checks to the end of the plan.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [defer-all-windows-checks]
+      text: Earlier packets run only Linux-development-host and Linux CI checks; the final Windows phase owns all Windows automated, native, package, and direct-host checks plus subsequent Windows remediation.
+    rationale: Consolidating Windows execution prevents earlier packets from blocking Linux-host implementation while preserving Windows acceptance as an explicit final gate.
+    supersedes_revision: null
+    requirement_ids: [CMP-001, CMP-005, QUAL-001, AC-AUT-015, AC-MAN-002]
+
+  - id: planning.pipeline-window-deferred-windows
+    revision: 1
+    category: sequencing
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md#73-bounded-pipelining-and-backpressure
+      - docs/specs/local-whisper-performance-remediation/tasks/01_qualification_contract_and_baseline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/05_bounded_installation_pipeline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - Packet 01 fixture evidence selected window 4 but explicitly did not accept it as a production selection.
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: sequencing-round-04
+      question_id: planning.pipeline-window-deferred-windows
+      idempotency_key: planning.pipeline-window-deferred-windows:v1
+      last_status: answered
+    question:
+      text: How should Packet 05 select its production pipeline window now that every Windows check is deferred to the final phase?
+      kind: single
+      options:
+        - id: linux-select-windows-confirm
+          label: Linux selection, Windows confirmation
+          description: Select the smallest qualifying window from controlled Linux evidence before Packet 05, then require final Windows checks and remediation before acceptance.
+        - id: defer-pipeline-to-windows-phase
+          label: Defer the pipeline packet
+          description: Continue independent packets first, but postpone Packet 05 and every dependent integration step until final Windows selection evidence exists.
+        - id: revise-spec-for-fixture-four
+          label: Revise the specification
+          description: Return to specification work before treating fixture-selected window 4 as sufficient production authority.
+    answer:
+      selected_ids: []
+      text: At last task in plan
+    rationale: Packet 05 will make the bounded candidate pipeline testable while retaining serial production behavior. Packet 15 will select and freeze the production window from the controlled Linux and Windows evidence gathered in the final qualification phase, then rerun all required checks on the selected value.
+    supersedes_revision: null
+    requirement_ids: [GAT-002, THR-001, RES-001, PERF-001, RES-002]
+
+  - id: approval.plan
+    revision: 4
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/05_bounded_installation_pipeline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-04
+      question_id: approval.plan
+      idempotency_key: approval.plan:v4
+      last_status: answered
+    question:
+      text: Do you approve revision 4 of the Local Whisper performance-remediation plan, with all remaining Windows checks in Packets 14–15 and production pipeline-window selection in Packet 15?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 4 approved; implementation, commits, pushes, CI, and manual gates remain separately scoped.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 4 draft and revise the affected packet contracts.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 4 draft and stop without changing the execution plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 4 with all remaining Windows checks in Packets 14–15 and the production pipeline-window selection in Packet 15; implementation, commits, pushes, CI, and manual gates remain separately scoped.
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: authorization.packet-05
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly invoked incremental-implementation with auto execution after approving plan revision 4.
+      - docs/specs/local-whisper-performance-remediation/tasks/05_bounded_installation_pipeline.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Execute the next approved incremental implementation packet automatically.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [execute-packet-05]
+      text: Implement and locally verify Packet 05 only, update its checklist and handoff, and stop before Packet 06 without committing, pushing, or inspecting CI.
+    rationale: The explicit incremental-implementation invocation authorizes exactly Packet 05 under the standing invocation-authority decision.
+    supersedes_revision: null
+    requirement_ids: [THR-001, RES-001, INST-002, ARC-002, RES-003, FAIL-001, FAIL-002, FAIL-003, AC-AUT-007]
+
+  - id: authorization.packet-06
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly invoked incremental-implementation with auto execution and instructed that packets before Packet 14 run automatically without another approval prompt.
+      - docs/specs/local-whisper-performance-remediation/tasks/06_worker_warmup_and_log_ordering.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question:
+      text: Execute approved packets before Packet 14 automatically without asking for another approval.
+      kind: instruction
+      options: []
+    answer:
+      selected_ids: [execute-packet-06]
+      text: Implement and locally verify Packet 06 only, update its checklist and handoff, and stop before Packet 07 without pushing or inspecting CI.
+    rationale: The explicit invocation authorizes Packet 06 under the standing invocation-authority decision; the skill's one-packet boundary still requires a fresh invocation before Packet 07.
+    supersedes_revision: null
+    requirement_ids: [FLOW-001, WRM-001, WRM-002, IPC-002, LOG-001, PRIV-002, OPS-001, AC-AUT-009]
+
+  - id: planning.representative-collector-gap
+    revision: 1
+    category: sequencing
+    state: observed
+    provenance: repository
+    evidence:
+      - scripts/local-whisper/qualification/run-performance-qualification.ts
+      - scripts/local-whisper/qualification/run-linux-production-qualification.ts
+      - scripts/local-whisper/qualification/PerformanceQualification.ts
+      - scripts/local-whisper/qualification/QualificationContracts.ts
+      - docs/specs/local-whisper/qualification/linux-state.json
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - add-collector-before-linux
+        - keep-windows-final
+      text: Split the blocked representative-host work into schema/collector implementation, Linux execution, Windows implementation and execution, and final remediation/selection.
+    rationale: The existing command only analyzes supplied bundles, samples lack per-model identity, the candidate is not frozen, and the hosted fixtures are contract-only. A dedicated implementation packet is required before representative Linux execution; the user's final-Windows sequencing remains unchanged.
+    supersedes_revision: null
+    requirement_ids: [QUAL-001, OBS-001, OBS-002, OBS-003, PERF-001, PERF-004, RES-002, PRIV-001]
+
+  - id: approval.plan
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/13_representative_performance_collection.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-05
+      question_id: approval.plan
+      idempotency_key: approval.plan:v5
+      last_status: answered
+    question:
+      text: Do you approve revision 5 of the Local Whisper performance-remediation plan, which adds Packet 13 collection support, moves Linux qualification to Packet 14, and keeps Windows implementation, CI, direct-host checks, fixes, and final selection in Packets 15–16?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve revision 5; implementation, commits, pushes, CI, and manual gates remain separately scoped.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 5 draft and revise the affected packet contracts.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 5 draft and stop before implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 5, which repairs the collector/execution gap while preserving final-phase Windows implementation, checks, remediation, and selection.
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: planning.linux-qualification-input-ownership
+    revision: 1
+    category: architecture
+    state: observed
+    provenance: repository
+    evidence:
+      - scripts/local-whisper/qualification/LinuxProductionQualificationOrchestrator.ts
+      - scripts/local-whisper/qualification/LinuxQualificationEvidenceLoader.ts
+      - scripts/local-whisper/qualification/run-linux-production-qualification.ts
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - The revision-5 command failed safely with EEXIST before package or model execution.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - populated-read-only-qualification-cache
+        - orchestrator-owned-absent-private-child
+      text: The production cache is a validated populated immutable input; the private-run value is an absent child under a validated mode-0700 parent and is created by the orchestrator.
+    rationale: The real evidence loader immediately reads exact model, FLEURS, CPU/CUDA runtime-pack, direct-engine, and sibling native-source notice inputs, while the orchestrator owns non-recursive creation of its private run root. The revision-5 empty-cache/existing-child contract was not executable.
+    supersedes_revision: null
+    requirement_ids: [GAT-003, GAT-004, QUAL-001, OBS-003, PRIV-001]
+
+  - id: planning.representative-attempt-enablement
+    revision: 1
+    category: sequencing
+    state: observed
+    provenance: repository
+    evidence:
+      - scripts/local-whisper/qualification/LinuxPerformanceQualificationAdapters.ts
+      - scripts/local-whisper/qualification/PerformanceQualificationCollector.ts
+      - scripts/local-whisper/qualification/LinuxResourceSampler.ts
+      - scripts/local-whisper/qualification/QualificationContracts.ts
+      - runtime/local-whisper/whisper-cpp/qualification/direct_engine_main.cpp
+      - No repository executable consumes --local-whisper-performance-qualification-v2.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - add-derived-source-attempt-contract
+        - add-linux-attempt-runner-before-host-execution
+        - keep-windows-final
+      text: Add schema-v3 identical-overlay/derived-source contracts and a real Linux performance attempt runner before representative Linux execution; keep all Windows implementation, checks, fixes, and selection in the final phase.
+    rationale: Packet 13 can schedule and aggregate attempts but no executable emits the required 19 phase measurements, and its Linux resource adapter cannot produce separately attributed main, guard, worker, and GPU peaks. Representative execution would otherwise retain only failed cells and could not satisfy OBS-001 or AC-MAN-001.
+    supersedes_revision: null
+    requirement_ids:
+      [
+        GAT-003,
+        GAT-004,
+        QUAL-001,
+        OBS-001,
+        OBS-002,
+        OBS-003,
+        PERF-001,
+        PERF-004,
+        RES-002,
+        PRIV-001,
+        AC-AUT-001,
+        AC-AUT-002,
+        AC-AUT-015,
+      ]
+
+  - id: approval.plan
+    revision: 6
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/14_performance_attempt_contract_and_derivation.md
+      - docs/specs/local-whisper-performance-remediation/tasks/15_linux_performance_attempt_runner.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-06
+      question_id: approval.plan
+      idempotency_key: approval.plan:v6
+      last_status: answered
+    question:
+      text: Do you approve revision 6 of the Local Whisper performance-remediation plan, which corrects production qualification input ownership, adds schema-v3 derived-source and Linux attempt-runner Packets 14–15, moves representative Linux execution to Packet 16, and keeps all Windows work in Packets 17–18?
+      kind: single
+      options:
+        - id: approve
+          label: Approve revision 6
+          description: Approve the repaired executable plan; implementation, commits, pushes, CI, and manual host gates remain separately scoped.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 6 draft and revise the affected packet contracts again.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 6 draft and stop before implementation.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 6 after the executability audit repaired production input ownership, added baseline-compatible attempt enablement, and preserved final-phase Windows implementation, checks, remediation, and selection. Implementation, commits, pushes, CI, and representative-host gates remain separately scoped.
+    supersedes_revision: 5
+    requirement_ids: []
+  - id: planning.legacy-loader-retention
+    revision: 1
+    category: implementation
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested that the former loader invocation remain only as commented source,
+        while the retained implementation is marked deprecated instead of being deleted.
+      - docs/specs/local-whisper-performance-remediation/spec.md#6-model-file-safety-and-standard-loader
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [comment-call-and-deprecate]
+      text: Replace the active legacy loader invocation with the standard whisper.cpp path loader,
+        keep the former invocation only as a commented reference, and mark the retained legacy
+        implementation deprecated without deleting it.
+    rationale: This minimizes migration work while preserving revision 6's prohibition on active
+      ExactModelReader, custom-preflight, snapshot, digest, or fallback use in ordinary model loading.
+    supersedes_revision: null
+    requirement_ids: [SEC-002, PERF-011, OPS-004, AC-AUT-005, AC-AUT-006, AC-AUT-018]
+  - id: approval.plan
+    revision: 7
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+      - planning.legacy-loader-retention revision 1
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-07
+      question_id: approval.plan
+      idempotency_key: approval.plan:v7
+      last_status: answered
+    question:
+      text: Do you approve revision 7 of the Local Whisper performance-remediation plan with inactive deprecated
+        legacy loader code, Linux implementation and qualification first, and all Windows implementation/checks/
+        fixes in the final packet?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Approve revision 7 while keeping packet execution separately gated.
+        - id: request-changes
+          label: Request changes
+          description: Keep the plan unapproved and revise the affected packet contracts.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 7 unapproved and stop without authorizing the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 7 with the legacy loader retained only as inactive
+      deprecated source, Linux implementation and qualification isolated first, and all Windows implementation,
+      CI, package/E2E, representative qualification, and subsequent fixes in the final packet.
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: outcome.model-residency-target
+    revision: 1
+    category: outcome
+    state: superseded
+    provenance: user
+    evidence:
+      - User clarified that the target is actual model-weight loading into RAM or VRAM, not background preload or warm-up.
+      - User requested approximately five seconds and separate Linux and Windows delivery tasks.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [five-second-model-residency]
+      text: Reduce actual model-weight loading into RAM or VRAM to approximately five seconds on supported Linux x64 and Windows x64 systems; planning will separate Linux and Windows execution.
+    rationale: This is the explicit outcome requested after the existing remediation still exhibited roughly thirty seconds of model-loading latency.
+    supersedes_revision: null
+    requirement_ids: [OUT-002, PERF-008, CMP-007]
+
+  - id: scope.model-residency-boundary
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: scope.model-residency-boundary
+      idempotency_key: scope.model-residency-boundary:v1
+      last_status: answered
+    question:
+      text: Which exact interval must satisfy the approximately five-second model-residency target?
+      kind: single
+      options:
+        - id: worker-load-to-resident
+          label: Worker load to resident (Recommended)
+          description: Measure from the worker accepting load through parsing, backend activation, RAM or VRAM allocation/upload, and validated loaded evidence; exclude earlier launch checks and explicit warm-up.
+        - id: user-request-to-resident
+          label: User request to resident
+          description: Include main-process lease checks, worker creation and handshake, all load checks, backend activation, allocation/upload, and final evidence; exclude installation and explicit warm-up.
+        - id: loader-only-to-resident
+          label: Loader only
+          description: Measure only the whisper.cpp loader call through completed RAM or VRAM ownership, excluding worker-side preflight and backend setup.
+    answer:
+      selected_ids: [worker-load-to-resident]
+      text: ''
+    rationale: The accepted metric covers the complete native worker load operation through validated RAM or VRAM ownership without hiding parser, backend activation, allocation, or upload cost, while keeping earlier launch checks and explicit inference warm-up separately attributable.
+    supersedes_revision: null
+    requirement_ids: [PERF-008, OBS-004]
+
+  - id: security.hash-proof-policy
+    revision: 2
+    category: security
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper/spec.md
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: security.hash-proof-policy
+      idempotency_key: security.hash-proof-policy:v2
+      last_status: answered
+    question:
+      text: How may the worker consolidate full-model content proofs to approach five-second residency?
+      kind: single
+      options:
+        - id: authenticated-immutable-snapshot
+          label: Authenticated snapshot (Recommended)
+          description: Retain earlier authority and identity revalidations, read and hash the worker's held model once into a process-bounded immutable snapshot, then run preflight and whisper.cpp only against those verified bytes; allow no metadata-only or persistent digest cache.
+        - id: streaming-verify-before-commit
+          label: Streaming verification
+          description: Let preflight and the loader consume held bytes while one digest is calculated, but publish no residency and destroy all state unless the final digest succeeds; this exposes unauthenticated bytes to parsers before completion.
+        - id: persistent-identity-cache
+          label: Persistent digest cache
+          description: Reuse a digest across application launches when strict platform file identity and invalidation checks match, reducing reads but expanding the persistent trust boundary.
+    answer:
+      selected_ids: [authenticated-immutable-snapshot]
+      text: ''
+    rationale: One authenticated immutable worker snapshot removes the duplicate worker file pass without allowing unauthenticated model bytes into preflight or whisper.cpp and without creating metadata-only or persistent digest authority.
+    supersedes_revision: 1
+    requirement_ids: [SEC-001, SEC-002, SEC-003, SEC-004, PERF-009]
+
+  - id: acceptance.performance-target-policy
+    revision: 2
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - src/main/localWhisper/catalog/LocalWhisperReleaseModelMatrix.ts
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - User requested an approximately five-second model-memory load target.
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: acceptance.performance-target-policy
+      idempotency_key: acceptance.performance-target-policy:v2
+      last_status: answered
+    question:
+      text: Which catalog scope should receive the absolute five-second acceptance budget?
+      kind: single
+      options:
+        - id: turbo-q5-reference
+          label: Turbo Q5 reference (Recommended)
+          description: Require the budget for large-v3-turbo/q5_0 (574,041,195 bytes) on named representative Linux and Windows CPU/CUDA profiles; retain relative non-regression gates for other models.
+        - id: all-release-models
+          label: All release models
+          description: Require the same budget for every release-1 model, including medium/full (1,533,763,059 bytes) and large-v3/q5_0 (1,081,140,203 bytes).
+        - id: selected-model-only
+          label: Current selected model
+          description: Apply the budget only to whichever model is selected during qualification, making acceptance depend on mutable local configuration.
+    answer:
+      selected_ids: [turbo-q5-reference]
+      text: ''
+    rationale: The absolute target is bound to the exact 574,041,195-byte large-v3-turbo/q5_0 artifact and named representative Linux/Windows CPU/CUDA profiles; larger artifacts retain meaningful relative and regression gates.
+    supersedes_revision: 1
+    requirement_ids: [PERF-010, QUAL-002]
+
+  - id: acceptance.cache-statistic-policy
+    revision: 1
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - scripts/local-whisper/qualification/QualificationMetrics.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: acceptance.cache-statistic-policy
+      idempotency_key: acceptance.cache-statistic-policy:v1
+      last_status: answered
+    question:
+      text: How should the five-second budget handle filesystem cache state and run variance?
+      kind: single
+      options:
+        - id: cold-warm-median-five
+          label: Cold and warm median (Recommended)
+          description: Require median residency at or below five seconds in both cold-cache and warm-cache cells on each named profile, with p95 and uncertainty reported as guardrails.
+        - id: cold-warm-p95-five
+          label: Cold and warm p95
+          description: Require at least 95 percent of cold-cache and warm-cache runs to finish within five seconds on every named profile.
+        - id: warm-median-five
+          label: Warm median only
+          description: Require five seconds only for warm-cache median; cold-cache cells need a measured relative improvement and full reporting but no absolute budget.
+    answer:
+      selected_ids: [cold-warm-median-five]
+      text: ''
+    rationale: Requiring the median in both cold-cache and warm-cache cells prevents a page-cache-only result from satisfying the target while retaining p95 and uncertainty as visible variance guardrails.
+    supersedes_revision: null
+    requirement_ids: [PERF-010, OBS-004, AC-MAN-007, AC-MAN-008]
+
+  - id: resource.authenticated-snapshot-budget
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - docs/specs/local-whisper-performance-remediation/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-01
+      question_id: resource.authenticated-snapshot-budget
+      idempotency_key: resource.authenticated-snapshot-budget:v1
+      last_status: answered
+    question:
+      text: What temporary memory budget may authenticated loading use?
+      kind: single
+      options:
+        - id: one-model-transient-buffer
+          label: One model-size buffer (Recommended)
+          description: Permit one checked temporary buffer up to the exact model byte size during load, require read-only ownership after authentication, and release it before loaded is accepted; steady-state memory must not regress.
+        - id: preserve-three-percent-peak
+          label: Preserve 3% peak guardrail
+          description: Keep the existing peak-memory regression limit during load, requiring a mapped or streaming design without a complete extra model buffer.
+        - id: retain-snapshot-for-residency
+          label: Retain snapshot
+          description: Permit the authenticated snapshot to remain allocated with the resident model for faster reuse, increasing steady-state RAM by as much as one model size.
+    answer:
+      selected_ids: [one-model-transient-buffer]
+      text: ''
+    rationale: A single exact-size temporary buffer permits authentication before parsing and memory-speed reuse by preflight and whisper.cpp; mandatory release before loaded preserves the steady-state residency budget.
+    supersedes_revision: null
+    requirement_ids: [RES-004, PERF-009, AC-AUT-016]
+
+  - id: failure.snapshot-unavailable-policy
+    revision: 1
+    category: failure
+    state: answered
+    provenance: user
+    evidence:
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - docs/specs/local-whisper/spec.md
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-02
+      question_id: failure.snapshot-unavailable-policy
+      idempotency_key: failure.snapshot-unavailable-policy:v1
+      last_status: answered
+    question:
+      text: What should happen when the worker cannot allocate or protect the authenticated snapshot before parsing begins?
+      kind: single
+      options:
+        - id: secure-two-pass-fallback
+          label: Secure two-pass fallback (Recommended)
+          description: Reset before parser entry and use the current exact preflight plus loader path with both full hashes; preserve functionality, expose only content-free fallback evidence, and disqualify that run from the five-second target.
+        - id: fail-model-load
+          label: Fail model load
+          description: Return the existing content-free model-load failure, release all state, and require the user to free memory or select another model before retrying.
+        - id: fallback-turbo-only
+          label: Fallback for other models
+          description: Fail the reference Turbo Q5 load when snapshot memory is unavailable, but permit the secure two-pass fallback for all other catalog models.
+    answer:
+      selected_ids: [fail-model-load]
+      text: ''
+    rationale: Snapshot allocation or protection failure is a closed model-load failure with complete cleanup; no slower alternate load path is retained, so security and timing behavior remain deterministic.
+    supersedes_revision: null
+    requirement_ids: [FAIL-004, CMP-008, PERF-011, AC-AUT-018]
+
+  - id: approval.spec
+    revision: 3
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-03
+      question_id: approval.spec
+      idempotency_key: approval.spec:v3
+      last_status: answered
+    question:
+      text: Do you approve revision 3 of the Local Whisper performance-remediation specification for authenticated snapshot loading and the five-second Linux/Windows model-residency target?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 3 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 3 Draft and revise the affected contract decisions.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 3 Draft and stop without approval.
+    answer:
+      selected_ids: []
+      text: Подчеркну, что не нужно жестко ограничиваться в 5 секунд. Мы не должны падать, если загрузка модели превышает 5 секунд. Просто наша целевая загрузка, скорость должна быть примерно 5 секунд либо выше, но никак не 30 секунд, как было ранее. Наша задача, чтобы сделать для пользователя удобный и адекватный вариант.
+    rationale: Revision 3 remains Draft because the user rejected a hard five-second limit and required five seconds to be an optimization target that never becomes a runtime failure threshold.
+    supersedes_revision: 2
+    requirement_ids: []
+
+  - id: acceptance.cache-statistic-policy
+    revision: 2
+    category: acceptance
+    state: superseded
+    provenance: user
+    evidence:
+      - approval.spec revision 3 custom response
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - scripts/local-whisper/qualification/QualificationMetrics.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: model-residency-round-03
+      question_id: acceptance.cache-statistic-policy
+      idempotency_key: acceptance.cache-statistic-policy:v2
+      last_status: answered
+    question:
+      text: How should qualification distinguish the approximately five-second optimization target from an unacceptable return toward thirty seconds without making timing a runtime failure?
+      kind: single
+      options:
+        - id: target-five-accept-ten
+          label: Target 5, accept 10 seconds (Recommended)
+          description: Treat five seconds as the optimization target; pass representative cold/warm medians up to ten seconds, flag five-to-ten as target missed, fail qualification above ten, and never fail a runtime load solely for exceeding either duration.
+        - id: relative-threefold
+          label: Require threefold improvement
+          description: Use no absolute qualification maximum; require at least a threefold median improvement from the exact paired baseline and report distance from the five-second target.
+        - id: target-five-accept-fifteen
+          label: Target 5, accept 15 seconds
+          description: Treat five seconds as the target, pass representative cold/warm medians up to fifteen seconds, fail qualification above fifteen, and never turn timing into a runtime failure.
+    answer:
+      selected_ids: [relative-threefold]
+      text: ''
+    rationale: Qualification requires at least a threefold cold-cache and warm-cache median improvement against the exact paired baseline and reports distance from the approximately five-second objective; elapsed time alone never changes a valid runtime load into failure.
+    supersedes_revision: 1
+    requirement_ids: [OUT-002, PERF-008, PERF-010, OBS-004, AC-AUT-017, AC-MAN-007, AC-MAN-008]
+
+  - id: approval.spec
+    revision: 4
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - approval.spec revision 3 custom response
+      - acceptance.cache-statistic-policy revision 2
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-04
+      question_id: approval.spec
+      idempotency_key: approval.spec:v4
+      last_status: answered
+    question:
+      text: Do you approve revision 4 of the Local Whisper performance-remediation specification with a non-failing approximately five-second objective and a threefold paired cold/warm qualification gate?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 4 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 4 Draft and revise the affected contract decisions.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 4 Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 4 after five seconds was changed from a hard limit to a non-failing objective and qualification was defined as a conservative threefold paired cold/warm improvement.
+    supersedes_revision: 3
+    requirement_ids: []
+
+  - id: outcome.remove-redundant-content-proofs
+    revision: 1
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested removal of redundant full-model checks after reviewing the retained Linux/Windows proof counts.
+      - docs/specs/local-whisper-performance-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [remove-redundant-full-content-proofs]
+      text: Remove redundant full-model content checks while retaining required cross-platform security guarantees.
+    rationale: Full-file SHA-256 passes are the dominant avoidable work; lease, identity, permission, process, and handoff checks can remain without rereading model contents.
+    supersedes_revision: null
+    requirement_ids: [OUT-003, SCP-008, PERF-012, SEC-011, OBS-005]
+
+  - id: security.hash-proof-policy
+    revision: 3
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper/spec.md
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - runtime/local-whisper/fs-guard/src/platform/linux/model_authority_server.cpp
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: content-proof-round-01
+      question_id: security.hash-proof-policy
+      idempotency_key: security.hash-proof-policy:v3
+      last_status: answered
+    question:
+      text: Сколько полных проверок содержимого модели должно остаться в одной успешной загрузке?
+      kind: single
+      options:
+        - id: worker-snapshot-only
+          label: Только worker snapshot (Рекомендуется)
+          description: Оставить один полный SHA-256 при создании snapshot в worker до parser; все предыдущие этапы проверяют lease, OS identity, размер, права, nonce, PID/start identity и происхождение handle без чтения содержимого. Повреждение обнаруживается при загрузке.
+        - id: acquisition-and-worker
+          label: Acquisition и worker
+          description: Оставить ранний полный SHA-256 при получении lease и второй при создании worker snapshot; повреждение обнаруживается раньше, но успешная загрузка читает модель дважды.
+        - id: native-handoff-snapshot
+          label: Snapshot до worker
+          description: Создать и проверить один неизменяемый anonymous snapshot в native guard, затем передать только read-only handle worker; один проход, но новый межпроцессный memory-handoff усложняет Linux/Windows security contract.
+    answer:
+      selected_ids: [worker-snapshot-only]
+      text: ''
+    rationale: One final worker SHA-256 over the exact immutable snapshot is sufficient to authenticate every byte before parser entry; earlier stages retain authority and identity checks without rereading contents, reducing successful Linux and Windows loads to one full content pass.
+    supersedes_revision: 2
+    requirement_ids: [SEC-004, SEC-011, PERF-012, CMP-009, IPC-005, ARC-006, FAIL-005, AC-AUT-019, AC-AUT-020]
+
+  - id: approval.spec
+    revision: 5
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - security.hash-proof-policy revision 3
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-05
+      question_id: approval.spec
+      idempotency_key: approval.spec:v5
+      last_status: answered
+    question:
+      text: Do you approve revision 5 of the Local Whisper performance-remediation specification with exactly one worker snapshot content proof and identity-only pre-worker validation on Linux and Windows?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 5 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 5 Draft and revise the affected contract decisions.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 5 Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 5 with one final worker snapshot SHA-256 content proof and identity/authority-only pre-worker validation on both Linux and Windows.
+    supersedes_revision: 4
+    requirement_ids: []
+
+  - id: scope.spec-bundle-boundary
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly limited this revision to docs/specs/local-whisper-performance-remediation/.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [performance-remediation-bundle-only]
+      text: Revise only the local-whisper-performance-remediation specification bundle; do not edit the parent Local Whisper specification bundle.
+    rationale: The performance-remediation specification must state its narrow amendment explicitly while leaving the parent files unchanged.
+    supersedes_revision: null
+    requirement_ids: [SCP-009]
+
+  - id: security.hash-proof-policy
+    revision: 4
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly decided to disable model-content proofs and load through the standard whisper.cpp API.
+      - User explicitly retained only basic process and filesystem safety, following the OpenWhispr model-loading posture.
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - https://github.com/OpenWhispr/openwhispr/blob/main/src/helpers/whisper.js
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-model-content-proofs]
+      text: Perform no model SHA-256, digest, signature, immutable-snapshot authentication, custom-loader consumption proof, or other full-model content proof during installation, startup, readiness, load, or inference.
+    rationale: The user accepts that a locally replaced but structurally valid model may load in exchange for standard whisper.cpp loading latency.
+    supersedes_revision: 3
+    requirement_ids: [OUT-003, SCP-008, SEC-001, SEC-002, SEC-003, SEC-004, PERF-009, PERF-012]
+
+  - id: architecture.standard-whisper-loader
+    revision: 1
+    category: architecture
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested the standard whisper.cpp API used by OpenWhispr.
+      - runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp
+      - runtime/local-whisper/whisper-cpp/core/exact_model_reader.cpp
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [standard-path-api]
+      text: Remove ExactModelReader, the project-owned model-format preflight, and authenticated snapshot loading from the production model-load path; call the pinned path-based whisper.cpp initialization API directly.
+    rationale: The worker remains a supervised GPT-Voice process, but whisper.cpp owns model opening, parsing, allocation, and structural failure detection.
+    supersedes_revision: null
+    requirement_ids: [ARC-005, ARC-006, FLOW-002, CMP-007]
+
+  - id: security.retained-basic-safeguards
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly retained basic process and filesystem safety.
+      - AGENTS.md
+      - src/main/localWhisper/filesystem/ManagedArtifactStore.ts
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids:
+        - authenticated-runtime-pack
+        - managed-root-confinement
+        - canonical-regular-file
+        - reject-link-or-reparse
+        - bounded-size
+        - private-path-handling
+        - worker-isolation-cleanup
+      text: Keep runtime-worker provenance and digest verification, managed-root confinement, canonical regular-file and link/reparse rejection, bounded size, private path handling, parent/process identity, timeouts, cancellation, RAII cleanup, and content-free errors.
+    rationale: These checks bound privileged filesystem and process behavior without rereading or authenticating model payload bytes.
+    supersedes_revision: null
+    requirement_ids: [SEC-010, SEC-011, ARC-001, RES-003, FAIL-001, FAIL-003]
+
+  - id: security.model-download-validation
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User requested the OpenWhispr model-loading posture while retaining basic file safety.
+      - https://github.com/OpenWhispr/openwhispr/blob/main/src/helpers/downloadUtils.js
+      - https://github.com/OpenWhispr/openwhispr/blob/main/src/helpers/whisper.js
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [transport-and-file-safety-only]
+      text: Keep approved-source HTTPS transport, bounded temporary download, completion and expected-size validation, atomic promotion, cancellation, retry, disk-space checks, and stale-temporary cleanup; do not hash or sign model content before promotion.
+    rationale: This detects incomplete or obviously invalid downloads but intentionally does not prove cryptographic model identity.
+    supersedes_revision: null
+    requirement_ids: [SCP-008, SEC-001, FAIL-005]
+
+  - id: compatibility.model-path-transport
+    revision: 1
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - architecture.standard-whisper-loader revision 1
+      - security.retained-basic-safeguards revision 1
+      - runtime/local-whisper/whisper-cpp/core/worker_application.cpp
+      - src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: standard-loader-round-01
+      question_id: compatibility.model-path-transport
+      idempotency_key: compatibility.model-path-transport:v1
+      last_status: answered
+    question:
+      text: How should the supervised worker receive the model path required by the standard whisper.cpp file API?
+      kind: single
+      options:
+        - id: private-versioned-message
+          label: Private protocol message (Recommended)
+          description: Add the canonical path to a bounded versioned private worker message; keep it out of argv, environment, renderer IPC, retained logs, and diagnostics, and roll main/worker together.
+        - id: process-argument
+          label: Worker process argument
+          description: Pass the canonical path in worker argv like whisper-server; this is simpler but exposes it to local process inspection and couples path handling to launch.
+        - id: platform-authority-adapter
+          label: Platform authority adapter
+          description: Retain the descriptor/handle handoff and derive a path-like input for the standard API; Linux and Windows behavior differ and the Windows path still requires a reopen.
+    answer:
+      selected_ids: [private-versioned-message]
+      text: ''
+    rationale: The canonical model path stays on a bounded private main-to-worker channel and is excluded from argv, environment, renderer IPC, retained logs, and diagnostics; main and worker roll out as one compatibility set.
+    supersedes_revision: null
+    requirement_ids: [IPC-005, CMP-007, OPS-001]
+
+  - id: outcome.remove-redundant-content-proofs
+    revision: 2
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - security.hash-proof-policy revision 4
+      - architecture.standard-whisper-loader revision 1
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [remove-all-model-content-proofs]
+      text: Remove every project-owned full-model content proof rather than retaining the revision-5 one-snapshot proof.
+    rationale: The standard whisper.cpp path API becomes the only production model reader; basic metadata and process/file checks remain.
+    supersedes_revision: 1
+    requirement_ids: [OUT-003, PERF-009, PERF-012, OBS-005]
+
+  - id: scope.digest-cache-policy
+    revision: 2
+    category: scope
+    state: not_applicable
+    provenance: user
+    evidence:
+      - security.hash-proof-policy revision 4
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: No digest cache is needed because ordinary model installation and loading no longer calculate or compare model-content digests.
+    rationale: Cache invalidation and metadata-as-content-authority risks disappear with the content-proof feature itself.
+    supersedes_revision: 1
+    requirement_ids: [SCP-004, SEC-003]
+
+  - id: resource.authenticated-snapshot-budget
+    revision: 2
+    category: architecture
+    state: not_applicable
+    provenance: user
+    evidence:
+      - architecture.standard-whisper-loader revision 1
+      - security.hash-proof-policy revision 4
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: The worker shall not allocate a project-owned model-size authenticated snapshot.
+    rationale: Standard path-based whisper.cpp loading owns its internal allocations; the former extra model-size snapshot and its temporary-memory exception are removed.
+    supersedes_revision: 1
+    requirement_ids: [RES-004, ARC-005, THR-007]
+
+  - id: failure.snapshot-unavailable-policy
+    revision: 2
+    category: failure
+    state: not_applicable
+    provenance: user
+    evidence:
+      - resource.authenticated-snapshot-budget revision 2
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: []
+      text: No snapshot allocation, protection, or fallback failure exists after switching to the standard whisper.cpp path API.
+    rationale: Model-load failure now comes from bounded file validation, the standard parser/loader, backend activation, allocation, device proof, timeout, or cancellation.
+    supersedes_revision: 1
+    requirement_ids: [FAIL-004, CMP-008, PERF-011]
+
+  - id: security.accepted-model-replacement-risk
+    revision: 1
+    category: security
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly accepted OpenWhispr-like model validation.
+      - security.hash-proof-policy revision 4
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [accept-valid-local-replacement]
+      text: A same-user local replacement that remains a bounded regular parseable model may be loaded without cryptographic detection; structural corruption is reported only when standard whisper.cpp loading fails.
+    rationale: This is the explicit security/performance tradeoff required to remove model-content proofs.
+    supersedes_revision: null
+    requirement_ids: [SEC-012, FAIL-005]
+
+  - id: approval.spec
+    revision: 6
+    category: approval
+    state: superseded
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - security.hash-proof-policy revision 4
+      - architecture.standard-whisper-loader revision 1
+      - security.retained-basic-safeguards revision 1
+      - compatibility.model-path-transport revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-06
+      question_id: approval.spec
+      idempotency_key: approval.spec:v6
+      last_status: answered
+    question:
+      text: Do you approve revision 6 of the Local Whisper performance-remediation specification with standard path-based whisper.cpp loading, no model-content proofs, and retained basic process/filesystem safety?
+      kind: single
+      options:
+        - id: approve
+          label: Approve
+          description: Mark revision 6 Approved and stop before planning or implementation.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 6 Draft and revise affected decisions or requirements.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 6 Draft and stop without approval.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 6 with standard path-based whisper.cpp loading, no model-content proofs, and retained basic process/filesystem safety.
+    supersedes_revision: 5
+    requirement_ids: []
+
+  - id: outcome.model-residency-target
+    revision: 2
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User concluded that OpenWhispr uses the same standard whisper.cpp file-loading path.
+      - User approved replacing speculative optimization with a reduced representative qualification.
+      - User selected the release-1 Base model as the only qualification model.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [measure-base-without-performance-gate]
+      text: Qualify actual Base model residency on supported Linux x64 and Windows x64 CPU/CUDA hosts; keep approximately five seconds as an informational objective only, with no new loader optimization or timing-based qualification failure.
+    rationale: The standard loader matches the reviewed OpenWhispr loading mechanism, so the remaining work should establish functional and observational evidence rather than require an unproven speedup.
+    supersedes_revision: 1
+    requirement_ids: [OUT-001, OUT-002, SCP-001, PERF-008, PERF-010]
+
+  - id: acceptance.performance-target-policy
+    revision: 3
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - src/main/localWhisper/catalog/LocalWhisperReleaseModelMatrix.ts
+      - User explicitly selected only the Base model after reviewing the reduced qualification table.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [base-full-observational]
+      text: Use only the exact release-1 base/full artifact (147,951,465 bytes) for representative Linux and Windows CPU/CUDA cold/warm qualification; report distance from five seconds without a baseline, speedup threshold, or timing pass/fail gate.
+    rationale: One small release model provides a bounded cross-platform standard-loader check while removing the expensive four-model paired matrix.
+    supersedes_revision: 2
+    requirement_ids: [OUT-002, QUAL-001, QUAL-002, PERF-008, PERF-010, AC-MAN-001, AC-MAN-007, AC-MAN-008]
+
+  - id: acceptance.cache-statistic-policy
+    revision: 3
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User approved the reduced qualification table before requesting the specification revision.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [three-candidate-runs-per-cell]
+      text: Run three successful candidate loads in each Base CPU/CUDA cold/warm cell and report sample count, ordering, median, minimum, maximum, and bounded aggregate RAM/VRAM evidence; do not build or run a paired baseline.
+    rationale: Three samples are the smallest useful set that supplies a median and visible spread while reducing the planned timed model loads from up to 192 baseline/candidate loads to 12 candidate loads per operating system.
+    supersedes_revision: 2
+    requirement_ids: [GAT-002, GAT-003, OBS-001, OBS-002, PERF-008, RES-002, AC-AUT-001, AC-AUT-002]
+
+  - id: acceptance.reduced-representative-scope
+    revision: 1
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User approved the proposed reduced Task 17 check table with Base as the only model substitution.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [focused-package-and-lifecycle]
+      text: On each operating system, install only the candidate package; run the focused Base CPU/CUDA cold/warm measurements; execute one load, warm-up, transcription, cancellation, unload, retry, cleanup, no-fallback, and privacy-safe evidence flow per backend; leave suspend/resume, unavailable-device, thread-count, topology/model-switch, delete/redownload, and installation-window matrices to existing automated coverage or outside this work.
+    rationale: This retains the real packaged standard-loader, CUDA ownership, lifecycle, cleanup, and privacy evidence while removing unrelated manual permutations.
+    supersedes_revision: null
+    requirement_ids:
+      [AC-MAN-001, AC-MAN-002, AC-MAN-003, AC-MAN-004, AC-MAN-005, AC-MAN-006, AC-MAN-007, AC-MAN-008, OPS-004]
+
+  - id: approval.spec
+    revision: 7
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - docs/specs/local-whisper-performance-remediation/decisions.yaml
+      - outcome.model-residency-target revision 2
+      - acceptance.performance-target-policy revision 3
+      - acceptance.cache-statistic-policy revision 3
+      - acceptance.reduced-representative-scope revision 1
+    prompt_mcp:
+      interview_id: spec:local-whisper-performance-remediation
+      batch_id: approval-round-07
+      question_id: approval.spec
+      idempotency_key: approval.spec:v7
+      last_status: answered
+    question:
+      text: Do you approve revision 7 of the Local Whisper performance-remediation specification with Base-only representative qualification, three candidate runs per CPU/CUDA cold/warm cell, no paired baseline or speedup gate, and focused package/lifecycle/privacy checks?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Mark revision 7 Approved and stop before rewriting the plan.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 7 Draft and revise the affected qualification requirements.
+        - id: leave-draft
+          label: Leave draft
+          description: Keep revision 7 Draft and stop without changing the plan.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 7 with Base-only representative qualification, three candidate runs per CPU/CUDA cold/warm cell, no paired baseline or speedup gate, and focused package/lifecycle/privacy checks.
+    supersedes_revision: 6
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+      - approval.spec revision 7
+      - acceptance.performance-target-policy revision 3
+      - acceptance.cache-statistic-policy revision 3
+      - acceptance.reduced-representative-scope revision 1
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: approval-round-08
+      question_id: approval.plan
+      idempotency_key: approval.plan:v8
+      last_status: answered
+    question:
+      text: Do you approve revision 8 of the Local Whisper performance-remediation plan with candidate-only Base qualification in Packet 17 and all real Windows implementation, CI, package, and focused Base qualification in Packet 18?
+      kind: single
+      options:
+        - id: approve
+          label: Approve (Recommended)
+          description: Approve revision 8 while keeping packet execution, commits, pushes, CI, and manual host gates separately authorized.
+        - id: request-changes
+          label: Request changes
+          description: Keep revision 8 draft and revise the affected task packets.
+        - id: leave-unapproved
+          label: Leave unapproved
+          description: Keep revision 8 draft and stop without authorizing the execution breakdown.
+    answer:
+      selected_ids: [approve]
+      text: ''
+    rationale: The user explicitly approved revision 8 with candidate-only Base qualification in Packet 17 and all real Windows implementation, CI, package, and focused Base qualification in Packet 18; packet execution remains separately gated.
+    supersedes_revision: 7
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 9
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - docs/specs/local-whisper-performance-remediation/tasks/18_windows_final_remediation.md
+      - approval.spec revision 8
+      - scope.remaining-task-structure revision 1
+      - User instructed immediate plan revision and stated that the scenarios are approved.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: Approve plan revision 9 with Packet 18 as the sole remaining packet and no benchmark, CI, package, repeated-sample, or additional qualification requirements.
+    rationale: The plan exactly reflects the approved revision-8 Windows functional parity contract.
+    supersedes_revision: 8
+    requirement_ids: []
+
+  - id: authorization.packet-17
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/17_windows_end_to_end_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/todo.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - approval.plan revision 8
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: execution-round-17
+      question_id: authorization.packet-17
+      idempotency_key: authorization.packet-17:v1
+      last_status: answered
+    question:
+      text: Do you separately authorize Packet 17 for a future incremental-implementation invocation?
+      kind: single
+      options:
+        - id: defer-execution
+          label: Defer execution (Recommended)
+          description: Finish this planning workflow without starting or pre-authorizing implementation.
+        - id: authorize-packet-17
+          label: Authorize Packet 17
+          description: Authorize only Packet 17 for the next incremental-implementation invocation; commits, pushes, CI, and manual host gates remain separately scoped.
+    answer:
+      selected_ids: [authorize-packet-17]
+      text: ''
+    rationale: The user separately authorized only Packet 17 for the next incremental-implementation invocation; this planning invocation still stops before implementation, commits, pushes, CI, or manual host execution.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: authorization.commit-packet-16
+    revision: 1
+    category: execution
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/16_representative_linux_host_qualification.md
+      - docs/specs/local-whisper-performance-remediation/tasks/handoff.md
+      - Current worktree contains the completed Packet 16 standard-loader implementation and local verification changes.
+    prompt_mcp:
+      interview_id: plan:local-whisper-performance-remediation
+      batch_id: commit-round-16
+      question_id: authorization.commit-packet-16
+      idempotency_key: authorization.commit-packet-16:v1
+      last_status: answered
+    question:
+      text: Do you authorize one local commit containing only the completed Packet 16 standard-loader implementation and its directly related tests, schemas, and Packet 16 documentation? It will not push or include revision-8 planning files.
+      kind: single
+      options:
+        - id: commit-packet-16
+          label: Commit Packet 16 (Recommended)
+          description: Create one local conventional commit for only the verified completed Packet 16 changes, enabling Packet 17 to start.
+        - id: defer-commit
+          label: Defer commit
+          description: Keep Packet 16 uncommitted and stop before starting Packet 17.
+    answer:
+      selected_ids: [commit-packet-16]
+      text: ''
+    rationale: The user explicitly authorized one local commit containing only the completed Packet 16 standard-loader implementation and directly related tests, schemas, and Packet 16 documentation; push remains unauthorized.
+    supersedes_revision: null
+    requirement_ids: [SCP-003]
+
+  - id: outcome.model-residency-target
+    revision: 3
+    category: outcome
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly removed the unfinished Linux qualification and retained only Windows functional parity.
+      - docs/specs/local-whisper-performance-remediation/spec.md
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-functional-parity-only]
+      text: Complete the Windows implementation, run the ordinary application with CPU and CUDA Local Whisper backends, and verify that it works as on Linux.
+    rationale: The user no longer requires representative performance qualification as a completion condition.
+    supersedes_revision: 2
+    requirement_ids: [OUT-001, OUT-002, WIN-001, WIN-002, WIN-003]
+
+  - id: acceptance.performance-target-policy
+    revision: 4
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested no additional checks, benchmarks, or similar qualification work.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [no-remaining-performance-qualification]
+      text: Remove cold/warm runs, repeated samples, timing targets, statistics, resource measurements, and benchmark evidence from remaining acceptance.
+    rationale: Remaining acceptance is direct functional execution only.
+    supersedes_revision: 3
+    requirement_ids: [OUT-002, WIN-004, AC-WIN-003]
+
+  - id: acceptance.cache-statistic-policy
+    revision: 4
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly requested one code run and functional verification instead of additional checks or benchmarks.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [single-functional-run]
+      text: Perform one ordinary functional flow per required Windows backend without cache preparation, repeated attempts, sample aggregation, or statistical reporting.
+    rationale: One direct run establishes the user-requested behavior without preserving the superseded qualification matrix.
+    supersedes_revision: 3
+    requirement_ids: [WIN-002, WIN-003, WIN-004, AC-WIN-001, AC-WIN-002]
+
+  - id: acceptance.reduced-representative-scope
+    revision: 2
+    category: acceptance
+    state: answered
+    provenance: user
+    evidence:
+      - User explicitly eliminated Task 17 and reduced Task 18 to Windows functional parity.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [windows-run-only]
+      text: Do not require CI, package qualification, lifecycle matrices, privacy evidence collection, or additional Linux execution; run Windows CPU and CUDA Local Whisper and verify successful model loading and transcription.
+    rationale: The prior focused representative-host matrix is superseded by the directly approved Windows flow.
+    supersedes_revision: 1
+    requirement_ids: [WIN-001, WIN-002, WIN-003, WIN-004, WIN-005, AC-WIN-001, AC-WIN-002, AC-WIN-003]
+
+  - id: scope.remaining-task-structure
+    revision: 1
+    category: scope
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/tasks/plan.md
+      - User explicitly requested elimination of Task 17 and retention of Task 18 only.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [task-18-only]
+      text: Remove Task 17 from the active plan and make Task 18 the sole remaining packet.
+    rationale: Linux is the completed functional reference; only Windows implementation and direct execution remain.
+    supersedes_revision: null
+    requirement_ids: [SCP-007, WIN-005]
+
+  - id: approval.spec
+    revision: 8
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - docs/specs/local-whisper-performance-remediation/spec.md
+      - outcome.model-residency-target revision 3
+      - acceptance.performance-target-policy revision 4
+      - acceptance.cache-statistic-policy revision 4
+      - acceptance.reduced-representative-scope revision 2
+      - scope.remaining-task-structure revision 1
+      - User stated that the scenarios are approved and no further approval question is needed.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approve]
+      text: Approve specification revision 8 and proceed directly to the corresponding plan revision.
+    rationale: The user explicitly approved the exact specification and planning scenario in the current request.
+    supersedes_revision: 7
+    requirement_ids: []

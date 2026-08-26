@@ -931,7 +931,11 @@ export class ClaudeWebPageTransport {
 
   private getOperation(operationId: ClaudeWebPageTransportOperationId): ActiveOperation {
     const operation = this.activeOperations.get(operationId);
-    if (!operation) throw new RangeError('Unknown Claude Web transport operation');
+    if (!operation) {
+      throw this.createInactiveError(
+        this.stopped ? ClaudeWebPageTransportErrorCode.PageShutdown : ClaudeWebPageTransportErrorCode.ConnectionLoss,
+      );
+    }
     return operation;
   }
 

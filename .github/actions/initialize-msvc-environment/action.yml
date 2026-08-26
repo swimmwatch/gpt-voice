@@ -1,0 +1,58 @@
+name: Initialize MSVC developer environment
+description: Exposes the hosted Windows x64 C++ toolchain to subsequent workflow steps.
+inputs:
+  toolset-version:
+    description: Exact hosted MSVC toolset prefix to initialize.
+    required: false
+    default: '14.51'
+runs:
+  using: composite
+  steps:
+    - env:
+        TOOLSET_VERSION: ${{ inputs.toolset-version }}
+      shell: pwsh
+      run:
+        | # zizmor: ignore[github-env] -- this pull-request-safe action exports only validated hosted-toolchain paths.
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+        if (!(Test-Path -LiteralPath $vswhere)) { throw 'Visual Studio locator is unavailable' }
+        $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if ([string]::IsNullOrWhiteSpace($installationPath)) { throw 'Visual Studio C++ build tools are unavailable' }
+        $vcvars = Join-Path $installationPath 'VC\Auxiliary\Build\vcvarsall.bat'
+        if (!(Test-Path -LiteralPath $vcvars)) { throw 'Visual Studio x64 developer environment is unavailable' }
+        $toolsetVersion = $env:TOOLSET_VERSION
+        if ($toolsetVersion -notmatch '^14\.(?:39|51)$') { throw 'Requested Visual Studio toolset is not approved' }
+        $captured = & cmd.exe /d /c "call `"$vcvars`" x64 -vcvars_ver=$toolsetVersion && set"
+        if ($LASTEXITCODE -ne 0) { throw 'Visual Studio developer environment initialization failed' }
+        $required = @(
+          'INCLUDE', 'LIB', 'LIBPATH', 'PATH', 'SystemRoot', 'TEMP', 'TMP', 'VCINSTALLDIR',
+          'VCToolsInstallDir', 'VCToolsVersion', 'VisualStudioVersion', 'VSINSTALLDIR', 'WINDIR'
+        )
+        $values = @{}
+        foreach ($line in $captured) {
+          $separator = $line.IndexOf('=')
+          if ($separator -gt 0) { $values[$line.Substring(0, $separator)] = $line.Substring($separator + 1) }
+        }
+        foreach ($name in $required) {
+          if ([string]::IsNullOrWhiteSpace($values[$name])) { throw "Visual Studio developer environment omitted $name" }
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($values[$name])" -Encoding utf8
+        }
+        if (!$values['VCToolsVersion'].StartsWith("$toolsetVersion.", [System.StringComparison]::Ordinal)) {
+          throw 'Visual Studio developer environment does not provide the requested MSVC toolset'
+        }
+        $env:PATH = $values['PATH']
+        $compiler = (Get-Command cl.exe -ErrorAction Stop).Source
+        $compilerBanner = (& $compiler 2>&1 | Out-String)
+        $compilerVersion = [regex]::Match($compilerBanner, 'Version\s+(?<version>\d+\.\d+\.\d+)')
+        $compilerPrefix = if ($toolsetVersion -eq '14.39') { '19.39.' } else { '19.51.' }
+        if (!$compilerVersion.Success -or !$compilerVersion.Groups['version'].Value.StartsWith($compilerPrefix, [System.StringComparison]::Ordinal)) {
+          throw 'Visual Studio developer environment does not provide the requested MSVC compiler'
+        }
+        $tools = @{
+          CMAKE_COMMAND = (Get-Command cmake.exe -ErrorAction Stop).Source
+          CTEST_COMMAND = (Get-Command ctest.exe -ErrorAction Stop).Source
+          CXX = $compiler
+          NINJA_COMMAND = (Get-Command ninja.exe -ErrorAction Stop).Source
+        }
+        foreach ($name in $tools.Keys) {
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "$name=$($tools[$name])" -Encoding utf8
+        }

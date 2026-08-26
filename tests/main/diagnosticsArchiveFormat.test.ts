@@ -3,6 +3,7 @@ import { randomFillSync } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { finished } from 'node:stream/promises';
 import { afterEach, describe, it } from 'node:test';
 import { gunzipSync, gzipSync } from 'node:zlib';
 
@@ -155,7 +156,7 @@ describe('diagnostics archive format adapter', () => {
         members.map((member) => member.name),
       );
       for (const member of members) assert.equal(extracted.get(member.name)?.equals(member.payload), true);
-      if (platform !== 'win32') {
+      if (platform !== 'win32' && process.platform !== 'win32') {
         assert.equal((fs.statSync(outputPath).mode & 0o777) === 0o600, true);
       }
     }
@@ -364,5 +365,25 @@ describe('diagnostics archive format adapter', () => {
     assert.throws(() => adapter.verify('tar-gzip', archiveBytes, [{ ...members[0], payload: Buffer.from('changed') }]));
     assert.throws(() => inspectDiagnosticsArchiveForVerification('zip', archiveBytes));
     assert.throws(() => inspectDiagnosticsArchiveForVerification('tar-gzip', Buffer.from('not-an-archive')));
+  });
+
+  it('rejects writer output that reorders otherwise exact members', async () => {
+    const directory = createTemporaryDirectory();
+    const outputPath = path.join(directory, 'reordered.zip');
+    const output = fs.createWriteStream(outputPath, { flags: 'wx', mode: 0o600 });
+    const writer = new ArchiverDiagnosticsArchiveWriterFactory().create('zip');
+    writer.pipe(output);
+    for (const member of [...createMembers()].reverse()) {
+      writer.append(member.payload, {
+        date: new Date('1980-01-01T00:00:00.000Z'),
+        mode: 0o100600,
+        name: member.name,
+        type: 'file',
+      });
+    }
+    await Promise.all([writer.finalize(), finished(output)]);
+
+    const bytes = await fs.promises.readFile(outputPath);
+    assert.throws(() => createAdapter('linux').verify('zip', bytes, createMembers()), /member order/u);
   });
 });

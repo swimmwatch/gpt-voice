@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/local-whisper-amd-hip-pre-signing-row-v1.json",
+  "title": "Local Whisper exact Linux HIP pre-signing row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaId",
+    "recordId",
+    "catalogRow",
+    "source",
+    "platform",
+    "rocm",
+    "device",
+    "permissions",
+    "pack",
+    "compatibility",
+    "approval"
+  ],
+  "properties": {
+    "schemaId": { "const": "local-whisper-amd-hip-pre-signing-row-v1" },
+    "recordId": { "$ref": "#/$defs/safeId" },
+    "catalogRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision"],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeId" },
+        "revision": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceLockId", "patchLockId", "patchedManifestSha256", "runtimeBuildDigest"],
+      "properties": {
+        "sourceLockId": { "$ref": "#/$defs/safeId" },
+        "patchLockId": { "$ref": "#/$defs/safeId" },
+        "patchedManifestSha256": { "$ref": "#/$defs/sha256" },
+        "runtimeBuildDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "distributionId",
+        "pointVersion",
+        "architecture",
+        "kernelAbi",
+        "amdgpuDriverAbi",
+        "amdgpuDriverVersion",
+        "matrixSnapshotId"
+      ],
+      "properties": {
+        "distributionId": { "$ref": "#/$defs/exactValue" },
+        "pointVersion": { "$ref": "#/$defs/exactVersion" },
+        "architecture": { "const": "x86_64" },
+        "kernelAbi": { "$ref": "#/$defs/exactValue" },
+        "amdgpuDriverAbi": { "$ref": "#/$defs/exactValue" },
+        "amdgpuDriverVersion": { "$ref": "#/$defs/exactVersion" },
+        "matrixSnapshotId": { "$ref": "#/$defs/safeId" }
+      }
+    },
+    "rocm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "hipCompilerVersion", "packages", "sonames"],
+      "properties": {
+        "release": { "$ref": "#/$defs/exactVersion" },
+        "hipCompilerVersion": { "$ref": "#/$defs/exactVersion" },
+        "packages": {
+          "type": "array",
+          "minItems": 3,
+          "items": { "$ref": "#/$defs/versionedComponent" }
+        },
+        "sonames": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "version", "buildId", "source"],
+            "properties": {
+              "name": { "$ref": "#/$defs/fileName" },
+              "version": { "$ref": "#/$defs/exactVersion" },
+              "buildId": { "$ref": "#/$defs/sha256" },
+              "source": { "enum": ["bundled", "system"] }
+            }
+          }
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vendorId", "pciDeviceId", "amdgpuTarget", "gfx", "pcieAtomicsRequired"],
+      "properties": {
+        "vendorId": { "const": "1002" },
+        "pciDeviceId": { "type": "string", "pattern": "^[a-f0-9]{4}$" },
+        "amdgpuTarget": { "type": "string", "pattern": "^gfx[0-9a-f]{3,5}$" },
+        "gfx": { "type": "string", "pattern": "^gfx[0-9a-f]{3,5}$" },
+        "pcieAtomicsRequired": { "type": "boolean" }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kfdPath", "renderNodeIdentity", "requiredAccess"],
+      "properties": {
+        "kfdPath": { "const": "/dev/kfd" },
+        "renderNodeIdentity": { "type": "string", "pattern": "^renderD[0-9]{3}$" },
+        "requiredAccess": { "const": "read-write" }
+      }
+    },
+    "pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectedFiles",
+        "dependencyClosure",
+        "relocationPolicy",
+        "notices",
+        "licenses",
+        "sbomSha256",
+        "provenanceSha256",
+        "buildOptionsSha256",
+        "redistributionReview"
+      ],
+      "properties": {
+        "expectedFiles": { "$ref": "#/$defs/nonEmptyFiles" },
+        "dependencyClosure": { "$ref": "#/$defs/nonEmptyFiles" },
+        "relocationPolicy": { "const": "manifest-owned-origin-only" },
+        "notices": { "$ref": "#/$defs/nonEmptyFiles" },
+        "licenses": { "$ref": "#/$defs/nonEmptyFiles" },
+        "sbomSha256": { "$ref": "#/$defs/sha256" },
+        "provenanceSha256": { "$ref": "#/$defs/sha256" },
+        "buildOptionsSha256": { "$ref": "#/$defs/sha256" },
+        "redistributionReview": { "const": "approved" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocolVersion", "appVersion", "modelFamilies", "deviceProofCapabilities"],
+      "properties": {
+        "protocolVersion": { "type": "integer", "minimum": 1 },
+        "appVersion": { "$ref": "#/$defs/exactVersion" },
+        "modelFamilies": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/safeId" } },
+        "deviceProofCapabilities": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewId", "reviewedAt"],
+      "properties": {
+        "status": { "const": "approved" },
+        "reviewId": { "$ref": "#/$defs/safeId" },
+        "reviewedAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,127}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "exactValue": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$" },
+    "exactVersion": { "type": "string", "pattern": "^[0-9][0-9A-Za-z._+-]{0,63}$" },
+    "fileName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.+-]{0,254}$" },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9][A-Za-z0-9_./+-]{0,1023}$"
+    },
+    "nonEmptyFiles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/relativePath" }
+    },
+    "versionedComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "$ref": "#/$defs/safeId" },
+        "version": { "$ref": "#/$defs/exactVersion" }
+      }
+    }
+  }
+}

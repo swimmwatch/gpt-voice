@@ -1,0 +1,243 @@
+{
+  "commit": "70bb2e84b976b7e960aa89f1c648e09c59f894dd",
+  "license": {
+    "datasetCardSha256": "688f79f2a5c731af3796e9f683eb02f9b3f09d040decd8c5625d0f37098e71c6",
+    "id": "CC-BY-4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "locales": {
+    "en_us": {
+      "clips": [
+        {
+          "canonicalWavSha256": "90a8eba6c057eb30b573922d95c303f2d276ba8f7501bbb1f64711a5f00946b6",
+          "member": "test/12741024238657315067.wav",
+          "memberSha256": "3e76cc5728bfd7c24f1039b5c9a47e8d79c7f225605862e977833a4f79249bff",
+          "referenceText": "unfortunately studying traffic flow is difficult because driver behavior cannot be predicted with one-hundred percent certainty",
+          "sampleCount": 202240
+        },
+        {
+          "canonicalWavSha256": "a05ca6ef7ea12568ee26861b66f732a2836c89c31abec3b3d5cc7f08ca90ed1e",
+          "member": "test/621925716775998155.wav",
+          "memberSha256": "cf4c405546467f94f1589e574bec7c07cfe2a709bdc40b65660ed24f74d13d60",
+          "referenceText": "twentieth century research has shown that there are two pools of genetic variation hidden and expressed",
+          "sampleCount": 94080
+        },
+        {
+          "canonicalWavSha256": "901f61f077ffb9a85978c4fcd0d90608aae8817cc04c23147db749e3fbe662a7",
+          "member": "test/2589557553267364799.wav",
+          "memberSha256": "5db6068216c1f013f1fda5068e1f3b4e326a533bb361682ef05795f35549aa4f",
+          "referenceText": "remember that even though music on the main stages may have finished there may be sections of the festival that will keep playing music until late into the night",
+          "sampleCount": 143040
+        },
+        {
+          "canonicalWavSha256": "cf17b7c86f044e37789de19abdf0411aeb95751c50ae133a54122f9d182fa1d2",
+          "member": "test/8173060820032255320.wav",
+          "memberSha256": "06e28072fe3853efcfd1d1c3bc3613ba5ec76c0931e9018e44aac5d946d4e210",
+          "referenceText": "police superintendent chandra shekhar solanki said the accused appeared in court with covered faces",
+          "sampleCount": 146240
+        },
+        {
+          "canonicalWavSha256": "1f78fc8990c357054d09cfcdf5d6ccaef21c4b015e15038469ce90bf6ff9e392",
+          "member": "test/2652155470394119415.wav",
+          "memberSha256": "c88bd2077735b74a8cf4d9b4c600e886cc8766ea7b12e4ea728ea10ea921aaee",
+          "referenceText": "the term bug is used by entomologists in a formal sense for this group of insects",
+          "sampleCount": 107520
+        },
+        {
+          "canonicalWavSha256": "a56a652d3fe59f8e30cfc5fc9fd76d6264b182833eba00b7218d9d1f9c0e3730",
+          "member": "test/18066939864018796519.wav",
+          "memberSha256": "4ce8347add453a5b8b9d182e7c40e127d53bd5b82383748cbff8cc1b49a361a4",
+          "referenceText": "popular sports include football basketball volleyball water-polo fencing rugby cycling ice hockey roller hockey and f1 motor racing",
+          "sampleCount": 166080
+        },
+        {
+          "canonicalWavSha256": "692fd6e66fa1b4772682284901ab8592da32ebb5322cc623051c9780fbe8c1bb",
+          "member": "test/16847628585853049714.wav",
+          "memberSha256": "c030db093fa3323b6d8c8ccc297cb4c8272f84ece39493f453e1a3ff1ad3fb55",
+          "referenceText": "you can use boda-boda motorcycle taxi to get around goma. the normal local price is ~500 congolese francs for the short ride",
+          "sampleCount": 213440
+        },
+        {
+          "canonicalWavSha256": "fc00118eaa8e51db975f630f25f860c4e2b8da29a9eb2e5407aaa330b1e53b7d",
+          "member": "test/1596269393232229615.wav",
+          "memberSha256": "e75653e079dc3c425595a1a4b746080b2ee11028b16688d556d2061b842e50c9",
+          "referenceText": "bishkek was described as sinking into a state of anarchy by one observer as gangs of people roamed the streets and plundered stores of consumer goods",
+          "sampleCount": 153600
+        },
+        {
+          "canonicalWavSha256": "48f640b35e2954d62f0d8abdade29b67b36af04e815aa61c4466363c1b4a6f00",
+          "member": "test/2637301866626572038.wav",
+          "memberSha256": "1518970aa8eb571854f94481fb8bc1056b112ed4724021402ed608e3794a4de3",
+          "referenceText": "during the revolutionary war the thirteen states first formed a weak central government-with the congress being its only component-under the articles of confederation",
+          "sampleCount": 161280
+        },
+        {
+          "canonicalWavSha256": "fadc1339d9e9549e99e5a132ff4784b6c1b176acc86be31a772f784718c4df11",
+          "member": "test/1722118868151836971.wav",
+          "memberSha256": "4da955093bf9f50423b1f0209ba90d96640821c5f6ea66958474371a1a43e9ac",
+          "referenceText": "current senator and argentine first lady cristina fernandez de kirchner announced her presidential candidacy yesterday evening in la plata a city 50 kilometers 31 miles away from buenos aires",
+          "sampleCount": 312960
+        },
+        {
+          "canonicalWavSha256": "2f1eadec39ae506616c9361442dc9c0076e28bcb054d74f493868f117d906b04",
+          "member": "test/13230261475791184258.wav",
+          "memberSha256": "fdfd0b76cdd94ddc0945931ae97fcaac5c233188ece0636a1ca4f2820651bcd0",
+          "referenceText": "the governor's office said nineteen of the injured were police officers",
+          "sampleCount": 72960
+        },
+        {
+          "canonicalWavSha256": "70ae16837e57deb3d2e8299651d233d6659262a3b300ec255ebc028fab06d6d7",
+          "member": "test/5106380017322065030.wav",
+          "memberSha256": "b4f9b20b080cd29f6df13d5d92826e6101637f50e83afb1fb1a5b72770439003",
+          "referenceText": "however that is not true although there is something written on the back of the document it is not a treasure map",
+          "sampleCount": 136640
+        },
+        {
+          "canonicalWavSha256": "a8b0dbfb163abcdfcd0c98112d06d471293f498c63be8dd200601495e0a6b2bf",
+          "member": "test/10492135991603561867.wav",
+          "memberSha256": "ed78d88661c8f76d7b8951665a3c2e9adea23828fe3e70fd9df95465cb8f8ede",
+          "referenceText": "in some areas boiling water for a minute is enough in others several minutes are needed",
+          "sampleCount": 90240
+        }
+      ],
+      "totalSamples": 2000320
+    },
+    "ru_ru": {
+      "clips": [
+        {
+          "canonicalWavSha256": "6a34d7c0157c0a479146283c7024c2ffc168994a9ad1b09f5fec1000b18d2ae1",
+          "member": "test/13632175593719991398.wav",
+          "memberSha256": "c7c32932e2e718aca0a81aacf731072314079bf3109c3727462c8054ef6ffa69",
+          "referenceText": "помимо соревнований в среду карпендо принимал участие в двух индивидуальных соревнованиях на чемпионатах",
+          "sampleCount": 113280
+        },
+        {
+          "canonicalWavSha256": "a18d5be1823b319e279ac7c44ce81733355f23a0cdeb216c8a3cfdeacb029751",
+          "member": "test/10669014641440041936.wav",
+          "memberSha256": "fc64ec5bd3df53bcfe5c5cf6395af1d7c2139d6bec1c71880f29842748756220",
+          "referenceText": "он не смог принять препараты необходимые для облегчения боли так как они запрещены в играх",
+          "sampleCount": 120960
+        },
+        {
+          "canonicalWavSha256": "f0aad8a0ca40b46fbb49760220b238211f0003d142c0b0cd56741c586cfd3213",
+          "member": "test/1465434251837536297.wav",
+          "memberSha256": "f7362d319b01ef9977ff5c32c63d1d5f3f9f0c88b50a99211adb2ee059d8357e",
+          "referenceText": "однако после потери калитки капитана индия совершила лишь 36 пробегов потеряв 7 калиток для завершения иннингсов",
+          "sampleCount": 205440
+        },
+        {
+          "canonicalWavSha256": "51c5005e8bc969420717b77c57bc2e5d9feadbe9c8a089c6b8f5a54fe9e18a7b",
+          "member": "test/2874428416017053943.wav",
+          "memberSha256": "b4f6b32d66d1836001f6a9eb4eae043d0d5b326b8aaef16a5e8f7e33b0f227f1",
+          "referenceText": "дети передаются под опеку по множеству разнообразных причин от беспризорности до жестокого обращения и даже вымогательств",
+          "sampleCount": 178560
+        },
+        {
+          "canonicalWavSha256": "fa38fe036af0e76d3252b3b8570f88f9f110c300902426dcf389282fe64b681b",
+          "member": "test/11203877422067099161.wav",
+          "memberSha256": "93eabe874fb5bb153558bd3f3b2bb09dbee3c28fb91b07e290953091adcde542",
+          "referenceText": "переносчиками являются свиньи от которых через комаров болезнь затем передаётся человеку",
+          "sampleCount": 113280
+        },
+        {
+          "canonicalWavSha256": "d57f64801e3786109784666006420dd64ae271a87c1676f219a66b5b7e8c5d22",
+          "member": "test/12208691569228754058.wav",
+          "memberSha256": "639d1adddfde0183038081ea5cddfe6231cf722ee91ce7bb0ebfe35d08bf0d00",
+          "referenceText": "работа моряков традиционно заключается в том чтобы обеспечивать способность страны перемещать свои народ и товары а также одновременно препятствовать возможности врага перемещать свои народ и товары",
+          "sampleCount": 224640
+        },
+        {
+          "canonicalWavSha256": "071550867daaad5e90dcaa74da1f8a8432616f03a7f599da3d57aa4374bff12f",
+          "member": "test/11105320946375128409.wav",
+          "memberSha256": "7cdf50245889e04e9881ec88665fcb6b98a50a028427a24a1385428bd2aa0039",
+          "referenceText": "в последствие он был перемещён в госпиталь адденбрук в кембридже",
+          "sampleCount": 87360
+        },
+        {
+          "canonicalWavSha256": "a77cfb6da7434d6f8491a19405e2d1ac8d0cd243031d9377ba04f909068f857f",
+          "member": "test/11285305154211545636.wav",
+          "memberSha256": "9d754c9d02125663fbfa26119020f0c8970374594f64faf79f9cd3dce5f0bbec",
+          "referenceText": "четыре лыжницы в женской сидячей группе не смогли завершить свои заезды и 45 из 117 лыжниц в гигантском слаломе не сумели занять места в гонке",
+          "sampleCount": 236160
+        },
+        {
+          "canonicalWavSha256": "9993a0186db5d87a744f2f668c3b89bca274f9651b15874170c8449330b07966",
+          "member": "test/8488797986333955891.wav",
+          "memberSha256": "4e3d65370b09db6fd69b046292d082894adfbb6db1425f33dc77d962987ac61f",
+          "referenceText": "на севере регион ограничен сахелем а на юге и западе атлантическим океаном",
+          "sampleCount": 122880
+        },
+        {
+          "canonicalWavSha256": "8697887452e8b1ae0d9aa2f1418a82ad317e4504ec94fe497e3bf74af380bbd4",
+          "member": "test/7856152970092989014.wav",
+          "memberSha256": "46f54e8295e24ab8d89787ac608fe1796031b70fe1cde662fb7a162721694729",
+          "referenceText": "находка также позволяет ознакомиться с эволюцией перьев у птиц",
+          "sampleCount": 92160
+        },
+        {
+          "canonicalWavSha256": "081b74e306348f808ecb02a1df886713a88b4c83965db7613c05c931c716c614",
+          "member": "test/5401806387754564938.wav",
+          "memberSha256": "c394b66941b283d595fce1d9b41054accad86157e6593000f0e23193df09f888",
+          "referenceText": "ученые смогли сделать вывод что темная материя воздействует на другую темную материю так же как и в случае с обычной материей",
+          "sampleCount": 168000
+        },
+        {
+          "canonicalWavSha256": "bd17d2ea5b64b815d55cf8fcfdc27eb8df518c70ea9a2c0567c4394b32c89f2c",
+          "member": "test/5328081163168782913.wav",
+          "memberSha256": "20b374f5fd88b82489f9f9ea806dabf68b7f32e59b06cee201837e6f554978ad",
+          "referenceText": "во-первых большинство наездников носят сапоги для верховой езды с каблуком имеющие гладкую и довольно тонкую подошву",
+          "sampleCount": 130560
+        },
+        {
+          "canonicalWavSha256": "340cfec9709ddb8943f586d41d1162f3b47de6529fb8574324b6e30ea3d3d076",
+          "member": "test/12668421414024232238.wav",
+          "memberSha256": "80385b58658691e89d9fd71825abb62a8fd43129a02736a1af9273382ff9c69b",
+          "referenceText": "сердцем тибетской медитации считается йога божеств посредством визуализации разнообразных божеств чистятся энергетические каналы запускаются чакры и достигается просветлённость сознания",
+          "sampleCount": 224640
+        }
+      ],
+      "totalSamples": 2017920
+    }
+  },
+  "materializerId": "gpt-voice-fleurs-stdlib-v1",
+  "repository": "google/fleurs",
+  "schemaVersion": 1,
+  "sources": {
+    "datasetCard": {
+      "file": "README.md",
+      "sha256": "688f79f2a5c731af3796e9f683eb02f9b3f09d040decd8c5625d0f37098e71c6",
+      "sizeBytes": 385614,
+      "url": "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/README.md"
+    },
+    "locales": {
+      "en_us": {
+        "archive": {
+          "file": "en_us-test.tar.gz",
+          "sha256": "d9c2e37b41aacd41bc283554a0a82b5476b36887049774ecb2819dcaaa55a356",
+          "sizeBytes": 289851356,
+          "url": "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/en_us/audio/test.tar.gz"
+        },
+        "tsv": {
+          "file": "en_us-test.tsv",
+          "sha256": "74c046239374deeb60fa63f258f907388093a32bcaa3140965f70ef05c79f7ca",
+          "sizeBytes": 367864,
+          "url": "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/en_us/test.tsv"
+        }
+      },
+      "ru_ru": {
+        "archive": {
+          "file": "ru_ru-test.tar.gz",
+          "sha256": "8a0d6a0d23c3421f50c575bcf65d875cd19dadae2f7cabb415024f81b65178b1",
+          "sizeBytes": 433142634,
+          "url": "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/ru_ru/audio/test.tar.gz"
+        },
+        "tsv": {
+          "file": "ru_ru-test.tsv",
+          "sha256": "cd54f261220f49afbb4c128633a737eca4a22f6c0a8233d3cc891478d06676e6",
+          "sizeBytes": 735258,
+          "url": "https://huggingface.co/datasets/google/fleurs/resolve/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/ru_ru/test.tsv"
+        }
+      }
+    }
+  }
+}

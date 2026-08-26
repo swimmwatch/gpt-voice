@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/focused-performance-manifest-v4.schema.json",
+  "title": "Local Whisper revision-7 focused candidate performance manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractRevision",
+    "focusedPerformanceManifestDigest",
+    "focusedPerformanceRunPlanDigest",
+    "sourceRevision",
+    "sourceProofDigest",
+    "candidateCommit",
+    "platform",
+    "architecture",
+    "backend",
+    "executionMode",
+    "evidenceClaim",
+    "instrumentationOverlaySha256",
+    "model",
+    "cachePreparationProcedure",
+    "cacheStates",
+    "successfulSamplesPerCell",
+    "runOrdering",
+    "statistic",
+    "fiveSecondObjectiveMilliseconds",
+    "requiredPhaseIds",
+    "requiredResourceIds",
+    "sourceHashBaseline"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 4 },
+    "contractRevision": { "const": 7 },
+    "focusedPerformanceManifestDigest": { "$ref": "#/$defs/sha256" },
+    "focusedPerformanceRunPlanDigest": { "$ref": "#/$defs/sha256" },
+    "sourceRevision": { "$ref": "#/$defs/commit" },
+    "sourceProofDigest": { "$ref": "#/$defs/sha256" },
+    "candidateCommit": { "$ref": "#/$defs/commit" },
+    "platform": { "const": "linux" },
+    "architecture": { "const": "x64" },
+    "backend": { "enum": ["cpu", "cuda"] },
+    "executionMode": { "const": "representativeHost" },
+    "evidenceClaim": { "const": "representativePerformance" },
+    "instrumentationOverlaySha256": { "$ref": "#/$defs/sha256" },
+    "model": { "$ref": "#/$defs/model" },
+    "cachePreparationProcedure": { "const": "linuxFileAdviceV1" },
+    "cacheStates": { "const": ["cold", "warm"] },
+    "successfulSamplesPerCell": { "const": 3 },
+    "runOrdering": { "const": "coldThenWarm" },
+    "statistic": { "const": "medianMinimumMaximum" },
+    "fiveSecondObjectiveMilliseconds": { "const": 5000 },
+    "requiredPhaseIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+    "requiredResourceIds": { "type": "array", "minItems": 3, "uniqueItems": true, "items": { "type": "string" } },
+    "sourceHashBaseline": { "type": "object" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "variant", "sizeBytes", "sha256"],
+      "properties": {
+        "family": { "const": "base" },
+        "variant": { "const": "full" },
+        "sizeBytes": { "const": 147951465 },
+        "sha256": { "const": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe" }
+      }
+    }
+  }
+}

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import webpack, { type Configuration } from 'webpack';
+
+import { RENDERER_WINDOW_ENTRIES, RendererBundleVerifier } from '@scripts/renderer-bundle-verifier';
 
 const rootDirectory = path.resolve(__dirname, '..', '..');
 const require = createRequire(__filename);
@@ -54,44 +55,6 @@ function loadRendererConfig(nodeEnvironment: 'development' | 'production'): Rend
   }
 }
 
-function emitRendererBundle(config: RendererConfig, outputPath: string): Promise<void> {
-  const compiler = webpack({
-    ...config,
-    output: {
-      ...config.output,
-      path: outputPath,
-    },
-  } as Configuration);
-
-  return new Promise((resolve, reject) => {
-    compiler.run((runError, stats) => {
-      compiler.close((closeError) => {
-        if (runError) {
-          reject(runError);
-          return;
-        }
-        if (closeError) {
-          reject(closeError);
-          return;
-        }
-        if (!stats) {
-          reject(new Error('Webpack renderer compiler did not return build stats.'));
-          return;
-        }
-        if (stats.hasErrors()) {
-          const messages = stats
-            .toJson({ all: false, errors: true })
-            .errors?.map((error) => error.message)
-            .join('\n');
-          reject(new Error(messages || 'Webpack renderer compilation failed.'));
-          return;
-        }
-        resolve();
-      });
-    });
-  });
-}
-
 function getStyleRule(rendererConfig: RendererConfig, extension: 'css' | 'scss'): RendererRule {
   const rule = rendererConfig.module.rules.find((candidate) => candidate.test.test(`styles.${extension}`));
 
@@ -106,6 +69,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
     about: './src/renderer/entries/about.tsx',
     history: './src/renderer/entries/history.tsx',
     main: './src/renderer/entries/main.tsx',
+    providerHotkeyDemo: './src/renderer/entries/providerHotkeyDemo.tsx',
     prettifyProfileChooser: './src/renderer/entries/prettifyProfileChooser.tsx',
     providerSettings: './src/renderer/entries/providerSettings.tsx',
     settings: './src/renderer/entries/settings.tsx',
@@ -125,6 +89,7 @@ test('assigns a dedicated renderer entry to every application window', () => {
     rendererConfig.plugins.map((plugin) => [plugin.userOptions?.filename, plugin.userOptions?.chunks]),
   );
   assert.deepEqual(htmlChunks.get('index.html'), ['main']);
+  assert.deepEqual(htmlChunks.get('provider-hotkey-demo.html'), ['providerHotkeyDemo']);
   assert.deepEqual(htmlChunks.get('provider-settings.html'), ['providerSettings']);
   assert.deepEqual(htmlChunks.get('prettify-profile-chooser.html'), ['prettifyProfileChooser']);
   assert.deepEqual(htmlChunks.get('settings.html'), ['settings']);
@@ -132,45 +97,39 @@ test('assigns a dedicated renderer entry to every application window', () => {
   assert.deepEqual(htmlChunks.get('about.html'), ['about']);
 });
 
-test('emits renderer bundles under a separate nested path from Electron main', async () => {
+test('verifies renderer bundles under a separate nested path from Electron main', async () => {
   const outputPath = await mkdtemp(path.join(tmpdir(), 'gpt-voice-renderer-bundle-'));
 
   try {
-    await emitRendererBundle(loadRendererConfig('production'), outputPath);
-
-    const outputFiles = await readdir(outputPath);
-    assert.ok(!outputFiles.includes('main.js'));
-
-    const workletSource = await readFile(path.join(outputPath, 'renderer/assets/livePcmCapture.worklet.js'), 'utf8');
-    assert.match(workletSource, /gpt-voice-live-pcm-capture/u);
-    assert.match(workletSource, /registerProcessor/u);
-    assert.doesNotMatch(workletSource, /https?:\/\//u);
-
-    const windows = [
-      ['index.html', 'main'],
-      ['provider-settings.html', 'providerSettings'],
-      ['prettify-profile-chooser.html', 'prettifyProfileChooser'],
-      ['settings.html', 'settings'],
-      ['history.html', 'history'],
-      ['about.html', 'about'],
-    ] as const;
-    for (const [htmlFile, entry] of windows) {
-      const html = await readFile(path.join(outputPath, htmlFile), 'utf8');
-
-      assert.ok(html.includes(`src="renderer/${entry}.js"`));
-      const cssHrefs = [...html.matchAll(/<link[^>]+href="(renderer\/[^"]+\.css)"/gu)].map((match) => match[1] ?? '');
-      assert.equal(cssHrefs.length, 1);
-      for (const cssHref of cssHrefs) {
-        const css = await readFile(path.join(outputPath, cssHref), 'utf8');
-
-        assert.doesNotMatch(css, /\n/u);
-      }
-      for (const [, otherEntry] of windows) {
-        if (otherEntry !== entry) {
-          assert.ok(!html.includes(`src="renderer/${otherEntry}.js"`));
-        }
-      }
+    const rendererPath = path.join(outputPath, 'renderer');
+    const assetPath = path.join(rendererPath, 'assets');
+    await mkdir(assetPath, { recursive: true });
+    await writeFile(path.join(outputPath, 'main.js'), 'electron-main');
+    await writeFile(path.join(rendererPath, 'main.js'), 'renderer-main');
+    await writeFile(
+      path.join(assetPath, 'livePcmCapture.worklet.js'),
+      'gpt-voice-live-pcm-capture;registerProcessor();',
+    );
+    for (const { entry, htmlFile } of RENDERER_WINDOW_ENTRIES) {
+      const cssHref = `renderer/${entry}.hash.css`;
+      await writeFile(path.join(rendererPath, `${entry}.hash.css`), '.fixture{display:block}');
+      await writeFile(
+        path.join(outputPath, htmlFile),
+        `<link rel="stylesheet" href="${cssHref}"><script src="renderer/${entry}.js"></script>`,
+      );
     }
+
+    const verifier = new RendererBundleVerifier(outputPath);
+    await verifier.verify();
+
+    await writeFile(path.join(outputPath, 'provider-hotkey-demo.html'), 'development-only');
+    await assert.rejects(
+      verifier.verify(),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.name === 'RendererBundleVerificationError' &&
+        error.message === 'DEVELOPMENT_DEMO_EMITTED',
+    );
   } finally {
     await rm(outputPath, { force: true, recursive: true });
   }

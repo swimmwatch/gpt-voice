@@ -12,14 +12,13 @@ import { cn } from '@renderer/lib/cn';
 import {
   filterPrettifyProfileChooserProfiles,
   movePrettifyProfileChooserSelection,
-  resolveInitialPrettifyProfileChooserSelection,
+  resolveDefaultPrettifyProfileChooserSelection,
   resolveVisiblePrettifyProfileChooserSelection,
 } from '@renderer/prettifyProfileChooserState';
 import type { PrettifyProfileChooserProfileSummary } from '@shared/prettifyProfileChooser';
 import type { PrettifyProfileId, PrettifyProfileKind } from '@shared/prettifyProfiles';
 
 interface PrettifyProfileChooserProps {
-  readonly initialSelectedProfileId?: PrettifyProfileId;
   readonly onApply: (profileId: PrettifyProfileId) => void;
   readonly onCancel: () => void;
   readonly onManageProfiles: () => void;
@@ -74,6 +73,7 @@ function ProfileOption({
 
   return (
     <button
+      autoFocus={selected}
       aria-describedby={profile.description ? descriptionId : undefined}
       aria-selected={selected}
       className={cn(
@@ -106,7 +106,6 @@ function ProfileOption({
 
 /** Renders the approved selection-only Prettify profile chooser surface. */
 export function PrettifyProfileChooser({
-  initialSelectedProfileId,
   onApply,
   onCancel,
   onManageProfiles,
@@ -118,7 +117,7 @@ export function PrettifyProfileChooser({
   const optionByIdRef = useRef(new Map<PrettifyProfileId, HTMLButtonElement>());
   const [query, setQuery] = useState('');
   const [selectedProfileId, setSelectedProfileId] = useState<PrettifyProfileId | undefined>(() =>
-    resolveInitialPrettifyProfileChooserSelection(profiles, initialSelectedProfileId),
+    resolveDefaultPrettifyProfileChooserSelection(profiles),
   );
   const visibleProfiles = useMemo(() => filterPrettifyProfileChooserProfiles(profiles, query), [profiles, query]);
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
@@ -225,7 +224,6 @@ export function PrettifyProfileChooser({
             <Input
               aria-controls={listboxId}
               aria-label={t('prettify.chooser.searchProfiles')}
-              autoFocus
               className="pl-9"
               id="prettify-profile-search"
               name="prettifyProfileSearch"

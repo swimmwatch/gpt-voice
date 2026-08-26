@@ -4,6 +4,7 @@ import LoadingScreen from '@renderer/components/LoadingScreen';
 import ProviderSettingsForm from '@renderer/components/ProviderSettingsForm';
 import { Alert, AlertDescription } from '@renderer/components/ui/alert';
 import { useI18n } from '@renderer/hooks/useI18n';
+import LocalWhisperSettingsPage from '@renderer/localWhisper/LocalWhisperSettingsPage';
 import {
   findSettingsProvider,
   getProviderSettingsWindowProviderId,
@@ -11,6 +12,7 @@ import {
 } from '@renderer/providerSettingsWindowState';
 import type { ProviderInfo, ProviderSettings } from '@renderer/types';
 import { useWindowStartupReady } from '@renderer/WindowStartupGate';
+import { LOCAL_WHISPER_PROVIDER_ID } from '@shared/localWhisper';
 
 /** Loads one provider-bound settings snapshot and never follows the main window's active provider. */
 function ProviderSettingsWindow(): JSX.Element {
@@ -20,6 +22,12 @@ function ProviderSettingsWindow(): JSX.Element {
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [requestedProviderId] = useState(() => getProviderSettingsWindowProviderId(window.location.search));
+  const [closeRequestRevision, setCloseRequestRevision] = useState(0);
+
+  const closeWindow = useCallback((): void => {
+    void desktopApi.closeProviderSettings();
+  }, [desktopApi]);
 
   useWindowStartupReady(isI18nReady && !isLoading);
 
@@ -29,10 +37,16 @@ function ProviderSettingsWindow(): JSX.Element {
     let disposed = false;
     const loadProviderSettings = async (): Promise<void> => {
       try {
-        const providerId = getProviderSettingsWindowProviderId(window.location.search);
         const providers = await desktopApi.getProviders();
-        const requestedProvider = findSettingsProvider(providers, providerId);
+        const requestedProvider = findSettingsProvider(providers, requestedProviderId);
         if (!requestedProvider) throw new Error('Provider settings are not available');
+
+        if (requestedProvider.id === LOCAL_WHISPER_PROVIDER_ID) {
+          if (disposed) return;
+          setProvider(requestedProvider);
+          document.title = t('providerSettings.title', { provider: requestedProvider.name });
+          return;
+        }
 
         const nextSettings = await desktopApi.getProviderSettings(requestedProvider.id);
         if (!isMatchingProviderSettings(nextSettings, requestedProvider.id)) {
@@ -56,11 +70,30 @@ function ProviderSettingsWindow(): JSX.Element {
     return () => {
       disposed = true;
     };
-  }, [desktopApi, isI18nReady, t]);
+  }, [desktopApi, isI18nReady, requestedProviderId, t]);
 
-  const closeWindow = useCallback((): void => {
-    void desktopApi.closeProviderSettings();
-  }, [desktopApi]);
+  useEffect(
+    () =>
+      desktopApi.onProviderSettingsCloseRequested(() => {
+        if (requestedProviderId === LOCAL_WHISPER_PROVIDER_ID) {
+          setCloseRequestRevision((current) => current + 1);
+          return;
+        }
+        closeWindow();
+      }),
+    [closeWindow, desktopApi, requestedProviderId],
+  );
+
+  useEffect(() => {
+    if (
+      closeRequestRevision > 0 &&
+      !isLoading &&
+      requestedProviderId === LOCAL_WHISPER_PROVIDER_ID &&
+      provider?.id !== LOCAL_WHISPER_PROVIDER_ID
+    ) {
+      closeWindow();
+    }
+  }, [closeRequestRevision, closeWindow, isLoading, provider?.id, requestedProviderId]);
 
   const login = useCallback(async (): Promise<ProviderSettings> => {
     if (!provider) throw new Error(t('providerSettings.loadFailed'));
@@ -81,10 +114,18 @@ function ProviderSettingsWindow(): JSX.Element {
   return (
     <main
       aria-busy={isLoading}
-      className="h-full min-h-0 overflow-y-auto p-6 [-webkit-app-region:no-drag]"
+      className={
+        provider?.id === LOCAL_WHISPER_PROVIDER_ID
+          ? 'h-full min-h-0 overflow-y-auto bg-background [scrollbar-gutter:stable] [-webkit-app-region:no-drag]'
+          : 'h-full min-h-0 overflow-y-auto p-4 sm:p-6 [-webkit-app-region:no-drag]'
+      }
       data-slot="provider-settings-window"
     >
-      {provider && settings ? (
+      {provider?.id === LOCAL_WHISPER_PROVIDER_ID ? (
+        <div className="mx-auto w-full max-w-[912px] min-w-0">
+          <LocalWhisperSettingsPage desktopApi={desktopApi} closeRequestRevision={closeRequestRevision} />
+        </div>
+      ) : provider && settings ? (
         <ProviderSettingsForm
           onClose={closeWindow}
           onLogin={login}

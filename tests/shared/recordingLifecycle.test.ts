@@ -29,7 +29,11 @@ describe('recordingLifecycle', () => {
     assert.equal(canResumeRecording('recording'), false);
     assert.equal(canCancelRecording('starting'), true);
     assert.equal(canCancelRecording('recording'), true);
-    assert.equal(canCancelRecording('transcribing'), false);
+    assert.equal(canCancelRecording('paused'), true);
+    assert.equal(canCancelRecording('transcribing'), true);
+    assert.equal(canCancelRecording('retrying'), true);
+    assert.equal(canCancelRecording('idle'), false);
+    assert.equal(canCancelRecording('stopping'), false);
   });
 
   it('treats every non-idle lifecycle state as busy', () => {

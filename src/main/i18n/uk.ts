@@ -1,9 +1,18 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
 
+import localWhisperSettingsTranslations from './localWhisperSettings/uk';
+
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('uk'),
   'translate.provider': 'Постачальник перекладу',
   'translate.saving': 'Збереження...',
+  'providerHotkeyDemo.fixtureControls': 'Елементи керування демонстрацією',
+  'providerHotkeyDemo.fixture': 'Сценарій',
+  'providerHotkeyDemo.advanceClock': 'Перемістити годинник демонстрації вперед',
+  'providerHotkeyDemo.clearLock': 'Зняти блокування демонстрації',
+  'providerHotkeyDemo.ownerlessLock': 'Блокування без власника',
+  'providerHotkeyDemo.statusDetailPriority': 'Пріоритет деталей статусу',
   'translate.settingsSaveFailed': 'Не вдалося зберегти налаштування перекладу',
 
   // Status messages
@@ -57,6 +66,7 @@ export default {
   'error.translationConsentOrChallenge': 'Сервіс перекладу вимагає згоди або перевірки. Повторіть спробу пізніше.',
   'error.translationPageChanged': 'Сторінка сервісу перекладу змінилася. Повторіть спробу пізніше.',
   'error.translationResultUnavailable': 'Результат перекладу не було отримано до завершення часу очікування.',
+  'error.translationTimedOut': 'Час очікування перекладу минув. Спробуйте ще раз.',
   'error.translationCleanupFailed': 'Не вдалося очистити дані перекладу. Результат не скопійовано.',
   'error.translationSettingsInvalid': 'Виберіть підтримуваний сервіс і мову перекладу.',
   'error.translationSettingsSaveFailed':
@@ -133,6 +143,11 @@ export default {
 
   // App settings
   'appSettings.open': 'Налаштування застосунку',
+  'settings.blockedWhileOpen': 'Закрийте налаштування, щоб продовжити роботу з GPT-Voice.',
+  'settings.opening': 'Відкриття налаштувань…',
+  'settings.show': 'Показати налаштування',
+  'settings.blockedWhileRecording': 'Зупиніть запис перед відкриттям налаштувань.',
+  'settings.blockedWhileOperationActive': 'Дочекайтеся завершення поточної операції перед відкриттям налаштувань.',
   'appSettings.title': 'Налаштування',
   'appSettings.system': 'Система',
   'appSettings.language': 'Мова застосунку',
@@ -217,10 +232,12 @@ export default {
   'recording.pause': 'Призупинити запис',
   'recording.resume': 'Продовжити запис',
   'recording.cancel': 'Скасувати запис',
+  'recording.capturedAudioDuration': 'Записане аудіо: {duration}',
 
   // Model memory
   'modelMemory.title': 'Памʼять моделі',
   'modelMemory.ollamaGpu': 'Модель покращення тексту',
+  'modelMemory.ram': 'ОЗП',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Завантажено',
   'modelMemory.notLoaded': 'Не завантажено',
@@ -360,6 +377,34 @@ export default {
   'hotkey.pressKeyCombination': 'Натисніть комбінацію клавіш',
   'hotkey.waitingForInput': 'Очікування введення...',
   'hotkey.apply': 'Застосувати',
+  'hotkey.notAssigned': 'Не призначено',
+  'hotkey.remove': 'Видалити',
+  'hotkey.test': 'Перевірити поєднання',
+  'hotkey.testing': 'Очікуємо {accelerator}. Натисніть його протягом п’яти секунд; дію «{target}» не буде виконано.',
+  'hotkey.status.unassigned': 'Не призначено',
+  'hotkey.status.registered': 'Зареєстровано',
+  'hotkey.status.failed': 'Помилка',
+  'hotkey.status.suppressed': 'Пригнічено',
+  'hotkey.status.desktopManaged': 'Зареєстровано — керує середовище робочого столу',
+  'hotkey.authority.application': 'Поєднання керується застосунком',
+  'hotkey.authority.desktopEnvironment': 'Поєднання керується середовищем робочого столу',
+  'hotkey.authority.none': 'Немає активного поєднання',
+  'hotkey.recoveryAction': 'Змініть поєднання в налаштуваннях.',
+  'hotkey.preference': 'Налаштоване поєднання: {accelerator}',
+  'hotkey.effective': 'Точний тригер: {accelerator}',
+  'hotkey.failure.invalidAccelerator': 'Введіть дійсне поєднання клавіш.',
+  'hotkey.failure.internalConflict': 'Це поєднання конфліктує з іншим налаштованим поєднанням.',
+  'hotkey.failure.osReserved': 'Це поєднання зарезервовано Windows, зокрема F12 і поєднання з клавішею Windows.',
+  'hotkey.failure.registrationRejected': 'Це поєднання недоступне або використовується системою чи іншою програмою.',
+  'hotkey.failure.persistenceFailed': 'Не вдалося зберегти поєднання. Попереднє поєднання лишається активним.',
+  'hotkey.failure.reconciliationFailed':
+    'Стан поєднання не вдалося безпечно узгодити. Перезапустіть програму або явно відновіть поєднання перед використанням.',
+  'hotkey.failure.unsupportedPlatform': 'Реєстрація поєднань не підтримується на цій платформі.',
+  'hotkey.test.detected': 'Поєднання {accelerator} виявлено. Воно працює.',
+  'hotkey.test.timedOut':
+    'Поєднання {accelerator} не виявлено за п’ять секунд. Його може використовувати інша програма або система.',
+  'hotkey.test.unavailable': 'Поєднання більше не можна перевірити. Призначте його знову й спробуйте ще раз.',
+  'hotkey.stateUpdated': 'Стан реєстрації поєднання оновлено.',
 
   // Translate
   'translate.label': 'Переклад',
@@ -489,6 +534,7 @@ export default {
 
   // Errors
   'error.notLoggedIn': 'Не авторизовано. Будь ласка, увійдіть.',
+  'error.selectedProviderNotReady': 'Вибраний провайдер не готовий.',
   'error.noAccessToken': 'Немає токена доступу або API key. Налаштуйте провайдера й повторіть спробу.',
   'error.chatGptAsrFailure': 'ChatGPT не зміг обробити записаний звук ({mimeType}). Спробуйте записати ще раз.',
   'error.chatGptConnectionInterrupted': 'Розпізнавання через ChatGPT було перервано. Повторіть спробу.',
@@ -655,7 +701,47 @@ export default {
   'appSettings.validation.fingerprintSeedDigits': 'Seed цифрового відбитка має містити лише цифри.',
 
   // Tray
+  'localWhisper.main.loadModel': 'Завантажити модель',
+  'localWhisper.main.freeModel': 'Вивантажити модель',
+  'localWhisper.main.loadingStatus': 'Завантаження стану Local Whisper',
+  'localWhisper.main.loadingModel': 'Завантаження моделі',
+  'localWhisper.main.freeingModel': 'Вивантаження моделі',
+  'localWhisper.main.modelInUse': 'Модель використовується для транскрипції.',
+  'localWhisper.main.actionInProgress': 'Виконується інша операція Local Whisper.',
+  'localWhisper.main.setupRequired': 'Установіть вибране середовище й модель у налаштуваннях Local Whisper.',
+  'localWhisper.main.modelUnavailable': 'Вибрана модель недоступна. Відкрийте налаштування Local Whisper.',
+  'localWhisper.main.modelUnavailableCode': 'Вибрана модель недоступна ({code}). Відкрийте налаштування Local Whisper.',
+  'localWhisper.main.operationFailed': 'Не вдалося виконати операцію з моделлю Local Whisper. Спробуйте ще раз.',
+  'localWhisper.main.operationFailedCode':
+    'Не вдалося виконати операцію з моделлю Local Whisper ({code}). Спробуйте ще раз.',
+
+  'startup.preparing': 'Підготовка запуску',
+  'startup.preparingJobs': 'Підготовка: {jobs}',
+  'startup.preparingJobsWithMore': 'Підготовка: {jobs} і ще {count}',
+  'startup.job.cloakBrowser': 'CloakBrowser',
+  'startup.job.voiceProvider': 'Голосовий провайдер',
+  'startup.job.translation': 'Переклад',
+  'startup.job.prettify': 'Покращення тексту',
+  'startup.progress': 'Перебіг підготовки',
+  'startup.progressValue': '{progress}%',
+  'startup.failed': 'Не вдалося підготувати запуск. Спробуйте ще раз.',
+  'startup.retryFailed': 'Не вдалося повторити підготовку запуску. Спробуйте ще раз.',
+  'startup.retry': 'Повторити',
+  'startup.selectProvider': 'Виберіть провайдера, щоб почати запис.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Показати',
   'tray.quit': 'Вихід',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Незалежна настільна програма для голосової транскрипції через вебсеанси GPT.',
+  'nativeMenu.file': 'Файл',
+  'nativeMenu.edit': 'Редагування',
+  'nativeMenu.view': 'Вигляд',
+  'nativeMenu.help': 'Довідка',
+  'nativeMenu.projectOnGitHub': 'Проєкт на GitHub',
+  'nativeMenu.aboutApp': 'Про {app}',
+  'prettify.providerUnavailable': 'Постачальник Prettify недоступний.',
+  'prettify.modelLoadUnavailable': 'Завантаження моделі недоступне для цього постачальника.',
+  'prettify.modelUnloadUnavailable': 'Вивантаження моделі недоступне для цього постачальника.',
+  'prettify.instructionInvalid': 'Запит Prettify некоректний.',
 } as const;

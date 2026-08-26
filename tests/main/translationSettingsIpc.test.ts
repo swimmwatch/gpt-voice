@@ -23,19 +23,17 @@ describe('translation settings IPC', () => {
 
   it('returns authoritative snapshots on success, validation rejection, and persistence failure', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
-    const handlers = ipc.slice(
-      ipc.indexOf("this.trustedIpc.handle('set-translate-settings'"),
-      ipc.indexOf("this.trustedIpc.handle('get-prettify-settings'"),
-    );
+    const handlerStart = ipc.indexOf("this.trustedIpc.handle('set-translate-settings'");
+    const handlers = ipc.slice(handlerStart, ipc.indexOf('private enqueuePrettifySettingsMutation', handlerStart));
 
     assert.match(
       ipc,
       /this\.trustedIpc\.handle\('get-translate-settings', \(\) => \{\s*return dependencies\.config\.getTranslationSettings\(\)/u,
     );
-    assert.match(handlers, /const settings = dependencies\.config\.saveTranslationSettings\(candidate\)/u);
+    assert.match(handlers, /const settings = config\.saveTranslationSettings\(candidate\)/u);
     assert.match(handlers, /return \{ success: true, settings \}/u);
     assert.match(handlers, /TranslationSettingsValidationError/u);
-    assert.match(handlers, /settings: dependencies\.config\.getTranslationSettings\(\)/u);
+    assert.match(handlers, /settings: config\.getTranslationSettings\(\)/u);
     assert.match(handlers, /error\.translationSettingsInvalid/u);
     assert.match(handlers, /error\.translationSettingsSaveFailed/u);
     assert.doesNotMatch(handlers, /getErrorMessage\(error\)|candidate\s*[,}]/u);
@@ -62,9 +60,10 @@ describe('translation settings IPC', () => {
     const ipc = readProjectFile('src/main/ipc.ts');
     const config = readProjectFile('src/main/config.ts');
     const settings = readProjectFile('src/main/translationSettings.ts');
+    const handlerStart = ipc.indexOf("this.trustedIpc.handle('get-translate-settings'");
     const handlers = ipc.slice(
-      ipc.indexOf("this.trustedIpc.handle('get-translate-settings'"),
-      ipc.indexOf("this.trustedIpc.handle('get-prettify-settings'"),
+      handlerStart,
+      ipc.indexOf('this.trustedIpc.handle(TRANSLATION_PROVIDER_CONNECTION_IPC_CHANNELS.get', handlerStart),
     );
 
     assert.doesNotMatch(handlers, /getProvider|translationProviderRegistry|launch/u);

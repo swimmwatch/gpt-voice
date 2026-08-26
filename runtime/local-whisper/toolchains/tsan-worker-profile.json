@@ -1,0 +1,41 @@
+{
+  "$schema": "schema/worker-tsan-profile.schema.json",
+  "schemaId": "local-whisper-worker-tsan-profile-v1",
+  "profileId": "linux-x64-clang-18.1.3-tsan-v1",
+  "baseToolchainProfile": "linux-x64-clang-18.1.3-asan-ubsan-v1",
+  "target": {
+    "architecture": "x64",
+    "os": "linux"
+  },
+  "cmakeCache": {
+    "LOCAL_WHISPER_ENABLE_SANITIZERS": "OFF",
+    "LOCAL_WHISPER_ENABLE_THREAD_SANITIZER": "ON"
+  },
+  "proof": {
+    "executable": "local_whisper_worker_tsan_race_proof",
+    "timeoutMilliseconds": 30000,
+    "expectedClassification": "data-race"
+  },
+  "suite": {
+    "testPattern": "^(Sha256Dispatch\\.|WorkerApplication\\.)",
+    "timeoutMilliseconds": 120000,
+    "requiredTests": [
+      "Sha256Dispatch.ConcurrentFirstUse",
+      "WorkerApplication.ControlClosureStopsAndJoinsBlockedInference",
+      "WorkerApplication.CooperativeCancellationEmitsNoTranscriptOrLateSuccess",
+      "WorkerApplication.ImmediateAndDelayedInferenceFailuresEmitTypedFailureWithoutAnotherControlFrame",
+      "WorkerApplication.InvalidCancellationStopsAndJoinsBlockedInference",
+      "WorkerApplication.RejectsDuplicateWarmupAfterOneSuccessfulTransition",
+      "WorkerApplication.RejectsInconsistentResidencyThreadIdentityBeforeModelLoad",
+      "WorkerApplication.RejectsMalformedAudioBeforeInference",
+      "WorkerApplication.RejectsMalformedSettingsBeforeReadingAudioOrInference",
+      "WorkerApplication.RejectsTranscriptionBeforeExplicitWarmup",
+      "WorkerApplication.ReleasesMaximumWavStorageBeforeInferenceAndPcmBeforeNextRequest",
+      "WorkerApplication.ReleasesWavStorageWhenPcmConversionFailsBeforeCleanRetry",
+      "WorkerApplication.ReplacesMalformedCommittedTranscriptTextAndKeepsWorkerWarmed",
+      "WorkerApplication.RunsLoadWarmupTranscriptionUnloadAndShutdownStateMachine",
+      "WorkerApplication.TranscriptCommitBeforeCancellationEmitsTranscriptAndCancelTooLate",
+      "WorkerApplication.WarmupFailureUnloadsAndReturnsTypedFailureBeforeCleanRetry"
+    ]
+  }
+}

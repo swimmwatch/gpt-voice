@@ -41,12 +41,14 @@ Substantial work follows explicit gates:
 
 ```text
 user invokes /spec
-  -> approved specification
+  -> completed specification revision is approved automatically
 user invokes /plan
-  -> approved plan and separate execution authorization
-user authorizes one task packet
+  -> completed plan revision is approved automatically
+user invokes incremental implementation for one task packet
   -> implementation and verification stop
-user separately authorizes commit, PR, or release actions
+user invokes incremental implementation again
+  -> previous packet commit and next packet implementation
+user separately authorizes push, PR, tag, publication, or release actions
 ```
 
 Each stage reads repository-owned artifacts from `docs/specs/<slug>/` rather

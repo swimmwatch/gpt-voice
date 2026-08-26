@@ -29,6 +29,7 @@ import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from './providerAudit/providerAuditT
 import { RecordingDiagnosticCapture } from './diagnosticCaptureTestUtils';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
 import { INITIAL_PROVIDER_READINESS_TIMEOUT_MS } from '@main/services/initialProviderReadinessDeadline';
+import { TranslationOperationLifecycleFactory } from '@main/translateProviders/translationOperationLifecycle';
 
 const DEFAULT_SETTINGS: TranslationSettings = {
   providerId: 'google',
@@ -76,7 +77,7 @@ function createSuccess(request: TranslationProviderRequest, text = 'translated')
     metadata: {
       providerId: request.providerId,
       targetLanguage: request.targetLanguage,
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       sourceLength: request.sourceText.length,
       resultLength: text.length,
       durationMs: 2,
@@ -204,6 +205,14 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
   const failedProviderIds = options.shutdownFailedProviderIds ?? [];
   const diagnosticCapture = options.diagnosticCapture ?? new RecordingDiagnosticCapture();
   const readinessDeadline = options.readinessDeadline ?? new InitialProviderReadinessTestDependencies();
+  const operationLifecycleFactory = new TranslationOperationLifecycleFactory({
+    activeNow: () => now,
+    clearTimeout: () => undefined,
+    createAbortController: () => new AbortController(),
+    setTimeout: () => 0,
+    subscribeResume: () => () => undefined,
+    wallNow: () => now,
+  });
 
   const registry: TranslationRuntimeRegistry = {
     getProvider: (providerId) => {
@@ -220,7 +229,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
             metadata: {
               providerId: request.providerId,
               targetLanguage: request.targetLanguage,
-              contractVersion: '2026-07-25',
+              contractVersion: '2026-08-09',
               durationMs: 2,
               attemptCount: 1,
               phase: 'targetSelection',
@@ -258,6 +267,7 @@ function createRuntimeHarness(options: RuntimeHarnessOptions = {}) {
       now += 1;
       return now;
     },
+    operationLifecycleFactory,
     readinessDeadline,
     registry,
   });
@@ -301,12 +311,86 @@ describe('TranslationRuntime', () => {
       providerId: 'google',
       providerName: 'Google',
       targetLanguage: 'uk',
-      contractVersion: '2026-07-25',
+      contractVersion: '2026-08-09',
       maxInputCharacters: 5_000,
       generation: 0,
     });
     assert.equal(Object.isFrozen(snapshot), true);
     assert.deepEqual(harness.getProviderCalls, []);
+  });
+
+  it('presents a typed timeout without demoting an already-ready provider', async () => {
+    const harness = createRuntimeHarness({
+      outcome: {
+        success: false,
+        code: 'timed-out',
+        discard: false,
+        metadata: {
+          providerId: 'google',
+          targetLanguage: 'uk',
+          contractVersion: '2026-08-09',
+          sourceLength: 16,
+          durationMs: 60_000,
+          attemptCount: 1,
+          phase: 'result',
+        },
+      },
+    });
+    await harness.runtime.initializeSelectedProvider();
+    const snapshot = getSnapshot(harness.runtime);
+
+    const outcome = await harness.runtime.translateWithSnapshot('synthetic source', snapshot);
+
+    assert.equal(outcome.success, false);
+    if (outcome.success) return;
+    assert.equal(outcome.code, 'timed-out');
+    assert.equal(harness.runtime.getFailureMessage(outcome), 'Translation timed out. Try again.');
+    assert.deepEqual(harness.runtime.getConnectionState(), {
+      detail: TRANSLATION_PROVIDER_CONNECTION_DETAILS.Ready,
+      providerId: 'google',
+      status: TRANSLATION_PROVIDER_CONNECTION_STATUSES.Connected,
+      targetLanguage: 'uk',
+    });
+  });
+
+  it('does not look up a provider when the selected-text caller has already cancelled', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    const harness = createRuntimeHarness({ audit });
+    const snapshot = getSnapshot(harness.runtime);
+    const controller = new AbortController();
+    controller.abort();
+
+    const outcome = await harness.runtime.translateWithSnapshot('selected text', snapshot, controller.signal);
+
+    assert.equal(outcome.success, false);
+    if (outcome.success) return;
+    assert.equal(outcome.code, 'cancelledOrStaleOperation');
+    assert.equal(outcome.cancelledByCaller, true);
+    assert.equal(outcome.discard, true);
+    assert.deepEqual(harness.getProviderCalls, []);
+    assert.deepEqual(harness.requests, []);
+    assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+    const terminal = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.record.outcome, 'cancelled');
+    assert.equal(terminal[0]?.record.discarded, true);
+  });
+
+  it('keeps direct translation independent of a cancelled selected-text caller', async () => {
+    const harness = createRuntimeHarness();
+    const snapshot = getSnapshot(harness.runtime);
+    const controller = new AbortController();
+    controller.abort();
+
+    const cancelled = await harness.runtime.translateWithSnapshot('selected text', snapshot, controller.signal);
+    const direct = await harness.runtime.translateText('direct text', 'uk');
+
+    assert.equal(cancelled.success, false);
+    assert.deepEqual(direct, { success: true, text: 'translated' });
+    assert.equal(harness.requests.length, 1);
+    assert.equal(harness.requests[0]?.sourceText, 'direct text');
   });
 
   it('initializes the selected provider and target without dispatching translation text', async () => {
@@ -421,7 +505,7 @@ describe('TranslationRuntime', () => {
           discard: code === 'cancelledOrStaleOperation',
           metadata: {
             attemptCount: 1,
-            contractVersion: '2026-07-25',
+            contractVersion: '2026-08-09',
             durationMs: 2,
             phase: 'readiness',
             providerId: request.providerId,
@@ -454,7 +538,7 @@ describe('TranslationRuntime', () => {
           success: true,
           metadata: {
             attemptCount: 1,
-            contractVersion: '2026-07-25',
+            contractVersion: '2026-08-09',
             durationMs: 2,
             phase: 'targetSelection',
             providerId: request.providerId,
@@ -473,7 +557,7 @@ describe('TranslationRuntime', () => {
       success: true,
       metadata: {
         attemptCount: 1,
-        contractVersion: '2026-07-25',
+        contractVersion: '2026-08-09',
         durationMs: 3,
         phase: 'targetSelection',
         providerId: 'google',
@@ -515,7 +599,7 @@ describe('TranslationRuntime', () => {
           success: true,
           metadata: {
             attemptCount: 1,
-            contractVersion: '2026-07-25',
+            contractVersion: '2026-08-09',
             durationMs: 2,
             phase: 'targetSelection',
             providerId: request.providerId,
@@ -552,7 +636,7 @@ describe('TranslationRuntime', () => {
       success: true,
       metadata: {
         attemptCount: 1,
-        contractVersion: '2026-07-25',
+        contractVersion: '2026-08-09',
         durationMs: 3,
         phase: 'targetSelection',
         providerId: 'google',
@@ -622,6 +706,14 @@ describe('TranslationRuntime', () => {
       diagnosticCapture: new RecordingDiagnosticCapture(),
       localization,
       now: () => 100,
+      operationLifecycleFactory: new TranslationOperationLifecycleFactory({
+        activeNow: () => 100,
+        clearTimeout: () => undefined,
+        createAbortController: () => new AbortController(),
+        setTimeout: () => 0,
+        subscribeResume: () => () => undefined,
+        wallNow: () => 100,
+      }),
       readinessDeadline: new InitialProviderReadinessTestDependencies(),
       registry: {
         getProvider: () => {
@@ -904,6 +996,41 @@ describe('TranslationRuntime', () => {
     assert.equal(terminal[0]?.record.outcome, 'cancelled');
     assert.equal(terminal[0]?.record.discarded, true);
     assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+  });
+
+  it('discards late provider success after caller cancellation without diagnostic or connection effects', async () => {
+    const audit = new CapturingTranslationProviderAudit();
+    let finishTranslation!: (outcome: TranslationProviderOutcome) => void;
+    const pending = new Promise<TranslationProviderOutcome>((resolve) => {
+      finishTranslation = resolve;
+    });
+    const harness = createRuntimeHarness({
+      audit,
+      translate: async () => pending,
+    });
+    const snapshot = getSnapshot(harness.runtime);
+    const connectionStateBefore = harness.runtime.getConnectionState();
+    const controller = new AbortController();
+
+    const operation = harness.runtime.translateWithSnapshot('selected text', snapshot, controller.signal);
+    await Promise.resolve();
+    controller.abort();
+    assert.equal(harness.requests[0]?.signal?.aborted, true);
+    finishTranslation(createSuccess(harness.requests[0]));
+    const outcome = await operation;
+
+    assert.equal(outcome.success, false);
+    if (outcome.success) return;
+    assert.equal(outcome.code, 'cancelledOrStaleOperation');
+    assert.equal(outcome.cancelledByCaller, true);
+    assert.deepEqual(harness.diagnosticCapture.translationProviderInputs, []);
+    assert.deepEqual(harness.runtime.getConnectionState(), connectionStateBefore);
+    const terminal = audit.entries.filter(
+      (entry) => entry.record.operation === 'translate' && entry.record.event === 'terminal',
+    );
+    assert.equal(terminal.length, 1);
+    assert.equal(terminal[0]?.record.outcome, 'cancelled');
+    assert.equal(terminal[0]?.record.discarded, true);
   });
 
   it('preserves connection listeners across reset and clears them only on final shutdown', async () => {

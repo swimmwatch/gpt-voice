@@ -11,6 +11,7 @@ const MAIN_COMPOSITION_ROOT_FILES = new Set([
   'src/main/main.ts',
   'src/main/di/mainProcessCompositionRoot.ts',
   'src/main/di/mainProcessRuntimeFactory.ts',
+  'src/main/localWhisper/composition/createProductionLocalWhisperEnvironment.ts',
 ]);
 const IMMUTABLE_MODULE_CONSTRUCTORS = new Set(['Function', 'Map', 'RegExp', 'Set', 'WeakMap', 'WeakSet']);
 const LOCALLY_OWNED_CONSTRUCTORS = new Set(['AbortController']);
@@ -245,8 +246,9 @@ function collectSourceUnits(): SourceUnit[] {
   };
   for (const root of SOURCE_ROOTS) visitDirectory(root);
 
-  return relativePaths.sort().map((relativePath) => {
-    const source = readFileSync(path.join(PROJECT_ROOT, relativePath), 'utf8');
+  return relativePaths.sort().map((hostRelativePath) => {
+    const relativePath = hostRelativePath.split(path.sep).join('/');
+    const source = readFileSync(path.join(PROJECT_ROOT, hostRelativePath), 'utf8');
     const scriptKind = relativePath.endsWith('.tsx')
       ? ts.ScriptKind.TSX
       : relativePath.endsWith('.js')

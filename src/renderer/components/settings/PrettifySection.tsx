@@ -24,6 +24,7 @@ import { Field } from '@renderer/components/ui/field';
 import { Input } from '@renderer/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import { Slider } from '@renderer/components/ui/slider';
+import { Spinner } from '@renderer/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import {
   getCodexCliModelControls,
@@ -367,6 +368,7 @@ function PrettifySection({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  aria-busy={isLoadingModels || undefined}
                   aria-label={t('prettify.refreshModels')}
                   disabled={isLoadingModels}
                   onClick={onRefreshModels}
@@ -374,9 +376,10 @@ function PrettifySection({
                   title={t('prettify.refreshModels')}
                   variant="outline"
                 >
-                  <RefreshCw
-                    aria-hidden="true"
-                    className={isLoadingModels ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  <Spinner
+                    active={isLoadingModels}
+                    fallback={<RefreshCw aria-hidden="true" />}
+                    label={t('prettify.loadingModels')}
                   />
                 </Button>
               </TooltipTrigger>
@@ -391,13 +394,18 @@ function PrettifySection({
                   <TooltipTrigger asChild>
                     <DropdownMenuTrigger asChild>
                       <Button
+                        aria-busy={isLoadingModel || undefined}
                         aria-label={t('prettify.modelActions')}
                         disabled={isLoadingModel || !canUseModelActions}
                         size="icon"
                         title={t('prettify.modelActions')}
                         variant="outline"
                       >
-                        <MoreHorizontal aria-hidden="true" />
+                        <Spinner
+                          active={isLoadingModel}
+                          fallback={<MoreHorizontal aria-hidden="true" />}
+                          label={t('prettify.loadingModel')}
+                        />
                       </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>

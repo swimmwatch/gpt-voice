@@ -63,20 +63,20 @@ describe('translation settings startup notice', () => {
     assert.equal(state.consumeRepairNotice(), null);
   });
 
-  it('runs after locale setup and before IPC, windows, or background providers', () => {
+  it('runs after locale setup and before IPC, windows, or startup coordination', () => {
     const application = readProjectFile('src/main/mainProcessApplication.ts');
     const loadIndex = application.indexOf('dependencies.config.load();');
     const localeIndex = application.indexOf('dependencies.localization.setLocale(', loadIndex);
     const noticeIndex = application.indexOf('presentPendingTranslationSettingsRepairNotice({', localeIndex);
     const ipcIndex = application.indexOf('runtime.registerIpc();', noticeIndex);
     const windowIndex = application.indexOf('this.dependencies.windowManager.createMainWindow();', noticeIndex);
-    const backgroundIndex = application.indexOf('this.dependencies.backgroundBrowserService.initialize()', noticeIndex);
+    const startupIndex = application.indexOf('this.dependencies.firstLaunchStartupCoordinator.start()', noticeIndex);
 
     assert.equal(loadIndex >= 0, true);
     assert.equal(loadIndex < localeIndex, true);
     assert.equal(localeIndex < noticeIndex, true);
     assert.equal(noticeIndex < ipcIndex, true);
     assert.equal(noticeIndex < windowIndex, true);
-    assert.equal(noticeIndex < backgroundIndex, true);
+    assert.equal(noticeIndex < startupIndex, true);
   });
 });

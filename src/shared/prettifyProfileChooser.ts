@@ -27,7 +27,6 @@ export interface PrettifyProfileChooserProfileSummary {
 }
 
 export interface PrettifyProfileChooserRequest {
-  readonly initialProfileId?: PrettifyProfileId;
   readonly profiles: readonly PrettifyProfileChooserProfileSummary[];
   readonly sourceText: string;
 }

@@ -25,7 +25,7 @@ export interface ElectronLogRuntime extends RootLogger {
       level: string;
     };
     readonly console: {
-      level: string;
+      level: string | false;
     };
   };
   scope(scope: string): ScopedLogger;
@@ -49,7 +49,10 @@ export interface MainLogFileAccessor {
 }
 
 const FILE_LOG_LEVEL = 'info';
-const CONSOLE_LOG_LEVEL = 'debug';
+// Electron's console transport writes to the parent terminal. That pipe is not
+// guaranteed to outlive the app (notably for detached development launches),
+// and an EPIPE from it would otherwise become an uncaught main-process error.
+const CONSOLE_LOG_LEVEL = false;
 const NOOP = (): void => undefined;
 const NOOP_LOGGER: ScopedLogger = Object.freeze({
   debug: NOOP,

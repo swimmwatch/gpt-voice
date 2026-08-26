@@ -4,6 +4,8 @@ Status: Implementation complete; final human visual approval pending
 Date: 2026-07-10  
 Scope owner: Renderer UX and design system
 
+Main-window amendment (2026-08-13): `docs/specs/provider-hotkey-action-buttons/spec.md` supersedes this document's main-window content-size, full-width Record/Stop command, and primary-recording-CTA requirements. The active home-screen contract is 620 × 292 with provider-row hotkey action buttons and a 54-pixel status footer. This document remains authoritative for the shared design system, supporting windows, accessibility, privacy, provider, history, and settings requirements that do not conflict with that amendment.
+
 ## Objective
 
 Redesign GPT-Voice as a compact, consistent desktop tool for frequent transcription, translation, and text-prettification work. The redesign must make the current state and next action immediately clear, reduce the effort required to reach common settings and history, and replace the current one-off controls with an accessible component system based on shadcn/ui.
@@ -13,7 +15,7 @@ The primary user is a desktop power user who operates GPT-Voice repeatedly throu
 The redesign succeeds when users can:
 
 1. See provider, recording, transcription, and prettification state at a glance.
-2. Start and control recording from the window without needing to learn a shortcut first.
+2. Start, pause, and resume recording from the Voice provider hotkey action while retaining the configured Stop and Cancel shortcut workflows.
 3. Open History and App Settings directly from the main window.
 4. Configure providers, shortcuts, Prettify, browser behavior, and proxy settings without scanning one long form.
 5. Read, copy, paginate, and clear transcription history confidently.
@@ -71,7 +73,7 @@ The main window remains a compact 460x420 desktop workspace with this fixed info
 1. A compact identity row with direct History and App Settings icon actions.
 2. A provider row with a microphone icon and concise semantic connection state, not a large status action.
 3. A structured model-memory row with a BrainCircuit icon, showing model name, VRAM estimate, loaded state, and the one applicable model-memory command.
-4. A full-width primary recording command with the microphone icon and `F9` shortcut hint.
+4. A keyboard-style Voice action key in the provider row showing the configured record/pause/resume shortcut.
 5. A stable operation-state row that can represent idle, recording, processing, or Prettify work without layout shift.
 6. A bottom target-language selector.
 
@@ -170,7 +172,7 @@ Do not use gradients, purple-blue washes, decorative glows, or a palette dominat
 
 - Base spacing unit: 4px.
 - Common gaps: 8px, 12px, 16px, and 24px.
-- Control height: 36px compact, 40px default, 44px for primary recording actions.
+- Control height: 36px compact and 40px default, with the later home-screen amendment owning the exact 114 × 32 provider action keys.
 - Radius: 6px for controls and 8px maximum for dialogs and repeated-item surfaces.
 - Avoid cards inside cards. Use separators and unframed groups for page sections.
 - Interactive icon buttons use stable square dimensions and always have accessible names and tooltips when their purpose is not universally obvious.
@@ -230,14 +232,14 @@ Keep the current compact single-window format and native title bar.
 
 #### Recording Workspace
 
-- Make recording the primary visual action.
-- Idle: show a primary `Record` button with microphone icon and a compact status label.
-- Recording: replace the primary command with `Stop`; expose Pause and Cancel as secondary icon commands.
-- Paused: expose Resume, Stop, and Cancel.
-- Stopping or transcribing: disable recording controls and show the processing icon and label without changing layout dimensions.
+- The later provider-hotkey amendment removes the full-width primary Record/Stop command in every lifecycle state.
+- Idle: expose the configured record shortcut through the Voice provider action key and retain the compact status label.
+- Recording: the Voice provider action pauses; retain Pause and Cancel as applicable secondary icon commands. Stop remains available through its separately configured global shortcut.
+- Paused: the Voice provider action resumes; retain Resume and Cancel as applicable secondary icon commands. Stop remains available through its separately configured global shortcut.
+- Starting, stopping, transcribing, or retrying: lock unavailable provider actions and show the processing icon and label without changing layout dimensions.
 - Retrying: show processing state and keep a clear indication that stored audio is being resent.
 - Prettifying: use the dedicated Prettify icon/state already supported by the app.
-- All commands call the same existing recording lifecycle as the global shortcuts.
+- All retained commands call the same existing recording lifecycle as the global shortcuts.
 
 #### Translation
 
@@ -376,7 +378,7 @@ Loading state must disable duplicate submission while preserving control dimensi
 - Icon-only buttons have accessible labels; unfamiliar icons have tooltips.
 - Status changes use polite `aria-live`; errors use appropriate alert semantics.
 - Recording, processing, success, warning, and error states include text or icon differences in addition to color.
-- Touch targets are at least 36x36px for compact desktop controls and 44px for primary recording actions.
+- Touch targets are at least 36x36px for compact desktop controls unless a later approved component contract establishes exact geometry, as the 114 × 32 home-screen hotkey keys do.
 - `prefers-reduced-motion` is respected.
 - English, Russian, Ukrainian, and Belarusian labels are tested for wrapping and clipping.
 
@@ -443,10 +445,12 @@ Migration may happen screen by screen, but the completed redesign must not leave
 Use typed, localized, accessible composition. Do not hardcode display text or duplicate primitive styling at call sites.
 
 ```tsx
-<Button type="button" size="lg" disabled={!canStartRecording} onClick={() => void startRecording()}>
-  <Mic aria-hidden="true" />
-  {t('recording.start')}
-</Button>
+<HotkeyActionButton
+  actionLabel={t('recording.startCommand')}
+  disabled={voiceActionLocked}
+  hotkey={hotkeys.hotkey}
+  onActivate={() => void activateVoiceAction()}
+/>
 ```
 
 Additional rules:
@@ -543,7 +547,7 @@ Any shadcn generation command used during implementation must be version-pinned 
 The specification is implemented successfully when all of the following are true:
 
 1. Main, Provider Settings, App Settings, and History use one shared token and component system.
-2. The main window provides visible Record/Stop/Pause/Resume/Cancel controls that invoke the existing recording lifecycle.
+2. The main window provides the visible Voice start/pause/resume hotkey action plus applicable Pause/Resume/Cancel controls, while the separately configured global Stop shortcut continues to invoke the existing recording lifecycle.
 3. History and App Settings are directly reachable from the main window and still available from the tray.
 4. Provider connectivity and model-memory state are compact, unambiguous, and not presented as oversized actions.
 5. App Settings has four navigable sections and a sticky save footer with dirty, validation, saving, success, and error states; native window controls provide closing.

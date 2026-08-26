@@ -469,7 +469,7 @@ describe('Prettify HTTP readiness response contracts', () => {
 
     assert.deepEqual(result, {
       availability: { status: 'unavailable' },
-      error: 'Prettify provider is unavailable',
+      error: 'Prettify provider is unavailable.',
       models: [],
       providerId: 'vllm',
       source: 'http',

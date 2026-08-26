@@ -56,6 +56,10 @@ export function useRecording({
   const recordingModeRef = useRef<VoiceTranscriptionMode | null>(null);
   const recordingGenerationRef = useRef(0);
 
+  const ownsRecordingGeneration = useCallback((generation: number): boolean => {
+    return recordingGenerationRef.current === generation;
+  }, []);
+
   const getSupportedRecordingMimeType = useCallback(() => {
     return PREFERRED_RECORDING_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
   }, []);
@@ -116,11 +120,13 @@ export function useRecording({
   );
 
   const submitTranscriptionAudio = useCallback(
-    async (audio: TranscriptionAudioPayload, retry: boolean) => {
+    async (audio: TranscriptionAudioPayload, retry: boolean, generation: number) => {
+      if (!ownsRecordingGeneration(generation)) return;
       setStatus(translatedStatus(retry ? 'status.resendingTranscription' : 'status.transcribing'));
 
       try {
         const result = await desktopApi.transcribeAudio(audio.buffer, audio.mimeType);
+        if (!ownsRecordingGeneration(generation)) return;
         log.info('Transcription result:', {
           success: result.success,
           textLength: result.text?.length ?? 0,
@@ -139,12 +145,21 @@ export function useRecording({
         });
         setStatus(translatedStatus('status.transcriptionFailed'));
       } catch (error) {
+        if (!ownsRecordingGeneration(generation)) return;
         const presented = showRecognitionErrorNotification(error, t('status.transcriptionError'), { sound: 'error' });
         setStatus(translatedStatus('status.transcriptionError'));
         log.error('Transcribe error:', presented.safeLogMetadata);
       }
     },
-    [desktopApi, log, setStatus, showRecognitionErrorNotification, showSuccessfulTranscription, t],
+    [
+      desktopApi,
+      log,
+      ownsRecordingGeneration,
+      setStatus,
+      showRecognitionErrorNotification,
+      showSuccessfulTranscription,
+      t,
+    ],
   );
 
   const streamingRecording = useStreamingRecordingController({
@@ -193,10 +208,11 @@ export function useRecording({
       chunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
+        if (ownsRecordingGeneration(generation) && event.data.size > 0) chunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
+        if (!ownsRecordingGeneration(generation)) return;
         setRecordingLifecycle('transcribing');
         const mimeType = mediaRecorder.mimeType || selectedMimeType || DEFAULT_TRANSCRIPTION_MIME_TYPE;
         const blob = new Blob(chunksRef.current, { type: mimeType });
@@ -204,6 +220,7 @@ export function useRecording({
         setStatus(translatedStatus('status.transcribing'));
         try {
           const audio = await prepareTranscriptionAudio(blob);
+          if (!ownsRecordingGeneration(generation)) return;
           log.info('Prepared transcription audio:', {
             sourceMimeType: mimeType,
             sourceBytes: blob.size,
@@ -213,20 +230,23 @@ export function useRecording({
             fallbackReason: audio.fallbackReason,
           });
           rememberLastTranscriptionAudio(audio);
-          await submitTranscriptionAudio(audio, false);
+          await submitTranscriptionAudio(audio, false, generation);
         } catch (error) {
+          if (!ownsRecordingGeneration(generation)) return;
           const presented = showRecognitionErrorNotification(error, t('status.transcriptionError'));
           setStatus(translatedStatus('status.transcriptionError'));
           log.error('Transcription audio preparation error:', presented.safeLogMetadata);
         } finally {
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
-            streamRef.current = null;
+          if (ownsRecordingGeneration(generation)) {
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach((track) => track.stop());
+              streamRef.current = null;
+            }
+            mediaRecorderRef.current = null;
+            recordingModeRef.current = null;
+            setRecordingLifecycle('idle');
+            reportRetryableTranscriptionAudio();
           }
-          mediaRecorderRef.current = null;
-          recordingModeRef.current = null;
-          setRecordingLifecycle('idle');
-          reportRetryableTranscriptionAudio();
         }
       };
 
@@ -255,6 +275,7 @@ export function useRecording({
     getSupportedRecordingMimeType,
     log,
     rememberLastTranscriptionAudio,
+    ownsRecordingGeneration,
     reportRetryableTranscriptionAudio,
     setRecordingLifecycle,
     setStatus,
@@ -269,17 +290,21 @@ export function useRecording({
     const retry = beginRetryTranscription(retryStateRef.current, recordingLifecycleStateRef.current);
     if (!retry) return;
 
+    const generation = recordingGenerationRef.current + 1;
+    recordingGenerationRef.current = generation;
     retryStateRef.current = retry.state;
     reportRetryableTranscriptionAudio();
     setRecordingLifecycle('retrying');
     try {
-      await submitTranscriptionAudio(retry.audio, true);
+      await submitTranscriptionAudio(retry.audio, true, generation);
     } finally {
-      retryStateRef.current = finishRetryTranscription(retryStateRef.current);
-      setRecordingLifecycle('idle');
-      reportRetryableTranscriptionAudio();
+      if (ownsRecordingGeneration(generation)) {
+        retryStateRef.current = finishRetryTranscription(retryStateRef.current);
+        setRecordingLifecycle('idle');
+        reportRetryableTranscriptionAudio();
+      }
     }
-  }, [reportRetryableTranscriptionAudio, setRecordingLifecycle, submitTranscriptionAudio]);
+  }, [ownsRecordingGeneration, reportRetryableTranscriptionAudio, setRecordingLifecycle, submitTranscriptionAudio]);
 
   const stopRecording = useCallback(() => {
     if (!canStopRecording(recordingLifecycleStateRef.current)) return;
@@ -339,6 +364,7 @@ export function useRecording({
     }
 
     recordingGenerationRef.current += 1;
+    clearLastTranscriptionAudio();
 
     if (
       mediaRecorderRef.current &&
@@ -358,7 +384,7 @@ export function useRecording({
     setStatus(status);
     notifyStatus?.(status);
     log.info('Cancelled by user');
-  }, [log, notifyStatus, setRecordingLifecycle, setStatus, streamingRecording]);
+  }, [clearLastTranscriptionAudio, log, notifyStatus, setRecordingLifecycle, setStatus, streamingRecording]);
 
   const cancelStreamingForProviderChange = useCallback(() => {
     streamingRecording.cancelForProviderChange();

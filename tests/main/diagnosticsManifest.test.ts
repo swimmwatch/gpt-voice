@@ -26,7 +26,7 @@ const ARCHIVE_ID = '00000000-0000-4000-8000-000000000020';
 const PROVIDER_OPERATION_ID = '00000000-0000-4000-8000-000000000019';
 const ACTION_ID = '00000000-0000-4000-8000-000000000018';
 const RECORDED_AT = '2026-07-27T12:00:00.000Z';
-const TRANSLATION_CONTRACT_VERSION = '2026-07-25';
+const TRANSLATION_CONTRACT_VERSION = '2026-08-09';
 
 function hash(payload: Buffer): string {
   return createHash('sha256').update(payload).digest('hex');
@@ -97,7 +97,7 @@ function createEnvironment(): DiagnosticsArchiveEnvironmentSnapshot {
         configured: true,
         readinessKnown: true,
         ready: false,
-        registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web'],
+        registeredProviderIds: ['chatgpt', 'openai-api', 'claude-web', 'local-whisper'],
         selectedProviderId: 'chatgpt',
       },
       prettify: {

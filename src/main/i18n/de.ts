@@ -1,9 +1,17 @@
 import { getPrettifyProfileSettingsTranslations } from './prettifyProfileSettingsTranslations';
+import localWhisperSettingsTranslations from './localWhisperSettings/de';
 
 export default {
+  ...localWhisperSettingsTranslations,
   ...getPrettifyProfileSettingsTranslations('de'),
   'translate.provider': 'Übersetzungsanbieter',
   'translate.saving': 'Wird gespeichert...',
+  'providerHotkeyDemo.fixtureControls': 'Steuerelemente für das Demo-Szenario',
+  'providerHotkeyDemo.fixture': 'Szenario',
+  'providerHotkeyDemo.advanceClock': 'Demo-Uhr vorstellen',
+  'providerHotkeyDemo.clearLock': 'Demo-Sperre aufheben',
+  'providerHotkeyDemo.ownerlessLock': 'Sperre ohne Besitzer',
+  'providerHotkeyDemo.statusDetailPriority': 'Priorität der Statusdetails',
   'translate.settingsSaveFailed': 'Übersetzungseinstellungen konnten nicht gespeichert werden',
 
   'status.pressToRecord': 'Drücken Sie {hotkey}, um die Aufnahme zu starten',
@@ -55,6 +63,7 @@ export default {
     'Der Übersetzungsanbieter verlangt eine Zustimmung oder Überprüfung. Versuchen Sie es später erneut.',
   'error.translationPageChanged': 'Die Seite des Übersetzungsanbieters wurde geändert. Versuchen Sie es später erneut.',
   'error.translationResultUnavailable': 'Vor Ablauf der Zeit war kein Übersetzungsergebnis verfügbar.',
+  'error.translationTimedOut': 'Die Übersetzung hat zu lange gedauert. Bitte versuchen Sie es erneut.',
   'error.translationCleanupFailed':
     'Die Übersetzungsdaten konnten nicht bereinigt werden. Es wurde kein Ergebnis kopiert.',
   'error.translationSettingsInvalid': 'Wählen Sie einen unterstützten Übersetzungsanbieter und eine Sprache.',
@@ -126,6 +135,12 @@ export default {
   'providerSettings.clearConfirmDescription':
     'Sie müssen sich erneut anmelden oder einen Schlüssel eingeben, um diesen Anbieter zu verwenden.',
   'appSettings.open': 'App-Einstellungen',
+  'settings.blockedWhileOpen': 'Schließen Sie die Einstellungen, um GPT-Voice weiter zu verwenden.',
+  'settings.opening': 'Einstellungen werden geöffnet…',
+  'settings.show': 'Einstellungen anzeigen',
+  'settings.blockedWhileRecording': 'Beenden Sie die Aufnahme, bevor Sie die Einstellungen öffnen.',
+  'settings.blockedWhileOperationActive':
+    'Warten Sie, bis der aktuelle Vorgang beendet ist, bevor Sie die Einstellungen öffnen.',
   'appSettings.title': 'Einstellungen',
   'appSettings.system': 'System',
   'appSettings.language': 'Anwendungssprache',
@@ -207,8 +222,10 @@ export default {
   'recording.pause': 'Aufnahme pausieren',
   'recording.resume': 'Aufnahme fortsetzen',
   'recording.cancel': 'Aufnahme abbrechen',
+  'recording.capturedAudioDuration': 'Aufgenommener Ton: {duration}',
   'modelMemory.title': 'Modell-Speicher',
   'modelMemory.ollamaGpu': 'Verbesserungsmodell',
+  'modelMemory.ram': 'RAM',
   'modelMemory.vram': 'VRAM',
   'modelMemory.loaded': 'Geladen',
   'modelMemory.notLoaded': 'Nicht geladen',
@@ -336,6 +353,41 @@ export default {
   'hotkey.pressKeyCombination': 'Tastenkombination drücken',
   'hotkey.waitingForInput': 'Warte auf Eingabe...',
   'hotkey.apply': 'Anwenden',
+  'hotkey.notAssigned': 'Nicht zugewiesen',
+  'hotkey.remove': 'Entfernen',
+  'hotkey.test': 'Tastenkürzel testen',
+  'hotkey.testing':
+    'Warte auf {accelerator}. Drücken Sie es innerhalb von fünf Sekunden; dadurch wird {target} nicht ausgelöst.',
+  'hotkey.status.unassigned': 'Nicht zugewiesen',
+  'hotkey.status.registered': 'Registriert',
+  'hotkey.status.failed': 'Fehlgeschlagen',
+  'hotkey.status.suppressed': 'Unterdrückt',
+  'hotkey.status.desktopManaged': 'Registriert — desktopverwaltet',
+  'hotkey.authority.application': 'Anwendungsverwaltete Bindung',
+  'hotkey.authority.desktopEnvironment': 'Desktopumgebungsverwaltete Bindung',
+  'hotkey.authority.none': 'Keine aktive Bindung',
+  'hotkey.recoveryAction': 'Ändern Sie das Tastenkürzel in den Einstellungen.',
+  'hotkey.preference': 'Konfigurierte Präferenz: {accelerator}',
+  'hotkey.effective': 'Exakter Auslöser: {accelerator}',
+  'hotkey.failure.invalidAccelerator': 'Geben Sie eine gültige Tastenkombination ein.',
+  'hotkey.failure.internalConflict':
+    'Dieses Tastenkürzel steht im Konflikt mit einem anderen konfigurierten Tastenkürzel.',
+  'hotkey.failure.osReserved':
+    'Dieses Tastenkürzel ist von Windows reserviert, einschließlich F12 und Windows-Tasten-Kombinationen.',
+  'hotkey.failure.registrationRejected':
+    'Diese Kombination ist nicht verfügbar oder wird vom System oder einer anderen Anwendung verwendet.',
+  'hotkey.failure.persistenceFailed':
+    'Das Tastenkürzel konnte nicht gespeichert werden. Ihr vorheriges Tastenkürzel bleibt aktiv.',
+  'hotkey.failure.reconciliationFailed':
+    'Der Tastenkürzelstatus konnte nicht sicher abgeglichen werden. Starten Sie die App neu oder reparieren Sie das Tastenkürzel ausdrücklich, bevor Sie sich darauf verlassen.',
+  'hotkey.failure.unsupportedPlatform':
+    'Die Registrierung von Tastenkürzeln wird auf dieser Plattform nicht unterstützt.',
+  'hotkey.test.detected': '{accelerator} wurde erkannt. Das Tastenkürzel funktioniert.',
+  'hotkey.test.timedOut':
+    '{accelerator} wurde innerhalb von fünf Sekunden nicht erkannt. Es wird möglicherweise von einer anderen App oder dem System verwendet.',
+  'hotkey.test.unavailable':
+    'Das Tastenkürzel kann nicht mehr getestet werden. Weisen Sie es erneut zu und versuchen Sie es noch einmal.',
+  'hotkey.stateUpdated': 'Der Registrierungsstatus des Tastenkürzels wurde aktualisiert.',
   'translate.label': 'Übersetzen',
   'translate.english': 'Englisch',
   'translate.russian': 'Russisch',
@@ -466,6 +518,7 @@ export default {
   'prettify.vllmGpuReleaseWarning':
     'Der Anbieter wurde geändert, aber vLLM konnte den GPU-Speicher nicht freigeben. Aktivieren Sie den vLLM-Ruhemodus.',
   'error.notLoggedIn': 'Nicht angemeldet. Bitte melden Sie sich zuerst an.',
+  'error.selectedProviderNotReady': 'Anbieter nicht bereit.',
   'error.noAccessToken':
     'Kein Zugriffstoken oder API-Schlüssel vorhanden. Konfigurieren Sie den Anbieter und versuchen Sie es erneut.',
   'error.chatGptAsrFailure':
@@ -643,7 +696,50 @@ export default {
   'appSettings.validation.backgroundModeInvalid': 'Wähle einen unterstützten Hintergrundmodus aus.',
   'appSettings.validation.fingerprintSeedRequired': 'Ein Fingerabdruck-Seed ist erforderlich.',
   'appSettings.validation.fingerprintSeedDigits': 'Der Fingerabdruck-Seed darf nur Ziffern enthalten.',
+  'localWhisper.main.loadModel': 'Modell laden',
+  'localWhisper.main.freeModel': 'Modell freigeben',
+  'localWhisper.main.loadingStatus': 'Local-Whisper-Status wird geladen',
+  'localWhisper.main.loadingModel': 'Modell wird geladen',
+  'localWhisper.main.freeingModel': 'Modell wird freigegeben',
+  'localWhisper.main.modelInUse': 'Das Modell wird für die Transkription verwendet.',
+  'localWhisper.main.actionInProgress': 'Eine andere Local-Whisper-Aktion wird ausgeführt.',
+  'localWhisper.main.setupRequired':
+    'Installiere die ausgewählte Laufzeit und das Modell in den Local-Whisper-Einstellungen.',
+  'localWhisper.main.modelUnavailable':
+    'Das ausgewählte Modell ist nicht verfügbar. Öffne die Local-Whisper-Einstellungen.',
+  'localWhisper.main.modelUnavailableCode':
+    'Das ausgewählte Modell ist nicht verfügbar ({code}). Öffne die Local-Whisper-Einstellungen.',
+  'localWhisper.main.operationFailed': 'Der Local-Whisper-Modellvorgang ist fehlgeschlagen. Versuche es erneut.',
+  'localWhisper.main.operationFailedCode':
+    'Der Local-Whisper-Modellvorgang ist fehlgeschlagen ({code}). Versuche es erneut.',
+
+  'startup.preparing': 'Start wird vorbereitet',
+  'startup.preparingJobs': 'Wird vorbereitet: {jobs}',
+  'startup.preparingJobsWithMore': 'Wird vorbereitet: {jobs} und {count} weitere',
+  'startup.job.cloakBrowser': 'CloakBrowser-Browser',
+  'startup.job.voiceProvider': 'Sprachanbieter',
+  'startup.job.translation': 'Übersetzung',
+  'startup.job.prettify': 'Textverbesserung',
+  'startup.progress': 'Startfortschritt',
+  'startup.progressValue': '{progress}% abgeschlossen',
+  'startup.failed': 'Die Startvorbereitung ist fehlgeschlagen. Versuche es erneut.',
+  'startup.retryFailed': 'Die Startvorbereitung konnte nicht erneut versucht werden. Versuche es erneut.',
+  'startup.retry': 'Erneut versuchen',
+  'startup.selectProvider': 'Wähle einen Anbieter aus, um die Aufnahme zu starten.',
+
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Zeigen',
   'tray.quit': 'Beenden',
+  // Native menu and localized provider fallbacks
+  'about.panelCredits': 'Unabhängige Desktop-App zur Sprachtranskription über GPT-Websitzungen.',
+  'nativeMenu.file': 'Datei',
+  'nativeMenu.edit': 'Bearbeiten',
+  'nativeMenu.view': 'Ansicht',
+  'nativeMenu.help': 'Hilfe',
+  'nativeMenu.projectOnGitHub': 'Projekt auf GitHub',
+  'nativeMenu.aboutApp': 'Über {app}',
+  'prettify.providerUnavailable': 'Der Prettify-Anbieter ist nicht verfügbar.',
+  'prettify.modelLoadUnavailable': 'Das Laden von Modellen ist für diesen Anbieter nicht verfügbar.',
+  'prettify.modelUnloadUnavailable': 'Das Freigeben von Modellen ist für diesen Anbieter nicht verfügbar.',
+  'prettify.instructionInvalid': 'Die Prettify-Anfrage ist ungültig.',
 } as const;

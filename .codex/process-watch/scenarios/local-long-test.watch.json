@@ -1,0 +1,46 @@
+{
+  "$schema": "urn:gpt-voice:watch-process:scenario:1",
+  "schemaVersion": "1.1.0",
+  "id": "local-long-test",
+  "description": "Run and repair one watcher-owned local test command.",
+  "adapter": "local-command",
+  "target": {
+    "selectorKinds": ["start"],
+    "identityFields": ["commandDigest", "inputDigest", "attempt", "processStartToken"],
+    "requireExactSourceRevision": false
+  },
+  "success": {
+    "requiredChecksMode": "none",
+    "requiredChecks": [],
+    "requiredOutputs": [],
+    "allowedSkippedChecks": []
+  },
+  "timing": {
+    "expectedDurationSeconds": 600,
+    "minTimeoutSeconds": 120,
+    "maxTimeoutSeconds": 3600,
+    "poll": { "initialSeconds": 1, "maxSeconds": 10, "multiplier": 1.5 }
+  },
+  "evidence": { "maxBytesPerAttempt": 1048576, "maxFailures": 20, "ttlSeconds": 21600 },
+  "repair": {
+    "includeGlobs": ["src/**", "tests/**", "scripts/**"],
+    "excludeGlobs": ["dist/**"],
+    "allowCreate": true,
+    "allowDelete": false,
+    "maxFiles": 40,
+    "maxBytesChanged": 1048576
+  },
+  "verification": [{ "executable": "npm", "args": ["run", "test:types"], "cwd": ".", "env": ["PATH", "SYSTEMROOT"] }],
+  "delivery": { "strategy": "local-restart", "pushCurrentUpstream": false },
+  "authority": { "kind": "standard" },
+  "forbiddenActions": ["force-push", "release", "publish", "deploy"],
+  "adapterConfig": {
+    "startCommand": {
+      "executable": "node",
+      "args": ["scripts/long-test.mjs"],
+      "cwd": ".",
+      "env": ["PATH", "SYSTEMROOT"]
+    },
+    "successExitCodes": [0]
+  }
+}

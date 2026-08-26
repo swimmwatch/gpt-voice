@@ -1,7 +1,8 @@
-import { CircleCheck, CircleOff, LoaderCircle } from 'lucide-react';
+import { CircleCheck, CircleOff } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip';
 import { Badge } from '@renderer/components/ui/badge';
 import { cn } from '@renderer/lib/cn';
+import { Spinner } from '@renderer/components/ui/spinner';
 
 export type ProviderStatusTone = 'error' | 'neutral' | 'success' | 'warning';
 
@@ -36,7 +37,7 @@ export function ProviderStatusIndicator({
   tooltip,
 }: ProviderStatusIndicatorProps): React.JSX.Element {
   const accessibleName = getProviderStatusAccessibleName(label, tooltip);
-  const StatusIcon = loading ? LoaderCircle : tone === 'success' ? CircleCheck : CircleOff;
+  const StatusIcon = tone === 'success' ? CircleCheck : CircleOff;
 
   return (
     <Tooltip>
@@ -48,10 +49,11 @@ export function ProviderStatusIndicator({
           role={role}
           tabIndex={0}
         >
-          <StatusIcon
-            aria-hidden="true"
-            className={loading ? 'animate-spin motion-reduce:animate-none' : undefined}
-            strokeWidth={1.75}
+          <Spinner
+            active={loading}
+            announce={false}
+            fallback={<StatusIcon aria-hidden="true" strokeWidth={1.75} />}
+            label={accessibleName}
           />
         </Badge>
       </TooltipTrigger>

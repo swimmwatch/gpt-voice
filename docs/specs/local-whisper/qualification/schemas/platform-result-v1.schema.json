@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/local-whisper/qualification/platform-result-v1.schema.json",
+  "title": "Local Whisper platform result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "candidateDigest", "platform", "rows"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "candidateDigest": { "$ref": "#/$defs/sha256" },
+    "platform": { "enum": ["linux", "win32"] },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "reasonCode",
+          "candidateDigest",
+          "profileDigest",
+          "evidenceDigest",
+          "evidenceClass",
+          "measurements"
+        ],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "status": { "enum": ["Pass", "Fail", "Pending", "Not Applicable"] },
+          "reasonCode": { "$ref": "#/$defs/identifier" },
+          "candidateDigest": { "$ref": "#/$defs/sha256" },
+          "profileDigest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+          "evidenceDigest": { "$ref": "#/$defs/sha256" },
+          "evidenceClass": {
+            "enum": ["deterministic", "source", "native", "platform", "hardware", "package", "manual", "external"]
+          },
+          "measurements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "value", "unit"],
+              "properties": {
+                "name": { "$ref": "#/$defs/identifier" },
+                "value": { "type": "number" },
+                "unit": { "enum": ["bytes", "milliseconds", "ratio", "percentagePoints", "count"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[^\\u0000-\\u001f\\u007f]+$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

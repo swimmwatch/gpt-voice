@@ -1,8 +1,9 @@
 import { Globe } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { TranslationKey } from '@main/i18n';
 import { useI18n } from '@renderer/hooks/useI18n';
 import { TRANSLATION_PROVIDER_OPTIONS, getTranslationLanguageOptions } from '@renderer/translationLanguageOptions';
+import { doesTranslationConnectionMatchSettings } from '@renderer/translationSettingsViewState';
 import { ProviderStatusIndicator, type ProviderStatusTone } from '@renderer/components/ProviderStatusIndicator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/components/ui/select';
 import {
@@ -16,12 +17,16 @@ import {
 } from '@shared/translationProvider';
 
 interface Props {
+  actionControl?: ReactNode;
   connectionState: TranslationProviderConnectionState | null;
   error: string;
+  isProviderChangesLocked: boolean;
+  isProviderChangeSaving: boolean;
   isSaving: boolean;
   onProviderChange: (providerId: TranslationProviderId) => void;
   onTargetLanguageChange: (targetLanguage: string) => void;
   settings: TranslationSettings;
+  settingsControl?: ReactNode;
 }
 
 const TRANSLATION_CONNECTION_LABEL_KEYS: Record<TranslationProviderConnectionStatus, TranslationKey> = {
@@ -52,6 +57,7 @@ const TRANSLATION_CONNECTION_TONES: Record<TranslationProviderConnectionStatus, 
 
 export interface TranslationProviderConnectionPresentation {
   readonly labelKey: TranslationKey;
+  readonly loading: boolean;
   readonly tone: ProviderStatusTone;
   readonly tooltipKey: TranslationKey;
 }
@@ -59,11 +65,18 @@ export interface TranslationProviderConnectionPresentation {
 export function getTranslationProviderConnectionPresentation(
   connectionState: TranslationProviderConnectionState | null,
   settings: TranslationSettings,
+  isProviderChangeSaving = false,
 ): TranslationProviderConnectionPresentation {
-  const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
+  if (isProviderChangeSaving) {
+    return {
+      labelKey: TRANSLATION_CONNECTION_LABEL_KEYS[TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking],
+      loading: true,
+      tone: TRANSLATION_CONNECTION_TONES[TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking],
+      tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider],
+    };
+  }
   const connectionMatchesSelection =
-    connectionState?.providerId === null ||
-    (connectionState?.providerId === settings.providerId && connectionState.targetLanguage === targetLanguage);
+    connectionState !== null && doesTranslationConnectionMatchSettings(connectionState, settings);
   const status =
     connectionState && connectionMatchesSelection
       ? connectionState.status
@@ -74,6 +87,7 @@ export function getTranslationProviderConnectionPresentation(
       : TRANSLATION_PROVIDER_CONNECTION_DETAILS.OpeningProvider;
   return {
     labelKey: TRANSLATION_CONNECTION_LABEL_KEYS[status],
+    loading: status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking,
     tone: TRANSLATION_CONNECTION_TONES[status],
     tooltipKey: TRANSLATION_CONNECTION_TOOLTIP_KEYS[detail],
   };
@@ -81,12 +95,16 @@ export function getTranslationProviderConnectionPresentation(
 
 /** Renders the compact main-window translation provider and target selectors. */
 const TranslateSection = ({
+  actionControl,
   connectionState,
   error,
+  isProviderChangesLocked,
+  isProviderChangeSaving,
   isSaving,
   onProviderChange,
   onTargetLanguageChange,
   settings,
+  settingsControl,
 }: Props): React.JSX.Element => {
   const { locale, t } = useI18n();
   const languageOptions = useMemo(
@@ -94,7 +112,11 @@ const TranslateSection = ({
     [locale, settings.providerId],
   );
   const targetLanguage = settings.targetLanguageByProvider[settings.providerId];
-  const connectionPresentation = getTranslationProviderConnectionPresentation(connectionState, settings);
+  const connectionPresentation = getTranslationProviderConnectionPresentation(
+    connectionState,
+    settings,
+    isProviderChangeSaving,
+  );
 
   return (
     <section className="command-dock-language-band" data-slot="translate-section">
@@ -103,8 +125,9 @@ const TranslateSection = ({
       <div className="command-dock-language-field command-dock-language-target-field">
         <span className="command-dock-field-label">{t('translate.provider')}</span>
         <Select
-          disabled={isSaving}
+          disabled={isSaving || isProviderChangesLocked}
           onValueChange={(providerId) => {
+            if (isSaving || isProviderChangesLocked) return;
             if (TRANSLATION_PROVIDER_OPTIONS.some((option) => option.value === providerId)) {
               onProviderChange(providerId as TranslationProviderId);
             }
@@ -129,7 +152,14 @@ const TranslateSection = ({
 
       <div className="command-dock-language-field">
         <span className="command-dock-field-label">{t('translate.targetLanguage')}</span>
-        <Select disabled={isSaving} onValueChange={onTargetLanguageChange} value={targetLanguage}>
+        <Select
+          disabled={isSaving || isProviderChangesLocked}
+          onValueChange={(nextTargetLanguage) => {
+            if (isSaving || isProviderChangesLocked) return;
+            onTargetLanguageChange(nextTargetLanguage);
+          }}
+          value={targetLanguage}
+        >
           <SelectTrigger
             aria-label={t('translate.targetLanguage')}
             className="command-dock-provider-trigger command-dock-translation-trigger"
@@ -150,14 +180,18 @@ const TranslateSection = ({
         </Select>
       </div>
 
+      {actionControl}
+
       <ProviderStatusIndicator
         className="command-dock-provider-state command-dock-translation-connection"
         dataSlot="translation-provider-connection"
         label={t(connectionPresentation.labelKey)}
-        loading={connectionState?.status === TRANSLATION_PROVIDER_CONNECTION_STATUSES.Checking}
+        loading={connectionPresentation.loading}
         tone={connectionPresentation.tone}
         tooltip={t(connectionPresentation.tooltipKey)}
       />
+
+      {settingsControl}
 
       {error && (
         <span className="command-dock-language-state is-error" data-slot="translation-settings-state" role="alert">

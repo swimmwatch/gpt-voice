@@ -6,7 +6,7 @@ import * as path from 'node:path';
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 function readRendererSource(filename: string): string {
-  return readFileSync(path.join(PROJECT_ROOT, 'src/renderer', filename), 'utf8');
+  return readFileSync(path.join(PROJECT_ROOT, 'src/renderer', filename), 'utf8').replace(/\r\n/gu, '\n');
 }
 
 describe('main window iconography', () => {
@@ -53,8 +53,14 @@ describe('main window iconography', () => {
       styles,
       /\.command-dock-provider-controls \{[\s\S]*?width: var\(--dock-provider-controls-width\);[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 37px;/u,
     );
-    assert.match(styles, /\.command-dock-provider-settings-shortcut \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;/u);
-    assert.match(styles, /\.command-dock-provider-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u);
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-icon-button,\n\.command-dock \.command-dock-settings-shortcut \{[\s\S]*?width: 37px;[\s\S]*?height: 34px;/u,
+    );
+    assert.match(
+      styles,
+      /\.command-dock \.command-dock-icon-button svg,\n\.command-dock \.command-dock-settings-shortcut svg \{[\s\S]*?width: 22px;[\s\S]*?height: 22px;/u,
+    );
   });
 
   it('uses one hover treatment for every main-window settings gear', () => {
@@ -66,7 +72,7 @@ describe('main window iconography', () => {
     assert.match(prettifyBand, /command-dock-prettify-settings-shortcut command-dock-settings-shortcut/u);
     assert.match(
       styles,
-      /\.command-dock \.command-dock-settings-shortcut:hover \{[^}]*background: var\(--surface-raised\);[^}]*color: var\(--dock-foreground\);/u,
+      /\.command-dock \.command-dock-settings-shortcut:not\(:disabled\):hover \{[^}]*background: var\(--surface-raised\);[^}]*color: var\(--dock-foreground\);/u,
     );
   });
 
@@ -85,11 +91,15 @@ describe('main window iconography', () => {
     assert.match(providerSettingsWindow, /closeProviderSettings\(\)/u);
   });
 
-  it('loads the About logo from the app asset protocol instead of a renderer import', () => {
+  it('bundles a non-interactive About logo with the renderer', () => {
     const aboutWindow = readRendererSource('AboutWindow.tsx');
 
-    assert.match(aboutWindow, /APP_ICON_ASSET_PATH/u);
-    assert.doesNotMatch(aboutWindow, /\.\.\/\.\.\/assets\/icon\.png/u);
+    assert.match(aboutWindow, /aboutWindowLogo from '\.\.\/\.\.\/assets\/icons\/256x256\.png'/u);
+    assert.match(aboutWindow, /src=\{aboutWindowLogo\}/u);
+    assert.match(aboutWindow, /draggable=\{false\}/u);
+    assert.match(aboutWindow, /pointer-events-none/u);
+    assert.match(aboutWindow, /select-none/u);
+    assert.doesNotMatch(aboutWindow, /window\.addEventListener\('keydown'/u);
   });
 
   it('renders guarded external links for the project and license', () => {
