@@ -36,6 +36,7 @@ import {
   VERSION_SCOPED_RELEASE_STATE_FILE_NAME,
   VersionScopedReleaseSourceBinding,
 } from './version-scoped-release-source-binding.mjs';
+import { VersionScopedReleaseRecoveryPermitStore } from './version-scoped-release-recovery.mjs';
 
 const CONTROL_ACTIONS = new Set(['begin-repair', 'begin-write', 'complete-write', 'restart', 'verify']);
 const ACTIVE_BLOCKING_OUTCOMES = new Set(['integrity_failed', 'monitoring_failed', 'timed_out', 'watcher_lost']);
@@ -265,13 +266,14 @@ export class ProcessWatchOperator {
       runtimeFail('process-watch-resume-not-available');
     }
     const timeout = requirePositiveInteger(timeoutSeconds, 'invalid-watch-timeout', 604_800);
-    const control = await this.#loadControlContext(record);
+    const releaseRecovery = await this.#loadVersionScopedReleaseRecovery(record);
+    const control = releaseRecovery ?? (await this.#loadControlContext(record));
     const invocation = normalizeProcessWatchInvocation(
       {
         ...control.envelope.invocation,
         deadlineEpochMilliseconds: this.#now() + timeout * 1_000,
         sourceSha: record.state.target?.sourceSha ?? control.envelope.invocation.sourceSha,
-        target: record.state.target,
+        target: releaseRecovery === null ? record.state.target : null,
         timeoutSeconds: timeout,
       },
       control.normalizedScenario.scenario,
@@ -279,6 +281,13 @@ export class ProcessWatchOperator {
     const recovery = await record.stateStore.recoverAbandonedLock();
     if (!['missing', 'recovered-abandoned-lock'].includes(recovery.kind)) {
       runtimeFail('process-watch-resume-lock-ambiguous');
+    }
+    if (releaseRecovery !== null) {
+      await new VersionScopedReleaseRecoveryPermitStore({ storage: record.storage }).issue({
+        deadlineEpochMilliseconds: invocation.deadlineEpochMilliseconds,
+        sourceSha: invocation.sourceSha,
+        timeoutSeconds: invocation.timeoutSeconds,
+      });
     }
     const launchContext = await this.#createLaunchContext({
       invocation,
@@ -520,6 +529,25 @@ export class ProcessWatchOperator {
       normalizedScenario,
       processStartToken: processStartToken_,
     });
+  }
+
+  async #loadVersionScopedReleaseRecovery(record) {
+    if (
+      !['Blocked', 'Watching'].includes(record.state.phase) ||
+      (record.state.phase === 'Blocked' && !['target_lost', 'watcher_lost'].includes(record.state.outcome)) ||
+      record.state.target?.sourceSha === null
+    ) {
+      return null;
+    }
+    const normalizedScenario = await this.#scenarioRegistry.load(record.state.scenarioId);
+    if (normalizedScenario.scenario.authority?.kind !== 'version-scoped-github-release') return null;
+    const envelope = await new GeneratedWatcherInvocationStore({ storage: record.storage })
+      .read({ scenario: normalizedScenario.scenario, scenarioDigest: record.state.scenarioDigest })
+      .catch(() => null);
+    if (envelope === null || envelope.sessionId !== this.#sessionId || envelope.workspaceId !== this.#workspaceId) {
+      runtimeFail('release-recovery-binding-invalid');
+    }
+    return freezeRecord({ envelope, normalizedScenario });
   }
 
   async #selectWatch(requestedWatchId) {

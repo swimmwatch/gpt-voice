@@ -31,6 +31,7 @@ const WATCH_ID = 'watch-001';
 const SESSION_ID = 'session-001';
 const WORKSPACE_ID = 'workspace-001';
 const START_TOKEN = 'a'.repeat(32);
+const SOURCE_SHA = 'b'.repeat(40);
 const DIGESTS = Object.freeze({
   input: '1'.repeat(64),
   library: '2'.repeat(64),
@@ -39,9 +40,10 @@ const DIGESTS = Object.freeze({
   target: '5'.repeat(64),
 });
 
-function scenario({ adapter = 'fixture-adapter', requireSource = false } = {}) {
+function scenario({ adapter = 'fixture-adapter', authority, requireSource = false } = {}) {
   return {
     adapter,
+    ...(authority === undefined ? {} : { authority }),
     id: 'watch-scenario-001',
     schemaVersion: '1.0.0',
     target: { requireExactSourceRevision: requireSource, selectorKinds: ['start'] },
@@ -81,9 +83,11 @@ function invocation({
 function state({
   blocker = null,
   generation = 0,
+  libraryDigest = DIGESTS.library,
   outcome = null,
   phase = 'Armed',
   scenarioDigest = DIGESTS.scenario,
+  scriptDigest = DIGESTS.script,
   startToken = START_TOKEN,
   target: targetValue = null,
   timeoutSeconds = 1,
@@ -95,14 +99,14 @@ function state({
     failureFingerprints: [],
     generation,
     heartbeat: { atEpochMilliseconds: 10 + generation, startToken },
-    libraryDigest: DIGESTS.library,
+    libraryDigest,
     outcome,
     phase,
     receiptIds: [],
     scenarioDigest,
     scenarioId: 'watch-scenario-001',
     schemaVersion: 1,
-    scriptDigest: DIGESTS.script,
+    scriptDigest,
     sessionId: SESSION_ID,
     target: targetValue,
     timeoutSeconds,
@@ -481,6 +485,62 @@ describe('ProcessWatchOrchestrator', () => {
             }),
           ),
         { code: 'watch-state-integrity-mismatch' },
+      );
+    });
+  });
+
+  it('explicitly replaces a lost local release child while preserving its remote source identity', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const originalStore = new AtomicStateStore({
+        processId: 1234,
+        sessionId: SESSION_ID,
+        storage: new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot }),
+        workspaceId: WORKSPACE_ID,
+      });
+      const lostTarget = target({ sourceSha: SOURCE_SHA });
+      await originalStore.acquireLock({ processStartToken: START_TOKEN });
+      await originalStore.writeInitialState(
+        state({
+          blocker: 'target-lost',
+          libraryDigest: '6'.repeat(64),
+          outcome: 'target_lost',
+          phase: 'Blocked',
+          scenarioDigest: '7'.repeat(64),
+          scriptDigest: '8'.repeat(64),
+          target: lostTarget,
+        }),
+      );
+      await originalStore.releaseLock();
+
+      const adapter = new ScriptedAdapter({
+        observations: [
+          { status: 'succeeded', target: target({ sourceSha: SOURCE_SHA }) },
+          { status: 'succeeded', target: target({ sourceSha: SOURCE_SHA }) },
+        ],
+      });
+      const harness = createHarness(
+        workspaceRoot,
+        adapter,
+        scenario({ authority: { kind: 'version-scoped-github-release' } }),
+      );
+      const result = await harness.orchestrator.resume(
+        invocation({ deadlineEpochMilliseconds: 200_000, sourceSha: SOURCE_SHA, timeoutSeconds: 2 }),
+        { allowVersionScopedReleaseRecovery: true },
+      );
+
+      assert.equal(result.phase, 'Success', JSON.stringify(result));
+      assert.equal(adapter.calls.filter((call) => call.kind === 'start').length, 1);
+      assert.equal(adapter.calls.some((call) => call.kind === 'attach'), false);
+      const persisted = await harness.stateStore.readState();
+      assert.equal(persisted.target.sourceSha, SOURCE_SHA);
+      assert.equal(persisted.libraryDigest, DIGESTS.library);
+      assert.equal(persisted.scenarioDigest, DIGESTS.scenario);
+      assert.equal(persisted.scriptDigest, DIGESTS.script);
+      assert.equal(
+        (await harness.auditJournal.readActive()).some(
+          (event) => event.summaryCode === 'explicit-release-recovery-rearmed',
+        ),
+        true,
       );
     });
   });

@@ -11,6 +11,7 @@ import { validateProcessStartToken, validateWatchId } from './runtime-state-cont
 import { freezeRecord, runtimeFail } from './runtime-core-support.mjs';
 import { WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 import { WatchScenarioRegistry } from './watch-scenario-registry.mjs';
+import { VersionScopedReleaseRecoveryPermitStore } from './version-scoped-release-recovery.mjs';
 
 function parseWatcherArguments(arguments_) {
   if (
@@ -86,7 +87,17 @@ export async function runGeneratedProcessWatcher(binding, { arguments_ = process
     if (repairController === null) runtimeFail('process-watch-repair-control-unavailable');
     return repairController.deliverAndRestart({ invocation: envelope.invocation });
   }
-  return mode === 'resume' ? orchestrator.resume(envelope.invocation) : orchestrator.run(envelope.invocation);
+  const allowVersionScopedReleaseRecovery =
+    mode === 'resume' &&
+    normalizedScenario.scenario.authority?.kind === 'version-scoped-github-release' &&
+    (await new VersionScopedReleaseRecoveryPermitStore({ storage }).matches({
+      deadlineEpochMilliseconds: envelope.invocation.deadlineEpochMilliseconds,
+      sourceSha: envelope.invocation.sourceSha,
+      timeoutSeconds: envelope.invocation.timeoutSeconds,
+    }));
+  return mode === 'resume'
+    ? orchestrator.resume(envelope.invocation, { allowVersionScopedReleaseRecovery })
+    : orchestrator.run(envelope.invocation);
 }
 
 export function generatedWatcherRuntimeBindingSummary(binding) {

@@ -48,6 +48,23 @@ function assertState(state, watchId) {
   return state;
 }
 
+function normalizeRecoveryPermit(permit, watchId) {
+  if (
+    permit === null ||
+    typeof permit !== 'object' ||
+    permit.watchId !== watchId ||
+    !SHA_PATTERN.test(permit.sourceSha) ||
+    !Number.isSafeInteger(permit.deadlineEpochMilliseconds) ||
+    !Number.isSafeInteger(permit.timeoutSeconds) ||
+    permit.timeoutSeconds < 3_600 ||
+    permit.timeoutSeconds > 21_600 ||
+    permit.deadlineEpochMilliseconds < permit.timeoutSeconds * 1_000
+  ) {
+    throw new Error('release-recovery-permit-invalid');
+  }
+  return permit;
+}
+
 export class ReleaseStateStore {
   #directory;
   #file;
@@ -82,5 +99,30 @@ export class ReleaseStateStore {
     await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
     await rename(temporary, this.#file);
     return state;
+  }
+
+  /** Renews an expired release deadline only from the explicit recovery lease written by Watch resume. */
+  async renewForExplicitRecovery(permit, { now = Date.now() } = {}) {
+    const normalizedPermit = normalizeRecoveryPermit(permit, this.#watchId);
+    if (!Number.isSafeInteger(now) || now < 0 || now >= normalizedPermit.deadlineEpochMilliseconds) {
+      throw new Error('release-recovery-deadline-invalid');
+    }
+    const state = await this.read();
+    if (state === null) return null;
+    if (state.phase === 'succeeded') return state;
+    if (state.phase === 'blocked') throw new Error('release-recovery-state-blocked');
+    if (state.sourceSha !== normalizedPermit.sourceSha) throw new Error('release-recovery-source-mismatch');
+    if (
+      state.deadlineEpochMilliseconds === normalizedPermit.deadlineEpochMilliseconds &&
+      state.timeoutSeconds === normalizedPermit.timeoutSeconds
+    ) {
+      return state;
+    }
+    return await this.write({
+      ...state,
+      deadlineEpochMilliseconds: normalizedPermit.deadlineEpochMilliseconds,
+      startedAtEpochMilliseconds: normalizedPermit.deadlineEpochMilliseconds - normalizedPermit.timeoutSeconds * 1_000,
+      timeoutSeconds: normalizedPermit.timeoutSeconds,
+    });
   }
 }

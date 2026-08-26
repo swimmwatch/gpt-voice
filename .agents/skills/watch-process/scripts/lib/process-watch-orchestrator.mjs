@@ -231,15 +231,20 @@ export class ProcessWatchOrchestrator {
   }
 
   /** Refreshes an explicitly resumed deadline and safely reattaches interrupted monitoring. */
-  async resume(invocation) {
+  async resume(invocation, { allowVersionScopedReleaseRecovery = false } = {}) {
     const normalizedInvocation = normalizeProcessWatchInvocation(invocation, this.#scenario);
+    if (typeof allowVersionScopedReleaseRecovery !== 'boolean') runtimeFail('invalid-release-recovery-request');
     let shouldRun = false;
     let result;
     await this.#stateStore.acquireLock({ processStartToken: this.#processStartToken });
     try {
       let state = await this.#stateStore.readState();
       if (state === null) runtimeFail('resume-state-required');
-      this.#assertResumeBinding(state, normalizedInvocation);
+      if (allowVersionScopedReleaseRecovery) {
+        this.#assertVersionScopedReleaseRecoveryBinding(state, normalizedInvocation);
+      } else {
+        this.#assertResumeBinding(state, normalizedInvocation);
+      }
       if (state.phase === 'Success' || state.phase === 'Cancelled') return this.#result(state);
 
       if (INTERRUPTED_WATCHER_PHASES.has(state.phase)) {
@@ -248,7 +253,22 @@ export class ProcessWatchOrchestrator {
         if (state === null) runtimeFail('resume-state-required');
       }
 
-      if (state.phase === 'Blocked') {
+      if (allowVersionScopedReleaseRecovery && state.phase === 'Blocked') {
+        state = await this.#transition(state, {
+          actor: 'agent',
+          deadlineEpochMilliseconds: normalizedInvocation.deadlineEpochMilliseconds,
+          libraryDigest: this.#libraryDigest,
+          outcome: null,
+          scenarioDigest: this.#scenarioDigest,
+          scriptDigest: this.#scriptDigest,
+          summaryCode: 'explicit-release-recovery-rearmed',
+          target: null,
+          timeoutSeconds: normalizedInvocation.timeoutSeconds,
+          toPhase: 'Armed',
+        });
+        shouldRun = true;
+        result = this.#result(state);
+      } else if (state.phase === 'Blocked') {
         state = await this.#transition(state, {
           actor: 'agent',
           deadlineEpochMilliseconds: normalizedInvocation.deadlineEpochMilliseconds,
@@ -601,8 +621,11 @@ export class ProcessWatchOrchestrator {
       blocker = null,
       deadlineEpochMilliseconds,
       failureFingerprints,
+      libraryDigest,
       outcome,
       receiptIds,
+      scenarioDigest,
+      scriptDigest,
       summaryCode,
       target,
       timeoutSeconds,
@@ -617,10 +640,13 @@ export class ProcessWatchOrchestrator {
       failureFingerprints: failureFingerprints ?? state.failureFingerprints,
       generation: state.generation + 1,
       heartbeat: freezeRecord({ atEpochMilliseconds: this.#now(), startToken: this.#processStartToken }),
+      libraryDigest: libraryDigest ?? state.libraryDigest,
       outcome: transition.outcome,
       phase: transition.toPhase,
       receiptIds: receiptIds ?? state.receiptIds,
-      target: target ?? state.target,
+      scenarioDigest: scenarioDigest ?? state.scenarioDigest,
+      scriptDigest: scriptDigest ?? state.scriptDigest,
+      target: target === undefined ? state.target : target,
       timeoutSeconds: timeoutSeconds ?? state.timeoutSeconds,
     });
     const written = await this.#stateStore.compareAndSwap({ expectedGeneration: state.generation, state: next });
@@ -655,6 +681,24 @@ export class ProcessWatchOrchestrator {
       (state.target !== null && state.target.sourceSha !== invocation.sourceSha)
     ) {
       runtimeFail('watch-state-integrity-mismatch');
+    }
+  }
+
+  #assertVersionScopedReleaseRecoveryBinding(state, invocation) {
+    const authority = this.#scenario.authority;
+    if (
+      authority?.kind !== 'version-scoped-github-release' ||
+      state.scenarioId !== this.#scenario.id ||
+      state.sessionId !== this.#sessionId ||
+      state.workspaceId !== this.#workspaceId ||
+      state.phase !== 'Blocked' ||
+      !['target_lost', 'watcher_lost'].includes(state.outcome) ||
+      state.target === null ||
+      state.target.sourceSha === null ||
+      state.target.sourceSha !== invocation.sourceSha ||
+      invocation.target !== null
+    ) {
+      runtimeFail('release-recovery-binding-invalid');
     }
   }
 

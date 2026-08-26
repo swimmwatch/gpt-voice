@@ -554,4 +554,49 @@ describe('ReleaseStateStore', () => {
       await rm(workspaceRoot, { force: true, recursive: true });
     }
   });
+
+  it('renews an expired deadline only for the exact explicit recovery lease and remains idempotent', async () => {
+    const workspaceRoot = await mkdtemp(path.join(tmpdir(), 'alpha-release-recovery-'));
+    const originalDeadline = 4_000_000;
+    const renewedDeadline = 8_000_000;
+    const state = {
+      candidateRun: null,
+      completionDigest: null,
+      deadlineEpochMilliseconds: originalDeadline,
+      failureCode: null,
+      featurePr: null,
+      phase: 'release-candidate',
+      promotionRun: null,
+      releasePr: null,
+      releaseTag: RELEASE_CONTRACT.releaseTag,
+      releaseUrl: null,
+      schemaVersion: 1,
+      sourceSha: FEATURE_SHA,
+      startedAtEpochMilliseconds: originalDeadline - 3_600_000,
+      task32Run: null,
+      timeoutSeconds: 3_600,
+      watchId: WATCH_ID,
+    };
+    const permit = {
+      deadlineEpochMilliseconds: renewedDeadline,
+      schemaVersion: 1,
+      sourceSha: FEATURE_SHA,
+      timeoutSeconds: 3_600,
+      watchId: WATCH_ID,
+    };
+    try {
+      const store = new ReleaseStateStore({ watchId: WATCH_ID, workspaceRoot });
+      await store.write(state);
+      const renewed = await store.renewForExplicitRecovery(permit, { now: 5_000_000 });
+      assert.equal(renewed.deadlineEpochMilliseconds, renewedDeadline);
+      assert.equal(renewed.startedAtEpochMilliseconds, renewedDeadline - 3_600_000);
+      assert.deepEqual(await store.renewForExplicitRecovery(permit, { now: 6_000_000 }), renewed);
+      await assert.rejects(
+        store.renewForExplicitRecovery({ ...permit, sourceSha: REPAIRED_FEATURE_SHA }, { now: 7_000_000 }),
+        /release-recovery-source-mismatch/u,
+      );
+    } finally {
+      await rm(workspaceRoot, { force: true, recursive: true });
+    }
+  });
 });

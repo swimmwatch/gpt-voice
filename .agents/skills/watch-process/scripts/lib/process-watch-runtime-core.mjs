@@ -107,3 +107,8 @@ export { SuccessAttestation } from './success-attestation.mjs';
 export { WatchRuntimeDirectory } from './watch-runtime-directory.mjs';
 export { MAX_PRIVATE_RUNTIME_FILE_BYTES, WatchRuntimeStorage } from './watch-runtime-storage.mjs';
 export { normalizeWatchScenario } from './watch-scenario-registry.mjs';
+export {
+  VERSION_SCOPED_RELEASE_RECOVERY_FILE_NAME,
+  VERSION_SCOPED_RELEASE_RECOVERY_SCHEMA_VERSION,
+  VersionScopedReleaseRecoveryPermitStore,
+} from './version-scoped-release-recovery.mjs';

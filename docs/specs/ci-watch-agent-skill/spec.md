@@ -247,7 +247,13 @@ returns only `report-success`, `repair`, `report-blocked`, or
 Node.js for the remaining approved attempt window and returns the same action
 contract without model calls. `resume` SHALL preserve the original input and
 logical-target identity while replacing only the newly approved timeout and
-deadline; it SHALL reject already successful or cancelled watches.
+deadline; it SHALL reject already successful or cancelled watches. The sole
+`AUTH-001` release exception may replace a proven-lost watcher-owned local CLI
+child after an explicit resume. That recovery retains the same watch ID, source
+SHA, release tag, and workflow correlation; it writes a private bounded recovery
+lease, renews the expired inner release deadline, and must reattach to the exact
+existing remote workflow before considering any dispatch. It does not apply to
+standard scenarios or to any public tag/release state.
 
 **OPS-001:** The supported operator surface is Codex in the IDE extension on a
 connected local host. ChatGPT Desktop is not required.

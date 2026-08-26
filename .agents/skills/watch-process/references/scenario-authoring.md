@@ -285,6 +285,16 @@ tag/release state exists, a source change invalidates the prior candidate and
 returns to exact-SHA construction. After public state appears, repair of
 alpha.1 is forbidden; a new planning iteration must select alpha.2.
 
+If the watcher-owned local release CLI is lost while its correlated GitHub
+candidate workflow is still pending, an explicit `resume` with a newly chosen
+finite timeout may perform the narrowly reviewed recovery. It retains the same
+watch ID, release tag, and source SHA, atomically records a private recovery
+lease, renews the inner release deadline, and replaces only the lost local CLI
+child. The replacement first finds the exact existing workflow by its stable
+correlation before it can dispatch anything. This exception is unavailable to
+standard scenarios, never creates a second candidate workflow, and does not
+permit recovery after a public tag or release exists.
+
 The generic CI adapter accepts exactly one bounded JSON document matching
 `.agents/skills/watch-process/references/generic-ci-result.schema.json`. It
 contains schema version `1.0.0`, kind (`start`, `dispatch`, `observation`, or
@@ -409,7 +419,7 @@ terminate the hook independently of that ceiling.
 | User cancels while hook waits         | The host may interrupt the hook. A live watcher observes the marker; otherwise `resume` reconciles. Remote cancellation still needs separate authority.                                  |
 | Another message in the chat           | Steering/queuing is host-dependent and never required. A change to scenario, target, timeout, scope, or authority becomes `scenario_changed` and `Blocked` before mutation.              |
 | Target becomes terminal               | The watcher writes its terminal generation, closes evidence, releases watcher ownership, and exits. The hook selects and acknowledges it once, even if completion preceded hook startup. |
-| Watcher exits before state update     | Heartbeat and process-token checks report `watcher_lost`; recovery re-observes the exact target before attach, repair, finalization, or block.                                           |
+| Watcher exits before state update     | Heartbeat and process-token checks report `watcher_lost`; recovery re-observes the exact target before attach, repair, finalization, or block. The sole alpha-release exception may instead replace a lost local CLI after explicit resume, but must reattach to the same correlated remote workflow before any dispatch. |
 | Hook times out first or host kills it | Continuation transport is lost, not the target. A watcher can continue to its deadline; `resume` reconciles state.                                                                       |
 | Authentication expires                | Record `authentication_failed`; do not request or store credentials.                                                                                                                     |
 

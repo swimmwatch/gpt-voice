@@ -11,6 +11,10 @@ import { LocalWhisperAlphaReleaseOrchestrator, ReleaseBlockedError } from './rel
 import { ReleasePreparationWriter } from './release-preparation.mjs';
 import { ReleaseStateStore } from './state-store.mjs';
 import { VerifiedReleaseLifecycle } from './verified-release-lifecycle.mjs';
+import {
+  VersionScopedReleaseRecoveryPermitStore,
+  WatchRuntimeStorage,
+} from '../../../../.agents/skills/watch-process/scripts/lib/process-watch-runtime-core.mjs';
 
 function parseArguments(arguments_) {
   const [command, ...options] = arguments_;
@@ -65,6 +69,10 @@ async function main() {
   if (!Number.isSafeInteger(timeoutSeconds) || timeoutSeconds < 3_600 || timeoutSeconds > 21_600) {
     throw new Error('release-timeout-invalid');
   }
+  const recoveryPermit = await new VersionScopedReleaseRecoveryPermitStore({
+    storage: new WatchRuntimeStorage({ watchId, workspaceRoot }),
+  }).read();
+  if (recoveryPermit !== null) await stateStore.renewForExplicitRecovery(recoveryPermit);
   const state = await new VerifiedReleaseLifecycle({ orchestrator }).execute({ timeoutSeconds, watchId });
   reportSuccess(state);
 }
