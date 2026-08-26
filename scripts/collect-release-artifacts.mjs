@@ -35,6 +35,7 @@ const requiredPlatformArtifacts = {
     `${packageName}_${packageVersion}_amd64.deb`,
     `${packageName}-${packageVersion}.x86_64.rpm`,
   ],
+  win32: [`${productName}.Setup.${packageVersion}.exe`],
 };
 const measurementReports = {
   linux: ['size-linux-x64.json', 'startup-linux-x64.json'],
@@ -62,7 +63,8 @@ async function verifyLocalWhisperReleaseCollection() {
     `--staging=${stagingDirectory}`,
   ];
   const productionBundle = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY;
-  if (!productionBundle) throw new Error('Production Local Whisper bundle directory is required for release collection');
+  if (!productionBundle)
+    throw new Error('Production Local Whisper bundle directory is required for release collection');
   arguments_.push(`--bundle=${productionBundle}`);
   const verification = spawnSync(process.execPath, arguments_, {
     cwd: rootDir,

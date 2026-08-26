@@ -449,6 +449,7 @@
       "license": "build/generated/common/license.txt"
     },
     "win": {
+      "artifactName": "${productName}.Setup.${version}.${ext}",
       "extraResources": [
         {
           "from": "build/generated/local-whisper/native",

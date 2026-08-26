@@ -23,6 +23,7 @@ import { resolveProductionWorkflowInputs } from '@scripts/local-whisper/release-
 const WORKSPACE_ROOT = path.resolve(__dirname, '..', '..', '..', '..');
 const DIGEST = 'a'.repeat(64);
 const OTHER_DIGEST = 'b'.repeat(64);
+const WINDOWS_INSTALLER_ARTIFACT_NAME = '${productName}.Setup.${version}.${ext}';
 
 function asset(
   platform: ReleaseAssetPlatform,
@@ -105,6 +106,13 @@ function deployment(): AlphaDeployment {
 }
 
 describe('Local Whisper release protocol', () => {
+  it('uses a deterministic versioned Windows installer filename', async () => {
+    const packageJson = JSON.parse(await readFile(path.join(WORKSPACE_ROOT, 'package.json'), 'utf8')) as {
+      readonly build?: { readonly win?: { readonly artifactName?: unknown } };
+    };
+    assert.equal(packageJson.build?.win?.artifactName, WINDOWS_INSTALLER_ARTIFACT_NAME);
+  });
+
   it('resolves private construction, versioned candidate, and prior-run publication inputs', () => {
     assert.deepEqual(
       resolveProductionWorkflowInputs({ appRevision: '1.4.0', candidateLabel: 'task32-proof-1', publish: false }),
