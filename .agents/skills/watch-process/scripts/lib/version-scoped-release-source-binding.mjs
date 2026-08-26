@@ -11,6 +11,23 @@ const RELEASE_BRANCH_PHASES = new Set([
   'succeeded',
 ]);
 
+function hasProvenReleaseState({ deadlineEpochMilliseconds, releaseState, releaseTag, sourceSha, watchId }) {
+  return (
+    releaseState !== null &&
+    typeof releaseState === 'object' &&
+    releaseState.watchId === watchId &&
+    releaseState.releaseTag === releaseTag &&
+    Number.isSafeInteger(releaseState.timeoutSeconds) &&
+    Number.isSafeInteger(releaseState.startedAtEpochMilliseconds) &&
+    Number.isSafeInteger(releaseState.deadlineEpochMilliseconds) &&
+    releaseState.timeoutSeconds * 1_000 + releaseState.startedAtEpochMilliseconds ===
+      releaseState.deadlineEpochMilliseconds &&
+    (deadlineEpochMilliseconds === null || releaseState.deadlineEpochMilliseconds === deadlineEpochMilliseconds) &&
+    RELEASE_BRANCH_PHASES.has(releaseState.phase) &&
+    releaseState.sourceSha === sourceSha
+  );
+}
+
 /** Proves that a release script, rather than an unrelated clean checkout, advanced the repair source. */
 export class VersionScopedReleaseSourceBinding {
   #attemptSourceSha;
@@ -35,17 +52,36 @@ export class VersionScopedReleaseSourceBinding {
     }
     if (branch !== this.#authority.releaseBranch) runtimeFail('release-repair-branch-not-authorized');
     if (
-      releaseState === null ||
-      typeof releaseState !== 'object' ||
-      releaseState.watchId !== this.#watchId ||
-      releaseState.releaseTag !== this.#authority.tag ||
-      releaseState.timeoutSeconds * 1_000 + releaseState.startedAtEpochMilliseconds !==
-        releaseState.deadlineEpochMilliseconds ||
-      releaseState.deadlineEpochMilliseconds !== this.#deadlineEpochMilliseconds ||
-      !RELEASE_BRANCH_PHASES.has(releaseState.phase) ||
-      releaseState.sourceSha !== headSha
+      !hasProvenReleaseState({
+        deadlineEpochMilliseconds: this.#deadlineEpochMilliseconds,
+        releaseState,
+        releaseTag: this.#authority.tag,
+        sourceSha: headSha,
+        watchId: this.#watchId,
+      })
     ) {
       runtimeFail('release-repair-source-unproven');
+    }
+    return headSha;
+  }
+
+  /** Accepts a fresh source only after the explicit-resume operator proves its clean remote branch binding. */
+  resolveExplicitRecovery({ branch, headSha, releaseState }) {
+    if (!SHA_PATTERN.test(headSha) || !SHA_PATTERN.test(this.#attemptSourceSha)) {
+      runtimeFail('release-recovery-source-invalid');
+    }
+    if (branch === this.#authority.featureBranch) return headSha;
+    if (branch !== this.#authority.releaseBranch) runtimeFail('release-recovery-branch-not-authorized');
+    if (
+      !hasProvenReleaseState({
+        deadlineEpochMilliseconds: null,
+        releaseState,
+        releaseTag: this.#authority.tag,
+        sourceSha: headSha,
+        watchId: this.#watchId,
+      })
+    ) {
+      runtimeFail('release-recovery-source-unproven');
     }
     return headSha;
   }

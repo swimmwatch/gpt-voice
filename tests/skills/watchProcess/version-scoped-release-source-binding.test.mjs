@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  VersionScopedReleaseSourceBinding,
-} from '../../../.agents/skills/watch-process/scripts/lib/version-scoped-release-source-binding.mjs';
+import { VersionScopedReleaseSourceBinding } from '../../../.agents/skills/watch-process/scripts/lib/version-scoped-release-source-binding.mjs';
 
 const WATCH_ID = 'local-whisper-alpha-release-test';
 const FEATURE_SHA = 'a'.repeat(40);
@@ -66,10 +64,33 @@ describe('VersionScopedReleaseSourceBinding', () => {
       {
         branch: AUTHORITY.releaseBranch,
         headSha: RELEASE_SHA,
-        releaseState: releaseState({ deadlineEpochMilliseconds: DEADLINE + 1 }),
+        releaseState: releaseState({ deadlineEpochMilliseconds: DEADLINE + 1, startedAtEpochMilliseconds: 1_001 }),
       },
     ]) {
       assert.throws(() => binding().resolve(request), /release-repair-(?:branch|source)-/u);
     }
+  });
+
+  it('allows an explicit recovery to rebind a clean feature branch or a state-proven release branch', () => {
+    assert.equal(
+      binding().resolveExplicitRecovery({
+        branch: AUTHORITY.featureBranch,
+        headSha: RELEASE_SHA,
+        releaseState: releaseState(),
+      }),
+      RELEASE_SHA,
+    );
+    assert.equal(
+      binding().resolveExplicitRecovery({
+        branch: AUTHORITY.releaseBranch,
+        headSha: RELEASE_SHA,
+        releaseState: releaseState({ deadlineEpochMilliseconds: DEADLINE + 1, startedAtEpochMilliseconds: 1_001 }),
+      }),
+      RELEASE_SHA,
+    );
+    assert.throws(
+      () => binding().resolveExplicitRecovery({ branch: 'main', headSha: RELEASE_SHA, releaseState: releaseState() }),
+      /release-recovery-branch-not-authorized/u,
+    );
   });
 });

@@ -695,7 +695,6 @@ export class ProcessWatchOrchestrator {
       !['target_lost', 'watcher_lost'].includes(state.outcome) ||
       state.target === null ||
       state.target.sourceSha === null ||
-      state.target.sourceSha !== invocation.sourceSha ||
       invocation.target !== null
     ) {
       runtimeFail('release-recovery-binding-invalid');

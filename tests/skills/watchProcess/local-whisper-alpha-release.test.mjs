@@ -135,8 +135,7 @@ class FakeReleaseGitHubClient {
   }
 
   async findPullRequest(branch, { includeMerged = false, sourceSha } = {}) {
-    const candidates =
-      branch === RELEASE_CONTRACT.featureBranch ? [this.featurePullRequest] : this.releasePullRequests;
+    const candidates = branch === RELEASE_CONTRACT.featureBranch ? [this.featurePullRequest] : this.releasePullRequests;
     const exact = candidates.filter(
       (pullRequest) =>
         (sourceSha === undefined || pullRequest.headRefOid === sourceSha) &&
@@ -277,10 +276,7 @@ describe('VerifiedReleaseLifecycle', () => {
     const options = Object.freeze({ timeoutSeconds: 21_600, watchId: WATCH_ID });
 
     assert.equal(await lifecycle.execute(options), finalState);
-    assert.deepEqual(calls, [
-      ['run', options],
-      ['verify-final'],
-    ]);
+    assert.deepEqual(calls, [['run', options], ['verify-final']]);
   });
 
   it('does not report success when final public-release revalidation fails', async () => {
@@ -435,10 +431,7 @@ describe('LocalWhisperAlphaReleaseOrchestrator', () => {
 
     assert.equal(state.phase, 'succeeded');
     assert.equal(state.sourceSha, FOLLOW_UP_RELEASE_SHA);
-    assert.equal(
-      context.github.dispatches.filter((dispatch) => dispatch.phase === 'release-candidate').length,
-      2,
-    );
+    assert.equal(context.github.dispatches.filter((dispatch) => dispatch.phase === 'release-candidate').length, 2);
     assert.equal(context.github.releasePullRequests.filter((pullRequest) => pullRequest.state === 'MERGED').length, 2);
   });
 
@@ -555,7 +548,7 @@ describe('ReleaseStateStore', () => {
     }
   });
 
-  it('renews an expired deadline only for the exact explicit recovery lease and remains idempotent', async () => {
+  it('renews an explicit recovery deadline and leaves source replacement to the Git-bound release reconciler', async () => {
     const workspaceRoot = await mkdtemp(path.join(tmpdir(), 'alpha-release-recovery-'));
     const originalDeadline = 4_000_000;
     const renewedDeadline = 8_000_000;
@@ -591,10 +584,11 @@ describe('ReleaseStateStore', () => {
       assert.equal(renewed.deadlineEpochMilliseconds, renewedDeadline);
       assert.equal(renewed.startedAtEpochMilliseconds, renewedDeadline - 3_600_000);
       assert.deepEqual(await store.renewForExplicitRecovery(permit, { now: 6_000_000 }), renewed);
-      await assert.rejects(
-        store.renewForExplicitRecovery({ ...permit, sourceSha: REPAIRED_FEATURE_SHA }, { now: 7_000_000 }),
-        /release-recovery-source-mismatch/u,
+      const renewedForNewSource = await store.renewForExplicitRecovery(
+        { ...permit, sourceSha: REPAIRED_FEATURE_SHA },
+        { now: 7_000_000 },
       );
+      assert.equal(renewedForNewSource.sourceSha, FEATURE_SHA);
     } finally {
       await rm(workspaceRoot, { force: true, recursive: true });
     }

@@ -73,13 +73,7 @@ export class ReleaseStateStore {
   constructor({ watchId, workspaceRoot }) {
     if (!WATCH_ID_PATTERN.test(watchId)) throw new Error('release-watch-id-invalid');
     this.#watchId = watchId;
-    this.#directory = path.join(
-      workspaceRoot,
-      '.codex',
-      'runtime',
-      'process-watch',
-      watchId,
-    );
+    this.#directory = path.join(workspaceRoot, '.codex', 'runtime', 'process-watch', watchId);
     this.#file = path.join(this.#directory, VERSION_SCOPED_RELEASE_STATE_FILE_NAME);
   }
 
@@ -111,7 +105,6 @@ export class ReleaseStateStore {
     if (state === null) return null;
     if (state.phase === 'succeeded') return state;
     if (state.phase === 'blocked') throw new Error('release-recovery-state-blocked');
-    if (state.sourceSha !== normalizedPermit.sourceSha) throw new Error('release-recovery-source-mismatch');
     if (
       state.deadlineEpochMilliseconds === normalizedPermit.deadlineEpochMilliseconds &&
       state.timeoutSeconds === normalizedPermit.timeoutSeconds

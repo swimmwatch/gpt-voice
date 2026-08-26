@@ -268,11 +268,15 @@ export class ProcessWatchOperator {
     const timeout = requirePositiveInteger(timeoutSeconds, 'invalid-watch-timeout', 604_800);
     const releaseRecovery = await this.#loadVersionScopedReleaseRecovery(record);
     const control = releaseRecovery ?? (await this.#loadControlContext(record));
+    const sourceSha =
+      releaseRecovery === null
+        ? (record.state.target?.sourceSha ?? control.envelope.invocation.sourceSha)
+        : await this.#resolveVersionScopedReleaseRecoverySource({ control, record, timeoutSeconds: timeout });
     const invocation = normalizeProcessWatchInvocation(
       {
         ...control.envelope.invocation,
         deadlineEpochMilliseconds: this.#now() + timeout * 1_000,
-        sourceSha: record.state.target?.sourceSha ?? control.envelope.invocation.sourceSha,
+        sourceSha,
         target: releaseRecovery === null ? record.state.target : null,
         timeoutSeconds: timeout,
       },
@@ -394,6 +398,36 @@ export class ProcessWatchOperator {
     return invocation;
   }
 
+  async #resolveVersionScopedReleaseRecoverySource({ control, record, timeoutSeconds }) {
+    const authority = control.normalizedScenario.scenario.authority;
+    if (authority?.kind !== 'version-scoped-github-release') runtimeFail('release-recovery-authority-invalid');
+    const timeoutMilliseconds = timeoutSeconds * 1_000;
+    const [branch, initialSnapshot, upstream] = await Promise.all([
+      this.#worktreeInspector.currentBranch({ timeoutMilliseconds }),
+      this.#worktreeInspector.assertClean({ timeoutMilliseconds }),
+      this.#worktreeInspector.currentUpstream({ timeoutMilliseconds }),
+    ]);
+    if (
+      ![authority.featureBranch, authority.releaseBranch].includes(branch) ||
+      upstream.remote !== 'origin' ||
+      upstream.branch !== branch
+    ) {
+      runtimeFail('release-recovery-upstream-unproven');
+    }
+    const remoteHead = await this.#worktreeInspector.remoteHead({ timeoutMilliseconds, upstream });
+    const finalSnapshot = await this.#worktreeInspector.assertClean({ timeoutMilliseconds });
+    if (!GitWorktreeInspector.sameSnapshot(initialSnapshot, finalSnapshot) || remoteHead !== initialSnapshot.headSha) {
+      runtimeFail('release-recovery-source-ambiguous');
+    }
+    const releaseState = await record.storage.readJson(VERSION_SCOPED_RELEASE_STATE_FILE_NAME);
+    return new VersionScopedReleaseSourceBinding({
+      attemptSourceSha: record.state.target?.sourceSha,
+      authority,
+      deadlineEpochMilliseconds: record.state.deadlineEpochMilliseconds,
+      watchId: record.watchId,
+    }).resolveExplicitRecovery({ branch, headSha: initialSnapshot.headSha, releaseState });
+  }
+
   async #restartInBackground({ control, record }) {
     const recovery = await record.stateStore.recoverAbandonedLock();
     if (!['missing', 'recovered-abandoned-lock'].includes(recovery.kind)) {
@@ -410,11 +444,7 @@ export class ProcessWatchOperator {
       preflight: async () => {
         await this.#assertCurrentSelection(record.watchId);
         const current = await launchContext.stateStore.readState();
-        if (
-          current === null ||
-          current.generation !== record.state.generation ||
-          current.phase !== 'Verifying'
-        ) {
+        if (current === null || current.generation !== record.state.generation || current.phase !== 'Verifying') {
           runtimeFail('process-watch-repair-restart-state-changed');
         }
       },
