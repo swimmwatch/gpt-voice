@@ -3,6 +3,7 @@ import { runtimeFail } from './runtime-core-support.mjs';
 export const VERSION_SCOPED_RELEASE_STATE_FILE_NAME = 'version-scoped-release-state.json';
 
 const SHA_PATTERN = /^[a-f\d]{40}$/u;
+const MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS = 10_000;
 const RELEASE_BRANCH_PHASES = new Set([
   'release-pr-checks',
   'release-candidate',
@@ -11,7 +12,21 @@ const RELEASE_BRANCH_PHASES = new Set([
   'succeeded',
 ]);
 
-function hasProvenReleaseState({ deadlineEpochMilliseconds, releaseState, releaseTag, sourceSha, watchId }) {
+function matchesReleaseDeadline(releaseStateDeadline, watchDeadline) {
+  if (watchDeadline === null) return true;
+  const startupSkew = releaseStateDeadline - watchDeadline;
+  return startupSkew >= 0 && startupSkew <= MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS;
+}
+
+function hasProvenReleaseState({
+  allowExplicitSourceRecovery = false,
+  deadlineEpochMilliseconds,
+  releaseState,
+  releaseTag,
+  sourceSha,
+  watchId,
+}) {
+  const acceptedPhases = allowExplicitSourceRecovery ? new Set([...RELEASE_BRANCH_PHASES, 'blocked']) : RELEASE_BRANCH_PHASES;
   return (
     releaseState !== null &&
     typeof releaseState === 'object' &&
@@ -22,9 +37,10 @@ function hasProvenReleaseState({ deadlineEpochMilliseconds, releaseState, releas
     Number.isSafeInteger(releaseState.deadlineEpochMilliseconds) &&
     releaseState.timeoutSeconds * 1_000 + releaseState.startedAtEpochMilliseconds ===
       releaseState.deadlineEpochMilliseconds &&
-    (deadlineEpochMilliseconds === null || releaseState.deadlineEpochMilliseconds === deadlineEpochMilliseconds) &&
-    RELEASE_BRANCH_PHASES.has(releaseState.phase) &&
-    releaseState.sourceSha === sourceSha
+    matchesReleaseDeadline(releaseState.deadlineEpochMilliseconds, deadlineEpochMilliseconds) &&
+    SHA_PATTERN.test(releaseState.sourceSha) &&
+    acceptedPhases.has(releaseState.phase) &&
+    (allowExplicitSourceRecovery || releaseState.sourceSha === sourceSha)
   );
 }
 
@@ -74,6 +90,7 @@ export class VersionScopedReleaseSourceBinding {
     if (branch !== this.#authority.releaseBranch) runtimeFail('release-recovery-branch-not-authorized');
     if (
       !hasProvenReleaseState({
+        allowExplicitSourceRecovery: true,
         deadlineEpochMilliseconds: null,
         releaseState,
         releaseTag: this.#authority.tag,

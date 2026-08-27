@@ -148,8 +148,18 @@ export class LocalWhisperAlphaReleaseOrchestrator {
       throw new ReleaseBlockedError('release-public-state-immutable');
     }
     if (state.sourceSha === null) {
-      if (branch !== RELEASE_CONTRACT.featureBranch) throw new ReleaseBlockedError('release-feature-branch-required');
-      return await this.#stateStore.write({ ...state, sourceSha: head });
+      if (branch === RELEASE_CONTRACT.featureBranch) {
+        return await this.#stateStore.write({ ...state, sourceSha: head });
+      }
+      if (branch === RELEASE_CONTRACT.releaseBranch) {
+        return await this.#stateStore.write({
+          ...state,
+          failureCode: null,
+          phase: 'release-pr-checks',
+          sourceSha: head,
+        });
+      }
+      throw new ReleaseBlockedError('release-feature-branch-required');
     }
     if (head === state.sourceSha) return state;
     if (branch === RELEASE_CONTRACT.featureBranch) {

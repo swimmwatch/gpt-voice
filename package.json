@@ -1,7 +1,7 @@
 {
   "name": "gpt-voice",
   "desktopName": "com.swimmwatch.gptvoice",
-  "version": "1.4.0",
+  "version": "2.4.0-alpha.1",
   "private": true,
   "description": "Desktop voice transcription app powered by GPT web sessions and OpenAI API.",
   "homepage": "https://github.com/swimmwatch/gpt-voice",

@@ -340,6 +340,37 @@ describe('LocalWhisperAlphaReleaseOrchestrator', () => {
     assert.deepEqual(await context.orchestrator.verifyFinal(), state);
   });
 
+  it('reattaches from the release branch to an existing release pull request without rerunning Task 32', async () => {
+    const context = harness();
+    context.git.branchName = RELEASE_CONTRACT.releaseBranch;
+    context.git.headSha = RELEASE_SHA;
+    context.git.upstreamSha = RELEASE_SHA;
+    context.github.releasePullRequests.push({
+      baseRefName: RELEASE_CONTRACT.baseBranch,
+      headRefName: RELEASE_CONTRACT.releaseBranch,
+      headRefOid: RELEASE_SHA,
+      mergedAt: null,
+      number: 75,
+      state: 'OPEN',
+      url: 'https://github.com/swimmwatch/gpt-voice/pull/75',
+    });
+
+    const state = await run(context.orchestrator);
+
+    assert.equal(state.phase, 'succeeded');
+    assert.equal(state.sourceSha, RELEASE_SHA);
+    assert.equal(context.preparation.applyCount, 0);
+    assert.equal(context.github.releasePullRequests.length, 1);
+    assert.deepEqual(
+      context.github.dispatches.map((dispatch) => [dispatch.phase, dispatch.sourceSha]),
+      [
+        ['release-candidate', RELEASE_SHA],
+        ['promotion', RELEASE_SHA],
+      ],
+    );
+    assert.deepEqual(context.github.merges, [{ number: 75, sourceSha: RELEASE_SHA }]);
+  });
+
   it('invalidates stale candidates and completes after repairs on feature and release branches', async () => {
     const context = harness();
     context.github.dispatchFailures.set('task32', 1);
@@ -589,6 +620,10 @@ describe('ReleaseStateStore', () => {
         { now: 7_000_000 },
       );
       assert.equal(renewedForNewSource.sourceSha, FEATURE_SHA);
+      await store.write({ ...renewedForNewSource, failureCode: 'release-pull-request-checks-failed', phase: 'blocked' });
+      const renewedBlocked = await store.renewForExplicitRecovery(permit, { now: 7_000_000 });
+      assert.equal(renewedBlocked.phase, 'blocked');
+      assert.equal(renewedBlocked.deadlineEpochMilliseconds, renewedDeadline);
     } finally {
       await rm(workspaceRoot, { force: true, recursive: true });
     }
