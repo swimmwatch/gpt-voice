@@ -36,7 +36,8 @@
       "scripts/generate-package-metadata.mjs",
       "scripts/local-whisper/**",
       "scripts/semantic-version.d.mts",
-      "scripts/semantic-version.mjs",
+    "scripts/semantic-version.mjs",
+    "scripts/verify-installers.mjs",
       "tests/scripts/packageMetadataVersion.test.mjs",
       "tests/runtime/localWhisper/**",
       "tests/scripts/localWhisper/**"

@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 import { createLinuxAppImageCleanupEnvironment } from './linux-appimage-cleanup-environment.mjs';
+import { toLinuxPackageVersion } from './semantic-version.mjs';
 
 const execFile = promisify(execFileCallback);
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -14,6 +15,7 @@ const releaseDir = path.join(rootDir, 'release');
 const packageJson = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf-8'));
 const productName = packageJson.build?.productName || packageJson.name;
 const packageName = packageJson.name;
+const linuxPackageVersion = toLinuxPackageVersion(packageJson.version);
 const desktopIdentity = packageJson.desktopName;
 const platformArg = process.argv.find((arg) => arg.startsWith('--platform='));
 const targetPlatform = platformArg?.slice('--platform='.length) || process.platform;
@@ -303,7 +305,7 @@ async function verifyLinuxInstallers() {
 
   const debInfo = await run('dpkg-deb', ['--info', deb]);
   assert(debInfo.includes(`Package: ${packageName}`), 'deb metadata has unexpected Package field');
-  assert(debInfo.includes(`Version: ${packageJson.version}`), 'deb metadata has unexpected Version field');
+  assert(debInfo.includes(`Version: ${linuxPackageVersion}`), 'deb metadata has unexpected Version field');
   assert(debInfo.includes('Architecture: amd64'), 'deb metadata has unexpected Architecture field');
 
   const debControlDir = await mkdtemp(path.join(os.tmpdir(), `${packageName}-deb-control-`));
@@ -385,7 +387,7 @@ async function verifyLinuxInstallers() {
     rpm,
   ]);
   assert(rpmInfo.includes(`Name: ${packageName}`), 'RPM metadata has unexpected Name field');
-  assert(rpmInfo.includes(`Version: ${packageJson.version}`), 'RPM metadata has unexpected Version field');
+  assert(rpmInfo.includes(`Version: ${linuxPackageVersion}`), 'RPM metadata has unexpected Version field');
   assert(rpmInfo.includes('Release: 1'), 'RPM metadata has unexpected Release field');
   assert(rpmInfo.includes('Architecture: x86_64'), 'RPM metadata has unexpected Architecture field');
   assert(rpmInfo.includes(`License: ${packageJson.license}`), 'RPM metadata has unexpected License field');

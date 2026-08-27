@@ -31,3 +31,9 @@ export function isSemanticVersion(value) {
       )
   );
 }
+
+/** Maps a valid npm SemVer value to Electron Builder's Debian/RPM metadata version. */
+export function toLinuxPackageVersion(value) {
+  if (!isSemanticVersion(value)) throw new TypeError('linux-package-version-invalid');
+  return value.replaceAll('-', '~');
+}
