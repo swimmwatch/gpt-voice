@@ -545,6 +545,47 @@ describe('ProcessWatchOrchestrator', () => {
     });
   });
 
+  it('explicitly restarts a prepublication release after a target failure', async () => {
+    await withWorkspace(async (workspaceRoot) => {
+      const originalStore = new AtomicStateStore({
+        processId: 1234,
+        sessionId: SESSION_ID,
+        storage: new WatchRuntimeStorage({ watchId: WATCH_ID, workspaceRoot }),
+        workspaceId: WORKSPACE_ID,
+      });
+      const failedTarget = target({ sourceSha: SOURCE_SHA });
+      await originalStore.acquireLock({ processStartToken: START_TOKEN });
+      await originalStore.writeInitialState(
+        state({
+          libraryDigest: '6'.repeat(64),
+          outcome: 'target_failed',
+          phase: 'NeedsAgent',
+          scenarioDigest: '7'.repeat(64),
+          scriptDigest: '8'.repeat(64),
+          target: failedTarget,
+        }),
+      );
+      await originalStore.releaseLock();
+
+      const adapter = new ScriptedAdapter({
+        observations: [{ status: 'succeeded', target: target({ sourceSha: SOURCE_SHA }) }],
+      });
+      const harness = createHarness(
+        workspaceRoot,
+        adapter,
+        scenario({ authority: { kind: 'version-scoped-github-release' } }),
+      );
+      const result = await harness.orchestrator.resume(
+        invocation({ deadlineEpochMilliseconds: 200_000, sourceSha: SOURCE_SHA, timeoutSeconds: 2 }),
+        { allowVersionScopedReleaseRecovery: true },
+      );
+
+      assert.equal(result.phase, 'Success', JSON.stringify(result));
+      assert.equal(adapter.calls.filter((call) => call.kind === 'start').length, 1);
+      assert.equal((await harness.stateStore.readState()).target.sourceSha, SOURCE_SHA);
+    });
+  });
+
   it('cancels an active owned local process but only stops monitoring a remote target', async () => {
     for (const [adapterName, expectedCancelCalls] of [
       ['local-command', 1],

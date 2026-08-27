@@ -589,6 +589,10 @@ describe('ReleaseStateStore', () => {
         { now: 7_000_000 },
       );
       assert.equal(renewedForNewSource.sourceSha, FEATURE_SHA);
+      await store.write({ ...renewedForNewSource, failureCode: 'release-pull-request-checks-failed', phase: 'blocked' });
+      const renewedBlocked = await store.renewForExplicitRecovery(permit, { now: 7_000_000 });
+      assert.equal(renewedBlocked.phase, 'blocked');
+      assert.equal(renewedBlocked.deadlineEpochMilliseconds, renewedDeadline);
     } finally {
       await rm(workspaceRoot, { force: true, recursive: true });
     }

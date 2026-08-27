@@ -88,6 +88,14 @@ describe('VersionScopedReleaseSourceBinding', () => {
       }),
       RELEASE_SHA,
     );
+    assert.equal(
+      binding().resolveExplicitRecovery({
+        branch: AUTHORITY.releaseBranch,
+        headSha: RELEASE_SHA,
+        releaseState: releaseState({ phase: 'blocked', sourceSha: FEATURE_SHA }),
+      }),
+      RELEASE_SHA,
+    );
     assert.throws(
       () => binding().resolveExplicitRecovery({ branch: 'main', headSha: RELEASE_SHA, releaseState: releaseState() }),
       /release-recovery-branch-not-authorized/u,

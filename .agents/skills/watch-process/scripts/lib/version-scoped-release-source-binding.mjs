@@ -11,7 +11,15 @@ const RELEASE_BRANCH_PHASES = new Set([
   'succeeded',
 ]);
 
-function hasProvenReleaseState({ deadlineEpochMilliseconds, releaseState, releaseTag, sourceSha, watchId }) {
+function hasProvenReleaseState({
+  allowExplicitSourceRecovery = false,
+  deadlineEpochMilliseconds,
+  releaseState,
+  releaseTag,
+  sourceSha,
+  watchId,
+}) {
+  const acceptedPhases = allowExplicitSourceRecovery ? new Set([...RELEASE_BRANCH_PHASES, 'blocked']) : RELEASE_BRANCH_PHASES;
   return (
     releaseState !== null &&
     typeof releaseState === 'object' &&
@@ -23,8 +31,9 @@ function hasProvenReleaseState({ deadlineEpochMilliseconds, releaseState, releas
     releaseState.timeoutSeconds * 1_000 + releaseState.startedAtEpochMilliseconds ===
       releaseState.deadlineEpochMilliseconds &&
     (deadlineEpochMilliseconds === null || releaseState.deadlineEpochMilliseconds === deadlineEpochMilliseconds) &&
-    RELEASE_BRANCH_PHASES.has(releaseState.phase) &&
-    releaseState.sourceSha === sourceSha
+    SHA_PATTERN.test(releaseState.sourceSha) &&
+    acceptedPhases.has(releaseState.phase) &&
+    (allowExplicitSourceRecovery || releaseState.sourceSha === sourceSha)
   );
 }
 
@@ -74,6 +83,7 @@ export class VersionScopedReleaseSourceBinding {
     if (branch !== this.#authority.releaseBranch) runtimeFail('release-recovery-branch-not-authorized');
     if (
       !hasProvenReleaseState({
+        allowExplicitSourceRecovery: true,
         deadlineEpochMilliseconds: null,
         releaseState,
         releaseTag: this.#authority.tag,
