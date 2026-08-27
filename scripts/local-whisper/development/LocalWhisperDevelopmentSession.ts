@@ -20,7 +20,9 @@ import {
   type DevelopmentRuntimePlatformSelector,
 } from './DevelopmentRuntimeInputs';
 
-const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
+const SEMVER_CORE_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
+const SEMVER_IDENTIFIER_PATTERN = /^[\dA-Za-z-]+$/u;
+const SEMVER_NUMERIC_IDENTIFIER_PATTERN = /^(?:0|[1-9]\d*)$/u;
 const APPLICATION_STATE_DIRECTORY_NAME = 'application-state';
 const APPLICATION_CONFIGURATION_DIRECTORY_NAME = 'configuration';
 const ELECTRON_USER_DATA_DIRECTORY_NAME = 'electron-user-data';
@@ -64,6 +66,35 @@ export type DevelopmentApplicationLauncher = (
   cwd: string,
   environment: NodeJS.ProcessEnv,
 ) => Promise<DevelopmentApplicationSession>;
+
+function isSemanticVersion(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const buildSeparator = value.indexOf('+');
+  if (buildSeparator !== value.lastIndexOf('+')) return false;
+  const versionWithPrerelease = buildSeparator === -1 ? value : value.slice(0, buildSeparator);
+  const buildMetadata = buildSeparator === -1 ? null : value.slice(buildSeparator + 1);
+  if (
+    buildMetadata !== null &&
+    (buildMetadata.length === 0 ||
+      !buildMetadata.split('.').every((identifier) => SEMVER_IDENTIFIER_PATTERN.test(identifier)))
+  ) {
+    return false;
+  }
+  const prereleaseSeparator = versionWithPrerelease.indexOf('-');
+  const core = prereleaseSeparator === -1 ? versionWithPrerelease : versionWithPrerelease.slice(0, prereleaseSeparator);
+  const prerelease = prereleaseSeparator === -1 ? null : versionWithPrerelease.slice(prereleaseSeparator + 1);
+  if (!SEMVER_CORE_PATTERN.test(core) || prerelease === null) return SEMVER_CORE_PATTERN.test(core);
+  return (
+    prerelease.length > 0 &&
+    prerelease
+      .split('.')
+      .every(
+        (identifier) =>
+          SEMVER_IDENTIFIER_PATTERN.test(identifier) &&
+          (!/^\d+$/u.test(identifier) || SEMVER_NUMERIC_IDENTIFIER_PATTERN.test(identifier)),
+      )
+  );
+}
 
 function waitForExit(child: ChildProcess): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -158,15 +189,19 @@ export class LocalWhisperDevelopmentSession {
       throw new Error('Local Whisper development session requires a supported absolute workspace');
     }
     const packageValue = JSON.parse(await readFile(path.join(workspace, 'package.json'), 'utf8')) as unknown;
+    const version =
+      typeof packageValue === 'object' && packageValue !== null && !Array.isArray(packageValue)
+        ? (packageValue as Record<string, unknown>).version
+        : undefined;
     if (
       typeof packageValue !== 'object' ||
       packageValue === null ||
       Array.isArray(packageValue) ||
-      !SEMVER_PATTERN.test(String((packageValue as Record<string, unknown>).version))
+      !isSemanticVersion(version)
     ) {
       throw new Error('Local Whisper development application revision invalid');
     }
-    const appRevision = String((packageValue as Record<string, unknown>).version);
+    const appRevision = version;
     const electronExecutable = await this.dependencies.electron.resolve(workspace);
     const [runtimes, sourceCommit] = await Promise.all([
       this.dependencies.runtimes.load(workspace, platform),

@@ -87,7 +87,7 @@ describe('LocalWhisperDevelopmentSession', () => {
     );
     await mkdir(path.dirname(electronPath), { recursive: true });
     await Promise.all([
-      writeFile(path.join(root, 'package.json'), JSON.stringify({ version: '2.4.0' }), { mode: 0o600 }),
+      writeFile(path.join(root, 'package.json'), JSON.stringify({ version: '2.4.0-alpha.1' }), { mode: 0o600 }),
       writeFile(electronPath, 'electron fixture', { mode: 0o700 }),
     ]);
     const events: string[] = [];
