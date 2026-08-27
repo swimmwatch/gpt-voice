@@ -7,6 +7,7 @@ const WATCH_ID = 'local-whisper-alpha-release-test';
 const FEATURE_SHA = 'a'.repeat(40);
 const RELEASE_SHA = 'b'.repeat(40);
 const DEADLINE = 21_601_000;
+const MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS = 10_000;
 const AUTHORITY = Object.freeze({
   featureBranch: 'feat/local-whisper-provider',
   releaseBranch: 'release/v2.4.0-alpha.1',
@@ -51,7 +52,33 @@ describe('VersionScopedReleaseSourceBinding', () => {
     );
   });
 
-  it('rejects external feature changes, unauthorized branches, stale release state, and deadline changes', () => {
+  it('accepts only the bounded release-script startup deadline skew', () => {
+    assert.equal(
+      binding().resolve({
+        branch: AUTHORITY.releaseBranch,
+        headSha: RELEASE_SHA,
+        releaseState: releaseState({
+          deadlineEpochMilliseconds: DEADLINE + MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS,
+          startedAtEpochMilliseconds: 1_000 + MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS,
+        }),
+      }),
+      RELEASE_SHA,
+    );
+    assert.throws(
+      () =>
+        binding().resolve({
+          branch: AUTHORITY.releaseBranch,
+          headSha: RELEASE_SHA,
+          releaseState: releaseState({
+            deadlineEpochMilliseconds: DEADLINE + MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS + 1,
+            startedAtEpochMilliseconds: 1_001 + MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS,
+          }),
+        }),
+      /release-repair-source-unproven/u,
+    );
+  });
+
+  it('rejects external feature changes, unauthorized branches, and stale release state', () => {
     for (const request of [
       { branch: AUTHORITY.featureBranch, headSha: RELEASE_SHA, releaseState: releaseState() },
       { branch: 'main', headSha: FEATURE_SHA, releaseState: releaseState() },
@@ -64,7 +91,7 @@ describe('VersionScopedReleaseSourceBinding', () => {
       {
         branch: AUTHORITY.releaseBranch,
         headSha: RELEASE_SHA,
-        releaseState: releaseState({ deadlineEpochMilliseconds: DEADLINE + 1, startedAtEpochMilliseconds: 1_001 }),
+        releaseState: releaseState({ sourceSha: FEATURE_SHA }),
       },
     ]) {
       assert.throws(() => binding().resolve(request), /release-repair-(?:branch|source)-/u);

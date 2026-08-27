@@ -3,6 +3,7 @@ import { runtimeFail } from './runtime-core-support.mjs';
 export const VERSION_SCOPED_RELEASE_STATE_FILE_NAME = 'version-scoped-release-state.json';
 
 const SHA_PATTERN = /^[a-f\d]{40}$/u;
+const MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS = 10_000;
 const RELEASE_BRANCH_PHASES = new Set([
   'release-pr-checks',
   'release-candidate',
@@ -10,6 +11,12 @@ const RELEASE_BRANCH_PHASES = new Set([
   'publish-release',
   'succeeded',
 ]);
+
+function matchesReleaseDeadline(releaseStateDeadline, watchDeadline) {
+  if (watchDeadline === null) return true;
+  const startupSkew = releaseStateDeadline - watchDeadline;
+  return startupSkew >= 0 && startupSkew <= MAXIMUM_RELEASE_STATE_STARTUP_SKEW_MILLISECONDS;
+}
 
 function hasProvenReleaseState({
   allowExplicitSourceRecovery = false,
@@ -30,7 +37,7 @@ function hasProvenReleaseState({
     Number.isSafeInteger(releaseState.deadlineEpochMilliseconds) &&
     releaseState.timeoutSeconds * 1_000 + releaseState.startedAtEpochMilliseconds ===
       releaseState.deadlineEpochMilliseconds &&
-    (deadlineEpochMilliseconds === null || releaseState.deadlineEpochMilliseconds === deadlineEpochMilliseconds) &&
+    matchesReleaseDeadline(releaseState.deadlineEpochMilliseconds, deadlineEpochMilliseconds) &&
     SHA_PATTERN.test(releaseState.sourceSha) &&
     acceptedPhases.has(releaseState.phase) &&
     (allowExplicitSourceRecovery || releaseState.sourceSha === sourceSha)
