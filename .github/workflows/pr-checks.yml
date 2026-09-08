@@ -119,7 +119,7 @@ jobs:
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
       - name: Initialize Linux C++ CodeQL database
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           build-mode: manual
           db-location: ${{ github.workspace }}/.cache/codeql/cpp-linux
@@ -156,7 +156,7 @@ jobs:
           npm run test:local-whisper:filesystem
           npm run verify:local-whisper:filesystem -- --fixture
       - name: Analyze Linux C++ CodeQL database
-        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: /language:c-cpp,host:linux
           output: release-artifacts/codeql-cpp-linux
@@ -321,7 +321,7 @@ jobs:
         shell: pwsh
         run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
       - name: Initialize Windows C++ CodeQL database
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           build-mode: manual
           db-location: ${{ github.workspace }}/.cache/codeql/cpp-windows
@@ -346,7 +346,7 @@ jobs:
           npm run test:local-whisper:supervisor
           npm run test:local-whisper:filesystem
       - name: Analyze Windows C++ CodeQL database
-        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: /language:c-cpp,host:windows
           output: release-artifacts/codeql-cpp-windows
@@ -618,7 +618,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize JavaScript and TypeScript CodeQL database
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           build-mode: none
           config-file: ./.github/codeql-config.yml
@@ -626,7 +626,7 @@ jobs:
           languages: javascript-typescript
           queries: security-and-quality
       - name: Analyze JavaScript and TypeScript CodeQL database
-        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: /language:javascript-typescript
           output: release-artifacts/codeql-javascript-typescript
@@ -693,7 +693,7 @@ jobs:
 
       - name: Set up Docker Buildx
         if: matrix.platform == 'linux'
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Build Fedora release image
         if: matrix.platform == 'linux'
