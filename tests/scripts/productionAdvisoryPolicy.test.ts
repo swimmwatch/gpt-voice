@@ -349,6 +349,19 @@ describe('locked production closure policy', () => {
 });
 
 describe('Electron/Node archive runtime policy', () => {
+  it('allows only the reviewed bundled-renderer exclusion outside the archive graph', () => {
+    const fixture = new ElectronNodeArchiveRuntimeFixture();
+    fixture.buildFiles.push('!node_modules/react-icons{,/**/*}');
+    for (const target of SUPPORTED_DEPENDENCY_TARGETS) {
+      fixture.createPolicy().verify(target);
+    }
+    fixture.buildFiles.push('!node_modules/archiver{,/**/*}');
+    assert.throws(
+      () => fixture.createPolicy().verify(SUPPORTED_DEPENDENCY_TARGETS[0]),
+      /unexpected Node runtime exclusion/u,
+    );
+  });
+
   it('retains complete Bare evidence while deriving the exact shared Node runtime on both targets', () => {
     const fixture = new ElectronNodeArchiveRuntimeFixture();
     for (const target of SUPPORTED_DEPENDENCY_TARGETS) {

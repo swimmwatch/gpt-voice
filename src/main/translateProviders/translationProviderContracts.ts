@@ -43,7 +43,7 @@ export interface TranslationProviderRequest {
    * verified result before visible cleanup. Returning true acknowledges completed
    * clipboard delivery. It is intentionally unavailable to public IPC.
    */
-  readonly onResultReady?: (text: string) => boolean;
+  readonly onResultReady?: (text: string) => boolean | Promise<boolean>;
   readonly providerId: TranslationProviderId;
   readonly targetLanguage: string;
   readonly sourceText: string;

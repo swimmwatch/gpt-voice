@@ -99,7 +99,7 @@ if (mode === 'smoke') {
     'verify:size',
     '--',
     '--report=release-artifacts/size-linux-x64.json',
-    '--baseline=build/size-baselines/v1.4.0-linux-x64.json',
+    '--baseline=build/size-baselines/main-d0121e97-linux-x64.json',
   ]);
   if (productionPackaging) {
     await run('npm', [

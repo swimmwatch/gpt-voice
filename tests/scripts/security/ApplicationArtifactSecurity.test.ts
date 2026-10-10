@@ -58,6 +58,7 @@ async function createWorkspace(
     readonly platform?: 'linux' | 'win32';
     readonly assembledPlaywrightVersion?: string;
     readonly sourceLockPaddingBytes?: number;
+    readonly bundledReactIcons?: boolean;
   } = {},
 ): Promise<{ readonly root: string; readonly unpackedRoot: string }> {
   const root = await mkdtemp(path.join(os.tmpdir(), 'gpt-voice-artifact-security-'));
@@ -100,6 +101,7 @@ async function createWorkspace(
         'node_modules/cloakbrowser': { version: '0.5.3' },
         'node_modules/playwright-core': { version: '1.62.1' },
         'node_modules/test-only': { dev: true, version: '1.0.0' },
+        ...(input.bundledReactIcons ? { 'node_modules/react-icons': { version: '5.7.0' } } : {}),
       },
       padding: 'x'.repeat(input.packageLockPaddingBytes ?? 0),
     }),
@@ -196,6 +198,31 @@ function createRecord(sbomSha256: string) {
 }
 
 describe('Application artifact SBOM', () => {
+  it('retains bundled renderer dependencies when their raw modules are excluded from ASAR', async () => {
+    const fixture = await createWorkspace({ bundledReactIcons: true });
+    try {
+      const generated = await new ApplicationSbomGenerator().generate({
+        packageFormat: 'appimage',
+        packageSha256: PACKAGE_SHA256,
+        platform: 'linux',
+        sourceCommit: SOURCE_COMMIT,
+        unpackedRoot: fixture.unpackedRoot,
+        workspaceRoot: fixture.root,
+      });
+      const component = generated.document.components.find((entry) => entry.name === 'react-icons');
+      assert.ok(component);
+      assert.equal(component.version, '5.7.0');
+      assert.equal(component.purl, 'pkg:npm/react-icons@5.7.0');
+      assert.ok(
+        component.properties?.some(
+          (property) => property.name === 'gpt-voice:component-evidence' && property.value === 'source-lock-bundled',
+        ),
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
   it('builds a bounded whole-application CycloneDX document without retaining file contents or paths', async () => {
     const fixture = await sbomFixture();
     try {

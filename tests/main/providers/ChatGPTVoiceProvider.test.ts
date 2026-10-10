@@ -112,7 +112,9 @@ function createHarness(evaluationResults: unknown[], options: ProviderHarnessOpt
       await options.reloadPage?.();
     },
     sessionStore: new TestChatGPTSessionStore(),
-    writeClipboardText: (text) => clipboardWrites.push(text),
+    writeClipboardText: (text) => {
+      clipboardWrites.push(text);
+    },
   });
   provider.setReady(page.page);
   return { auditOperations: audit.operations, clipboardWrites, page, provider, recoveryTimeouts };

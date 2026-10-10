@@ -143,7 +143,7 @@ export interface ClaudeWebVoiceProviderDependencies {
   resolveOrganization(evidence: ClaudeWebOrganizationEvidence): ClaudeWebOrganizationContext;
   inspectReadiness(page: Page, timeoutMs: number): Promise<ClaudeWebReadinessSnapshot>;
   createTransport(page: Page): ClaudeWebPageTransportLike;
-  writeClipboardText(text: string): void;
+  writeClipboardText(text: string): void | Promise<void>;
   navigationService: Pick<ClaudeWebNavigationService, 'navigate'>;
   now(): number;
   waitForReadinessRetry(delayMs: number): Promise<void>;
@@ -481,7 +481,7 @@ export class ClaudeWebVoiceProvider extends StreamingVoiceProvider implements St
       );
       auditPhase = 'cleanup';
       audit.lifecycle.phaseEntered('cleanup', startMetadata);
-      this.deps.writeClipboardText(text);
+      await this.deps.writeClipboardText(text);
       audit.lifecycle.phaseCompleted('cleanup', startMetadata);
       this.deps.audit.terminalBatch(audit, 'cleanup', 'success', { resultLength: text.length });
       return { success: true, text };

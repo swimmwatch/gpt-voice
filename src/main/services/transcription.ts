@@ -42,7 +42,7 @@ export class TranscriptionService {
         const snapshot = createTranscriptionCompletionSnapshot(providerBeforeEnsure, requestedAt);
         const cachedText = readCachedTranscription(this.dependencies, snapshot, buffer, mimeType);
         if (cachedText) {
-          return completeCachedTranscription(this.dependencies, snapshot, cachedText);
+          return await completeCachedTranscription(this.dependencies, snapshot, cachedText);
         }
       }
 
@@ -60,7 +60,7 @@ export class TranscriptionService {
         const snapshot = createTranscriptionCompletionSnapshot(provider, requestedAt);
         const cachedText = readCachedTranscription(this.dependencies, snapshot, buffer, mimeType);
         if (cachedText) {
-          return completeCachedTranscription(this.dependencies, snapshot, cachedText);
+          return await completeCachedTranscription(this.dependencies, snapshot, cachedText);
         }
       }
 
@@ -89,7 +89,7 @@ export class TranscriptionService {
         );
       }
       if (result.success && result.text) {
-        completeBatchTranscription(
+        await completeBatchTranscription(
           this.dependencies,
           createTranscriptionCompletionSnapshot(provider, requestedAt),
           buffer,

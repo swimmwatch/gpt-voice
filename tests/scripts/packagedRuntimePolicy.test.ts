@@ -143,7 +143,6 @@ describe('packaged runtime policy', () => {
         ...archiveRuntimeModules.map((moduleName) => `node_modules/${moduleName}/index.js`),
         'node_modules/cloakbrowser/dist/index.js',
         'node_modules/playwright-core/lib/server/browserType.js',
-        'node_modules/react-icons/pi/index.mjs',
       ]),
       [],
     );
@@ -164,13 +163,13 @@ describe('packaged runtime policy', () => {
     }
     assert.deepEqual(
       files.filter((file): file is string => typeof file === 'string' && file.startsWith('!node_modules/')),
-      bareOnlyRuntimeModules.map((moduleName) => `!node_modules/${moduleName}{,/**/*}`),
+      ['react-icons', ...bareOnlyRuntimeModules].map((moduleName) => `!node_modules/${moduleName}{,/**/*}`),
     );
 
     const importedModule: unknown = await import(pathToFileURL(modulePath).href);
     assert.ok(isPackagedRuntimePolicyModule(importedModule));
     assert.equal(importedModule.APPROVED_RUNTIME_MODULES.includes('bare-events'), true);
-    for (const moduleName of bareOnlyRuntimeModules) {
+    for (const moduleName of ['react-icons', ...bareOnlyRuntimeModules]) {
       assert.equal(importedModule.APPROVED_RUNTIME_MODULES.includes(moduleName), false, moduleName);
       assert.deepEqual(
         importedModule.getPackagedRuntimeViolations([...requiredPaths, `node_modules/${moduleName}/index.js`]),

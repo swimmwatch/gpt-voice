@@ -652,7 +652,7 @@ export class TranslationRuntime {
     sourceText: unknown,
     snapshot: TranslationExecutionSnapshot,
     callerSignal?: AbortSignal,
-    onResultReady?: (text: string) => boolean,
+    onResultReady?: (text: string) => boolean | Promise<boolean>,
   ): Promise<TranslationProviderOutcome> {
     const startedAt = this.dependencies.now();
     const sourceLength = typeof sourceText === 'string' ? sourceText.length : undefined;

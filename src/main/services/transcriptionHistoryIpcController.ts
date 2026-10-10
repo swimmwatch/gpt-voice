@@ -9,7 +9,7 @@ export interface TranscriptionHistoryIpcControllerDependencies {
   readonly logger: {
     warn(message: string, metadata: Readonly<Record<string, unknown>>): void;
   };
-  readonly writeClipboardText: (text: string) => void;
+  readonly writeClipboardText: (text: string) => void | Promise<void>;
 }
 
 /** Owns renderer-facing history behavior over the backend-neutral repository port. */
@@ -23,7 +23,7 @@ export class TranscriptionHistoryIpcController {
     return this.repository.listEntries(query);
   }
 
-  public copyText(id: unknown): { readonly error?: string; readonly success: boolean } {
+  public async copyText(id: unknown): Promise<{ readonly error?: string; readonly success: boolean }> {
     const numericId = Number(id);
     const text = this.repository.getEntryText(numericId);
     if (!text) {
@@ -31,7 +31,7 @@ export class TranscriptionHistoryIpcController {
     }
 
     try {
-      this.dependencies.writeClipboardText(text);
+      await this.dependencies.writeClipboardText(text);
       return { success: true };
     } catch (error: unknown) {
       this.dependencies.logger.warn(HISTORY_COPY_FAILURE_LOG, {

@@ -253,7 +253,9 @@ function createHarness(overrides: Partial<MainStreamingTranscriptionServiceDepen
             operations: provider,
           }
         : null,
-    writeClipboardText: (text) => clipboard.push(text),
+    writeClipboardText: (text) => {
+      clipboard.push(text);
+    },
     ...overrides,
     logger: overrides.logger ?? {
       error: () => undefined,

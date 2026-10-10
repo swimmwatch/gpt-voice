@@ -101,7 +101,7 @@ export interface ChatGPTVoiceProviderDependencies {
   now(): number;
   reloadPage(page: Page, timeoutMs: number): Promise<void>;
   sessionStore: ChatGPTSessionStore;
-  writeClipboardText(text: string): void;
+  writeClipboardText(text: string): void | Promise<void>;
 }
 
 export const CHATGPT_VOICE_PROVIDER_INFO = Object.freeze({
@@ -462,7 +462,7 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
           httpStatus: attempt.status,
         }),
       );
-      const result = this.parseTranscribeResponse(attempt, mimeType);
+      const result = await this.parseTranscribeResponse(attempt, mimeType);
       if (result.success && result.text) {
         this.deps.audit.terminalBatch(audit, 'result', 'success', {
           attemptCount: attemptNumber,
@@ -686,10 +686,13 @@ export class ChatGPTVoiceProvider extends BatchVoiceProvider {
     };
   }
 
-  private parseTranscribeResponse(resp: ChatGptTranscribeResponse, mimeType: string): TranscriptionResult {
+  private async parseTranscribeResponse(
+    resp: ChatGptTranscribeResponse,
+    mimeType: string,
+  ): Promise<TranscriptionResult> {
     const parsed = parseChatGptTranscribeResponse(resp, mimeType, this.deps.localization);
     if (parsed.success && parsed.text) {
-      this.deps.writeClipboardText(parsed.text);
+      await this.deps.writeClipboardText(parsed.text);
     }
     return parsed;
   }

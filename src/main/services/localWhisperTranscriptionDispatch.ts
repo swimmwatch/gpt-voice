@@ -91,7 +91,7 @@ export class LocalWhisperTranscriptionDispatch {
       const completion = createTranscriptionCompletionSnapshot(provider, requestedAt, dispatch.cacheContext);
       const cachedText = readCachedTranscription(this.dependencies, completion, buffer, mimeType);
       if (cachedText) {
-        const result = completeCachedTranscription(this.dependencies, completion, cachedText);
+        const result = await completeCachedTranscription(this.dependencies, completion, cachedText);
         this.dependencies.audit.terminalBatch(auditContext, 'result', 'success', {
           resultLength: cachedText.length,
         });
@@ -109,7 +109,7 @@ export class LocalWhisperTranscriptionDispatch {
         return toFailureResult(failure);
       }
 
-      completeBatchTranscription(this.dependencies, completion, buffer, mimeType, transcription.value, {
+      await completeBatchTranscription(this.dependencies, completion, buffer, mimeType, transcription.value, {
         writeClipboard: true,
       });
       this.dependencies.audit.terminalBatch(auditContext, 'result', 'success', {

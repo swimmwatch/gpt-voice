@@ -726,6 +726,17 @@ jobs:
           npm run measure:size -- --platform=win32 --arch=${{ vars.CI_ARCHITECTURE }} --output=release-artifacts/size-win32-x64.json
           npm run measure:startup -- --runs=10 --output=release-artifacts/startup-win32-x64.json
 
+      - name: Verify Windows Electron clipboard adapter
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          GPT_VOICE_CLIPBOARD_SMOKE: '1'
+        run: |
+          Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+          node node_modules/electron/install.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $smokeProcess = Start-Process -FilePath ./node_modules/electron/dist/electron.exe -ArgumentList 'tests/runtime/electronClipboardSmoke.cjs' -Wait -PassThru -NoNewWindow
+          exit $smokeProcess.ExitCode
       - name: Set up immutable artifact vulnerability scanner
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
