@@ -1,6 +1,6 @@
 import { parse } from 'yaml';
 
-import { HADOLINT_IMAGE, TRIVY_IMAGE } from '../../security/dockerBuilderPolicy';
+import { FEDORA_BUILDER_IMAGE, HADOLINT_IMAGE, TRIVY_IMAGE } from '../../security/dockerBuilderPolicy';
 import { isRecord } from '../packaging/contracts';
 
 const FULL_SHA_ACTION_REFERENCE = /^[\w.-]+\/[\w.-]+@[a-f\d]{40}\s+#\s+v[\w.-]+$/u;
@@ -12,7 +12,7 @@ const UNTRUSTED_CACHE_INTERPOLATION = /\$\{\{\s*github\.(?:event|head_ref|ref_na
 
 export const ACTIONLINT_IMAGE =
   'rhysd/actionlint:1.7.9@sha256:a0383f60d92601e2694e24b24d37df7b6a40bed7cedbc447611c50009bf02d94';
-export const FEDORA_44_IMAGE = 'fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898';
+export const FEDORA_44_IMAGE = FEDORA_BUILDER_IMAGE;
 const REVIEWED_IMAGES = new Map([
   ['rhysd/actionlint:1.7.9', ACTIONLINT_IMAGE],
   ['fedora:44', FEDORA_44_IMAGE],

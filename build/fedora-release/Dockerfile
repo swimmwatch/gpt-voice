@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898
+FROM fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80
 
 ENV CI=true \
     CLOAKBROWSER_AUTO_UPDATE=false \
