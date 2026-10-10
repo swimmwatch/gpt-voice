@@ -2,7 +2,7 @@ import { parse } from 'yaml';
 
 import { isRecord } from '../local-whisper/packaging/contracts';
 
-export const SCORECARD_ACTION = 'ossf/scorecard-action@ff5dd8929f96a8a4dc67d13f32b8c75057829621';
+export const SCORECARD_ACTION = 'ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46';
 export const CODEQL_UPLOAD_SARIF_ACTION = 'github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2';
 
 function fail(code: string): never {
