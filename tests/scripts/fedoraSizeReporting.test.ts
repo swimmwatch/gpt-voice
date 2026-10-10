@@ -25,10 +25,24 @@ test('Fedora package jobs measure, verify, and retain Linux size reports', () =>
   assert.match(entrypoint, /\['electron-builder', '--linux', 'dir', '--publish', 'never'\]/u);
   assert.match(entrypoint, /'--output=release-artifacts\/startup-linux-x64\.json'/u);
   assert.match(entrypoint, /'verify:size'/u);
-  assert.match(entrypoint, /'--baseline=build\/size-baselines\/v1\.4\.0-linux-x64\.json'/u);
+  assert.match(entrypoint, /'--baseline=build\/size-baselines\/main-d0121e97-linux-x64\.json'/u);
   assert.match(collector, /size-linux-x64\.json/u);
   assert.match(collector, /startup-linux-x64\.json/u);
   assert.match(workflow, /Upload Linux measurement reports/u);
   assert.match(workflow, /release-artifacts\/size-linux-x64\.json/u);
   assert.match(workflow, /release-artifacts\/startup-linux-x64\.json/u);
+});
+
+test('Linux size baseline is measured from the pinned main revision, not the dependency branch', () => {
+  const baseline = JSON.parse(
+    readFileSync(path.join(projectRoot, 'build/size-baselines/main-d0121e97-linux-x64.json'), 'utf8'),
+  ) as {
+    metadata: { commit: string; platform: string; arch: string; toolVersions: { electron: string } };
+    metrics: Array<{ id: string; bytes: number | null }>;
+  };
+  assert.equal(baseline.metadata.commit, 'd0121e97b94b072d8a82c37fce9ef5ae71cd9511');
+  assert.equal(baseline.metadata.platform, 'linux');
+  assert.equal(baseline.metadata.arch, 'x64');
+  assert.equal(baseline.metadata.toolVersions.electron, '43.2.0');
+  assert.ok(baseline.metrics.some((metric) => metric.id === 'app.asar' && metric.bytes !== null && metric.bytes > 0));
 });
