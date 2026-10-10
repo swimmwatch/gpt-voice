@@ -72,6 +72,15 @@ describe('Docker builder policy', () => {
     );
   });
 
+  it('rejects superseded and unknown immutable Fedora identities', () => {
+    for (const digest of ['6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898', 'a'.repeat(64)]) {
+      assert.throws(
+        () => new DockerBuilderPolicy().verifyDockerfile(`FROM fedora:44@sha256:${digest}\n`),
+        /identity mismatch/u,
+      );
+    }
+  });
+
   it('rejects a report that omits operating-system identity', () => {
     assert.throws(() => verifyEvidence({ report: { ...cleanReport, Metadata: {} } }), /report malformed/u);
   });

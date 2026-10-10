@@ -6,7 +6,7 @@ export const TRIVY_IMAGE =
   'aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969';
 export const TRIVY_DATABASE_REPOSITORY = 'ghcr.io/aquasecurity/trivy-db:2';
 export const TRIVY_DATABASE_ARGUMENTS = Object.freeze(['--db-repository', TRIVY_DATABASE_REPOSITORY] as const);
-export const FEDORA_BUILDER_IMAGE = 'fedora:44@sha256:6c75d5bf57cb0fa5aa4b92c6a83c86c791644496d9ac230de7711f5b8ec3b898';
+export const FEDORA_BUILDER_IMAGE = 'fedora:44@sha256:43b29f65a41eb9c35e1cd5323e3bdf3b655c2357a9f4f1ff2f9c2798e5045d80';
 export const SECURITY_BUILDER_TAG = 'gpt-voice-fedora-release:security';
 
 interface ScannerDatabase {
