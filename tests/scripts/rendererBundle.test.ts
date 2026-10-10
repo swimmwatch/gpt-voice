@@ -62,6 +62,23 @@ function getStyleRule(rendererConfig: RendererConfig, extension: 'css' | 'scss')
   return rule;
 }
 
+async function writeRendererFixture(outputPath: string, quote: string): Promise<void> {
+  const rendererPath = path.join(outputPath, 'renderer');
+  const assetPath = path.join(rendererPath, 'assets');
+  await mkdir(assetPath, { recursive: true });
+  await writeFile(path.join(outputPath, 'main.js'), 'electron-main');
+  await writeFile(path.join(rendererPath, 'main.js'), 'renderer-main');
+  await writeFile(path.join(assetPath, 'livePcmCapture.worklet.js'), 'gpt-voice-live-pcm-capture;registerProcessor();');
+  for (const { entry, htmlFile } of RENDERER_WINDOW_ENTRIES) {
+    const cssHref = `renderer/${entry}.hash.css`;
+    await writeFile(path.join(rendererPath, `${entry}.hash.css`), '.fixture{display:block}');
+    await writeFile(
+      path.join(outputPath, htmlFile),
+      `<link rel="stylesheet" href=${quote}${cssHref}${quote}><script src=${quote}renderer/${entry}.js${quote}></script>`,
+    );
+  }
+}
+
 test('assigns a dedicated renderer entry to every application window', () => {
   const rendererConfig = loadRendererConfig('development');
 
@@ -101,23 +118,7 @@ test('verifies renderer bundles under a separate nested path from Electron main'
   const outputPath = await mkdtemp(path.join(tmpdir(), 'gpt-voice-renderer-bundle-'));
 
   try {
-    const rendererPath = path.join(outputPath, 'renderer');
-    const assetPath = path.join(rendererPath, 'assets');
-    await mkdir(assetPath, { recursive: true });
-    await writeFile(path.join(outputPath, 'main.js'), 'electron-main');
-    await writeFile(path.join(rendererPath, 'main.js'), 'renderer-main');
-    await writeFile(
-      path.join(assetPath, 'livePcmCapture.worklet.js'),
-      'gpt-voice-live-pcm-capture;registerProcessor();',
-    );
-    for (const { entry, htmlFile } of RENDERER_WINDOW_ENTRIES) {
-      const cssHref = `renderer/${entry}.hash.css`;
-      await writeFile(path.join(rendererPath, `${entry}.hash.css`), '.fixture{display:block}');
-      await writeFile(
-        path.join(outputPath, htmlFile),
-        `<link rel="stylesheet" href="${cssHref}"><script src="renderer/${entry}.js"></script>`,
-      );
-    }
+    await writeRendererFixture(outputPath, '"');
 
     const verifier = new RendererBundleVerifier(outputPath);
     await verifier.verify();
@@ -134,6 +135,40 @@ test('verifies renderer bundles under a separate nested path from Electron main'
     await rm(outputPath, { force: true, recursive: true });
   }
 });
+
+for (const quote of ['"', "'", '']) {
+  test(`verifies renderer asset paths with ${quote === '' ? 'unquoted' : quote} attributes`, async () => {
+    const outputPath = await mkdtemp(path.join(tmpdir(), 'gpt-voice-renderer-attributes-'));
+    try {
+      await writeRendererFixture(outputPath, quote);
+      const verifier = new RendererBundleVerifier(outputPath);
+      await verifier.verify();
+
+      const css = `<link href=${quote}renderer/main.hash.css${quote} rel=stylesheet>`;
+      const entry = `<script defer src=${quote}renderer/main.js${quote}></script>`;
+      const failures = [
+        { html: `${css}<script data-src=${quote}renderer/main.js${quote}></script>`, code: 'WINDOW_ENTRY_MISSING' },
+        { html: `${css}<script src=${quote}renderer/main.js.invalid${quote}></script>`, code: 'WINDOW_ENTRY_MISSING' },
+        {
+          html: `${css}${entry}<script src=${quote}renderer/settings.js${quote}></script>`,
+          code: 'WINDOW_ENTRY_CROSSED',
+        },
+        { html: `${css}${css}${entry}`, code: 'WINDOW_CSS_DUPLICATED' },
+        { html: `${entry}<link href=${quote}renderer/../main.css${quote}>`, code: 'WINDOW_CSS_PATH_INVALID' },
+      ];
+      for (const { html, code } of failures) {
+        await writeFile(path.join(outputPath, 'index.html'), html);
+        await assert.rejects(
+          verifier.verify(),
+          (error: unknown) =>
+            error instanceof Error && error.name === 'RendererBundleVerificationError' && error.message === code,
+        );
+      }
+    } finally {
+      await rm(outputPath, { force: true, recursive: true });
+    }
+  });
+}
 
 test('extracts and minifies production CSS without changing development style injection', () => {
   const developmentConfig = loadRendererConfig('development');
