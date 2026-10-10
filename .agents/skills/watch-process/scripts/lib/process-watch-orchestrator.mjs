@@ -253,7 +253,10 @@ export class ProcessWatchOrchestrator {
         if (state === null) runtimeFail('resume-state-required');
       }
 
-      if (allowVersionScopedReleaseRecovery && state.phase === 'Blocked') {
+      const isExplicitReleaseRecovery =
+        allowVersionScopedReleaseRecovery &&
+        (state.phase === 'Blocked' || (state.phase === 'NeedsAgent' && state.outcome === 'target_failed'));
+      if (isExplicitReleaseRecovery) {
         state = await this.#transition(state, {
           actor: 'agent',
           deadlineEpochMilliseconds: normalizedInvocation.deadlineEpochMilliseconds,
@@ -691,8 +694,10 @@ export class ProcessWatchOrchestrator {
       state.scenarioId !== this.#scenario.id ||
       state.sessionId !== this.#sessionId ||
       state.workspaceId !== this.#workspaceId ||
-      state.phase !== 'Blocked' ||
-      !['target_lost', 'watcher_lost'].includes(state.outcome) ||
+      !(
+        (state.phase === 'Blocked' && ['target_lost', 'watcher_lost'].includes(state.outcome)) ||
+        (state.phase === 'NeedsAgent' && state.outcome === 'target_failed')
+      ) ||
       state.target === null ||
       state.target.sourceSha === null ||
       invocation.target !== null

@@ -562,8 +562,10 @@ export class ProcessWatchOperator {
   }
 
   async #loadVersionScopedReleaseRecovery(record) {
+    const recoverableNeedsAgentFailure =
+      record.state.phase === 'NeedsAgent' && record.state.outcome === 'target_failed';
     if (
-      !['Blocked', 'Watching'].includes(record.state.phase) ||
+      !(['Blocked', 'Watching'].includes(record.state.phase) || recoverableNeedsAgentFailure) ||
       (record.state.phase === 'Blocked' && !['target_lost', 'watcher_lost'].includes(record.state.outcome)) ||
       record.state.target?.sourceSha === null
     ) {
