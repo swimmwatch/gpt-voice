@@ -57,6 +57,25 @@ describe('Workflow supply-chain policy', () => {
     await verifyFixture('safe.yml');
   });
 
+  it('rejects superseded and unknown immutable attestation action references', async () => {
+    const pullRequestChecks = await readFile(
+      path.join(WORKSPACE_ROOT, '.github', 'workflows', 'pr-checks.yml'),
+      'utf8',
+    );
+    for (const digest of ['43d14bc2b83dec42d39ecae14e916627a18bb661', 'a'.repeat(40)]) {
+      assert.throws(
+        () =>
+          new WorkflowSupplyChainPolicyVerifier().verify({
+            fedoraDockerfile: safeDockerfile,
+            workflows: {
+              'pr-checks.yml': pullRequestChecks.replace('977bb373ede98d70efdf65b84cb5f73e068dcc2a', digest),
+            },
+          }),
+        /create and verify GitHub-native attestations/u,
+      );
+    }
+  });
+
   for (const [fixtureName, expected] of [
     ['mutable-action.yml', /mutable or uncommented Action/u],
     ['excessive-permissions.yml', /permissions/u],

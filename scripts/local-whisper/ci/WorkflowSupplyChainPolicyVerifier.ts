@@ -196,7 +196,7 @@ function validatePackageAttestationWorkflow(workflow: WorkflowDocument, name: st
   const attestationSteps = attestation.steps.filter(isRecord);
   if (
     !attestationSteps.some(
-      (step) => step.uses === 'actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661',
+      (step) => step.uses === 'actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a',
     ) ||
     !attestationSteps.some((step) => typeof step.run === 'string' && step.run.includes('gh attestation verify'))
   ) {
