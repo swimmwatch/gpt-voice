@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "release": "v2.4.0-alpha.1",
+  "checks": [
+    {
+      "id": "alpha-candidate-inventory",
+      "ownerTask": 33,
+      "phase": "candidate",
+      "platform": "linux-windows",
+      "command": "npm run verify:local-whisper:release-candidates",
+      "required": true
+    },
+    {
+      "id": "alpha-final-origin",
+      "ownerTask": 33,
+      "phase": "publication",
+      "platform": "github",
+      "command": "npm run verify:local-whisper:release-origin -- --target=v2.4.0-alpha.1",
+      "required": true
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { LOCAL_WHISPER_DEVELOPMENT_ACTIVATION_ARGUMENT } from '@main/localWhispe
 import { EphemeralQualificationTlsIdentityFactory } from '../qualification/EphemeralQualificationTlsIdentity';
 import { QualificationHttpsArtifactServer } from '../qualification/QualificationHttpsArtifactServer';
 import { QualificationCommandRunner } from '../qualification/QualificationCommandRunner';
+import { isSemanticVersion } from '../../semantic-version.mjs';
 import { DevelopmentActivationDescriptorProducer } from './DevelopmentActivationDescriptorProducer';
 import { DevelopmentResourceStager } from './DevelopmentResourceStager';
 import {
@@ -20,7 +21,6 @@ import {
   type DevelopmentRuntimePlatformSelector,
 } from './DevelopmentRuntimeInputs';
 
-const SEMVER_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/u;
 const APPLICATION_STATE_DIRECTORY_NAME = 'application-state';
 const APPLICATION_CONFIGURATION_DIRECTORY_NAME = 'configuration';
 const ELECTRON_USER_DATA_DIRECTORY_NAME = 'electron-user-data';
@@ -158,15 +158,19 @@ export class LocalWhisperDevelopmentSession {
       throw new Error('Local Whisper development session requires a supported absolute workspace');
     }
     const packageValue = JSON.parse(await readFile(path.join(workspace, 'package.json'), 'utf8')) as unknown;
+    const version =
+      typeof packageValue === 'object' && packageValue !== null && !Array.isArray(packageValue)
+        ? (packageValue as Record<string, unknown>).version
+        : undefined;
     if (
       typeof packageValue !== 'object' ||
       packageValue === null ||
       Array.isArray(packageValue) ||
-      !SEMVER_PATTERN.test(String((packageValue as Record<string, unknown>).version))
+      !isSemanticVersion(version)
     ) {
       throw new Error('Local Whisper development application revision invalid');
     }
-    const appRevision = String((packageValue as Record<string, unknown>).version);
+    const appRevision = version;
     const electronExecutable = await this.dependencies.electron.resolve(workspace);
     const [runtimes, sourceCommit] = await Promise.all([
       this.dependencies.runtimes.load(workspace, platform),

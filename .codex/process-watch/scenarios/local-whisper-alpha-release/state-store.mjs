@@ -104,7 +104,6 @@ export class ReleaseStateStore {
     const state = await this.read();
     if (state === null) return null;
     if (state.phase === 'succeeded') return state;
-    if (state.phase === 'blocked') throw new Error('release-recovery-state-blocked');
     if (
       state.deadlineEpochMilliseconds === normalizedPermit.deadlineEpochMilliseconds &&
       state.timeoutSeconds === normalizedPermit.timeoutSeconds

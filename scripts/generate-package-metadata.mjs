@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isSemanticVersion } from './semantic-version.mjs';
+
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJson = JSON.parse(await readFile(path.join(rootDir, 'package.json'), 'utf-8'));
 const generatedDir = path.join(rootDir, 'build', 'generated');
@@ -16,7 +18,7 @@ function optionValue(name) {
 }
 
 function releaseVersion(value) {
-  if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/.test(value)) {
+  if (!isSemanticVersion(value)) {
     throw new Error(`Invalid package metadata version: ${value}`);
   }
   return value;
