@@ -521,10 +521,10 @@
   },
   "dependencies": {
     "archiver": "^8.0.0",
-    "cloakbrowser": "0.5.8",
+    "cloakbrowser": "0.5.10",
     "electron-log": "^5.4.4",
     "mmdb-lib": "^3.0.3",
-    "playwright-core": "1.62.1",
+    "playwright-core": "1.63.0",
     "react-icons": "^5.7.0",
     "socks-proxy-agent": "^10.1.0"
   },
