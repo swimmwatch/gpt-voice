@@ -246,7 +246,9 @@ function createHarness(overrides: Partial<ClaudeWebVoiceProviderDependencies> = 
       state.transportCreations += 1;
       return transport;
     },
-    writeClipboardText: (text) => state.clipboardWrites.push(text),
+    writeClipboardText: (text) => {
+      state.clipboardWrites.push(text);
+    },
     navigationService: {
       navigate: async () => {
         state.navigationCalls += 1;

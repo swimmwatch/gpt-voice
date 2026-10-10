@@ -29,7 +29,7 @@ function createLoader(
 }
 
 describe('ElectronRuntimeLoader', () => {
-  it('loads and caches one runtime per loader while keeping loaders isolated', () => {
+  it('loads and caches one runtime per loader while keeping loaders isolated', async () => {
     let firstLoads = 0;
     let secondLoads = 0;
     const first = new ElectronRuntimeLoader({
@@ -51,9 +51,9 @@ describe('ElectronRuntimeLoader', () => {
       schedule: () => undefined,
     });
 
-    assert.equal(first.readClipboardText(), 'first');
-    first.writeClipboardText('value');
-    assert.equal(second.readClipboardText(), 'second');
+    assert.equal(await first.readClipboardText(), 'first');
+    await first.writeClipboardText('value');
+    assert.equal(await second.readClipboardText(), 'second');
     assert.equal(firstLoads, 1);
     assert.equal(secondLoads, 1);
   });
@@ -65,7 +65,9 @@ describe('ElectronRuntimeLoader', () => {
       {
         clipboard: {
           readText: (type) => type ?? 'clipboard',
-          writeText: (text, type) => writes.push({ text, type }),
+          writeText: (text, type) => {
+            writes.push({ text, type });
+          },
         },
         safeStorage: {
           decryptString: (encrypted) => encrypted.toString('utf8'),
@@ -82,13 +84,76 @@ describe('ElectronRuntimeLoader', () => {
       'linux',
     );
 
-    assert.equal(loader.readClipboardText('selection'), 'selection');
-    loader.writeTypedClipboardText('selected', 'selection');
+    assert.equal(await loader.readClipboardText('selection'), 'selection');
+    await loader.writeTypedClipboardText('selected', 'selection');
     assert.deepEqual(writes, [{ text: 'selected', type: 'selection' }]);
     assert.equal(loader.isSafeStorageEncryptionAvailable(), true);
     assert.equal(loader.decryptSafeStorageString(loader.encryptSafeStorageString('secret')), 'secret');
     await loader.openExternal('https://example.invalid');
     assert.deepEqual(opened, ['https://example.invalid']);
+  });
+
+  it('uses the Electron 44 selection API without passing the removed clipboard type', async () => {
+    const writes: string[] = [];
+    const loader = createLoader(
+      {
+        clipboard: {
+          readText: async () => 'regular',
+          writeText: async () => undefined,
+          selection: {
+            readText: async () => 'selected',
+            writeText: async (text) => {
+              writes.push(text);
+            },
+          },
+        },
+      },
+      'linux',
+    );
+    assert.equal(await loader.readClipboardText(), 'regular');
+    assert.equal(await loader.readClipboardText('selection'), 'selected');
+    await loader.writeTypedClipboardText('new selection', 'selection');
+    assert.deepEqual(writes, ['new selection']);
+  });
+
+  it('awaits asynchronous clipboard writes and propagates their rejection', async () => {
+    let finish!: () => void;
+    const loader = createLoader(
+      {
+        clipboard: {
+          readText: async () => 'value',
+          writeText: () =>
+            new Promise<void>((resolve) => {
+              finish = resolve;
+            }),
+        },
+      },
+      'win32',
+    );
+    let settled = false;
+    const pending = loader.writeClipboardText('value').then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    assert.equal(settled, false);
+    finish();
+    await pending;
+    assert.equal(settled, true);
+    const rejected = createLoader(
+      {
+        clipboard: {
+          readText: async () => {
+            throw new Error('read failed');
+          },
+          writeText: async () => {
+            throw new Error('write failed');
+          },
+        },
+      },
+      'win32',
+    );
+    await assert.rejects(rejected.readClipboardText(), /read failed/u);
+    await assert.rejects(rejected.writeClipboardText('value'), /write failed/u);
   });
 
   it('shows non-silent native notifications without sound by default', () => {

@@ -505,7 +505,7 @@ export abstract class BaseTranslateProvider {
       resultLength: resultText.length,
     });
     if (this.deliverResultBeforeVisibleCleanup()) {
-      const delivery = this.notifyResultReady(request, resultText, activeState);
+      const delivery = await this.notifyResultReady(request, resultText, activeState);
       if (!delivery.success) {
         return this.createTerminalFailure(delivery.code, 'result', activeState, delivery.exceptionType);
       }
@@ -549,15 +549,15 @@ export abstract class BaseTranslateProvider {
    * A selected-text hand-off acknowledges that clipboard delivery completed before
    * browser-visible cleanup. Direct internal requests have no hand-off and proceed.
    */
-  private notifyResultReady(
+  private async notifyResultReady(
     request: TranslationProviderRequest,
     resultText: string,
     state: ValidatedOperationState,
-  ): TranslationProviderHookResult {
+  ): Promise<TranslationProviderHookResult> {
     if (!this.isOperationActive(state)) return translationHookFailure('cancelledOrStaleOperation');
     if (!request.onResultReady) return translationHookSuccess();
     try {
-      const delivered = request.onResultReady(resultText);
+      const delivered = await request.onResultReady(resultText);
       if (!this.isOperationActive(state)) return translationHookFailure('cancelledOrStaleOperation');
       return delivered ? translationHookSuccess() : translationHookFailure('resultDeliveryFailure');
     } catch (error: unknown) {

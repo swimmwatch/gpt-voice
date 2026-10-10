@@ -27,7 +27,7 @@ export interface OpenAIApiVoiceProviderDependencies {
   fetch: (url: string, init: RequestInit) => Promise<FetchResponseLike>;
   localization: Pick<I18nService, 'translate'>;
   getSettings: () => OpenAIApiSettingsWithSecret;
-  writeClipboardText: (text: string) => void;
+  writeClipboardText: (text: string) => void | Promise<void>;
 }
 
 export const OPENAI_API_VOICE_PROVIDER_INFO = Object.freeze({
@@ -150,7 +150,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
           httpStatus: response.status,
         }),
       );
-      const result = this.parseSuccessResponse(body);
+      const result = await this.parseSuccessResponse(body);
       if (result.success && result.text) {
         this.deps.audit.terminalBatch(audit, 'result', 'success', {
           attemptCount: 1,
@@ -176,7 +176,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
     }
   }
 
-  private parseSuccessResponse(body: string): TranscriptionResult {
+  private async parseSuccessResponse(body: string): Promise<TranscriptionResult> {
     let result: Record<string, unknown>;
     try {
       result = JSON.parse(body) as Record<string, unknown>;
@@ -199,7 +199,7 @@ export class OpenAIApiVoiceProvider extends BatchVoiceProvider {
       };
     }
 
-    this.deps.writeClipboardText(text);
+    await this.deps.writeClipboardText(text);
     return { success: true, text };
   }
 

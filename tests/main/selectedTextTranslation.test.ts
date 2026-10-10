@@ -165,13 +165,13 @@ class TestTranslationRuntime implements SelectedTextTranslationRuntime {
     text: unknown,
     requestSnapshot: TranslationExecutionSnapshot,
     callerSignal?: AbortSignal,
-    onResultReady?: (text: string) => boolean,
+    onResultReady?: (text: string) => boolean | Promise<boolean>,
   ): Promise<TranslationProviderOutcome> {
     if (typeof text !== 'string') throw new Error('Expected test Translation source text');
     this.translations.push({ signal: callerSignal, text, snapshot: requestSnapshot });
     if (this.options.resultReadyText !== undefined && onResultReady) {
       try {
-        if (!onResultReady(this.options.resultReadyText)) {
+        if (!(await onResultReady(this.options.resultReadyText))) {
           return createFailure(requestSnapshot, 'resultDeliveryFailure', text.length);
         }
       } catch {
@@ -593,6 +593,50 @@ describe('selected-text translation', () => {
     assert.equal(result.success, true);
     assert.equal(cache.size(), 1);
     assert.equal(harness.clipboard.clipboard, 'verified translation');
+  });
+
+  it('waits for asynchronous result delivery before success or releasing the action gate', async () => {
+    const gate = new SelectedTextActionGate();
+    const harness = createTestService({
+      actionGate: gate,
+      copyText: 'selected text',
+      resultReadyText: 'verified translation',
+      translateOutcome: createSuccess(createSnapshot(), 'verified translation'),
+    });
+    const originalWrite = harness.dependencies.clipboard.writeText;
+    let release!: () => void;
+    let deliveryStarted = false;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    harness.dependencies.clipboard.writeText = async (text, type) => {
+      if (text === 'verified translation') {
+        deliveryStarted = true;
+        await pending;
+      }
+      await originalWrite(text, type);
+    };
+    const operation = harness.service.translateSelectedTextToClipboard();
+    await waitUntil(() => deliveryStarted);
+    assert.deepEqual(harness.notifications, []);
+    assert.equal(gate.tryBegin('prettify'), false);
+    release();
+    assert.equal((await operation).success, true);
+    assert.equal(gate.tryBegin('prettify'), true);
+    gate.finish('prettify');
+  });
+
+  it('reports asynchronous restoration failure and releases the gate without rejecting the public operation', async () => {
+    const gate = new SelectedTextActionGate();
+    const harness = createTestService({ actionGate: gate });
+    const originalWrite = harness.dependencies.clipboard.writeText;
+    harness.dependencies.clipboard.writeText = async (text, type) => {
+      if (text === 'previous clipboard') throw new Error('synthetic restoration failure');
+      await originalWrite(text, type);
+    };
+    assert.equal((await harness.service.translateSelectedTextToClipboard()).success, false);
+    assert.equal(gate.tryBegin('prettify'), true);
+    gate.finish('prettify');
   });
 
   it('fails without success effects when verified-result clipboard delivery throws', async () => {

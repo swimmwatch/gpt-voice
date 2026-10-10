@@ -12,7 +12,7 @@ export interface TranscriptionCompletionDependencies {
     info(...args: unknown[]): void;
     warn(...args: unknown[]): void;
   };
-  writeClipboardText: (text: string) => void;
+  writeClipboardText: (text: string) => void | Promise<void>;
 }
 
 export interface TranscriptionCompletionSnapshot {
@@ -112,37 +112,37 @@ function recordTranscriptionHistory(
   }
 }
 
-export function completeCachedTranscription(
+export async function completeCachedTranscription(
   deps: TranscriptionCompletionDependencies,
   snapshot: TranscriptionCompletionSnapshot,
   text: string,
-): TranscriptionResult {
-  deps.writeClipboardText(text);
+): Promise<TranscriptionResult> {
+  await deps.writeClipboardText(text);
   recordTranscriptionHistory(deps, snapshot, text);
   return { success: true, text };
 }
 
-export function completeBatchTranscription(
+export async function completeBatchTranscription(
   deps: TranscriptionCompletionDependencies,
   snapshot: TranscriptionCompletionSnapshot,
   buffer: ArrayBuffer,
   mimeType: string,
   text: string,
   options: { readonly writeClipboard?: boolean } = {},
-): void {
-  if (options.writeClipboard && text) deps.writeClipboardText(text);
+): Promise<void> {
+  if (options.writeClipboard && text) await deps.writeClipboardText(text);
   if (text.trim()) cacheTranscriptionResult(deps, snapshot, buffer, mimeType, text);
   if (text) recordTranscriptionHistory(deps, snapshot, text);
 }
 
-export function completeStreamingTranscription(
+export async function completeStreamingTranscription(
   deps: TranscriptionCompletionDependencies,
   snapshot: TranscriptionCompletionSnapshot,
   buffer: ArrayBuffer,
   mimeType: string,
   text: string,
-): void {
+): Promise<void> {
   cacheTranscriptionResult(deps, snapshot, buffer, mimeType, text, false);
-  deps.writeClipboardText(text);
+  await deps.writeClipboardText(text);
   recordTranscriptionHistory(deps, snapshot, text, false);
 }

@@ -96,7 +96,7 @@ export interface MainProcessRuntimeFactoryDependencies {
   readonly reportStreamingDiagnostic: StreamingRuntimeDependencies['reportDiagnostic'];
   readonly resolveStreamingCapability: StreamingRuntimeDependencies['resolveCapability'];
   readonly transcriptionLogger: TranscriptionCompletionDependencies['logger'];
-  readonly writeClipboardText: (text: string) => void;
+  readonly writeClipboardText: (text: string) => void | Promise<void>;
 }
 
 export interface MainProcessRuntimeFactoryControllers {

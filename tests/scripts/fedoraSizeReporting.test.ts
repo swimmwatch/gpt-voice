@@ -25,7 +25,7 @@ test('Fedora package jobs measure, verify, and retain Linux size reports', () =>
   assert.match(entrypoint, /\['electron-builder', '--linux', 'dir', '--publish', 'never'\]/u);
   assert.match(entrypoint, /'--output=release-artifacts\/startup-linux-x64\.json'/u);
   assert.match(entrypoint, /'verify:size'/u);
-  assert.match(entrypoint, /'--baseline=build\/size-baselines\/v1\.4\.0-linux-x64\.json'/u);
+  assert.match(entrypoint, /'--baseline=build\/size-baselines\/main-d0121e97-linux-x64\.json'/u);
   assert.match(collector, /size-linux-x64\.json/u);
   assert.match(collector, /startup-linux-x64\.json/u);
   assert.match(workflow, /Upload Linux measurement reports/u);

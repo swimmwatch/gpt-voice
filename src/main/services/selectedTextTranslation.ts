@@ -31,8 +31,8 @@ export interface SelectedTextTranslationRunObserver {
 }
 
 export interface SelectedTextTranslationClipboard {
-  readText(type?: ClipboardType): string;
-  writeText(text: string, type?: ClipboardType): void;
+  readText(type?: ClipboardType): string | Promise<string>;
+  writeText(text: string, type?: ClipboardType): void | Promise<void>;
 }
 
 export interface SelectedTextTranslationLogger {
@@ -113,12 +113,20 @@ export class SelectedTextTranslationService {
       }
       snapshot = snapshotResult.snapshot;
 
-      previousClipboardText = this.dependencies.clipboard.readText();
-      this.dependencies.clipboard.writeText('');
+      previousClipboardText = await this.dependencies.clipboard.readText();
+      if (operation.cancelled)
+        return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+      if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+      await this.dependencies.clipboard.writeText('');
+      if (operation.cancelled) {
+        if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+        await this.restoreClipboard(previousClipboardText);
+        return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+      }
       const { selectedText, copyError } = await this.readSelectedText();
       if (operation.cancelled) {
         if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
-        this.restoreClipboard(previousClipboardText);
+        await this.restoreClipboard(previousClipboardText);
         return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
       }
 
@@ -133,7 +141,7 @@ export class SelectedTextTranslationService {
             this.presentTranslationError(copyError).safeLogMetadata,
           );
         }
-        this.restoreClipboard(previousClipboardText);
+        await this.restoreClipboard(previousClipboardText);
         const message = this.dependencies.runtime.getFailureMessage(validationFailure);
         const presented = this.notifyTranslationFailure(message);
         return createFailureResult(presented.userMessage);
@@ -150,12 +158,17 @@ export class SelectedTextTranslationService {
       if (cachedTranslation) {
         if (operation.cancelled) {
           if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
-          this.restoreClipboard(previousClipboardText);
+          await this.restoreClipboard(previousClipboardText);
           return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
         }
         if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
         this.captureCacheHit(selectedText, cachedTranslation, snapshot);
-        this.dependencies.clipboard.writeText(cachedTranslation);
+        await this.dependencies.clipboard.writeText(cachedTranslation);
+        if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+        if (operation.cancelled) {
+          await this.restoreClipboard(previousClipboardText);
+          return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+        }
         this.notifyTranslationCopied(cachedTranslation);
         this.dependencies.logger.info('Translated selected text copied from cache:', {
           providerId: snapshot.providerId,
@@ -174,21 +187,22 @@ export class SelectedTextTranslationService {
         selectedText,
         operationSnapshot,
         operation.controller.signal,
-        (resultText) => {
-          const delivered = this.copyVerifiedResultToClipboard(operation, operationSnapshot, resultText);
+        async (resultText) => {
+          const delivered = await this.copyVerifiedResultToClipboard(operation, operationSnapshot, resultText);
           resultCopiedBeforeCleanup = delivered || resultCopiedBeforeCleanup;
           return delivered;
         },
       );
-      if (this.isCallerCancelledOutcome(outcome)) {
-        this.restoreClipboard(previousClipboardText);
+      if (operation.cancelled || this.isCallerCancelledOutcome(outcome)) {
+        if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+        await this.restoreClipboard(previousClipboardText);
         return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
       }
       if (!outcome.success) {
         if (outcome.discard || !this.dependencies.runtime.isCurrent(snapshot)) {
           return createSkippedResult();
         }
-        this.restoreClipboard(previousClipboardText);
+        await this.restoreClipboard(previousClipboardText);
         const message = this.dependencies.runtime.getFailureMessage(outcome);
         const presented = this.notifyTranslationFailure(
           message,
@@ -199,17 +213,30 @@ export class SelectedTextTranslationService {
       }
       if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
 
+      if (!resultCopiedBeforeCleanup) await this.dependencies.clipboard.writeText(outcome.text);
+      if (!this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
+      if (operation.cancelled) {
+        await this.restoreClipboard(previousClipboardText);
+        return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
+      }
       this.dependencies.cache.set(cacheKey, outcome.text);
-      if (!resultCopiedBeforeCleanup) this.dependencies.clipboard.writeText(outcome.text);
       this.notifyTranslationCopied(outcome.text);
       return createSuccessResult(this.dependencies.localization.translate('status.translationCopied'));
     } catch (error: unknown) {
+      try {
+        if (!snapshot || this.dependencies.runtime.isCurrent(snapshot))
+          await this.restoreClipboard(previousClipboardText);
+      } catch (restoreError: unknown) {
+        this.dependencies.logger.warn(
+          'Could not restore clipboard after selected-text translation:',
+          this.presentTranslationError(restoreError).safeLogMetadata,
+        );
+        return createFailureResult(this.notifyTranslationFailure(restoreError).userMessage);
+      }
       if (operation.cancelled && (!snapshot || this.dependencies.runtime.isCurrent(snapshot))) {
-        this.restoreClipboard(previousClipboardText);
         return createCancelledResult(this.dependencies.localization.translate('status.translationCancelled'));
       }
       if (snapshot && !this.dependencies.runtime.isCurrent(snapshot)) return createSkippedResult();
-      this.restoreClipboard(previousClipboardText);
       const presented = this.notifyTranslationFailure(error);
       this.dependencies.logger.warn('Selected-text translation failed:', presented.safeLogMetadata);
       return createFailureResult(presented.userMessage);
@@ -233,14 +260,14 @@ export class SelectedTextTranslationService {
     }
   }
 
-  private copyVerifiedResultToClipboard(
+  private async copyVerifiedResultToClipboard(
     operation: SelectedTextTranslationOperation,
     snapshot: TranslationExecutionSnapshot,
     resultText: string,
-  ): boolean {
+  ): Promise<boolean> {
     if (operation.cancelled || !this.dependencies.runtime.isCurrent(snapshot)) return false;
-    this.dependencies.clipboard.writeText(resultText);
-    return true;
+    await this.dependencies.clipboard.writeText(resultText);
+    return !operation.cancelled && this.dependencies.runtime.isCurrent(snapshot);
   }
 
   private isCallerCancelledOutcome(outcome: TranslationProviderOutcome): boolean {
@@ -291,9 +318,9 @@ export class SelectedTextTranslationService {
     };
   }
 
-  private restoreClipboard(previousClipboardText: string | null): void {
+  private async restoreClipboard(previousClipboardText: string | null): Promise<void> {
     if (previousClipboardText !== null) {
-      this.dependencies.clipboard.writeText(previousClipboardText);
+      await this.dependencies.clipboard.writeText(previousClipboardText);
     }
   }
 
@@ -310,9 +337,9 @@ export class SelectedTextTranslationService {
       );
     }
 
-    let selectedText = this.dependencies.clipboard.readText();
+    let selectedText = await this.dependencies.clipboard.readText();
     if (!selectedText.trim() && this.dependencies.platform === 'linux') {
-      selectedText = this.dependencies.clipboard.readText('selection');
+      selectedText = await this.dependencies.clipboard.readText('selection');
       if (selectedText.trim() && copyError) {
         this.dependencies.logger.info('Using Linux selection clipboard after copy automation failed:', {
           textLength: selectedText.length,

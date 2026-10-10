@@ -292,6 +292,7 @@ function createTestService(options: TestServiceOptions = {}) {
     automationCalls,
     chooserRequests,
     clipboard,
+    dependencies: deps,
     diagnosticCapture,
     notifications,
     prepareCalls,
@@ -305,6 +306,44 @@ function createTestService(options: TestServiceOptions = {}) {
 }
 
 describe('selectedTextPrettify', () => {
+  it('reports rejected asynchronous restoration without starting provider work or retaining the gate', async () => {
+    const gate = new SelectedTextActionGate();
+    const harness = createTestService({ actionGate: gate, copiedText: 'selected text' });
+    const originalWrite = harness.dependencies.clipboard.writeText;
+    harness.dependencies.clipboard.writeText = async (text, type) => {
+      if (text === 'previous clipboard') throw new Error('synthetic restoration failure');
+      await originalWrite(text, type);
+    };
+    assert.equal((await harness.service.applyDefaultProfileToSelectedText()).success, false);
+    assert.equal(harness.prettifyCalls.length, 0);
+    assert.equal(gate.tryBegin('translate'), true);
+    gate.finish('translate');
+  });
+  it('holds the action gate until asynchronous clipboard restoration settles after cancellation', async () => {
+    const gate = new SelectedTextActionGate();
+    const harness = createTestService({ actionGate: gate, copiedText: 'selected text' });
+    const originalWrite = harness.dependencies.clipboard.writeText;
+    let releaseRestore!: () => void;
+    let restoring = false;
+    const restore = new Promise<void>((resolve) => {
+      releaseRestore = resolve;
+    });
+    harness.dependencies.clipboard.writeText = async (text, type) => {
+      if (text === 'previous clipboard') {
+        restoring = true;
+        await restore;
+      }
+      await originalWrite(text, type);
+    };
+    const result = harness.service.applyDefaultProfileToSelectedText();
+    await waitForCondition(() => restoring, 'Clipboard restoration did not start');
+    harness.service.cancel();
+    assert.equal(gate.tryBegin('translate'), false);
+    releaseRestore();
+    assert.equal((await result).cancelled, true);
+    assert.equal(gate.tryBegin('translate'), true);
+    gate.finish('translate');
+  });
   afterEach(() => {
     localization.setLocale('en');
   });

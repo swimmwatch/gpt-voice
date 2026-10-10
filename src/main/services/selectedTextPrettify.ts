@@ -54,8 +54,8 @@ export interface SelectedTextPrettifyRunObserver {
 }
 
 export interface SelectedTextPrettifyClipboard {
-  readText(type?: ClipboardType): string;
-  writeText(text: string, type?: ClipboardType): void;
+  readText(type?: ClipboardType): string | Promise<string>;
+  writeText(text: string, type?: ClipboardType): void | Promise<void>;
 }
 
 export interface SelectedTextPrettifyRuntime {
@@ -342,18 +342,20 @@ export class SelectedTextPrettifyService {
     let capture: SelectedTextCaptureResult | undefined;
     let failure: { readonly error: unknown } | null = null;
     try {
-      run.previousClipboardText = this.dependencies.clipboard.readText();
-      this.dependencies.clipboard.writeText('');
+      const previousClipboardText = await this.dependencies.clipboard.readText();
+      if (!this.canContinue(run)) return { selectedText: '' };
+      run.previousClipboardText = previousClipboardText;
+      await this.dependencies.clipboard.writeText('');
+      if (!this.canContinue(run)) return { selectedText: '' };
       capture = await this.readSelectedText();
     } catch (error: unknown) {
       failure = { error };
     } finally {
       const previousClipboardText = run.previousClipboardText;
       run.previousClipboardText = null;
-      run.clipboardRestored = true;
       if (previousClipboardText !== null) {
         try {
-          this.dependencies.clipboard.writeText(previousClipboardText);
+          await this.dependencies.clipboard.writeText(previousClipboardText);
         } catch (error: unknown) {
           this.dependencies.logger.warn(
             'Could not restore clipboard after selected-text capture:',
@@ -363,6 +365,7 @@ export class SelectedTextPrettifyService {
         }
       }
     }
+    run.clipboardRestored = true;
     if (failure) throw failure.error;
     if (!capture) throw new Error('Selected-text capture failed');
     run.sourceText = capture.selectedText;
@@ -432,7 +435,8 @@ export class SelectedTextPrettifyService {
     if (cachedPrettified) {
       if (!this.canWriteResult(run)) return this.createCancelledResult();
       this.captureCacheHit(selectedText, cachedPrettified, preparation.prepared.providerId);
-      this.writeSuccessfulResult(run, cachedPrettified);
+      await this.writeSuccessfulResult(run, cachedPrettified);
+      if (!this.canContinue(run)) return this.createCancelledResult();
       this.dependencies.logger.info('Prettified selected text copied from cache:', {
         sourceLength: selectedText.length,
         prettifiedLength: cachedPrettified.length,
@@ -450,7 +454,8 @@ export class SelectedTextPrettifyService {
     if (!this.canWriteResult(run)) return this.createCancelledResult();
 
     this.dependencies.cache.set(cacheKey, prettified.text);
-    this.writeSuccessfulResult(run, prettified.text);
+    await this.writeSuccessfulResult(run, prettified.text);
+    if (!this.canContinue(run)) return this.createCancelledResult();
     this.dependencies.logger.info('Prettified selected text copied:', {
       sourceLength: selectedText.length,
       prettifiedLength: prettified.text.length,
@@ -466,10 +471,10 @@ export class SelectedTextPrettifyService {
     return this.canContinue(run) && !run.resultWritten;
   }
 
-  private writeSuccessfulResult(run: SelectedTextPrettifyRun, resultText: string): void {
+  private async writeSuccessfulResult(run: SelectedTextPrettifyRun, resultText: string): Promise<void> {
     run.resultWritten = true;
-    this.dependencies.clipboard.writeText(resultText);
-    this.notifyPrettifySuccess();
+    await this.dependencies.clipboard.writeText(resultText);
+    if (this.canContinue(run)) this.notifyPrettifySuccess();
   }
 
   private notifyGenerationStarted(run: SelectedTextPrettifyRun): void {
@@ -537,9 +542,9 @@ export class SelectedTextPrettifyService {
       );
     }
 
-    let selectedText = this.dependencies.clipboard.readText();
+    let selectedText = await this.dependencies.clipboard.readText();
     if (!selectedText.trim() && this.dependencies.platform === 'linux') {
-      selectedText = this.dependencies.clipboard.readText('selection');
+      selectedText = await this.dependencies.clipboard.readText('selection');
       if (selectedText.trim() && copyError) {
         this.dependencies.logger.info('Using Linux selection clipboard after copy automation failed:', {
           textLength: selectedText.length,

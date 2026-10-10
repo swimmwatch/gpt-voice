@@ -123,7 +123,9 @@ describe('OpenAIApiVoiceProvider', () => {
         text: async () => JSON.stringify({ text: 'synthetic transcript' }),
       }),
       getSettings: () => createSettings(),
-      writeClipboardText: (text) => clipboard.push(text),
+      writeClipboardText: (text) => {
+        clipboard.push(text);
+      },
     });
 
     const result = await provider.transcribe(new Uint8Array([3, 4, 5]).buffer, 'audio/webm');

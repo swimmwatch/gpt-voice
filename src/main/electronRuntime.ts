@@ -14,8 +14,9 @@ const MACOS_NOTIFICATION_SOUNDS: Readonly<Record<SystemNotificationSound, string
 const ERROR_BEEP_DELAY_MS = 160;
 
 export interface ClipboardRuntime {
-  readText(type?: ClipboardType): string;
-  writeText(text: string, type?: ClipboardType): void;
+  readText(type?: ClipboardType): string | Promise<string>;
+  writeText(text: string, type?: ClipboardType): void | Promise<void>;
+  readonly selection?: ClipboardRuntime;
 }
 
 export interface NotificationOptions {
@@ -64,16 +65,24 @@ export class ElectronRuntimeLoader {
 
   public constructor(private readonly dependencies: ElectronRuntimeLoaderDependencies) {}
 
-  public readonly writeClipboardText = (text: string): void => {
-    this.getClipboard().writeText(text);
+  public readonly writeClipboardText = async (text: string): Promise<void> => {
+    await this.getClipboard().writeText(text);
   };
 
-  public readonly readClipboardText = (type?: ClipboardType): string => {
-    return this.getClipboard().readText(type);
+  public readonly readClipboardText = async (type?: ClipboardType): Promise<string> => {
+    const clipboard = this.getClipboard();
+    return type === 'selection' && clipboard.selection
+      ? await clipboard.selection.readText()
+      : await clipboard.readText(type);
   };
 
-  public readonly writeTypedClipboardText = (text: string, type?: ClipboardType): void => {
-    this.getClipboard().writeText(text, type);
+  public readonly writeTypedClipboardText = async (text: string, type?: ClipboardType): Promise<void> => {
+    const clipboard = this.getClipboard();
+    if (type === 'selection' && clipboard.selection) {
+      await clipboard.selection.writeText(text);
+    } else {
+      await clipboard.writeText(text, type);
+    }
   };
 
   public readonly showSystemNotification = (

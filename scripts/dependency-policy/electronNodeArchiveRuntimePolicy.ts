@@ -41,6 +41,7 @@ const NODE_MODULES_PREFIX = 'node_modules/';
 const PACKAGE_PATTERN_SUFFIX = '/**/*';
 const PACKAGE_EXCLUSION_PATTERN_SUFFIX = '{,/**/*}';
 const PACKAGE_EXCLUSION_PREFIX = '!';
+const BUNDLED_RENDERER_EXCLUSION = '!node_modules/react-icons{,/**/*}';
 const SAFE_PACKAGE_NAME = /^(?:@[\w.~-]+\/[\w.~-]+|[\w.~-]+)$/u;
 
 export const ELECTRON_NODE_ARCHIVER_BARE_ONLY_PACKAGES: readonly ExpectedPackage[] = Object.freeze([
@@ -214,7 +215,8 @@ export class ElectronNodeArchiveRuntimePolicy {
     for (const buildFile of buildFiles) {
       if (
         buildFile.startsWith(`${PACKAGE_EXCLUSION_PREFIX}${NODE_MODULES_PREFIX}`) &&
-        !bareOnlyExclusionPatterns.has(buildFile)
+        !bareOnlyExclusionPatterns.has(buildFile) &&
+        buildFile !== BUNDLED_RENDERER_EXCLUSION
       ) {
         return failRuntimePolicy('unexpected Node runtime exclusion');
       }

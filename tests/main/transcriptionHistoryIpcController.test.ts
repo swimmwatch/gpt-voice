@@ -4,13 +4,41 @@ import { TranscriptionHistoryIpcController } from '@main/services/transcriptionH
 import { RecordingTranscriptionHistoryRepository } from './repositories/recordingTranscriptionHistoryRepository';
 
 describe('transcription history IPC controller', () => {
-  it('lists, copies, and clears history through an injected state-owning repository', () => {
+  it('does not acknowledge history copy until asynchronous clipboard delivery completes', async () => {
+    const repository = new RecordingTranscriptionHistoryRepository();
+    const saved = repository.addEntry({
+      providerId: 'chatgpt',
+      providerName: 'ChatGPT Web',
+      requestedAt: '2026-07-27T12:00:00.000Z',
+      text: 'history text',
+    });
+    let rejectWrite!: (error: Error) => void;
+    const write = new Promise<void>((_resolve, reject) => {
+      rejectWrite = reject;
+    });
+    const controller = new TranscriptionHistoryIpcController(repository, {
+      logger: { warn: () => undefined },
+      writeClipboardText: () => write,
+    });
+    let settled = false;
+    const copy = controller.copyText(saved.id).then((result) => {
+      settled = true;
+      return result;
+    });
+    await Promise.resolve();
+    assert.equal(settled, false);
+    rejectWrite(new Error('clipboard unavailable'));
+    assert.deepEqual(await copy, { success: false, error: 'Failed to copy history text' });
+  });
+  it('lists, copies, and clears history through an injected state-owning repository', async () => {
     const repository = new RecordingTranscriptionHistoryRepository();
     const clipboard: string[] = [];
     const logs: unknown[][] = [];
     const controller = new TranscriptionHistoryIpcController(repository, {
       logger: { warn: (...args: unknown[]) => logs.push(args) },
-      writeClipboardText: (text) => clipboard.push(text),
+      writeClipboardText: (text) => {
+        clipboard.push(text);
+      },
     });
     const saved = repository.addEntry({
       providerId: 'chatgpt',
@@ -26,9 +54,9 @@ describe('transcription history IPC controller', () => {
       offset: 0,
       total: 1,
     });
-    assert.deepEqual(controller.copyText(saved.id), { success: true });
+    assert.deepEqual(await controller.copyText(saved.id), { success: true });
     assert.deepEqual(clipboard, ['history text']);
-    assert.deepEqual(controller.copyText('invalid-id'), {
+    assert.deepEqual(await controller.copyText('invalid-id'), {
       error: 'History entry not found',
       success: false,
     });
@@ -37,7 +65,7 @@ describe('transcription history IPC controller', () => {
     assert.deepEqual(logs, []);
   });
 
-  it('preserves the renderer-safe copy failure result', () => {
+  it('preserves the renderer-safe copy failure result', async () => {
     const repository = new RecordingTranscriptionHistoryRepository();
     const logs: unknown[][] = [];
     const controller = new TranscriptionHistoryIpcController(repository, {
@@ -53,7 +81,7 @@ describe('transcription history IPC controller', () => {
       text: 'history text',
     });
 
-    assert.deepEqual(controller.copyText(saved.id), {
+    assert.deepEqual(await controller.copyText(saved.id), {
       error: 'Failed to copy history text',
       success: false,
     });

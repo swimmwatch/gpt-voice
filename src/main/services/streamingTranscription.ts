@@ -606,7 +606,7 @@ export class StreamingTranscriptionService implements MainStreamingTranscription
     }
 
     try {
-      completeStreamingTranscription(
+      await completeStreamingTranscription(
         this.deps,
         snapshot,
         copyToArrayBuffer(wave),

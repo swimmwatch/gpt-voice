@@ -327,6 +327,7 @@
       "node_modules/mkdirp/**/*",
       "node_modules/yallist/**/*",
       "node_modules/electron-log/**/*",
+      "!node_modules/react-icons{,/**/*}",
       "!node_modules/bare-fs{,/**/*}",
       "!node_modules/bare-path{,/**/*}",
       "!node_modules/bare-stream{,/**/*}",
