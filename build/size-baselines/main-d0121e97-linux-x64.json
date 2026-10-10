@@ -1,0 +1,570 @@
+{
+  "metadata": {
+    "appVersion": "2.4.0-alpha.1",
+    "arch": "x64",
+    "commit": "d0121e97b94b072d8a82c37fce9ef5ae71cd9511",
+    "platform": "linux",
+    "toolVersions": {
+      "cloakbrowser": "0.5.10",
+      "electron": "43.2.0",
+      "electronBuilder": "26.16.1",
+      "node": "v24.18.0",
+      "webpack": "5.109.2"
+    }
+  },
+  "metrics": [
+    {
+      "bytes": 104290021,
+      "id": "app.asar"
+    },
+    {
+      "bytes": 770422,
+      "id": "app.asar.group.async"
+    },
+    {
+      "bytes": 365527,
+      "id": "app.asar.group.cloakbrowser"
+    },
+    {
+      "bytes": 3408356,
+      "id": "app.asar.group.dist"
+    },
+    {
+      "bytes": 91496,
+      "id": "app.asar.group.ip-address"
+    },
+    {
+      "bytes": 86799,
+      "id": "app.asar.group.lazystream"
+    },
+    {
+      "bytes": 170134,
+      "id": "app.asar.group.minimatch"
+    },
+    {
+      "bytes": 11504067,
+      "id": "app.asar.group.playwright-core"
+    },
+    {
+      "bytes": 85877584,
+      "id": "app.asar.group.react-icons"
+    },
+    {
+      "bytes": 227542,
+      "id": "app.asar.group.readable-stream"
+    },
+    {
+      "bytes": 537558,
+      "id": "app.asar.group.tar"
+    },
+    {
+      "bytes": 465371408,
+      "id": "cloakbrowser.group.chrome"
+    },
+    {
+      "bytes": 1217059,
+      "id": "cloakbrowser.group.chrome-200-percent.pak"
+    },
+    {
+      "bytes": 2186408,
+      "id": "cloakbrowser.group.chrome-crashpad-handler"
+    },
+    {
+      "bytes": 29125448,
+      "id": "cloakbrowser.group.chromedriver"
+    },
+    {
+      "bytes": 10822192,
+      "id": "cloakbrowser.group.icudtl.dat"
+    },
+    {
+      "bytes": 9269792,
+      "id": "cloakbrowser.group.libglesv2.so"
+    },
+    {
+      "bytes": 6210024,
+      "id": "cloakbrowser.group.libvk-swiftshader.so"
+    },
+    {
+      "bytes": 826720,
+      "id": "cloakbrowser.group.libvulkan.so.1"
+    },
+    {
+      "bytes": 183580135,
+      "id": "cloakbrowser.group.locales"
+    },
+    {
+      "bytes": 18557226,
+      "id": "cloakbrowser.group.resources.pak"
+    },
+    {
+      "bytes": 729336146,
+      "id": "cloakbrowser.runtime"
+    },
+    {
+      "bytes": 663,
+      "id": "dist.about.html.brotli"
+    },
+    {
+      "bytes": 888,
+      "id": "dist.about.html.gzip"
+    },
+    {
+      "bytes": 2272,
+      "id": "dist.about.html.raw"
+    },
+    {
+      "bytes": 663,
+      "id": "dist.history.html.brotli"
+    },
+    {
+      "bytes": 899,
+      "id": "dist.history.html.gzip"
+    },
+    {
+      "bytes": 2479,
+      "id": "dist.history.html.raw"
+    },
+    {
+      "bytes": 672,
+      "id": "dist.index.html.brotli"
+    },
+    {
+      "bytes": 910,
+      "id": "dist.index.html.gzip"
+    },
+    {
+      "bytes": 2529,
+      "id": "dist.index.html.raw"
+    },
+    {
+      "bytes": 377762,
+      "id": "dist.main.js.brotli"
+    },
+    {
+      "bytes": 513638,
+      "id": "dist.main.js.gzip"
+    },
+    {
+      "bytes": 2168998,
+      "id": "dist.main.js.raw"
+    },
+    {
+      "bytes": 27670,
+      "id": "dist.preload.js.brotli"
+    },
+    {
+      "bytes": 32909,
+      "id": "dist.preload.js.gzip"
+    },
+    {
+      "bytes": 138165,
+      "id": "dist.preload.js.raw"
+    },
+    {
+      "bytes": 592,
+      "id": "dist.prettify-profile-chooser-preload.js.brotli"
+    },
+    {
+      "bytes": 679,
+      "id": "dist.prettify-profile-chooser-preload.js.gzip"
+    },
+    {
+      "bytes": 1816,
+      "id": "dist.prettify-profile-chooser-preload.js.raw"
+    },
+    {
+      "bytes": 651,
+      "id": "dist.prettify-profile-chooser.html.brotli"
+    },
+    {
+      "bytes": 875,
+      "id": "dist.prettify-profile-chooser.html.gzip"
+    },
+    {
+      "bytes": 2229,
+      "id": "dist.prettify-profile-chooser.html.raw"
+    },
+    {
+      "bytes": 683,
+      "id": "dist.provider-settings.html.brotli"
+    },
+    {
+      "bytes": 926,
+      "id": "dist.provider-settings.html.gzip"
+    },
+    {
+      "bytes": 2719,
+      "id": "dist.provider-settings.html.raw"
+    },
+    {
+      "bytes": 3603,
+      "id": "dist.renderer.193.js.brotli"
+    },
+    {
+      "bytes": 4059,
+      "id": "dist.renderer.193.js.gzip"
+    },
+    {
+      "bytes": 12058,
+      "id": "dist.renderer.193.js.raw"
+    },
+    {
+      "bytes": 4330,
+      "id": "dist.renderer.330.js.brotli"
+    },
+    {
+      "bytes": 4930,
+      "id": "dist.renderer.330.js.gzip"
+    },
+    {
+      "bytes": 13840,
+      "id": "dist.renderer.330.js.raw"
+    },
+    {
+      "bytes": 24413,
+      "id": "dist.renderer.473.js.brotli"
+    },
+    {
+      "bytes": 27316,
+      "id": "dist.renderer.473.js.gzip"
+    },
+    {
+      "bytes": 86793,
+      "id": "dist.renderer.473.js.raw"
+    },
+    {
+      "bytes": 5992,
+      "id": "dist.renderer.484.js.brotli"
+    },
+    {
+      "bytes": 6730,
+      "id": "dist.renderer.484.js.gzip"
+    },
+    {
+      "bytes": 17965,
+      "id": "dist.renderer.484.js.raw"
+    },
+    {
+      "bytes": 9316,
+      "id": "dist.renderer.515.js.brotli"
+    },
+    {
+      "bytes": 10653,
+      "id": "dist.renderer.515.js.gzip"
+    },
+    {
+      "bytes": 37767,
+      "id": "dist.renderer.515.js.raw"
+    },
+    {
+      "bytes": 6477,
+      "id": "dist.renderer.562.js.brotli"
+    },
+    {
+      "bytes": 7423,
+      "id": "dist.renderer.562.js.gzip"
+    },
+    {
+      "bytes": 20191,
+      "id": "dist.renderer.562.js.raw"
+    },
+    {
+      "bytes": 8174,
+      "id": "dist.renderer.616.js.brotli"
+    },
+    {
+      "bytes": 9071,
+      "id": "dist.renderer.616.js.gzip"
+    },
+    {
+      "bytes": 31552,
+      "id": "dist.renderer.616.js.raw"
+    },
+    {
+      "bytes": 3445,
+      "id": "dist.renderer.627.js.brotli"
+    },
+    {
+      "bytes": 3887,
+      "id": "dist.renderer.627.js.gzip"
+    },
+    {
+      "bytes": 12413,
+      "id": "dist.renderer.627.js.raw"
+    },
+    {
+      "bytes": 8426,
+      "id": "dist.renderer.646.js.brotli"
+    },
+    {
+      "bytes": 9361,
+      "id": "dist.renderer.646.js.gzip"
+    },
+    {
+      "bytes": 27729,
+      "id": "dist.renderer.646.js.raw"
+    },
+    {
+      "bytes": 5374,
+      "id": "dist.renderer.669.js.brotli"
+    },
+    {
+      "bytes": 6041,
+      "id": "dist.renderer.669.js.gzip"
+    },
+    {
+      "bytes": 18981,
+      "id": "dist.renderer.669.js.raw"
+    },
+    {
+      "bytes": 61427,
+      "id": "dist.renderer.757.js.brotli"
+    },
+    {
+      "bytes": 71785,
+      "id": "dist.renderer.757.js.gzip"
+    },
+    {
+      "bytes": 229737,
+      "id": "dist.renderer.757.js.raw"
+    },
+    {
+      "bytes": 8038,
+      "id": "dist.renderer.776.js.brotli"
+    },
+    {
+      "bytes": 8920,
+      "id": "dist.renderer.776.js.gzip"
+    },
+    {
+      "bytes": 26608,
+      "id": "dist.renderer.776.js.raw"
+    },
+    {
+      "bytes": 9104,
+      "id": "dist.renderer.92.1fb4d30f41fb7732e59b.css.brotli"
+    },
+    {
+      "bytes": 10518,
+      "id": "dist.renderer.92.1fb4d30f41fb7732e59b.css.gzip"
+    },
+    {
+      "bytes": 55297,
+      "id": "dist.renderer.92.1fb4d30f41fb7732e59b.css.raw"
+    },
+    {
+      "bytes": 13283,
+      "id": "dist.renderer.92.js.brotli"
+    },
+    {
+      "bytes": 15530,
+      "id": "dist.renderer.92.js.gzip"
+    },
+    {
+      "bytes": 64221,
+      "id": "dist.renderer.92.js.raw"
+    },
+    {
+      "bytes": 2283,
+      "id": "dist.renderer.95.js.brotli"
+    },
+    {
+      "bytes": 2530,
+      "id": "dist.renderer.95.js.gzip"
+    },
+    {
+      "bytes": 7665,
+      "id": "dist.renderer.95.js.raw"
+    },
+    {
+      "bytes": 286,
+      "id": "dist.renderer.about.05c93bc796fae64f365b.css.brotli"
+    },
+    {
+      "bytes": 373,
+      "id": "dist.renderer.about.05c93bc796fae64f365b.css.gzip"
+    },
+    {
+      "bytes": 853,
+      "id": "dist.renderer.about.05c93bc796fae64f365b.css.raw"
+    },
+    {
+      "bytes": 2915,
+      "id": "dist.renderer.about.js.brotli"
+    },
+    {
+      "bytes": 3326,
+      "id": "dist.renderer.about.js.gzip"
+    },
+    {
+      "bytes": 8783,
+      "id": "dist.renderer.about.js.raw"
+    },
+    {
+      "bytes": 200,
+      "id": "dist.renderer.assets.livepcmcapture.worklet.js.brotli"
+    },
+    {
+      "bytes": 254,
+      "id": "dist.renderer.assets.livepcmcapture.worklet.js.gzip"
+    },
+    {
+      "bytes": 340,
+      "id": "dist.renderer.assets.livepcmcapture.worklet.js.raw"
+    },
+    {
+      "bytes": 286,
+      "id": "dist.renderer.history.05c93bc796fae64f365b.css.brotli"
+    },
+    {
+      "bytes": 373,
+      "id": "dist.renderer.history.05c93bc796fae64f365b.css.gzip"
+    },
+    {
+      "bytes": 853,
+      "id": "dist.renderer.history.05c93bc796fae64f365b.css.raw"
+    },
+    {
+      "bytes": 4680,
+      "id": "dist.renderer.history.js.brotli"
+    },
+    {
+      "bytes": 5247,
+      "id": "dist.renderer.history.js.gzip"
+    },
+    {
+      "bytes": 15929,
+      "id": "dist.renderer.history.js.raw"
+    },
+    {
+      "bytes": 1247,
+      "id": "dist.renderer.main.807b54f7a8aff3289313.css.brotli"
+    },
+    {
+      "bytes": 1515,
+      "id": "dist.renderer.main.807b54f7a8aff3289313.css.gzip"
+    },
+    {
+      "bytes": 9760,
+      "id": "dist.renderer.main.807b54f7a8aff3289313.css.raw"
+    },
+    {
+      "bytes": 25780,
+      "id": "dist.renderer.main.js.brotli"
+    },
+    {
+      "bytes": 29965,
+      "id": "dist.renderer.main.js.gzip"
+    },
+    {
+      "bytes": 112382,
+      "id": "dist.renderer.main.js.raw"
+    },
+    {
+      "bytes": 6211,
+      "id": "dist.renderer.prettifyprofilechooser.js.brotli"
+    },
+    {
+      "bytes": 6928,
+      "id": "dist.renderer.prettifyprofilechooser.js.gzip"
+    },
+    {
+      "bytes": 21757,
+      "id": "dist.renderer.prettifyprofilechooser.js.raw"
+    },
+    {
+      "bytes": 3295,
+      "id": "dist.renderer.providersettings.f2b271de6d6dc16e261a.css.brotli"
+    },
+    {
+      "bytes": 3834,
+      "id": "dist.renderer.providersettings.f2b271de6d6dc16e261a.css.gzip"
+    },
+    {
+      "bytes": 19167,
+      "id": "dist.renderer.providersettings.f2b271de6d6dc16e261a.css.raw"
+    },
+    {
+      "bytes": 15199,
+      "id": "dist.renderer.providersettings.js.brotli"
+    },
+    {
+      "bytes": 17148,
+      "id": "dist.renderer.providersettings.js.gzip"
+    },
+    {
+      "bytes": 67867,
+      "id": "dist.renderer.providersettings.js.raw"
+    },
+    {
+      "bytes": 1169,
+      "id": "dist.renderer.runtime.js.brotli"
+    },
+    {
+      "bytes": 1311,
+      "id": "dist.renderer.runtime.js.gzip"
+    },
+    {
+      "bytes": 2603,
+      "id": "dist.renderer.runtime.js.raw"
+    },
+    {
+      "bytes": 286,
+      "id": "dist.renderer.settings.05c93bc796fae64f365b.css.brotli"
+    },
+    {
+      "bytes": 373,
+      "id": "dist.renderer.settings.05c93bc796fae64f365b.css.gzip"
+    },
+    {
+      "bytes": 853,
+      "id": "dist.renderer.settings.05c93bc796fae64f365b.css.raw"
+    },
+    {
+      "bytes": 21960,
+      "id": "dist.renderer.settings.js.brotli"
+    },
+    {
+      "bytes": 25297,
+      "id": "dist.renderer.settings.js.gzip"
+    },
+    {
+      "bytes": 99919,
+      "id": "dist.renderer.settings.js.raw"
+    },
+    {
+      "bytes": 678,
+      "id": "dist.settings.html.brotli"
+    },
+    {
+      "bytes": 914,
+      "id": "dist.settings.html.gzip"
+    },
+    {
+      "bytes": 2694,
+      "id": "dist.settings.html.raw"
+    },
+    {
+      "bytes": 3408930,
+      "id": "electron.locales"
+    },
+    {
+      "bytes": 350013098,
+      "id": "installer.appimage"
+    },
+    {
+      "bytes": 276576524,
+      "id": "installer.deb"
+    },
+    {
+      "bytes": 235171293,
+      "id": "installer.rpm"
+    },
+    {
+      "bytes": 1115960930,
+      "id": "unpacked.app"
+    }
+  ],
+  "schemaVersion": 1
+}
