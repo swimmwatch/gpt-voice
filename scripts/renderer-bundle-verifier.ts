@@ -20,6 +20,14 @@ function verify(condition: boolean, code: string): asserts condition {
   if (!condition) throw verificationError(code);
 }
 
+/** Reads asset attributes in the quoted and unquoted forms emitted by HTML minifiers. */
+function readAssetReferences(html: string, pattern: RegExp): string[] {
+  return [...html.matchAll(pattern)].map((match) => match[1] ?? match[2] ?? match[3] ?? '');
+}
+
+const SCRIPT_SOURCE_PATTERN = /<script\b[^>]*?\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+))(?=[\s>])/giu;
+const STYLESHEET_HREF_PATTERN = /<link\b[^>]*?\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+))(?=[\s>])/giu;
+
 /** Verifies renderer production invariants against the output of the existing full application build. */
 export class RendererBundleVerifier {
   public constructor(private readonly outputRoot: string) {}
@@ -40,8 +48,11 @@ export class RendererBundleVerifier {
 
     for (const { entry, htmlFile } of RENDERER_WINDOW_ENTRIES) {
       const html = await readFile(path.join(this.outputRoot, htmlFile), 'utf8');
-      verify(html.includes(`src="renderer/${entry}.js"`), 'WINDOW_ENTRY_MISSING');
-      const cssHrefs = [...html.matchAll(/<link[^>]+href="(renderer\/[^"<>]+\.css)"/gu)].map((match) => match[1] ?? '');
+      const scriptSources = readAssetReferences(html, SCRIPT_SOURCE_PATTERN);
+      verify(scriptSources.includes(`renderer/${entry}.js`), 'WINDOW_ENTRY_MISSING');
+      const cssHrefs = readAssetReferences(html, STYLESHEET_HREF_PATTERN).filter(
+        (href) => href.startsWith('renderer/') && href.endsWith('.css'),
+      );
       verify(cssHrefs.length > 0, 'WINDOW_CSS_MISSING');
       verify(new Set(cssHrefs).size === cssHrefs.length, 'WINDOW_CSS_DUPLICATED');
       for (const cssHref of cssHrefs) {
@@ -55,7 +66,7 @@ export class RendererBundleVerifier {
       }
       for (const { entry: otherEntry } of RENDERER_WINDOW_ENTRIES) {
         if (otherEntry !== entry) {
-          verify(!html.includes(`src="renderer/${otherEntry}.js"`), 'WINDOW_ENTRY_CROSSED');
+          verify(!scriptSources.includes(`renderer/${otherEntry}.js`), 'WINDOW_ENTRY_CROSSED');
         }
       }
     }
