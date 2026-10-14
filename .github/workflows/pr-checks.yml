@@ -119,7 +119,7 @@ jobs:
           npm run verify:local-whisper:native-source -- --lock=googletest-v1.17.0-52eb810
           npm run verify:local-whisper:native-source -- --lock=whisper-cpp-v1.9.1-f049fff
       - name: Initialize Linux C++ CodeQL database
-        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           build-mode: manual
           db-location: ${{ github.workspace }}/.cache/codeql/cpp-linux
@@ -156,7 +156,7 @@ jobs:
           npm run test:local-whisper:filesystem
           npm run verify:local-whisper:filesystem -- --fixture
       - name: Analyze Linux C++ CodeQL database
-        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:c-cpp,host:linux
           output: release-artifacts/codeql-cpp-linux
@@ -169,7 +169,7 @@ jobs:
         shell: bash
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_LINUX_RUNNER }} --toolchain=$TOOLCHAIN --expected-os=$PLATFORM --compiler="$CXX" --output=$EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
       - name: Upload Linux runner evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ env.EVIDENCE_ARTIFACT }}
           path: |
@@ -265,7 +265,7 @@ jobs:
           npm run verify:local-whisper:amd-packs -- --profile=hip-no-approved-row
       - name: Upload focused GCC coverage
         if: matrix.lane == 'gcc-package'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: local-whisper-focused-gcc-quality-coverage-linux
           path: release-artifacts/focused-gcc-quality-coverage-linux.json
@@ -321,7 +321,7 @@ jobs:
         shell: pwsh
         run: Add-Content -LiteralPath $env:GITHUB_ENV -Value 'LOCAL_WHISPER_PREPARED_WINDOWS_QUALITY=true' -Encoding utf8
       - name: Initialize Windows C++ CodeQL database
-        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           build-mode: manual
           db-location: ${{ github.workspace }}/.cache/codeql/cpp-windows
@@ -346,7 +346,7 @@ jobs:
           npm run test:local-whisper:supervisor
           npm run test:local-whisper:filesystem
       - name: Analyze Windows C++ CodeQL database
-        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:c-cpp,host:windows
           output: release-artifacts/codeql-cpp-windows
@@ -359,7 +359,7 @@ jobs:
         shell: pwsh
         run: npm run emit:local-whisper:runner-evidence -- --runner-label=${{ vars.CI_WINDOWS_RUNNER }} --toolchain=$env:TOOLCHAIN --expected-os=$env:PLATFORM --compiler="$env:CXX" --output=$env:EVIDENCE_OUTPUT --tested-digests=52eb8108c5bdec04579160ae17225d66034bd723,55f93686c01528224f448c19128836e7df245f72,f049fff95a089aa9969deb009cdd4892b3e74916
       - name: Upload Windows runner evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ env.EVIDENCE_ARTIFACT }}
           path: |
@@ -618,7 +618,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Initialize JavaScript and TypeScript CodeQL database
-        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           build-mode: none
           config-file: ./.github/codeql-config.yml
@@ -626,7 +626,7 @@ jobs:
           languages: javascript-typescript
           queries: security-and-quality
       - name: Analyze JavaScript and TypeScript CodeQL database
-        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:javascript-typescript
           output: release-artifacts/codeql-javascript-typescript
@@ -756,7 +756,7 @@ jobs:
 
       - name: Upload Linux measurement reports
         if: matrix.platform == 'linux'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-linux-measurements
           path: |
@@ -767,7 +767,7 @@ jobs:
 
       - name: Upload Windows measurement reports
         if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-windows-measurements
           path: |
@@ -777,7 +777,7 @@ jobs:
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload bounded application security evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-application-security-${{ matrix.artifactPlatform }}
           path: release-artifacts/application-security-${{ matrix.artifactPlatform }}
@@ -785,7 +785,7 @@ jobs:
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload exact attestation subjects
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
           path: release-artifacts/attestation-subjects-${{ matrix.artifactPlatform }}
@@ -819,7 +819,7 @@ jobs:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Download exact attestation subjects
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
           path: attestation-subjects
@@ -855,7 +855,7 @@ jobs:
 
     steps:
       - name: Download exact attestation subjects
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-attestation-subjects-${{ matrix.artifactPlatform }}
           path: attestation-subjects
