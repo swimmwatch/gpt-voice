@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-input-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidateInputDigest",
+    "deploymentDigest",
+    "packageAsset",
+    "platform",
+    "platformSmokeInputDigest",
+    "sourceSha",
+    "target"
+  ],
+  "properties": {
+    "candidateInputDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "deploymentDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "packageAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fileName", "length", "sha256"],
+      "properties": {
+        "fileName": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,256}$" },
+        "length": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f\\d]{64}$" }
+      }
+    },
+    "platform": { "enum": ["linux", "win32"] },
+    "platformSmokeInputDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "sourceSha": { "type": "string", "pattern": "^[a-f\\d]{40}$" },
+    "target": { "const": "v2.4.0-alpha.1" }
+  }
+}

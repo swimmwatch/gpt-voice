@@ -186,10 +186,10 @@ function lock(value: unknown, expected: (typeof EXPECTED_LOCKS)[number]): Adviso
   ) {
     fail('LOCK_IDENTITY_INVALID');
   }
-  const sources = Object.freeze([
+  const sources: AdvisoryLockRecord['sources'] = Object.freeze([
     source(result.sources[0], 'osv-v1-querybatch'),
     source(result.sources[1], 'github-rest-git-tag-v1'),
-  ]) as AdvisoryLockRecord['sources'];
+  ]);
   const normalizedResult = status(result.result, 'LOCK_INVALID');
   if (normalizedResult !== worstResult(sources.map((entry) => entry.result))) fail('LOCK_RESULT_INVALID');
   return Object.freeze({ ...expected, result: normalizedResult, sources });

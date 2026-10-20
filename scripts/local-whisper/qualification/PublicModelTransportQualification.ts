@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { createHash } from 'node:crypto';
 import { chmod, copyFile, lstat, mkdir, rename, stat, unlink } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -34,6 +35,7 @@ const clock: ArtifactClock = {
   clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
 };
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 class RecordingArtifactHttpClient implements ArtifactHttpClient {
   public readonly hosts: string[] = [];
   public rangeRequestCount = 0;

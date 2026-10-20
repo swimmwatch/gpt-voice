@@ -1,7 +1,31 @@
 const path = require('node:path');
+const { readFileSync } = require('node:fs');
+const { createHash } = require('node:crypto');
+const { DefinePlugin } = require('webpack');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+function productionCatalogManifestDigest() {
+  const descriptorPath = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DESCRIPTOR;
+  const bundleDirectory = process.env.LOCAL_WHISPER_PRODUCTION_BUNDLE_DIRECTORY;
+  if (!descriptorPath && !bundleDirectory) return null;
+  if (!descriptorPath || !bundleDirectory) throw new Error('Production catalog build inputs are incomplete');
+  const descriptorText = readFileSync(descriptorPath, 'utf8');
+  const descriptor = JSON.parse(descriptorText);
+  const manifestBytes = readFileSync(path.join(bundleDirectory, 'bundle-manifest.json'));
+  const manifestDigest = createHash('sha256').update(manifestBytes).digest('hex');
+  if (
+    descriptor.schemaVersion !== 1 ||
+    descriptor.purpose !== 'production' ||
+    !['linux', 'win32'].includes(descriptor.platform) ||
+    descriptor.bundleManifestSha256 !== manifestDigest
+  )
+    throw new Error('Production catalog build manifest does not match the approved descriptor');
+  return manifestDigest;
+}
+
+const productionCatalogDigest = productionCatalogManifestDigest();
 
 const isProd = process.env.NODE_ENV === 'production';
 const mode = isProd ? 'production' : 'development';
@@ -18,6 +42,11 @@ module.exports = [
     mode,
     entry: './src/main/main.ts',
     target: 'electron-main',
+    plugins: [
+      new DefinePlugin({
+        __LOCAL_WHISPER_PRODUCTION_BUNDLE_MANIFEST_SHA256__: JSON.stringify(productionCatalogDigest),
+      }),
+    ],
     node: {
       __dirname: false,
       __filename: false,

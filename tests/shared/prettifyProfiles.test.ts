@@ -65,7 +65,13 @@ describe('prettifyProfiles', () => {
   it('defines the exact immutable built-in catalog and contract versions', () => {
     assert.equal(PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION, 1);
     assert.equal(PRETTIFY_INSTRUCTION_CONTRACT_VERSION, 1);
-    assert.deepEqual(PRETTIFY_BUILT_IN_PROFILE_IDS, ['prompt-ready', 'polish', 'professional', 'natural']);
+    assert.deepEqual(PRETTIFY_BUILT_IN_PROFILE_IDS, [
+      'prompt-ready',
+      'polish',
+      'professional',
+      'natural',
+      'execution-ready',
+    ]);
     assert.deepEqual(
       PRETTIFY_BUILT_IN_PROFILE_METADATA.map(({ id, kind }) => ({ id, kind })),
       PRETTIFY_BUILT_IN_PROFILE_IDS.map((id) => ({ id, kind: 'built-in' })),
@@ -73,10 +79,15 @@ describe('prettifyProfiles', () => {
     assert.equal(Object.isFrozen(PRETTIFY_BUILT_IN_PROFILE_METADATA), true);
     assert.equal(PRETTIFY_BUILT_IN_PROFILE_METADATA.every(Object.isFrozen), true);
     assert.equal(getPrettifyBuiltInProfileMetadata('prompt-ready').nameKey, 'prettify.profile.promptReady.name');
+    assert.equal(
+      getPrettifyBuiltInProfileMetadata('execution-ready').descriptionKey,
+      'prettify.profile.executionReady.description',
+    );
   });
 
   it('recognizes only exact built-in and canonical lowercase custom IDs', () => {
     assert.equal(isPrettifyBuiltInProfileId('natural'), true);
+    assert.equal(isPrettifyBuiltInProfileId('execution-ready'), true);
     assert.equal(isPrettifyBuiltInProfileId('translate'), false);
     assert.equal(isPrettifyCustomProfileId(FIRST_CUSTOM_ID), true);
     assert.equal(isPrettifyCustomProfileId('custom:00000000-0000-0000-0000-00000000000A'), false);
@@ -95,14 +106,21 @@ describe('prettifyProfiles', () => {
           }),
         ],
         {
-          chooserOrder: ['prompt-ready', FIRST_CUSTOM_ID, 'natural', 'polish', 'professional'],
+          chooserOrder: ['prompt-ready', FIRST_CUSTOM_ID, 'natural', 'polish', 'professional', 'execution-ready'],
           defaultProfileId: FIRST_CUSTOM_ID,
         },
       ),
     );
 
     assert.equal(catalog.defaultProfileId, FIRST_CUSTOM_ID);
-    assert.deepEqual(catalog.chooserOrder, ['prompt-ready', FIRST_CUSTOM_ID, 'natural', 'polish', 'professional']);
+    assert.deepEqual(catalog.chooserOrder, [
+      'prompt-ready',
+      FIRST_CUSTOM_ID,
+      'natural',
+      'polish',
+      'professional',
+      'execution-ready',
+    ]);
     assert.deepEqual(catalog.customProfiles[0], {
       description: 'Short chooser subtitle.',
       id: FIRST_CUSTOM_ID,

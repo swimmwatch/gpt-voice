@@ -10,6 +10,7 @@ import {
   type ProviderAuditTerminalOutcome,
 } from '@main/providerAudit';
 import type { StreamingTranscriptionOperationId } from '@shared/streamingTranscription';
+import type { LocalWhisperProviderReadiness } from '@main/localWhisper/coordinator/LocalWhisperCoordinatorTypes';
 
 export type VoiceAuditLifecycle = ProviderAuditLifecycle<'voice'>;
 export type VoiceAuditMetadata = ProviderAuditMetadataForFamily<'voice'>;
@@ -79,6 +80,7 @@ const VOICE_AUDIT_ERROR_CLASS_BY_CAUSE = {
   'malformed-event': 'contract',
   'not-authenticated': 'authentication',
   'not-configured': 'configuration',
+  'not-ready': 'provider-rejection',
   'organization-ambiguous': 'provider-rejection',
   'organization-missing': 'provider-rejection',
   'operation-conflict': 'provider-rejection',
@@ -125,6 +127,19 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
 
   public getExceptionType(error: unknown): ProviderAuditExceptionType {
     return this.normalizeException(error);
+  }
+
+  public createLocalRuntimeReadinessMetadata(readiness: LocalWhisperProviderReadiness): VoiceAuditMetadata {
+    const { snapshot } = readiness;
+    const failureCode = readiness.failure?.code ?? snapshot.blockingCode ?? undefined;
+    return this.createMetadata({
+      causeCode: failureCode === 'INVALID_SETTINGS' ? 'invalid-settings' : 'not-ready',
+      failureCode,
+      activityState: snapshot.activity,
+      capabilityState: snapshot.capability,
+      residencyState: snapshot.residency,
+      supportTier: snapshot.supportTier,
+    });
   }
 
   public createMetadata(options: VoiceAuditMetadataOptions = {}): VoiceAuditMetadata {
@@ -251,6 +266,7 @@ export class VoiceProviderAudit extends BaseProviderAudit<'voice'> {
       case 'not-configured':
         return 'configuration';
       case 'feature-unavailable':
+      case 'not-ready':
       case 'not-authenticated':
       case 'organization-ambiguous':
       case 'organization-missing':

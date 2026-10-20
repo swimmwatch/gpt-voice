@@ -98,7 +98,7 @@ async function main(): Promise<void> {
     });
     await assertMutationRejected(root, selection, 'conversion', (value) => {
       const locales = value.locales as { en_us: { clips: { canonicalWavSha256: string }[] } };
-      locales.en_us.clips[0]!.canonicalWavSha256 = '0'.repeat(64);
+      locales.en_us.clips[0].canonicalWavSha256 = '0'.repeat(64);
     });
     await assertMutationRejected(root, selection, 'private-field', (value) => {
       value.sourcePath = '/home/private/audio.wav';

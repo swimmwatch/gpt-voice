@@ -378,7 +378,7 @@ describe('PrettifyProfilePortabilityService import merge', () => {
   it('replaces in place, appends creates and renames in file order, and preserves default and existing order', () => {
     const harness = new PortabilityHarness();
     const draft = createDraft(undefined, {
-      chooserOrder: ['prompt-ready', LOCAL_A_ID, 'polish', LOCAL_B_ID, 'professional', 'natural'],
+      chooserOrder: ['prompt-ready', LOCAL_A_ID, 'polish', LOCAL_B_ID, 'professional', 'natural', 'execution-ready'],
       defaultProfileId: LOCAL_A_ID,
     });
     const profiles = [
@@ -414,6 +414,7 @@ describe('PrettifyProfilePortabilityService import merge', () => {
       LOCAL_B_ID,
       'professional',
       'natural',
+      'execution-ready',
       IMPORT_C_ID,
       ALLOCATED_E_ID,
     ]);

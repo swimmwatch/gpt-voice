@@ -238,7 +238,7 @@ describe('Local Whisper performance qualification commands', () => {
         runtimeArtifacts: { before: beforeDerived.runtime, after: afterDerived.runtime },
         models: performanceSelectedModels().map((model, index) => ({
           ...model,
-          artifact: modelArtifacts[index]!,
+          artifact: modelArtifacts[index],
         })),
         inputFixture,
         cachePreparation: {

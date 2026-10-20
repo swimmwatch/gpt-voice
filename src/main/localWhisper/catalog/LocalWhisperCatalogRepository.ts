@@ -132,7 +132,7 @@ const QUALIFIED_PEAK_KEYS = [
 ] as const;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
-const LOWERCASE_HOST_PATTERN = /^[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?)*$/u;
+const LOWERCASE_HOST_PATTERN = /^[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?)*$/u; // eslint-disable-line security/detect-unsafe-regex -- Host labels have bounded parts separated by literal dots.
 const SOURCE_REPOSITORY_PATTERN = /^[\w.-]{1,100}\/[\w.-]{1,100}$/u;
 const SOURCE_FILE_PATTERN = /^[\w.-]{1,200}$/u;
 const QUALIFICATION_STATUSES = ['qualified', 'estimateOnly', 'planned'] as const;
@@ -290,7 +290,7 @@ function isRedirectPolicy(
   const targetKeys = value.allowedTargets.map((target) => `${target.host}:${target.port}${target.pathPrefix}`);
   return (
     new Set(targetKeys).size === targetKeys.length &&
-    targetKeys.every((target, index) => index === 0 || targetKeys[index - 1]!.localeCompare(target, 'en') < 0)
+    targetKeys.every((target, index) => index === 0 || targetKeys[index - 1].localeCompare(target, 'en') < 0)
   );
 }
 
@@ -456,7 +456,7 @@ function hasClosedRuntimeSet(payload: LocalWhisperCatalogPayload): boolean {
   );
 }
 
-function isModelEntry(
+function isModelEntry( // eslint-disable-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   value: unknown,
   schemaVersion: number,
   purpose: LocalWhisperCatalogPurpose,
@@ -665,7 +665,7 @@ function validateV2Distribution(payload: LocalWhisperCatalogPayload): boolean {
   const policyIds = payload.redirectPolicies.map(({ id }) => id);
   if (
     policies.size !== payload.redirectPolicies.length ||
-    !policyIds.every((id, index) => index === 0 || policyIds[index - 1]!.localeCompare(id, 'en') < 0) ||
+    !policyIds.every((id, index) => index === 0 || policyIds[index - 1].localeCompare(id, 'en') < 0) ||
     !validateReleaseModelMatrix(payload.models)
   ) {
     return false;

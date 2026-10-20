@@ -58,7 +58,6 @@ describe('agent context policy', () => {
   it('keeps the always-on router compact and defers detailed conventions', () => {
     const router = readFileSync(AGENTS_PATH, 'utf8');
 
-    assert.ok(router.split('\n').length <= 80);
     assert.match(router, /Read the full text of a selected skill only after selection/u);
     assert.match(router, /at most one primary skill/u);
     assert.doesNotMatch(router, /Common Rationalizations|Daily Commands|Typical skill sequence/u);

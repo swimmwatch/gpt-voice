@@ -33,7 +33,7 @@ class MemoryIdentityStore implements LocalWhisperDeviceIdentityStore {
 function catalog(): LocalWhisperAuthenticatedCatalog {
   const payload = createQualificationCatalogPayload();
   return Object.freeze({
-    signingKeyId: payload.runtimes[0]!.identity.signingKeyId,
+    signingKeyId: payload.runtimes[0].identity.signingKeyId,
     payload,
     isModelDenylisted: () => false,
     isRuntimeDenylisted: () => false,

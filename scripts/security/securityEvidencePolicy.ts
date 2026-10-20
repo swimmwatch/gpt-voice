@@ -5,7 +5,7 @@ export const SECURITY_EVIDENCE_RETENTION_VARIABLE = '${{ vars.CI_EVIDENCE_RETENT
 const SAFE_RELATIVE_EVIDENCE_PATH = /^release-artifacts\/[a-z\d][a-z\d._/-]{0,255}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const FORBIDDEN_EVIDENCE_CONTENT =
-  /\baudio\b|\btranscript\b|\bprompt\b|\bmodel[ -]?content\b|\b(?:api[ -]?)?key\b|\btoken\b|\bcookie\b|\bsession\b|\bbrowser[ -]?(?:profile|data)\b|\bcapability\b|\benvironment(?: dump)?\b|\b(?:home|users)\/|[A-Z]:\\|https?:\/\/(?!github\.com\/)/iu;
+  /\baudio\b|\btranscript\b|\bprompt\b|\bmodel[ -]?content\b|\b(?:api[ -]?)?key\b|\btoken\b|\bcookie\b|\bsession\b|\bbrowser[ -]?(?:profile|data)\b|\bcapability\b|\benvironment(?: dump)?\b|\b(?:home|users)\/|[A-Z]:\\|https?:\/\/(?!github\.com\/)/iu; // eslint-disable-line security/detect-unsafe-regex -- Static alternatives have no ambiguous nested repetition.
 const HOSTED_SECURITY_VENDOR =
   /\b(?:snyk|semgrep|sonarqube|mend|whitesource|veracode|checkmarx|dependabot-alerts-api)\b/iu;
 

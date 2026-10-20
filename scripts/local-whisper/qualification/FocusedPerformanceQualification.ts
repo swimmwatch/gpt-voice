@@ -428,7 +428,7 @@ export function createFocusedPerformanceFixture(
   );
   const samples = focusedPerformanceSchedule().map((cell, index) =>
     documents.produceSample(manifest, {
-      focusedPerformanceCacheReceiptDigest: receipts[index]!.focusedPerformanceCacheReceiptDigest,
+      focusedPerformanceCacheReceiptDigest: receipts[index].focusedPerformanceCacheReceiptDigest,
       sampleId: cell.sampleId,
       cacheState: cell.cacheState,
       sampleIndex: cell.sampleIndex,

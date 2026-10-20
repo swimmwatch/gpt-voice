@@ -104,7 +104,7 @@ describe('Local Whisper UI contracts', () => {
     for (const locale of locales) {
       const localeSource = source(`src/main/i18n/localWhisperSettings/${locale}.ts`);
       for (const key of keys) {
-        assert.match(localeSource, new RegExp(`'localWhisper\\.settings\\.${key}'`, 'u'), `${locale}:${key}`);
+        assert.match(localeSource, new RegExp(`'localWhisper\\.settings\\.${key}'`, 'u'), `${locale}:${key}`); // eslint-disable-line security/detect-non-literal-regexp -- Only keys from the fixed local test table are interpolated.
       }
       assert.match(localeSource, /'localWhisper\.settings\.gpuCpuThreadsHint':[\s\S]{0,180}\{count\}/u, locale);
       assert.match(localeSource, /'localWhisper\.settings\.summaryGpuCpuThreads':[\s\S]{0,120}\{value\}/u, locale);

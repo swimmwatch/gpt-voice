@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { Readable } from 'node:stream';
 

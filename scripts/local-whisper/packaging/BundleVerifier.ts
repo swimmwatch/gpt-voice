@@ -168,7 +168,7 @@ function assertArchiveIdentity(pack: LocalWhisperPackManifest, fileName: string)
   }
 }
 
-function assertCatalogPackBindings(
+function assertCatalogPackBindings( // eslint-disable-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   catalog: LocalWhisperAuthenticatedCatalog,
   bundle: Pick<LocalWhisperVerifiedBundle, 'keyring' | 'manifest' | 'modelPack' | 'runtimePacks'>,
 ): void {

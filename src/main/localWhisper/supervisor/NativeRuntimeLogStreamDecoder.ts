@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import type { ScopedLogger } from '../../logger';
 import {
   NATIVE_RUNTIME_LOG_MAXIMUM_LINE_BYTES,

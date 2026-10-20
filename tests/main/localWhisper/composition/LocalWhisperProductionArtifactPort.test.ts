@@ -225,14 +225,14 @@ function harness(
           state: 'Missing' as const,
           inventoryRevision,
         };
-      } catch (caught) {
+      } catch (error) {
         return {
           success: false as const,
           operationId: 'production-remove-operation-0001',
           artifactId: request.artifactId,
           state: 'Failed' as const,
           error: createLocalWhisperRendererSafeFailure(
-            caught instanceof ManagedArtifactStoreError && caught.code === 'OPERATION_CONFLICT'
+            error instanceof ManagedArtifactStoreError && error.code === 'OPERATION_CONFLICT'
               ? 'OPERATION_CONFLICT'
               : 'DELETE_FAILED',
           ),
@@ -286,7 +286,7 @@ describe('LocalWhisperProductionArtifactPort', () => {
         kind: 'download',
         artifactKind: 'runtime',
         artifactId: descriptor.artifactId,
-        artifactRevision: values.catalogValue.payload.runtimes[0]!.identity.packRevision,
+        artifactRevision: values.catalogValue.payload.runtimes[0].identity.packRevision,
         expectedSnapshotRevision: 1,
         expectedConfigurationEpoch: 1,
         expectedInventoryEpoch: values.initialInventory.revision,

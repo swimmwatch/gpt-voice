@@ -134,6 +134,7 @@ describe('provider audit mappings', () => {
         'page-shutdown',
         'unexpected-failure',
         'not-configured',
+        'not-ready',
         'not-authenticated',
         'rate-limited',
         'connection-failed',

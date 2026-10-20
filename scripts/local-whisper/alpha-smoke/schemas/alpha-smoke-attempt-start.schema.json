@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-attempt-start-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["attemptId", "deadlineEpochMilliseconds", "inputDigest", "startedAtEpochMilliseconds"],
+  "properties": {
+    "attemptId": { "type": "string", "pattern": "^[a-z\\d][a-z\\d-]{0,63}$" },
+    "deadlineEpochMilliseconds": { "type": "integer", "minimum": 1 },
+    "inputDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "startedAtEpochMilliseconds": { "type": "integer", "minimum": 1 }
+  }
+}

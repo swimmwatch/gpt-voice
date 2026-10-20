@@ -128,6 +128,7 @@ Web-provider sessions and settings are reused after restart. The main window sho
 | Cancel              | `Escape` |
 | Translate selection | `F11`    |
 | Prettify selection  | `F12`    |
+| Prettify default profile | `Ctrl+F12` |
 
 Shortcuts are configurable under **App settings → Shortcuts and Actions**.
 
@@ -155,6 +156,8 @@ Shortcuts are configurable under **App settings → Shortcuts and Actions**.
 - **Ollama:** defaults to `http://127.0.0.1:11434`; select a model and optionally load it into memory.
 - **vLLM:** defaults to `http://127.0.0.1:8000/v1`; its API key is optional.
 - **Claude CLI / Codex CLI:** install and authenticate the CLI outside GPT-Voice. Leave the executable path blank to use the GUI process `PATH`, or configure one absolute executable path without command-line arguments.
+
+Use `F12` to choose a Prettify profile. **Prompt-ready** shortens rough text into an AI prompt, removing unnecessary greetings and politeness without losing requirements. **Execution-ready** adds conditional execution guidance to an already prepared prompt. To use both, select the Prompt-ready result in another application and run Prettify again with Execution-ready; the two passes are not automatic. **Polish**, **Professional**, and **Natural** remain available for general editing. `Ctrl+F12` applies your configured default profile directly.
 
 ### Translation
 

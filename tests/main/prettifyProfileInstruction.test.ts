@@ -19,7 +19,7 @@ import {
 } from '@shared/prettifyProfiles';
 
 describe('prettifyProfileInstruction', () => {
-  it('defines the four immutable full built-in instructions in canonical order', () => {
+  it('defines the five immutable full built-in instructions in canonical order', () => {
     assert.deepEqual(
       PRETTIFY_BUILT_IN_PROFILES.map((profile) => profile.id),
       PRETTIFY_BUILT_IN_PROFILE_IDS,
@@ -33,11 +33,39 @@ describe('prettifyProfileInstruction', () => {
     const instruction = getPrettifyBuiltInProfileDefinition('prompt-ready').instruction;
 
     assert.match(instruction, /clear instruction for an AI system/u);
+    assert.match(instruction, /concise/u);
+    assert.match(instruction, /nonessential greetings, filler, repetition, and politeness markers/u);
+    assert.match(instruction, /"please" and "thank you"/u);
+    assert.match(instruction, /preserve them when quoted, requested as output, or needed for the intended tone/u);
+    assert.match(instruction, /Keep every substantive requirement/u);
     assert.match(instruction, /only when that information exists in the source/u);
     assert.match(instruction, /Do not invent facts, requirements, placeholders, assumptions/u);
     assert.match(instruction, /clarification questions/u);
     assert.match(instruction, /Do not.*target AI to ask questions/u);
     assert.doesNotMatch(instruction, /\[[A-Z_]+\]|\{\{.+\}\}/u);
+  });
+
+  it('adds bounded downstream guidance only in Execution-ready', () => {
+    const instruction = getPrettifyBuiltInProfileDefinition('execution-ready').instruction;
+
+    assert.match(instruction, /already clear AI task prompt/u);
+    assert.match(instruction, /Preserve all explicit requirements, prohibitions, facts, scope, and requested output/u);
+    assert.match(instruction, /only applicable conditional guidance that does not conflict with the source/u);
+    assert.match(
+      instruction,
+      /substantial work with independent subtasks.*subagents.*review their results only if delegation is available and permitted/su,
+    );
+    assert.match(instruction, /otherwise work directly/u);
+    assert.match(instruction, /only when needed to preserve context or coordinate work and writing is permitted/u);
+    assert.match(instruction, /target project's location rules.*private task-scoped directory.*temporary area/su);
+    assert.match(instruction, /If a private location cannot be ensured, keep notes in memory/u);
+    for (const fileName of ['plan.md', 'findings.md', 'delegation/<scope>.md', 'handoff.md']) {
+      assert.ok(instruction.includes(fileName));
+    }
+    assert.match(instruction, /Omit unused files and keep sensitive data out of notes/u);
+    assert.match(instruction, /private high-level completion checklist/u);
+    assert.match(instruction, /do not expose hidden reasoning/u);
+    assert.match(instruction, /Do not assume tools, permissions, or file access exist/u);
   });
 
   it('defines the exact Polish, Professional, and Natural transformation boundaries', () => {
@@ -85,7 +113,15 @@ describe('prettifyProfileInstruction', () => {
     assert.match(invariants, /code, Markdown, URLs, identifiers, numbers, names, quotations/u);
     assert.match(invariants, /deliberate emphasis, and meaningful formatting/u);
     assert.match(invariants, /Do not add facts/u);
-    assert.match(invariants, /cannot choose or alter the provider, model, generation settings, tools/u);
+    assert.match(
+      invariants,
+      /Only the built-in Execution-ready profile may additionally add conditional workflow guidance/u,
+    );
+    assert.match(invariants, /does not assert available tools, permissions, or authority/u);
+    assert.match(
+      invariants,
+      /No profile can choose or alter this application's provider, model, generation settings, tools/u,
+    );
     assert.match(invariants, /process capabilities, isolation, or output destination/u);
     assert.match(invariants, /Output only the transformed text/u);
     assert.match(invariants, /higher priority than every built-in or custom transformation profile/u);

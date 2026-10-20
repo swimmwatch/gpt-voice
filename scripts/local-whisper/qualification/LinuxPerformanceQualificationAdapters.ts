@@ -79,6 +79,7 @@ async function digestVerifiedFile(filePath: string, identity: PerformancePrivate
   if (digest !== identity.sha256) invalidArtifact();
 }
 
+/** Accepts a worktree only when its HEAD matches the expected commit and its status is clean. */
 class LinuxGitWorktreeInspector {
   public async verify(worktree: string, expectedCommit: string): Promise<void> {
     const environment = { LANG: 'C', LC_ALL: 'C', PATH: '/usr/bin:/bin' };
@@ -232,6 +233,7 @@ function killOwnedProcessGroup(child: ChildProcessWithoutNullStreams): void {
   }
 }
 
+/** Owns process settlement, bounded output, and process-group termination on cancellation or failure. */
 class LinuxPerformanceAttemptProcessSession implements PerformanceAttemptProcessSession {
   public readonly rootPid: number;
   public readonly eventStream: NodeJS.ReadableStream;
@@ -499,6 +501,7 @@ export class LinuxPerformanceCachePreparationAdapter implements PerformanceCache
   }
 }
 
+/** Waits for sampler readiness and owns completion and termination of its session. */
 class LinuxPerformanceResourceSession implements PerformanceResourceSession {
   public constructor(private readonly session: ReturnType<LinuxPerformanceResourceSampler['start']>) {}
 
@@ -512,6 +515,7 @@ class LinuxPerformanceResourceSession implements PerformanceResourceSession {
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class LinuxPerformanceResourceAdapter implements PerformanceResourcePort {
   public constructor(private readonly sampler: LinuxPerformanceResourceSampler) {}
 
@@ -530,11 +534,13 @@ export class LinuxPerformanceResourceAdapter implements PerformanceResourcePort 
 
 /** Deterministic cache fixture that is valid only for a contract-only run plan. */
 export class ContractOnlyPerformanceCacheAdapter implements PerformanceCachePreparationPort {
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async prepare(input: PerformanceCachePreparationInput): Promise<void> {
     if (input.signal?.aborted) throw new PerformanceCollectionError('COLLECTION_CANCELLED');
   }
 }
 
+/** Produces deterministic contract fixtures, never representative resource evidence. */
 class ContractOnlyPerformanceResourceSession implements PerformanceResourceSession {
   public constructor(
     private readonly input: Readonly<{
@@ -545,6 +551,7 @@ class ContractOnlyPerformanceResourceSession implements PerformanceResourceSessi
     }>,
   ) {}
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async finish(): Promise<PerformanceResourceProof> {
     return Object.freeze({
       resources: Object.freeze(this.input.requiredResourceIds.map((id) => Object.freeze({ id, peakBytes: 1024 }))),

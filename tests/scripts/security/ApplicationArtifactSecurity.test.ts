@@ -208,7 +208,7 @@ describe('Application artifact SBOM', () => {
       assert.ok(fixture.generated.document.components.some((component) => component.name === 'fs-guard'));
       const serialized = canonicalArtifactSecurityJson(fixture.generated.document);
       assert.doesNotMatch(serialized, /CANARY_APPLICATION_BYTES|CANARY_RUNTIME_BYTES/u);
-      assert.doesNotMatch(serialized, new RegExp(fixture.unpackedRoot.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
+      assert.doesNotMatch(serialized, new RegExp(fixture.unpackedRoot.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u')); // eslint-disable-line security/detect-non-literal-regexp -- The fixture path is escaped before interpolation.
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
     }

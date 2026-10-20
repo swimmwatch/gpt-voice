@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { createHash } from 'node:crypto';
 import { constants, type Stats } from 'node:fs';
 import { lstat, open, type FileHandle } from 'node:fs/promises';
@@ -7,7 +8,6 @@ import { hasSameVerifiedFileIdentity } from '../../security/verifiedRegularFile'
 import { qualificationCanonicalJson } from './QualificationContracts';
 import {
   performanceRequiredPhaseIds,
-  type PerformanceBackend,
   type PerformanceCandidateWindow,
   type PerformancePhaseMeasurement,
 } from './PerformanceQualification';
@@ -65,6 +65,7 @@ export interface PerformanceAttemptResponse {
   readonly phases: readonly PerformancePhaseMeasurement[];
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class PerformanceQualificationAttemptError extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -97,6 +98,7 @@ function parseArtifact(value: unknown): PerformanceAttemptArtifactReference {
 }
 
 /** Parses one exact canonical schema-v3 request line and rejects aliases/extras. */
+// eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
 export function parsePerformanceAttemptRequest(bytes: Buffer): PerformanceAttemptRequest {
   if (
     bytes.byteLength === 0 ||
@@ -156,7 +158,7 @@ export function parsePerformanceAttemptRequest(bytes: Buffer): PerformanceAttemp
   ) {
     fail('ATTEMPT_REQUEST_INVALID');
   }
-  const backend = value.backend as PerformanceBackend;
+  const backend = value.backend;
   const requiredPhaseIds = performanceRequiredPhaseIds('linux', backend);
   if (JSON.stringify(value.requiredPhaseIds) !== JSON.stringify(requiredPhaseIds)) fail('ATTEMPT_REQUEST_INVALID');
   const runtimeArtifact = parseArtifact(value.runtimeArtifact);
@@ -193,6 +195,7 @@ async function sha256Descriptor(file: FileHandle, sizeBytes: number): Promise<st
   return hash.digest('hex');
 }
 
+/** Owns a no-follow descriptor and revalidates file identity, length, and digest before and after use. */
 class OwnedAttemptArtifact {
   public readonly exposed: AuthenticatedPerformanceAttemptArtifact;
   private constructor(
@@ -209,7 +212,7 @@ class OwnedAttemptArtifact {
     );
     try {
       const [opened, linked] = await Promise.all([
-        (handle.stat({ bigint: false }) as Promise<Stats>).catch(() => fail('ATTEMPT_ARTIFACT_INVALID')),
+        handle.stat({ bigint: false }).catch(() => fail('ATTEMPT_ARTIFACT_INVALID')),
         lstat(reference.absolutePath).catch(() => fail('ATTEMPT_ARTIFACT_INVALID')),
       ]);
       if (
@@ -231,7 +234,7 @@ class OwnedAttemptArtifact {
 
   public async verifyUnchanged(): Promise<void> {
     const [opened, linked, digest] = await Promise.all([
-      (this.handle.stat({ bigint: false }) as Promise<Stats>).catch(() => fail('ATTEMPT_ARTIFACT_CHANGED')),
+      this.handle.stat({ bigint: false }).catch(() => fail('ATTEMPT_ARTIFACT_CHANGED')),
       lstat(this.reference.absolutePath).catch(() => fail('ATTEMPT_ARTIFACT_CHANGED')),
       sha256Descriptor(this.handle, this.reference.sizeBytes),
     ]);

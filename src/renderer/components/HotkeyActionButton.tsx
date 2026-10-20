@@ -56,10 +56,6 @@ function getHotkeyActionButtonCopy(
 
   switch (presentation.state) {
     case 'application-enabled':
-      return {
-        legend: presentation.effectiveAccelerator ?? configured,
-        tooltip: actionLabel,
-      };
     case 'application-suppressed':
       return {
         legend: presentation.effectiveAccelerator ?? configured,
@@ -71,10 +67,6 @@ function getHotkeyActionButtonCopy(
         tooltip: actionLabel,
       };
     case 'failed':
-      return {
-        legend: null,
-        tooltip: actionLabel,
-      };
     case 'unassigned':
       return {
         legend: null,

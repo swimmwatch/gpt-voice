@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 4] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -19,6 +20,7 @@ const RELEASE_SHA = 'c'.repeat(40);
 const REPAIRED_RELEASE_SHA = 'd'.repeat(40);
 const FOLLOW_UP_RELEASE_SHA = 'e'.repeat(40);
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- Scenario-local test doubles are documented by their test cases.
 class MemoryReleaseStateStore {
   state;
   writes = [];
@@ -38,6 +40,7 @@ class MemoryReleaseStateStore {
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- Scenario-local test doubles are documented by their test cases.
 class FakeReleaseGitRepository {
   branchName = RELEASE_CONTRACT.featureBranch;
   headSha = FEATURE_SHA;
@@ -86,6 +89,7 @@ class FakeReleaseGitRepository {
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- Scenario-local test doubles are documented by their test cases.
 class FakeReleasePreparation {
   paths = Object.freeze(['package.json', 'package-lock.json', 'CHANGELOG.md']);
   applyCount = 0;
@@ -100,6 +104,7 @@ class FakeReleasePreparation {
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- Scenario-local test doubles are documented by their test cases.
 class FakeReleaseGitHubClient {
   #git;
   #successfulRuns = new Map();
@@ -620,7 +625,11 @@ describe('ReleaseStateStore', () => {
         { now: 7_000_000 },
       );
       assert.equal(renewedForNewSource.sourceSha, FEATURE_SHA);
-      await store.write({ ...renewedForNewSource, failureCode: 'release-pull-request-checks-failed', phase: 'blocked' });
+      await store.write({
+        ...renewedForNewSource,
+        failureCode: 'release-pull-request-checks-failed',
+        phase: 'blocked',
+      });
       const renewedBlocked = await store.renewForExplicitRecovery(permit, { now: 7_000_000 });
       assert.equal(renewedBlocked.phase, 'blocked');
       assert.equal(renewedBlocked.deadlineEpochMilliseconds, renewedDeadline);

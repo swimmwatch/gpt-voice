@@ -1,0 +1,11 @@
+{
+  "attemptId": "alpha-mtj08wkt",
+  "inputDigest": "52addc13b3db32392fac31e30d66cd59e7b8cda965eed4409172649d71a66cdd",
+  "outcome": "functional_failure_and_finalization_failure",
+  "packageStatus": "retained-alpha",
+  "platform": "linux",
+  "settingsBackupStatus": "retained-private",
+  "status": "Fail",
+  "target": "v2.4.0-alpha.1",
+  "resultDigest": "bb163f7f15e63f46afc9b6a9fccf7d5919ead999381274438b5081035bd7c3e2"
+}

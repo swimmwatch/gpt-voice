@@ -6,7 +6,13 @@ export const MAX_PRETTIFY_PROFILE_NAME_CODE_POINTS = 64;
 export const MAX_PRETTIFY_PROFILE_DESCRIPTION_CODE_POINTS = 240;
 export const MAX_PRETTIFY_PROFILE_INSTRUCTION_CODE_POINTS = 4_000;
 
-export const PRETTIFY_BUILT_IN_PROFILE_IDS = ['prompt-ready', 'polish', 'professional', 'natural'] as const;
+export const PRETTIFY_BUILT_IN_PROFILE_IDS = [
+  'prompt-ready',
+  'polish',
+  'professional',
+  'natural',
+  'execution-ready',
+] as const;
 
 export type PrettifyBuiltInProfileId = (typeof PRETTIFY_BUILT_IN_PROFILE_IDS)[number];
 export type PrettifyCustomProfileId = `custom:${string}`;
@@ -17,13 +23,15 @@ export type PrettifyBuiltInProfileNameKey =
   | 'prettify.profile.promptReady.name'
   | 'prettify.profile.polish.name'
   | 'prettify.profile.professional.name'
-  | 'prettify.profile.natural.name';
+  | 'prettify.profile.natural.name'
+  | 'prettify.profile.executionReady.name';
 
 export type PrettifyBuiltInProfileDescriptionKey =
   | 'prettify.profile.promptReady.description'
   | 'prettify.profile.polish.description'
   | 'prettify.profile.professional.description'
-  | 'prettify.profile.natural.description';
+  | 'prettify.profile.natural.description'
+  | 'prettify.profile.executionReady.description';
 
 export interface PrettifyBuiltInProfileMetadata {
   readonly descriptionKey: PrettifyBuiltInProfileDescriptionKey;
@@ -56,6 +64,12 @@ export const PRETTIFY_BUILT_IN_PROFILE_METADATA: readonly PrettifyBuiltInProfile
     id: 'natural',
     kind: 'built-in',
     nameKey: 'prettify.profile.natural.name',
+  }),
+  Object.freeze({
+    descriptionKey: 'prettify.profile.executionReady.description',
+    id: 'execution-ready',
+    kind: 'built-in',
+    nameKey: 'prettify.profile.executionReady.name',
   }),
 ]);
 

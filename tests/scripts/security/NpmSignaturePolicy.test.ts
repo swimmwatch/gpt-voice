@@ -164,7 +164,7 @@ describe('npm signature policy', () => {
             installedLockfileSha256: input.installedLockfileSha256 ?? LOCKFILE_SHA256,
             signatures: input.signatures ?? signatures,
           }),
-        new RegExp(input.reason, 'u'),
+        new RegExp(input.reason, 'u'), // eslint-disable-line security/detect-non-literal-regexp -- Reasons are fixed literal cases in this local fixture table.
       );
     });
   }

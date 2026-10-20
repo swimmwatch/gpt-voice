@@ -316,10 +316,10 @@ const REQUIRED_PACKAGE_SCRIPTS = Object.freeze([
   'verify:local-whisper:deploy',
 ]);
 
-const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 26;
-const IMPLEMENTATION_READINESS_PLAN_REVISION = 34;
+const IMPLEMENTATION_READINESS_SPECIFICATION_REVISION = 28;
+const IMPLEMENTATION_READINESS_PLAN_REVISION = 37;
 const IMPLEMENTATION_READINESS_TASK_COUNT = 36;
-const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-34-acceptance-registry';
+const ACCEPTANCE_REGISTRY_CONTRACT_ID = 'revision-37-acceptance-registry';
 const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
 const QUALIFICATION_ROOT = 'docs/specs/local-whisper/qualification';
 const FROZEN_EVIDENCE_FILE_PATTERN =
@@ -353,7 +353,7 @@ function hasResource(value: unknown, from: string, to: string): boolean {
 function expectedAcceptanceIds(): readonly string[] {
   return Object.freeze([
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 36 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 37 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ]);
 }
 
@@ -459,6 +459,7 @@ export class LocalWhisperImplementationReadinessVerifier {
     }
   }
 
+  // eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   private async verifyTaskRegistry(): Promise<void> {
     const manifest = record(
       json(
@@ -569,6 +570,15 @@ export class LocalWhisperImplementationReadinessVerifier {
         (acceptanceId) => ownerRecords.find((owner) => owner.acceptanceId === acceptanceId)?.primaryTask !== '32',
       ) ||
       ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-091')?.primaryTask !== '36' ||
+      ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-092')?.primaryTask !== '34' ||
+      JSON.stringify(ownerRecords.find((owner) => owner.acceptanceId === 'AC-AUTO-092')?.verificationCommandIds) !==
+        JSON.stringify(['task-34-alpha-smoke-tests']) ||
+      !commandRecords.some(
+        (value) =>
+          value.id === 'task-34-alpha-smoke-tests' &&
+          value.task === '34' &&
+          value.command === 'rtk npm run test:local-whisper:alpha-smoke',
+      ) ||
       specificationRevision.const !== IMPLEMENTATION_READINESS_SPECIFICATION_REVISION ||
       planRevision.const !== IMPLEMENTATION_READINESS_PLAN_REVISION
     ) {

@@ -86,7 +86,7 @@ describe('FileBackedArtifactStreamingWorker', () => {
       });
       assert.equal(result.entries.length, 1);
       assert.equal(result.entries[0]?.name, fileId);
-      assert.deepEqual(await collect(result.entries[0]!.chunks), bytes);
+      assert.deepEqual(await collect(result.entries[0].chunks), bytes);
       await worker.discard(result.spoolId);
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -118,7 +118,7 @@ describe('FileBackedArtifactStreamingWorker', () => {
         onProgress: () => Promise.resolve(),
       });
       assert.equal(result.entries[0]?.mode, 0o755);
-      assert.deepEqual(await collect(result.entries[0]!.chunks), contents);
+      assert.deepEqual(await collect(result.entries[0].chunks), contents);
       assert.ok(result.peakBufferedBytes <= 7);
       await worker.discard(result.spoolId);
 

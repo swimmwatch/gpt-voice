@@ -42,7 +42,7 @@ function assertTaskOwnedOutput(workspaceRoot, output) {
 }
 
 function readCacheValue(cache, key) {
-  const match = new RegExp(`^${key}:[^=]+=(.+)$`, 'mu').exec(cache);
+  const match = new RegExp(`^${key}:[^=]+=(.+)$`, 'mu').exec(cache); // eslint-disable-line security/detect-non-literal-regexp -- Cache keys come only from fixed build-profile call sites, not cache contents.
   return match?.[1] ?? null;
 }
 

@@ -395,6 +395,9 @@ export default {
   'prettify.profile.professional.description': 'Usa linguagem formal e precisa em contextos profissionais e técnicos.',
   'prettify.profile.natural.name': 'Tom natural',
   'prettify.profile.natural.description': 'Remove artefatos de ditado enquanto preserva sua forma de se expressar.',
+  'prettify.profile.executionReady.name': 'Pronto para executar',
+  'prettify.profile.executionReady.description':
+    'Adiciona orientações de execução pertinentes a um prompt já preparado.',
   'prettify.chooser.title': 'Escolha um perfil do Prettify',
   'prettify.chooser.description': 'Escolha como o GPT-Voice deve transformar o texto selecionado.',
   'prettify.chooser.originalText': 'Texto original',
@@ -696,7 +699,7 @@ export default {
   'startup.failed': 'A preparação da inicialização falhou. Tente novamente.',
   'startup.retryFailed': 'Não foi possível repetir a preparação da inicialização. Tente novamente.',
   'startup.retry': 'Tentar novamente',
-  'startup.selectProvider': 'Selecione um provedor para começar a gravar.',
+  'startup.selectProvider': 'Escolher provedor',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Mostrar',

@@ -519,6 +519,8 @@ export default {
   'prettify.profile.professional.description': 'Use formal, precise language for work and technical contexts.',
   'prettify.profile.natural.name': 'Natural',
   'prettify.profile.natural.description': 'Remove dictation artifacts while keeping your voice.',
+  'prettify.profile.executionReady.name': 'Execution-ready',
+  'prettify.profile.executionReady.description': 'Add applicable execution guidance to an already prepared AI prompt.',
   'prettify.chooser.title': 'Choose a Prettify profile',
   'prettify.chooser.description': 'Choose how GPT-Voice should transform selected text.',
   'prettify.chooser.originalText': 'Original text',
@@ -813,7 +815,7 @@ export default {
   'startup.failed': 'Startup preparation failed. Try again.',
   'startup.retryFailed': 'Could not retry startup preparation. Try again.',
   'startup.retry': 'Retry',
-  'startup.selectProvider': 'Select a provider to start recording.',
+  'startup.selectProvider': 'Select provider',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Show',

@@ -188,7 +188,7 @@ class RecordingWindowManager extends WindowManager {
       getAppIconPath: () => '/app/icon.png',
       getAppUrl: () => 'app://gpt-voice/index.html',
       localization: new I18nService(),
-      logger: { debug: () => undefined, warn: () => undefined },
+      logger: { debug: () => undefined, error: () => undefined, info: () => undefined, warn: () => undefined },
       mainInteractionLock: new MainInteractionLock(() => false),
       openExternal: async () => undefined,
       platform: 'linux',

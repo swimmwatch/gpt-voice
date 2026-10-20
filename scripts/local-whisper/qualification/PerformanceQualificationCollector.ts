@@ -27,6 +27,7 @@ const PROCESS_START_IDENTITY = /^\w[\w.:-]{0,127}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const PERFORMANCE_PROCESS_ROLES = ['main', 'guard', 'worker'] as const;
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class PerformanceCollectionError extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -571,10 +572,12 @@ export class LocalWhisperPerformanceCollector {
 
 /** Frozen interface-only placeholder until Packet 15 supplies Windows process/cache/resource APIs. */
 export class WindowsPerformanceCollectionAdapterUnavailable implements PerformanceCollectionPlatformPort {
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async prepare(_plan: PerformanceQualificationRunPlan): Promise<PreparedPerformanceInputs> {
     throw new PerformanceCollectionError('WINDOWS_ADAPTER_UNAVAILABLE');
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async verifyUnchanged(
     _plan: PerformanceQualificationRunPlan,
     _inputs: PreparedPerformanceInputs,

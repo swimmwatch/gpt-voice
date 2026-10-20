@@ -73,6 +73,7 @@ type ClaudeWebVoiceCauseCode = `${ClaudeWebVoiceProviderErrorCode}`;
 type VoiceStreamingCauseCode = `${StreamingTranscriptionErrorCode}`;
 type VoiceBatchCauseCode =
   | 'not-configured'
+  | 'not-ready'
   | 'not-authenticated'
   | 'rate-limited'
   | 'connection-failed'
@@ -158,6 +159,7 @@ export const PROVIDER_AUDIT_CAUSE_CODE_MAPPINGS = {
     'page-shutdown': true,
     'unexpected-failure': true,
     'not-configured': true,
+    'not-ready': true,
     'not-authenticated': true,
     'rate-limited': true,
     'connection-failed': true,

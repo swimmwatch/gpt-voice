@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import {
   ARTIFACT_HELPER_CANCELLATION_TIMEOUT_MS,
   ARTIFACT_MAX_BUFFER_BYTES,

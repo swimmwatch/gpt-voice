@@ -8,8 +8,8 @@ const tasksRoot = path.join(specificationRoot, 'tasks');
 const manifestPath = path.join(tasksRoot, 'acceptance-owners.json');
 const schemaPath = path.join(tasksRoot, 'acceptance-owners.schema.json');
 const specificationPath = path.join(specificationRoot, 'spec.md');
-const SPECIFICATION_REVISION = 26;
-const PLAN_REVISION = 34;
+const SPECIFICATION_REVISION = 28;
+const PLAN_REVISION = 37;
 const TASK_COUNT = 36;
 const DEFERRED_TASKS = Object.freeze(['26']);
 const SUPERSEDED_TASKS = Object.freeze(['21', '22', '27', '28', '29', '30', '31']);
@@ -34,7 +34,7 @@ const TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2\d|3[0-6])$/u;
 const TASK_FILE_PATTERN = /^(?:0[1-9]|1\d|2\d|3[0-6])_[a-z\d_]+\.md$/u;
 const COMMAND_OWNER_TASK_ID_PATTERN = /^(?:0[1-9]|1\d|2[0-5]|3[2-6])$/u;
 const COMMAND_ID_PATTERN = /^task-(?:0[1-9]|1\d|2[0-5]|3[2-6])-[a-z\d-]+$/u;
-const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-8]\d|09[01])$/u;
+const ACCEPTANCE_ID_PATTERN = /^AC-AUTO-(?:00[1-9]|0[1-8]\d|09[0-2])$/u;
 const SUPERSEDED_PACKET_STATUS = 'Status: **Superseded by approved plan revision 31. Do not execute this packet.**';
 const CROSS_TASK_ACCEPTANCE_COMMAND_IDS = Object.freeze({
   'AC-AUTO-091': Object.freeze(['task-32-release-lifecycle-tests']),
@@ -60,7 +60,7 @@ function assertExactKeys(value, expectedKeys, label) {
 function expectedAcceptanceIds() {
   return [
     ...Array.from({ length: 54 }, (_, index) => `AC-AUTO-${String(index + 1).padStart(3, '0')}`),
-    ...Array.from({ length: 36 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
+    ...Array.from({ length: 37 }, (_, index) => `AC-AUTO-${String(index + 56).padStart(3, '0')}`),
   ];
 }
 
@@ -325,6 +325,7 @@ function assertFixedAcceptanceOwners(ownersByAcceptanceId) {
     ['AC-AUTO-089', '32'],
     ['AC-AUTO-090', '32'],
     ['AC-AUTO-091', '36'],
+    ['AC-AUTO-092', '34'],
   ]);
   for (const [acceptanceId, task] of expectedOwners) {
     if (ownersByAcceptanceId.get(acceptanceId) !== task) fail(`${acceptanceId} must be owned by Task ${task}`);
@@ -338,7 +339,7 @@ function validateAcceptanceOwners(manifest, specification, packetByTask, command
     specificationAcceptanceIds.length !== canonicalAcceptanceIds.length ||
     specificationAcceptanceIds.some((id, index) => id !== canonicalAcceptanceIds[index])
   ) {
-    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–091');
+    fail('specification automated acceptance IDs are not exactly AC-AUTO-001–054 and AC-AUTO-056–092');
   }
 
   const ownersByAcceptanceId = new Map();
@@ -380,7 +381,7 @@ async function main() {
   validateAcceptanceOwners(manifest, specification, packetByTask, commandById, nonCommandOwnerTasks);
 
   process.stdout.write(
-    'Local Whisper task plan is structurally valid: 36 packets, 5 current executable packets, 1 deferred packet, 7 superseded packets, 90 unique AC-AUTO owners.\n',
+    'Local Whisper task plan is structurally valid: 36 packets, 5 current executable packets, 1 deferred packet, 7 superseded packets, 91 unique AC-AUTO owners.\n',
   );
 }
 

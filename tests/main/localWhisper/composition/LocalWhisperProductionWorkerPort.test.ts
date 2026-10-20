@@ -50,7 +50,6 @@ const REGISTRY = Object.freeze({
   entries: Object.freeze([ENTRY]),
 });
 const REGISTRY_FINGERPRINT = createLocalWhisperRegistryFingerprint(REGISTRY);
-const MODEL_DIGEST = 'c'.repeat(64);
 
 function values(
   backend: 'cpu' | 'cuda',

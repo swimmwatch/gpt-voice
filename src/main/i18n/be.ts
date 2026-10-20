@@ -426,6 +426,8 @@ export default {
     'Выкарыстоўвае фармальную і дакладную мову для працоўных і тэхнічных задач.',
   'prettify.profile.natural.name': 'Натуральны',
   'prettify.profile.natural.description': 'Прыбірае артэфакты дыктоўкі, захоўваючы ваш стыль.',
+  'prettify.profile.executionReady.name': 'Гатовы да выканання',
+  'prettify.profile.executionReady.description': 'Дадае дарэчныя правілы выканання да гатовага промпту.',
   'prettify.chooser.title': 'Выберыце профіль Prettify',
   'prettify.chooser.description': 'Выберыце, як GPT-Voice павінен пераўтварыць вылучаны тэкст.',
   'prettify.chooser.originalText': 'Зыходны тэкст',
@@ -728,7 +730,7 @@ export default {
   'startup.failed': 'Не ўдалося падрыхтаваць запуск. Паўтарыце спробу.',
   'startup.retryFailed': 'Не ўдалося паўтарыць падрыхтоўку запуску. Паўтарыце спробу.',
   'startup.retry': 'Паўтарыць',
-  'startup.selectProvider': 'Выберыце правайдара, каб пачаць запіс.',
+  'startup.selectProvider': 'Выбар правайдара',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Паказаць',

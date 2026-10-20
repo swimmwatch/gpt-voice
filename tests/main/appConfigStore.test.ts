@@ -632,6 +632,7 @@ describe('AppConfigStore', () => {
       'prompt-ready',
       'polish',
       'professional',
+      'execution-ready',
     ]);
     assert.deepEqual(fixture.store.consumePendingPrettifyProfileCatalogRepairNotice(), {
       repaired: true,

@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Keep event framing, writing, and collection in one protocol module; review additions. */
 import type { Writable } from 'node:stream';
 
 import type { LocalWhisperPerformancePhaseId } from './QualificationContracts';
@@ -50,6 +51,7 @@ export interface PerformanceQualificationEventProof {
   readonly roleRegistrations: readonly PerformanceRoleRegistration[];
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class PerformanceQualificationEventError extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -255,7 +257,7 @@ export class PerformanceQualificationEventCollector {
     this.roles.push(
       Object.freeze({
         role: value.role as PerformanceProcessRole,
-        pid: value.pid as number,
+        pid: value.pid,
         processStartIdentity: value.processStartIdentity,
         executableSha256: value.executableSha256,
       }),

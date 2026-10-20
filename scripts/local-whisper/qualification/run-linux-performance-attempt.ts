@@ -13,6 +13,7 @@ async function requestBytes(): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of process.stdin) {
+    if (!Buffer.isBuffer(chunk)) throw new Error('ATTEMPT_REQUEST_INVALID');
     const bytes = Buffer.from(chunk);
     total += bytes.byteLength;
     if (total > MAXIMUM_PERFORMANCE_ATTEMPT_REQUEST_BYTES) throw new Error('ATTEMPT_REQUEST_INVALID');

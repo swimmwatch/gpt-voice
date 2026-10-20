@@ -18,7 +18,14 @@ export const TRACKED_TEXT_GIT_ARGUMENTS = Object.freeze(['grep', '-Il', '-z', '-
 const GENERATED_ROOT_MARKER = '.generated-root';
 const GENERATED_ROOT_PREFIXES = ['build/generated/', 'dist/', 'release/', 'release-artifacts/'] as const;
 const MAXIMUM_TEXT_FILE_BYTES = 1024 * 1024;
-const PRIVATE_KEY_BLOCK = /-{5}BEGIN (?:[A-Z]+ )?PRIVATE KEY-{5}[\s\S]*?-{5}END (?:[A-Z]+ )?PRIVATE KEY-{5}/gu;
+const PRIVATE_KEY_DELIMITER = '-----';
+const PRIVATE_KEY_HEADER_PREFIXES = Object.freeze({
+  begin: `${PRIVATE_KEY_DELIMITER}BEGIN `,
+  end: `${PRIVATE_KEY_DELIMITER}END `,
+});
+const PRIVATE_KEY_HEADER_SUFFIX = `PRIVATE KEY${PRIVATE_KEY_DELIMITER}`;
+const UPPERCASE_ASCII_A = 65;
+const UPPERCASE_ASCII_Z = 90;
 const GITHUB_TOKEN = /\bgh[pousr]_[A-Za-z\d]{36,255}\b/gu;
 const OPENAI_API_KEY = /\bsk-(?:proj-)?[\w-]{20,255}\b/gu;
 const ENTROPY_CANDIDATE = /\b[\w+/-]{40,255}\b/gu;
@@ -58,6 +65,56 @@ function hasUnapprovedMatch(file: RepositoryTextFile, rule: BlockingSecretRule, 
   pattern.lastIndex = 0;
   for (const match of file.text.matchAll(pattern)) {
     if (!approvedSyntheticSecret(file.path, rule, match[0])) return true;
+  }
+  return false;
+}
+
+function findPrivateKeyHeader(
+  text: string,
+  kind: 'begin' | 'end',
+  searchFrom: number,
+): Readonly<{ start: number; end: number }> | null {
+  const prefix = PRIVATE_KEY_HEADER_PREFIXES[kind];
+  while (searchFrom < text.length) {
+    const start = text.indexOf(prefix, searchFrom);
+    if (start < 0) return null;
+    let cursor = start + prefix.length;
+    searchFrom = cursor;
+    if (!text.startsWith(PRIVATE_KEY_HEADER_SUFFIX, cursor)) {
+      const labelStart = cursor;
+      while (cursor < text.length) {
+        const character = text.charCodeAt(cursor);
+        if (character < UPPERCASE_ASCII_A || character > UPPERCASE_ASCII_Z) break;
+        cursor += 1;
+      }
+      if (cursor === labelStart || text[cursor] !== ' ') {
+        continue;
+      }
+      cursor += 1;
+    }
+    if (text.startsWith(PRIVATE_KEY_HEADER_SUFFIX, cursor)) {
+      return { start, end: cursor + PRIVATE_KEY_HEADER_SUFFIX.length };
+    }
+  }
+  return null;
+}
+
+/** Matches complete, non-overlapping blocks with monotonically advancing cursors. */
+function* findPrivateKeyBlocks(text: string): Generator<string> {
+  let searchFrom = 0;
+  while (searchFrom < text.length) {
+    const begin = findPrivateKeyHeader(text, 'begin', searchFrom);
+    if (!begin) return;
+    const end = findPrivateKeyHeader(text, 'end', begin.end);
+    if (!end) return;
+    yield text.slice(begin.start, end.end);
+    searchFrom = end.end;
+  }
+}
+
+function hasUnapprovedPrivateKeyBlock(file: RepositoryTextFile): boolean {
+  for (const block of findPrivateKeyBlocks(file.text)) {
+    if (!approvedSyntheticSecret(file.path, 'private-key', block)) return true;
   }
   return false;
 }
@@ -114,8 +171,7 @@ export class RepositorySecretPolicy {
         findings.push(createFinding(file.path, 'github-token', 'blocking'));
       if (hasUnapprovedMatch(file, 'openai-api-key', OPENAI_API_KEY))
         findings.push(createFinding(file.path, 'openai-api-key', 'blocking'));
-      if (hasUnapprovedMatch(file, 'private-key', PRIVATE_KEY_BLOCK))
-        findings.push(createFinding(file.path, 'private-key', 'blocking'));
+      if (hasUnapprovedPrivateKeyBlock(file)) findings.push(createFinding(file.path, 'private-key', 'blocking'));
       if (containsHighEntropyCandidate(file.text)) findings.push(createFinding(file.path, 'entropy', 'advisory'));
     }
     return Object.freeze(

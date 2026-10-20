@@ -383,6 +383,8 @@ export default {
   'prettify.profile.professional.description': '仕事や技術的な場面に適した、フォーマルで正確な表現にします。',
   'prettify.profile.natural.name': '自然',
   'prettify.profile.natural.description': '話し方の特徴を保ちながら、音声入力特有の乱れを取り除きます。',
+  'prettify.profile.executionReady.name': '実行準備完了',
+  'prettify.profile.executionReady.description': '整理済みのプロンプトに、必要な作業手順を追加します。',
   'prettify.chooser.title': 'Prettify プロファイルを選択',
   'prettify.chooser.description': 'GPT-Voice が選択したテキストをどのように変換するか選択します。',
   'prettify.chooser.originalText': '元のテキスト',
@@ -682,7 +684,7 @@ export default {
   'startup.failed': '起動の準備に失敗しました。もう一度お試しください。',
   'startup.retryFailed': '起動の準備を再試行できませんでした。もう一度お試しください。',
   'startup.retry': '再試行',
-  'startup.selectProvider': '録音を開始するにはプロバイダーを選択してください。',
+  'startup.selectProvider': 'プロバイダーを選択',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': '表示',

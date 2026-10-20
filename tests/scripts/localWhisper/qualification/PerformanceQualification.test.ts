@@ -308,7 +308,7 @@ describe('Local Whisper performance qualification', () => {
     );
     const unknown = structuredClone(first) as unknown as Record<string, unknown>;
     const phases = unknown.phases as Array<Record<string, unknown>>;
-    phases[0]!.id = 'unknownPhase';
+    phases[0].id = 'unknownPhase';
     assert.throws(() => validator.validateDocument('performanceSample', unknown), /PERFORMANCESAMPLE/u);
   });
 
@@ -323,16 +323,16 @@ describe('Local Whisper performance qualification', () => {
       () =>
         documents.produceBundle(
           fixture.manifest,
-          [fixture.cacheReceipts[0]!, ...fixture.cacheReceipts.slice(0, -1)],
-          [fixture.samples[0]!, ...fixture.samples.slice(0, -1)],
+          [fixture.cacheReceipts[0], ...fixture.cacheReceipts.slice(0, -1)],
+          [fixture.samples[0], ...fixture.samples.slice(0, -1)],
         ),
       /DUPLICATE|CONTRACT_INVALID/u,
     );
-    const second = fixture.samples[1]!;
+    const second = fixture.samples[1];
     const mixedModel = documents.produceSample(fixture.manifest, {
       cacheReceiptDigest: second.cacheReceiptDigest,
       sampleId: second.sampleId,
-      model: fixture.manifest.modelArtifacts[1]!,
+      model: fixture.manifest.modelArtifacts[1],
       candidateWindow: second.candidateWindow,
       cacheState: second.cacheState,
       pairIndex: second.pairIndex,
@@ -350,7 +350,7 @@ describe('Local Whisper performance qualification', () => {
     assert.throws(
       () =>
         documents.produceBundle(fixture.manifest, fixture.cacheReceipts, [
-          fixture.samples[0]!,
+          fixture.samples[0],
           mixedModel,
           ...fixture.samples.slice(2),
         ]),
@@ -384,7 +384,7 @@ describe('Local Whisper performance qualification', () => {
         }),
       }),
     });
-    const first = fixture.samples[0]!;
+    const first = fixture.samples[0];
     const otherReceipt = documents.produceCacheReceipt(otherManifest, {
       sampleId: first.sampleId,
       cacheState: first.cacheState,
@@ -424,8 +424,8 @@ describe('Local Whisper performance qualification', () => {
       () =>
         documents.produceBundle(
           fixture.manifest,
-          [windows.cacheReceipts[0]!, ...fixture.cacheReceipts.slice(1)],
-          [windows.samples[0]!, ...fixture.samples.slice(1)],
+          [windows.cacheReceipts[0], ...fixture.cacheReceipts.slice(1)],
+          [windows.samples[0], ...fixture.samples.slice(1)],
         ),
       /CONTRACT_INVALID/u,
     );
@@ -433,8 +433,8 @@ describe('Local Whisper performance qualification', () => {
       () =>
         documents.produceBundle(
           fixture.manifest,
-          [fixture.cacheReceipts[1]!, fixture.cacheReceipts[0]!, ...fixture.cacheReceipts.slice(2)],
-          [fixture.samples[1]!, fixture.samples[0]!, ...fixture.samples.slice(2)],
+          [fixture.cacheReceipts[1], fixture.cacheReceipts[0], ...fixture.cacheReceipts.slice(2)],
+          [fixture.samples[1], fixture.samples[0], ...fixture.samples.slice(2)],
         ),
       /CONTRACT_INVALID/u,
     );

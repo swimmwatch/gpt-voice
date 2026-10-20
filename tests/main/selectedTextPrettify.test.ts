@@ -37,7 +37,7 @@ function createTestProfileCatalog(options: {
   name: string;
   reverseOrder?: boolean;
 }): PrettifyProfileCatalog {
-  const order = ['prompt-ready', 'polish', 'professional', 'natural', options.id] as const;
+  const order = ['prompt-ready', 'polish', 'professional', 'natural', 'execution-ready', options.id] as const;
   return normalizePrettifyProfileCatalog({
     chooserOrder: options.reverseOrder ? [...order].reverse() : order,
     customProfiles: [
@@ -307,6 +307,32 @@ function createTestService(options: TestServiceOptions = {}) {
 describe('selectedTextPrettify', () => {
   afterEach(() => {
     localization.setLocale('en');
+  });
+
+  it('runs Prompt-ready and Execution-ready only as separate user-selected passes', async () => {
+    let selectionCount = 0;
+    const run = createTestService({
+      chooser: {
+        cancel: () => undefined,
+        focus: () => false,
+        open: async () => ({
+          type: 'apply',
+          profileId: selectionCount++ === 0 ? 'prompt-ready' : 'execution-ready',
+        }),
+      },
+      selectionText: 'Please make a short prompt.',
+    });
+
+    assert.equal((await run.service.chooseProfileForSelectedText()).success, true);
+    assert.equal(run.prettifyCalls.length, 1);
+    assert.match(run.prettifyCalls[0]?.effectiveInstruction ?? '', /nonessential greetings/u);
+    assert.equal(run.clipboard.clipboard, 'prettified text');
+
+    run.clipboard.selection = run.clipboard.clipboard;
+    assert.equal((await run.service.chooseProfileForSelectedText()).success, true);
+    assert.equal(run.prettifyCalls.length, 2);
+    assert.equal(run.prettifyCalls[1]?.text, 'prettified text');
+    assert.match(run.prettifyCalls[1]?.effectiveInstruction ?? '', /delegation is available and permitted/u);
   });
 
   it('keeps the clipboard and fails clearly when no text is selected', async () => {
@@ -924,7 +950,7 @@ describe('selectedTextPrettify', () => {
     assert.equal(request.sourceText, 'selected source');
     assert.deepEqual(
       request.profiles.map(({ id }) => id),
-      ['prompt-ready', 'polish', 'professional', 'natural', TEST_PROFILE_ID],
+      ['prompt-ready', 'polish', 'professional', 'natural', 'execution-ready', TEST_PROFILE_ID],
     );
     assert.equal(
       request.profiles.every((profile) => !Object.prototype.hasOwnProperty.call(profile, 'instruction')),
@@ -1045,7 +1071,7 @@ describe('selectedTextPrettify', () => {
       defaultProfileId: PrettifyProfileId;
       schemaVersion: typeof PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION;
     } = {
-      chooserOrder: ['prompt-ready', 'polish', 'professional', 'natural', TEST_PROFILE_ID],
+      chooserOrder: ['prompt-ready', 'polish', 'professional', 'natural', 'execution-ready', TEST_PROFILE_ID],
       customProfiles: [
         {
           id: TEST_PROFILE_ID,
@@ -1075,7 +1101,7 @@ describe('selectedTextPrettify', () => {
     mutableCatalog.chooserOrder.reverse();
     mutableCatalog.defaultProfileId = 'prompt-ready';
     currentCatalog = normalizePrettifyProfileCatalog({
-      chooserOrder: [SECOND_TEST_PROFILE_ID, 'natural', 'professional', 'polish', 'prompt-ready'],
+      chooserOrder: [SECOND_TEST_PROFILE_ID, 'natural', 'professional', 'polish', 'prompt-ready', 'execution-ready'],
       customProfiles: [
         {
           id: SECOND_TEST_PROFILE_ID,
@@ -1098,7 +1124,7 @@ describe('selectedTextPrettify', () => {
     assert.equal((await run.service.chooseProfileForSelectedText()).cancelled, true);
     assert.deepEqual(
       run.chooserRequests[1]?.profiles.map(({ id }) => id),
-      [SECOND_TEST_PROFILE_ID, 'natural', 'professional', 'polish', 'prompt-ready'],
+      [SECOND_TEST_PROFILE_ID, 'natural', 'professional', 'polish', 'prompt-ready', 'execution-ready'],
     );
     assert.equal(run.getProfileCatalogReads(), 3);
   });

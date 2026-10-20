@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 

@@ -139,7 +139,11 @@ export class WhisperCppWorkerProcess {
     return JSON.parse(body.toString('utf8'));
   }
 
-  /** @deprecated Retained only for authenticated-loader rollback/reference tests. */
+  /**
+   * Reads and validates the authenticated model-authority acknowledgment.
+   *
+   * @deprecated Retained only for authenticated-loader rollback/reference tests.
+   */
   async readModelAuthorityAcknowledgment(binding) {
     const acknowledgment = await this.reader.exact(284);
     assert.equal(acknowledgment.subarray(0, 8).toString('binary'), 'LWAA1\0\0\0');

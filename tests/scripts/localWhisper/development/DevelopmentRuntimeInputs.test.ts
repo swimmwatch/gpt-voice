@@ -120,7 +120,7 @@ describe('DevelopmentRuntimeInputLoader', () => {
     try {
       const staged = await Promise.all(RUNTIMES.map((runtime) => stageRuntime(workspace, runtime)));
       const cuda = RUNTIMES[1];
-      await writeCanonicalJson(staged[1]!.manifestPath, {
+      await writeCanonicalJson(staged[1].manifestPath, {
         schemaId: 'local-whisper-runtime-manifest-v1',
         engine: 'whisperCpp',
         backend: cuda.backend,

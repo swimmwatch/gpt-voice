@@ -58,7 +58,11 @@ export interface StreamingArtifactVerificationInput {
 export class StreamingArtifactVerifier {
   public constructor(private readonly dependencies: StreamingArtifactVerifierDependencies) {}
 
-  /** @deprecated Retained for authenticated runtime packs and rollback/reference model tests. */
+  /**
+   * Verifies an artifact using authenticated streaming.
+   *
+   * @deprecated Retained for authenticated runtime packs and rollback/reference model tests.
+   */
   public verify(input: StreamingArtifactVerificationInput): Promise<ArtifactWorkerProcessResult> {
     return this.verifyWithMode(input, 'authenticated');
   }

@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import type { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';

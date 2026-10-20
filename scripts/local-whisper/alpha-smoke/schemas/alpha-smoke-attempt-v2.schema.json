@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-attempt-v2.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "deadlineEpochMilliseconds",
+    "input",
+    "packageDisposition",
+    "settingsBackupStatus",
+    "startedAtEpochMilliseconds",
+    "state",
+    "schemaVersion",
+    "monotonicDeadline",
+    "completion",
+    "terminalOutcome"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "pattern": "^[a-z\\d][a-z\\d-]{0,63}$"
+    },
+    "deadlineEpochMilliseconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "input": {
+      "$ref": "https://gpt-voice.local/schemas/alpha-smoke-input-v1.json",
+      "type": "object",
+      "properties": {
+        "sourceSha": { "const": "b651f3a4a309f2c21f83a81869f1ae666f7aa9b2" },
+        "candidateInputDigest": { "const": "f6121a6bbf7c771978f8925f4f7fe41dc06e95c060f39e9377908042c04b469f" },
+        "packageAsset": {
+          "type": "object",
+          "properties": { "length": { "type": "integer", "maximum": 9007199254740991 } }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "platform": { "const": "linux" } }, "required": ["platform"] },
+          "then": {
+            "properties": {
+              "packageAsset": {
+                "type": "object",
+                "properties": { "fileName": { "const": "gpt-voice_2.4.0-alpha.1_amd64.deb" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "platform": { "const": "win32" } }, "required": ["platform"] },
+          "then": {
+            "properties": {
+              "packageAsset": {
+                "type": "object",
+                "properties": { "fileName": { "const": "GPT-Voice.Setup.2.4.0-alpha.1.exe" } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "packageDisposition": {
+      "enum": ["clean-host", "exact-alpha", null]
+    },
+    "settingsBackupStatus": {
+      "enum": ["pending", "retained-private"]
+    },
+    "startedAtEpochMilliseconds": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "state": {
+      "enum": [
+        "Preparing",
+        "SettingsBackedUp",
+        "AwaitingPackageReady",
+        "PackageReady",
+        "CpuExercise",
+        "CudaExercise",
+        "OfflineExercise",
+        "Finalizing",
+        "ReadyToSeal",
+        "Sealing",
+        "SealedPass",
+        "SealedFail"
+      ]
+    },
+    "schemaVersion": {
+      "const": 2
+    },
+    "monotonicDeadline": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bootId", "expiresAtUptimeMilliseconds"],
+          "properties": {
+            "bootId": {
+              "type": "string",
+              "pattern": "^[a-f\\d]{8}(?:-[a-f\\d]{4}){3}-[a-f\\d]{12}$"
+            },
+            "expiresAtUptimeMilliseconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      ]
+    },
+    "completion": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["packageStatus", "settingsBackupStatus"],
+          "properties": {
+            "packageStatus": {
+              "enum": ["absent", "different-package", "retained-alpha", "unverified"]
+            },
+            "settingsBackupStatus": {
+              "enum": ["integrity-failed", "retained-private", "unverified"]
+            }
+          }
+        }
+      ]
+    },
+    "terminalOutcome": {
+      "enum": [
+        null,
+        "qualified",
+        "verification_evidence_missing",
+        "deadline_exhausted",
+        "functional_failure",
+        "functional_failure_and_finalization_failure",
+        "interrupted_attempt",
+        "interrupted_attempt_and_finalization_failure"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": ["ReadyToSeal", "Sealing", "SealedPass", "SealedFail"]
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {
+        "properties": {
+          "startedAtEpochMilliseconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "completion": {
+            "type": "object"
+          },
+          "terminalOutcome": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "SealedPass"
+          }
+        },
+        "required": ["state"]
+      },
+      "then": {
+        "properties": {
+          "terminalOutcome": {
+            "const": "qualified"
+          },
+          "completion": {
+            "type": "object",
+            "properties": {
+              "packageStatus": {
+                "const": "retained-alpha"
+              },
+              "settingsBackupStatus": {
+                "const": "retained-private"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

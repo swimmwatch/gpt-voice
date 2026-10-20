@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 4] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { execFile } from 'node:child_process';
 import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import * as fs from 'node:fs';
@@ -118,6 +119,7 @@ const STAGING_PROMOTION_DIAGNOSTIC_CODES = [
 ] as const;
 const STAGING_PROMOTION_STEPS: readonly ManagedArtifactStagingPromotionStep[] = ['inspect', 'validate', 'promote'];
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 class AttemptApplicationFailure extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -137,7 +139,9 @@ async function atAttemptApplicationStage<T>(stage: AttemptApplicationStage, oper
   }
 }
 
+/** Rejects artifact HTTP requests to keep performance attempts isolated from downloads. */
 class RejectingArtifactHttpClient implements ArtifactHttpClient {
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async open(_request: ArtifactHttpClientRequest): Promise<never> {
     throw new Error('ATTEMPT_NETWORK_ACCESS_REJECTED');
   }

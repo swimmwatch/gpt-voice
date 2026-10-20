@@ -10,7 +10,6 @@ import {
 import { LOCAL_WHISPER_RELEASE_MODEL_MATRIX } from '@main/localWhisper/catalog/LocalWhisperReleaseModelMatrix';
 import { serializeCanonicalLocalWhisperCatalogJson } from '@shared/localWhisper';
 
-import { localWhisperPackSignatureInput } from '../packaging/BundleVerifier';
 import {
   LOCAL_WHISPER_PACKAGE_SCHEMA_VERSION,
   type LocalWhisperBundleManifest,
@@ -151,7 +150,7 @@ function packManifest(input: {
       options: runtime ? ['disconnected', 'deterministic', 'network-denied'] : ['exact-upstream-bytes'],
       acceleratorArchitectures: input.backend === 'cuda' ? ['sm-120a'] : [],
     },
-    licenseIds: runtime ? ['mit-license'] : ['mit-license'],
+    licenseIds: ['mit-license'],
     noticeIds: runtime ? [`qualification-${input.backend}-runtime-notice`] : ['whisper-cpp-model-notice'],
     sbomId: runtime ? `qualification-${input.backend}-runtime-sbom` : 'qualification-model-sbom',
     provenanceId: runtime ? `qualification-${input.backend}-runtime-provenance` : 'qualification-model-provenance',

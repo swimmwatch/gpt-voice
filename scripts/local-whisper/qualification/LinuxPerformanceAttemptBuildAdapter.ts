@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 4] -- Keep the build adapter with its command/cache implementations; review additions. */
 import { execFile } from 'node:child_process';
 import { chmod, copyFile, lstat, mkdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -51,6 +52,7 @@ export interface PerformanceAttemptRuntimePackPort {
   }): Promise<QualificationRuntimePackRecord>;
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class LinuxPerformanceAttemptBuildError extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -194,6 +196,7 @@ export class LinuxPerformanceAttemptBuildAdapter implements PerformanceAttemptBu
   }
 }
 
+/** Runs executables without a shell, bounding output and honoring cancellation. */
 class NodePerformanceAttemptBuildCommand implements PerformanceAttemptBuildCommandPort {
   public async run(input: PerformanceAttemptBuildCommandInput): Promise<void> {
     await execFileAsync(input.executable, [...input.arguments], {
@@ -207,6 +210,7 @@ class NodePerformanceAttemptBuildCommand implements PerformanceAttemptBuildComma
   }
 }
 
+/** Stages expected cache directories only after validating root identities and rejecting symlinks. */
 class NodePerformanceAttemptBuildCache implements PerformanceAttemptBuildCachePort {
   public async stage(toolWorkspaceRoot: string, sourceRoot: string): Promise<void> {
     const toolRoot = await realpath(toolWorkspaceRoot);

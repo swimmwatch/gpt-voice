@@ -4,8 +4,6 @@ import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import { parse } from 'yaml';
 
-import { TRIVY_IMAGE } from '@scripts/security/dockerBuilderPolicy';
-
 const workspaceRoot = process.cwd();
 
 async function readWorkspaceFile(...segments: string[]): Promise<string> {
@@ -52,9 +50,21 @@ describe('Repository security workflow', () => {
     }
     assert.match(workflow, /actions\/checkout@[a-f\d]{40}\s+# v7/u);
     assert.match(workflow, /actions\/upload-artifact@[a-f\d]{40}\s+# v7/u);
+    const configuration = parse(workflow) as {
+      readonly jobs: Record<string, { readonly steps: readonly { readonly run?: string }[] }>;
+    };
+    const steps = configuration.jobs['repository-security'].steps;
+    assert.ok(
+      steps.some(({ run }) =>
+        run?.split(/\r?\n/u).some((command) => command.trim() === 'npm run test:security:docker-policy'),
+      ),
+    );
+    const packageJson = JSON.parse(await readWorkspaceFile('package.json')) as {
+      readonly scripts: Record<string, string>;
+    };
     assert.match(
-      await readWorkspaceFile('scripts', 'security', 'dockerBuilderPolicy.ts'),
-      new RegExp(TRIVY_IMAGE, 'u'),
+      packageJson.scripts['test:security:docker-policy'],
+      /scripts\/security\/verify-docker-builder-security\.ts/u,
     );
   });
 

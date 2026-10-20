@@ -4,6 +4,51 @@ import { ReleaseProtocolError } from './ReleaseProtocolError';
 
 export { ReleaseProtocolError } from './ReleaseProtocolError';
 
+/** Property order is part of the published v1 digest contract. */
+export function productionReleaseStagingDigest(
+  input: Readonly<{
+    assets: readonly Readonly<{ length: number; name: string; sha256: string }>[];
+    candidateInputDigest: string;
+    releaseCandidateDigest: string;
+    sourceSha: string;
+    tag: string;
+  }>,
+): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        assets: input.assets,
+        candidateInputDigest: input.candidateInputDigest,
+        releaseCandidateDigest: input.releaseCandidateDigest,
+        sourceSha: input.sourceSha,
+        tag: input.tag,
+      }),
+    )
+    .digest('hex');
+}
+
+export function publishedAlphaDeploymentDigest(
+  input: Readonly<{
+    releaseId: number;
+    releaseStagingDigest: string;
+    releaseUrl: string;
+    sourceSha: string;
+    tag: string;
+  }>,
+): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        releaseId: input.releaseId,
+        releaseStagingDigest: input.releaseStagingDigest,
+        releaseUrl: input.releaseUrl,
+        sourceSha: input.sourceSha,
+        tag: input.tag,
+      }),
+    )
+    .digest('hex');
+}
+
 const SHA_256 = /^[a-f\d]{64}$/u;
 const SAFE_FILE_NAME = /^\w[\w.-]{0,255}$/u;
 const SAFE_KEY_ID = /^\w[\w.-]{0,127}$/u;

@@ -9,7 +9,7 @@ Reduce persistent agent context while preserving manual and narrow automatic use
 
 ## Requirements
 
-- Keep the always-on project router below 80 lines and exclude full skill workflows, examples, and checklists.
+- Keep the always-on project router concise and exclude full skill workflows, examples, and checklists.
 - Make the skill catalog on-demand: full `SKILL.md` text is read only after a selected skill.
 - Permit one primary skill per task and one essential supporting skill at most.
 - Remove the user-selected skills and their dedicated reference material.
@@ -24,7 +24,7 @@ Reduce persistent agent context while preserving manual and narrow automatic use
 
 ## Acceptance Criteria
 
-- The router and meta-skill have automated policy checks for length and prohibited broad triggers.
+- The router and meta-skill have automated policy checks for selection constraints and prohibited broad triggers.
 - Each local skill description has an explicit narrow-use condition.
 - The project contains a compact handoff artifact with status, files, checks, next work, and blockers.
 - Focused policy tests, test TypeScript coverage, linting, and formatting checks pass.

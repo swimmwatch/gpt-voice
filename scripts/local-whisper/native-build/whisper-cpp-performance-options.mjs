@@ -210,11 +210,11 @@ export function assertPinnedWhisperCppPerformanceSources(sourceLock, sourceFiles
     Object.values(PERFORMANCE_OPTION_INVENTORY.profiles).flatMap((options) => Object.keys(options)),
   );
   for (const name of names) {
-    const declared = new RegExp(`\\b(?:option|set)\\s*\\(\\s*${name}\\b`, 'u').test(source);
+    const declared = new RegExp(`\\b(?:option|set)\\s*\\(\\s*${name}\\b`, 'u').test(source); // eslint-disable-line security/detect-non-literal-regexp -- Names come from the fixed inventory and source bytes are bound to the source lock.
     const backendName = name.startsWith('GGML_') ? name.slice('GGML_'.length) : '';
     const indirectlyConsumed =
       source.includes(name) ||
-      (backendName.length > 0 && new RegExp(`ggml_add_backend\\(\\s*${backendName}\\s*\\)`, 'iu').test(source));
+      (backendName.length > 0 && new RegExp(`ggml_add_backend\\(\\s*${backendName}\\s*\\)`, 'iu').test(source)); // eslint-disable-line security/detect-non-literal-regexp -- Names come from the fixed inventory and source bytes are bound to the source lock.
     if (!declared && !indirectlyConsumed) {
       throw new Error(`Whisper.cpp performance option is not consumed by pinned source: ${name}`);
     }

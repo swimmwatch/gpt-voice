@@ -55,10 +55,15 @@ function needsJob(job: Readonly<Record<string, unknown>>, dependency: string): b
 }
 
 function jobSteps(job: Readonly<Record<string, unknown>>): readonly Readonly<Record<string, unknown>>[] {
-  if (!Array.isArray(job.steps) || job.steps.some((step) => !isRecord(step))) {
+  if (!Array.isArray(job.steps)) {
     throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
   }
-  return job.steps;
+  const steps: Readonly<Record<string, unknown>>[] = [];
+  for (const step of job.steps) {
+    if (!isRecord(step)) throw new Error('RELEASE_WORKFLOW_CONSTRUCTION_GRAPH_INVALID');
+    steps.push(step);
+  }
+  return steps;
 }
 
 function namedStep(
@@ -413,6 +418,7 @@ function verifyPublishJob(jobs: Readonly<Record<string, unknown>>): void {
 
 /** Guards the default-off candidate path while preserving the Task 33 publication capability. */
 export class ReleaseWorkflowPolicyVerifier {
+  // eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   public verify(workflow: string): void {
     const document = parseWorkflow(workflow);
     const triggers = document.on as Readonly<Record<string, unknown>>;

@@ -123,7 +123,7 @@ const PERFORMANCE_PRIVATE_KEYS = new Set([
 
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_REVISION = '1f6ce9c988a275f1ef9faa295b1bb04879943e89';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_PROOF_DIGEST =
-  '4466ff4211e37965650983c1e2d26c278c5fed7e99592599655d34b43cbdbd11';
+  'a112ce7b7fdc3792dda67733748f5915e0c51a89c80a369764295c6a7b2a620f';
 export const LOCAL_WHISPER_PERFORMANCE_SOURCE_HASH_BASELINE = Object.freeze({
   beforeOptimization: Object.freeze({ linux: 8, win32: 7 }),
   afterDirectoryReuse: Object.freeze({ linux: 7, win32: 6 }),
@@ -272,7 +272,7 @@ function strings(value: unknown, code: string): string[] {
 function assertSortedUnique(values: readonly string[], code: string): void {
   if (
     new Set(values).size !== values.length ||
-    !values.every((value, index) => index === 0 || values[index - 1]!.localeCompare(value, 'en') < 0)
+    !values.every((value, index) => index === 0 || values[index - 1].localeCompare(value, 'en') < 0)
   ) {
     throw new Error(code);
   }
@@ -423,6 +423,7 @@ export class LocalWhisperQualificationValidator {
   }
 
   /** Validates every forward edge in one already-frozen platform branch. */
+  // eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   public validatePlatformBranch(branch: LocalWhisperQualificationPlatformBranch): void {
     this.validateDocument('candidateInput', branch.candidateInput);
     this.validateDocument('platformInput', branch.platformInput);
@@ -627,17 +628,15 @@ export class LocalWhisperQualificationValidator {
   private assertPlatformResult(document: Record<string, unknown>): void {
     const candidateInputDigest = document.candidateInputDigest;
     const platformGraphDigest = document.platformGraphDigest;
-    const rows = document.rows;
-    if (
-      !Array.isArray(rows) ||
-      rows.some(
-        (row) =>
-          !isRecord(row) ||
-          row.candidateInputDigest !== candidateInputDigest ||
-          row.platformGraphDigest !== platformGraphDigest,
-      )
-    ) {
-      throw new Error('QUALIFICATION_MIXED_PLATFORM_BRANCH');
+    const rowValues = document.rows;
+    if (!Array.isArray(rowValues)) throw new Error('QUALIFICATION_MIXED_PLATFORM_BRANCH');
+    const rows: Record<string, unknown>[] = [];
+    for (const value of rowValues) {
+      const row = asRecord(value, 'QUALIFICATION_MIXED_PLATFORM_BRANCH');
+      if (row.candidateInputDigest !== candidateInputDigest || row.platformGraphDigest !== platformGraphDigest) {
+        throw new Error('QUALIFICATION_MIXED_PLATFORM_BRANCH');
+      }
+      rows.push(row);
     }
     const expectedRows = LOCAL_WHISPER_RELEASE_MODEL_MATRIX.flatMap(({ family, variant }) =>
       ['cpu', 'cuda'].map((backend) => `${backend}|${family}|${variant}`),
@@ -790,6 +789,7 @@ export class LocalWhisperQualificationValidator {
     }
   }
 
+  // eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   private assertPerformanceRunPlan(document: Record<string, unknown>): void {
     const code = 'QUALIFICATION_PERFORMANCERUNPLAN_CONTRACT_INVALID';
     const models = document.models;
@@ -961,6 +961,7 @@ export class LocalWhisperQualificationValidator {
     }
   }
 
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   private assertPerformanceBundle(document: Record<string, unknown>): void {
     const code = 'QUALIFICATION_PERFORMANCEBUNDLE_CONTRACT_INVALID';
     const manifest = asRecord(document.manifest, code);
@@ -1003,6 +1004,7 @@ export class LocalWhisperQualificationValidator {
               this.validateDocument('performanceCacheReceipt', receipt);
               const expectedSampleId = `${String(model.family)}-${String(model.variant)}-${String(candidateWindow)}-${String(cacheState)}-${String(pairIndex).padStart(2, '0')}-${side}`;
               const modelIdentity = this.performanceModelIdentity(sample.model, code);
+              // eslint-disable-next-line max-depth -- Keep the closed-schema and cross-binding validation explicit at this boundary.
               if (
                 sample.sampleId !== expectedSampleId ||
                 modelIdentity !== this.performanceModelIdentity(model, code) ||
@@ -1028,11 +1030,13 @@ export class LocalWhisperQualificationValidator {
               ) {
                 throw new Error(code);
               }
+              // eslint-disable-next-line max-depth -- Keep the closed-schema and cross-binding validation explicit at this boundary.
               if (sample.status === 'success') {
                 const phases = sample.phases as readonly unknown[];
                 const resources = sample.resources as readonly unknown[];
                 const phaseIds = phases.map((entry) => asRecord(entry, code).id);
                 const resourceIds = resources.map((entry) => asRecord(entry, code).id);
+                // eslint-disable-next-line max-depth -- Keep the closed-schema and cross-binding validation explicit at this boundary.
                 if (
                   JSON.stringify(phaseIds) !== JSON.stringify(manifest.requiredPhaseIds) ||
                   JSON.stringify(resourceIds) !== JSON.stringify(manifest.requiredResourceIds)
@@ -1043,6 +1047,7 @@ export class LocalWhisperQualificationValidator {
               const sampleId = String(sample.sampleId);
               const sampleDigest = String(sample.performanceSampleDigest);
               const receiptDigest = String(receipt.performanceCacheReceiptDigest);
+              // eslint-disable-next-line max-depth -- Keep the closed-schema and cross-binding validation explicit at this boundary.
               if (sampleIds.has(sampleId) || sampleDigests.has(sampleDigest) || receiptDigests.has(receiptDigest)) {
                 throw new Error('QUALIFICATION_PERFORMANCE_DUPLICATE_CELL');
               }
@@ -1233,6 +1238,7 @@ export class LocalWhisperQualificationValidator {
     this.assertPerformanceSample(document);
   }
 
+  // eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
   private assertFocusedPerformanceBundle(document: Record<string, unknown>): void {
     const code = 'QUALIFICATION_FOCUSEDPERFORMANCEBUNDLE_CONTRACT_INVALID';
     const manifest = asRecord(document.manifest, code);
@@ -1320,19 +1326,23 @@ export class LocalWhisperQualificationValidator {
     }
     for (const value of cells) {
       const cell = asRecord(value, code);
-      const durations = cell.durationsNanoseconds;
+      const durationValues = cell.durationsNanoseconds;
+      if (!Array.isArray(durationValues)) throw new Error(code);
+      const durations: number[] = [];
+      for (const value of durationValues) {
+        if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) throw new Error(code);
+        durations.push(value);
+      }
       const successfulSampleCount = cell.successfulSampleCount;
       const failedSampleCount = cell.failedSampleCount;
       const complete = successfulSampleCount === 3;
       if (
-        !Array.isArray(durations) ||
         !Number.isSafeInteger(successfulSampleCount) ||
         !Number.isSafeInteger(failedSampleCount) ||
         (successfulSampleCount as number) < 0 ||
         (successfulSampleCount as number) > 3 ||
         failedSampleCount !== 3 - (successfulSampleCount as number) ||
         durations.length !== successfulSampleCount ||
-        durations.some((duration) => !Number.isSafeInteger(duration) || (duration as number) < 1) ||
         cell.sampleCount !== 3 ||
         !Number.isSafeInteger(cell.medianNanoseconds) ||
         !Number.isSafeInteger(cell.minimumNanoseconds) ||
@@ -1344,7 +1354,7 @@ export class LocalWhisperQualificationValidator {
           ? cell.minimumNanoseconds !== Math.min(...durations) ||
             cell.maximumNanoseconds !== Math.max(...durations) ||
             cell.medianNanoseconds !== [...durations].sort((left, right) => left - right)[1] ||
-            cell.distanceFromFiveSecondsNanoseconds !== Math.abs((cell.medianNanoseconds as number) - 5_000_000_000)
+            cell.distanceFromFiveSecondsNanoseconds !== Math.abs(cell.medianNanoseconds - 5_000_000_000)
           : cell.minimumNanoseconds !== 0 ||
             cell.maximumNanoseconds !== 0 ||
             cell.medianNanoseconds !== 0 ||

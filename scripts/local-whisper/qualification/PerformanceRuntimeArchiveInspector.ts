@@ -1,6 +1,8 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Keep the archive reader and inspector together; review additions. */
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { createGunzip } from 'node:zlib';
+import type { Readable } from 'node:stream';
 
 import { toLocalWhisperArtifactId, type LocalWhisperRuntimeIdentity } from '@shared/localWhisper';
 
@@ -14,10 +16,15 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 export interface PerformanceRuntimeArchiveEvidence {
   readonly expectedFiles: LocalWhisperRuntimeIdentity['expectedFiles'];
   readonly workerSha256: string;
-  readonly profileId: 'linux-x64-cpu-baseline-v1' | 'linux-x64-cuda-12.8.1-sm120a-v1';
+  readonly profileId:
+    | 'linux-x64-cpu-baseline-v1'
+    | 'linux-x64-cuda-12.8.1-sm120a-v1'
+    | 'windows-x64-cpu-msvc-19.51-v1'
+    | 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
   readonly runtimeBuildDigest: string;
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class PerformanceRuntimeArchiveError extends Error {
   public constructor() {
     super('ATTEMPT_RUNTIME_ARCHIVE_INVALID');
@@ -54,7 +61,7 @@ function checksumValid(header: Buffer): boolean {
   const expected = octal(header, 148, 8);
   let actual = 0;
   for (let index = 0; index < header.byteLength; index += 1) {
-    actual += index >= 148 && index < 156 ? 0x20 : header[index]!;
+    actual += index >= 148 && index < 156 ? 0x20 : header[index];
   }
   return actual === expected;
 }
@@ -84,16 +91,25 @@ function provenance(bytes: Buffer): Readonly<{
     !('schemaId' in value) ||
     value.schemaId !== 'local-whisper-whisper-cpp-provenance-v1' ||
     !('profileId' in value) ||
-    (value.profileId !== 'linux-x64-cpu-baseline-v1' && value.profileId !== 'linux-x64-cuda-12.8.1-sm120a-v1') ||
+    ![
+      'linux-x64-cpu-baseline-v1',
+      'linux-x64-cuda-12.8.1-sm120a-v1',
+      'windows-x64-cpu-msvc-19.51-v1',
+      'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1',
+    ].includes(String(value.profileId)) ||
     !('runtimeBuildDigest' in value) ||
     typeof value.runtimeBuildDigest !== 'string' ||
     !SHA256.test(value.runtimeBuildDigest)
   ) {
     fail();
   }
-  return Object.freeze({ profileId: value.profileId, runtimeBuildDigest: value.runtimeBuildDigest });
+  return Object.freeze({
+    profileId: value.profileId as PerformanceRuntimeArchiveEvidence['profileId'],
+    runtimeBuildDigest: value.runtimeBuildDigest,
+  });
 }
 
+/** Reads exact byte counts across asynchronous chunks and rejects truncated input. */
 class AsyncChunkReader {
   private readonly iterator: AsyncIterator<Buffer>;
   private chunk = Buffer.alloc(0);
@@ -151,9 +167,22 @@ class AsyncChunkReader {
 
 /** Authenticates the bounded restricted-ustar runtime closure without extracting it. */
 export class PerformanceRuntimeArchiveInspector {
-  public async inspect(archivePath: string): Promise<PerformanceRuntimeArchiveEvidence> {
+  public async inspect(
+    archivePath: string,
+    expected: Readonly<{ platform: 'linux' | 'win32'; profileId?: PerformanceRuntimeArchiveEvidence['profileId'] }> = {
+      platform: 'linux',
+    },
+  ): Promise<PerformanceRuntimeArchiveEvidence> {
     const stream = createReadStream(archivePath, { highWaterMark: 1024 * 1024 });
+    return await this.inspectSource(stream, expected);
+  }
+
+  public async inspectSource(
+    stream: Readable,
+    expected: Readonly<{ platform: 'linux' | 'win32'; profileId?: PerformanceRuntimeArchiveEvidence['profileId'] }>,
+  ): Promise<PerformanceRuntimeArchiveEvidence> {
     const gunzip = createGunzip();
+    stream.on('error', (error) => gunzip.destroy(error));
     stream.pipe(gunzip);
     const reader = new AsyncChunkReader(gunzip);
     const expectedFiles: LocalWhisperRuntimeIdentity['expectedFiles'][number][] = [];
@@ -201,11 +230,17 @@ export class PerformanceRuntimeArchiveInspector {
         );
       }
       if (!(await reader.atEnd()) || expectedFiles.length === 0 || !provenanceEvidence) fail();
+      const prefix = expected.platform === 'linux' ? 'linux-' : 'windows-';
+      if (
+        !provenanceEvidence.profileId.startsWith(prefix) ||
+        (expected.profileId !== undefined && expected.profileId !== provenanceEvidence.profileId)
+      )
+        fail();
       const workers = expectedFiles.filter(({ fileId: id, kind }) => id === 'worker' && kind === 'executable');
       if (workers.length !== 1) fail();
       return Object.freeze({
         expectedFiles: Object.freeze(expectedFiles),
-        workerSha256: workers[0]!.sha256,
+        workerSha256: workers[0].sha256,
         profileId: provenanceEvidence.profileId,
         runtimeBuildDigest: provenanceEvidence.runtimeBuildDigest,
       });

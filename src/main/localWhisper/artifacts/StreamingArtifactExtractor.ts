@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { createHash } from 'node:crypto';
 
 import type { LocalWhisperArtifactId } from '@shared/localWhisper';
@@ -138,6 +139,7 @@ function ownedWriteBytes(chunkBytes: number): number {
   return ownedBytes;
 }
 
+/** Owns bounded in-flight writes and propagates cancellation through one abort controller. */
 class BoundedArtifactWritePipeline {
   private readonly controller = new AbortController();
   private readonly forwardAbort = (): void => this.controller.abort();

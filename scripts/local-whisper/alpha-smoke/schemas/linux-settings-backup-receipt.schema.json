@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/linux-settings-backup-receipt-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["attemptId", "createdAtEpochMilliseconds", "entries", "schemaVersion", "status"],
+  "properties": {
+    "attemptId": { "type": "string", "pattern": "^[a-z\\d][a-z\\d-]{0,63}$" },
+    "createdAtEpochMilliseconds": { "type": "integer", "minimum": 1 },
+    "entries": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "backupMode",
+          "backupModifiedMilliseconds",
+          "length",
+          "relativePath",
+          "sha256",
+          "sourceMode",
+          "sourceModifiedMilliseconds",
+          "status"
+        ],
+        "properties": {
+          "backupMode": { "type": ["integer", "null"], "minimum": 0, "maximum": 4095 },
+          "backupModifiedMilliseconds": { "type": ["number", "null"], "minimum": 0 },
+          "length": { "type": ["integer", "null"], "minimum": 0, "maximum": 8388608 },
+          "relativePath": {
+            "enum": [
+              "claude-web-settings.json",
+              "cloakbrowser-settings.json",
+              "config.json",
+              "local-whisper/settings.json",
+              "openai-api-settings.json",
+              "prettify-provider-settings.json"
+            ]
+          },
+          "sha256": { "type": ["string", "null"], "pattern": "^[a-f\\d]{64}$" },
+          "sourceMode": { "type": ["integer", "null"], "minimum": 0, "maximum": 4095 },
+          "sourceModifiedMilliseconds": { "type": ["number", "null"], "minimum": 0 },
+          "status": { "enum": ["backed-up", "missing"] }
+        }
+      }
+    },
+    "schemaVersion": { "const": 1 },
+    "status": { "const": "retained-private" }
+  }
+}

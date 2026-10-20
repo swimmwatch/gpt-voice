@@ -26,6 +26,7 @@ import {
 } from '../packaging/fileIntegrity';
 import { ProductionCatalogProducer, type ProductionCatalogRuntimeSeed } from './ProductionCatalogProducer';
 import {
+  productionRuntimeAssetFileName,
   type ProductionRuntimeArchive,
   type ProductionRuntimePlatform,
   type ProductionRuntimeTarget,
@@ -149,7 +150,7 @@ function runtimePackManifest(input: {
     signingKeyId: input.signingKeyId,
     expectedFiles: [
       Object.freeze({
-        path: input.archive.archive.file,
+        path: productionRuntimeAssetFileName(input.archive.platform, input.archive.archive.file),
         sizeBytes: input.archive.archive.sizeBytes,
         sha256: input.archive.archive.sha256,
       }),
@@ -185,7 +186,7 @@ function runtimePackManifest(input: {
 function runtimeCatalogSeed(archive: ProductionRuntimeArchive, signatureBase64: string): ProductionCatalogRuntimeSeed {
   const cpu = archive.target === 'cpu';
   return Object.freeze({
-    archiveFileName: archive.archive.file,
+    archiveFileName: productionRuntimeAssetFileName(archive.platform, archive.archive.file),
     archiveSha256: archive.archive.sha256,
     archiveSignature: signatureBase64,
     archiveSizeBytes: archive.archive.sizeBytes,
@@ -247,8 +248,10 @@ export class ProductionBundleProducer {
           ) {
             throw new Error('Production runtime archive bytes changed before signing');
           }
-          await copyFile(source, path.join(stagingDirectory, record.archive.file));
-          await chmod(path.join(stagingDirectory, record.archive.file), 0o400);
+          const stagedFileName = productionRuntimeAssetFileName(record.platform, record.archive.file);
+          const stagedArchive = path.join(stagingDirectory, stagedFileName);
+          await copyFile(source, stagedArchive);
+          await chmod(stagedArchive, 0o400);
           return record;
         }),
       );
@@ -371,7 +374,7 @@ export class ProductionBundleProducer {
           packages: [
             ...archives.map((archive, index) => ({
               SPDXID: `SPDXRef-Package-Runtime-${index + 1}`,
-              name: archive.archive.file,
+              name: productionRuntimeAssetFileName(archive.platform, archive.archive.file),
               versionInfo: input.appRevision,
               checksums: [{ algorithm: 'SHA256', checksumValue: archive.archive.sha256 }],
             })),

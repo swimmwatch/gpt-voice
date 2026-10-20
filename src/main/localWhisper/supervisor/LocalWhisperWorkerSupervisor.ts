@@ -171,17 +171,6 @@ function sameStringList(left: readonly string[], right: readonly string[]): bool
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-function sameModelIdentity(left: LocalWhisperResidencyKey['model'], right: LocalWhisperResidencyKey['model']): boolean {
-  return (
-    left.engine === right.engine &&
-    left.logicalModel === right.logicalModel &&
-    left.sourceCheckpointRevision === right.sourceCheckpointRevision &&
-    left.artifactRevision === right.artifactRevision &&
-    left.nativeFormat === right.nativeFormat &&
-    left.variant === right.variant
-  );
-}
-
 function sameResidency(left: LocalWhisperResidencyKey, right: LocalWhisperResidencyKey): boolean {
   return areLocalWhisperResidencyKeysEqual(left, right);
 }
@@ -883,7 +872,7 @@ export class LocalWhisperWorkerSupervisor {
     if (!this.expectsProbeInputClosure) return false;
     if (this.stateValue === 'probed' && this.pending.size === 0 && this.pendingRevalidations.size === 0) return true;
     if (this.stateValue !== 'probing' || this.pending.size !== 1 || this.pendingRevalidations.size !== 1) return false;
-    const pending = this.pending.values().next().value as PendingRequest | undefined;
+    const pending = this.pending.values().next().value;
     return pending?.expectedType === 'probed' && this.pendingRevalidations.has(pending.requestId);
   }
 

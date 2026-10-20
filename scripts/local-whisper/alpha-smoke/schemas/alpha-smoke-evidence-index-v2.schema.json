@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-evidence-index-v2.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "platform",
+    "resultDigest",
+    "target",
+    "schemaVersion",
+    "deploymentDigest",
+    "inputDigest"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "pattern": "^[a-z\\d][a-z\\d-]{0,63}$"
+    },
+    "platform": {
+      "enum": [
+        "linux",
+        "win32"
+      ]
+    },
+    "resultDigest": {
+      "type": "string",
+      "pattern": "^[a-f\\d]{64}$"
+    },
+    "target": {
+      "const": "v2.4.0-alpha.1"
+    },
+    "schemaVersion": {
+      "const": 2
+    },
+    "deploymentDigest": {
+      "type": "string",
+      "pattern": "^[a-f\\d]{64}$"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^[a-f\\d]{64}$"
+    }
+  }
+}

@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
@@ -265,7 +266,7 @@ describe('StreamingArtifactExtractor manifest-first boundary', () => {
       store: harness.store,
     }).install(
       model,
-      [metadataOnlyModelEntry(model.expectedFiles[0]!.fileId, MODEL_FILE)],
+      [metadataOnlyModelEntry(model.expectedFiles[0].fileId, MODEL_FILE)],
       new AbortController().signal,
     );
     assert.deepEqual(stages, [
