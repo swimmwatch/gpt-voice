@@ -30,6 +30,10 @@ const signatures: NpmCommandEvidence = {
 };
 
 describe('npm signature policy', () => {
+  it('rejects the superseded npm release with vulnerable bundled dependencies', () => {
+    assert.throws(() => resolveApprovedPackageManager('npm@12.0.2'), /PACKAGE_MANAGER_UNAPPROVED/u);
+  });
+
   it('keeps current and historical package-manager pins closed and manifest-bound', () => {
     assert.equal(resolveApprovedPackageManager(), CURRENT_PACKAGE_MANAGER);
     assert.equal(

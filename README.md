@@ -202,7 +202,7 @@ Repository contributors can use `$analyze-diagnostics-archive` for selective, in
 
 ## Run From Source
 
-Requires Node.js 24.15+ and Corepack with the repository-pinned npm 12.0.2.
+Requires Node.js 24.15+ and Corepack with the repository-pinned npm 12.2.1.
 
 ```bash
 node scripts/security/verify-npm-signatures-preinstall.mjs

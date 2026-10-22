@@ -48,7 +48,7 @@ RUN --mount=type=cache,target=/var/cache/dnf,sharing=locked \
       xorg-x11-server-Xvfb \
     && dnf -y clean packages
 
-ARG NPM_VERSION=12.0.2
+ARG NPM_VERSION=12.2.1
 RUN npm install --global --prefix=/usr/local --ignore-scripts "npm@${NPM_VERSION}" \
     && hash -r \
     && test "$(npm --version)" = "${NPM_VERSION}"

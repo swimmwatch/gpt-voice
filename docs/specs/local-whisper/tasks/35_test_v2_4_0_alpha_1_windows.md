@@ -30,7 +30,7 @@ index. Do not change the Linux result, mutate the release, or select feedback.
   compute-capability-12 RTX 50 computer. Its NVIDIA driver is functional. The
   task does not silently install or change drivers, CUDA toolkits, compilers,
   Python, Docker, or other global development tools.
-- Node.js `>=24.15.0` and npm `12.0.2` are available for the task runner. A
+- Node.js `>=24.15.0` and npm `12.2.1` are available for the task runner. A
   missing prerequisite leaves the packet Pending until its separate
   installation is authorized and verified.
 - Before the physical attempt, no GPT-Voice process, current-user or machine
