@@ -74,7 +74,8 @@ describe('LinuxDesktopIntegrationController', () => {
       harness.written[0]?.path,
       path.join('/home/test/.data', 'applications', 'com.swimmwatch.gptvoice.desktop'),
     );
-    assert.match(harness.written[0]?.data ?? '', /Exec="\/opt\/GPT Voice\.AppImage" --no-sandbox %U/u);
+    assert.match(harness.written[0]?.data ?? '', /Exec="\/opt\/GPT Voice\.AppImage" %U/u);
+    assert.doesNotMatch(harness.written[0]?.data ?? '', /--no-sandbox/u);
     assert.match(harness.written[0]?.data ?? '', /X-AppImage-Version=1\.4\.0/u);
     assert.match(harness.written[0]?.data ?? '', /StartupWMClass=com\.swimmwatch\.gptvoice/u);
     assert.deepEqual(harness.copied, [

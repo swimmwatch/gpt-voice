@@ -110,7 +110,7 @@
     "format:check:local-whisper:worker-common": "node scripts/local-whisper/native-worker-quality.mjs format",
     "lint:local-whisper:worker-common": "node scripts/local-whisper/native-worker-quality.mjs lint",
     "test:local-whisper:worker-common:native": "node scripts/local-whisper/native-worker-quality.mjs all",
-    "test:local-whisper:worker-codec": "node --import tsx --test tests/shared/localWhisper/workerJson.test.ts tests/shared/localWhisper/canonicalWav.test.ts tests/shared/localWhisper/protocol.test.ts && node scripts/local-whisper/native-worker-quality.mjs codec",
+    "test:local-whisper:worker-codec": "node --import tsx --test tests/shared/localWhisper/workerJson.test.ts tests/shared/localWhisper/canonicalWav.test.ts tests/shared/localWhisper/protocol.test.ts && node --test tests/scripts/localWhisper/workerAudioFrame.test.mjs tests/scripts/localWhisper/workerControlFrame.test.mjs && node scripts/local-whisper/native-worker-quality.mjs codec",
     "test:local-whisper:worker-codec:msvc-asan": "node scripts/local-whisper/native-worker-quality.mjs codec --configuration=windows-asan",
     "test:local-whisper:worker-proof-vectors": "node --import tsx --test tests/main/localWhisper/supervisor/LocalWhisperDeviceAuthority.test.ts && node scripts/local-whisper/native-worker-quality.mjs proof",
     "test:local-whisper:worker-authority": "node --import tsx --test tests/main/localWhisper/supervisor/LocalWhisperModelAuthorityRecord.test.ts && node scripts/local-whisper/native-worker-quality.mjs authority",
@@ -272,6 +272,7 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "type": "commonjs",
   "build": {
+    "beforePack": "./scripts/before-pack.mjs",
     "appId": "com.swimmwatch.gptvoice",
     "productName": "GPT-Voice",
     "copyright": "Copyright (c) 2026 Dmitry Vasiliev",
@@ -448,6 +449,7 @@
       ]
     },
     "appImage": {
+      "executableArgs": [],
       "license": "build/generated/common/license.txt"
     },
     "win": {

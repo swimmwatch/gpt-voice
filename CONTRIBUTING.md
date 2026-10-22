@@ -30,8 +30,10 @@ Install dependencies:
 
 ```bash
 node scripts/security/verify-npm-signatures-preinstall.mjs
-corepack npm@12.0.2 ci
+node scripts/ci-install.mjs
 ```
+
+The coordinator uses the pinned npm version and applies the reviewed AppImage launcher patch after installation. AppImage builds fail if the generator version or bytes are unsupported, or the patch is missing; review the patch when updating electron-builder instead of bypassing this guard.
 
 Run the app from source:
 

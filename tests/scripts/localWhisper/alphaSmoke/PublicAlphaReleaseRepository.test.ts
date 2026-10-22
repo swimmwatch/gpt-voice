@@ -1,13 +1,41 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, rm, symlink } from 'node:fs/promises';
+import { readdirSync, readlinkSync } from 'node:fs';
+import { mkdtemp, open, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { generateKeyPairSync } from 'node:crypto';
 
 import { ALPHA_SMOKE_SOURCE_SHA, ALPHA_SMOKE_TARGET } from '@scripts/local-whisper/alpha-smoke/AlphaSmokeProtocol';
+import { LinuxAlphaSmokeFilesystem } from '@scripts/local-whisper/alpha-smoke/LinuxAlphaSmokeFilesystem';
 import { createReleaseFixture } from './publicReleaseFixture';
 import { PublicAlphaReleaseRepository } from '@scripts/local-whisper/alpha-smoke/PublicAlphaReleaseRepository';
+
+const OPEN_DESCRIPTOR_DIRECTORY = '/proc/self/fd';
+
+function ancestorDirectories(root: string): ReadonlySet<string> {
+  const directories = new Set([root]);
+  let parent = path.dirname(root);
+  while (!directories.has(parent)) {
+    directories.add(parent);
+    parent = path.dirname(parent);
+  }
+  return directories;
+}
+
+function directoryDescriptors(directories: ReadonlySet<string>): ReadonlyMap<string, string> {
+  const descriptors = new Map<string, string>();
+  for (const descriptor of readdirSync(OPEN_DESCRIPTOR_DIRECTORY)) {
+    try {
+      const target = readlinkSync(path.join(OPEN_DESCRIPTOR_DIRECTORY, descriptor));
+      if (directories.has(target)) descriptors.set(descriptor, target);
+    } catch (error) {
+      // Directory enumeration can include its own descriptor, already closed here.
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
+  }
+  return descriptors;
+}
 
 describe('PublicAlphaReleaseRepository', () => {
   it('rejects an authenticated catalog pointing at an unpublished runtime filename and URL', async () => {
@@ -23,7 +51,7 @@ describe('PublicAlphaReleaseRepository', () => {
     );
   });
 
-  it('closes pinned descriptors when materialization rejects a substituted release directory', async () => {
+  it('closes pinned descriptors despite unrelated descriptor closure when rejecting a substituted release directory', async (context) => {
     const root = await mkdtemp(path.join(tmpdir(), 'alpha-materialization-fds-'));
     const outside = await mkdtemp(path.join(tmpdir(), 'alpha-materialization-outside-'));
     try {
@@ -34,13 +62,36 @@ describe('PublicAlphaReleaseRepository', () => {
       });
       await repository.verify('linux');
       await symlink(outside, path.join(root, 'release'));
-      const before = (await readdir('/proc/self/fd')).length;
-      await assert.rejects(repository.materializeVerifiedLinuxDeb(root));
-      assert.equal(
-        (await readdir('/proc/self/fd')).length,
-        before,
-        'Rejected materialization leaked pinned descriptors',
-      );
+      const directories = ancestorDirectories(root);
+      const pinnedDescriptors = new Map<string, string>();
+      const openRoot = LinuxAlphaSmokeFilesystem.openRoot;
+      context.mock.method(LinuxAlphaSmokeFilesystem, 'openRoot', async (workRoot: string, privateRoot?: boolean) => {
+        assert.equal(workRoot, root);
+        const before = directoryDescriptors(directories);
+        const filesystem = await openRoot(workRoot, privateRoot);
+        try {
+          const after = directoryDescriptors(directories);
+          for (const [descriptor, target] of after) {
+            if (before.get(descriptor) !== target) pinnedDescriptors.set(descriptor, target);
+          }
+          return filesystem;
+        } catch (error) {
+          await filesystem.dispose();
+          throw error;
+        }
+      });
+      const unrelated = await open(path.join(root, 'unrelated-descriptor.txt'), 'wx', 0o600);
+      try {
+        await unrelated.close();
+        await assert.rejects(repository.materializeVerifiedLinuxDeb(root));
+        assert.deepEqual([...pinnedDescriptors.values()].sort(), [...directories].sort());
+        const remaining = directoryDescriptors(directories);
+        for (const [descriptor, target] of pinnedDescriptors) {
+          assert.notEqual(remaining.get(descriptor), target, 'Rejected materialization leaked a pinned directory');
+        }
+      } finally {
+        await unrelated.close();
+      }
       assert.deepEqual(await readdir(outside), []);
     } finally {
       await rm(root, { recursive: true, force: true });

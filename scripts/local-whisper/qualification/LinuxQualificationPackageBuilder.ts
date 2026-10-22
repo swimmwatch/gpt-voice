@@ -1,6 +1,8 @@
-import { lstat } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
+import { assertSandboxedAppRun } from '../../security/appimage-launcher-policy.mjs';
 import { readCanonicalJson, sha256File } from '../packaging/fileIntegrity';
 import { QualificationCommandRunner, type QualificationCommandPort } from './QualificationCommandRunner';
 
@@ -122,6 +124,24 @@ export class LinuxQualificationPackageBuilder {
       packageIdentity(releaseRoot, 'deb', `gpt-voice_${input.candidateSemVer}_amd64.deb`),
       packageIdentity(releaseRoot, 'rpm', `gpt-voice-${input.candidateSemVer}.x86_64.rpm`),
     ]);
+    const extractionRoot = await mkdtemp(path.join(tmpdir(), 'gpt-voice-qualification-apprun-'));
+    try {
+      await this.commands.run({
+        command: path.join(releaseRoot, `GPT-Voice-${input.candidateSemVer}.AppImage`),
+        arguments: ['--appimage-extract'],
+        cwd: extractionRoot,
+        environment,
+      });
+      const launcherPath = path.join(extractionRoot, 'squashfs-root', 'AppRun');
+      const launcherIdentity = await lstat(launcherPath);
+      if (!launcherIdentity.isFile() || launcherIdentity.isSymbolicLink()) {
+        throw new Error('Qualification AppRun identity invalid');
+      }
+      const launcher = await readFile(launcherPath, 'utf8');
+      assertSandboxedAppRun(launcher);
+    } finally {
+      await rm(extractionRoot, { recursive: true, force: true });
+    }
     return Object.freeze({
       packages: Object.freeze(packages),
       resourcesPath: path.join(worktree, 'build', 'generated'),

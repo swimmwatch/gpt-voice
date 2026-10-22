@@ -48,6 +48,7 @@ describe('CI install coordinator', () => {
       await new CiInstallCoordinator({
         attempts: 1,
         cwd: project,
+        launcherHardener: { apply: async () => assert.equal(calls.length, 2) },
         output: { write: () => true },
         runCommand: async (request: CommandRequest) => {
           calls.push(request);
@@ -80,6 +81,7 @@ describe('CI install coordinator', () => {
         attempts: 1,
         cwd: project,
         environment: { npm_execpath: npmEntry },
+        launcherHardener: { apply: async () => assert.equal(calls.length, 3) },
         nodeExecutable: process.execPath,
         output: { write: (value: string) => messages.push(value) > 0 },
         runCommand: async (request: CommandRequest) => {
@@ -129,6 +131,49 @@ describe('CI install coordinator', () => {
         /CI_INSTALL_PACKAGE_MANAGER_POLICY_INVALID/u,
       );
       assert.equal(commandCount, 0);
+    } finally {
+      await rm(project, { force: true, recursive: true });
+    }
+  });
+
+  it('propagates launcher hardening failure after installation without reinstalling', async () => {
+    const project = await createProject();
+    let commands = 0;
+    try {
+      const installer = new CiInstallCoordinator({
+        cwd: project,
+        launcherHardener: { apply: () => Promise.reject(new Error('APPIMAGE_LAUNCHER_UNREVIEWED')) },
+        output: { write: () => true },
+        runCommand: () => {
+          commands += 1;
+          return Promise.resolve(0);
+        },
+      });
+      await assert.rejects(installer.install(), /APPIMAGE_LAUNCHER_UNREVIEWED/u);
+      assert.equal(commands, 2);
+    } finally {
+      await rm(project, { force: true, recursive: true });
+    }
+  });
+
+  it('does not harden an unsuccessful install', async () => {
+    const project = await createProject();
+    let hardened = false;
+    let commands = 0;
+    try {
+      const installer = new CiInstallCoordinator({
+        attempts: 1,
+        cwd: project,
+        launcherHardener: {
+          apply: async () => {
+            hardened = true;
+          },
+        },
+        output: { write: () => true },
+        runCommand: () => Promise.resolve(commands++ === 0 ? 0 : 1),
+      });
+      await assert.rejects(installer.install(), /CI_INSTALL_FAILED_1/u);
+      assert.equal(hardened, false);
     } finally {
       await rm(project, { force: true, recursive: true });
     }

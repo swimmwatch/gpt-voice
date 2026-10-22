@@ -18,9 +18,23 @@ interface LinuxBuildConfiguration {
 interface PackageConfiguration {
   readonly desktopName?: unknown;
   readonly build?: {
+    readonly appImage?: {
+      readonly executableArgs?: unknown;
+    };
     readonly linux?: LinuxBuildConfiguration;
   };
 }
+
+test('keeps sandboxing enabled in the packaged AppImage launcher', async () => {
+  const packageJson = JSON.parse(
+    await readFile(path.join(PROJECT_ROOT, 'package.json'), 'utf8'),
+  ) as PackageConfiguration;
+  const installerVerifier = await readFile(path.join(PROJECT_ROOT, 'scripts', 'verify-installers.mjs'), 'utf8');
+
+  assert.deepEqual(packageJson.build?.appImage?.executableArgs, []);
+  assert.ok(installerVerifier.includes('Exec=AppRun %U'));
+  assert.equal(installerVerifier.includes('Exec=AppRun --no-sandbox %U'), false);
+});
 
 test('keeps the Linux package and installer desktop identity canonical', async () => {
   const packageJson = JSON.parse(

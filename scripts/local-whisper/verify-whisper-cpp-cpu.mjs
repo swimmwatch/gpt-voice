@@ -18,6 +18,7 @@ import {
   sha256File,
   transcriptionOptions,
   WhisperCppWorkerProcess,
+  WORKER_PROTOCOL_VERSION,
 } from './whisper-cpp-integration-core.mjs';
 import {
   buildIdentity,
@@ -35,7 +36,6 @@ import {
 
 const CONFIGURATION_EPOCH = 1;
 const LOGICAL_PROCESSOR_TOPOLOGY_GENERATION = 0;
-const WORKER_PROTOCOL_VERSION = 2;
 
 function assertTaskOwned(path) {
   const child = relative(taskCacheRoot, path);

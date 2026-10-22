@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { createLinuxAppImageCleanupEnvironment } from './linux-appimage-cleanup-environment.mjs';
 import { toLinuxPackageVersion } from './semantic-version.mjs';
+import { assertSandboxedAppRun } from './security/appimage-launcher-policy.mjs';
 
 const execFile = promisify(execFileCallback);
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -201,7 +202,7 @@ async function verifyDesktopFile(filePath, { appImage }) {
   }
 
   assert(
-    content.includes(appImage ? 'Exec=AppRun --no-sandbox %U' : `Exec=/opt/${productName}/${packageName} %U`),
+    content.includes(appImage ? 'Exec=AppRun %U' : `Exec=/opt/${productName}/${packageName} %U`),
     `Desktop file ${filePath} has unexpected Exec line`,
   );
 
@@ -284,6 +285,7 @@ async function verifyLinuxInstallers() {
   try {
     await run(appImage, ['--appimage-extract'], { cwd: appImageExtractDir, timeout: 180000 });
     const appImageRoot = path.join(appImageExtractDir, 'squashfs-root');
+    assertSandboxedAppRun(await readFile(path.join(appImageRoot, 'AppRun'), 'utf8'));
     await assertExecutable(path.join(appImageRoot, packageName), 'AppImage executable');
     await assertExecutable(path.join(appImageRoot, 'resources', 'cloakbrowser', 'chrome'), 'AppImage CloakBrowser');
     await verifyPackagedLicense(path.join(appImageRoot, 'license.txt'), 'AppImage root license metadata');

@@ -25,6 +25,7 @@ export interface CiInstallCoordinatorOptions {
   readonly output?: { write(value: string): unknown };
   readonly platform?: NodeJS.Platform;
   readonly runCommand?: (request: CiInstallCommandRequest) => Promise<number>;
+  readonly launcherHardener?: { apply(): Promise<void> };
 }
 
 export function resolveBootstrapNpmCommand(

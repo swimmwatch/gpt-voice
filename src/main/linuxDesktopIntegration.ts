@@ -75,7 +75,7 @@ export class LinuxDesktopIntegrationController {
         [
           '[Desktop Entry]',
           `Name=${APP_DISPLAY_NAME}`,
-          `Exec=${escapeDesktopExecArg(appImagePath)} --no-sandbox %U`,
+          `Exec=${escapeDesktopExecArg(appImagePath)} %U`,
           'Terminal=false',
           'Type=Application',
           `Icon=${DESKTOP_ICON_NAME}`,
@@ -88,7 +88,7 @@ export class LinuxDesktopIntegrationController {
           '',
           '[Desktop Action RemoveIntegration]',
           `Name=Remove ${APP_DISPLAY_NAME} launcher`,
-          `Exec=${escapeDesktopExecArg(appImagePath)} --no-sandbox --remove-linux-appimage-desktop-integration`,
+          `Exec=${escapeDesktopExecArg(appImagePath)} --remove-linux-appimage-desktop-integration`,
           '',
         ].join('\n'),
         'utf8',
