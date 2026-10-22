@@ -291,43 +291,33 @@ export class LinuxSettingsBackup {
       return this.missingEntry(relativePath);
     }
     const sourcePath = await this.filesystem('source').resolve(relativePath);
-    const linkMetadata = await lstat(sourcePath).catch((error: unknown) => {
-      if (isNotFound(error)) return null;
-      throw error;
-    });
-    if (linkMetadata === null) {
-      return this.missingEntry(relativePath);
-    }
-    if (
-      !linkMetadata.isFile() ||
-      linkMetadata.isSymbolicLink() ||
-      linkMetadata.uid !== this.userId ||
-      linkMetadata.size > MAX_FILE_BYTES ||
-      currentTotal + linkMetadata.size > MAX_TOTAL_BYTES
-    ) {
-      fail('SOURCE_FILE_INVALID');
-    }
-
-    await this.createDestinationParent(relativePath);
-    const destination = await this.filesystem('backup').resolve(relativePath);
-    const sourceHandle = await open(sourcePath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const sourceHandle = await open(sourcePath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch(
+      (error: unknown) => {
+        if (isNotFound(error)) return null;
+        if (error instanceof Error && 'code' in error && error.code === 'ELOOP') fail('SOURCE_FILE_INVALID');
+        throw error;
+      },
+    );
+    if (sourceHandle === null) return this.missingEntry(relativePath);
     let destinationHandle;
     try {
+      const sourceMetadata = await sourceHandle.stat();
+      if (
+        !sourceMetadata.isFile() ||
+        sourceMetadata.uid !== this.userId ||
+        sourceMetadata.size > MAX_FILE_BYTES ||
+        currentTotal + sourceMetadata.size > MAX_TOTAL_BYTES
+      ) {
+        fail('SOURCE_FILE_INVALID');
+      }
+      const beforeIdentity = identityOf(sourceMetadata);
+      await this.createDestinationParent(relativePath);
+      const destination = await this.filesystem('backup').resolve(relativePath);
       destinationHandle = await open(
         destination,
         constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
         0o600,
       );
-    } catch (error) {
-      await sourceHandle.close();
-      throw error;
-    }
-    try {
-      const openedBefore = await sourceHandle.stat();
-      const beforeIdentity = identityOf(linkMetadata);
-      if (!openedBefore.isFile() || !sameIdentity(beforeIdentity, identityOf(openedBefore)))
-        fail('SOURCE_IDENTITY_CHANGED');
-
       const hash = createHash('sha256');
       const buffer = Buffer.allocUnsafe(READ_BUFFER_BYTES);
       let length = 0;
@@ -343,7 +333,7 @@ export class LinuxSettingsBackup {
       const openedAfter = await sourceHandle.stat();
       const linkedAfter = await lstat(sourcePath);
       if (
-        length !== linkMetadata.size ||
+        length !== sourceMetadata.size ||
         !sameIdentity(beforeIdentity, identityOf(openedAfter)) ||
         !sameIdentity(beforeIdentity, identityOf(linkedAfter))
       ) {
@@ -366,12 +356,12 @@ export class LinuxSettingsBackup {
         length,
         relativePath,
         sha256: hash.digest('hex'),
-        sourceMode: linkMetadata.mode & 0o7777,
-        sourceModifiedMilliseconds: linkMetadata.mtimeMs,
+        sourceMode: sourceMetadata.mode & 0o7777,
+        sourceModifiedMilliseconds: sourceMetadata.mtimeMs,
         status: 'backed-up',
       });
     } finally {
-      await Promise.allSettled([sourceHandle.close(), destinationHandle.close()]);
+      await Promise.allSettled([sourceHandle.close(), destinationHandle?.close()]);
     }
   }
 
@@ -412,23 +402,32 @@ export class LinuxSettingsBackup {
 
   private async readReceipt(): Promise<LinuxSettingsBackupReceipt> {
     const receiptPath = await this.filesystem('backup').resolve(RECEIPT_FILE_NAME);
-    const metadata = await lstat(receiptPath).catch(() => null);
-    if (
-      !metadata ||
-      !metadata.isFile() ||
-      metadata.isSymbolicLink() ||
-      metadata.uid !== this.userId ||
-      (metadata.mode & 0o777) !== 0o600 ||
-      metadata.size <= 0 ||
-      metadata.size > 64 * 1024
-    ) {
-      fail('RECEIPT_INVALID');
-    }
-    const handle = await open(receiptPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await open(receiptPath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch(() =>
+      fail('RECEIPT_INVALID'),
+    );
     try {
-      const opened = await handle.stat();
-      if (!opened.isFile() || !sameIdentity(identityOf(metadata), identityOf(opened))) fail('RECEIPT_INVALID');
-      return parseReceipt(JSON.parse(await handle.readFile('utf8')) as unknown);
+      const metadata = await handle.stat();
+      if (
+        !metadata.isFile() ||
+        metadata.uid !== this.userId ||
+        (metadata.mode & 0o777) !== 0o600 ||
+        metadata.size <= 0 ||
+        metadata.size > 64 * 1024
+      ) {
+        fail('RECEIPT_INVALID');
+      }
+      const content = await handle.readFile('utf8');
+      const openedAfter = await handle.stat();
+      const linkedAfter = await lstat(receiptPath);
+      const expectedIdentity = identityOf(metadata);
+      if (
+        !sameIdentity(expectedIdentity, identityOf(openedAfter)) ||
+        !sameIdentity(expectedIdentity, identityOf(linkedAfter)) ||
+        Buffer.byteLength(content, 'utf8') !== metadata.size
+      ) {
+        fail('RECEIPT_INVALID');
+      }
+      return parseReceipt(JSON.parse(content) as unknown);
     } catch (error) {
       if (error instanceof SyntaxError) fail('RECEIPT_INVALID');
       throw error;
@@ -439,24 +438,20 @@ export class LinuxSettingsBackup {
 
   private async verifyBackupEntry(entry: LinuxSettingsBackupEntry): Promise<void> {
     const destination = await this.filesystem('backup').resolve(entry.relativePath);
-    const metadata = await lstat(destination).catch(() => null);
-    if (
-      !metadata ||
-      !metadata.isFile() ||
-      metadata.isSymbolicLink() ||
-      metadata.uid !== this.userId ||
-      (metadata.mode & 0o777) !== 0o600 ||
-      metadata.size !== entry.length ||
-      (metadata.mode & 0o777) !== entry.backupMode ||
-      metadata.mtimeMs !== entry.backupModifiedMilliseconds
-    ) {
-      fail('BACKUP_FILE_INVALID');
-    }
-    const handle = await open(destination, constants.O_RDONLY | constants.O_NOFOLLOW);
+    const handle = await open(destination, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch(() =>
+      fail('BACKUP_FILE_INVALID'),
+    );
     try {
-      const openedBefore = await handle.stat();
+      const metadata = await handle.stat();
       const expectedIdentity = identityOf(metadata);
-      if (!openedBefore.isFile() || !sameIdentity(expectedIdentity, identityOf(openedBefore))) {
+      if (
+        !metadata.isFile() ||
+        metadata.uid !== this.userId ||
+        (metadata.mode & 0o777) !== 0o600 ||
+        metadata.size !== entry.length ||
+        (metadata.mode & 0o777) !== entry.backupMode ||
+        metadata.mtimeMs !== entry.backupModifiedMilliseconds
+      ) {
         fail('BACKUP_FILE_INVALID');
       }
       const hash = createHash('sha256');
@@ -470,12 +465,14 @@ export class LinuxSettingsBackup {
         hash.update(buffer.subarray(0, bytesRead));
       }
       const openedAfter = await handle.stat();
+      const linkedAfter = await lstat(destination);
       const digest = hash.digest();
       if (entry.sha256 === null) fail('BACKUP_FILE_INVALID');
       const expectedDigest = Buffer.from(entry.sha256, 'hex');
       if (
         length !== entry.length ||
         !sameIdentity(expectedIdentity, identityOf(openedAfter)) ||
+        !sameIdentity(expectedIdentity, identityOf(linkedAfter)) ||
         digest.length !== expectedDigest.length ||
         !timingSafeEqual(digest, expectedDigest)
       ) {

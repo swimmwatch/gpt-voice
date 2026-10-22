@@ -207,32 +207,21 @@ export class LinuxAlphaPackageVerifier {
 
   private async assertDebIdentity(): Promise<void> {
     const expected = this.dependencies.expectedDeb;
-    const before = await lstat(this.dependencies.debPath).catch(() => null);
     if (
       expected.fileName !== LINUX_GPT_VOICE_PACKAGE.fileName ||
-      path.basename(this.dependencies.debPath) !== expected.fileName ||
-      !before ||
-      !before.isFile() ||
-      before.isSymbolicLink() ||
-      before.size !== expected.length
+      path.basename(this.dependencies.debPath) !== expected.fileName
     ) {
       fail('PUBLIC_ALPHA_DEB_INVALID');
     }
-
-    const handle = await open(this.dependencies.debPath, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const hash = createHash('sha256');
-    let length = 0;
+    const handle = await open(
+      this.dependencies.debPath,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    ).catch(() => fail('PUBLIC_ALPHA_DEB_INVALID'));
     try {
-      const openedBefore = await handle.stat();
-      if (
-        !openedBefore.isFile() ||
-        openedBefore.dev !== before.dev ||
-        openedBefore.ino !== before.ino ||
-        openedBefore.size !== before.size ||
-        openedBefore.mtimeMs !== before.mtimeMs
-      ) {
-        fail('PUBLIC_ALPHA_DEB_INVALID');
-      }
+      const before = await handle.stat();
+      if (!before.isFile() || before.size !== expected.length) fail('PUBLIC_ALPHA_DEB_INVALID');
+      const hash = createHash('sha256');
+      let length = 0;
       for await (const chunk of handle.createReadStream({ autoClose: false })) {
         const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         length += bytes.length;
@@ -240,31 +229,27 @@ export class LinuxAlphaPackageVerifier {
         hash.update(bytes);
       }
       const openedAfter = await handle.stat();
+      const after = await lstat(this.dependencies.debPath);
+      const actualDigest = hash.digest();
+      const expectedDigest = Buffer.from(expected.sha256, 'hex');
       if (
-        openedAfter.dev !== before.dev ||
-        openedAfter.ino !== before.ino ||
-        openedAfter.size !== before.size ||
-        openedAfter.mtimeMs !== before.mtimeMs
+        !after.isFile() ||
+        before.dev !== after.dev ||
+        before.ino !== after.ino ||
+        before.size !== after.size ||
+        before.mtimeMs !== after.mtimeMs ||
+        before.ctimeMs !== after.ctimeMs ||
+        before.size !== openedAfter.size ||
+        before.mtimeMs !== openedAfter.mtimeMs ||
+        before.ctimeMs !== openedAfter.ctimeMs ||
+        length !== expected.length ||
+        actualDigest.length !== expectedDigest.length ||
+        !timingSafeEqual(actualDigest, expectedDigest)
       ) {
         fail('PUBLIC_ALPHA_DEB_INVALID');
       }
     } finally {
       await handle.close();
-    }
-    const after = await lstat(this.dependencies.debPath).catch(() => null);
-    const actualDigest = hash.digest();
-    const expectedDigest = Buffer.from(expected.sha256, 'hex');
-    if (
-      !after ||
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.size !== after.size ||
-      before.mtimeMs !== after.mtimeMs ||
-      length !== expected.length ||
-      actualDigest.length !== expectedDigest.length ||
-      !timingSafeEqual(actualDigest, expectedDigest)
-    ) {
-      fail('PUBLIC_ALPHA_DEB_INVALID');
     }
   }
 }

@@ -1,5 +1,19 @@
 import assert from 'node:assert/strict';
-import { chmod, lstat, mkdir, mkdtemp, readFile, rm, symlink, truncate, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  readlink,
+  rename,
+  rm,
+  symlink,
+  truncate,
+  writeFile,
+  type FileHandle,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
@@ -19,6 +33,40 @@ async function roots(prefix: string) {
 }
 
 describe('LinuxSettingsBackup', () => {
+  for (const relativePath of ['settings-backup-receipt.json', 'config.json']) {
+    it(`rejects replacement of an opened ${relativePath}`, { skip: process.platform !== 'linux' }, async (context) => {
+      const fixture = await roots('alpha-settings-opened-replacement-');
+      try {
+        await writeFile(path.join(fixture.sourceRoot, 'config.json'), 'fixture', { mode: 0o600 });
+        const backup = new LinuxSettingsBackup(fixture);
+        await backup.create('alpha-test');
+        const target = path.join(fixture.backupRoot, relativePath);
+        const content = await readFile(target);
+        const probe = await open(target);
+        const prototype = Object.getPrototypeOf(probe) as FileHandle;
+        // eslint-disable-next-line @typescript-eslint/unbound-method -- Invoke the saved method with each file handle as its receiver.
+        const originalStat = prototype.stat;
+        await probe.close();
+        let replaced = false;
+        context.mock.method(prototype, 'stat', async function (this: FileHandle) {
+          const metadata = await originalStat.call(this);
+          const openedPath = await readlink(`/proc/self/fd/${this.fd}`);
+          if (!replaced && openedPath === target) {
+            replaced = true;
+            await rename(target, path.join(fixture.parent, 'original-file'));
+            await writeFile(target, content, { mode: 0o600 });
+          }
+          return metadata;
+        });
+        await assert.rejects(backup.verifyRetained('alpha-test'), /ALPHA_SMOKE_LINUX_SETTINGS_BACKUP_/u);
+        assert.equal(replaced, true);
+      } finally {
+        context.mock.restoreAll();
+        await rm(fixture.parent, { force: true, recursive: true });
+      }
+    });
+  }
+
   it('copies only the six-file allowlist into owner-only retained storage', async () => {
     const fixture = await roots('alpha-settings-backup-');
     try {

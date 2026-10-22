@@ -20,16 +20,33 @@ function sameIdentity(first, second) {
 }
 
 async function readRegularFile(filePath, maximumBytes) {
-  const identity = await lstat(filePath);
-  if (!identity.isFile() || identity.isSymbolicLink() || identity.size > maximumBytes) {
+  const handle = await open(
+    filePath,
+    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
+  ).catch(() => {
     throw new Error('APPIMAGE_LAUNCHER_FILE_INVALID');
-  }
-  const handle = await open(filePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  });
   try {
-    const opened = await handle.stat();
-    if (!sameIdentity(identity, opened)) throw new Error('APPIMAGE_LAUNCHER_IDENTITY_CHANGED');
+    const identity = await handle.stat();
+    if (!identity.isFile() || identity.size > maximumBytes) {
+      throw new Error('APPIMAGE_LAUNCHER_FILE_INVALID');
+    }
     const bytes = await handle.readFile();
     if (bytes.length > maximumBytes) throw new Error('APPIMAGE_LAUNCHER_FILE_INVALID');
+    const openedAfter = await handle.stat();
+    const linkedAfter = await lstat(filePath);
+    if (
+      !linkedAfter.isFile() ||
+      linkedAfter.isSymbolicLink() ||
+      !sameIdentity(identity, openedAfter) ||
+      !sameIdentity(identity, linkedAfter) ||
+      identity.size !== bytes.length ||
+      identity.size !== openedAfter.size ||
+      identity.mtimeMs !== openedAfter.mtimeMs ||
+      identity.ctimeMs !== openedAfter.ctimeMs
+    ) {
+      throw new Error('APPIMAGE_LAUNCHER_IDENTITY_CHANGED');
+    }
     return { bytes, identity };
   } finally {
     await handle.close();

@@ -1,4 +1,5 @@
-import { lstat, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { lstat, mkdtemp, open, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
@@ -133,12 +134,28 @@ export class LinuxQualificationPackageBuilder {
         environment,
       });
       const launcherPath = path.join(extractionRoot, 'squashfs-root', 'AppRun');
-      const launcherIdentity = await lstat(launcherPath);
-      if (!launcherIdentity.isFile() || launcherIdentity.isSymbolicLink()) {
-        throw new Error('Qualification AppRun identity invalid');
+      const launcherHandle = await open(launcherPath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      try {
+        const launcherIdentity = await launcherHandle.stat();
+        if (!launcherIdentity.isFile()) throw new Error('Qualification AppRun identity invalid');
+        const launcher = await launcherHandle.readFile('utf8');
+        const openedAfter = await launcherHandle.stat();
+        const linkedAfter = await lstat(launcherPath);
+        if (
+          !linkedAfter.isFile() ||
+          linkedAfter.isSymbolicLink() ||
+          launcherIdentity.dev !== linkedAfter.dev ||
+          launcherIdentity.ino !== linkedAfter.ino ||
+          launcherIdentity.size !== openedAfter.size ||
+          launcherIdentity.mtimeMs !== openedAfter.mtimeMs ||
+          launcherIdentity.ctimeMs !== openedAfter.ctimeMs
+        ) {
+          throw new Error('Qualification AppRun identity invalid');
+        }
+        assertSandboxedAppRun(launcher);
+      } finally {
+        await launcherHandle.close();
       }
-      const launcher = await readFile(launcherPath, 'utf8');
-      assertSandboxedAppRun(launcher);
     } finally {
       await rm(extractionRoot, { recursive: true, force: true });
     }

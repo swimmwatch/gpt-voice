@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, open, readFile, readdir, readlink, realpath } from 'node:fs/promises';
+import { lstat, open, readdir, readlink, realpath } from 'node:fs/promises';
 import { userInfo } from 'node:os';
 import path from 'node:path';
 import { LinuxAlphaSmokeFilesystem } from './LinuxAlphaSmokeFilesystem';
@@ -490,16 +490,37 @@ export class LinuxAlphaSmokeAdapter implements PlatformAlphaSmokeAdapter, LinuxA
 
   private async assertFixture(): Promise<void> {
     const fixture = this.dependencies.fixturePath ?? FIXTURE_PATH;
-    const metadata = await lstat(fixture).catch(() => null);
-    if (!metadata || !metadata.isFile() || metadata.isSymbolicLink() || metadata.size !== ALPHA_SMOKE_FIXTURE.length) {
+    const handle = await open(fixture, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch(() => {
       throw new Error('ALPHA_SMOKE_FIXTURE_UNAVAILABLE');
-    }
-    const hash = createHash('sha256')
-      .update(await readFile(fixture))
-      .digest();
-    const expected = Buffer.from(ALPHA_SMOKE_FIXTURE.sha256, 'hex');
-    if (hash.length !== expected.length || !timingSafeEqual(hash, expected)) {
-      throw new Error('ALPHA_SMOKE_FIXTURE_INVALID');
+    });
+    try {
+      const before = await handle.stat();
+      if (!before.isFile() || before.size !== ALPHA_SMOKE_FIXTURE.length) {
+        throw new Error('ALPHA_SMOKE_FIXTURE_UNAVAILABLE');
+      }
+      const bytes = await handle.readFile();
+      const openedAfter = await handle.stat();
+      const linkedAfter = await lstat(fixture);
+      const hash = createHash('sha256').update(bytes).digest();
+      const expected = Buffer.from(ALPHA_SMOKE_FIXTURE.sha256, 'hex');
+      if (
+        !linkedAfter.isFile() ||
+        before.dev !== linkedAfter.dev ||
+        before.ino !== linkedAfter.ino ||
+        before.size !== linkedAfter.size ||
+        before.mtimeMs !== linkedAfter.mtimeMs ||
+        before.ctimeMs !== linkedAfter.ctimeMs ||
+        before.size !== openedAfter.size ||
+        before.mtimeMs !== openedAfter.mtimeMs ||
+        before.ctimeMs !== openedAfter.ctimeMs ||
+        bytes.length !== ALPHA_SMOKE_FIXTURE.length ||
+        hash.length !== expected.length ||
+        !timingSafeEqual(hash, expected)
+      ) {
+        throw new Error('ALPHA_SMOKE_FIXTURE_INVALID');
+      }
+    } finally {
+      await handle.close();
     }
   }
 
@@ -592,29 +613,12 @@ export class LinuxAlphaSmokeAdapter implements PlatformAlphaSmokeAdapter, LinuxA
     if (!path.isAbsolute(filePath) || filePath.includes('\0') || path.resolve(filePath) !== filePath) {
       fail('PACKAGE_FILE_PATH_INVALID');
     }
-    const metadata = await lstat(filePath).catch(() => null);
-    if (!metadata) fail('PACKAGE_FILE_MISSING');
-    if (metadata.isDirectory()) {
-      if (expected !== null) fail('PACKAGE_FILE_TYPE_INVALID');
-      return null;
-    }
-    if (expected === null) fail('PACKAGE_INVENTORY_UNEXPECTED_FILE');
-    const mode = metadata.mode & 0o7777;
-    if (metadata.isFile()) {
-      if (expected.kind !== 'file') fail('PACKAGE_FILE_TYPE_INVALID');
-      const handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
-      const hash = createHash('sha256');
+    if (expected?.kind === 'file') {
+      const handle = await open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
       try {
-        const openedBefore = await handle.stat();
-        if (
-          !openedBefore.isFile() ||
-          openedBefore.dev !== metadata.dev ||
-          openedBefore.ino !== metadata.ino ||
-          openedBefore.size !== metadata.size ||
-          openedBefore.mtimeMs !== metadata.mtimeMs
-        ) {
-          fail('PACKAGE_FILE_IDENTITY_CHANGED');
-        }
+        const metadata = await handle.stat();
+        if (!metadata.isFile()) fail('PACKAGE_FILE_TYPE_INVALID');
+        const hash = createHash('sha256');
         for await (const chunk of handle.createReadStream({ autoClose: false })) {
           if (!Buffer.isBuffer(chunk)) fail('PACKAGE_FILE_IDENTITY_CHANGED');
           hash.update(chunk);
@@ -622,29 +626,37 @@ export class LinuxAlphaSmokeAdapter implements PlatformAlphaSmokeAdapter, LinuxA
         const openedAfter = await handle.stat();
         const linkedAfter = await lstat(filePath);
         if (
-          openedAfter.dev !== metadata.dev ||
-          openedAfter.ino !== metadata.ino ||
+          !linkedAfter.isFile() ||
           openedAfter.size !== metadata.size ||
           openedAfter.mtimeMs !== metadata.mtimeMs ||
+          openedAfter.ctimeMs !== metadata.ctimeMs ||
           linkedAfter.dev !== metadata.dev ||
           linkedAfter.ino !== metadata.ino ||
           linkedAfter.size !== metadata.size ||
-          linkedAfter.mtimeMs !== metadata.mtimeMs
+          linkedAfter.mtimeMs !== metadata.mtimeMs ||
+          linkedAfter.ctimeMs !== metadata.ctimeMs ||
+          linkedAfter.mode !== metadata.mode
         ) {
           fail('PACKAGE_FILE_IDENTITY_CHANGED');
         }
+        return Object.freeze({
+          kind: 'file' as const,
+          mode: metadata.mode & 0o7777,
+          path: filePath,
+          value: hash.digest('hex'),
+        });
       } finally {
         await handle.close();
       }
-      return Object.freeze({
-        kind: 'file' as const,
-        mode,
-        path: filePath,
-        value: hash.digest('hex'),
-      });
     }
-    if (metadata.isSymbolicLink()) {
-      if (expected.kind !== 'symlink') fail('PACKAGE_FILE_TYPE_INVALID');
+    const metadata = await lstat(filePath).catch(() => null);
+    if (!metadata) fail('PACKAGE_FILE_MISSING');
+    if (metadata.isDirectory()) {
+      if (expected !== null) fail('PACKAGE_FILE_TYPE_INVALID');
+      return null;
+    }
+    if (expected === null) fail('PACKAGE_INVENTORY_UNEXPECTED_FILE');
+    if (metadata.isSymbolicLink() && expected.kind === 'symlink') {
       const target = await readlink(filePath);
       if (target.length === 0 || target.includes('\0')) fail('PACKAGE_FILE_LINK_INVALID');
       const linkedAfter = await lstat(filePath);
@@ -652,11 +664,12 @@ export class LinuxAlphaSmokeAdapter implements PlatformAlphaSmokeAdapter, LinuxA
         !linkedAfter.isSymbolicLink() ||
         linkedAfter.dev !== metadata.dev ||
         linkedAfter.ino !== metadata.ino ||
-        linkedAfter.mtimeMs !== metadata.mtimeMs
+        linkedAfter.mtimeMs !== metadata.mtimeMs ||
+        linkedAfter.ctimeMs !== metadata.ctimeMs
       ) {
         fail('PACKAGE_FILE_IDENTITY_CHANGED');
       }
-      return Object.freeze({ kind: 'symlink' as const, mode, path: filePath, value: target });
+      return Object.freeze({ kind: 'symlink' as const, mode: metadata.mode & 0o7777, path: filePath, value: target });
     }
     fail('PACKAGE_FILE_TYPE_INVALID');
   }
