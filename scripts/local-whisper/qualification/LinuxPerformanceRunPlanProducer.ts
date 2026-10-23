@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { chmod, lstat, mkdir, open, readdir, realpath, rm } from 'node:fs/promises';
@@ -73,6 +74,7 @@ export interface FocusedLinuxPerformanceRunPlanOutput {
   readonly overlayManifestSha256: string;
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class LinuxPerformanceRunPlanError extends Error {
   public constructor(public readonly code: string) {
     super(code);

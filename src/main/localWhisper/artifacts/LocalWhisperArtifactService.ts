@@ -416,6 +416,7 @@ export class LocalWhisperArtifactService {
     return operationId;
   }
 
+  // eslint-disable-next-line max-params -- This private typed field packer mirrors one progress contract.
   private publish(
     operationId: LocalWhisperArtifactOperationId,
     spec: LocalWhisperArtifactDownloadSpec,
@@ -439,6 +440,7 @@ export class LocalWhisperArtifactService {
     );
   }
 
+  // eslint-disable-next-line max-params -- This private typed field packer mirrors one progress contract.
   private publishFailure(
     operationId: LocalWhisperArtifactOperationId,
     artifactId: LocalWhisperArtifactId,

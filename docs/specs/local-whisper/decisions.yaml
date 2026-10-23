@@ -1,8 +1,518 @@
 schema_version: 1
 spec_slug: local-whisper
 interview_id: spec:local-whisper
-updated_at: '2026-08-24'
+updated_at: '2026-09-01'
 decisions:
+  - id: planning.revision-37-coverage-audit
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Approved specification revision 28 changes only the Linux alpha-smoke package and settings-preservation contract under `COMP-014`, `QUAL-004`, `AC-AUTO-092`, and `AC-MAN-017`.
+      - Plan revision 37 preserves the finite Tasks 32–36 topology and keeps Task 34 as the only executable packet.
+      - Task 34 contains every required packet heading, exact public-alpha values, closed settings allowlist, privacy boundaries, state transitions, verification commands, rollback rules, and manual gates.
+      - Task 35 and Task 36 baselines now reference specification revision 28 and plan revision 37 without changing their platform or release behavior.
+      - Acceptance ownership validation reports 36 packets, 5 current packets, 1 deferred packet, 7 superseded packets, and 91 unique automated acceptance owners.
+      - Prompt MCP `plan:local-whisper` reports 99 answered questions and zero pending, cancelled, timed-out, unavailable, or failed questions.
+      - Targeted YAML/JSON parsing, required-heading checks, Prettier, ownership validation, and `git diff --check` pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      Revision 37 covers the approved revision-28 change without introducing a
+      new packet, changing Windows behavior, weakening privacy, authorizing a
+      physical action, or altering the release sequence.
+    supersedes_revision: null
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: approval.plan
+    revision: 37
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Specification revision 28 is Approved.
+      - The user explicitly invoked planning-and-task-breakdown for the revised Linux smoke contract.
+      - Plan revision 37 passed the coverage and executability audit with no unresolved material planning choice.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: >-
+      Plan revision 37 is Approved automatically. Approval grants no
+      implementation, settings read or backup, network download, privilege
+      escalation, package mutation, physical test, evidence sealing, commit,
+      push, feedback selection, support promotion, or release authority.
+    supersedes_revision: 36
+    requirement_ids: []
+
+  - id: planning.revision-37-linux-alpha-retention
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 28 removes predecessor restoration from Linux alpha smoke.
+      - The user requires current settings to be backed up before testing.
+      - Current repository code stores settings in a closed set of files under the canonical GPT-Voice configuration root; session, history, database, log, and cache files are separate.
+      - The current Linux host reports inactive `gpt-voice 2.4.0~alpha.1` as the installed target package.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [retain-alpha-backup-settings-only]
+      text: ''
+    rationale: >-
+      Plan revision 37 keeps Task 34 as one executable packet. It replaces the
+      obsolete predecessor recovery transaction with exact public-alpha package
+      verification and an owner-only retained backup of the closed settings-file
+      allowlist. The physical exercise continues through an isolated profile and
+      leaves the tested alpha installed.
+    supersedes_revision: null
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: planning.alpha-smoke-install-isolation
+    revision: 3
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The current Linux host has the exact target package `gpt-voice 2.4.0~alpha.1` installed and inactive.
+      - The user explicitly removed prior-version restoration from the Linux alpha smoke on 2026-09-01.
+      - The user requires a private backup of current GPT-Voice settings before testing.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [retain-alpha-and-backup-settings]
+      text: ''
+    rationale: >-
+      The Linux smoke validates or installs the exact public alpha, exercises it
+      through an isolated task profile, and leaves the alpha installed. Existing
+      application settings are copied to a retained private backup before launch;
+      package downgrade, predecessor download, and automatic settings restoration
+      are outside the smoke.
+    supersedes_revision: 2
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: compatibility.linux-alpha-restore-source
+    revision: 2
+    category: compatibility
+    state: not_applicable
+    provenance: user
+    evidence:
+      - The user explicitly removed application-package restoration from the Linux alpha smoke.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      No predecessor package is downloaded, preserved, reinstalled, or verified by
+      the revised Linux alpha smoke. Revision 1 remains historical evidence only.
+    supersedes_revision: 1
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: acceptance.revision-28-linux-alpha-retention
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: current settings remain available in a private retained backup and the tested alpha stays installed.
+      - Operator perspective: no predecessor download, downgrade, uninstall, or automatic restore occurs during the smoke.
+      - Implementer perspective: exact public-alpha package verification, settings backup, isolated exercise, and evidence sealing have separate ownership.
+      - Tester perspective: deterministic tests cover exact-alpha reuse, clean installation, backup integrity, unsafe backup sources, package drift, and retained-alpha postconditions.
+      - Security-review perspective: settings contents and secrets remain private, owner-only, and excluded from repository evidence and diagnostics.
+      - Maintainer perspective: Windows behavior, published alpha bytes, release state, platform-result independence, and next-alpha/final lifecycle remain unchanged.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      The explicit change removes only Linux package restoration and adds a private
+      settings backup. It does not change the product, public release, Windows
+      smoke, or release feedback policy.
+    supersedes_revision: null
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: approval.spec
+    revision: 28
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested removal of Linux application restoration.
+      - The user explicitly required current settings to be backed up before testing.
+      - The revision-28 gap analysis found no unresolved material product, privacy, compatibility, operational, or acceptance decision.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-revision-request]
+      text: ''
+    rationale: >-
+      Specification revision 28 is Approved automatically. Approval authorizes no
+      implementation, settings read or backup, network download, privilege
+      escalation, system-package change, physical run, evidence sealing, commit,
+      push, or release action.
+    supersedes_revision: 27
+    requirement_ids: []
+
+  - id: planning.alpha-smoke-install-isolation
+    revision: 2
+    category: compatibility
+    state: answered
+    provenance: user
+    evidence:
+      - The current Linux host has the inactive native package gpt-voice 2.3.0 installed.
+      - The user explicitly directed the Linux alpha smoke to proceed despite that installed version and to restore it after the test.
+      - The immutable public v2.3.0 release contains gpt-voice_2.3.0_amd64.deb, size 259435796 bytes, with GitHub asset SHA-256 184f900525025f4f0a425736a35b35d17af2a81b9269d4478cc2274ca136b710.
+      - Physical preparation stopped before attempt start, so no package, application, profile, GPU, or evidence state has yet been changed.
+    prompt_mcp: null
+    question:
+      text: How should the Linux alpha smoke handle the pre-existing gpt-voice 2.3.0 native package?
+      kind: single
+      options:
+        - id: reversible-native-replacement
+          label: Reversible native replacement
+          description: Prove exact restoration first, temporarily install the alpha, and restore 2.3.0 before sealing the result.
+        - id: block-on-existing-install
+          label: Block on existing installation
+          description: Require external removal and leave restoration outside the task.
+    answer:
+      selected_ids: [reversible-native-replacement]
+      text: ''
+    rationale: >-
+      Native alpha installation remains representative while the user's existing
+      package is protected by a fail-closed, evidence-bound replacement and
+      restoration transaction. The package is never changed unless its exact
+      recoverable source and installed-file equivalence are proven first.
+    supersedes_revision: 1
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: compatibility.linux-alpha-restore-source
+    revision: 1
+    category: compatibility
+    state: observed
+    provenance: authoritative-doc
+    evidence:
+      - GitHub release v2.3.0 is public, non-draft, and non-prerelease.
+      - Its amd64 Debian asset is named gpt-voice_2.3.0_amd64.deb, is 259435796 bytes, and has SHA-256 184f900525025f4f0a425736a35b35d17af2a81b9269d4478cc2274ca136b710.
+      - A package-file inventory comparison can prove whether that immutable asset reproduces the currently installed package before any replacement occurs.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      The immutable project release is the only automatic restoration source for
+      the current 2.3.0 package. A locally supplied package may be used only when
+      the operator explicitly identifies it and the same closed digest,
+      architecture, version, and installed-file equivalence checks pass. The
+      runner never reconstructs a package from installed files or trusts a
+      mutable package-manager download.
+    supersedes_revision: null
+    requirement_ids: [COMP-014, AC-AUTO-092, AC-MAN-017]
+
+  - id: acceptance.revision-27-linux-package-restoration
+    revision: 1
+    category: acceptance
+    state: observed
+    provenance: repository
+    evidence:
+      - User perspective: the existing 2.3.0 installation is restored before a Linux Pass can be sealed, and personal profiles or settings are never adopted by the alpha run.
+      - Operator perspective: exact recovery bytes and installed-file equivalence are proven before the first package mutation; every install, replacement, and restoration remains an explicit manual gate.
+      - Implementer perspective: one class-owned Linux replacement transaction owns snapshot, replacement receipts, restoration, verification, and recovery without changing the application.
+      - Tester perspective: automated coverage includes successful restoration, unavailable source, digest or inventory mismatch, failed downgrade or reinstall, external state change, and cleanup failure.
+      - Security-review perspective: execution remains shell-free and path-bounded; package bytes stay in a validated private root and public evidence contains only normalized identities and outcomes.
+      - Maintainer perspective: Windows behavior, published alpha bytes, release state, Task 35 result independence, and the next-alpha/final lifecycle remain unchanged.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      The six-perspective gap analysis found no unresolved behavior. Replacement
+      is optional only when exact restoration is proven; otherwise Task 34 remains
+      Pending without touching the host.
+    supersedes_revision: null
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: approval.spec
+    revision: 26
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly approved the local-whisper-alpha-release implementation plan on 2026-08-24.
+      - That approved contract made one six-hour version-scoped Watch invocation own the Task 32-to-Task 33 prepublication repair and immutable alpha.1 publication loop.
+      - The specification header has recorded revision 26 as Approved since 2026-08-24.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-implementation-plan]
+      text: ''
+    rationale: >-
+      This ledger record repairs the durable approval chain already represented
+      by the approved specification and release decision. It grants no new
+      authority and is immediately superseded by revision 27.
+    supersedes_revision: 25
+    requirement_ids: []
+
+  - id: approval.spec
+    revision: 27
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly requested the specification and plan to permit temporary replacement of the installed version and restoration afterward.
+      - Revision 27 adds a fail-closed reversible Linux package transaction without changing the published alpha, Windows task, or release lifecycle.
+      - The final gap analysis found no unresolved material decision.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-revision-request]
+      text: ''
+    rationale: >-
+      Specification revision 27 is Approved automatically. Approval authorizes
+      no implementation, download, privilege escalation, system-package change,
+      physical run, evidence sealing, commit, push, or release action.
+    supersedes_revision: 26
+    requirement_ids: []
+
+  - id: planning.revision-36-reversible-linux-package
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - Task 34 remains the only executable packet and already has an uncommitted alpha-smoke implementation whose physical preparation stopped before attempt start.
+      - Revision 36 extends only the Linux adapter and state machine with exact package snapshot, replacement, restoration, verification, and recovery behavior.
+      - Task 35 keeps its existing Windows current-user installation contract and remains independent of the Linux result value.
+      - AC-AUTO-092 gives Task 34 direct ownership of the reversible replacement failure matrix.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      The existing Task 34 packet can absorb the bounded restoration work without
+      adding a packet or changing the release sequence. Physical execution stays
+      pending until implementation and focused tests satisfy the revised packet.
+    supersedes_revision: null
+    requirement_ids: [COMP-014, QUAL-004, AC-AUTO-092, AC-MAN-017]
+
+  - id: approval.plan
+    revision: 36
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - Approved specification revision 27 defines reversible Linux package replacement and mandatory restoration.
+      - Plan revision 36 keeps Task 34 as the next packet and adds the exact restoration contract, tests, rollback, and manual gates to that packet.
+      - The user's combined request to revise the specification and plan approves this completed planning revision without a separate approval question.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: >-
+      Plan revision 36 is Approved automatically. Approval authorizes no
+      implementation, download, privilege escalation, system-package change,
+      physical run, evidence sealing, commit, push, or release action.
+    supersedes_revision: 35
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 35
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly invoked planning-and-task-breakdown for local Linux and Windows alpha smoke execution.
+      - Prompt MCP recorded native system installation, ordinary-UI execution with automated evidence, and a two-hour per-platform deadline.
+      - The public v2.4.0-alpha.1 prerelease exists at source SHA b651f3a4a309f2c21f83a81869f1ae666f7aa9b2 with the complete Linux and Windows inventory.
+      - Revision 35 reconciles completed Tasks 32/33 and makes Tasks 34/35 self-contained without changing specification revision 26.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-planning-request]
+      text: ''
+    rationale: >-
+      The planning request approves revision 35 after coverage and executability
+      validation. Approval authorizes no implementation, download, system
+      installation, physical run, commit, push, release mutation, feedback
+      transition, or final release.
+    supersedes_revision: 34
+    requirement_ids: []
+
+  - id: approval.plan
+    revision: 34
+    category: approval
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly supplied and approved the local-whisper-alpha-release Watch implementation plan.
+      - Revision 34 preserved Tasks 32 through 36 and authorized no release action until a separate explicit Watch invocation.
+      - The approved plan and task packets recorded revision 34 before the later post-publication smoke-planning revision.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [approved-by-implementation-plan]
+      text: ''
+    rationale: >-
+      This ledger record repairs the durable plan-approval chain already
+      represented by the approved revision-34 plan artifacts. It grants no new
+      authority and is superseded by revision 35.
+    supersedes_revision: 33
+    requirement_ids: []
+
+  - id: planning.revision-35-alpha-smoke-executability
+    revision: 1
+    category: planning
+    state: observed
+    provenance: repository
+    evidence:
+      - The current repository has production release verification and qualification primitives but no public-alpha smoke CLI, schema family, or packaged post-release host adapters.
+      - Task 34 now owns the shared public-alpha protocol, immutable evidence, ordinary-UI operator workflow, Linux adapter, and first physical result.
+      - Task 35 owns only the Windows adapter and independent Windows physical result while reusing the Task 34 protocol and fixtures.
+      - Tasks 34 and 35 retain all required packet headings and map the Linux and Windows slices of AC-AUTO-082 plus AC-MAN-017/018 without changing the approved product contract.
+      - The finite graph is now completed Tasks 32/33, then Task 34, then Task 35, then the existing feedback gate; Task 35 depends on Task 34 tooling but never on the Linux result value.
+      - Prompt MCP plan:local-whisper reports 99 answered questions and zero pending, cancelled, timed-out, unavailable, or failed questions.
+      - Targeted Prettier, YAML parsing, packet heading/link checks, 90-owner acceptance coverage, platform-slice coverage, and git diff --check pass.
+    prompt_mcp: null
+    question: null
+    answer: null
+    rationale: >-
+      Revision 35 supplies the missing executable contracts while preserving
+      public-release immutability, separate platform evidence, and the
+      next-alpha/final transition rules.
+    supersedes_revision: null
+    requirement_ids:
+      [CI-005, REL-001, QUAL-001, QUAL-004, QUAL-005, QUAL-006, QUAL-007, AC-AUTO-082, AC-MAN-017, AC-MAN-018]
+
+  - id: planning.alpha-smoke-host-placement
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - The user explicitly directed that Linux run on the current local computer.
+      - The user explicitly directed that Windows run later and separately on a Windows computer.
+      - Read-only local probing confirmed the current host is Linux x64 with an available compute-capability-12 NVIDIA device.
+    prompt_mcp: null
+    question: null
+    answer:
+      selected_ids: [current-linux-separate-windows]
+      text: ''
+    rationale: >-
+      Task 34 targets the currently controlled Linux RTX 50 host. Task 35 is a
+      separate later invocation on the controlled Windows RTX 50 host; neither
+      platform result can substitute for the other.
+    supersedes_revision: null
+    requirement_ids: [CI-005, QUAL-005, QUAL-006, AC-MAN-017, AC-MAN-018]
+
+  - id: planning.alpha-smoke-install-isolation
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP question planning.alpha-smoke-install-isolation revision 3 was answered on 2026-08-27.
+      - The user selected native-system-install.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.alpha-smoke-install-isolation
+      idempotency_key: planning.alpha-smoke-install-isolation:v3
+      revision: 3
+    question:
+      text: How should the published alpha application be installed on the local Linux and Windows test computers?
+      kind: single
+      options:
+        - id: isolated-task-owned-install
+          label: Isolated task-owned installation
+          description: Avoid changing the existing system installation.
+        - id: native-system-install
+          label: Native system installation
+          description: Exercise the published deb and NSIS installer paths and uninstall afterward.
+        - id: revise-test-contract
+          label: Revise the test contract
+          description: Return to specification before planning.
+    answer:
+      selected_ids: [native-system-install]
+      text: ''
+    rationale: >-
+      Linux uses the exact public deb package and Windows uses the exact public
+      NSIS installer. Existing installations or running instances block the
+      attempt; application data, models, runtimes, work files, and raw evidence
+      still use explicit task-owned roots.
+    supersedes_revision: null
+    requirement_ids: [CI-005, QUAL-004, AC-MAN-017, AC-MAN-018]
+
+  - id: planning.alpha-smoke-ui-execution
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP question planning.alpha-smoke-ui-execution revision 1 was answered on 2026-08-27.
+      - The user selected manual-ui-automated-evidence.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.alpha-smoke-ui-execution
+      idempotency_key: planning.alpha-smoke-ui-execution:v1
+      revision: 1
+    question:
+      text: How should the already-published application be exercised without adding a test mode to the released binary?
+      kind: single
+      options:
+        - id: manual-ui-automated-evidence
+          label: Ordinary UI with automated evidence
+          description: Use exact operator checkpoints while tooling validates files, processes, GPU use, privacy, and cleanup.
+        - id: external-ui-automation
+          label: External UI automation
+          description: Build a separate CDP or operating-system UI driver.
+        - id: revise-published-app
+          label: Publish another alpha with a test mode
+          description: Change the application and test a later alpha instead.
+    answer:
+      selected_ids: [manual-ui-automated-evidence]
+      text: ''
+    rationale: >-
+      Physical interaction uses only the ordinary released UI. Operator
+      confirmations are checkpoints, not proof; the collector must correlate
+      them with exact asset, process, backend, device, offline-reuse, and
+      cleanup evidence before sealing a result.
+    supersedes_revision: null
+    requirement_ids: [QUAL-004, QUAL-005, QUAL-007, AC-MAN-017, AC-MAN-018]
+
+  - id: planning.alpha-smoke-timeout
+    revision: 1
+    category: planning
+    state: answered
+    provenance: user
+    evidence:
+      - Prompt MCP question planning.alpha-smoke-timeout revision 1 was answered on 2026-08-27.
+      - The user selected two-hours-each.
+    prompt_mcp:
+      interview_id: plan:local-whisper
+      question_id: planning.alpha-smoke-timeout
+      idempotency_key: planning.alpha-smoke-timeout:v1
+      revision: 1
+    question:
+      text: What total timeout should independently bound the Linux and Windows physical alpha smoke runs?
+      kind: single
+      options:
+        - id: two-hours-each
+          label: Two hours per platform
+          description: Covers public downloads, native installation, CPU/CUDA flow, offline restart, and cleanup.
+        - id: three-hours-each
+          label: Three hours per platform
+          description: Adds more network and installer margin.
+        - id: ninety-minutes-each
+          label: Ninety minutes per platform
+          description: Releases the environment earlier with less infrastructure margin.
+    answer:
+      selected_ids: [two-hours-each]
+      text: ''
+    rationale: >-
+      Each platform has its own monotonic two-hour budget. Resume consumes the
+      remaining budget; timeout before a valid attempt leaves Pending, while a
+      valid functional failure is sealed once and is never retried to green.
+    supersedes_revision: null
+    requirement_ids: [OPS-004, QUAL-004, AC-MAN-017, AC-MAN-018]
+
   - id: release.alpha1-watch-authority
     revision: 1
     category: release

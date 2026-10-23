@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 6] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { describe, it } from 'node:test';

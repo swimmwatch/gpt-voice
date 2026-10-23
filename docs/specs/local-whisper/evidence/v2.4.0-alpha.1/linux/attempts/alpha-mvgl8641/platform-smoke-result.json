@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "deploymentDigest": "78594e87d88b72668ebcdcd5afd3e69dd0a646a0eac3b4b2715a74d65d032f27",
+  "attemptId": "alpha-mvgl8641",
+  "inputDigest": "2b72129032b5ff4ec40dd80aa8a36a0ab91fdc61e6133147797cb42b8a0eb728",
+  "outcome": "functional_failure_and_finalization_failure",
+  "packageStatus": "retained-alpha",
+  "platform": "linux",
+  "settingsBackupStatus": "retained-private",
+  "status": "Fail",
+  "target": "v2.4.0-alpha.1",
+  "resultDigest": "64e4225b92250bd55670297eba5d0a6487d636e7e446e62ec6ea5b9a77b2e0f3"
+}

@@ -349,7 +349,7 @@ function operatingSystemForRunner(runnerLabel: string): 'Linux' | 'Windows' {
 
 function verifyToolchainVersion(profile: string, version: string): void {
   const clang = CLANG_TOOLCHAIN.exec(profile);
-  if (clang && new RegExp(`clang version ${clang.groups?.major}\\.`, 'u').test(version)) return;
+  if (clang && new RegExp(`clang version ${clang.groups?.major}\\.`, 'u').test(version)) return; // eslint-disable-line security/detect-non-literal-regexp -- The interpolated version is a numeric capture from the validated toolchain profile.
   if (profile === 'windows-x64-msvc-19.51-v1' && /Version 19\.51\./u.test(version)) return;
   throw new Error('Runner evidence compiler version does not match its toolchain profile');
 }

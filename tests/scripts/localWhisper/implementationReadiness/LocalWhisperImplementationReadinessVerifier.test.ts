@@ -74,11 +74,11 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
   it('rejects a stale task registry revision', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
-    const changed = source.replace('"planRevision": 34', '"planRevision": 33');
+    const changed = source.replace('"planRevision": 37', '"planRevision": 36');
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-34-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-37-acceptance-registry'),
     );
   });
 
@@ -92,11 +92,58 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-34-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-37-acceptance-registry'),
     );
   });
 
-  it('rejects a release acceptance owner that is not in the active revision-34 sequence', async () => {
+  it('rejects superseded specification and registry-schema revisions', async () => {
+    const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
+    const schemaFile = 'docs/specs/local-whisper/tasks/acceptance-owners.schema.json';
+    const source = await repository.readText(file);
+    const schema = await repository.readText(schemaFile);
+    const replacements = [
+      [file, source, source.replace('"specificationRevision": 28', '"specificationRevision": 26')],
+      [file, source, source.replace('"planRevision": 37', '"planRevision": 34')],
+      [schemaFile, schema, schema.replace('"const": 28', '"const": 26')],
+      [schemaFile, schema, schema.replace('"const": 37', '"const": 34')],
+    ];
+    for (const [target, original, changed] of replacements) {
+      assert.notEqual(changed, original);
+      await assert.rejects(
+        verifier(new OverlayRepository(repository, new Map([[target, changed]]))).verify(),
+        isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-37-acceptance-registry'),
+      );
+    }
+  });
+
+  it('requires the current alpha-smoke acceptance owner and its exact verification command', async () => {
+    const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
+    const source = await repository.readText(file);
+    const replacements = [
+      source.replace('"acceptanceId": "AC-AUTO-092"', '"acceptanceId": "AC-AUTO-093"'),
+      source.replace(
+        '"acceptanceId": "AC-AUTO-092",\n      "primaryTask": "34"',
+        '"acceptanceId": "AC-AUTO-092",\n      "primaryTask": "35"',
+      ),
+      source.replace(
+        '"verificationCommandIds": ["task-34-alpha-smoke-tests"]',
+        '"verificationCommandIds": ["task-35-alpha-smoke-tests"]',
+      ),
+      source.replace(
+        '"id": "task-34-alpha-smoke-tests",\n      "task": "34",\n      "command": "rtk npm run test:local-whisper:alpha-smoke"',
+        '"id": "task-34-alpha-smoke-tests",\n      "task": "34",\n      "command": "rtk npm run test:local-whisper:qualification"',
+      ),
+    ];
+    for (const changed of replacements) {
+      assert.notEqual(changed, source);
+      await assert.rejects(
+        verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
+        isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-37-acceptance-registry'),
+      );
+    }
+  });
+
+  it('rejects a release acceptance owner that is not in the active revision-37 sequence', async () => {
     const file = 'docs/specs/local-whisper/tasks/acceptance-owners.json';
     const source = await repository.readText(file);
     const changed = source.replace(
@@ -106,7 +153,7 @@ describe('LocalWhisperImplementationReadinessVerifier', () => {
     assert.notEqual(changed, source);
     await assert.rejects(
       verifier(new OverlayRepository(repository, new Map([[file, changed]]))).verify(),
-      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-34-acceptance-registry'),
+      isReadinessError('IMPLEMENTATION_CONTRACT_INVALID', 'revision-37-acceptance-registry'),
     );
   });
 

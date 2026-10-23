@@ -26,6 +26,7 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const COMMIT_PATTERN = /^[a-f0-9]{40}$/u;
 const DESTINATION_NAME_PATTERN = /^\w[\w.-]{0,127}$/u;
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class PerformanceSourceDerivationError extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -674,7 +675,8 @@ export class PerformanceDerivedSourceProducer {
       } catch {
         derivationFailure('SOURCE_OVERLAY_TARGET_INVALID');
       }
-      for (const rawReplacement of operation.replacements) {
+      const replacements: readonly unknown[] = operation.replacements;
+      for (const rawReplacement of replacements) {
         if (
           typeof rawReplacement !== 'object' ||
           rawReplacement === null ||

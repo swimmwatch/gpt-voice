@@ -330,7 +330,7 @@ export class BackgroundBrowserService {
           readinessAudit.lifecycle.terminal(
             'readiness',
             'failure',
-            audit.createMetadata({ causeCode: 'not-configured' }),
+            audit.createLocalRuntimeReadinessMetadata(provider.getLocalRuntimeReadiness()),
           );
           // Model residency changes independently of the provider selection. Keep the
           // local facade active so its live readiness becomes visible after weights load.

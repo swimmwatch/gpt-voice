@@ -38,6 +38,21 @@ This file is the always-on router. Keep it concise; load detailed guidance only 
 - Stateful business services access external sources through domain repository interfaces; concrete SQLite, HTTP, browser, CLI, and filesystem adapters have focused integration tests.
 - Do not create module-level containers or constructed mutable runtime instances. A process-owned composition root transfers them to the application lifecycle; immutable constants, pure functions, readonly lookups, and React contexts remain allowed.
 
+### TypeScript Expressions And Object Reuse
+
+Apply these rules to new and modified TypeScript, including TSX, tests, migrations, and scripts. Mass refactoring of existing code requires a separate task.
+
+- Extract an expression into a meaningfully named variable when its result is reused, the name explains its purpose, it combines multiple processing stages, or evaluation order, side effects, or resource ownership need to be explicit. Use `const` unless reassignment is required.
+- Keep short, clear expressions inline in function arguments: property access, indexing, optional chaining, simple calculations and conversions, and small object or array literals. Do not introduce intermediate variables that add no meaning; preserve the existing rule for reusable or domain-significant constants.
+- Separate multi-stage processing into named steps, such as fetching, parsing, validating, normalizing, and saving. A line break alone does not clarify a nested expression. Short `map`, `filter`, and other collection chains are acceptable when their purpose and intermediate transformations are clear.
+- An inexpensive value object used for a single transformation may be created and used inline. Create configuration objects, clients, and objects with substantial initialization, state, or resources explicitly. Reuse one logical instance within its lifecycle, but keep independent instances when needed. Do not introduce a global instance, cache, or longer lifecycle solely for reuse.
+- Allow standard declarative library constructs: validation schemas, decorators, dependency injection configuration, route definitions, simple query predicates, and JSX. Complex computations inside them follow the same readability rules.
+- Allow Builder API chains. Before passing the built result to another function, assign it a meaningful name.
+- Allow simple arrow functions inline in arguments. Put multi-stage callback logic in a separate named function. Preserve deferred execution, captured values, and `this` behavior; do not replace an arrow function with an ordinary function without checking these differences.
+- When extracting variables, preserve evaluation order, conditional and lazy execution, side effects, and object lifecycles. Account for short-circuiting in `&&`, `||`, `??`, and optional chaining. Keep computations inside the appropriate branch, loop, or callback.
+- In asynchronous code, preserve operation start times, `await` order, parallelism, and error handling. Do not serialize parallel operations or start a deferred operation earlier merely to extract a variable.
+- In React and other reactive libraries, respect execution scope and object and function identity. Do not move state or resources outside a component or request for reuse. Do not add `useMemo`, `useCallback`, or equivalents solely to satisfy these rules. Follow the rules of hooks.
+
 ### C++
 
 - Write modular C++20 with high cohesion, low coupling, and clear ownership; optimize for cognitive clarity before cleverness.

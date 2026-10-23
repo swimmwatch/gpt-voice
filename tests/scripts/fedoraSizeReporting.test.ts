@@ -5,6 +5,28 @@ import test from 'node:test';
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 
+test('Fedora builder installs the repository-pinned npm without dependency lifecycle scripts', () => {
+  const dockerfile = readFileSync(path.join(projectRoot, 'build/fedora-release/Dockerfile'), 'utf8');
+  const packageJson = JSON.parse(readFileSync(path.join(projectRoot, 'package.json'), 'utf8')) as {
+    packageManager: string;
+  };
+  const npmVersion = dockerfile.match(/^ARG NPM_VERSION=(\S+)$/mu)?.[1];
+  const npmInstallIndex = dockerfile.indexOf(
+    'npm install --global --prefix=/usr/local --ignore-scripts "npm@${NPM_VERSION}"',
+  );
+  const commandCacheResetIndex = dockerfile.indexOf('&& hash -r', npmInstallIndex);
+  const npmVersionCheckIndex = dockerfile.indexOf('test "$(npm --version)" = "${NPM_VERSION}"', commandCacheResetIndex);
+
+  assert.ok(npmVersion, 'Fedora builder must pin its npm version');
+  assert.equal(`npm@${npmVersion}`, packageJson.packageManager);
+  assert.ok(npmInstallIndex >= 0, 'npm must be installed without dependency lifecycle scripts');
+  assert.ok(commandCacheResetIndex > npmInstallIndex, 'Reset shell command resolution after installing npm');
+  assert.ok(
+    npmVersionCheckIndex > commandCacheResetIndex,
+    'Verify the newly installed npm, not the cached system executable',
+  );
+});
+
 test('Fedora package jobs measure, verify, and retain Linux size reports', () => {
   const dockerfile = readFileSync(path.join(projectRoot, 'build/fedora-release/Dockerfile'), 'utf8');
   const runner = readFileSync(path.join(projectRoot, 'scripts/build-fedora-release.mjs'), 'utf8');

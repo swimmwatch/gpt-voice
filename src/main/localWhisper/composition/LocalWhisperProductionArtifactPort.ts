@@ -164,6 +164,7 @@ export class LocalWhisperProductionArtifactPort
     return this.dependencies.inventory.snapshot;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async execute(command: LifecycleCommand): Promise<{
     readonly success: boolean;
     readonly operationId?: string;

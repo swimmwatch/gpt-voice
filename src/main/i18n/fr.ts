@@ -402,6 +402,8 @@ export default {
     'Utilise un langage formel et précis dans les contextes professionnels et techniques.',
   'prettify.profile.natural.name': 'Naturel',
   'prettify.profile.natural.description': 'Supprime les artefacts de dictée tout en conservant votre style.',
+  'prettify.profile.executionReady.name': 'Prêt à exécuter',
+  'prettify.profile.executionReady.description': "Ajoute des consignes d'exécution adaptées à un prompt déjà préparé.",
   'prettify.chooser.title': 'Choisir un profil Prettify',
   'prettify.chooser.description': 'Choisissez comment GPT-Voice doit transformer le texte sélectionné.',
   'prettify.chooser.originalText': 'Texte original',
@@ -710,7 +712,7 @@ export default {
   'startup.failed': 'La préparation du démarrage a échoué. Réessayez.',
   'startup.retryFailed': 'Impossible de relancer la préparation du démarrage. Réessayez.',
   'startup.retry': 'Réessayer',
-  'startup.selectProvider': 'Sélectionnez un fournisseur pour commencer l’enregistrement.',
+  'startup.selectProvider': 'Fournisseur',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Afficher',

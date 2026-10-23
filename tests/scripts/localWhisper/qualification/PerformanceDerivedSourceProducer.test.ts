@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';

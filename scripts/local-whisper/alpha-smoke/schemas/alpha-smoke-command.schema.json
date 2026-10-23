@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-command-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["attemptId", "evidenceRoot", "mode", "phase", "platform", "settingsBackupRoot", "target", "workRoot"],
+  "properties": {
+    "attemptId": { "type": ["string", "null"], "pattern": "^[a-z\\d][a-z\\d-]{0,63}$" },
+    "evidenceRoot": { "type": ["string", "null"] },
+    "mode": { "enum": ["contract", "physical"] },
+    "phase": { "enum": ["prepare", "exercise", "seal", null] },
+    "platform": { "enum": ["linux", "win32"] },
+    "settingsBackupRoot": { "type": ["string", "null"] },
+    "target": { "const": "v2.4.0-alpha.1" },
+    "workRoot": { "type": ["string", "null"] }
+  }
+}

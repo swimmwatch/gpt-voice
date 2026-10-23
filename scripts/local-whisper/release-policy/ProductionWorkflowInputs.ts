@@ -1,6 +1,6 @@
 import { isReleaseCandidateTarget, type ReleaseCandidateTargetKind } from './ReleaseProtocol';
 
-const APP_REVISION_PATTERN = /^\d+\.\d+\.\d+(?:-[\dA-Za-z.-]+)?$/u;
+const APP_REVISION_PATTERN = /^\d+\.\d+\.\d+(?:-[\dA-Za-z.-]+)?$/u; // eslint-disable-line security/detect-unsafe-regex -- The anchored version grammar uses disjoint numeric fields and one suffix.
 const RUN_ID_PATTERN = /^[1-9]\d{0,19}$/u;
 
 export interface ProductionWorkflowInputs {

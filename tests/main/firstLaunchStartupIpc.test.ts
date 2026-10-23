@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 5] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';

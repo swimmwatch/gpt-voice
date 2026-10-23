@@ -12,6 +12,7 @@ import { ReleaseGitHubClient } from '../../../.codex/process-watch/scenarios/loc
 const SOURCE_SHA = 'a'.repeat(40);
 const WATCH_ID = 'local-whisper-alpha-release-test';
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- Scenario-local test doubles are documented by their test cases.
 class RecordingGitHubRunner {
   calls = [];
   dispatched = false;
@@ -25,11 +26,7 @@ class RecordingGitHubRunner {
       this.dispatched = true;
       return { exitCode: 0, stderr: '', stdout: '' };
     }
-    if (
-      args[0] === 'api' &&
-      args.some((value) => value.includes('/pending_deployments')) &&
-      args.includes('POST')
-    ) {
+    if (args[0] === 'api' && args.some((value) => value.includes('/pending_deployments')) && args.includes('POST')) {
       this.pendingApproval = false;
       return { exitCode: 0, stderr: '', stdout: '{}' };
     }
@@ -77,9 +74,7 @@ class RecordingGitHubRunner {
         exitCode: 0,
         stderr: '',
         stdout: '',
-        value: this.pendingApproval
-          ? [{ environment: { id: 5, name: RELEASE_CONTRACT.environment } }]
-          : [],
+        value: this.pendingApproval ? [{ environment: { id: 5, name: RELEASE_CONTRACT.environment } }] : [],
       };
     }
     if (args[0] === 'run' && args[1] === 'view') {
@@ -149,7 +144,10 @@ describe('ReleaseGitHubClient operation receipts', () => {
       },
     ];
     assert.equal((await new ReleaseGitHubClient({ runner }).createReleasePullRequest(SOURCE_SHA)).number, 3);
-    assert.equal(runner.calls.some((call) => call.args[0] === 'pr' && call.args[1] === 'create'), false);
+    assert.equal(
+      runner.calls.some((call) => call.args[0] === 'pr' && call.args[1] === 'create'),
+      false,
+    );
   });
 
   it('waits within a bounded window for a just-pushed PR to become visible', async () => {
@@ -237,10 +235,7 @@ describe('ReleaseGitHubClient operation receipts', () => {
       /release-command-timed-out/u,
     );
     assert.equal(attempts, RELEASE_READ_RETRY_MAX_ATTEMPTS);
-    assert.deepEqual(
-      delays,
-      Array(RELEASE_READ_RETRY_MAX_ATTEMPTS - 1).fill(RELEASE_READ_RETRY_DELAY_MILLISECONDS),
-    );
+    assert.deepEqual(delays, Array(RELEASE_READ_RETRY_MAX_ATTEMPTS - 1).fill(RELEASE_READ_RETRY_DELAY_MILLISECONDS));
   });
 
   it('does not retry a failed workflow dispatch mutation', async () => {

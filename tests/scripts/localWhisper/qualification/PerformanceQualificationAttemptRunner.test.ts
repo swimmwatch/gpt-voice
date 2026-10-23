@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
@@ -76,7 +77,7 @@ async function fixtureRequest(
   const modelPath = path.join(root, 'model.bin');
   const inputPath = path.join(root, 'input.wav');
   await Promise.all([writeFile(runtimePath, runtime), writeFile(modelPath, model), writeFile(inputPath, input)]);
-  const selected = performanceSelectedModels()[0]!;
+  const selected = performanceSelectedModels()[0];
   const request = Object.freeze({
     schemaVersion: 3 as const,
     activationPurpose: 'qualification' as const,

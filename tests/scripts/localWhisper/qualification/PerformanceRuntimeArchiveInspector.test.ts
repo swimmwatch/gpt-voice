@@ -41,6 +41,52 @@ function archive(entries: readonly Buffer[], suffix = Buffer.alloc(0)): Buffer {
 }
 
 describe('performance runtime archive inspector', () => {
+  it('accepts all four production profiles only for the expected platform and profile', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'runtime-profile-matrix-'));
+    try {
+      for (const [platform, profileId] of [
+        ['linux', 'linux-x64-cpu-baseline-v1'],
+        ['linux', 'linux-x64-cuda-12.8.1-sm120a-v1'],
+        ['win32', 'windows-x64-cpu-msvc-19.51-v1'],
+        ['win32', 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1'],
+      ] as const) {
+        const archivePath = path.join(root, `${profileId}.tar.gz`);
+        await writeFile(
+          archivePath,
+          archive([
+            tarEntry('worker', Buffer.from('worker')),
+            tarEntry(
+              'provenance',
+              Buffer.from(
+                JSON.stringify({
+                  schemaId: 'local-whisper-whisper-cpp-provenance-v1',
+                  profileId,
+                  runtimeBuildDigest: 'a'.repeat(64),
+                }),
+              ),
+              0o400,
+            ),
+          ]),
+        );
+        const inspector = new PerformanceRuntimeArchiveInspector();
+        assert.equal((await inspector.inspect(archivePath, { platform, profileId })).profileId, profileId);
+        await assert.rejects(
+          inspector.inspect(archivePath, { platform: platform === 'linux' ? 'win32' : 'linux' }),
+          /RUNTIME_ARCHIVE_INVALID/u,
+        );
+        const differentProfile = profileId.includes('cpu')
+          ? 'linux-x64-cuda-12.8.1-sm120a-v1'
+          : 'linux-x64-cpu-baseline-v1';
+        await assert.rejects(
+          inspector.inspect(archivePath, { platform, profileId: differentProfile }),
+          /RUNTIME_ARCHIVE_INVALID/u,
+        );
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it('streams one restricted runtime archive without extracting it', async () => {
     const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-runtime-inspector-'));
     try {

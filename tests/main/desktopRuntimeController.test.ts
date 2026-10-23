@@ -158,9 +158,23 @@ describe('DesktopRuntimeController', () => {
       ['disable-gpu', undefined],
       ['disable-dev-shm-usage', undefined],
       ['log-level', '3'],
-      ['no-sandbox', undefined],
     ]);
-    assert.equal(harness.environment.ELECTRON_DISABLE_SANDBOX, '1');
+    assert.equal(harness.environment.ELECTRON_DISABLE_SANDBOX, undefined);
+  });
+
+  it('preserves sandbox environment state in the packaged AppImage cleanup path', () => {
+    const harness = new DesktopRuntimeHarness();
+    harness.environment.ELECTRON_DISABLE_SANDBOX = '0';
+    const controller = harness.createController({ arguments: ['--remove-linux-appimage-desktop-integration'] });
+
+    controller.configureBeforeReady();
+    assert.equal(controller.acquireSingleInstanceLock(), true);
+
+    assert.equal(harness.environment.ELECTRON_DISABLE_SANDBOX, '0');
+    assert.equal(
+      harness.app.commandLineSwitches.some(([name]) => name === 'no-sandbox'),
+      false,
+    );
   });
 
   it('merges the Linux portal feature once without changing non-Linux startup behavior', () => {

@@ -493,7 +493,7 @@ export class MainIpcController {
           };
         }
         provider = dependencies.voiceProviderRegistry.createProvider(providerId);
-      } catch (error: unknown) {
+      } catch {
         return { success: false, error: dependencies.localization.translate('error.selectedProviderNotReady') };
       }
       if (!provider.requiresBrowserSession()) {
@@ -556,7 +556,7 @@ export class MainIpcController {
         }
 
         return { success: true, settings };
-      } catch (error: unknown) {
+      } catch {
         if (context) {
           try {
             await context.close();

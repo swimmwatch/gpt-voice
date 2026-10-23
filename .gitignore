@@ -33,6 +33,7 @@ release-artifacts/
 *.exe
 
 # Local caches
+.local/
 .cache/
 .venv-docs/
 __pycache__/

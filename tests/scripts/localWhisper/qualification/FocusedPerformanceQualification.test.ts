@@ -69,7 +69,7 @@ function fixture(backend: 'cpu' | 'cuda' = 'cpu') {
   );
   const samples = focusedPerformanceSchedule().map((cell, index) =>
     documents.produceSample(manifest, {
-      focusedPerformanceCacheReceiptDigest: cacheReceipts[index]!.focusedPerformanceCacheReceiptDigest,
+      focusedPerformanceCacheReceiptDigest: cacheReceipts[index].focusedPerformanceCacheReceiptDigest,
       sampleId: cell.sampleId,
       cacheState: cell.cacheState,
       sampleIndex: cell.sampleIndex,
@@ -133,9 +133,9 @@ describe('FocusedPerformanceQualification', () => {
 
   it('aggregates an incomplete successful-sample cell as a deterministic failed result', () => {
     const value = fixture();
-    const first = value.samples[0]!;
+    const first = value.samples[0];
     const failed = value.documents.produceSample(value.manifest, {
-      focusedPerformanceCacheReceiptDigest: value.cacheReceipts[0]!.focusedPerformanceCacheReceiptDigest,
+      focusedPerformanceCacheReceiptDigest: value.cacheReceipts[0].focusedPerformanceCacheReceiptDigest,
       sampleId: first.sampleId,
       cacheState: first.cacheState,
       sampleIndex: first.sampleIndex,
@@ -153,9 +153,9 @@ describe('FocusedPerformanceQualification', () => {
     const cells = result.cells as readonly Readonly<Record<string, unknown>>[];
 
     assert.equal(result.status, 'Fail');
-    assert.equal(cells[0]!.status, 'Fail');
-    assert.equal(cells[0]!.successfulSampleCount, 2);
-    assert.equal(cells[0]!.failedSampleCount, 1);
+    assert.equal(cells[0].status, 'Fail');
+    assert.equal(cells[0].successfulSampleCount, 2);
+    assert.equal(cells[0].failedSampleCount, 1);
   });
 
   it('collects six unpaired candidate attempts through the private compatibility transport only', async () => {

@@ -70,6 +70,8 @@ import {
 } from '../catalog/LocalWhisperCatalogTypes';
 import {
   PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
+  PACKAGED_LOCAL_WHISPER_BUNDLE_MANIFEST_SHA256,
+  LocalWhisperPackagedCatalogRepository,
   createPackagedLocalWhisperCatalogTrustPolicy,
 } from '../catalog/LocalWhisperPackagedCatalog';
 import type {
@@ -1624,15 +1626,27 @@ export class ProductionLocalWhisperEnvironmentFactory {
 }
 
 /** Production entry point: fixture catalog bytes and keys cannot be injected through this boundary. */
-export function createProductionLocalWhisperEnvironment(
+export async function createProductionLocalWhisperEnvironment(
   dependencies: LocalWhisperProductionEnvironmentDependencies,
 ): Promise<LocalWhisperProductionEnvironment> {
-  return new ProductionLocalWhisperEnvironmentFactory(dependencies, {
-    activationPurpose: 'production',
-    document: PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
-    trustPolicy: createPackagedLocalWhisperCatalogTrustPolicy(
-      dependencies.appRevision,
-      LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
-    ),
-  }).create();
+  const packagedCatalogRepository = new LocalWhisperPackagedCatalogRepository({
+    bundleManifestSha256: PACKAGED_LOCAL_WHISPER_BUNDLE_MANIFEST_SHA256,
+    appRevision: dependencies.appRevision,
+    workerProtocolVersion: LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+    platform: dependencies.platform,
+    resourcesPath: dependencies.resourcesPath,
+    readFile: dependencies.readFile,
+  });
+  const packagedCatalog = await packagedCatalogRepository.load();
+  return new ProductionLocalWhisperEnvironmentFactory(
+    dependencies,
+    packagedCatalog ?? {
+      activationPurpose: 'production',
+      document: PACKAGED_LOCAL_WHISPER_CATALOG_DOCUMENT,
+      trustPolicy: createPackagedLocalWhisperCatalogTrustPolicy(
+        dependencies.appRevision,
+        LOCAL_WHISPER_WORKER_PROTOCOL_VERSION,
+      ),
+    },
+  ).create();
 }

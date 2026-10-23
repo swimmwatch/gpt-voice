@@ -19,6 +19,8 @@ import { getPrettifyBuiltInProfileDefinition } from './services/prettifyProfileI
 
 const MIGRATED_PRETTIFY_PROFILE_NAME = 'Migrated Prettify prompt';
 const PRETTIFY_PROFILE_ID_ALLOCATION_ATTEMPT_LIMIT = 64;
+const PREVIOUS_PROMPT_READY_INSTRUCTION =
+  'Turn rough source into a clear instruction for an AI system. Use goal, context, constraints, and expected-output structure only when that information exists in the source. Do not invent facts, requirements, placeholders, assumptions, clarification questions, or instructions for the target AI to ask questions.';
 
 export const PRETTIFY_PROFILE_ID_ALLOCATION_INVALID_FORBIDDEN_IDS =
   'prettify-profile-id-allocation-invalid-forbidden-ids';
@@ -151,6 +153,26 @@ function salvageCatalog(value: unknown): PrettifyProfileCatalog {
     defaultProfileId,
     schemaVersion: PRETTIFY_PROFILE_CATALOG_SCHEMA_VERSION,
   });
+}
+
+function upgradeCatalogWithExecutionReady(value: unknown): PrettifyProfileCatalog | null {
+  if (
+    !isRecord(value) ||
+    value.defaultProfileId === 'execution-ready' ||
+    !Array.isArray(value.chooserOrder) ||
+    value.chooserOrder.includes('execution-ready')
+  ) {
+    return null;
+  }
+  const chooserOrder = value.chooserOrder as unknown[];
+  try {
+    return normalizePrettifyProfileCatalog({
+      ...value,
+      chooserOrder: [...chooserOrder, 'execution-ready'],
+    });
+  } catch {
+    return null;
+  }
 }
 
 function isCanonicalCatalogInput(value: unknown, catalog: PrettifyProfileCatalog): boolean {
@@ -287,20 +309,25 @@ export class PrettifyProfileCatalogState {
   private resolvePersistedCatalog(persistedCatalog: unknown, legacyPrompt: unknown): ResolvedPrettifyProfileCatalog {
     let catalog: PrettifyProfileCatalog;
     let repaired: boolean;
+    let upgraded = false;
     try {
       catalog = normalizePrettifyProfileCatalog(persistedCatalog);
       repaired = !isCanonicalCatalogInput(persistedCatalog, catalog);
     } catch {
-      catalog = salvageCatalog(persistedCatalog);
-      repaired = true;
+      const upgradedCatalog = upgradeCatalogWithExecutionReady(persistedCatalog);
+      catalog = upgradedCatalog ?? salvageCatalog(persistedCatalog);
+      upgraded = upgradedCatalog !== null;
+      repaired = !upgraded;
     }
     const legacyPromptProjection = getPrettifyProfileCatalogLegacyPromptProjection(catalog);
     const projectionMismatch = legacyPrompt !== legacyPromptProjection;
+    const expectedPromptUpgrade =
+      catalog.defaultProfileId === 'prompt-ready' && legacyPrompt === PREVIOUS_PROMPT_READY_INSTRUCTION;
     return {
       catalog,
       legacyPromptProjection,
-      repaired: repaired || projectionMismatch,
-      requiresPersistence: repaired || projectionMismatch,
+      repaired: repaired || (projectionMismatch && !expectedPromptUpgrade),
+      requiresPersistence: repaired || upgraded || projectionMismatch,
     };
   }
 

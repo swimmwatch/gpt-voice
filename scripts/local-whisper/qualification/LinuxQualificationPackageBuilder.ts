@@ -1,6 +1,9 @@
-import { lstat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { lstat, mkdtemp, open, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
+import { assertSandboxedAppRun } from '../../security/appimage-launcher-policy.mjs';
 import { readCanonicalJson, sha256File } from '../packaging/fileIntegrity';
 import { QualificationCommandRunner, type QualificationCommandPort } from './QualificationCommandRunner';
 
@@ -122,6 +125,40 @@ export class LinuxQualificationPackageBuilder {
       packageIdentity(releaseRoot, 'deb', `gpt-voice_${input.candidateSemVer}_amd64.deb`),
       packageIdentity(releaseRoot, 'rpm', `gpt-voice-${input.candidateSemVer}.x86_64.rpm`),
     ]);
+    const extractionRoot = await mkdtemp(path.join(tmpdir(), 'gpt-voice-qualification-apprun-'));
+    try {
+      await this.commands.run({
+        command: path.join(releaseRoot, `GPT-Voice-${input.candidateSemVer}.AppImage`),
+        arguments: ['--appimage-extract'],
+        cwd: extractionRoot,
+        environment,
+      });
+      const launcherPath = path.join(extractionRoot, 'squashfs-root', 'AppRun');
+      const launcherHandle = await open(launcherPath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      try {
+        const launcherIdentity = await launcherHandle.stat();
+        if (!launcherIdentity.isFile()) throw new Error('Qualification AppRun identity invalid');
+        const launcher = await launcherHandle.readFile('utf8');
+        const openedAfter = await launcherHandle.stat();
+        const linkedAfter = await lstat(launcherPath);
+        if (
+          !linkedAfter.isFile() ||
+          linkedAfter.isSymbolicLink() ||
+          launcherIdentity.dev !== linkedAfter.dev ||
+          launcherIdentity.ino !== linkedAfter.ino ||
+          launcherIdentity.size !== openedAfter.size ||
+          launcherIdentity.mtimeMs !== openedAfter.mtimeMs ||
+          launcherIdentity.ctimeMs !== openedAfter.ctimeMs
+        ) {
+          throw new Error('Qualification AppRun identity invalid');
+        }
+        assertSandboxedAppRun(launcher);
+      } finally {
+        await launcherHandle.close();
+      }
+    } finally {
+      await rm(extractionRoot, { recursive: true, force: true });
+    }
     return Object.freeze({
       packages: Object.freeze(packages),
       resourcesPath: path.join(worktree, 'build', 'generated'),

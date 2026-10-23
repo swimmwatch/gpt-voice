@@ -76,10 +76,10 @@ describe('performance qualification private event protocol', () => {
     const lines = valid.toString('utf8').trimEnd().split('\n');
     const cases = [
       lines.slice(0, -2),
-      [...lines.slice(0, -1), lines[lines.length - 2]!, lines[lines.length - 1]!],
-      [lines[1]!, lines[0]!, ...lines.slice(2)],
-      [...lines, lines[0]!],
-      [lines[0]!.replace('"sequence":0', '"sequence":2'), ...lines.slice(1)],
+      [...lines.slice(0, -1), lines[lines.length - 2], lines[lines.length - 1]],
+      [lines[1], lines[0], ...lines.slice(2)],
+      [...lines, lines[0]],
+      [lines[0].replace('"sequence":0', '"sequence":2'), ...lines.slice(1)],
     ];
     for (const frames of cases) {
       const collector = new PerformanceQualificationEventCollector(

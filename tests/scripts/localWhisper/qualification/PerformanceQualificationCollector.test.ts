@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 6] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import { Readable } from 'node:stream';
@@ -182,7 +183,7 @@ class FakeCache implements PerformanceCachePreparationPort {
 function output(request: PerformanceAttemptRequest): Buffer {
   const phaseIds = request.requiredPhaseIds;
   const side = request.side;
-  const window = request.candidateWindow as 1 | 2 | 4 | 8;
+  const window = request.candidateWindow;
   const after = { 1: 800, 2: 770, 4: 700, 8: 650 }[window];
   return Buffer.from(
     `${JSON.stringify({
@@ -344,11 +345,11 @@ describe('LocalWhisperPerformanceCollector', () => {
     assert.equal(bundle.samples.length, 288);
     assert.equal(cache.calls, 288);
     assert.equal(processes.requests.length, 287);
-    assert.equal(bundle.samples[0]!.sampleId, 'base-full-1-cold-01-before');
-    assert.equal(bundle.samples[0]!.failureReason, 'COLD_CACHE_PROOF_UNAVAILABLE');
-    assert.equal(bundle.samples[1]!.sampleId, 'base-full-1-cold-01-after');
-    assert.equal(bundle.samples[1]!.failureReason, 'ATTEMPT_TIMEOUT');
-    assert.equal(bundle.samples[2]!.sampleId, 'base-full-1-cold-02-after');
+    assert.equal(bundle.samples[0].sampleId, 'base-full-1-cold-01-before');
+    assert.equal(bundle.samples[0].failureReason, 'COLD_CACHE_PROOF_UNAVAILABLE');
+    assert.equal(bundle.samples[1].sampleId, 'base-full-1-cold-01-after');
+    assert.equal(bundle.samples[1].failureReason, 'ATTEMPT_TIMEOUT');
+    assert.equal(bundle.samples[2].sampleId, 'base-full-1-cold-02-after');
     assert.equal(
       processes.sessions.every(({ terminated }) => terminated),
       true,
@@ -369,8 +370,8 @@ describe('LocalWhisperPerformanceCollector', () => {
     const abort = new AbortController();
     processes.abortController = abort;
     await assert.rejects(instance.collect(plan(), abort.signal), /COLLECTION_CANCELLED/u);
-    assert.equal(processes.sessions[0]!.terminated, true);
-    assert.equal(resources.sessions[0]!.terminated, true);
+    assert.equal(processes.sessions[0].terminated, true);
+    assert.equal(resources.sessions[0].terminated, true);
     const retry = await instance.collect(plan());
     assert.equal(retry.samples.length, 288);
     assert.equal(platform.prepareCalls, 2);
@@ -393,7 +394,7 @@ describe('LocalWhisperPerformanceCollector', () => {
     };
     const resources = new FakeResources();
     const bundle = await collector({ platform, cache, process: processes, resources }).collect(plan());
-    assert.equal(bundle.samples[0]!.failureReason, 'ATTEMPT_OUTPUT_INVALID');
+    assert.equal(bundle.samples[0].failureReason, 'ATTEMPT_OUTPUT_INVALID');
     assert.equal(JSON.stringify(bundle.samples[0]).includes('/home/private'), false);
   });
 
@@ -417,9 +418,9 @@ describe('LocalWhisperPerformanceCollector', () => {
       process: processes,
       resources: new FakeResources(),
     }).collect(plan());
-    assert.equal(bundle.samples[0]!.status, 'failed');
-    assert.equal(bundle.samples[0]!.failureReason, 'ATTEMPT_OUTPUT_INVALID');
-    assert.equal(bundle.samples[1]!.status, 'success');
+    assert.equal(bundle.samples[0].status, 'failed');
+    assert.equal(bundle.samples[0].failureReason, 'ATTEMPT_OUTPUT_INVALID');
+    assert.equal(bundle.samples[1].status, 'success');
   });
 
   it('keeps Linux-only representative evidence awaiting cross-platform selection', async () => {
@@ -453,9 +454,9 @@ describe('LocalWhisperPerformanceCollector', () => {
         process: new FakeProcess(),
         resources,
       }).collect(plan());
-      assert.equal(bundle.samples[0]!.status, 'failed');
-      assert.match(String(bundle.samples[0]!.failureReason), /^RESOURCE_/u);
-      assert.equal(bundle.samples[1]!.status, 'success');
+      assert.equal(bundle.samples[0].status, 'failed');
+      assert.match(String(bundle.samples[0].failureReason), /^RESOURCE_/u);
+      assert.equal(bundle.samples[1].status, 'success');
       assert.doesNotMatch(JSON.stringify(bundle.samples[0]), /fixture-|pid|role|executable/u);
     }
   });

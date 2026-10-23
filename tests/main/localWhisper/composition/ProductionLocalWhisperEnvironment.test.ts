@@ -425,7 +425,7 @@ describe('production Local Whisper environment activation', () => {
     );
   });
 
-  it('keeps the disabled packaged publication fail-closed without touching native resources', async () => {
+  it('keeps missing packaged publication fail-closed without touching native resources', async () => {
     const calls = { reads: 0, spawns: 0 };
     const environment = await createProductionLocalWhisperEnvironment(dependencies(calls));
 

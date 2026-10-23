@@ -825,7 +825,11 @@ export class ManagedArtifactStore {
     }
   }
 
-  /** @deprecated Retained for rollback/reference tests; ordinary loads use metadata-only path authority. */
+  /**
+   * Creates a launch lease after validating installed managed model files.
+   *
+   * @deprecated Retained for rollback/reference tests; ordinary loads use metadata-only path authority.
+   */
   public async leaseInstalledModelForLaunch(descriptor: ManagedArtifactDescriptor): Promise<ManagedModelLaunchLease> {
     if (descriptor.kind !== 'model') throw new ManagedArtifactStoreError('INVALID_ARTIFACT');
     const modelFiles = descriptor.expectedFiles.filter(({ kind }) => kind === 'data');

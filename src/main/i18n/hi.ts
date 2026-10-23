@@ -385,6 +385,8 @@ export default {
   'prettify.profile.professional.description': 'काम और तकनीकी संदर्भों के लिए औपचारिक और सटीक भाषा का उपयोग करें।',
   'prettify.profile.natural.name': 'स्वाभाविक',
   'prettify.profile.natural.description': 'आपकी अभिव्यक्ति बनाए रखते हुए डिक्टेशन की गड़बड़ियाँ हटाएँ।',
+  'prettify.profile.executionReady.name': 'निष्पादन के लिए तैयार',
+  'prettify.profile.executionReady.description': 'तैयार प्रॉम्प्ट में आवश्यकतानुसार कार्यान्वयन निर्देश जोड़ें।',
   'prettify.chooser.title': 'Prettify प्रोफ़ाइल चुनें',
   'prettify.chooser.description': 'चुनें कि GPT-Voice चयनित टेक्स्ट को कैसे रूपांतरित करे।',
   'prettify.chooser.originalText': 'मूल टेक्स्ट',
@@ -685,7 +687,7 @@ export default {
   'startup.failed': 'स्टार्टअप की तैयारी विफल रही। फिर से प्रयास करें।',
   'startup.retryFailed': 'स्टार्टअप की तैयारी फिर से शुरू नहीं की जा सकी। फिर से प्रयास करें।',
   'startup.retry': 'फिर से प्रयास करें',
-  'startup.selectProvider': 'रिकॉर्डिंग शुरू करने के लिए एक प्रदाता चुनें।',
+  'startup.selectProvider': 'प्रदाता चुनें',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'दिखाएँ',

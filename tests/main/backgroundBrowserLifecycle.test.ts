@@ -12,7 +12,7 @@ import type { VoiceProviderAuditId } from '@main/providerAudit/mappings';
 import { I18nService } from '@main/i18n';
 import { TestAppConfigStore, TestCloakBrowserSettingsRepository } from './appConfigTestUtils';
 import { InitialProviderReadinessTestDependencies } from './initialProviderReadinessTestUtils';
-import { createLocalWhisperActionFailure } from '@shared/localWhisper';
+import { createLocalWhisperActionFailure, createLocalWhisperRendererSafeFailure } from '@shared/localWhisper';
 
 class Deferred {
   public readonly promise: Promise<void>;
@@ -106,6 +106,7 @@ class SessionTrapLocalWhisperProvider extends LocalWhisperVoiceProvider {
 }
 
 interface LocalLifecycleHarness {
+  readonly audit: RecordingVoiceProviderAudit;
   readonly config: TestAppConfigStore;
   readonly coordinator: RecordingLocalWhisperCoordinator;
   readonly localProvider: SessionTrapLocalWhisperProvider;
@@ -120,8 +121,9 @@ function createLocalLifecycleHarness(): LocalLifecycleHarness {
   const remoteProvider = new ReadyLifecycleProvider();
   const state = { backgroundContexts: 0, loginContexts: 0 };
   const context = { close: async () => undefined } as unknown as BrowserContext;
+  const audit = new RecordingVoiceProviderAudit();
   const service = new BackgroundBrowserService({
-    audit: new RecordingVoiceProviderAudit(),
+    audit,
     cloakBrowserSettings: new TestCloakBrowserSettingsRepository(),
     config,
     createBackgroundContext: async () => {
@@ -141,7 +143,7 @@ function createLocalLifecycleHarness(): LocalLifecycleHarness {
     },
     readinessDeadline: new InitialProviderReadinessTestDependencies(),
   });
-  return { config, coordinator, localProvider, service, state };
+  return { audit, config, coordinator, localProvider, service, state };
 }
 
 function createService(provider?: ReadyLifecycleProvider): BackgroundBrowserService {
@@ -229,8 +231,15 @@ describe('background browser lifecycle hooks', () => {
 
     assert.deepEqual(status, { providerId: 'local-whisper', ready: false, error: undefined, authExpired: undefined });
     assert.equal(harness.service.getActiveProvider(), harness.localProvider);
-    assert.deepEqual(harness.coordinator.calls, ['readiness', 'readiness']);
+    assert.deepEqual(harness.coordinator.calls, ['readiness', 'readiness', 'readiness']);
     assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+    const terminal = harness.audit.operations
+      .find((operation) => operation.input.operation === 'readiness')
+      ?.events.find((event) => event.event === 'terminal');
+    assert.equal(terminal?.metadata?.causeCode, 'not-ready');
+    assert.equal(terminal?.metadata?.residencyState, 'Unloaded');
+    assert.equal(terminal?.metadata?.capabilityState, 'Validated');
+    assert.equal(terminal?.metadata?.failureCode, undefined);
 
     harness.coordinator.readiness = Object.freeze({ snapshot: READY_LOCAL_WHISPER_SNAPSHOT, failure: null });
 
@@ -252,6 +261,52 @@ describe('background browser lifecycle hooks', () => {
 
     assert.equal(harness.service.isReady(), false);
     assert.equal(harness.service.getStatus().ready, false);
+  });
+
+  it('audits the actual Local Whisper blocker without misclassifying resource or setup failures', async () => {
+    for (const failureCode of ['INSUFFICIENT_RAM', 'MODEL_MISSING', 'INVALID_SETTINGS'] as const) {
+      const harness = createLocalLifecycleHarness();
+      harness.coordinator.readiness = {
+        snapshot: {
+          ...READY_LOCAL_WHISPER_SNAPSHOT,
+          capability: 'NotReady',
+          residency: 'Unloaded',
+          operationalStatus: 'NotReady',
+          canAttempt: false,
+          blockingCode: failureCode,
+        },
+        failure: createLocalWhisperRendererSafeFailure(failureCode),
+      };
+      const status = await harness.service.initialize();
+      const terminal = harness.audit.operations
+        .find((operation) => operation.input.operation === 'readiness')
+        ?.events.find((event) => event.event === 'terminal');
+      assert.equal(status.ready, false);
+      assert.equal(harness.service.getActiveProvider(), harness.localProvider);
+      assert.equal(terminal?.outcome, 'failure');
+      assert.equal(
+        terminal?.metadata?.causeCode,
+        failureCode === 'INVALID_SETTINGS' ? 'invalid-settings' : 'not-ready',
+      );
+      assert.equal(terminal?.metadata?.failureCode, failureCode);
+      assert.equal(terminal?.metadata?.capabilityState, 'NotReady');
+      assert.equal(terminal?.metadata?.residencyState, 'Unloaded');
+      assert.deepEqual(harness.state, { backgroundContexts: 0, loginContexts: 0 });
+    }
+  });
+
+  it('preserves the snapshot blocker when no separate readiness failure is supplied', async () => {
+    const harness = createLocalLifecycleHarness();
+    harness.coordinator.readiness = {
+      snapshot: { ...READY_LOCAL_WHISPER_SNAPSHOT, operationalStatus: 'NotReady', blockingCode: 'INSUFFICIENT_RAM' },
+      failure: null,
+    };
+    await harness.service.initialize();
+    const terminal = harness.audit.operations
+      .find((operation) => operation.input.operation === 'readiness')
+      ?.events.find((event) => event.event === 'terminal');
+    assert.equal(terminal?.metadata?.failureCode, 'INSUFFICIENT_RAM');
+    assert.equal(terminal?.metadata?.causeCode, 'not-ready');
   });
 
   it('switches an idle Local Whisper provider only after its coordinator accepts the transition', async () => {

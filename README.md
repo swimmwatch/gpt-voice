@@ -40,11 +40,11 @@ Use only the step you need, or combine all three. Global shortcuts and clipboard
 
 Voice providers transcribe your microphone input and copy the result to the clipboard. GPT-Voice supports:
 
-| Provider        | What it does                                                                |
-| --------------- | --------------------------------------------------------------------------- |
-| **ChatGPT Web** | Transcribes recorded audio through your saved ChatGPT browser session.      |
-| **Claude Web**  | Transcribes live speech through your saved Claude browser session.          |
-| **OpenAI API**  | Sends recorded audio to OpenAI's official transcription API using your key. |
+| Provider          | What it does                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| **ChatGPT Web**   | Transcribes recorded audio through your saved ChatGPT browser session.                          |
+| **Claude Web**    | Transcribes live speech through your saved Claude browser session.                              |
+| **OpenAI API**    | Sends recorded audio to OpenAI's official transcription API using your key.                     |
 | **Local Whisper** | Optional buffered local transcription through verified Whisper.cpp runtime and model artifacts. |
 
 **Example**
@@ -109,6 +109,8 @@ Download the latest build from [GitHub Releases](https://github.com/swimmwatch/g
 
 Linux and Windows are supported. macOS release builds are paused until Developer ID signing and notarization are configured.
 
+AppImage builds from this source tree preserve Chromium's sandbox. The host must permit the sandbox to initialize; the app does not automatically retry with sandboxing disabled.
+
 After installation:
 
 1. Start GPT-Voice and choose a Voice provider.
@@ -121,13 +123,14 @@ Web-provider sessions and settings are reused after restart. The main window sho
 
 ## Default Shortcuts
 
-| Action              | Default  |
-| ------------------- | -------- |
-| Record              | `F9`     |
-| Stop                | `F10`    |
-| Cancel              | `Escape` |
-| Translate selection | `F11`    |
-| Prettify selection  | `F12`    |
+| Action                   | Default    |
+| ------------------------ | ---------- |
+| Record                   | `F9`       |
+| Stop                     | `F10`      |
+| Cancel                   | `Escape`   |
+| Translate selection      | `F11`      |
+| Prettify selection       | `F12`      |
+| Prettify default profile | `Ctrl+F12` |
 
 Shortcuts are configurable under **App settings → Shortcuts and Actions**.
 
@@ -155,6 +158,8 @@ Shortcuts are configurable under **App settings → Shortcuts and Actions**.
 - **Ollama:** defaults to `http://127.0.0.1:11434`; select a model and optionally load it into memory.
 - **vLLM:** defaults to `http://127.0.0.1:8000/v1`; its API key is optional.
 - **Claude CLI / Codex CLI:** install and authenticate the CLI outside GPT-Voice. Leave the executable path blank to use the GUI process `PATH`, or configure one absolute executable path without command-line arguments.
+
+Use `F12` to choose a Prettify profile. **Prompt-ready** shortens rough text into an AI prompt, removing unnecessary greetings and politeness without losing requirements. **Execution-ready** adds conditional execution guidance to an already prepared prompt. To use both, select the Prompt-ready result in another application and run Prettify again with Execution-ready; the two passes are not automatic. **Polish**, **Professional**, and **Natural** remain available for general editing. `Ctrl+F12` applies your configured default profile directly.
 
 ### Translation
 
@@ -197,11 +202,11 @@ Repository contributors can use `$analyze-diagnostics-archive` for selective, in
 
 ## Run From Source
 
-Requires Node.js 24.15+ and Corepack with the repository-pinned npm 12.0.2.
+Requires Node.js 24.15+ and Corepack with the repository-pinned npm 12.2.1.
 
 ```bash
 node scripts/security/verify-npm-signatures-preinstall.mjs
-corepack npm@12.0.2 ci
+node scripts/ci-install.mjs
 npm run prepare:cloakbrowser
 npm run start
 ```
@@ -216,6 +221,8 @@ npm run test:types
 npm test
 npm run build:prod
 ```
+
+The install coordinator also applies the reviewed, hash-checked sandbox patch to the pinned AppImage launcher generator. Run installation in a trusted workspace without concurrent writers. AppImage packaging rejects an unpatched or changed generator; dependency updates require reviewing and updating this patch rather than bypassing the guard.
 
 Build local packages with `npm run pack`. Release packaging and contribution rules are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
 

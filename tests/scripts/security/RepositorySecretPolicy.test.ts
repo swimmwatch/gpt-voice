@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
@@ -76,6 +77,74 @@ describe('Repository secret policy', () => {
     assert.throws(
       () => policy.assertNoBlockingFindings([{ path: 'build/generated/test.ts', text: githubToken }]),
       /high-confidence secret/u,
+    );
+  });
+
+  it('keeps exact approved private-key bytes and continues after an approved block', async () => {
+    const policy = new RepositorySecretPolicy();
+    const delimiter = '-'.repeat(5);
+    const reviewedPath = 'tests/main/diagnosticTextRedactor.test.ts';
+    const reviewedSource = await readFile(path.join(process.cwd(), reviewedPath), 'utf8');
+    const beginMarker = `${delimiter}BEGIN PRIVATE KEY${delimiter}`;
+    const endMarker = `${delimiter}END PRIVATE KEY${delimiter}`;
+    const start = reviewedSource.indexOf(beginMarker);
+    assert.notEqual(start, -1);
+    const end = reviewedSource.indexOf(endMarker, start + beginMarker.length);
+    assert.notEqual(end, -1);
+    const approved = reviewedSource.slice(start, end + endMarker.length);
+    assert.deepEqual(policy.scan([{ path: reviewedPath, text: approved }]), []);
+    assert.ok(
+      policy.scan([{ path: 'tests/unreviewed.txt', text: approved }]).some(({ rule }) => rule === 'private-key'),
+    );
+    assert.ok(
+      policy
+        .scan([{ path: reviewedPath, text: `${approved}\n${privateKey}` }])
+        .some(({ rule }) => rule === 'private-key'),
+    );
+    assert.ok(
+      policy
+        .scan([{ path: reviewedPath, text: approved.replace('${canaries[8]}', 'different-material') }])
+        .some(({ rule }) => rule === 'private-key'),
+    );
+  });
+
+  it('finishes scanning repeated incomplete key headers within a bounded subprocess', () => {
+    const script = `
+      const assert = require('node:assert/strict');
+      const { RepositorySecretPolicy } = require('./scripts/security/repositorySecretPolicy.ts');
+      const marker = '-'.repeat(5) + 'BEGIN PRIVATE KEY' + '-'.repeat(5) + '\\n';
+      const text = marker.repeat(Math.floor((1024 * 1024) / marker.length));
+      assert.deepEqual(new RepositorySecretPolicy().scan([{ path: 'tests/incomplete.txt', text }]), []);
+    `;
+    const result = spawnSync(process.execPath, ['--import', 'tsx', '--eval', script], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024,
+      timeout: 3_000,
+    });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+  });
+
+  it('retains optional key labels, multiline blocks and global non-overlapping matching', () => {
+    const policy = new RepositorySecretPolicy();
+    const delimiter = '-'.repeat(5);
+    for (const [beginLabel, endLabel] of [
+      ['', ''],
+      ['RSA ', 'RSA '],
+      ['EC ', 'RSA '],
+    ]) {
+      const block = `${delimiter}BEGIN ${beginLabel}PRIVATE KEY${delimiter}\nbody\n${delimiter}END ${endLabel}PRIVATE KEY${delimiter}`;
+      assert.ok(policy.scan([{ path: 'tests/keys.txt', text: block }]).some(({ rule }) => rule === 'private-key'));
+    }
+    const malformed = `${delimiter}BEGIN lower PRIVATE KEY${delimiter}\nbody\n${delimiter}END PRIVATE KEY${delimiter}`;
+    assert.ok(
+      !policy.scan([{ path: 'tests/invalid-label.txt', text: malformed }]).some(({ rule }) => rule === 'private-key'),
+    );
+    const repeated = `${privateKey}\n${privateKey}`;
+    assert.equal(
+      policy.scan([{ path: 'tests/multiple.txt', text: repeated }]).filter(({ rule }) => rule === 'private-key').length,
+      1,
     );
   });
 

@@ -29,6 +29,7 @@ function annotatedTagResponse(target) {
   return { object: { sha: 'a'.repeat(40), type: 'tag' }, ref: `refs/tags/${target.releaseTag}` };
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- Scenario-local test doubles are documented by their test cases.
 class FixtureTransport {
   constructor(options = {}) {
     this.options = options;

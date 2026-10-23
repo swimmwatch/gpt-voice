@@ -480,7 +480,7 @@ describe('Local Whisper qualification contracts', () => {
     const documents = branch();
     const result = withoutDigest(documents.platformResult as Readonly<Record<string, unknown>>, 'resultDigest');
     const rows = result.rows as Array<Record<string, unknown>>;
-    rows[0]!.platformGraphDigest = digest(400);
+    rows[0].platformGraphDigest = digest(400);
     assert.throws(() => producer.freeze('platformResult', result), /QUALIFICATION_MIXED_PLATFORM_BRANCH/u);
 
     const missing = withoutDigest(documents.platformResult as Readonly<Record<string, unknown>>, 'resultDigest');
@@ -495,11 +495,11 @@ describe('Local Whisper qualification contracts', () => {
     );
     const documents = branch();
     const series = withoutDigest(documents.measurementSeries[0] as Readonly<Record<string, unknown>>, 'seriesDigest');
-    (series.samples as Array<Record<string, unknown>>)[9]!.elapsedNanoseconds = 2_000_000_000;
+    (series.samples as Array<Record<string, unknown>>)[9].elapsedNanoseconds = 2_000_000_000;
     assert.throws(() => producer.freeze('measurementSeries', series), /QUALIFICATION_MEASUREMENT_SERIES_GAP/u);
 
     const index = withoutDigest(documents.evidenceIndex as Readonly<Record<string, unknown>>, 'indexDigest');
-    (index.entries as Array<Record<string, unknown>>)[0]!.platform = 'win32';
+    (index.entries as Array<Record<string, unknown>>)[0].platform = 'win32';
     assert.throws(() => producer.freeze('evidenceIndex', index), /QUALIFICATION_MIXED_PLATFORM_BRANCH/u);
   });
 

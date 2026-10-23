@@ -405,6 +405,9 @@ export default {
     'Verwendet formelle, präzise Sprache für berufliche und technische Kontexte.',
   'prettify.profile.natural.name': 'Natürlich',
   'prettify.profile.natural.description': 'Entfernt Diktierartefakte und bewahrt dabei deinen persönlichen Ton.',
+  'prettify.profile.executionReady.name': 'Ausführungsbereit',
+  'prettify.profile.executionReady.description':
+    'Ergänzt einen fertigen KI-Prompt um passende Hinweise zur Ausführung.',
   'prettify.chooser.title': 'Prettify-Profil auswählen',
   'prettify.chooser.description': 'Wählen Sie, wie GPT-Voice den ausgewählten Text umwandeln soll.',
   'prettify.chooser.originalText': 'Originaltext',
@@ -725,7 +728,7 @@ export default {
   'startup.failed': 'Die Startvorbereitung ist fehlgeschlagen. Versuche es erneut.',
   'startup.retryFailed': 'Die Startvorbereitung konnte nicht erneut versucht werden. Versuche es erneut.',
   'startup.retry': 'Erneut versuchen',
-  'startup.selectProvider': 'Wähle einen Anbieter aus, um die Aufnahme zu starten.',
+  'startup.selectProvider': 'Anbieter wählen',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': 'Zeigen',

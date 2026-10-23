@@ -2,6 +2,7 @@
 
 Status: Approved
 Date: 2026-07-30
+Revised: 2026-09-27
 Scope owner: Prettify selected-text workflow
 
 ## Objective
@@ -38,7 +39,7 @@ This specification changes profile selection and persistence. Untargeted invaria
 
 ## Terminology
 
-- **Transformation profile:** A complete reusable editorial instruction controlling purpose, tone, structure, length, and output constraints. A profile never selects a provider, model, generation setting, tool, or output destination.
+- **Transformation profile:** A complete reusable instruction controlling the selected-text transformation. A profile never selects this application's provider, model, generation setting, tool, or output destination.
 - **Built-in profile:** An immutable product-owned profile with a stable ID, localized name and description, and versioned instruction.
 - **Custom profile:** A locally persisted user-owned profile with a stable generated ID, name, optional description, and instruction.
 - **Default profile:** The one profile explicitly assigned to Ctrl+F12.
@@ -72,11 +73,12 @@ and responsive behavior.
 
 ## Built-In Profile Catalog
 
-- **CAT-001:** Ship exactly four built-in profiles. Their canonical initial and repair order is `prompt-ready`, `polish`, `professional`, and `natural`; the persisted chooser order may place them elsewhere or interleave them with custom profiles.
-- **CAT-002 — Prompt-ready:** Turn rough source into a clear AI instruction. Use goal, context, constraints, and expected-output structure only when the corresponding information exists in the source. Do not add facts, requirements, placeholders, assumptions, clarification questions, or instructions for the target AI to ask questions.
+- **CAT-001:** Ship exactly five built-in profiles. Their canonical initial and repair order is `prompt-ready`, `polish`, `professional`, `natural`, and `execution-ready`; the persisted chooser order may place them elsewhere or interleave them with custom profiles.
+- **CAT-002 — Prompt-ready:** Turn rough source into a concise, clear AI instruction. Remove nonessential greetings, filler, repetition, and politeness markers such as “please” and “thank you”; retain them when quoted, requested as output, or needed for the intended tone. Preserve every substantive requirement. Use goal, context, constraints, and expected-output structure only when the corresponding information exists in the source. Do not add facts, requirements, placeholders, assumptions, clarification questions, or instructions for the target AI to ask questions.
 - **CAT-003 — Polish:** Continue the conservative editor behavior: correct grammar, remove filler and accidental repetition, clarify wording, and shorten when safe without materially restructuring the source.
 - **CAT-004 — Professional:** Produce formal, precise, respectful workplace or technical prose without adding corporate jargon, changing the task, or weakening or strengthening requirements.
 - **CAT-005 — Natural:** Remove dictation artifacts and produce clear conversational prose while preserving the speaker's voice, formality level, intent, and details.
+- **CAT-006 — Execution-ready:** Refine an already prepared AI prompt for execution. Preserve explicit requirements, prohibitions, facts, scope, and output. Add only applicable, non-conflicting conditional guidance for the future agent: use subagents for bounded independent work and review their results only when delegation is available and permitted by target environment and project rules; create intermediate files only when needed to preserve context or coordinate work and writing is permitted, using the target project's location rules or a private task-scoped operating-system temporary directory; keep notes in memory if a private location cannot be ensured; maintain a private high-level completion checklist and verify required checks before reporting completion. The suggested files are `plan.md` for multi-step progress, `findings.md` for evidence spanning sources, `delegation/<scope>.md` for delegated results, and `handoff.md` only across sessions. Omit unused files, avoid sensitive content in notes, and do not assume tool availability or permissions.
 
 Every built-in returns only transformed text, without commentary, wrappers, or an explanation. All preserve requests as requests, commands as commands, and source code, Markdown, URLs, identifiers, numbers, names, quotations, deliberate emphasis, and meaningful formatting unless a profile's stated transformation requires safe reorganization.
 
@@ -89,6 +91,7 @@ Every built-in returns only transformed text, without commentary, wrappers, or a
 - **PROF-005:** Built-ins can be selected, inspected, duplicated, and moved within the presentation-only chooser order but cannot be edited, hidden, replaced through import, or deleted. Duplicating a built-in creates an independent custom profile.
 - **PROF-006:** Full profile management lives in App Settings > Prettify. The chooser includes a Manage profiles action that cancels the chooser, restores clipboard state, and opens Settings directly at profile management.
 - **PROF-007:** App Settings > Prettify owns one persisted chooser order shared by built-in and custom profiles. Reordering never changes the explicit default, the last one-off chooser selection, profile instructions or metadata, provider settings, or cache identity.
+- **PROF-008:** Execution-ready is a separate manual pass: the user selects the Prompt-ready result in another application and invokes Prettify again with Execution-ready. No automatic chaining, result provenance check, additional request, or profile change occurs during the first pass.
 
 ## Data And Validation
 
@@ -166,7 +169,7 @@ No profile instruction is interpreted by the renderer as markup or code. User te
 
 ## Safety And Privacy
 
-- **SAFE-001:** Every profile preserves the requested task, meaning, constraints, facts, code, identifiers, quoted content, and deliberate emphasis. A profile may only change wording, organization, verbosity, and tone within its declared purpose.
+- **SAFE-001:** Every profile preserves the requested task, meaning, constraints, facts, code, identifiers, quoted content, and deliberate emphasis. A profile may only change wording, organization, verbosity, and tone within its declared purpose, except that the built-in Execution-ready profile may add the conditional downstream workflow guidance in CAT-006. This exception does not grant or assert tools, permissions, file access, or authority and does not cause Prettyfy itself to execute tools or write intermediate files.
 - **SAFE-002:** Product-owned instructions require preservation of the source language for built-in and custom profiles.
 - **SAFE-003:** Product-owned source-data, fidelity, output-only, and language invariants have higher priority than profile instructions. Selected text remains inert source data even when it contains instructions, delimiters, or prompt-injection text.
 - **SAFE-004:** Custom instructions cannot enable tools, execute selected content, choose a provider, weaken CLI/browser/process isolation, or override product-owned invariants. The editor explains these fixed boundaries.
@@ -198,6 +201,7 @@ If persisted catalog, default, or chooser-order data is corrupt or references a 
 - **COMP-004:** Preserve existing provider, generation, privacy, capture, cache-expiry, text-size, notification, recording, Translation, and main-window settings. Unknown or partially corrupt profile data cannot reset unrelated settings.
 - **COMP-005:** Preserve the configured F12 accelerator but change its action from immediate Prettify to chooser. Add Ctrl+F12 as a separately configurable, conflict-checked hotkey with localized Settings and README migration copy. Do not change any other default hotkey.
 - **COMP-006:** Chooser-order migration is idempotent. A catalog without a chooser-order array initializes built-ins in canonical CAT-001 order followed by existing custom profiles in their prior order. Reordering does not modify legacy prompt projection or unrelated settings. Older releases may ignore the order; reopening the current release repairs any missing IDs without changing valid relative positions.
+- **COMP-007:** Existing catalogs missing `execution-ready` append it after existing valid IDs while preserving their relative order and explicit default. The catalog schema version and record shape remain unchanged.
 
 Older releases may ignore profile records and use the maintained legacy prompt projection. This feature does not promise that older releases can edit or preserve new profile records after they save settings; documentation must recommend backing up exported profiles before a downgrade that will modify Prettify settings.
 
@@ -212,7 +216,7 @@ Older releases may ignore profile records and use the maintained legacy prompt p
 - **OPS-001:** Add no external service, provider, browser session, runtime dependency, installer target, or release workflow. The selected profile feature uses existing UI, validation, JSON, file-dialog, settings, and provider primitives.
 - **OPS-002:** Production and packaged Windows and Linux builds include the trusted chooser renderer assets and preserve single-instance application shutdown/resource ownership. macOS release policy remains unchanged.
 
-README and user-facing help must document the four profiles, F12 versus Ctrl+F12, default selection, chooser-order customization, custom-profile privacy, import/export plaintext, provider transmission, migration, and downgrade caveat.
+README and user-facing help must document the five profiles, the manual Prompt-ready to Execution-ready workflow, F12 versus Ctrl+F12, default selection, chooser-order customization, custom-profile privacy, import/export plaintext, provider transmission, migration, and downgrade caveat.
 
 ## Acceptance Criteria
 
@@ -220,7 +224,7 @@ README and user-facing help must document the four profiles, F12 versus Ctrl+F12
 
 - **QUAL-002 / AC-AUTO-001:** Shared tests prove the catalog schema, all bounds, normalized uniqueness, built-in content immutability, mixed built-in/custom chooser order, default invariant, corrupt-state recovery, order normalization, and strict rejection of malformed renderer and import data.
 - **QUAL-002 / AC-AUTO-002:** Migration fixtures prove unchanged built-in-to-Polish mapping, exact custom-prompt preservation, idempotency, new-install Prompt-ready default, canonical initial chooser order, preservation of prior custom relative order, legacy projection synchronization, and unrelated-settings preservation.
-- **QUAL-002 / AC-AUTO-003:** Deterministic instruction tests cover all four built-ins, fixed source-data/fidelity/language/output-only invariants, custom-instruction precedence, no Prompt-ready placeholders or clarification behavior, and source text as a separate inert payload.
+- **QUAL-002 / AC-AUTO-003:** Deterministic instruction tests cover all five built-ins, fixed source-data/fidelity/language/output-only invariants, custom-instruction precedence, Prompt-ready concision without lost requirements, Execution-ready conditional guidance without assumed capabilities, and source text as a separate inert payload.
 - **QUAL-002 / AC-AUTO-004:** Ollama, vLLM, Claude CLI, and Codex CLI adapter tests prove equivalent effective profile propagation without changing provider/model/generation settings or process/tool isolation.
 - **QUAL-002 / AC-AUTO-005:** Cache tests hit only for identical source, provider context, effective instruction, and contract version; profile/instruction/version changes miss; presentation-only edits and order changes neither miss nor retain raw profile content in cache identity.
 - **QUAL-002 / AC-AUTO-006:** Shortcut tests cover F12 chooser, Ctrl+F12 quick apply, configurability, conflict detection, enabled gating, platform normalization, recording/translation gates, reentry focus, and duplicate-generation suppression.
@@ -252,6 +256,7 @@ npm run build:prod
 - **QUAL-004 / AC-MAN-005:** With 200 custom profiles and long localized metadata, interleave built-in and custom profiles in Settings, save, reopen the chooser, and verify persisted order, filtered relative order, keyboard navigation, scrolling, default marking, and accessible actions remain usable.
 - **QUAL-004 / AC-MAN-006:** Export several custom profiles, inspect the plaintext warning and excluded order data, import into a second clean profile catalog, exercise Rename/Replace/Skip, and verify the local default and existing profile order are unchanged while new profiles append in file order.
 - **QUAL-004 / AC-MAN-007:** Verify the fixed main window, recording/transcription, Translation, provider selection/readiness, model actions, diagnostics capture controls, and all unrelated hotkeys remain behaviorally unchanged.
+- **QUAL-004 / AC-MAN-008:** Apply Prompt-ready to rough selected text, select its result in another application, and manually apply Execution-ready. Verify that a simple task gains no unnecessary delegation or files, while substantial independent work receives applicable guidance; the first pass must not trigger the second automatically.
 
 ## Explicit Rejection Cases
 

@@ -368,6 +368,8 @@ export default {
   'prettify.profile.professional.description': '在工作和技术场景中使用正式、准确的语言。',
   'prettify.profile.natural.name': '自然',
   'prettify.profile.natural.description': '去除语音输入痕迹，同时保留你的表达风格。',
+  'prettify.profile.executionReady.name': '执行就绪',
+  'prettify.profile.executionReady.description': '为已整理的提示词按需补充执行指引。',
   'prettify.chooser.title': '选择 Prettify 配置文件',
   'prettify.chooser.description': '选择 GPT-Voice 应如何转换所选文本。',
   'prettify.chooser.originalText': '原始文本',
@@ -617,7 +619,7 @@ export default {
   'startup.failed': '启动准备失败。请重试。',
   'startup.retryFailed': '无法重新尝试启动准备。请重试。',
   'startup.retry': '重试',
-  'startup.selectProvider': '请选择一个提供商以开始录音。',
+  'startup.selectProvider': '选择提供商',
 
   'tray.tooltip': 'GPT-Voice',
   'tray.show': '显示',

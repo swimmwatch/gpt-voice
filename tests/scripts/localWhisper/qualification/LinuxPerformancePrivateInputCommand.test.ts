@@ -28,7 +28,7 @@ describe('Linux performance private input command', () => {
     const invalid = [
       valid.slice(0, -1),
       [...valid, `--extra=${root}`],
-      [...valid.slice(0, -1), valid[0]!],
+      [...valid.slice(0, -1), valid[0]],
       [...valid.slice(0, -1), '--private-run-root=relative'],
       [...valid.slice(0, -1), `--private-run-root=${root}\n/private`],
     ];

@@ -16,12 +16,22 @@ const COMMIT = 'a'.repeat(40);
 class BuildCommands implements QualificationCommandPort {
   public readonly requests: QualificationCommandRequest[] = [];
 
-  public constructor(private readonly worktree: string) {}
+  public constructor(
+    private readonly worktree: string,
+    private readonly unsafeLauncher = false,
+  ) {}
 
   public async run(request: QualificationCommandRequest): Promise<string> {
     this.requests.push(request);
     if (request.command === 'git' && request.arguments[0] === 'rev-parse') return COMMIT;
     if (request.command === 'git') return '';
+    if (request.arguments.includes('--appimage-extract')) {
+      const extracted = path.join(request.cwd, 'squashfs-root');
+      await mkdir(extracted);
+      const source =
+        '#!/usr/bin/env bash\ntrap atexit EXIT\nif [ $isEulaAccepted == 1 ] ; then\nexec "$BIN"\nexec "$BIN" "${args[@]}"\nfi\n';
+      await writeFile(path.join(extracted, 'AppRun'), this.unsafeLauncher ? source + '\n--no-sandbox' : source);
+    }
     if (request.command.endsWith('electron-builder')) {
       const releaseRoot = path.join(this.worktree, 'release');
       await mkdir(releaseRoot, { recursive: true });
@@ -69,6 +79,27 @@ describe('LinuxQualificationPackageBuilder', { skip: process.platform !== 'linux
       const builder = commands.requests.find(({ command }) => command.endsWith('electron-builder'));
       assert.ok(builder?.arguments.includes('-c.extraMetadata.version=2.4.0'));
       assert.equal(result.resourcesPath, path.join(root, 'build', 'generated'));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects an extracted launcher that disables the sandbox', async () => {
+    const root = await mkdtemp(path.join(tmpdir(), 'local-whisper-package-builder-test-'));
+    try {
+      const bundle = await createBundle(root);
+      const commands = new BuildCommands(root, true);
+      await assert.rejects(
+        new LinuxQualificationPackageBuilder(commands).build({
+          bundleDirectory: bundle.directory,
+          bundleManifestSha256: bundle.manifestSha256,
+          candidateSemVer: '2.4.0',
+          freezeTimestampUtc: '2026-08-03T12:00:00Z',
+          sourceCommit: COMMIT,
+          worktree: root,
+        }),
+        /APPIMAGE_LAUNCHER_ARTIFACT_UNSAFE/u,
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }

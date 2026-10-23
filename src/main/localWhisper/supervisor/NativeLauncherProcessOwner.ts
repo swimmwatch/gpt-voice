@@ -162,6 +162,7 @@ function requireStream<T>(value: T | null | undefined, label: string): T {
 export abstract class NativeLauncherProcessOwner implements LocalWhisperWorkerProcessOwner {
   protected constructor(private readonly dependencies: NativeLauncherProcessOwnerDependencies) {}
 
+  /** Validates absolute launch paths and revalidates the active model lease before spawning a guarded worker. */
   public async launch(
     authority: LocalWhisperWorkerLaunchAuthority,
     appInstanceNonce: string,

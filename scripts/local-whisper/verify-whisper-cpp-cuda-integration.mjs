@@ -16,6 +16,7 @@ import {
   sha256File,
   transcriptionOptions,
   WhisperCppWorkerProcess,
+  WORKER_PROTOCOL_VERSION,
 } from './whisper-cpp-integration-core.mjs';
 import { parseArguments, patchLockPath, requireProfile, taskCacheRoot } from './whisper-cpp-build-core.mjs';
 
@@ -25,7 +26,6 @@ const CUDA_BACKEND_ID = 'cuda';
 const ENGINE_ID = 'whisperCpp';
 const LIFECYCLE_REPETITIONS = 3;
 const NVIDIA_SMI = '/usr/bin/nvidia-smi';
-const WORKER_PROTOCOL_VERSION = 2;
 
 /** Independently constructs the language-neutral device-proof SHA-256 preimage. */
 class CanonicalDigest {

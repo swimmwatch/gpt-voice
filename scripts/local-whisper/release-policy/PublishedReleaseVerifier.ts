@@ -3,10 +3,16 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { isRecord } from '../packaging/contracts';
-import { ReleaseProtocolVerifier, type ReleaseAsset, type ReleaseCandidate } from './ReleaseProtocol';
+import {
+  productionReleaseStagingDigest,
+  publishedAlphaDeploymentDigest,
+  ReleaseProtocolVerifier,
+  type ReleaseAsset,
+  type ReleaseCandidate,
+} from './ReleaseProtocol';
 
 const SHA_PATTERN = /^[a-f\d]{40}$/u;
-const SAFE_TAG = /^v\d+\.\d+\.\d+(?:-[\dA-Za-z.-]+)?$/u;
+const SAFE_TAG = /^v\d+\.\d+\.\d+(?:-[\dA-Za-z.-]+)?$/u; // eslint-disable-line security/detect-unsafe-regex -- The anchored tag grammar has disjoint delimiters, not ambiguous nested repetition.
 
 interface ReleaseApiAsset {
   readonly browser_download_url: string;
@@ -23,10 +29,6 @@ interface ReleaseApiDocument {
   readonly prerelease: boolean;
   readonly tag_name: string;
   readonly target_commitish: string;
-}
-
-function digest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 function physicalAssets(
@@ -127,14 +129,14 @@ export class PublishedReleaseVerifier {
       const response = await this.#request(asset.url, expected.token, 'application/octet-stream');
       await this.#verifyAsset(response, expectedAsset);
     }
-    const releaseStagingDigest = digest({
+    const releaseStagingDigest = productionReleaseStagingDigest({
       assets: expectedAssets,
       candidateInputDigest: candidate.candidateInputDigest,
       releaseCandidateDigest: candidate.releaseCandidateDigest,
       sourceSha: expected.sourceSha,
       tag: expected.tag,
     });
-    const deploymentDigest = digest({
+    const deploymentDigest = publishedAlphaDeploymentDigest({
       releaseId: release.id,
       releaseStagingDigest,
       releaseUrl: release.html_url,

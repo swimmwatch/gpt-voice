@@ -17,7 +17,7 @@ const ENCODED_SEPARATOR_OR_DOT_PATTERN = /%(?:2e|2f|5c)/iu;
 const MULTIPART_PATTERN = /^multipart\//iu;
 
 function rawPath(value: string): string {
-  const authority = /^(?:[a-z][a-z\d+.-]*:)?\/\/[^/?#]*/iu.exec(value);
+  const authority = /^(?:[a-z][a-z\d+.-]*:)?\/\/[^/?#]*/iu.exec(value); // eslint-disable-line security/detect-unsafe-regex -- The fixed authority grammar uses disjoint scheme and path delimiters.
   const valueAfterAuthority = value.slice(authority?.[0].length ?? 0);
   return valueAfterAuthority.split(/[?#]/u, 1)[0];
 }

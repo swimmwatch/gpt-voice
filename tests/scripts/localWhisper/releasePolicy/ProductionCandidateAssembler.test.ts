@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { describe, it } from 'node:test';
@@ -140,6 +140,28 @@ describe('ProductionCandidateAssembler', () => {
       });
 
       assert.equal(candidate.assets.length, 16);
+      for (const platform of ['linux', 'win32'] as const) {
+        const catalogText = await readFile(path.join(bundles[platform].bundleDirectory, 'catalog.json'), 'utf8');
+        const envelope = JSON.parse(catalogText) as { readonly payloadBase64: string };
+        const payload = JSON.parse(Buffer.from(envelope.payloadBase64, 'base64').toString('utf8')) as {
+          readonly runtimes: readonly {
+            readonly source: { readonly file: string; readonly url: string };
+            readonly identity: { readonly archiveSha256: string; readonly archiveSizeBytes: number };
+          }[];
+        };
+        for (const runtime of payload.runtimes) {
+          const asset = candidate.assets.find(({ fileName }) => fileName === runtime.source.file);
+          assert.ok(asset);
+          assert.equal(asset.role, 'runtime');
+          assert.equal(asset.platform, platform);
+          assert.equal(asset.sha256, runtime.identity.archiveSha256);
+          assert.equal(asset.length, runtime.identity.archiveSizeBytes);
+          assert.equal(
+            runtime.source.url,
+            `https://github.com/swimmwatch/gpt-voice/releases/download/${CANDIDATE_TARGET}/${asset.fileName}`,
+          );
+        }
+      }
       assert.equal((await readdir(outputDirectory)).length, 32);
       assert.deepEqual(
         candidate.assets

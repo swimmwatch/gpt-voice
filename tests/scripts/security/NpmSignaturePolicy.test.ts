@@ -30,6 +30,10 @@ const signatures: NpmCommandEvidence = {
 };
 
 describe('npm signature policy', () => {
+  it('rejects the superseded npm release with vulnerable bundled dependencies', () => {
+    assert.throws(() => resolveApprovedPackageManager('npm@12.0.2'), /PACKAGE_MANAGER_UNAPPROVED/u);
+  });
+
   it('keeps current and historical package-manager pins closed and manifest-bound', () => {
     assert.equal(resolveApprovedPackageManager(), CURRENT_PACKAGE_MANAGER);
     assert.equal(
@@ -164,7 +168,7 @@ describe('npm signature policy', () => {
             installedLockfileSha256: input.installedLockfileSha256 ?? LOCKFILE_SHA256,
             signatures: input.signatures ?? signatures,
           }),
-        new RegExp(input.reason, 'u'),
+        new RegExp(input.reason, 'u'), // eslint-disable-line security/detect-non-literal-regexp -- Reasons are fixed literal cases in this local fixture table.
       );
     });
   }

@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Keep archive parsing helpers with the streaming worker; review additions. */
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { type Stats } from 'node:fs';
@@ -21,7 +22,6 @@ const TAR_TERMINATOR_BYTES = TAR_RECORD_BYTES * 2;
 const STREAM_CHUNK_BYTES = 64 * 1024;
 const SAFE_SPOOL_ID_PATTERN = /^[\w-]{16,128}$/u;
 const SAFE_ENTRY_FILE_PATTERN = /^entry-\d{1,6}$/u;
-const ZERO_RECORD = Buffer.alloc(TAR_RECORD_BYTES);
 
 const CRC32_TABLE = Object.freeze(
   Array.from({ length: 256 }, (_unused, value) => {
@@ -38,11 +38,12 @@ function isSameFileIdentity(left: Stats, right: Stats): boolean {
   return left.size === right.size && left.ctimeMs === right.ctimeMs && left.mtimeMs === right.mtimeMs;
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 class Crc32 {
   private value = 0xffffffff;
 
   public update(bytes: Uint8Array): void {
-    for (const byte of bytes) this.value = CRC32_TABLE[(this.value ^ byte) & 0xff]! ^ (this.value >>> 8);
+    for (const byte of bytes) this.value = CRC32_TABLE[(this.value ^ byte) & 0xff] ^ (this.value >>> 8);
   }
 
   public digest(): number {
@@ -50,6 +51,7 @@ class Crc32 {
   }
 }
 
+/** Consumes the artifact stream incrementally, enforcing byte limits while reading exact segments. */
 class BoundedAsyncReader {
   private chunk: Buffer<ArrayBufferLike> = Buffer.alloc(0);
   private offset = 0;
@@ -266,10 +268,12 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async cancel(operationId: string): Promise<void> {
     this.active.get(operationId)?.abort();
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async terminate(operationId: string): Promise<void> {
     this.active.get(operationId)?.abort();
   }
@@ -342,6 +346,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
     let observed = 0;
     for await (const chunk of createReadStream(spoolPath, { highWaterMark: STREAM_CHUNK_BYTES })) {
       if (signal.aborted) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED');
+      if (!Buffer.isBuffer(chunk)) throw new LocalWhisperArtifactLifecycleError('RESUME_INVALID');
       observed += chunk.byteLength;
       hash.update(chunk);
     }
@@ -374,6 +379,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
     ]);
   }
 
+  /** Authenticates the spooled gzip identity, headers, and trailer before exposing streaming entries. */
   private async runtimeEntries(
     input: ArtifactWorkerProcessInput,
     spoolPath: string,
@@ -448,6 +454,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
           }),
         );
       }
+      // eslint-disable-next-line sonarjs/no-identical-expressions -- Each read consumes a distinct required TAR terminator; preserve short-circuit ordering.
       if (!allZero(await reader.readExact(TAR_RECORD_BYTES)) || !allZero(await reader.readExact(TAR_RECORD_BYTES))) {
         throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
       }
@@ -477,6 +484,7 @@ export class FileBackedArtifactStreamingWorker implements ArtifactStreamingWorke
   private async *fileChunks(filePath: string, signal: AbortSignal): AsyncIterable<Uint8Array> {
     for await (const chunk of createReadStream(filePath, { highWaterMark: STREAM_CHUNK_BYTES })) {
       if (signal.aborted) throw new LocalWhisperArtifactLifecycleError('DOWNLOAD_CANCELLED');
+      if (!Buffer.isBuffer(chunk)) throw new LocalWhisperArtifactLifecycleError('ARCHIVE_INVALID');
       yield Uint8Array.from(chunk);
     }
   }

@@ -4,6 +4,7 @@ import { LocalWhisperQualificationValidator } from './QualificationContracts';
 import { createHostedPerformanceFixture } from './PerformanceQualificationFixtures';
 import type { PerformanceBackend, PerformancePlatform } from './PerformanceQualification';
 import { LocalWhisperQualificationSourceBaselineVerifier } from './QualificationSourceBaseline';
+import { isQualificationRecord as isRecord } from './QualificationJsonFields';
 
 function argument(name: string): string | null {
   const prefix = `--${name}=`;
@@ -20,8 +21,7 @@ function firstPassingFixtureWindow(result: Readonly<Record<string, unknown>>): n
   if (!Array.isArray(result.candidateResults)) throw new Error('Performance fixture rows are invalid');
   for (const window of [1, 2, 4, 8] as const) {
     const rows = result.candidateResults.filter(
-      (entry): entry is Readonly<Record<string, unknown>> =>
-        typeof entry === 'object' && entry !== null && !Array.isArray(entry) && entry.candidateWindow === window,
+      (entry): entry is Readonly<Record<string, unknown>> => isRecord(entry) && entry.candidateWindow === window,
     );
     if (rows.length === 3 && rows.every(({ status }) => status === 'Pass')) return window;
   }

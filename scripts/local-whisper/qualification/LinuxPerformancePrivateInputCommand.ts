@@ -31,10 +31,10 @@ export class LinuxPerformancePrivateInputCommand {
       return path.resolve(value);
     });
     return Object.freeze({
-      workspaceRoot: resolved[0]!,
-      cacheRoot: resolved[1]!,
-      privateParent: resolved[2]!,
-      privateRunRoot: resolved[3]!,
+      workspaceRoot: resolved[0],
+      cacheRoot: resolved[1],
+      privateParent: resolved[2],
+      privateRunRoot: resolved[3],
     });
   }
 }

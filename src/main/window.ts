@@ -30,9 +30,27 @@ const PROVIDER_SETTINGS_MIN_HEIGHT = 520;
 const INITIAL_WINDOW_BACKGROUND_COLOR = '#181a1b';
 const APP_PROTOCOL = 'app:';
 const APP_HOST = 'gpt-voice';
+const RENDERER_EXIT_REASONS = [
+  'clean-exit',
+  'abnormal-exit',
+  'killed',
+  'crashed',
+  'oom',
+  'launch-failed',
+  'integrity-failure',
+  'memory-eviction',
+] as const;
+
+type MainWindowDiagnosticEvent = 'renderer-process-gone' | 'unresponsive' | 'responsive';
+interface MainWindowDiagnosticMetadata {
+  readonly reason?: (typeof RENDERER_EXIT_REASONS)[number] | 'unknown';
+  readonly exitCode?: number;
+}
 
 export interface WindowManagerLogger {
   debug(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+  info(...args: unknown[]): void;
   warn(...args: unknown[]): void;
 }
 
@@ -236,6 +254,7 @@ export class WindowManager {
       icon: appIconPath,
     });
     this.mainWindow = window;
+    this.observeMainWindow(window);
     this.applyMainInteractionLock(this.mainInteractionLock.locked);
     this.publishSettingsPresentation();
 
@@ -271,6 +290,32 @@ export class WindowManager {
       return;
     }
     this.showAndFocus(window);
+  }
+
+  private observeMainWindow(window: BrowserWindow): void {
+    window.on('unresponsive', () => this.logMainWindowDiagnostic(window, 'warn', 'unresponsive'));
+    window.on('responsive', () => this.logMainWindowDiagnostic(window, 'info', 'responsive'));
+    window.webContents.on('render-process-gone', (_event, details) => {
+      const reason = RENDERER_EXIT_REASONS.includes(details.reason) ? details.reason : 'unknown';
+      this.logMainWindowDiagnostic(window, reason === 'clean-exit' ? 'info' : 'error', 'renderer-process-gone', {
+        reason,
+        ...(Number.isSafeInteger(details.exitCode) ? { exitCode: details.exitCode } : {}),
+      });
+    });
+  }
+
+  private logMainWindowDiagnostic(
+    window: BrowserWindow,
+    level: 'error' | 'info' | 'warn',
+    event: MainWindowDiagnosticEvent,
+    metadata: MainWindowDiagnosticMetadata = {},
+  ): void {
+    if (this.mainWindow !== window || window.isDestroyed()) return;
+    try {
+      this.dependencies.logger[level]('Main window diagnostic event', { event, windowId: window.id, ...metadata });
+    } catch {
+      // Diagnostics cannot interrupt window lifecycle handling.
+    }
   }
 
   public showSettingsWindow(section?: AppSettingsSectionId): SettingsWindowOpenResult {

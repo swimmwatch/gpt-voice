@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { resolveCorepackCommand } from './security/corepack-command.mjs';
+import { AppImageLauncherHardener } from './security/appimage-launcher-policy.mjs';
 import {
   CURRENT_COREPACK_VERSION,
   CURRENT_PACKAGE_MANAGER,
@@ -68,6 +69,7 @@ export class CiInstallCoordinator {
   #output;
   #platform;
   #runCommand;
+  #launcherHardener;
 
   constructor({
     attempts = positiveInteger(process.env.CI_INSTALL_ATTEMPTS ?? '', DEFAULT_ATTEMPTS),
@@ -78,6 +80,7 @@ export class CiInstallCoordinator {
     output = process.stdout,
     platform = process.platform,
     runCommand = spawnCommand,
+    launcherHardener = new AppImageLauncherHardener(cwd),
   } = {}) {
     this.#attempts = positiveInteger(String(attempts), DEFAULT_ATTEMPTS);
     this.#cwd = path.resolve(cwd);
@@ -87,6 +90,7 @@ export class CiInstallCoordinator {
     this.#output = output;
     this.#platform = platform;
     this.#runCommand = runCommand;
+    this.#launcherHardener = launcherHardener;
   }
 
   async install() {
@@ -94,6 +98,7 @@ export class CiInstallCoordinator {
     try {
       const corepack = await this.#resolveCorepack();
       await this.#runWithRetries(corepack, [CURRENT_PACKAGE_MANAGER, 'ci'], 'npm ci', this.#installEnvironment());
+      await this.#launcherHardener.apply();
     } finally {
       if (this.#bootstrapDirectory) {
         await rm(this.#bootstrapDirectory, { force: true, recursive: true });

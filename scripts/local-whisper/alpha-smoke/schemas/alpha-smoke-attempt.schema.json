@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-attempt-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "deadlineEpochMilliseconds",
+    "input",
+    "packageDisposition",
+    "settingsBackupStatus",
+    "startedAtEpochMilliseconds",
+    "state"
+  ],
+  "properties": {
+    "attemptId": { "type": "string", "pattern": "^[a-z\\d][a-z\\d-]{0,63}$" },
+    "deadlineEpochMilliseconds": { "type": "integer", "minimum": 1 },
+    "input": { "$ref": "alpha-smoke-input.schema.json" },
+    "packageDisposition": { "enum": ["clean-host", "exact-alpha", null] },
+    "settingsBackupStatus": { "enum": ["pending", "retained-private"] },
+    "startedAtEpochMilliseconds": { "type": ["integer", "null"], "minimum": 1 },
+    "state": {
+      "enum": [
+        "Preparing",
+        "SettingsBackedUp",
+        "AwaitingPackageReady",
+        "PackageReady",
+        "CpuExercise",
+        "CudaExercise",
+        "OfflineExercise",
+        "Finalizing",
+        "SealedPass",
+        "SealedFail"
+      ]
+    }
+  }
+}

@@ -15,6 +15,7 @@ export class NodeArtifactDiskSpace implements ArtifactDiskSpacePort {
     return available <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(available) : Number.MAX_SAFE_INTEGER;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async getRetainedInstalledBytes(): Promise<number> {
     const value = this.retainedInstalledBytes();
     return Number.isSafeInteger(value) && value >= 0 ? value : Number.MAX_SAFE_INTEGER;

@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { readFile } from 'node:fs/promises';
 
 import { LocalWhisperCoordinator } from '@main/localWhisper/coordinator/LocalWhisperCoordinator';
@@ -332,9 +333,9 @@ export class ProductionApplicationQualificationRunner {
       medianRtf =
         model.family === 'base' ? await this.applicationRtf(session.coordinator, input.performanceFixtures) : null;
       if (medianRtf !== null && medianRtf > MAXIMUM_BASE_RTF) throw new Error('Qualification base RTF failed');
-      await this.sequentialTranscriptions(session.coordinator, input.werFixtures[0]!);
-      await this.verifyCancellation(session.coordinator, input.performanceFixtures[0]!);
-      await this.verifyCrashReload(session.coordinator, observer, backend, input.werFixtures[0]!);
+      await this.sequentialTranscriptions(session.coordinator, input.werFixtures[0]);
+      await this.verifyCancellation(session.coordinator, input.performanceFixtures[0]);
+      await this.verifyCrashReload(session.coordinator, observer, backend, input.werFixtures[0]);
       primarySeries = await observer.finish(initialSessionIndex, backend);
       await this.verifyProviderSwitch(session.coordinator);
       requireSuccess(await session.coordinator.loadNow(), 'providerSwitchReload');
@@ -508,7 +509,7 @@ export class ProductionApplicationQualificationRunner {
     coordinator: LocalWhisperCoordinator,
     fixtures: readonly QualificationAudioFixture[],
   ): Promise<number> {
-    await this.transcribe(coordinator, fixtures[0]!);
+    await this.transcribe(coordinator, fixtures[0]);
     const values = [];
     for (const fixture of fixtures) {
       const started = process.hrtime.bigint();
@@ -584,7 +585,7 @@ export class ProductionApplicationQualificationRunner {
     try {
       await this.selectRow(session, model, runtime);
       requireSuccess(await session.coordinator.loadNow(), 'offlineRestartLoad');
-      await this.transcribe(session.coordinator, input.werFixtures[0]!);
+      await this.transcribe(session.coordinator, input.werFixtures[0]);
       requireSuccess(await session.coordinator.unload(), 'offlineRestartUnload');
     } finally {
       await this.closeSession(session);

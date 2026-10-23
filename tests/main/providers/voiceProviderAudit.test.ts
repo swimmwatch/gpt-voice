@@ -2,10 +2,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import type { ProviderAuditLifecycle } from '@main/providerAudit';
+import { parseCanonicalProviderAuditRecord, type ProviderAuditLifecycle } from '@main/providerAudit';
 import { VoiceProviderAudit } from '@main/providers/voiceProviderAudit';
 import type { StreamingTranscriptionOperationId } from '@shared/streamingTranscription';
 import { TEST_PROVIDER_AUDIT_DEPENDENCIES } from '../providerAudit/providerAuditTestDependencies';
+import { READY_LOCAL_WHISPER_SNAPSHOT } from './localWhisperTestUtils';
+import { createLocalWhisperRendererSafeFailure } from '@shared/localWhisper';
 
 class ThrowingVoiceProviderAudit extends VoiceProviderAudit {
   public constructor() {
@@ -28,10 +30,49 @@ class InjectedLifecycleVoiceProviderAudit extends VoiceProviderAudit {
 }
 
 describe('Voice provider audit adapter', () => {
+  it('serializes resource readiness failures as canonical warnings without private details', () => {
+    const warnings: string[] = [];
+    const audit = new VoiceProviderAudit({
+      ...TEST_PROVIDER_AUDIT_DEPENDENCIES,
+      getSink: () => ({
+        info: () => undefined,
+        warn: (_label, serialized) => {
+          warnings.push(String(serialized));
+        },
+        error: () => {
+          assert.fail('Readiness resource rejection must remain a warning');
+        },
+      }),
+    });
+    const privateDetail = 'private transcript https://private.invalid /home/private/profile';
+    const readiness = {
+      snapshot: {
+        ...READY_LOCAL_WHISPER_SNAPSHOT,
+        capability: 'NotReady',
+        residency: 'Unloaded',
+        operationalStatus: 'NotReady',
+        blockingCode: 'INSUFFICIENT_RAM',
+      },
+      failure: { ...createLocalWhisperRendererSafeFailure('INSUFFICIENT_RAM'), message: privateDetail },
+      privateContext: privateDetail,
+    } as const;
+    const operation = audit.startOperation('local-whisper', 'readiness', 'readiness');
+    operation.lifecycle.terminal('readiness', 'failure', audit.createLocalRuntimeReadinessMetadata(readiness));
+    assert.equal(warnings.length, 1);
+    const record = parseCanonicalProviderAuditRecord(warnings[0] ?? '');
+    assert.ok(record);
+    assert.equal(record.causeCode, 'not-ready');
+    assert.equal(record.failureCode, 'INSUFFICIENT_RAM');
+    assert.equal(record.errorClass, 'provider-rejection');
+    assert.equal(record.residencyState, 'Unloaded');
+    assert.equal(warnings[0]?.includes(privateDetail), false);
+  });
+
   it('maps expected and unexpected Voice causes to central severity classes', () => {
     const audit = new VoiceProviderAudit(TEST_PROVIDER_AUDIT_DEPENDENCIES);
 
     assert.equal(audit.getErrorClass('not-configured'), 'configuration');
+    assert.equal(audit.getErrorClass('not-ready'), 'provider-rejection');
     assert.equal(audit.getErrorClass('not-authenticated'), 'authentication');
     assert.equal(audit.getErrorClass('rate-limited'), 'rate-limit');
     assert.equal(audit.getErrorClass('connection-failed'), 'connection');
@@ -46,6 +87,7 @@ describe('Voice provider audit adapter', () => {
     assert.equal(audit.getErrorClass('connection-failed', 'TypeError'), 'internal');
     assert.equal(audit.getStreamingFailurePhase('invalid-sequence'), 'validation');
     assert.equal(audit.getStreamingFailurePhase('session-expired'), 'readiness');
+    assert.equal(audit.getStreamingFailurePhase('not-ready'), 'readiness');
     assert.equal(audit.getStreamingFailurePhase('page-shutdown'), 'context');
     assert.equal(audit.getStreamingFailurePhase('provider-changed'), 'dispatch');
     assert.equal(audit.getStreamingFailurePhase('transport-failure'), 'result');

@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -220,6 +221,7 @@ function write(stream: Writable, bytes: Uint8Array): Promise<void> {
   });
 }
 
+/** Reads worker output while enforcing a retained-buffer limit. */
 class BoundedReader {
   readonly #iterator;
   #buffer = Buffer.alloc(0);
@@ -255,6 +257,7 @@ async function withTimeout<T>(operation: Promise<T>, label: string): Promise<T> 
   }
 }
 
+/** Exchanges framed worker messages through the owned process and a bounded output reader. */
 class WorkerClient {
   readonly #reader: BoundedReader;
 
@@ -328,6 +331,7 @@ function baseAuthority(
     workerFileIdentity: identities.worker,
     workerFileSha256: workerSha256,
     workingDirectoryPath: path.dirname(worker),
+    // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
     revalidate: async () => {
       assert.deepEqual(runtimeIdentities(path.dirname(worker), worker), identities);
       assert.equal(readFileSha256(worker), workerSha256);
@@ -372,6 +376,7 @@ async function readRegistry(
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 class CanonicalDigest {
   readonly #chunks: Buffer[];
 
@@ -426,7 +431,7 @@ function canonicalCudaIdentity(value: string): string {
 function safeStageFailure(error: unknown): string {
   if (!(error instanceof Error)) return 'UNKNOWN';
   if (
-    /^Local Whisper [A-Za-z ]+(?:: [A-Z][A-Z0-9_]{0,63})?$/u.test(error.message) ||
+    /^Local Whisper [A-Za-z ]+(?:: [A-Z][A-Z0-9_]{0,63})?$/u.test(error.message) || // eslint-disable-line security/detect-unsafe-regex -- Fixed stage prefixes and disjoint separators bound the accepted grammar.
     /^Windows (?:cpu|cuda) load failed with [A-Z][A-Z0-9_]{0,63}$/u.test(error.message) ||
     /^Windows integration (?:registry|worker) [A-Za-z ]+$/u.test(error.message)
   ) {

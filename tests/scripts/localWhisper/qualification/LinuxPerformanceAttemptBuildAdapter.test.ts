@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 4] -- Keep scenario-local doubles together; additional classes require review. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';

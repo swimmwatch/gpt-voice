@@ -950,6 +950,7 @@ export class TranslationRuntime {
   }
 
   /** Publishes a terminal safe state when provider initialization escapes its normal failure handling. */
+  // eslint-disable-next-line sonarjs/no-identical-functions -- Distinct public lifecycle entry points intentionally publish the same terminal state.
   public settleInitializationUnexpectedFailure(): TranslationProviderConnectionState {
     return this.publishResetState(
       TRANSLATION_PROVIDER_CONNECTION_STATUSES.NotConnected,

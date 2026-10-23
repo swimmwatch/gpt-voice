@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-result-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "inputDigest",
+    "outcome",
+    "packageStatus",
+    "platform",
+    "resultDigest",
+    "settingsBackupStatus",
+    "status",
+    "target"
+  ],
+  "properties": {
+    "attemptId": { "type": "string" },
+    "inputDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "outcome": { "type": "string", "pattern": "^[a-z_]+$" },
+    "packageStatus": { "enum": ["absent", "different-package", "retained-alpha", "unverified"] },
+    "platform": { "enum": ["linux", "win32"] },
+    "resultDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "settingsBackupStatus": { "enum": ["integrity-failed", "retained-private", "unverified"] },
+    "status": { "enum": ["Pass", "Fail", "Pending"] },
+    "target": { "const": "v2.4.0-alpha.1" }
+  }
+}

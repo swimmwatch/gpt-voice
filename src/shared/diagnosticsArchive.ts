@@ -597,6 +597,7 @@ function isSchemaVersions(
 }
 
 /** Validates the complete closed schema-v1 diagnostics manifest contract. */
+// eslint-disable-next-line complexity -- Keep the closed-schema and cross-binding validation explicit at this boundary.
 export function isDiagnosticsArchiveManifest(value: unknown): value is DiagnosticsArchiveManifest {
   const hasNativeRuntime = isRecord(value) && value.schemaVersion === DIAGNOSTICS_ARCHIVE_SCHEMA_VERSION;
   if (

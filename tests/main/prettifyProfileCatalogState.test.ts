@@ -115,6 +115,71 @@ describe('PrettifyProfileCatalogState', () => {
     assert.equal(repeatedPersistence.calls.length, 0);
   });
 
+  it('appends Execution-ready to an existing catalog without changing its order or default', () => {
+    const previous = createCustomCatalog();
+    const oldOrder = previous.chooserOrder.filter((id) => id !== 'execution-ready');
+    const persisted = capturePersistedCatalog();
+    const state = createState();
+
+    const catalog = state.load(
+      { ...previous, chooserOrder: oldOrder },
+      getPrettifyProfileCatalogLegacyPromptProjection(previous),
+      persisted.persist,
+    );
+
+    assert.deepEqual(catalog.chooserOrder, [...oldOrder, 'execution-ready']);
+    assert.equal(catalog.defaultProfileId, FIRST_CUSTOM_ID);
+    assert.deepEqual(catalog.customProfiles, previous.customProfiles);
+    assert.equal(persisted.calls.length, 1);
+    assert.equal(persisted.calls[0]?.projection, previous.customProfiles[0]?.instruction);
+    assert.equal(state.consumeRepairNotice(), null);
+
+    const repeatedPersistence = capturePersistedCatalog();
+    createState().load(catalog, persisted.calls[0]?.projection, repeatedPersistence.persist);
+    assert.equal(repeatedPersistence.calls.length, 0);
+  });
+
+  it('syncs an older Prompt-ready projection without reporting catalog corruption', () => {
+    const state = createState();
+    const persisted = capturePersistedCatalog();
+    const previousPromptReadyInstruction =
+      'Turn rough source into a clear instruction for an AI system. Use goal, context, constraints, and expected-output structure only when that information exists in the source. Do not invent facts, requirements, placeholders, assumptions, clarification questions, or instructions for the target AI to ask questions.';
+    const catalog = state.load(state.getSnapshot(), previousPromptReadyInstruction, persisted.persist);
+
+    assert.equal(catalog.defaultProfileId, 'prompt-ready');
+    assert.equal(persisted.calls[0]?.projection, getPrettifyBuiltInProfileDefinition('prompt-ready').instruction);
+    assert.equal(state.consumeRepairNotice(), null);
+  });
+
+  it('reports unrelated projection mismatches as repairs', () => {
+    const state = createState();
+    const persisted = capturePersistedCatalog();
+
+    state.load(state.getSnapshot(), 'Unexpected projection', persisted.persist);
+
+    assert.equal(persisted.calls.length, 1);
+    assert.deepEqual(state.consumeRepairNotice(), { repaired: true });
+  });
+
+  it('does not treat a catalog with Execution-ready default as a legacy catalog', () => {
+    const state = createState();
+    const previous = state.getSnapshot();
+    const persisted = capturePersistedCatalog();
+
+    const catalog = state.load(
+      {
+        ...previous,
+        chooserOrder: previous.chooserOrder.filter((id) => id !== 'execution-ready'),
+        defaultProfileId: 'execution-ready',
+      },
+      getPrettifyBuiltInProfileDefinition('execution-ready').instruction,
+      persisted.persist,
+    );
+
+    assert.deepEqual(catalog.chooserOrder, PRETTIFY_BUILT_IN_PROFILE_IDS);
+    assert.deepEqual(state.consumeRepairNotice(), { repaired: true });
+  });
+
   it('salvages valid profiles and order while repairing duplicates and an invalid default', () => {
     const state = createState();
     const persisted = capturePersistedCatalog();
@@ -164,6 +229,7 @@ describe('PrettifyProfileCatalogState', () => {
       'prompt-ready',
       'polish',
       'professional',
+      'execution-ready',
       FIRST_CUSTOM_ID,
     ]);
     assert.equal(persisted.calls.length, 1);
@@ -277,8 +343,11 @@ describe('PrettifyProfileCatalogState', () => {
     assert.equal(catalog.customProfiles[0]?.name, 'Profile 0');
     assert.equal(catalog.customProfiles[199]?.name, 'Profile 199');
     assert.equal(catalog.defaultProfileId, 'prompt-ready');
-    assert.deepEqual(catalog.chooserOrder.slice(0, 4), PRETTIFY_BUILT_IN_PROFILE_IDS);
-    assert.equal(catalog.chooserOrder.length, 204);
+    assert.deepEqual(
+      catalog.chooserOrder.slice(0, PRETTIFY_BUILT_IN_PROFILE_IDS.length),
+      PRETTIFY_BUILT_IN_PROFILE_IDS,
+    );
+    assert.equal(catalog.chooserOrder.length, PRETTIFY_BUILT_IN_PROFILE_IDS.length + 200);
   });
 
   it('returns a stable content-free exhaustion error without publishing catalog state', () => {

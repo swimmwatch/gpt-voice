@@ -1,4 +1,4 @@
-const TOKEN_PATTERN = /\p{L}+(?:'\p{L}+)*|\p{Nd}+/gu;
+const TOKEN_PATTERN = /\p{L}+(?:'\p{L}+)*|\p{Nd}+/gu; // eslint-disable-line security/detect-unsafe-regex -- The fixed token grammar has no ambiguous nested repetition.
 const PEAK_QUANTUM_BYTES = 64 * 1024 * 1024;
 
 export const LOCAL_WHISPER_PERFORMANCE_MINIMUM_CONSERVATIVE_IMPROVEMENT_PERCENT = 25;
@@ -26,13 +26,12 @@ export function qualificationEditDistance(left: readonly string[], right: readon
   for (let longerIndex = 1; longerIndex <= longer.length; longerIndex += 1) {
     const current = [longerIndex];
     for (let shorterIndex = 1; shorterIndex <= shorter.length; shorterIndex += 1) {
-      const substitution =
-        previous[shorterIndex - 1]! + (longer[longerIndex - 1] === shorter[shorterIndex - 1] ? 0 : 1);
-      current.push(Math.min(previous[shorterIndex]! + 1, current[shorterIndex - 1]! + 1, substitution));
+      const substitution = previous[shorterIndex - 1] + (longer[longerIndex - 1] === shorter[shorterIndex - 1] ? 0 : 1);
+      current.push(Math.min(previous[shorterIndex] + 1, current[shorterIndex - 1] + 1, substitution));
     }
     previous = current;
   }
-  return previous[shorter.length]!;
+  return previous[shorter.length];
 }
 
 export function qualificationWerPercentage(
@@ -61,7 +60,7 @@ export function qualificationMedian(values: readonly number[]): number {
   }
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? (sorted[middle - 1]! + sorted[middle]!) / 2 : sorted[middle]!;
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
 export function roundQualificationPeakBytes(value: number): number {
@@ -96,7 +95,7 @@ export function qualificationPairedEstimate(values: readonly number[]): Qualific
   }
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
-  const pointEstimatePercent = sorted.length % 2 === 0 ? (sorted[middle - 1]! + sorted[middle]!) / 2 : sorted[middle]!;
+  const pointEstimatePercent = sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
   const uncertaintyPercent = qualificationMedian(values.map((value) => Math.abs(value - pointEstimatePercent)));
   return Object.freeze({ pointEstimatePercent, uncertaintyPercent });
 }

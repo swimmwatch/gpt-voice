@@ -15,6 +15,7 @@ export class CatalogArtifactSignatureVerifier implements ArtifactSignatureVerifi
     this.keys = new Map(publicKeys.map(({ keyId, publicKeyPem }) => [keyId, publicKeyPem]));
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Preserve the Promise port contract and asynchronous error delivery.
   public async verify(input: {
     readonly digest: string;
     readonly keyId: LocalWhisperArtifactId;

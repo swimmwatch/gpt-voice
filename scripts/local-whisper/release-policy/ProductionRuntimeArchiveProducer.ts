@@ -35,6 +35,11 @@ function profileFor(platform: ProductionRuntimePlatform, target: ProductionRunti
   return 'windows-x64-cuda-12.8.1-sm120a-msvc-19.39-v1';
 }
 
+/** Canonical public asset name shared by catalog generation and candidate collection. */
+export function productionRuntimeAssetFileName(platform: ProductionRuntimePlatform, archiveFileName: string): string {
+  return `${platform}-${archiveFileName}`;
+}
+
 function archiveFile(platform: ProductionRuntimePlatform, target: ProductionRuntimeTarget): string {
   return `gpt-voice-local-whisper-${platform}-x64-${target}.tar.gz`;
 }

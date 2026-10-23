@@ -387,7 +387,7 @@ describe('CodexCliPrettifyAdapter', () => {
       timeoutMs: 120_000,
     });
     assert.equal(runner.calls[6]?.args.includes(source), false);
-    assert.equal(runner.calls[5]?.stdoutLimitBytes, 512 * 1024);
+    assert.equal(runner.calls[5]?.stdoutLimitBytes, 1024 * 1024);
     assert.deepEqual(schema.statCalls, [OUTPUT_SCHEMA_PATH]);
     assert.deepEqual(schema.accessCalls, [{ filePath: OUTPUT_SCHEMA_PATH, mode: constants.R_OK }]);
     assert.deepEqual(schema.readFileCalls, [OUTPUT_SCHEMA_PATH]);
@@ -516,7 +516,7 @@ describe('CodexCliPrettifyAdapter', () => {
     });
     assert.deepEqual(
       bundledRunner.calls.map((call) => call.stdoutLimitBytes),
-      [512 * 1024, 512 * 1024],
+      [1024 * 1024, 1024 * 1024],
     );
 
     const configuredAdapter = new FakeRunner([
@@ -623,6 +623,77 @@ describe('CodexCliPrettifyAdapter', () => {
       source: 'catalog',
       success: true,
     });
+  });
+
+  it("discovers GPT-6 models and applies each model's supported reasoning levels", async () => {
+    const catalog = {
+      models: [
+        {
+          display_name: 'GPT-6-Astra',
+          slug: 'gpt-6-astra',
+          support_verbosity: true,
+          supported_reasoning_levels: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map((effort) => ({ effort })),
+        },
+        {
+          display_name: 'GPT-6-Sol',
+          slug: 'gpt-6-sol',
+          support_verbosity: true,
+          supported_reasoning_levels: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map((effort) => ({ effort })),
+        },
+        {
+          display_name: 'GPT-6-Luna',
+          slug: 'gpt-6-luna',
+          support_verbosity: true,
+          supported_reasoning_levels: ['low', 'medium', 'high', 'xhigh', 'max'].map((effort) => ({ effort })),
+        },
+      ],
+    };
+    const discovery = await new FakeRunner([success(catalog)])
+      .createAdapter()
+      .discoverModels(getSettings(), new AbortController().signal);
+
+    assert.equal(discovery.success, true);
+    if (!discovery.success) return;
+    assert.deepEqual(
+      discovery.models.map(({ id, reasoningEfforts, verbosity }) => ({ id, reasoningEfforts, verbosity })),
+      [
+        {
+          id: 'gpt-6-astra',
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+          verbosity: ['low', 'medium', 'high'],
+        },
+        {
+          id: 'gpt-6-sol',
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+          verbosity: ['low', 'medium', 'high'],
+        },
+        {
+          id: 'gpt-6-luna',
+          reasoningEfforts: ['low', 'medium', 'high', 'xhigh', 'max'],
+          verbosity: ['low', 'medium', 'high'],
+        },
+      ],
+    );
+
+    const luna = discovery.models.find((model) => model.id === 'gpt-6-luna');
+    assert.ok(luna);
+    assert.ok(
+      buildCodexCliPrettifyArguments(
+        PROTECTED_PROMPT,
+        OUTPUT_SCHEMA_PATH,
+        getSettings({ model: luna.id, reasoningEffort: 'max' }),
+        luna,
+      )?.includes('model_reasoning_effort="max"'),
+    );
+    assert.equal(
+      buildCodexCliPrettifyArguments(
+        PROTECTED_PROMPT,
+        OUTPUT_SCHEMA_PATH,
+        getSettings({ model: luna.id, reasoningEffort: 'ultra' }),
+        luna,
+      ),
+      null,
+    );
   });
 
   it('serializes the audited Spark reasoning and verbosity capabilities when an older catalog omits it', async () => {

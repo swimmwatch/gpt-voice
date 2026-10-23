@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "specificationRevision": 26,
-  "planRevision": 34,
+  "specificationRevision": 28,
+  "planRevision": 37,
   "taskFiles": {
     "01": "01_shared_domain_contracts.md",
     "02": "02_provider_dispatch_and_cache.md",
@@ -359,24 +359,24 @@
       "command": "rtk npm run verify:local-whisper:build -- --target=v2.4.0-alpha.1"
     },
     {
-      "id": "task-34-qualification-tests",
+      "id": "task-34-alpha-smoke-tests",
       "task": "34",
-      "command": "rtk npm run test:local-whisper:qualification"
+      "command": "rtk npm run test:local-whisper:alpha-smoke"
     },
     {
       "id": "task-34-alpha-linux-qualification",
       "task": "34",
-      "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=linux --target=v2.4.0-alpha.1"
+      "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=linux --target=v2.4.0-alpha.1 --mode=contract"
     },
     {
-      "id": "task-35-qualification-tests",
+      "id": "task-35-alpha-smoke-tests",
       "task": "35",
-      "command": "rtk npm run test:local-whisper:qualification"
+      "command": "rtk npm run test:local-whisper:alpha-smoke"
     },
     {
       "id": "task-35-alpha-windows-qualification",
       "task": "35",
-      "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=win32 --target=v2.4.0-alpha.1"
+      "command": "rtk npm run verify:local-whisper:qualification:alpha -- --platform=win32 --target=v2.4.0-alpha.1 --mode=contract"
     },
     {
       "id": "task-36-release-lifecycle-tests",
@@ -908,6 +908,11 @@
       "acceptanceId": "AC-AUTO-091",
       "primaryTask": "36",
       "verificationCommandIds": ["task-32-release-lifecycle-tests", "task-36-release-lifecycle-tests"]
+    },
+    {
+      "acceptanceId": "AC-AUTO-092",
+      "primaryTask": "34",
+      "verificationCommandIds": ["task-34-alpha-smoke-tests"]
     }
   ]
 }

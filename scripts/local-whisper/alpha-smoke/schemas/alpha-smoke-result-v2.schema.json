@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-result-v2.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attemptId",
+    "inputDigest",
+    "outcome",
+    "packageStatus",
+    "platform",
+    "resultDigest",
+    "settingsBackupStatus",
+    "status",
+    "target",
+    "schemaVersion",
+    "deploymentDigest"
+  ],
+  "properties": {
+    "attemptId": {
+      "type": "string",
+      "pattern": "^[a-z\\d][a-z\\d-]{0,63}$"
+    },
+    "inputDigest": {
+      "type": "string",
+      "pattern": "^[a-f\\d]{64}$"
+    },
+    "outcome": {
+      "enum": [
+        "qualified",
+        "verification_evidence_missing",
+        "deadline_exhausted",
+        "functional_failure",
+        "functional_failure_and_finalization_failure",
+        "interrupted_attempt",
+        "interrupted_attempt_and_finalization_failure"
+      ]
+    },
+    "packageStatus": {
+      "enum": ["absent", "different-package", "retained-alpha", "unverified"]
+    },
+    "platform": {
+      "enum": ["linux", "win32"]
+    },
+    "resultDigest": {
+      "type": "string",
+      "pattern": "^[a-f\\d]{64}$"
+    },
+    "settingsBackupStatus": {
+      "enum": ["integrity-failed", "retained-private", "unverified"]
+    },
+    "status": {
+      "enum": ["Pass", "Fail"]
+    },
+    "target": {
+      "const": "v2.4.0-alpha.1"
+    },
+    "schemaVersion": {
+      "const": 2
+    },
+    "deploymentDigest": {
+      "type": "string",
+      "pattern": "^[a-f\\d]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "Pass"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "packageStatus": {
+            "const": "retained-alpha"
+          },
+          "settingsBackupStatus": {
+            "const": "retained-private"
+          },
+          "outcome": {
+            "const": "qualified"
+          }
+        }
+      }
+    }
+  ]
+}

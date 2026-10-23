@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 3] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { createHash } from 'node:crypto';
 import { constants, type Stats } from 'node:fs';
 import { lstat, open, opendir, realpath } from 'node:fs/promises';
@@ -47,6 +48,7 @@ export interface FocusedLinuxPerformancePrivateInputProof {
   readonly privateRunRoot: string;
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class LinuxPerformancePrivateInputError extends Error {
   public constructor(public readonly code: string) {
     super(code);

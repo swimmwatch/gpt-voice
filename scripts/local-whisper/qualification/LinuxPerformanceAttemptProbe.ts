@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { createHash } from 'node:crypto';
 import { open, readFile } from 'node:fs/promises';
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
@@ -127,6 +128,7 @@ export interface PerformanceAttemptProcessIdentity {
   readonly executableSha256: string;
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class LinuxPerformanceAttemptProbeError extends Error {
   public constructor(public readonly code: string) {
     super(code);
@@ -314,11 +316,11 @@ export class LinuxPerformanceAttemptProbe {
       fail();
     }
     const directory = this.directoryProofDurations;
-    this.phase('directoryProofRuntimeAcquisition', directory[0]!);
-    this.phase('directoryProofModelAcquisition', directory[2]!);
-    this.phase('directoryProofRuntimePreSpawn', directory[1]!);
-    this.phase('directoryProofModelPreSpawn', directory[3]!);
-    this.phase('directoryProofModelPreLoad', directory[4]!);
+    this.phase('directoryProofRuntimeAcquisition', directory[0]);
+    this.phase('directoryProofModelAcquisition', directory[2]);
+    this.phase('directoryProofRuntimePreSpawn', directory[1]);
+    this.phase('directoryProofModelPreSpawn', directory[3]);
+    this.phase('directoryProofModelPreLoad', directory[4]);
     for (const phaseId of NATIVE_LOAD_PHASES) this.phase(phaseId, this.requiredTotal(phaseId));
     if (this.backend === 'cpu') this.writer.phase('gpuUploadAllocation', null, 'notApplicable');
     else this.phase('gpuUploadAllocation', this.requiredTotal('gpuUploadAllocation'));

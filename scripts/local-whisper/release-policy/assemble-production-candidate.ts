@@ -8,8 +8,8 @@ function argumentsMap(values: readonly string[]): ReadonlyMap<string, string> {
   const parsed = new Map<string, string>();
   for (const value of values) {
     const match = /^--([a-z][a-z0-9-]*)=(.+)$/u.exec(value);
-    if (!match || parsed.has(match[1]!)) throw new Error('Invalid or duplicate production candidate argument');
-    parsed.set(match[1]!, match[2]!);
+    if (!match || parsed.has(match[1])) throw new Error('Invalid or duplicate production candidate argument');
+    parsed.set(match[1], match[2]);
   }
   return parsed;
 }

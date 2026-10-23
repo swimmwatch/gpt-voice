@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { win32 as windowsPath } from 'node:path';
 
 import type { LocalWhisperFailureCode } from '@shared/localWhisper';
@@ -54,7 +55,7 @@ function parseNonNegativeInteger(value: string): number | null {
 }
 
 function parseDriverVersion(value: string): NvidiaDriverVersion | null {
-  const match = /^(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?$/u.exec(value);
+  const match = /^(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?$/u.exec(value); // eslint-disable-line security/detect-unsafe-regex -- Each numeric field is bounded to four digits and inventory output is bounded.
   if (!match) return null;
   const major = parseNonNegativeInteger(match[1]);
   const minor = parseNonNegativeInteger(match[2]);

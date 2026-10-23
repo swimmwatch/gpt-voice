@@ -29,7 +29,7 @@ interface ActivePathPoint {
 const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   {
     path: 'src/main/localWhisper/filesystem/ManagedArtifactStore.ts',
-    sha256: '3cd7f462f4f5d7eec7fb907bf8d479b66bac3bc8d77c6822d80df3a388c2e2b3',
+    sha256: '9ec84aab8091331e7e1c033c158f829574ec8bb909f6cc4f24e2886aab62de6f',
   },
   {
     path: 'src/main/localWhisper/composition/LocalWhisperModelPathLoadAuthorityFactory.ts',
@@ -41,7 +41,7 @@ const SOURCE_FILES: readonly SourceFileContract[] = Object.freeze([
   },
   {
     path: 'src/main/localWhisper/supervisor/LocalWhisperWorkerSupervisor.ts',
-    sha256: '0ab9a3d1d5e099e6bab1fa8a7e1942435113e0d7547f086829e49f0c9b3bd58f',
+    sha256: '5b2029e8ea137d79a21b832bf0ba6b6c54bd74aa4e8990201dc531d1ac0e486c',
   },
   {
     path: 'runtime/local-whisper/whisper-cpp/adapter/whisper_engine.cpp',

@@ -45,6 +45,7 @@ export const LOCKED_SOURCE_ADVISORY_TARGETS = Object.freeze([
   }),
 ]);
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 export class AdvisorySourceError extends Error {
   constructor(kind) {
     super(kind);

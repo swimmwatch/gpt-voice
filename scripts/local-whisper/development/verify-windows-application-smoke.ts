@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 4] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
@@ -140,6 +141,7 @@ function requireSuccess<T>(
   return result.value;
 }
 
+/** Rejects artifact HTTP requests while counting attempted transfers. */
 class OfflineArtifactHttpClient implements ArtifactHttpClient {
   public requestCount = 0;
 
@@ -149,6 +151,7 @@ class OfflineArtifactHttpClient implements ArtifactHttpClient {
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 class CapturingScopedNativeLogger implements ScopedLogger, MainLogFileAccessor {
   private readonly entries: Array<{ readonly level: NativeRuntimeLogRecord['level']; readonly message: string }> = [];
 
@@ -193,6 +196,7 @@ class CapturingScopedNativeLogger implements ScopedLogger, MainLogFileAccessor {
   }
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc -- This small implementation detail is described by its enclosing owner and typed members.
 class CapturingNativeRuntimeLogRelay extends NativeRuntimeLogRelay {
   private readonly records: NativeRuntimeLogRecord[] = [];
   private readonly retainedLogger = new CapturingScopedNativeLogger();
@@ -349,6 +353,7 @@ class CapturingNativeRuntimeLogRelay extends NativeRuntimeLogRelay {
   }
 }
 
+/** Runs Windows application smoke checks with offline artifact access and captured native logs. */
 class WindowsApplicationSmoke {
   private readonly packageVersion: string;
   private archiveSequence = 0;

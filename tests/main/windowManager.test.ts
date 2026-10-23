@@ -176,13 +176,30 @@ class RecordingBrowserWindow {
     return frame;
   }
 
-  private emit(event: string, ...args: unknown[]): void {
+  public emitWebContents(event: string, ...args: unknown[]): void {
+    for (const listener of this.webContentsListeners.get(event) ?? []) listener(...args);
+  }
+
+  public emit(event: string, ...args: unknown[]): void {
     for (const listener of this.listeners.get(event) ?? []) listener(...args);
   }
 }
 
 class WindowManagerHarness {
   public readonly created: RecordingBrowserWindow[] = [];
+  public readonly logs: Array<{ level: string; args: unknown[] }> = [];
+  public readonly logger = {
+    debug: () => undefined,
+    error: (...args: unknown[]) => {
+      this.logs.push({ level: 'error', args });
+    },
+    info: (...args: unknown[]) => {
+      this.logs.push({ level: 'info', args });
+    },
+    warn: (...args: unknown[]) => {
+      this.logs.push({ level: 'warn', args });
+    },
+  };
   public nextLoadFailure: Error | null = null;
   public operationActive = false;
   public readonly mainInteractionLock = new MainInteractionLock(() => this.operationActive);
@@ -203,7 +220,7 @@ class WindowManagerHarness {
     getAppIconPath: () => '/assets/icon.png',
     getAppUrl: (pathname = 'index.html') => `app://gpt-voice/${pathname}`,
     localization: { translate: (key) => key },
-    logger: { debug: () => undefined, warn: () => undefined },
+    logger: this.logger,
     mainInteractionLock: this.mainInteractionLock,
     openExternal: async () => undefined,
     platform: 'linux',
@@ -213,6 +230,94 @@ class WindowManagerHarness {
 }
 
 describe('WindowManager', () => {
+  it('records renderer exit reasons and codes without reloading or closing the window', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    const window = harness.created[0];
+    assert.ok(window);
+    for (const reason of [
+      'oom',
+      'crashed',
+      'killed',
+      'abnormal-exit',
+      'launch-failed',
+      'integrity-failure',
+      'memory-eviction',
+      'clean-exit',
+    ]) {
+      window.emitWebContents('render-process-gone', {}, { reason, exitCode: 137 });
+      assert.deepEqual(harness.logs[harness.logs.length - 1], {
+        level: reason === 'clean-exit' ? 'info' : 'error',
+        args: ['Main window diagnostic event', { event: 'renderer-process-gone', windowId: 1, reason, exitCode: 137 }],
+      });
+    }
+    assert.equal(window.closeCount, 0);
+    assert.equal(window.hideCount, 0);
+    assert.equal(window.loadUrls.length, 1);
+  });
+
+  it('records an unresponsive main window and its recovered response', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    harness.created[0]?.emit('unresponsive');
+    harness.created[0]?.emit('responsive');
+    assert.deepEqual(harness.logs, [
+      { level: 'warn', args: ['Main window diagnostic event', { event: 'unresponsive', windowId: 1 }] },
+      { level: 'info', args: ['Main window diagnostic event', { event: 'responsive', windowId: 1 }] },
+    ]);
+  });
+
+  it('excludes unknown renderer details and invalid exit codes from diagnostics', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    const privateDetail = 'private transcript https://private.invalid /home/private/profile';
+    harness.created[0]?.emitWebContents(
+      'render-process-gone',
+      {},
+      {
+        reason: privateDetail,
+        exitCode: Number.NaN,
+        title: privateDetail,
+        url: privateDetail,
+      },
+    );
+    assert.deepEqual(harness.logs, [
+      {
+        level: 'error',
+        args: ['Main window diagnostic event', { event: 'renderer-process-gone', windowId: 1, reason: 'unknown' }],
+      },
+    ]);
+    assert.equal(JSON.stringify(harness.logs).includes(privateDetail), false);
+  });
+
+  it('ignores lifecycle events from destroyed or replaced main windows', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    const oldWindow = harness.created[0];
+    assert.ok(oldWindow);
+    oldWindow.destroyed = true;
+    oldWindow.emit('unresponsive');
+    harness.manager.createMainWindow();
+    oldWindow.emitWebContents('render-process-gone', {}, { reason: 'oom', exitCode: 137 });
+    oldWindow.emit('responsive');
+    assert.equal(harness.logs.length, 0);
+    harness.created[1]?.emit('unresponsive');
+    assert.deepEqual(harness.logs[0]?.args[1], { event: 'unresponsive', windowId: 2 });
+  });
+
+  it('keeps renderer lifecycle handling fail-open when the logger throws', () => {
+    const harness = new WindowManagerHarness();
+    harness.manager.createMainWindow();
+    harness.logger.error = () => {
+      throw new Error('synthetic logger failure');
+    };
+    assert.doesNotThrow(() =>
+      harness.created[0]?.emitWebContents('render-process-gone', {}, { reason: 'oom', exitCode: 137 }),
+    );
+    assert.equal(harness.created[0]?.loadUrls.length, 1);
+    assert.equal(harness.created[0]?.closeCount, 0);
+  });
+
   it('owns secure main-window creation and close-to-tray state', () => {
     const harness = new WindowManagerHarness();
 

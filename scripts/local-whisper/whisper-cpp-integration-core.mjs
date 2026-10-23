@@ -5,6 +5,8 @@ import { closeSync, openSync, readSync } from 'node:fs';
 
 import { encodeWorkerControlFrame } from './worker-control-frame.mjs';
 
+export const WORKER_PROTOCOL_VERSION = 2;
+
 export const approvedMediumModel = Object.freeze({
   path: '/home/dmitry-vasiliev/.cache/openwhispr/whisper-models/ggml-medium.bin',
   sizeBytes: 1_533_763_059,
@@ -139,7 +141,11 @@ export class WhisperCppWorkerProcess {
     return JSON.parse(body.toString('utf8'));
   }
 
-  /** @deprecated Retained only for authenticated-loader rollback/reference tests. */
+  /**
+   * Reads and validates the authenticated model-authority acknowledgment.
+   *
+   * @deprecated Retained only for authenticated-loader rollback/reference tests.
+   */
   async readModelAuthorityAcknowledgment(binding) {
     const acknowledgment = await this.reader.exact(284);
     assert.equal(acknowledgment.subarray(0, 8).toString('binary'), 'LWAA1\0\0\0');
@@ -166,7 +172,7 @@ export class WhisperCppWorkerProcess {
 export function audioFrame(requestId, wav) {
   const request = Buffer.from(requestId, 'utf8');
   const body = Buffer.alloc(8 + request.length + wav.length);
-  body[0] = 1;
+  body[0] = WORKER_PROTOCOL_VERSION;
   body[1] = 1;
   body.writeUInt32BE(0, 2);
   body.writeUInt16BE(request.length, 6);

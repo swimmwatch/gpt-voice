@@ -102,7 +102,7 @@ function listWorkerTests(configured, profile, runtimeEnvironment) {
   } catch {
     throw new Error('Worker TSan discovery report is malformed');
   }
-  const testPattern = new RegExp(profile.suite.testPattern, 'u');
+  const testPattern = new RegExp(profile.suite.testPattern, 'u'); // eslint-disable-line security/detect-non-literal-regexp -- The schema-pinned profile supplies this pattern and CTest output is bounded.
   const names = discovered.tests
     .map((entry) => entry.name)
     .filter((name) => typeof name === 'string' && testPattern.test(name))

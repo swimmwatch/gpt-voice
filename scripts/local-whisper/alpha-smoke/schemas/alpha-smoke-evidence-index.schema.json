@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gpt-voice.local/schemas/alpha-smoke-evidence-index-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["attemptId", "platform", "resultDigest", "target"],
+  "properties": {
+    "attemptId": { "type": "string" },
+    "platform": { "enum": ["linux", "win32"] },
+    "resultDigest": { "type": "string", "pattern": "^[a-f\\d]{64}$" },
+    "target": { "const": "v2.4.0-alpha.1" }
+  }
+}

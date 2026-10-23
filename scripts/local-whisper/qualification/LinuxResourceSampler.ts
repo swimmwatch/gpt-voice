@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 import { isRecord } from '../packaging/contracts';
@@ -111,7 +112,7 @@ function parseSeries(bytes: Buffer, backend: 'cpu' | 'cuda'): LinuxResourceSerie
   }
   const samples = value.samples.map((sample) => parseSample(sample, backend));
   for (let index = 1; index < samples.length; index += 1) {
-    const gap = samples[index]!.elapsedNanoseconds - samples[index - 1]!.elapsedNanoseconds;
+    const gap = samples[index].elapsedNanoseconds - samples[index - 1].elapsedNanoseconds;
     if (gap <= 0 || gap > MAXIMUM_GAP_NANOSECONDS) {
       throw new Error('Resource sampler cadence is invalid');
     }

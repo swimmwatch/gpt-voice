@@ -17,10 +17,11 @@ import {
   type ReleaseAssetTarget,
   type ReleaseCandidate,
 } from './ReleaseProtocol';
-import type {
-  ProductionRuntimeArchive,
-  ProductionRuntimePlatform,
-  ProductionRuntimeTarget,
+import {
+  productionRuntimeAssetFileName,
+  type ProductionRuntimeArchive,
+  type ProductionRuntimePlatform,
+  type ProductionRuntimeTarget,
 } from './ProductionRuntimeArchiveProducer';
 import { ProductionSigningAuthority } from './ProductionSigningAuthority';
 
@@ -126,10 +127,6 @@ function signatureFileName(fileName: string): string {
   return `${fileName}.sig`;
 }
 
-function runtimeCandidateFileName(platform: ProductionRuntimePlatform, archiveFileName: string): string {
-  return `${platform}-${archiveFileName}`;
-}
-
 /** Assembles and signs the exact private candidate that later publication is allowed to consume unchanged. */
 export class ProductionCandidateAssembler {
   private readonly verifier = new BundleVerifier();
@@ -202,7 +199,7 @@ export class ProductionCandidateAssembler {
             await this.copyAndSign(
               path.join(runtimeDirectory, runtime.archive.file),
               stagingDirectory,
-              runtimeCandidateFileName(platform, runtime.archive.file),
+              productionRuntimeAssetFileName(platform, runtime.archive.file),
               {
                 format: 'restricted-tar-gzip-v1',
                 platform,

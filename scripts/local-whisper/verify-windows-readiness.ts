@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- Reviewed helpers share this module lifecycle; additional classes require review. */
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import process from 'node:process';
@@ -16,6 +17,7 @@ function appendBoundedOutput(current: string, chunk: string): string {
     : combined.slice(combined.length - MAXIMUM_FAILURE_OUTPUT_CHARACTERS);
 }
 
+/** Runs npm scripts without a shell while bounding combined stdout and stderr. */
 class NpmCommandRunner {
   public constructor(
     private readonly workspaceRoot: string,
@@ -64,6 +66,7 @@ class NpmCommandRunner {
   }
 }
 
+/** Runs configured readiness stages only on native Windows x64. */
 class WindowsReadinessVerifier {
   public constructor(private readonly commandRunner: NpmCommandRunner) {}
 

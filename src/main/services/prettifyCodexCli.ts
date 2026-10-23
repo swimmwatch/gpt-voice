@@ -13,7 +13,7 @@ import {
 export const CODEX_CLI_EXECUTABLE_NAME = 'codex';
 export const CODEX_CLI_STDERR_LIMIT_BYTES = 16 * 1024;
 export const CODEX_CLI_STDOUT_LIMIT_BYTES = 256 * 1024;
-export const CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES = 512 * 1024;
+export const CODEX_CLI_MODEL_CATALOG_STDOUT_LIMIT_BYTES = 1024 * 1024;
 export const CODEX_CLI_OUTPUT_SCHEMA_RELATIVE_PATH = 'prettify/codex-output.schema.json';
 export const CODEX_CLI_OUTPUT_SCHEMA_SHA256 = 'c5d6a5a0eb318596d03edb9e697d124f9daa2cfd1b1928f4ae1b786d081a22f6';
 

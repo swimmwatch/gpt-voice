@@ -1,3 +1,4 @@
+/* eslint max-classes-per-file: ["warn", 2] -- CLI argument and private-root validation share one command boundary. */
 import { lstat, open, realpath, unlink, type FileHandle } from 'node:fs/promises';
 import * as path from 'node:path';
 
