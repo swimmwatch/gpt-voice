@@ -121,7 +121,7 @@ jobs:
 
       - name: Provision exact CMake and Ninja
         id: native-tools
-        uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+        uses: lukka/get-cmake@a89e43e22a96abafcd7a62db652a65ecd33052c9 # v4.4.4
         with:
           cmakeVersion: 3.31.8
           ninjaVersion: 1.12.1
@@ -180,7 +180,7 @@ jobs:
           test "$(/usr/sbin/sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "1"
 
       - name: Upload exact Linux runtime archive inputs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-local-whisper-runtimes-linux
           path: release-artifacts/local-whisper-runtimes/linux
@@ -236,7 +236,7 @@ jobs:
 
       - name: Provision exact CMake and Ninja
         id: native-tools
-        uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+        uses: lukka/get-cmake@a89e43e22a96abafcd7a62db652a65ecd33052c9 # v4.4.4
         with:
           cmakeVersion: 3.31.8
           ninjaVersion: 1.12.1
@@ -302,7 +302,7 @@ jobs:
           npm run collect:local-whisper:hosted-production-runtime-archive -- --platform=win32 --target=sm_120a-real --first-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-a --second-pack=.cache/local-whisper/qualification/runtime-packs/cuda/build-b --output=release-artifacts/local-whisper-runtimes/win32/sm_120a-real
 
       - name: Upload exact Windows runtime archive inputs
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-local-whisper-runtime-win32-${{ matrix.target }}
           path: release-artifacts/local-whisper-runtimes/win32
@@ -336,13 +336,13 @@ jobs:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Download exact Linux runtime archive inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-runtimes-linux
           path: runtime-inputs/linux
 
       - name: Download exact Windows runtime archive inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: gpt-voice-local-whisper-runtime-win32-*
           path: runtime-inputs/win32
@@ -360,7 +360,7 @@ jobs:
           npm run construct:local-whisper:production-bundle -- --platform=win32 --source-commit="$SOURCE_COMMIT" --app-revision="$APP_REVISION" --release-target="$CANDIDATE_TARGET" --approved-at="$approved_at" --approved-by="$APPROVED_BY" --cpu-runtime=runtime-inputs/win32/cpu --cuda-runtime=runtime-inputs/win32/sm_120a-real --output=production-bundles/win32/bundle --descriptor=production-bundles/win32/bundle-descriptor.json
 
       - name: Upload exact signed Linux production bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-local-whisper-bundle-linux
           path: production-bundles/linux
@@ -368,7 +368,7 @@ jobs:
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload exact signed Windows production bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-local-whisper-bundle-win32
           path: production-bundles/win32
@@ -398,7 +398,7 @@ jobs:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Download exact signed Linux production bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-bundle-linux
           path: production-bundle
@@ -443,7 +443,7 @@ jobs:
           --output-directory=release-artifacts/attestation-subjects-release-linux
 
       - name: Upload Linux installer artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-linux
           path: release-artifacts/linux/*
@@ -451,7 +451,7 @@ jobs:
           retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
       - name: Upload exact Linux release attestation subjects
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-release-attestation-subjects-linux
           path: release-artifacts/attestation-subjects-release-linux
@@ -459,7 +459,7 @@ jobs:
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload exact Linux release security evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-release-security-linux
           path: release-artifacts/application-security-linux
@@ -492,7 +492,7 @@ jobs:
         uses: ./.github/actions/initialize-msvc-environment
 
       - name: Download exact signed Windows production bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-bundle-win32
           path: production-bundle
@@ -533,7 +533,7 @@ jobs:
 
       - name: Upload Windows v1.4 reference size report
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-win32-v1.4.0-baseline
           path: .size-baseline/release-artifacts/size-win32-x64.json
@@ -615,7 +615,7 @@ jobs:
           --output-directory=release-artifacts/attestation-subjects-release-win32
 
       - name: Upload Windows installer artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-win32
           path: release-artifacts/win32/*
@@ -623,7 +623,7 @@ jobs:
           retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
       - name: Upload exact Windows release attestation subjects
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-release-attestation-subjects-win32
           path: release-artifacts/attestation-subjects-release-win32
@@ -631,7 +631,7 @@ jobs:
           retention-days: ${{ vars.CI_EVIDENCE_RETENTION_DAYS }}
 
       - name: Upload exact Windows release security evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-release-security-win32
           path: release-artifacts/application-security-win32
@@ -667,7 +667,7 @@ jobs:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Download exact release attestation subjects
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-release-attestation-subjects-${{ matrix.artifactPlatform }}
           path: attestation-subjects
@@ -702,34 +702,34 @@ jobs:
             checkName: Windows
     steps:
       - name: Download exact release attestation subjects
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-release-attestation-subjects-${{ matrix.artifactPlatform }}
           path: attestation-subjects
 
       - name: Download exact publishable release artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-${{ matrix.artifactPlatform }}
           path: release-assets
 
       - name: Download exact Linux Local Whisper runtime candidate bytes
         if: matrix.artifactPlatform == 'linux'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-runtimes-linux
           path: runtime-assets
 
       - name: Download exact Windows Local Whisper runtime candidate bytes
         if: matrix.artifactPlatform == 'win32'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: gpt-voice-local-whisper-runtime-win32-*
           path: runtime-assets
           merge-multiple: true
 
       - name: Download exact release security evidence
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-release-security-${{ matrix.artifactPlatform }}
           path: security-evidence
@@ -814,38 +814,38 @@ jobs:
           node-version: ${{ vars.CI_NODE_VERSION }}
 
       - name: Download exact Linux application candidates
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-linux
           path: candidate-inputs/applications/linux
 
       - name: Download exact Windows application candidate
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-win32
           path: candidate-inputs/applications/win32
 
       - name: Download exact Linux runtime archive inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-runtimes-linux
           path: candidate-inputs/runtimes/linux
 
       - name: Download exact Windows runtime archive inputs
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: gpt-voice-local-whisper-runtime-win32-*
           path: candidate-inputs/runtimes/win32
           merge-multiple: true
 
       - name: Download exact signed Linux production bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-bundle-linux
           path: candidate-inputs/bundles/linux
 
       - name: Download exact signed Windows production bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-local-whisper-bundle-win32
           path: candidate-inputs/bundles/win32
@@ -876,7 +876,7 @@ jobs:
           --expected-target="$CANDIDATE_TARGET" --target-kind="$TARGET_KIND"
 
       - name: Preserve exact verified production candidate bytes
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-production-candidate
           path: candidate-output/assets
@@ -884,7 +884,7 @@ jobs:
           retention-days: ${{ vars.CI_RELEASE_ARTIFACT_RETENTION_DAYS }}
 
       - name: Preserve verified production candidate descriptor
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-production-candidate-descriptor
           path: candidate-output/candidate.json
@@ -924,7 +924,7 @@ jobs:
         run: npm run verify:local-whisper:production-promotion-source
 
       - name: Download exact verified production candidate bytes
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-production-candidate
           path: release-assets
@@ -933,7 +933,7 @@ jobs:
           run-id: ${{ needs.validate-production-inputs.outputs.candidate-run-id }}
 
       - name: Download verified production candidate descriptor
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: gpt-voice-production-candidate-descriptor
           path: candidate-descriptor
@@ -1005,7 +1005,7 @@ jobs:
         run: npm run verify:local-whisper:published-release
 
       - name: Preserve verified deployment identity
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: gpt-voice-alpha-deployment-evidence
           path: deployment-evidence/deployment.json
